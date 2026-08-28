@@ -94,3 +94,79 @@ pub enum TirBaseError {
         required: usize,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::contamination::incident::IncidentState;
+
+    #[test]
+    fn error_display_did_resolution_failed() {
+        let e = TirBaseError::DidResolutionFailed {
+            did: "did:key:z6Mk".to_string(),
+            reason: "key not found".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("did:key:z6Mk"), "display: {s}");
+        assert!(s.contains("key not found"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_threshold_not_met() {
+        let e = TirBaseError::ThresholdNotMet { got: 1, need: 3 };
+        let s = e.to_string();
+        assert!(s.contains('1') && s.contains('3'), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_schema_parse_error() {
+        let e = TirBaseError::SchemaParseError {
+            line: 5,
+            col: 12,
+            description: "unexpected token".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("5:12"), "display: {s}");
+        assert!(s.contains("unexpected token"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_invalid_incident_state() {
+        let e = TirBaseError::InvalidIncidentState { got: IncidentState::Closed };
+        let s = e.to_string();
+        assert!(s.contains("OPEN"), "display: {s}");
+        assert!(s.contains("Closed"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_migration_ca_signature_invalid() {
+        let e = TirBaseError::MigrationCaSignatureInvalid {
+            migration_id: "abc123".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("abc123"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_cloud_queue_full() {
+        let e = TirBaseError::CloudQueueFull { depth: 100_000 };
+        let s = e.to_string();
+        assert!(s.contains("100000"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_spatial_diversity_degraded() {
+        let e = TirBaseError::SpatialDiversityDegraded { available: 1, required: 3 };
+        let s = e.to_string();
+        assert!(s.contains("available=1"), "display: {s}");
+        assert!(s.contains("required=3"), "display: {s}");
+    }
+
+    #[test]
+    fn error_implements_std_error() {
+        // Verify TirBaseError satisfies the std::error::Error bound.
+        fn takes_error(_: &dyn std::error::Error) {}
+        let e = TirBaseError::UnsupportedTaintSource;
+        takes_error(&e);
+    }
+}

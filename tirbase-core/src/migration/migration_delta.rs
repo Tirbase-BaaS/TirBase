@@ -57,3 +57,73 @@ pub struct MigrationRevocationDelta {
     /// Wall-clock creation time (UTC, microseconds).
     pub created_at: i64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crdt::delta::Ed25519Signature;
+
+    fn make_manager_signature(did: &str) -> ManagerSignature {
+        ManagerSignature {
+            manager_did: did.to_string(),
+            signature: Ed25519Signature(vec![0xAAu8; 64]),
+        }
+    }
+
+    fn make_migration_delta() -> MigrationDelta {
+        MigrationDelta {
+            id: [0x01u8; 32],
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature(vec![0x02u8; 64]),
+            source_schema_hash: [0x10u8; 32],
+            target_schema_hash: [0x11u8; 32],
+            transform_bytes: b"(module)".to_vec(),
+            ca_signature: CaSignature(b"ca-sig".to_vec()),
+            transform_sha256: [0x20u8; 32],
+            priority: PriorityClass::Medium,
+            created_at: 1_720_000_000_000_000,
+        }
+    }
+
+    #[test]
+    fn migration_delta_serde_round_trip() {
+        let md = make_migration_delta();
+        let json = serde_json::to_string(&md).expect("serialise MigrationDelta");
+        let decoded: MigrationDelta =
+            serde_json::from_str(&json).expect("deserialise MigrationDelta");
+
+        assert_eq!(md.id, decoded.id);
+        assert_eq!(md.author_did, decoded.author_did);
+        assert_eq!(md.source_schema_hash, decoded.source_schema_hash);
+        assert_eq!(md.target_schema_hash, decoded.target_schema_hash);
+        assert_eq!(md.transform_bytes, decoded.transform_bytes);
+        assert_eq!(md.transform_sha256, decoded.transform_sha256);
+        assert_eq!(md.ca_signature.0, decoded.ca_signature.0);
+    }
+
+    #[test]
+    fn migration_revocation_delta_serde_round_trip() {
+        let rev = MigrationRevocationDelta {
+            target_migration_id: [0xFFu8; 32],
+            signatures: vec![
+                make_manager_signature("did:key:z6MkMgr1"),
+                make_manager_signature("did:key:z6MkMgr2"),
+            ],
+            created_at: 1_720_000_005_000_000,
+        };
+
+        let json = serde_json::to_string(&rev).expect("serialise revocation delta");
+        let decoded: MigrationRevocationDelta =
+            serde_json::from_str(&json).expect("deserialise revocation delta");
+
+        assert_eq!(rev.target_migration_id, decoded.target_migration_id);
+        assert_eq!(rev.signatures.len(), decoded.signatures.len());
+        assert_eq!(rev.signatures[0].manager_did, decoded.signatures[0].manager_did);
+    }
+
+    #[test]
+    fn ca_signature_default_is_empty() {
+        let sig = CaSignature::default();
+        assert!(sig.0.is_empty());
+    }
+}
