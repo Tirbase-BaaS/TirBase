@@ -9,8 +9,11 @@ use serde::{Deserialize, Serialize};
 /// A unique migration identifier: SHA-256(transform_bytes).
 pub type MigrationId = [u8; 32];
 
-/// A CA signature over the transform bytes (opaque bytes for the scaffold).
-pub type CaSignature = Vec<u8>;
+/// A CA signature over the transform bytes (serialised as bytes).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct CaSignature(#[serde(with = "serde_bytes")] pub Vec<u8>);
+
+use serde_bytes;
 
 /// A Manager DID signature (DID + Ed25519 signature pair).
 #[derive(Debug, Clone, Serialize, Deserialize)]

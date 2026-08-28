@@ -19,7 +19,6 @@ pub fn create_token(
 /// Verify a Biscuit token offline against the root CA public key (Req 8.1).
 ///
 /// Returns `Ok(BiscuitClaims)` if the token is valid and not expired.
-/// Returns the appropriate error on failure.
 pub fn verify_token(
     token_bytes: &[u8],
     root_ca_public_key: &[u8],
@@ -29,7 +28,7 @@ pub fn verify_token(
 }
 
 /// Check that a token carries a specific caveat (e.g., `disaster-alert` — Req 13.1).
-pub fn has_caveat(token_bytes: &[u8], caveat: &str) -> bool {
+pub fn has_caveat(_token_bytes: &[u8], _caveat: &str) -> bool {
     todo!("Task 4: implement Datalog caveat check")
 }
 

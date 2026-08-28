@@ -2,6 +2,7 @@
 
 #![allow(dead_code, unused_variables)]
 
+use crate::crdt::delta::Ed25519Signature;
 use crate::errors::TirBaseError;
 
 /// Generate a new Ed25519 keypair.
@@ -13,8 +14,8 @@ pub fn generate_keypair() -> Result<([u8; 64], [u8; 32]), TirBaseError> {
 
 /// Sign `payload` with the given Ed25519 private key.
 ///
-/// Returns a 64-byte Ed25519 signature.
-pub fn sign(private_key: &[u8; 64], payload: &[u8]) -> Result<[u8; 64], TirBaseError> {
+/// Returns an `Ed25519Signature`.
+pub fn sign(private_key: &[u8; 64], payload: &[u8]) -> Result<Ed25519Signature, TirBaseError> {
     todo!("Task 4: implement via ed25519-dalek")
 }
 
@@ -24,7 +25,7 @@ pub fn sign(private_key: &[u8; 64], payload: &[u8]) -> Result<[u8; 64], TirBaseE
 pub fn verify(
     public_key: &[u8; 32],
     payload: &[u8],
-    signature: &[u8; 64],
+    signature: &Ed25519Signature,
 ) -> Result<(), TirBaseError> {
     todo!("Task 4: implement via ed25519-dalek")
 }

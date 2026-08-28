@@ -40,10 +40,10 @@ pub enum TirBaseError {
         description: String,
     },
 
-    #[error("Version path mismatch: local={local}, migration_source={source}, expected_next={expected_next}")]
+    #[error("Version path mismatch: local={local_ver}, migration_source={source_ver}, expected_next={expected_next}")]
     VersionPathMismatch {
-        local: String,
-        source: String,
+        local_ver: String,
+        source_ver: String,
         expected_next: String,
     },
 

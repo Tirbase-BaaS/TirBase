@@ -444,7 +444,7 @@ dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex 2.0.1",
+ "shlex",
 ]
 
 [[package]]
@@ -820,12 +820,6 @@ checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
  "cipher",
 ]
-
-[[package]]
-name = "cty"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "curve25519-dalek"
@@ -3667,6 +3661,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
+dependencies = [
+ "serde",
+ "serde_core",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3752,12 +3756,6 @@ dependencies = [
  "cpufeatures 0.3.1",
  "digest 0.11.3",
 ]
-
-[[package]]
-name = "shlex"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
 name = "shlex"
@@ -4145,6 +4143,7 @@ dependencies = [
  "automerge",
  "biscuit-auth",
  "ed25519-dalek 3.0.0",
+ "getrandom 0.2.17",
  "hex",
  "js-sys",
  "libp2p",
@@ -4153,6 +4152,7 @@ dependencies = [
  "rand 0.8.8",
  "rusqlite",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha2 0.11.0",
  "snow 0.10.0",
@@ -4161,7 +4161,6 @@ dependencies = [
  "tokio",
  "uuid",
  "wasm-bindgen",
- "wasm3",
  "wasmtime",
  "web-sys",
  "zstd",
@@ -4517,27 +4516,6 @@ dependencies = [
  "indexmap",
  "wasm-encoder 0.254.0",
  "wasmparser 0.254.0",
-]
-
-[[package]]
-name = "wasm3"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd7dde97449e99be474a432bbb0b1ab40b8f7ce3e97aa7ac640e9ecd018bbf88"
-dependencies = [
- "cty",
- "wasm3-sys",
-]
-
-[[package]]
-name = "wasm3-sys"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4e5d10bf1ffe7753275d4bbae3dc135dd2d2decd90e615accf9fef8bc52bab"
-dependencies = [
- "cc",
- "cty",
- "shlex 0.1.1",
 ]
 
 [[package]]

@@ -7,6 +7,7 @@
 #![allow(dead_code, unused_variables)]
 
 use serde::{Deserialize, Serialize};
+use serde_bytes;
 use sha2::{Digest, Sha256};
 
 // Re-export the shared SchemaIdentifierHash type
@@ -17,8 +18,24 @@ pub use crate::schema::hash::SchemaIdentifierHash;
 /// Unique Delta identifier: SHA-256(canonical_bytes()).
 pub type DeltaId = [u8; 32];
 
-/// Ed25519 signature (64 bytes).
-pub type Ed25519Signature = [u8; 64];
+/// Ed25519 signature (64 bytes) — serialised as a byte blob.
+///
+/// We wrap `Vec<u8>` so that serde works without large-array helpers.
+/// All crypto operations accept `&[u8]` and validate length at runtime.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub struct Ed25519Signature(#[serde(with = "serde_bytes")] pub Vec<u8>);
+
+impl Ed25519Signature {
+    /// Create from a 64-byte array.
+    pub fn from_bytes(bytes: [u8; 64]) -> Self {
+        Self(bytes.to_vec())
+    }
+
+    /// Try to extract as a fixed 64-byte array.
+    pub fn as_bytes(&self) -> Option<[u8; 64]> {
+        self.0.as_slice().try_into().ok()
+    }
+}
 
 /// Automerge actor ID (opaque bytes; used for LWW tiebreaking).
 pub type ActorId = Vec<u8>;

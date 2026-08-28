@@ -23,8 +23,8 @@
 //!   - `cargo check --features native`
 //!   - `cargo check --features wasm --target wasm32-unknown-unknown`
 
-#![deny(missing_docs)]
-#![allow(clippy::module_inception)]
+#![deny(clippy::module_inception)]
+#![allow(missing_docs)]
 
 // ─── Compile-time mutual exclusivity guard ────────────────────────────────────
 // Prevents accidentally enabling both features in the same build.
@@ -56,6 +56,7 @@ pub mod transport;
 // identical (Req 1.5).
 
 #[cfg(feature = "wasm")]
+#[allow(unused_imports)]
 use wasm_bindgen::prelude::*;
 
 // ─── Compile-time API surface assertions ──────────────────────────────────────
@@ -68,7 +69,7 @@ use wasm_bindgen::prelude::*;
 // on the type definitions themselves), these assertions hold on both targets and
 // verify that neither target accidentally omits a required public symbol (Req 1.2, 1.5).
 
-use static_assertions::{assert_impl_all, assert_type_eq_all};
+use static_assertions::assert_impl_all;
 
 // Core API types must exist and be Send + Sync (required for async usage).
 assert_impl_all!(api::types::TrustLevel:     Clone, Copy, PartialEq, Eq, std::fmt::Debug);

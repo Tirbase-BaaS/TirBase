@@ -13,37 +13,40 @@ license = "MIT"
 
 [features]
 default = ["native"]
-native  = ["dep:rusqlite", "rusqlite?/bundled", "dep:wasmtime"]
-wasm    = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys", "dep:wasm3"]
+native  = [
+    "dep:rusqlite",
+    "rusqlite?/bundled",
+    "dep:wasmtime",
+    "dep:zstd",
+    "dep:libp2p",
+    "dep:snow",
+    "dep:biscuit-auth",
+    "dep:rand",
+]
+wasm    = [
+    "dep:wasm-bindgen",
+    "dep:js-sys",
+    "dep:web-sys",
+    # wasm3 is intentionally deferred: the C FFI cannot cross-compile to
+    # wasm32-unknown-unknown with a standard Rust toolchain. Task 8 will
+    # implement the WASM-in-WASM sandbox using a pure-Rust WASM interpreter
+    # or an emcc-compiled wasm3 build.
+]
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
 [dependencies]
 # CRDT engine — Automerge 3.0 semantics
 automerge        = { version = "0.5.10", default-features = false }
 
-# Capability tokens — offline-verifiable Biscuit tokens
-biscuit-auth     = "6.0.0"
-
 # Ed25519 identity (DIDs, signing, verification)
 ed25519-dalek    = { version = "3.0.0", features = ["rand_core"] }
-
-# P2P networking
-libp2p           = { version = "0.56.0", features = ["mdns", "noise", "tcp", "tokio", "gossipsub", "identify", "ping"] }
-
-# Noise protocol session cryptography (IK pattern)
-snow             = { version = "0.10.0", features = ["default-resolver"] }
 
 # Error handling
 thiserror        = "2.0.20"
 
-# Property-based testing (dev + prod, used in test modules)
-proptest         = "1.11.0"
-
 # UUID v7 for IncidentContextObject IDs
-uuid             = { version = "1.26.0", features = ["v4", "v7"] }
-
-# Zstd compression for DAG node payloads
-zstd             = "0.13.3"
+# The "js" feature is required on wasm32-unknown-unknown; harmless on native.
+uuid             = { version = "1.26.0", features = ["v4", "v7", "js"] }
 
 # SHA-256 for DeltaId and SchemaIdentifierHash
 sha2             = "0.11.0"
@@ -55,10 +58,7 @@ static_assertions = "1.1.0"
 lru              = "0.18.3"
 
 # Async runtime
-tokio            = { version = "1.53.1", features = ["full"] }
-
-# Async traits
-async-trait      = "0.1.88"
+tokio            = { version = "1.53.1", features = ["rt", "sync", "time", "macros"] }
 
 # Serialisation
 serde            = { version = "1.0.219", features = ["derive"] }
@@ -67,16 +67,39 @@ serde_json       = "1.0.140"
 # Hex encoding for DID display
 hex              = "0.4.3"
 
-# Random number generation (for Ed25519 keypair)
-rand             = "0.8.5"
+# Serde support for large byte arrays (e.g. Ed25519Signature = [u8; 64])
+serde_bytes      = "0.11.19"
+
+# Async traits
+async-trait      = "0.1.88"
 
 # ─── Native-only dependencies ──────────────────────────────────────────────────
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rusqlite  = { version = "0.40.2", optional = true }
-wasmtime  = { version = "48.0.1", optional = true }
+rusqlite     = { version = "0.40.2", optional = true }
+wasmtime     = { version = "48.0.1", optional = true }
+
+# Zstd compression for DAG node payloads (C FFI — native only)
+zstd         = { version = "0.13.3", optional = true }
+
+# P2P networking
+libp2p       = { version = "0.56.0", optional = true, features = [
+    "mdns", "noise", "tcp", "tokio", "gossipsub", "identify", "ping",
+] }
+
+# Noise protocol session cryptography
+snow         = { version = "0.10.0", optional = true, features = ["default-resolver"] }
+
+# Capability tokens
+biscuit-auth = { version = "6.0.0", optional = true }
+
+# Random number generation
+rand         = { version = "0.8.5", optional = true }
 
 # ─── WASM-only dependencies ────────────────────────────────────────────────────
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# getrandom v0.2 on WASM requires the "js" feature to source entropy from the browser
+getrandom    = { version = "0.2", features = ["js"] }
+
 wasm-bindgen = { version = "0.2.127", optional = true }
 js-sys       = { version = "0.3.104", optional = true }
 web-sys      = { version = "0.3.104", optional = true, features = [
@@ -84,18 +107,8 @@ web-sys      = { version = "0.3.104", optional = true, features = [
     "Navigator",
     "console",
 ] }
-# wasm3 — minimal WASM interpreter for WASM-in-WASM migration sandbox
-wasm3        = { version = "0.3.1", optional = true }
 
 # ─── Dev dependencies ──────────────────────────────────────────────────────────
 [dev-dependencies]
-tokio = { version = "1.53.1", features = ["full", "test-util"] }
-
-# ─── Build profile ─────────────────────────────────────────────────────────────
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-
-[profile.dev]
-opt-level = 0
+proptest = "1.11.0"
+tokio    = { version = "1.53.1", features = ["full", "test-util"] }

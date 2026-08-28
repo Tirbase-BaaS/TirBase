@@ -28,25 +28,33 @@ pub enum MigrationResult {
 /// - `transform`: validated WASM bytecode.
 /// - `migration_id`: the migration being executed (for revocation checks).
 /// - `timeout_secs`: epoch-interrupt timeout (default: 30s per Req 18.4).
+#[cfg(feature = "native")]
 pub fn execute_migration(
     transform: &[u8],
     migration_id: MigrationId,
     timeout_secs: u64,
 ) -> Result<MigrationResult, TirBaseError> {
-    #[cfg(feature = "native")]
-    {
-        execute_native(transform, migration_id, timeout_secs)
-    }
-    #[cfg(feature = "wasm")]
-    {
-        execute_wasm_in_wasm(transform, migration_id, timeout_secs)
-    }
-    #[cfg(not(any(feature = "native", feature = "wasm")))]
-    {
-        Err(TirBaseError::DeltaMalformed {
-            reason: "no sandbox feature enabled".to_string(),
-        })
-    }
+    execute_native(transform, migration_id, timeout_secs)
+}
+
+#[cfg(feature = "wasm")]
+pub fn execute_migration(
+    transform: &[u8],
+    migration_id: MigrationId,
+    timeout_secs: u64,
+) -> Result<MigrationResult, TirBaseError> {
+    execute_wasm_in_wasm(transform, migration_id, timeout_secs)
+}
+
+#[cfg(not(any(feature = "native", feature = "wasm")))]
+pub fn execute_migration(
+    _transform: &[u8],
+    _migration_id: MigrationId,
+    _timeout_secs: u64,
+) -> Result<MigrationResult, TirBaseError> {
+    Err(TirBaseError::DeltaMalformed {
+        reason: "no sandbox feature enabled".to_string(),
+    })
 }
 
 /// Native build: execute via `wasmtime` with restricted capability config (Req 18.4).
