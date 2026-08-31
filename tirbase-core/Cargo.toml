@@ -41,6 +41,10 @@ automerge        = { version = "0.5.10", default-features = false }
 # Ed25519 identity (DIDs, signing, verification)
 ed25519-dalek    = { version = "3.0.0", features = ["rand_core"] }
 
+# Cryptographically secure random bytes (for Ed25519 key generation)
+# getrandom v0.4 is already a transitive dep via ed25519-dalek v3.
+getrandom        = { version = "0.4" }
+
 # Error handling
 thiserror        = "2.0.20"
 

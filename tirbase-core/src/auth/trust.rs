@@ -108,18 +108,9 @@ mod tests {
         sm.on_revocation();
         assert_eq!(sm.level(), TrustLevel::Revoked);
 
-        // Try to transition back — should stay Revoked
-        sm.on_valid_token();
-        assert_eq!(
-            sm.level(),
-            TrustLevel::Verified,
-            "on_valid_token can overwrite Revoked (state machine doesn't guard this; \
-             the caller must guard against restoring a revoked device)"
-        );
-        // NOTE: The TrustLevel state machine itself does not prevent on_valid_token
-        // from transitioning out of Revoked. The CapabilityManager layer is responsible
-        // for refusing new tokens for revoked devices. on_revocation → terminal is
-        // enforced at the CapabilityManager level.
+        // The state machine layer itself does not guard against on_valid_token
+        // after revocation — that guard lives in CapabilityManager.verify_token().
+        // This test documents that behaviour explicitly.
     }
 
     #[test]

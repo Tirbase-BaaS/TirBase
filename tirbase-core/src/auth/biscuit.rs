@@ -110,6 +110,8 @@ mod native {
         root_ca_public_key: &[u8],
         now_secs: i64,
     ) -> Result<BiscuitClaims, TirBaseError> {
+        use biscuit_auth::builder::{date, fact};
+
         let public_key =
             PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
                 TirBaseError::AuthorisationFailed {
@@ -123,14 +125,13 @@ mod native {
             }
         })?;
 
-        // Build a fake "now" system time from now_secs for expiration checking
+        // Build a "now" SystemTime from now_secs for expiration checking
         let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+        let time_fact = fact("time", &[date(&fake_now)]);
 
         // Build authorizer with the provided "now" time for expiration check
-        // We manually inject the time fact rather than using .time() which uses SystemTime::now()
-        let now_date_fact = format!("time({});", now_secs.max(0));
         let mut authorizer = AuthorizerBuilder::new()
-            .fact(now_date_fact.as_str())
+            .fact(time_fact)
             .map_err(|e| TirBaseError::AuthorisationFailed {
                 reason: format!("authorizer build error: {e}"),
             })?

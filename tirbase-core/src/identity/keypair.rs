@@ -15,9 +15,14 @@ use ed25519_dalek::{Signer, Verifier};
 /// The returned tuple is (seed/secret, public).
 pub fn generate_keypair() -> Result<([u8; 32], [u8; 32]), TirBaseError> {
     use ed25519_dalek::SigningKey;
-    use rand::rngs::OsRng;
 
-    let signing_key = SigningKey::generate(&mut OsRng);
+    // Generate 32 cryptographically secure random bytes for the key seed.
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).map_err(|e| TirBaseError::SignatureVerificationFailed {
+        reason: format!("random bytes generation failed: {e}"),
+    })?;
+
+    let signing_key = SigningKey::from_bytes(&seed);
     let secret_bytes: [u8; 32] = signing_key.to_bytes();
     let public_bytes: [u8; 32] = signing_key.verifying_key().to_bytes();
     Ok((secret_bytes, public_bytes))
