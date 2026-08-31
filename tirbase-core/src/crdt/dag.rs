@@ -91,50 +91,364 @@ pub struct DagNode {
     pub author_did: Did,
 }
 
+// ─── ChangesetDag (native) ────────────────────────────────────────────────────
+
 /// SQLite-backed Changeset DAG with BFS/DFS causal traversal APIs.
 pub struct ChangesetDag {
-    // TODO(task-3): inject LocalStore handle
+    #[cfg(feature = "native")]
+    conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
 }
 
+#[cfg(feature = "native")]
 impl ChangesetDag {
+    /// Create a new ChangesetDag backed by the given SQLite connection.
+    pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
+        ChangesetDag { conn }
+    }
+
     /// Insert a new node and its parent edges into the DAG.
+    ///
+    /// The `tags_json` column stores an empty JSON array initially.
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        // Compress the payload before storing.
+        let compressed = compress_payload(&node.payload)?;
+
+        // Serialise parent_ids as JSON for the tags_json column placeholder.
+        // The actual tags_json is separate — we store an empty array for new nodes.
+        let tags_json = "[]".to_string();
+        let schema_hash_bytes = node.schema_hash.as_ref();
+        let id_bytes = node.delta_id.as_ref();
+
+        conn.execute_batch("BEGIN;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG BEGIN failed: {e}"),
+            })?;
+
+        let insert_result = conn.execute(
+            "INSERT OR IGNORE INTO dag_nodes \
+             (id, payload, lamport, schema_hash, compacted, author_did, tags_json) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);",
+            rusqlite::params![
+                id_bytes,
+                compressed,
+                node.lamport as i64,
+                schema_hash_bytes,
+                if node.compacted { 1i64 } else { 0i64 },
+                node.author_did,
+                tags_json,
+            ],
+        );
+
+        if let Err(e) = insert_result {
+            let _ = conn.execute_batch("ROLLBACK;");
+            return Err(TirBaseError::LocalStoreWriteFailed {
+                reason: format!("INSERT dag_nodes failed: {e}"),
+            });
+        }
+
+        // Insert parent→child edges.
+        for parent_id in &node.parent_ids {
+            let edge_result = conn.execute(
+                "INSERT OR IGNORE INTO dag_edges (parent_id, child_id) VALUES (?1, ?2);",
+                rusqlite::params![parent_id.as_ref(), id_bytes],
+            );
+            if let Err(e) = edge_result {
+                let _ = conn.execute_batch("ROLLBACK;");
+                return Err(TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("INSERT dag_edges failed: {e}"),
+                });
+            }
+        }
+
+        conn.execute_batch("COMMIT;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG COMMIT failed: {e}"),
+            })?;
+
+        Ok(())
     }
 
     /// Return all child Delta IDs of the given parent.
     pub fn children(&self, parent_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        let mut stmt = conn
+            .prepare("SELECT child_id FROM dag_edges WHERE parent_id = ?1;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare children query failed: {e}"),
+            })?;
+
+        let ids = stmt
+            .query_map(rusqlite::params![parent_id.as_ref()], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query dag_edges children failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|bytes| bytes.try_into().ok())
+            .collect();
+
+        Ok(ids)
     }
 
     /// Return all parent Delta IDs of the given child.
     pub fn parents(&self, child_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        let mut stmt = conn
+            .prepare("SELECT parent_id FROM dag_edges WHERE child_id = ?1;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare parents query failed: {e}"),
+            })?;
+
+        let ids = stmt
+            .query_map(rusqlite::params![child_id.as_ref()], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query dag_edges parents failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|bytes| bytes.try_into().ok())
+            .collect();
+
+        Ok(ids)
     }
 
     /// BFS walk from `root_id` following child edges (forward reachability).
+    ///
+    /// Returns all reachable Delta IDs including `root_id` itself.
     pub fn bfs_descendants(
         &self,
         root_id: &DeltaId,
     ) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let mut visited: std::collections::HashSet<DeltaId> = std::collections::HashSet::new();
+        let mut queue: std::collections::VecDeque<DeltaId> = std::collections::VecDeque::new();
+        let mut result: Vec<DeltaId> = Vec::new();
+
+        queue.push_back(*root_id);
+
+        while let Some(current) = queue.pop_front() {
+            if !visited.insert(current) {
+                continue; // already visited
+            }
+            result.push(current);
+
+            let children = self.children(&current)?;
+            for child in children {
+                if !visited.contains(&child) {
+                    queue.push_back(child);
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     /// Topological sort of the entire DAG (Kahn's algorithm, causal order).
+    ///
+    /// Returns Delta IDs in causal order: all parents before their children.
     pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        // Fetch all node IDs.
+        let all_ids: Vec<DeltaId> = {
+            let mut stmt = conn
+                .prepare("SELECT id FROM dag_nodes;")
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("Prepare all_ids failed: {e}"),
+                })?;
+            stmt.query_map([], |row| row.get::<_, Vec<u8>>(0))
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("Query all dag_nodes failed: {e}"),
+                })?
+                .filter_map(|r| r.ok())
+                .filter_map(|b| b.try_into().ok())
+                .collect()
+        };
+
+        // Fetch all edges (parent_id, child_id).
+        let all_edges: Vec<(DeltaId, DeltaId)> = {
+            let mut stmt = conn
+                .prepare("SELECT parent_id, child_id FROM dag_edges;")
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("Prepare all_edges failed: {e}"),
+                })?;
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query all dag_edges failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|(p, c)| {
+                let p: DeltaId = p.try_into().ok()?;
+                let c: DeltaId = c.try_into().ok()?;
+                Some((p, c))
+            })
+            .collect()
+        };
+
+        // Drop the lock before doing the in-memory Kahn's computation.
+        drop(conn);
+
+        // Build adjacency and in-degree maps.
+        use std::collections::HashMap;
+        let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
+        let mut children_map: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+
+        for id in &all_ids {
+            in_degree.entry(*id).or_insert(0);
+            children_map.entry(*id).or_default();
+        }
+
+        for (parent, child) in &all_edges {
+            *in_degree.entry(*child).or_insert(0) += 1;
+            children_map.entry(*parent).or_default().push(*child);
+        }
+
+        // Kahn's algorithm.
+        let mut queue: std::collections::VecDeque<DeltaId> = in_degree
+            .iter()
+            .filter(|(_, &deg)| deg == 0)
+            .map(|(id, _)| *id)
+            .collect();
+
+        let mut sorted: Vec<DeltaId> = Vec::new();
+
+        while let Some(node) = queue.pop_front() {
+            sorted.push(node);
+            if let Some(children) = children_map.get(&node) {
+                for &child in children {
+                    let deg = in_degree.entry(child).or_insert(0);
+                    *deg -= 1;
+                    if *deg == 0 {
+                        queue.push_back(child);
+                    }
+                }
+            }
+        }
+
+        Ok(sorted)
     }
 
     /// Look up a single node by its Delta ID.
     pub fn get(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        let result = conn.query_row(
+            "SELECT id, payload, lamport, schema_hash, compacted, author_did \
+             FROM dag_nodes WHERE id = ?1;",
+            rusqlite::params![delta_id.as_ref()],
+            |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            },
+        );
+
+        match result {
+            Ok((id_bytes, payload_bytes, lamport, schema_bytes, compacted, author_did)) => {
+                let delta_id_arr: DeltaId = id_bytes
+                    .try_into()
+                    .map_err(|_| TirBaseError::LocalStoreWriteFailed {
+                        reason: "Invalid delta_id length in dag_nodes".to_string(),
+                    })?;
+                let schema_hash: SchemaIdentifierHash = schema_bytes
+                    .try_into()
+                    .map_err(|_| TirBaseError::LocalStoreWriteFailed {
+                        reason: "Invalid schema_hash length in dag_nodes".to_string(),
+                    })?;
+
+                // Decompress payload.
+                drop(conn); // release the lock before decompression
+                let decompressed = decompress_payload(&payload_bytes)?;
+
+                // Fetch parent IDs for this node.
+                let parent_ids = self.parents(&delta_id_arr)?;
+
+                Ok(Some(DagNode {
+                    delta_id: delta_id_arr,
+                    payload: decompressed,
+                    parent_ids,
+                    actor_id: vec![],
+                    lamport: lamport as u64,
+                    schema_hash,
+                    compacted: compacted != 0,
+                    author_did,
+                }))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SELECT dag_nodes failed: {e}"),
+            }),
+        }
     }
 
     /// Mark a node as compacted (hot-path payload pruned).
     pub fn mark_compacted(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
-        todo!("Task 3: implement with LocalStore")
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        conn.execute(
+            "UPDATE dag_nodes SET compacted = 1 WHERE id = ?1;",
+            rusqlite::params![delta_id.as_ref()],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("UPDATE dag_nodes compacted failed: {e}"),
+        })?;
+
+        Ok(())
     }
 }
+
+// ─── WASM stubs ───────────────────────────────────────────────────────────────
+
+#[cfg(not(feature = "native"))]
+impl ChangesetDag {
+    pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn children(&self, parent_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn parents(&self, child_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn bfs_descendants(&self, root_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn get(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+    pub fn mark_compacted(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
+        todo!("Task 14: wire WASM DAG")
+    }
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

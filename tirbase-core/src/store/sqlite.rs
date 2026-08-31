@@ -69,9 +69,32 @@ CREATE INDEX IF NOT EXISTS idx_quarantine_schema  ON quarantine_ledger (schema_h
 /// Open (or create) the SQLite database at `path` and run schema creation.
 ///
 /// Uses the `rusqlite/bundled` feature on native builds so no system SQLite is required.
+/// Enables WAL journal mode for improved concurrent access.
 #[cfg(feature = "native")]
 pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
-    todo!("Task 3: open SQLite connection and run CREATE_SCHEMA_SQL")
+    let conn = rusqlite::Connection::open(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+        reason: format!("SQLite open failed at {path}: {e}"),
+    })?;
+
+    // Enable WAL journal mode for better concurrent read/write performance.
+    conn.execute_batch("PRAGMA journal_mode=WAL;")
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("PRAGMA journal_mode=WAL failed: {e}"),
+        })?;
+
+    // Enable foreign key enforcement.
+    conn.execute_batch("PRAGMA foreign_keys=ON;")
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("PRAGMA foreign_keys=ON failed: {e}"),
+        })?;
+
+    // Create all tables on first open.
+    conn.execute_batch(CREATE_SCHEMA_SQL)
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("Schema creation failed: {e}"),
+        })?;
+
+    Ok(conn)
 }
 
 /// WASM stub — the WASM target uses the OPFS-based SQLite implementation
