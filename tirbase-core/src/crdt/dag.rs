@@ -269,13 +269,14 @@ impl ChangesetDag {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Prepare all_ids failed: {e}"),
                 })?;
-            stmt.query_map([], |row| row.get::<_, Vec<u8>>(0))
+            let x: Vec<DeltaId> = stmt.query_map([], |row| row.get::<_, Vec<u8>>(0))
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Query all dag_nodes failed: {e}"),
                 })?
                 .filter_map(|r| r.ok())
                 .filter_map(|b| b.try_into().ok())
-                .collect()
+                .collect();
+            x
         };
 
         // Fetch all edges (parent_id, child_id).
@@ -285,7 +286,7 @@ impl ChangesetDag {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Prepare all_edges failed: {e}"),
                 })?;
-            stmt.query_map([], |row| {
+            let x: Vec<(DeltaId, DeltaId)> = stmt.query_map([], |row| {
                 Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
             })
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -297,7 +298,8 @@ impl ChangesetDag {
                 let c: DeltaId = c.try_into().ok()?;
                 Some((p, c))
             })
-            .collect()
+            .collect();
+            x
         };
 
         // Drop the lock before doing the in-memory Kahn's computation.

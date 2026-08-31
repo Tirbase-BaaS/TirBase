@@ -53,7 +53,7 @@ pub fn project_table(
                             serde_json::Value::String(hex::encode(b))
                         }
                         ScalarValue::Counter(c)   => {
-                            serde_json::Value::Number(i64::from(*c).into())
+                            serde_json::Value::Number(i64::from(c.clone()).into())
                         }
                         ScalarValue::Timestamp(t) => {
                             serde_json::Value::Number((*t).into())
