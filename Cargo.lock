@@ -4142,6 +4142,7 @@ dependencies = [
  "async-trait",
  "automerge",
  "biscuit-auth",
+ "bs58",
  "ed25519-dalek 3.0.0",
  "getrandom 0.2.17",
  "hex",
