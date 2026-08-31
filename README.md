@@ -329,7 +329,7 @@ TirBase emits structured diagnostic entries at startup for all known operational
 
 ## License
 
-TirBase is open-source software released under the [MIT License](LICENSE).
+TirBase is open-source software released under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
 
 ---
 
