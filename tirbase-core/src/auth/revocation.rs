@@ -532,6 +532,16 @@ impl RevocationSubsystem {
         &self.revoked_dids
     }
 
+    /// Return the M threshold.
+    pub fn threshold_m(&self) -> usize {
+        self.threshold_m
+    }
+
+    /// Check the accumulation state for a target DID (delegates to the inner store).
+    pub fn store_status(&self, target_did: &Did) -> Option<RevocationStatus> {
+        self.store.status(target_did)
+    }
+
     /// Emit a 1-of-1 revocation warning if applicable (Req 9.7).
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
@@ -725,6 +735,16 @@ impl RevocationSubsystem {
 
     pub fn revoked_dids(&self) -> &[Did] {
         &self.revoked_dids
+    }
+
+    /// Return the M threshold.
+    pub fn threshold_m(&self) -> usize {
+        self.threshold_m
+    }
+
+    /// Check the accumulation state for a target DID (delegates to the inner store).
+    pub fn store_status(&self, target_did: &Did) -> Option<RevocationStatus> {
+        self.store.status(target_did)
     }
 
     pub fn check_1_of_1_warning(&self) -> Option<String> {

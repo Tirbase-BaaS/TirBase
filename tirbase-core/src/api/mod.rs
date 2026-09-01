@@ -77,6 +77,14 @@ pub struct CoreHandle {
     /// Schema Migration Engine.
     migration: Arc<Mutex<SchemaMigrationEngine>>,
 
+    /// Causal Contamination Engine (WASM build).
+    #[cfg(not(feature = "native"))]
+    cce: Arc<Mutex<crate::contamination::CausalContaminationEngine>>,
+
+    /// Revocation Subsystem (WASM build).
+    #[cfg(not(feature = "native"))]
+    revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
+
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
 }
@@ -157,6 +165,20 @@ impl CoreHandle {
             Arc::new(Mutex::new(store))
         };
 
+        // ── WASM CCE and RevocationSubsystem ──────────────────────────────────
+        #[cfg(not(feature = "native"))]
+        let cce = Arc::new(Mutex::new(
+            crate::contamination::CausalContaminationEngine::new()
+        ));
+
+        #[cfg(not(feature = "native"))]
+        let revocation = Arc::new(Mutex::new(
+            crate::auth::RevocationSubsystem::new(
+                config.deployment.revocation_m.max(1),
+                config.deployment.revocation_n.max(1),
+            )
+        ));
+
         // ── Migration Engine ──────────────────────────────────────────────────
         let migration = SchemaMigrationEngine::new(
             [0u8; 32], // CA public key — not configured at init for v1
@@ -209,10 +231,13 @@ impl CoreHandle {
             durability,
             #[cfg(feature = "native")]
             cce,
+            #[cfg(not(feature = "native"))]
+            cce,
+            #[cfg(not(feature = "native"))]
+            revocation,
             migration,
             diagnostics_channel: diag_tx,
-        })
-    }
+        })    }
 
     // ─── Write ────────────────────────────────────────────────────────────────
 

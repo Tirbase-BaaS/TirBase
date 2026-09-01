@@ -288,46 +288,143 @@ mod wasm_exports {
     /// Gossip a partial RevocationDelta for the target DID.
     #[wasm_bindgen]
     pub async fn core_initiate_revocation(
-        _target_did: String,
-        _manager_token: String,
+        target_did: String,
+        manager_token: String,
     ) -> Result<(), JsValue> {
-        Ok(())
+        if manager_token.trim().is_empty() {
+            return Err(to_js_err("manager_token must not be blank"));
+        }
+        if target_did.trim().is_empty() {
+            return Err(to_js_err("target_did must not be blank"));
+        }
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let manager_did = handle.identity.did().to_string();
+            let signing_key = handle.identity.signing_key_bytes();
+            let mut rev = handle.revocation.lock()
+                .map_err(|e| to_js_err(format!("revocation lock: {e}")))?;
+            let partial = rev.produce_partial_delta(
+                target_did.clone(),
+                manager_did,
+                &signing_key,
+            ).map_err(to_js_err)?;
+            rev.process_incoming_delta(
+                &partial,
+                &mut |_, _| {},
+                &mut |_, _| {},
+            ).map_err(to_js_err)?;
+            Ok(())
+        })
     }
 
     /// Return the current accumulation state for a pending revocation.
     #[wasm_bindgen]
-    pub async fn core_revocation_status(_target_did: String) -> Result<JsValue, JsValue> {
-        json_to_js(&serde_json::json!({
-            "signaturesCollected": 0,
-            "signaturesRequired": 1,
-            "status": "PENDING",
-        }))
+    pub async fn core_revocation_status(target_did: String) -> Result<JsValue, JsValue> {
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let rev = handle.revocation.lock()
+                .map_err(|e| to_js_err(format!("revocation lock: {e}")))?;
+            let m = rev.threshold_m();
+            let (collected, status_str) = match rev.store_status(&target_did) {
+                Some(crate::auth::RevocationStatus::Applied) => (m, "APPLIED"),
+                Some(crate::auth::RevocationStatus::Pending { collected, .. }) => (collected, "PENDING"),
+                None => (0, "PENDING"),
+            };
+            json_to_js(&serde_json::json!({
+                "signaturesCollected": collected,
+                "signaturesRequired": m,
+                "status": status_str,
+            }))
+        })
     }
 
     /// Append a RESOLVED tag to a contamination root Delta.
     #[wasm_bindgen]
     pub async fn core_verify_data(
-        _root_delta_id: String,
-        _manager_token: String,
+        root_delta_id: String,
+        manager_token: String,
     ) -> Result<(), JsValue> {
-        Ok(())
+        if manager_token.trim().is_empty() {
+            return Err(to_js_err("manager_token must not be blank"));
+        }
+        // Decode hex → [u8; 32]
+        let id_bytes = hex::decode(&root_delta_id)
+            .map_err(|e| to_js_err(format!("invalid root_delta_id hex: {e}")))?;
+        let root_id: [u8; 32] = id_bytes
+            .try_into()
+            .map_err(|_| to_js_err("root_delta_id must be 32 bytes (64 hex chars)"))?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let manager_did = handle.identity.did().to_string();
+            let signing_key = handle.identity.signing_key_bytes();
+            // Sign root_id as the payload for the CCE verify_data auth check.
+            let manager_sig = crate::identity::keypair::sign(&signing_key, &root_id)
+                .map_err(to_js_err)?;
+            // Use a far-future expiry — full Biscuit verification is native-only for v1;
+            // the non-empty token check above is the WASM gate.
+            let far_future = i64::MAX / 2;
+            let mut cce = handle.cce.lock()
+                .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
+            cce.verify_data(root_id, manager_did, manager_sig, far_future)
+                .map_err(to_js_err)
+        })
     }
 
     /// Archive an incident without certifying data integrity.
     #[wasm_bindgen]
     pub async fn core_admin_close(
-        _incident_id: String,
-        _manager_token: String,
+        incident_id: String,
+        manager_token: String,
     ) -> Result<(), JsValue> {
-        Ok(())
+        if manager_token.trim().is_empty() {
+            return Err(to_js_err("manager_token must not be blank"));
+        }
+        let uuid = uuid::Uuid::parse_str(&incident_id)
+            .map_err(|e| to_js_err(format!("invalid incident_id UUID: {e}")))?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let manager_did = handle.identity.did().to_string();
+            let signing_key = handle.identity.signing_key_bytes();
+            let manager_sig = crate::identity::keypair::sign(&signing_key, uuid.as_bytes())
+                .map_err(to_js_err)?;
+            let far_future = i64::MAX / 2;
+            let mut cce = handle.cce.lock()
+                .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
+            cce.admin_close(uuid, manager_did, manager_sig, far_future)
+                .map_err(to_js_err)
+        })
     }
 
     /// Activate Saturate Mode with a DISASTER_ALERT payload.
     #[wasm_bindgen]
     pub async fn core_activate_saturate_mode(
         _payload: String,
-        _manager_token: String,
+        manager_token: String,
     ) -> Result<(), JsValue> {
-        Ok(())
+        if manager_token.trim().is_empty() {
+            return Err(to_js_err(
+                crate::errors::TirBaseError::SignatureVerificationFailed {
+                    reason: "manager_token is absent or empty".to_string(),
+                }
+                .to_string(),
+            ));
+        }
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let mut transport = handle.transport.lock()
+                .map_err(|e| to_js_err(format!("transport lock: {e}")))?;
+            transport.set_saturate_mode(true);
+            Ok(())
+        })
     }
 }

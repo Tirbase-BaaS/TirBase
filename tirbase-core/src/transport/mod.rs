@@ -103,6 +103,9 @@ pub struct MeshTransport {
     /// Native-only: libp2p Swarm (None before `start()` is called).
     #[cfg(feature = "native")]
     swarm: Option<libp2p::Swarm<TirBaseBehaviour>>,
+
+    /// Whether Saturate Mode is active (used on WASM where there is no live scheduler).
+    pub saturate_active: bool,
 }
 
 impl MeshTransport {
@@ -125,6 +128,7 @@ impl MeshTransport {
             config,
             #[cfg(feature = "native")]
             swarm: None,
+            saturate_active: false,
         }
     }
 
@@ -179,6 +183,17 @@ impl MeshTransport {
     /// Drain retry entries that are due for reattempt.
     pub fn drain_due_retries(&mut self, now_us: i64) -> Vec<RetryEntry> {
         self.discovery.drain_due_retries(now_us)
+    }
+
+    // ── Saturate Mode ─────────────────────────────────────────────────────────
+
+    /// Activate or deactivate Saturate Mode (Req 13.2).
+    ///
+    /// On the native build this is ordinarily coordinated through `DrrScheduler`;
+    /// on the WASM build we track the flag here so `core_activate_saturate_mode`
+    /// can record the transition.
+    pub fn set_saturate_mode(&mut self, active: bool) {
+        self.saturate_active = active;
     }
 
     // ── Fragmentation ─────────────────────────────────────────────────────────
