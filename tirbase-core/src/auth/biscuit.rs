@@ -28,7 +28,7 @@ pub struct BiscuitClaims {
 mod native {
     use super::*;
     use biscuit_auth::{
-        builder::{date, Algorithm},
+        builder::{date, fact, Algorithm},
         builder_ext::{AuthorizerExt, BuilderExt},
         macros::*,
         AuthorizerBuilder, Biscuit, KeyPair, PrivateKey, PublicKey,
@@ -195,8 +195,11 @@ mod native {
         })
     }
 
-    /// Check that a token carries a specific fact or caveat (e.g., `disaster-alert` — Req 13.1).
-    pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8]) -> bool {
+    /// Check that a token carries a specific caveat fact (e.g., `disaster-alert` — Req 13.1).
+    ///
+    /// Uses a proper Biscuit datalog authorizer query rather than substring matching.
+    /// The token must also be valid and not expired at `now_secs`.
+    pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], now_secs: i64) -> bool {
         let public_key = match PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519) {
             Ok(k) => k,
             Err(_) => return false,
@@ -207,8 +210,32 @@ mod native {
             Err(_) => return false,
         };
 
-        // Check if the token string representation contains the caveat name
-        token.to_string().contains(caveat)
+        // Build a fake_now SystemTime from now_secs for expiration checking (same pattern as verify_token).
+        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+        let time_fact = fact("time", &[date(&fake_now)]);
+
+        // Build the authorizer: inject time fact so check_expiration_date works,
+        // then allow_all so we can do our own caveat query afterward.
+        let mut authorizer = match AuthorizerBuilder::new()
+            .fact(time_fact)
+            .map_err(|_| ())
+            .and_then(|b| b.allow_all().build(&token).map_err(|_| ()))
+        {
+            Ok(a) => a,
+            Err(_) => return false,
+        };
+
+        // authorize() enforces TTL (check_expiration_date) and signature; fail fast if expired/invalid.
+        if authorizer.authorize().is_err() {
+            return false;
+        }
+
+        // Query for the caveat fact: caveat($x) where $x == caveat string.
+        let results: Vec<(String,)> = authorizer
+            .query("data($x) <- caveat($x)")
+            .unwrap_or_default();
+
+        results.into_iter().any(|(v,)| v == caveat)
     }
 }
 
@@ -239,7 +266,10 @@ mod wasm_stubs {
         })
     }
 
-    pub fn has_caveat(_token_bytes: &[u8], _caveat: &str, _root_ca_public_key: &[u8]) -> bool {
+    pub fn has_caveat(_token_bytes: &[u8], _caveat: &str, _root_ca_public_key: &[u8], _now_secs: i64) -> bool {
+        // Disaster-alert activation on WASM requires a native device to relay the
+        // activation. Biscuit token verification is native-only in v1; all caveat
+        // checks on WASM builds unconditionally return false.
         false
     }
 }
@@ -278,9 +308,12 @@ pub fn verify_token(
 }
 
 /// Check that a token carries a specific caveat (e.g., `disaster-alert` — Req 13.1).
-pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8]) -> bool {
+///
+/// Uses a proper Biscuit datalog authorizer query. The token must be valid and
+/// not expired at `now_secs`. Returns `false` on WASM builds unconditionally.
+pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], now_secs: i64) -> bool {
     #[cfg(not(target_arch = "wasm32"))]
-    return native::has_caveat(token_bytes, caveat, root_ca_public_key);
+    return native::has_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
 
     #[cfg(target_arch = "wasm32")]
     return false;
@@ -359,5 +392,100 @@ mod tests {
         let token_bytes = create_token("did:key:z6Mk", "admin", 3600, &priv_key).unwrap();
         let result = verify_token(&token_bytes, &other_pub, now_secs());
         assert!(result.is_err(), "token verified with wrong public key should fail");
+    }
+
+    // ── has_caveat() tests ────────────────────────────────────────────────────
+
+    /// Helper: build a token with an arbitrary extra role fact, using the given CA keypair bytes.
+    fn make_token_with_facts(
+        priv_key: &[u8],
+        extra_facts: &[&str],
+        ttl_secs: u64,
+    ) -> Vec<u8> {
+        use biscuit_auth::{builder_ext::BuilderExt, Biscuit};
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+        let issued_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
+
+        let mut builder = Biscuit::builder()
+            .fact(format!("did(\"did:key:z6MkTest\")").as_str()).unwrap()
+            .fact(format!("role(\"manager\")").as_str()).unwrap()
+            .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
+            .check_expiration_date(expiry);
+
+        for fact_str in extra_facts {
+            builder = builder.fact(*fact_str).unwrap();
+        }
+
+        let kp = KeyPair::from(
+            &PrivateKey::from_bytes(priv_key, Algorithm::Ed25519).unwrap()
+        );
+        builder.build(&kp).unwrap().to_vec().unwrap()
+    }
+
+    #[test]
+    fn has_caveat_returns_true_for_token_with_disaster_alert() {
+        let (priv_key, pub_key) = make_ca_keys();
+        let token_bytes = make_token_with_facts(
+            &priv_key,
+            &["caveat(\"disaster-alert\")"],
+            3600,
+        );
+        let now = now_secs();
+        assert!(
+            has_caveat(&token_bytes, "disaster-alert", &pub_key, now),
+            "should return true for a valid token carrying disaster-alert caveat"
+        );
+    }
+
+    #[test]
+    fn has_caveat_returns_false_for_token_without_disaster_alert() {
+        let (priv_key, pub_key) = make_ca_keys();
+        // Build a token with NO disaster-alert fact.
+        let token_bytes = make_token_with_facts(&priv_key, &[], 3600);
+        let now = now_secs();
+        assert!(
+            !has_caveat(&token_bytes, "disaster-alert", &pub_key, now),
+            "should return false for a token without the disaster-alert caveat"
+        );
+    }
+
+    #[test]
+    fn has_caveat_returns_false_for_expired_token_with_disaster_alert() {
+        let (priv_key, pub_key) = make_ca_keys();
+        // Token has disaster-alert but only 1h TTL.
+        let token_bytes = make_token_with_facts(
+            &priv_key,
+            &["caveat(\"disaster-alert\")"],
+            3600,
+        );
+        // Check 25 hours in the future — well past the 1h TTL.
+        let far_future = now_secs() + 25 * 3600;
+        assert!(
+            !has_caveat(&token_bytes, "disaster-alert", &pub_key, far_future),
+            "should return false for an expired token even if it carries disaster-alert"
+        );
+    }
+
+    #[test]
+    fn has_caveat_returns_false_when_token_text_contains_alert_as_substring_of_other_fact() {
+        // Regression test for the old string-search bug:
+        // A token containing a role like "disaster_alert_manager" textually includes
+        // "alert" and even "disaster" but must NOT match a check for caveat("disaster-alert").
+        let (priv_key, pub_key) = make_ca_keys();
+        let token_bytes = make_token_with_facts(
+            &priv_key,
+            &["role(\"disaster_alert_manager\")"],
+            3600,
+        );
+        let now = now_secs();
+        assert!(
+            !has_caveat(&token_bytes, "disaster-alert", &pub_key, now),
+            "substring match on role fact must NOT satisfy the disaster-alert caveat check"
+        );
     }
 }

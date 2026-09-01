@@ -257,6 +257,7 @@ impl SaturateModeStateMachine {
             biscuit_token,
             "disaster-alert",
             &self.root_ca_public_key,
+            now_secs,
         );
         if !has_caveat {
             return Err(TirBaseError::SignatureVerificationFailed {
