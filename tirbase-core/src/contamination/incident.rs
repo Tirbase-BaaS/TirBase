@@ -109,6 +109,67 @@ pub struct CompositeIncidentInstance {
     pub audit_log: Vec<AuditEntry>,
 }
 
+// ─── composite_merge ─────────────────────────────────────────────────────────
+
+/// Merge two overlapping `IncidentContextObject`s into a
+/// `CompositeIncidentInstance` (Req 10.5).
+///
+/// Steps:
+/// 1. Create a new `CompositeIncidentInstance` whose `composite_of` lists both
+///    source ICO IDs, and whose `contaminated_deltas` / `contamination_roots` /
+///    `affected_rows` are the deduplicated union of the two sources.
+/// 2. Mark both source ICOs as `IncidentState::SupersededBy(composite_id)`.
+///
+/// Returns the composite's `IncidentId`.
+pub fn composite_merge(
+    ico_a: &mut IncidentContextObject,
+    ico_b: &mut IncidentContextObject,
+    now_micros: i64,
+) -> (IncidentId, CompositeIncidentInstance) {
+    let composite_id = Uuid::now_v7();
+
+    // Union of contamination roots (deduped via BTreeSet).
+    let mut roots: Vec<DeltaId> = ico_a.contamination_roots.clone();
+    for r in &ico_b.contamination_roots {
+        if !roots.contains(r) {
+            roots.push(*r);
+        }
+    }
+
+    // Union of contaminated deltas.
+    let contaminated_deltas: std::collections::BTreeSet<DeltaId> = ico_a
+        .contaminated_deltas
+        .union(&ico_b.contaminated_deltas)
+        .copied()
+        .collect();
+
+    // Union of affected rows (deduped by row_key).
+    let mut affected_rows = ico_a.affected_rows.clone();
+    for row in &ico_b.affected_rows {
+        if !affected_rows.iter().any(|r: &AffectedRow| r.row_key == row.row_key) {
+            affected_rows.push(row.clone());
+        }
+    }
+
+    let composite = CompositeIncidentInstance {
+        id: composite_id,
+        state: IncidentState::Open,
+        composite_of: vec![ico_a.id, ico_b.id],
+        contamination_roots: roots,
+        contaminated_deltas,
+        affected_rows,
+        created_at: now_micros,
+        updated_at: now_micros,
+        audit_log: vec![],
+    };
+
+    // Mark both source ICOs as superseded.
+    ico_a.state = IncidentState::SupersededBy(composite_id);
+    ico_b.state = IncidentState::SupersededBy(composite_id);
+
+    (composite_id, composite)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

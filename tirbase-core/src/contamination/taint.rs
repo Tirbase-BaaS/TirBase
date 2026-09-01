@@ -1,35 +1,114 @@
-//! Taint propagation — tag_root(), walk_dag(), append_tag() (Req 10.2).
+//! Taint propagation — BFS walk helpers and tag-append logic (Req 10.2).
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
 use crate::contamination::incident::{IncidentContextObject, IncidentId, TaintSource};
-use crate::crdt::delta::DeltaId;
+use crate::crdt::delta::{DeltaId, DeltaTag};
 use crate::errors::TirBaseError;
 
-/// Tag the given Delta as a contamination root and walk all descendants in the
-/// ChangesetDag, appending `DeltaTag::Contaminated` to each (Req 10.2).
+// ─── SQLite tag-append helper ─────────────────────────────────────────────────
+
+/// Append a single `DeltaTag` to the `tags_json` column of `dag_nodes`.
 ///
-/// Returns the ID of the newly created Incident Context Object.
-pub fn tag_contamination_root(
-    root_delta_id: DeltaId,
-    source: TaintSource,
-) -> Result<IncidentId, TirBaseError> {
-    todo!("Task 7: BFS/DFS walk, ICO allocation, composite merge")
+/// This is the **only** write path for tag data — the array only grows; no entry
+/// is ever removed or modified (Req 10.4).
+#[cfg(feature = "native")]
+pub(crate) fn append_tag_to_db(
+    conn: &rusqlite::Connection,
+    delta_id: &DeltaId,
+    tag: DeltaTag,
+) -> Result<(), TirBaseError> {
+    // Read existing tags, deserialise, push, serialise back.
+    let existing_json: String = conn
+        .query_row(
+            "SELECT tags_json FROM dag_nodes WHERE id = ?1",
+            rusqlite::params![delta_id.as_ref()],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "[]".to_string());
+
+    let mut tags: Vec<DeltaTag> = serde_json::from_str(&existing_json).unwrap_or_default();
+    tags.push(tag);
+
+    let new_json = serde_json::to_string(&tags).map_err(|e| {
+        TirBaseError::LocalStoreWriteFailed {
+            reason: format!("tags_json serialise failed: {e}"),
+        }
+    })?;
+
+    conn.execute(
+        "UPDATE dag_nodes SET tags_json = ?1 WHERE id = ?2",
+        rusqlite::params![new_json, delta_id.as_ref()],
+    )
+    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+        reason: format!("UPDATE dag_nodes tags_json failed: {e}"),
+    })?;
+
+    Ok(())
 }
 
+/// Read the current `tags_json` array for a Delta from `dag_nodes`.
+#[cfg(feature = "native")]
+pub(crate) fn read_tags_from_db(
+    conn: &rusqlite::Connection,
+    delta_id: &DeltaId,
+) -> Result<Vec<DeltaTag>, TirBaseError> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT tags_json FROM dag_nodes WHERE id = ?1",
+            rusqlite::params![delta_id.as_ref()],
+            |row| row.get(0),
+        )
+        .ok();
+
+    Ok(json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default())
+}
+
+// ─── Append-only wrapper (public interface used by resolution) ─────────────────
+
+/// Append a `DeltaTag` entry to the tag log of the given Delta.
+///
+/// This operation is **append-only** — existing tags are never modified (Req 10.4).
+///
+/// On native this writes directly to `dag_nodes.tags_json`.  On WASM this is a
+/// stub until Task 14 wires the bridge.
+#[cfg(feature = "native")]
+pub(crate) fn append_tag(
+    conn: &rusqlite::Connection,
+    delta_id: &DeltaId,
+    tag: DeltaTag,
+) -> Result<(), TirBaseError> {
+    append_tag_to_db(conn, delta_id, tag)
+}
+
+#[cfg(not(feature = "native"))]
+pub(crate) fn append_tag(
+    delta_id: &DeltaId,
+    tag: DeltaTag,
+) -> Result<(), TirBaseError> {
+    todo!("Task 14: wire WASM append_tag bridge")
+}
+
+// ─── BFS walk helper ──────────────────────────────────────────────────────────
+
 /// BFS walk from `root_delta_id` following forward child edges in the DAG.
+///
 /// Returns all reachable descendant Delta IDs (inclusive of root).
+/// Delegates to `ChangesetDag::bfs_descendants` which is already implemented.
+#[cfg(feature = "native")]
+pub(crate) fn walk_dag_descendants(
+    dag: &crate::crdt::dag::ChangesetDag,
+    root_delta_id: &DeltaId,
+) -> Result<Vec<DeltaId>, TirBaseError> {
+    dag.bfs_descendants(root_delta_id)
+}
+
+#[cfg(not(feature = "native"))]
 pub(crate) fn walk_dag_descendants(
     root_delta_id: &DeltaId,
 ) -> Result<Vec<DeltaId>, TirBaseError> {
-    todo!("Task 7: implement with ChangesetDag")
-}
-
-/// Append a `DeltaTag` entry to the tag log of the given Delta.
-/// This operation is **append-only** — existing tags are never modified (Req 10.4).
-pub(crate) fn append_tag(
-    delta_id: &DeltaId,
-    tag: crate::crdt::delta::DeltaTag,
-) -> Result<(), TirBaseError> {
-    todo!("Task 7: implement with LocalStore")
+    todo!("Task 14: wire WASM walk_dag_descendants bridge")
 }
