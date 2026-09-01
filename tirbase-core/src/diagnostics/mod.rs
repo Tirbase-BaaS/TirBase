@@ -100,3 +100,321 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
 
     entries
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::{DeploymentConfig, InitConfig};
+
+    /// Returns `true` if any entry in `entries` has the given `code`.
+    fn has_code(entries: &[DiagnosticEntry], code: &str) -> bool {
+        entries.iter().any(|e| e.code == code)
+    }
+
+    fn base_config() -> InitConfig {
+        InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig::default(),
+        }
+    }
+
+    // ── Req 21.1 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn unverified_retention_always_present() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "UNVERIFIED_RETENTION"),
+            "UNVERIFIED_RETENTION should be emitted on every init"
+        );
+    }
+
+    #[test]
+    fn unverified_retention_is_info() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "UNVERIFIED_RETENTION").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Info);
+    }
+
+    // ── Req 21.2 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn unilateral_exile_present_when_m1_n1() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "UNILATERAL_EXILE"),
+            "UNILATERAL_EXILE should be emitted when M=1 and N=1"
+        );
+    }
+
+    #[test]
+    fn unilateral_exile_absent_when_m2_n3() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 3,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            !has_code(&entries, "UNILATERAL_EXILE"),
+            "UNILATERAL_EXILE should NOT be emitted when M=2, N=3"
+        );
+    }
+
+    #[test]
+    fn unilateral_exile_absent_when_m1_n2() {
+        // M=1 but N≠1 — not a unilateral configuration
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 2,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            !has_code(&entries, "UNILATERAL_EXILE"),
+            "UNILATERAL_EXILE should NOT be emitted when N≠1"
+        );
+    }
+
+    #[test]
+    fn unilateral_exile_is_warning() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "UNILATERAL_EXILE").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Warning);
+    }
+
+    // ── Req 21.3 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn tag_spoof_risk_present_when_anchor_attested_disabled() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                anchor_attested_location: false,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "TAG_SPOOF_RISK"),
+            "TAG_SPOOF_RISK should be emitted when anchor_attested_location is false"
+        );
+    }
+
+    #[test]
+    fn tag_spoof_risk_absent_when_anchor_attested_enabled() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                anchor_attested_location: true,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            !has_code(&entries, "TAG_SPOOF_RISK"),
+            "TAG_SPOOF_RISK should NOT be emitted when anchor_attested_location is true"
+        );
+    }
+
+    #[test]
+    fn tag_spoof_risk_is_info() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                anchor_attested_location: false,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "TAG_SPOOF_RISK").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Info);
+    }
+
+    // ── Req 21.4 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lora_duty_cycle_always_present() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "LORA_DUTY_CYCLE"),
+            "LORA_DUTY_CYCLE should be emitted on every init"
+        );
+    }
+
+    #[test]
+    fn lora_duty_cycle_is_info() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "LORA_DUTY_CYCLE").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Info);
+    }
+
+    // ── Req 21.5 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn tree_topology_always_present() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "TREE_TOPOLOGY"),
+            "TREE_TOPOLOGY should be emitted on every init"
+        );
+    }
+
+    #[test]
+    fn tree_topology_is_info() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "TREE_TOPOLOGY").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Info);
+    }
+
+    // ── Req 21.6 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn extended_ttl_present_when_ttl_exceeds_24h() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                biscuit_ttl_secs: 24 * 3600 + 1, // one second over 24h
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "EXTENDED_TTL"),
+            "EXTENDED_TTL should be emitted when TTL > 86400s"
+        );
+    }
+
+    #[test]
+    fn extended_ttl_absent_when_ttl_exactly_24h() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                biscuit_ttl_secs: 24 * 3600, // exactly 24h — not extended
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            !has_code(&entries, "EXTENDED_TTL"),
+            "EXTENDED_TTL should NOT be emitted when TTL == 86400s"
+        );
+    }
+
+    #[test]
+    fn extended_ttl_absent_when_ttl_below_24h() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                biscuit_ttl_secs: 3600, // 1h
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            !has_code(&entries, "EXTENDED_TTL"),
+            "EXTENDED_TTL should NOT be emitted when TTL < 86400s"
+        );
+    }
+
+    #[test]
+    fn extended_ttl_is_warning() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                biscuit_ttl_secs: 48 * 3600,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries.iter().find(|e| e.code == "EXTENDED_TTL").unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Warning);
+    }
+
+    // ── Composite: all-triggering config emits all 6 codes ───────────────────
+
+    #[test]
+    fn all_six_diagnostics_emitted_when_all_conditions_met() {
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 48 * 3600,
+                anchor_attested_location: false,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        for code in &[
+            "UNVERIFIED_RETENTION",
+            "LORA_DUTY_CYCLE",
+            "TREE_TOPOLOGY",
+            "TAG_SPOOF_RISK",
+            "UNILATERAL_EXILE",
+            "EXTENDED_TTL",
+        ] {
+            assert!(
+                has_code(&entries, code),
+                "Expected diagnostic code '{}' to be present",
+                code
+            );
+        }
+    }
+
+    // ── Baseline: default config emits exactly the 3 unconditional codes ─────
+
+    #[test]
+    fn default_config_emits_only_unconditional_diagnostics() {
+        // DeploymentConfig::default() has anchor_attested_location=false,
+        // revocation_m=0, revocation_n=0, biscuit_ttl_secs=0 —
+        // so TAG_SPOOF_RISK fires but UNILATERAL_EXILE and EXTENDED_TTL do not.
+        let config = InitConfig {
+            storage_path: ":memory:".to_string(),
+            deployment: DeploymentConfig {
+                anchor_attested_location: true, // suppress TAG_SPOOF_RISK
+                revocation_m: 2,
+                revocation_n: 3,
+                biscuit_ttl_secs: 3600,
+                ..Default::default()
+            },
+        };
+        let entries = emit_startup_diagnostics(&config);
+        // Must be present
+        assert!(has_code(&entries, "UNVERIFIED_RETENTION"));
+        assert!(has_code(&entries, "LORA_DUTY_CYCLE"));
+        assert!(has_code(&entries, "TREE_TOPOLOGY"));
+        // Must be absent
+        assert!(!has_code(&entries, "TAG_SPOOF_RISK"));
+        assert!(!has_code(&entries, "UNILATERAL_EXILE"));
+        assert!(!has_code(&entries, "EXTENDED_TTL"));
+    }
+}
