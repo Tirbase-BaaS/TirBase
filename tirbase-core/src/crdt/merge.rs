@@ -2,19 +2,16 @@
 //!
 //! All incoming Deltas flow through the schema-hash gate first:
 //!   - Known hash + valid signature       → merge (LWW or RGA as appropriate)
-//!   - Known hash + breaking schema change → Quarantine Ledger (Task 8)
+//!   - Known hash + breaking schema change → Quarantine Ledger
 //!   - Unknown hash                        → Quarantine Ledger
 //!   - Missing/malformed hash/signature    → Rejected
 //!
 //! The full pipeline is orchestrated by [`CrdtEngine::apply()`] in `crdt/mod.rs`.
-//! The free functions here are thin, testable helpers that implement the
-//! tie-breaking and ordering logic so it can be tested independently of the
-//! full engine.
+//! External callers must always go through `CrdtEngine::apply()` — never call
+//! the free helpers ([`merge_lww`] / [`merge_rga`]) directly.  Those helpers
+//! are internal utilities that implement the tie-breaking and ordering logic so
+//! they can be unit-tested independently of the full engine.
 
-#![allow(dead_code, unused_variables, unused_imports)]
-
-use crate::crdt::delta::{Delta, DeltaId};
-use crate::errors::TirBaseError;
 
 /// Merge outcome after applying an incoming Delta.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,21 +33,6 @@ pub enum QuarantineReason {
     UnknownSchemaHash,
     /// The Schema_Identifier_Hash field is absent or malformed (Req 17.6).
     MissingOrMalformedHash,
-}
-
-/// Apply an incoming Delta through the full merge pipeline.
-///
-/// This is a thin wrapper; the real implementation lives in
-/// [`CrdtEngine::apply()`].  Kept here for the Task 8 quarantine-ledger
-/// integration point — at that stage, `apply_incoming_delta` will hold the
-/// shared entry-point logic that both routes to `CrdtEngine::apply()` and
-/// writes to the `QuarantineLedger`.
-pub fn apply_incoming_delta(delta: &Delta) -> Result<MergeOutcome, TirBaseError> {
-    // Full pipeline lives in CrdtEngine::apply().
-    // This free function is the integration point for Task 8.
-    Err(TirBaseError::DeltaMalformed {
-        reason: "apply_incoming_delta: use CrdtEngine::apply() for the full pipeline".to_string(),
-    })
 }
 
 /// LWW (Last-Write-Wins) conflict resolution for scalar / map-key fields (Req 4.5).
