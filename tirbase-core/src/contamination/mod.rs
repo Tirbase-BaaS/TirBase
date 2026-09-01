@@ -115,6 +115,24 @@ impl CausalContaminationEngine {
         }
         drop(conn_guard);
 
+        // Resolve affected projection rows and mark them contaminated (Req 10.7).
+        let affected_rows = {
+            let conn_guard2 = self.conn.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("CCE mutex poisoned: {e}"),
+                }
+            })?;
+            let rows = taint::resolve_affected_rows(&conn_guard2, &descendants, root_delta_id)?;
+            for row in &rows {
+                let _ = crate::store::projection::mark_row_contaminated(
+                    &conn_guard2,
+                    &row.table,
+                    &row.row_key,
+                );
+            }
+            rows
+        };
+
         // Build the new ICO.
         let contaminated_deltas = descendants.iter().copied().collect();
         let new_ico = IncidentContextObject {
@@ -123,7 +141,7 @@ impl CausalContaminationEngine {
             taint_source: source,
             contamination_roots: vec![root_delta_id],
             contaminated_deltas,
-            affected_rows: vec![],
+            affected_rows,
             composite_of: None,
             created_at: now,
             updated_at: now,
@@ -744,9 +762,7 @@ mod tests {
         );
     }
 
-    // ─── Test 7: open_incidents returns only OPEN ICOs ────────────────────────
-
-    #[test]
+    // ─── Test 7: open_incidents returns only OPEN ICOs ────────────────────────    #[test]
     fn test_open_incidents_filters_correctly() {
         let (mut cce, _conn) = open_cce_with_conn();
         let (mgr_did, mgr_secret) = make_manager();
@@ -777,5 +793,78 @@ mod tests {
         let open = cce.open_incidents().unwrap();
         assert_eq!(open.len(), 1, "only one incident should be open");
         assert_eq!(open[0].id, ico_b, "the open incident must be ICO_B");
+    }
+
+    // ─── Test 8: projection contamination flags round-trip ───────────────────
+
+    #[test]
+    fn test_projection_contamination_flags_round_trip() {
+        let (mut cce, conn) = open_cce_with_conn();
+        let (mgr_did, mgr_secret) = make_manager();
+
+        let root_id = [0xA1u8; 32];
+        insert_node(&mut cce.dag, root_id, vec![]);
+
+        // Insert a projection row that resolve_affected_rows will discover.
+        {
+            let lock = conn.lock().unwrap();
+            lock.execute_batch(
+                "CREATE TABLE IF NOT EXISTS proj_reports \
+                 (key TEXT PRIMARY KEY, data_json TEXT NOT NULL, \
+                  contaminated INTEGER NOT NULL DEFAULT 0); \
+                 INSERT OR IGNORE INTO proj_reports (key, data_json) \
+                 VALUES ('row-1', '\"data\"');",
+            )
+            .expect("setup proj_reports");
+        }
+
+        // Tag contamination root — should mark all projection rows contaminated.
+        let source = TaintSource::DeviceRevocation { revocation_delta_id: root_id };
+        let ico_id = cce
+            .tag_contamination_root(root_id, source)
+            .expect("tag_contamination_root");
+
+        {
+            let lock = conn.lock().unwrap();
+            let contaminated: i64 = lock
+                .query_row(
+                    "SELECT contaminated FROM proj_reports WHERE key = 'row-1'",
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("query contaminated after tag");
+            assert_eq!(
+                contaminated, 1,
+                "row must be contaminated=1 after tag_contamination_root"
+            );
+        }
+
+        // The ICO's affected_rows must be populated.
+        let ico = cce.get_incident(ico_id).unwrap().unwrap();
+        assert!(
+            !ico.affected_rows.is_empty(),
+            "ICO affected_rows must be non-empty after projection wiring"
+        );
+
+        // verify_data resolves the single root → should clear the projection flag.
+        let expiry = future_expiry();
+        let sig = sign(&mgr_secret, &root_id);
+        cce.verify_data(root_id, mgr_did.clone(), sig, expiry)
+            .expect("verify_data");
+
+        {
+            let lock = conn.lock().unwrap();
+            let contaminated: i64 = lock
+                .query_row(
+                    "SELECT contaminated FROM proj_reports WHERE key = 'row-1'",
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("query contaminated after verify_data");
+            assert_eq!(
+                contaminated, 0,
+                "row must return to contaminated=0 after verify_data"
+            );
+        }
     }
 }

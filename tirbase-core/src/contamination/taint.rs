@@ -112,3 +112,72 @@ pub(crate) fn walk_dag_descendants(
 ) -> Result<Vec<DeltaId>, TirBaseError> {
     todo!("Task 14: wire WASM walk_dag_descendants bridge")
 }
+
+// ─── Affected row resolver ────────────────────────────────────────────────────
+
+/// Resolve all projection rows that should be marked contaminated for a given set
+/// of contaminated Delta IDs.
+///
+/// Implementation (v1 conservative approach):
+/// - Queries `sqlite_master` for every `proj_*` table.
+/// - Selects all row keys from each table.
+/// - Records each as an `AffectedRow` attributed to `root_delta_id`.
+///
+/// This is intentionally conservative: if any projection table exists and has rows,
+/// all of them are considered potentially affected by the contamination event.
+/// A future task can refine this using a `last_delta_id` column in the projection
+/// tables to narrow the scope to rows actually written by contaminated deltas.
+#[cfg(feature = "native")]
+pub(crate) fn resolve_affected_rows(
+    conn: &rusqlite::Connection,
+    _delta_ids: &[DeltaId],
+    root_delta_id: DeltaId,
+) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
+    use crate::contamination::incident::AffectedRow;
+
+    // 1. Enumerate all projection tables.
+    let proj_tables: Vec<String> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT name FROM sqlite_master \
+                 WHERE type='table' AND name LIKE 'proj_%'",
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("sqlite_master query failed: {e}"),
+            })?;
+        let tables: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("sqlite_master iterate failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        tables
+    };
+
+    // 2. For each projection table, collect all row keys.
+    let mut affected = Vec::new();
+    for proj_table in &proj_tables {
+        let logical_table = proj_table.strip_prefix("proj_").unwrap_or(proj_table);
+        let sql = format!("SELECT key FROM \"{proj_table}\"");
+        let mut stmt = conn.prepare(&sql).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("SELECT key from {proj_table} failed: {e}"),
+        })?;
+        let keys: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("iterate {proj_table} keys failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        for key in keys {
+            affected.push(AffectedRow {
+                table: logical_table.to_string(),
+                row_key: key,
+                delta_id: root_delta_id,
+            });
+        }
+    }
+
+    Ok(affected)
+}

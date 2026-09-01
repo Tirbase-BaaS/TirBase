@@ -137,6 +137,15 @@ pub fn verify_data(
                     },
                 );
             }
+
+            // Clear projection-layer contamination flags for all affected rows (Req 11.1).
+            for row in &ico.affected_rows {
+                let _ = crate::store::projection::clear_row_contamination(
+                    conn,
+                    &row.table,
+                    &row.row_key,
+                );
+            }
         }
     }
 
