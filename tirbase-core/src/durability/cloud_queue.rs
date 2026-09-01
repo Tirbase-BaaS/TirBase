@@ -213,6 +213,105 @@ where
     })
 }
 
+// ─── Topological sort helper ─────────────────────────────────────────────────
+
+/// Topologically sort the Delta IDs in the queue so that causal parents are
+/// transmitted before their children (Req 16.3).
+///
+/// Uses Kahn's algorithm on the `causal_parents` relationship embedded in each
+/// `QueueEntry`. Deltas whose parents are not in the queue (already sent or
+/// from a previous session) are treated as roots.
+///
+/// Returns a vector of Delta IDs in causal order (parents before children).
+/// Deltas not reachable via the dependency graph (cycles or orphans) are
+/// appended at the end in their original queue order so nothing is silently
+/// dropped.
+fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
+    use std::collections::{HashMap, VecDeque};
+
+    // Build a map from delta_id → index for O(1) look-ups.
+    let id_set: std::collections::HashSet<DeltaId> =
+        queue.queue.iter().map(|e| e.delta_id).collect();
+
+    // in_degree[id] = number of parents still in the queue.
+    let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
+    // children_map[parent] = list of children in the queue.
+    let mut children_map: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+
+    for entry in queue.queue.iter() {
+        in_degree.entry(entry.delta_id).or_insert(0);
+        children_map.entry(entry.delta_id).or_default();
+
+        for parent_id in &entry.causal_parents {
+            if id_set.contains(parent_id) {
+                // Parent is also in the queue → this entry depends on it.
+                *in_degree.entry(entry.delta_id).or_insert(0) += 1;
+                children_map
+                    .entry(*parent_id)
+                    .or_default()
+                    .push(entry.delta_id);
+            }
+        }
+    }
+
+    // Kahn's BFS: start with all zero-in-degree nodes.
+    let mut ready: VecDeque<DeltaId> = in_degree
+        .iter()
+        .filter(|(_, &deg)| deg == 0)
+        .map(|(id, _)| *id)
+        .collect();
+
+    // Maintain stable ordering within same in-degree level by using queue
+    // insertion order as a secondary key.
+    let order_index: HashMap<DeltaId, usize> = queue
+        .queue
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (e.delta_id, i))
+        .collect();
+
+    // Sort initial ready set by original queue position for determinism.
+    let mut ready_vec: Vec<DeltaId> = ready.drain(..).collect();
+    ready_vec.sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
+    ready.extend(ready_vec);
+
+    let mut sorted: Vec<DeltaId> = Vec::with_capacity(queue.queue.len());
+
+    while let Some(node) = ready.pop_front() {
+        sorted.push(node);
+        if let Some(children) = children_map.get(&node) {
+            let mut next_ready: Vec<DeltaId> = children
+                .iter()
+                .filter_map(|child| {
+                    let deg = in_degree.get_mut(child)?;
+                    *deg -= 1;
+                    if *deg == 0 {
+                        Some(*child)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            // Stable ordering within the newly-ready batch.
+            next_ready
+                .sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
+            for id in next_ready {
+                ready.push_back(id);
+            }
+        }
+    }
+
+    // Append any remaining (cycle / unreachable) entries in original order.
+    let sorted_set: std::collections::HashSet<DeltaId> = sorted.iter().cloned().collect();
+    for entry in queue.queue.iter() {
+        if !sorted_set.contains(&entry.delta_id) {
+            sorted.push(entry.delta_id);
+        }
+    }
+
+    sorted
+}
+
 // ─── Cloud Sync Loop ──────────────────────────────────────────────────────────
 
 /// Trait for the Cloud Ledger connection — allows testing without a live connection.
@@ -225,8 +324,14 @@ pub trait CloudConnection: Send {
     fn send_delta(&mut self, delta_id: &DeltaId, bytes: &[u8]) -> Result<(), String>;
 }
 
-/// Cloud sync loop — sends each Delta in queue order (causal order) to the Cloud
-/// Ledger, removing entries only after per-Delta acknowledgement (Req 16.3).
+/// Cloud sync loop — sends each Delta in **topological (causal) order** to the
+/// Cloud Ledger, removing entries only after per-Delta acknowledgement (Req 16.3).
+///
+/// The loop first computes a topological ordering of all pending queue entries
+/// using their `causal_parents` relationships so that parents are always
+/// transmitted before their children.  This is safe even if some parents have
+/// already been sent and removed from the queue — those entries simply have
+/// zero in-queue parents and are treated as roots.
 ///
 /// On rejection the Delta is retained and its rejection is logged (Req 16.5).
 /// On `RefetchUnavailable` for a compacted Delta, sync is deferred for that entry.
@@ -251,8 +356,8 @@ pub fn cloud_sync_loop(
     let mut rejected = 0usize;
     let mut deferred = 0usize;
 
-    // Collect IDs in queue order (snapshot to avoid borrow issues during mutation).
-    let ids: Vec<DeltaId> = queue.queue.iter().map(|e| e.delta_id).collect();
+    // Compute causal order before processing (Req 16.3).
+    let ids = topological_sort_queue(queue);
 
     for delta_id in ids {
         let entry = match queue.queue.iter().find(|e| e.delta_id == delta_id) {

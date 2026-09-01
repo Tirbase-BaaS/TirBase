@@ -24,10 +24,14 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
 pub mod anchor;
+pub mod cloud_ledger;
 pub mod cloud_queue;
 pub mod quorum;
 pub mod receipt;
 pub mod spatial;
+
+#[cfg(test)]
+mod integration_tests;
 
 use crate::api::types::DurabilityTier;
 use crate::crdt::delta::{DeltaId, Did};
