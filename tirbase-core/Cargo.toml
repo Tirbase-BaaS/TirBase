@@ -28,10 +28,7 @@ wasm    = [
     "dep:js-sys",
     "dep:web-sys",
     "dep:wasm-bindgen-futures",
-    # wasm3 is intentionally deferred: the C FFI cannot cross-compile to
-    # wasm32-unknown-unknown with a standard Rust toolchain. Task 8 will
-    # implement the WASM-in-WASM sandbox using a pure-Rust WASM interpreter
-    # or an emcc-compiled wasm3 build.
+    "dep:wasmi",
 ]
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
@@ -118,6 +115,10 @@ web-sys      = { version = "0.3.104", optional = true, features = [
     "console",
 ] }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+
+# Pure-Rust WASM interpreter for WASM-in-WASM sandbox (replaces deferred wasm3 dependency).
+# wasmi 0.38 is the latest stable release that cross-compiles to wasm32-unknown-unknown.
+wasmi        = { version = "0.38", optional = true, default-features = false, features = ["std"] }
 
 # ─── Dev dependencies ──────────────────────────────────────────────────────────
 [dev-dependencies]
