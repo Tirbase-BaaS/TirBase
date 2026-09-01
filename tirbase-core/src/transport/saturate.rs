@@ -365,6 +365,74 @@ fn decode_multibase_z(s: &str) -> Option<Vec<u8>> {
     bs58::decode(s).into_vec().ok()
 }
 
+// ─── Pub(crate) test helpers ──────────────────────────────────────────────────
+//
+// These are available to other test modules (e.g. tests/properties.rs) that need
+// to construct real Biscuit tokens for Property 20 testing without duplicating
+// the token-creation logic.
+
+/// Build a root CA keypair and create a valid disaster-alert Biscuit token.
+/// Returns `(token_bytes, ca_public_key_bytes)`.
+///
+/// Available only in `#[cfg(test)]` builds (property tests and unit tests).
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(crate) fn make_disaster_alert_token_for_test(ttl_secs: u64) -> (Vec<u8>, Vec<u8>) {
+    use biscuit_auth::{builder::Algorithm, builder_ext::BuilderExt, Biscuit, KeyPair, PrivateKey};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    let kp = KeyPair::new();
+    let private_bytes = kp.private().to_bytes().to_vec();
+    let public_bytes = kp.public().to_bytes().to_vec();
+
+    let now = SystemTime::now();
+    let expiry = now + Duration::from_secs(ttl_secs);
+    let issued_secs = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+
+    let token = Biscuit::builder()
+        .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
+        .fact(format!("role(\"manager\")").as_str()).unwrap()
+        .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
+        .fact("caveat(\"disaster-alert\")").unwrap()
+        .check_expiration_date(expiry)
+        .build(&KeyPair::from(
+            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+        ))
+        .unwrap();
+
+    (token.to_vec().unwrap(), public_bytes)
+}
+
+/// Build a root CA keypair and create a Biscuit token WITHOUT the disaster-alert caveat.
+/// Returns `(token_bytes, ca_public_key_bytes)`.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<u8>, Vec<u8>) {
+    use biscuit_auth::{builder::Algorithm, builder_ext::BuilderExt, Biscuit, KeyPair, PrivateKey};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    let kp = KeyPair::new();
+    let private_bytes = kp.private().to_bytes().to_vec();
+    let public_bytes = kp.public().to_bytes().to_vec();
+
+    let issued_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
+
+    let token = Biscuit::builder()
+        .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
+        .fact(format!("role(\"manager\")").as_str()).unwrap()
+        .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
+        // Intentionally NO disaster-alert caveat
+        .check_expiration_date(expiry)
+        .build(&KeyPair::from(
+            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+        ))
+        .unwrap();
+
+    (token.to_vec().unwrap(), public_bytes)
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

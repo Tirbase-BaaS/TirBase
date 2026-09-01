@@ -2,6 +2,58 @@
 //!
 //! Uses `proptest` with `ProptestConfig::with_cases(200)` on every test block.
 //! Tests gated on `#[cfg(feature = "native")]` require a live SQLite connection.
+//!
+//! # End-to-End Test Gap Tracking (Task 22)
+//!
+//! The following properties have documented gaps where full end-to-end verification
+//! cannot be achieved in the current in-process test environment:
+//!
+//! ## Property 1 — Cross-Build State Convergence (Req 1.4)
+//! **Gap:** The test verifies Lamport clock equality between two in-process engines
+//! (both compiled to the same `native` target).  True byte-for-byte cross-build
+//! parity — comparing WASM module output against native binary output on identical
+//! input — requires running the WASM build under `wasm-bindgen-test` or
+//! `wasmtime run` and comparing serialised Local Store state against a native
+//! build's output.  This cannot be done within a single `cargo test` invocation.
+//!
+//! **Mitigation:** The WASM build compiles without errors (`cargo check --no-default-features
+//! --features wasm --target wasm32-unknown-unknown`), `wasm_tests.rs` confirms the
+//! WASM in-memory store round-trips correctly, and the Automerge library's own
+//! cross-platform convergence guarantees provide the underlying correctness assurance.
+//! The Migration_Delta corpus in Property 1 explicitly exercises the `wasmi`/`wasmtime`
+//! divergence risk path.
+//!
+//! ## Properties 5 / 14 — Durability via Live Quorum (Req 3.2, 14.2)
+//! **Gap:** Tier-1 durability requires K peers to each return a signed receipt.
+//! In the current test harness `DurabilitySubsystem` operates against mock receipts.
+//! A live quorum requires two or more networked devices (or two in-process tokio tasks
+//! that each spin up a full `CoreHandle` with distinct key identities and communicate
+//! over a loopback libp2p Swarm).
+//!
+//! **Mitigation:** `durability/` unit tests cover K-of-N quorum formation with
+//! real Ed25519 signatures and state-hash verification.  Property 5 verifies the
+//! write-before-acknowledge SQLite durability guarantee directly.  The live
+//! multi-peer quorum path is deferred to the integration test suite in
+//! `durability/integration_tests.rs` (post-v1).
+//!
+//! ## Property 20 — Saturate Mode Lease State Machine (Req 13)
+//! **Gap:** The heartbeat renewal path (invariant from Req 13.4) is exercised by
+//! `saturate::tests::renew_extends_lease_by_60_minutes` as a unit test.  The
+//! proptest for Property 20 does not include a `renew()` case because proptest
+//! cannot easily generate valid time-ordered sequences of activation + renewal
+//! events with distinct Biscuit tokens without a custom strategy.  The 30-case
+//! limit was imposed to avoid Biscuit's per-process Datalog execution budget.
+//!
+//! **Mitigation:** The four `prop_20_biscuit` sub-properties cover invariants (a)–(d)
+//! with real tokens.  The renewal path is fully covered by the named unit test above.
+//!
+//! ## Properties 2 / 3 / 4 — Multi-Device CRDT Sync (Req 4.5, 4.7)
+//! **Gap:** True multi-device sync over a live P2P mesh is not exercised.  The
+//! properties test CRDT merge semantics in isolation (no transport layer).
+//!
+//! **Mitigation:** This is a known v1 limitation.  Multi-device mesh sync requires
+//! two or more live peers communicating over a loopback libp2p Swarm — a capability
+//! deferred to `durability/integration_tests.rs` post-v1.
 
 #![allow(dead_code, unused_imports, unused_variables, clippy::too_many_arguments)]
 
@@ -1246,39 +1298,153 @@ proptest! {
         lease_duration_secs in 1i64..=7200i64,
         tick_offset in 1i64..=7201i64,
     ) {
-        // Test invariants (a) and (d): expiry without renewal reverts to NORMAL.
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
-
-        // Directly inject SATURATE state (bypass Biscuit for this property).
-        // We do this by manually constructing the scenario using tick().
         use crate::transport::saturate::SaturateLease;
 
-        // Access the state machine's internal fields through its public API only.
-        // Since we can't easily activate (requires Biscuit), we test the tick expiry path.
-
-        // Invariant (b): terminate() with 0 valid sigs preserves NORMAL mode.
-        sm.terminate(vec![], b"msg", 0).unwrap();  // no-op in NORMAL
+        // ── Invariant (b): terminate() with 0 sigs preserves NORMAL mode ────
+        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        sm.terminate(vec![], b"msg", 0).unwrap();
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(b): NORMAL must be preserved");
 
-        // Invariant (c): absent token returns error.
+        // ── Invariant (c): absent token returns error, mode unchanged ────────
         let err = sm.activate("did:key:test".to_string(), &[], 0).unwrap_err();
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): mode preserved on bad token");
 
-        // Invariant (d): tick in NORMAL is a no-op.
+        // ── Invariant (d): tick in NORMAL is a no-op ─────────────────────────
         sm.tick(i64::MAX);
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(d): NORMAL survives tick");
+    }
+}
 
-        // Test lease expiry via a manually constructed state machine.
-        let mut sm2 = SaturateModeStateMachine::new(2, vec![]);
-        // Force SATURATE state using the test helper — we use the same approach
-        // as the scheduler tests: set the field directly isn't possible from outside,
-        // so we use the terminate no-op in normal and verify the tick path.
-        // Instead, simulate by testing that a tick at a future time is a no-op in NORMAL.
-        sm2.tick(0);
-        prop_assert_eq!(sm2.state(), SaturateState::Normal);
-        sm2.tick(i64::MAX);
-        prop_assert_eq!(sm2.state(), SaturateState::Normal,
-            "tick never changes NORMAL state");
+/// Property 20 (continued) — Full SATURATE activation and invariants (a)–(d)
+/// with a real Biscuit token.  Native-only because Biscuit token creation
+/// requires the `biscuit-auth` crate which is a native-feature dependency.
+///
+/// Cases are intentionally limited to 30 per sub-property because each
+/// iteration creates and verifies a fresh Biscuit token.  Biscuit's Datalog
+/// engine has an in-process global execution budget; running 200 verifications
+/// per test (× 4 sub-tests = 800 total) exhausts that budget and causes
+/// spurious "Reached Datalog execution limits" failures.  30 cases per
+/// sub-property is enough to cover the full SATURATE path while staying
+/// well within the budget.
+///
+/// Validates: Requirements 13.1, 13.3, 13.4, 13.5, 13.6, 13.7
+#[cfg(all(test, feature = "native"))]
+mod prop_20_biscuit {
+    use super::*;
+    use crate::transport::saturate::{
+        SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS,
+        make_disaster_alert_token_for_test, make_token_without_disaster_alert_for_test,
+    };
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(30))]
+
+        /// Invariant (a): device is in SATURATE iff a valid Lease exists.
+        #[test]
+        fn prop_20a_saturate_iff_valid_lease_exists(
+            _dummy in 0u8..=0u8,
+        ) {
+            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let now_sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            // Before activation: must be NORMAL.
+            prop_assert_eq!(sm.state(), SaturateState::Normal);
+            prop_assert!(sm.lease().is_none());
+
+            // After valid activation: must be SATURATE with a future lease.
+            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                .expect("activate must succeed");
+            prop_assert_eq!(sm.state(), SaturateState::Saturate, "(a): must be in SATURATE");
+            let lease = sm.lease().expect("lease must exist after activation");
+            prop_assert!(
+                lease.expires_at > now_sec,
+                "(a): lease.expires_at must be in the future: expires={} now={}",
+                lease.expires_at, now_sec
+            );
+            prop_assert_eq!(
+                lease.expires_at,
+                now_sec + SATURATE_LEASE_DURATION_SECS,
+                "(a): lease duration must be exactly 60 minutes"
+            );
+        }
+
+        /// Invariant (b): Lease Termination Delta with < M sigs leaves mode unchanged.
+        #[test]
+        fn prop_20b_insufficient_termination_sigs_preserve_mode(
+            _dummy in 0u8..=0u8,
+        ) {
+            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+            // threshold_m = 2, so 1 sig is insufficient.
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let now_sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                .expect("activate");
+
+            // 0 termination signatures → must stay SATURATE.
+            let _ = sm.terminate(vec![], b"term_msg", now_sec);
+            prop_assert_eq!(
+                sm.state(),
+                SaturateState::Saturate,
+                "(b): insufficient sigs must leave SATURATE unchanged"
+            );
+        }
+
+        /// Invariant (c): invalid/missing token preserves current mode.
+        #[test]
+        fn prop_20c_invalid_token_preserves_mode(
+            _dummy in 0u8..=0u8,
+        ) {
+            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let now_sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            // In NORMAL: absent token returns error, mode unchanged.
+            sm.activate("did:key:test".to_string(), &[], now_sec).unwrap_err();
+            prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): NORMAL preserved");
+
+            // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
+            let (bad_token, bad_ca_pub) = make_token_without_disaster_alert_for_test(3600);
+            let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub);
+            sm2.activate("did:key:test".to_string(), &bad_token, now_sec).unwrap_err();
+            prop_assert_eq!(sm2.state(), SaturateState::Normal, "(c): NORMAL preserved on no-caveat token");
+        }
+
+        /// Invariant (d): lease expiry without renewal reverts to NORMAL.
+        #[test]
+        fn prop_20d_lease_expiry_reverts_to_normal(
+            _dummy in 0u8..=0u8,
+        ) {
+            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let now_sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+
+            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                .expect("activate");
+            prop_assert_eq!(sm.state(), SaturateState::Saturate);
+
+            // Advance clock past lease expiry.
+            sm.tick(now_sec + SATURATE_LEASE_DURATION_SECS + 1);
+            prop_assert_eq!(
+                sm.state(),
+                SaturateState::Normal,
+                "(d): must revert to NORMAL after lease expiry"
+            );
+            prop_assert!(sm.lease().is_none(), "(d): lease must be cleared after expiry");
+        }
     }
 }
 
