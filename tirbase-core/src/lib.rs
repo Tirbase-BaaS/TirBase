@@ -49,6 +49,10 @@ pub mod schema;
 pub mod store;
 pub mod transport;
 
+// ─── Property-based test suite (Task 15) ─────────────────────────────────────
+#[cfg(test)]
+mod tests;
+
 // ─── WASM-bindgen exports ─────────────────────────────────────────────────────
 // When building for the TypeScript SDK (wasm target), key API entry points are
 // exported with `#[wasm_bindgen]`. On the native build these annotations are
