@@ -1,4 +1,6 @@
 //! CapabilityManager — Biscuit token verification, TrustLevel state machine (Req 8).
+//!
+//! Also re-exports the `RevocationSubsystem` (Req 9) for use by the API layer.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -7,9 +9,13 @@ pub mod revocation;
 pub mod root_ca;
 pub mod trust;
 
+pub use revocation::{
+    DeviceRevocationStatus, ManagerSignature, PendingRevocationStore, RevocationDelta,
+    RevocationStatus, RevocationSubsystem,
+};
+
 use crate::api::types::{TrustLevel, UnverifiedWarning};
 use crate::errors::TirBaseError;
-use revocation::PendingRevocationStore;
 use root_ca::RootCaRegistry;
 use trust::TrustLevelStateMachine;
 
@@ -20,7 +26,7 @@ pub struct CapabilityManager {
     trust_state: TrustLevelStateMachine,
     /// Read-only registry of root CA public keys.
     root_ca_registry: RootCaRegistry,
-    /// Pending M-of-N revocation accumulation.
+    /// Pending M-of-N revocation accumulation (retained for legacy callers).
     pending_revocations: PendingRevocationStore,
     /// M threshold for revocation (minimum signatures required).
     revocation_m: usize,
