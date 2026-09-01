@@ -182,6 +182,56 @@ pub fn clear_row_contamination(table: &str, row_key: &str) -> Result<(), TirBase
     Ok(())
 }
 
+// ─── WASM delta-row index ─────────────────────────────────────────────────────
+
+/// Maps `delta_id -> Vec<(table, row_key)>` so `resolve_affected_rows` can look
+/// up which rows were last written by a given delta on the WASM build.
+///
+/// Written to by `record_delta_row`; read by `rows_by_delta_id`.
+/// The index is append-only per delta — entries are never removed.
+#[cfg(not(feature = "native"))]
+thread_local! {
+    pub(crate) static WASM_DELTA_INDEX: std::cell::RefCell<
+        std::collections::HashMap<crate::crdt::delta::DeltaId, Vec<(String, String)>>
+    > = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Record that `delta_id` wrote `(table, row_key)` into the WASM in-memory
+/// projection store.
+///
+/// Call this whenever a WASM projection upsert occurs so that the CCE can
+/// later resolve which rows are affected by a contaminated delta (Req 10.7).
+/// Calling this multiple times with the same `(delta_id, table, row_key)` is
+/// idempotent — duplicates are deduplicated before storage.
+#[cfg(not(feature = "native"))]
+pub fn record_delta_row(
+    delta_id: &crate::crdt::delta::DeltaId,
+    table: &str,
+    row_key: &str,
+) {
+    WASM_DELTA_INDEX.with(|idx| {
+        let mut map = idx.borrow_mut();
+        let entry = map.entry(*delta_id).or_default();
+        let pair = (table.to_string(), row_key.to_string());
+        if !entry.contains(&pair) {
+            entry.push(pair);
+        }
+    });
+}
+
+/// Return all `(table, row_key)` pairs that were written by `delta_id` in the
+/// WASM in-memory projection store.
+///
+/// Returns an empty vec if `delta_id` has no recorded rows.
+#[cfg(not(feature = "native"))]
+pub fn rows_by_delta_id(
+    delta_id: &crate::crdt::delta::DeltaId,
+) -> Vec<(String, String)> {
+    WASM_DELTA_INDEX.with(|idx| {
+        idx.borrow().get(delta_id).cloned().unwrap_or_default()
+    })
+}
+
 #[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
@@ -318,5 +368,152 @@ mod tests {
             )
             .unwrap();
         assert_eq!(after_clear, 0, "must be 0 after clear");
+    }
+}
+
+#[cfg(all(test, not(feature = "native")))]
+mod wasm_tests {
+    use super::*;
+    use crate::contamination::taint::resolve_affected_rows;
+
+    // ─── Helper: clear the WASM_DELTA_INDEX between tests ────────────────────
+    fn clear_delta_index() {
+        WASM_DELTA_INDEX.with(|idx| idx.borrow_mut().clear());
+    }
+
+    // ─── Test 1: record_delta_row then rows_by_delta_id returns correct row ──
+
+    #[test]
+    fn test_record_and_lookup_single_delta() {
+        clear_delta_index();
+
+        let delta_id = [0x01u8; 32];
+        record_delta_row(&delta_id, "reports", "row-1");
+
+        let rows = rows_by_delta_id(&delta_id);
+        assert_eq!(rows.len(), 1, "one row must be returned");
+        assert_eq!(rows[0], ("reports".to_string(), "row-1".to_string()));
+    }
+
+    // ─── Test 2: unknown delta_id returns empty vec ───────────────────────────
+
+    #[test]
+    fn test_rows_by_delta_id_unknown_returns_empty() {
+        clear_delta_index();
+
+        let unknown = [0xFFu8; 32];
+        let rows = rows_by_delta_id(&unknown);
+        assert!(rows.is_empty(), "unknown delta must yield empty vec");
+    }
+
+    // ─── Test 3: resolve_affected_rows with single delta ─────────────────────
+    //
+    // **Validates: Requirements 10.7**
+
+    #[test]
+    fn test_resolve_affected_rows_single_delta() {
+        clear_delta_index();
+
+        let delta_id = [0x02u8; 32];
+        record_delta_row(&delta_id, "orders", "order-1");
+
+        let result = resolve_affected_rows(&[delta_id], delta_id)
+            .expect("resolve_affected_rows must succeed");
+
+        assert_eq!(result.len(), 1, "one AffectedRow expected");
+        let row = &result[0];
+        assert_eq!(row.table, "orders");
+        assert_eq!(row.row_key, "order-1");
+        assert_eq!(row.delta_id, delta_id);
+    }
+
+    // ─── Test 4: deduplication — two deltas writing the same row ─────────────
+    //
+    // The first delta_id in the slice wins for the delta_id association.
+    // Only one AffectedRow must be returned.
+    //
+    // **Validates: Requirements 10.7**
+
+    #[test]
+    fn test_resolve_affected_rows_deduplication() {
+        clear_delta_index();
+
+        let delta_a = [0x0Au8; 32];
+        let delta_b = [0x0Bu8; 32];
+
+        // Both deltas wrote the same (table, row_key).
+        record_delta_row(&delta_a, "users", "user-1");
+        record_delta_row(&delta_b, "users", "user-1");
+
+        let result = resolve_affected_rows(&[delta_a, delta_b], delta_a)
+            .expect("resolve must succeed");
+
+        assert_eq!(
+            result.len(),
+            1,
+            "two deltas writing the same row must produce one AffectedRow"
+        );
+        // First writer (delta_a) should be the attributed delta_id.
+        assert_eq!(result[0].delta_id, delta_a);
+        assert_eq!(result[0].table, "users");
+        assert_eq!(result[0].row_key, "user-1");
+    }
+
+    // ─── Test 5: multiple deltas across multiple tables ───────────────────────
+    //
+    // **Validates: Requirements 10.7**
+
+    #[test]
+    fn test_resolve_affected_rows_multiple_deltas_multiple_tables() {
+        clear_delta_index();
+
+        let delta_x = [0x10u8; 32];
+        let delta_y = [0x11u8; 32];
+
+        record_delta_row(&delta_x, "products", "prod-1");
+        record_delta_row(&delta_x, "products", "prod-2");
+        record_delta_row(&delta_y, "shipments", "ship-1");
+
+        let result = resolve_affected_rows(&[delta_x, delta_y], delta_x)
+            .expect("resolve must succeed");
+
+        assert_eq!(result.len(), 3, "three distinct (table, row_key) pairs expected");
+
+        // All three rows must appear.
+        let contains = |table: &str, key: &str| {
+            result.iter().any(|r| r.table == table && r.row_key == key)
+        };
+        assert!(contains("products", "prod-1"), "prod-1 missing");
+        assert!(contains("products", "prod-2"), "prod-2 missing");
+        assert!(contains("shipments", "ship-1"), "ship-1 missing");
+    }
+
+    // ─── Test 6: record_delta_row is idempotent ───────────────────────────────
+
+    #[test]
+    fn test_record_delta_row_idempotent() {
+        clear_delta_index();
+
+        let delta_id = [0x20u8; 32];
+
+        // Record the same row three times.
+        record_delta_row(&delta_id, "items", "item-1");
+        record_delta_row(&delta_id, "items", "item-1");
+        record_delta_row(&delta_id, "items", "item-1");
+
+        let rows = rows_by_delta_id(&delta_id);
+        assert_eq!(rows.len(), 1, "duplicate records must not accumulate");
+    }
+
+    // ─── Test 7: resolve_affected_rows with empty delta list ─────────────────
+
+    #[test]
+    fn test_resolve_affected_rows_empty_delta_list() {
+        clear_delta_index();
+
+        let result = resolve_affected_rows(&[], [0x00u8; 32])
+            .expect("resolve with empty list must succeed");
+
+        assert!(result.is_empty(), "empty delta list must produce no AffectedRows");
     }
 }

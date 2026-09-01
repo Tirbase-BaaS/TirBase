@@ -215,11 +215,41 @@ pub(crate) fn resolve_affected_rows(
     Ok(affected)
 }
 
-/// WASM stub for resolve_affected_rows — returns empty (no SQLite tables to query).
+/// WASM implementation of `resolve_affected_rows`.
+///
+/// Queries the `WASM_DELTA_INDEX` in `store/projection` to find all
+/// `(table, row_key)` pairs recorded for each delta in `delta_ids`.
+/// Deduplicates by `(table, row_key)` — the first delta_id encountered wins.
+///
+/// Satisfies Req 10.7: the ICO `affected_rows` is populated on WASM builds
+/// whenever `record_delta_row` has been called to track projection writes.
 #[cfg(not(feature = "native"))]
 pub(crate) fn resolve_affected_rows(
-    _delta_ids: &[DeltaId],
-    _root_delta_id: DeltaId,
+    delta_ids: &[DeltaId],
+    root_delta_id: DeltaId,
 ) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
-    Ok(vec![])
+    use crate::contamination::incident::AffectedRow;
+    use std::collections::HashMap;
+
+    // Map (table, row_key) -> most-recent delta_id for deduplication.
+    let mut seen: HashMap<(String, String), DeltaId> = HashMap::new();
+
+    for &delta_id in delta_ids {
+        let rows = crate::store::projection::rows_by_delta_id(&delta_id);
+        for (table, row_key) in rows {
+            // First writer wins for the delta_id association.
+            seen.entry((table, row_key)).or_insert(delta_id);
+        }
+    }
+
+    let affected = seen
+        .into_iter()
+        .map(|((table, row_key), delta_id)| AffectedRow {
+            table,
+            row_key,
+            delta_id,
+        })
+        .collect();
+
+    Ok(affected)
 }
