@@ -94,7 +94,7 @@ zstd         = { version = "0.13.3", optional = true }
 
 # P2P networking
 libp2p       = { version = "0.56.0", optional = true, features = [
-    "mdns", "noise", "tcp", "tokio", "gossipsub", "identify", "ping",
+    "mdns", "noise", "tcp", "tokio", "gossipsub", "identify", "ping", "yamux", "macros",
 ] }
 
 # Noise protocol session cryptography

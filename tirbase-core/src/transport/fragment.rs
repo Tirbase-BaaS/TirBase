@@ -8,9 +8,10 @@
 
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
+use serde::{Deserialize, Serialize};
 
 /// A single fragment of a larger Delta payload.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaFragment {
     /// Identifies which Delta this fragment belongs to.
     pub delta_id: [u8; 32],
@@ -315,7 +316,7 @@ mod tests {
 
     #[test]
     fn reassembly_buffer_invalid_index_returns_error() {
-        let mut bad_frag = DeltaFragment {
+        let bad_frag = DeltaFragment {
             delta_id: DELTA_ID,
             fragment_index: 5, // out of bounds for total=3
             total_fragments: 3,
