@@ -1,8 +1,14 @@
 //! DurabilityReceipt — peer-signed state-hash receipt for Tier-1 durability (Req 14.6).
+//!
+//! Provides the data model and signature-verification logic for `DurabilityReceipt`.
+//! A receipt is accepted toward Quorum only when both its Ed25519 signature **and**
+//! the state-hash match are verified successfully.
 
 #![allow(dead_code)]
 
 use crate::crdt::delta::{Did, Ed25519Signature};
+use crate::errors::TirBaseError;
+use crate::identity::keypair;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -18,7 +24,7 @@ pub struct DurabilityReceipt {
     pub state_hash: [u8; 32],
     /// The peer that issued this receipt.
     pub issuer_did: Did,
-    /// Ed25519 signature over `(state_hash || delta_set_id)`.
+    /// Ed25519 signature over `receipt_signing_payload(state_hash, receipt_id)`.
     pub issuer_signature: Ed25519Signature,
     /// Spatial diversity tag of the issuing peer (squad or tunnel_sector).
     pub spatial_tag: Option<String>,
@@ -43,23 +49,105 @@ pub struct BeaconToken {
     pub issued_at: i64,
 }
 
+/// Produce the canonical signing payload for a `DurabilityReceipt`.
+///
+/// `payload = state_hash (32 bytes) || receipt_id_bytes (16 bytes)`
+///
+/// Using a deterministic, fixed-length payload prevents length-extension
+/// attacks and ambiguity between fields.
+pub fn receipt_signing_payload(state_hash: &[u8; 32], receipt_id: &ReceiptId) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(48);
+    payload.extend_from_slice(state_hash);
+    payload.extend_from_slice(receipt_id.as_bytes());
+    payload
+}
+
+/// Verify a `DurabilityReceipt` against a known issuer public key and the
+/// expected state hash (Req 14.6).
+///
+/// Both checks must pass before the receipt is counted toward Quorum:
+/// 1. Ed25519 signature over `receipt_signing_payload(state_hash, receipt_id)`.
+/// 2. The receipt's `state_hash` matches the `expected_state_hash`.
+///
+/// On failure the rejection is logged with the peer DID and failure reason,
+/// and a `SignatureVerificationFailed` (or distinct) error is returned.
+pub fn verify_receipt(
+    receipt: &DurabilityReceipt,
+    issuer_public_key: &[u8; 32],
+    expected_state_hash: &[u8; 32],
+) -> Result<(), TirBaseError> {
+    // Check 1: state-hash match.
+    if &receipt.state_hash != expected_state_hash {
+        let reason = format!(
+            "state-hash mismatch for peer {}: expected {}, got {}",
+            receipt.issuer_did,
+            hex::encode(expected_state_hash),
+            hex::encode(receipt.state_hash),
+        );
+        log_receipt_rejection(&receipt.issuer_did, &reason);
+        return Err(TirBaseError::SignatureVerificationFailed { reason });
+    }
+
+    // Check 2: Ed25519 signature.
+    let payload = receipt_signing_payload(&receipt.state_hash, &receipt.id);
+    keypair::verify(issuer_public_key, &payload, &receipt.issuer_signature).map_err(|e| {
+        let reason = format!(
+            "receipt signature invalid for peer {}: {}",
+            receipt.issuer_did, e
+        );
+        log_receipt_rejection(&receipt.issuer_did, &reason);
+        TirBaseError::SignatureVerificationFailed { reason }
+    })?;
+
+    Ok(())
+}
+
+/// Log a receipt rejection (writes to stderr in production; testable via
+/// the structured log channel in the diagnostics module — Task 16).
+fn log_receipt_rejection(peer_did: &str, reason: &str) {
+    // In v1 this uses eprintln! as the structured log channel is implemented
+    // in Task 16.  The caller is responsible for constructing the full reason
+    // string that identifies both the peer DID and the failure reason (Req 14.6).
+    eprintln!("[durability] receipt rejected from {peer_did}: {reason}");
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::identity::keypair::{generate_keypair, sign};
 
-    fn make_beacon_token() -> BeaconToken {
-        BeaconToken {
-            beacon_did: "did:key:z6MkBeacon".to_string(),
-            beacon_signature: Ed25519Signature(vec![0x01; 64]),
-            epoch: 42,
-            location_claim: "sector-7G".to_string(),
+    /// Create a properly signed receipt for testing.
+    fn make_signed_receipt(
+        state_hash: [u8; 32],
+        secret_key: &[u8; 32],
+        public_key_did: &str,
+        spatial_tag: Option<&str>,
+    ) -> DurabilityReceipt {
+        let id = Uuid::now_v7();
+        let payload = receipt_signing_payload(&state_hash, &id);
+        let signature = sign(secret_key, &payload).expect("sign");
+        DurabilityReceipt {
+            id,
+            state_hash,
+            issuer_did: public_key_did.to_string(),
+            issuer_signature: signature,
+            spatial_tag: spatial_tag.map(|s| s.to_string()),
+            beacon_token: None,
             issued_at: 1_720_000_000_000_000,
         }
     }
 
     #[test]
     fn beacon_token_serde_round_trip() {
-        let bt = make_beacon_token();
+        let bt = BeaconToken {
+            beacon_did: "did:key:z6MkBeacon".to_string(),
+            beacon_signature: Ed25519Signature(vec![0x01; 64]),
+            epoch: 42,
+            location_claim: "sector-7G".to_string(),
+            issued_at: 1_720_000_000_000_000,
+        };
         let json = serde_json::to_string(&bt).expect("serialise BeaconToken");
         let decoded: BeaconToken = serde_json::from_str(&json).expect("deserialise BeaconToken");
         assert_eq!(bt.beacon_did, decoded.beacon_did);
@@ -92,13 +180,20 @@ mod tests {
 
     #[test]
     fn durability_receipt_with_beacon_round_trip() {
+        let bt = BeaconToken {
+            beacon_did: "did:key:z6MkBeacon".to_string(),
+            beacon_signature: Ed25519Signature(vec![0x01; 64]),
+            epoch: 42,
+            location_claim: "sector-7G".to_string(),
+            issued_at: 1_720_000_000_000_000,
+        };
         let receipt = DurabilityReceipt {
             id: Uuid::now_v7(),
             state_hash: [0xBB; 32],
             issuer_did: "did:key:z6MkPeer2".to_string(),
             issuer_signature: Ed25519Signature(vec![0x03; 64]),
             spatial_tag: None,
-            beacon_token: Some(make_beacon_token()),
+            beacon_token: Some(bt),
             issued_at: 1_720_000_002_000_000,
         };
 
@@ -111,5 +206,48 @@ mod tests {
             decoded.beacon_token.unwrap().epoch,
             receipt.beacon_token.unwrap().epoch
         );
+    }
+
+    // ── verify_receipt ───────────────────────────────────────────────────────
+
+    #[test]
+    fn verify_receipt_valid_passes() {
+        let (secret, public) = generate_keypair().unwrap();
+        let state_hash = [0xDE; 32];
+        let receipt = make_signed_receipt(state_hash, &secret, "did:key:z6MkP1", Some("squad-1"));
+        assert!(verify_receipt(&receipt, &public, &state_hash).is_ok());
+    }
+
+    #[test]
+    fn verify_receipt_state_hash_mismatch_fails() {
+        let (secret, public) = generate_keypair().unwrap();
+        let state_hash = [0xDE; 32];
+        let receipt = make_signed_receipt(state_hash, &secret, "did:key:z6MkP2", None);
+        let wrong_hash = [0xFF; 32];
+        let result = verify_receipt(&receipt, &public, &wrong_hash);
+        assert!(result.is_err(), "mismatched state_hash must be rejected");
+    }
+
+    #[test]
+    fn verify_receipt_tampered_signature_fails() {
+        let (secret, public) = generate_keypair().unwrap();
+        let state_hash = [0xAB; 32];
+        let mut receipt = make_signed_receipt(state_hash, &secret, "did:key:z6MkP3", None);
+        // Flip first byte of signature
+        if let Some(b) = receipt.issuer_signature.0.first_mut() {
+            *b ^= 0xFF;
+        }
+        let result = verify_receipt(&receipt, &public, &state_hash);
+        assert!(result.is_err(), "tampered signature must be rejected");
+    }
+
+    #[test]
+    fn verify_receipt_wrong_public_key_fails() {
+        let (secret, _public) = generate_keypair().unwrap();
+        let (_other_secret, other_public) = generate_keypair().unwrap();
+        let state_hash = [0xCD; 32];
+        let receipt = make_signed_receipt(state_hash, &secret, "did:key:z6MkP4", None);
+        let result = verify_receipt(&receipt, &other_public, &state_hash);
+        assert!(result.is_err(), "wrong public key must be rejected");
     }
 }
