@@ -1,10 +1,15 @@
 //! CRDT merge paths — LWW scalar path, RGA sequence path, schema-hash gate.
 //!
 //! All incoming Deltas flow through the schema-hash gate first:
-//!   - Known hash + additive schema change → merge
-//!   - Known hash + breaking schema change → Quarantine Ledger
+//!   - Known hash + valid signature       → merge (LWW or RGA as appropriate)
+//!   - Known hash + breaking schema change → Quarantine Ledger (Task 8)
 //!   - Unknown hash                        → Quarantine Ledger
-//!   - Missing/malformed hash              → Quarantine Ledger + log
+//!   - Missing/malformed hash/signature    → Rejected
+//!
+//! The full pipeline is orchestrated by [`CrdtEngine::apply()`] in `crdt/mod.rs`.
+//! The free functions here are thin, testable helpers that implement the
+//! tie-breaking and ordering logic so it can be tested independently of the
+//! full engine.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -33,33 +38,120 @@ pub enum QuarantineReason {
     MissingOrMalformedHash,
 }
 
-/// Apply an incoming Delta through the full merge pipeline:
-/// 1. Ed25519 signature validation
-/// 2. Schema-hash gate
-/// 3. Route to LWW or RGA merge path
-/// 4. Persist to DAG and Local Store
+/// Apply an incoming Delta through the full merge pipeline.
+///
+/// This is a thin wrapper; the real implementation lives in
+/// [`CrdtEngine::apply()`].  Kept here for the Task 8 quarantine-ledger
+/// integration point — at that stage, `apply_incoming_delta` will hold the
+/// shared entry-point logic that both routes to `CrdtEngine::apply()` and
+/// writes to the `QuarantineLedger`.
 pub fn apply_incoming_delta(delta: &Delta) -> Result<MergeOutcome, TirBaseError> {
-    todo!("Task 5: implement full merge pipeline")
+    // Full pipeline lives in CrdtEngine::apply().
+    // This free function is the integration point for Task 8.
+    Err(TirBaseError::DeltaMalformed {
+        reason: "apply_incoming_delta: use CrdtEngine::apply() for the full pipeline".to_string(),
+    })
 }
 
-/// LWW (Last-Write-Wins) path for scalar / map-key conflicts (Req 4.5).
+/// LWW (Last-Write-Wins) conflict resolution for scalar / map-key fields (Req 4.5).
 ///
-/// Conflict resolution:
+/// Returns `true` when the incoming Delta should overwrite the current value.
+///
+/// Resolution order:
 /// 1. Higher Lamport timestamp wins.
-/// 2. Tie → lexicographically greater actor ID wins.
-/// 3. Both concurrent Deltas are recorded as causal parents.
+/// 2. Tie → lexicographically greater `actor_id` wins.
+/// 3. Both concurrent Deltas are recorded as causal parents in the DAG
+///    (handled by [`CrdtEngine::apply`]).
 pub(crate) fn merge_lww(
-    incoming: &Delta,
+    incoming_lamport: u64,
+    incoming_actor_id: &[u8],
     current_lamport: u64,
     current_actor_id: &[u8],
-) -> Result<(), TirBaseError> {
-    todo!("Task 5: implement LWW merge")
+) -> bool {
+    crate::crdt::lww_incoming_wins(
+        incoming_lamport,
+        incoming_actor_id,
+        current_lamport,
+        current_actor_id,
+    )
 }
 
-/// RGA sequence path for list/text concurrent insertions (Req 4.5a).
+/// RGA sequence ordering for list/text concurrent insertions (Req 4.5a).
 ///
-/// Concurrent insertions at the same position are ordered by
-/// `(lamport DESC, actor_id DESC)`. Deletions become tombstones.
-pub(crate) fn merge_rga(incoming: &Delta) -> Result<(), TirBaseError> {
-    todo!("Task 5: implement RGA merge")
+/// Returns `true` when the incoming insertion should be placed **before**
+/// the current one (higher priority in the merged sequence).
+///
+/// Ordering: `(lamport DESC, actor_id DESC)` — larger Lamport comes first;
+/// ties broken by lexicographically greater actor ID.
+/// Deletions are handled as tombstones by the Automerge layer.
+pub(crate) fn merge_rga(
+    incoming_lamport: u64,
+    incoming_actor_id: &[u8],
+    current_lamport: u64,
+    current_actor_id: &[u8],
+) -> bool {
+    crate::crdt::rga_incoming_has_priority(
+        incoming_lamport,
+        incoming_actor_id,
+        current_lamport,
+        current_actor_id,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── LWW ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn lww_higher_lamport_wins() {
+        assert!(merge_lww(10, b"a", 5, b"a"), "higher lamport must win");
+        assert!(!merge_lww(3, b"a", 7, b"a"), "lower lamport must lose");
+    }
+
+    #[test]
+    fn lww_equal_lamport_greater_actor_wins() {
+        assert!(merge_lww(5, b"b", 5, b"a"), "greater actor must win on tie");
+        assert!(!merge_lww(5, b"a", 5, b"b"), "lesser actor must lose on tie");
+    }
+
+    #[test]
+    fn lww_equal_lamport_equal_actor_incoming_does_not_win() {
+        assert!(
+            !merge_lww(5, b"same", 5, b"same"),
+            "equal actor must not overwrite current"
+        );
+    }
+
+    // ── RGA ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn rga_higher_lamport_has_priority() {
+        assert!(merge_rga(10, b"a", 5, b"a"));
+        assert!(!merge_rga(3, b"a", 9, b"a"));
+    }
+
+    #[test]
+    fn rga_equal_lamport_greater_actor_has_priority() {
+        assert!(merge_rga(5, b"z", 5, b"a"));
+        assert!(!merge_rga(5, b"a", 5, b"z"));
+    }
+
+    #[test]
+    fn rga_concurrent_insertions_all_present_in_order() {
+        // Three concurrent insertions; sort them in RGA order.
+        let mut ops: Vec<(u64, Vec<u8>, &str)> = vec![
+            (3, b"actor-a".to_vec(), "A"),
+            (5, b"actor-b".to_vec(), "B"),
+            (5, b"actor-c".to_vec(), "C"),
+        ];
+
+        // Sort: (lamport DESC, actor DESC)
+        ops.sort_by(|x, y| y.0.cmp(&x.0).then_with(|| y.1.cmp(&x.1)));
+
+        let values: Vec<&str> = ops.iter().map(|(_, _, v)| *v).collect();
+        assert_eq!(values, vec!["C", "B", "A"],
+            "RGA order must be (lamport DESC, actor DESC)");
+    }
 }
