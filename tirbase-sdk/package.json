@@ -1,0 +1,39 @@
+{
+  "name": "@tirbase/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK wrapping the WASM-compiled tirbase-core — offline-first, local-first BaaS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "wasm/"
+  ],
+  "scripts": {
+    "build:wasm": "wasm-pack build ../tirbase-core --features wasm --target web --out-dir ../tirbase-sdk/wasm",
+    "build:ts": "tsc --project tsconfig.json",
+    "build": "npm run build:wasm && npm run build:ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "offline-first",
+    "local-first",
+    "crdt",
+    "sync",
+    "mesh",
+    "tirbase",
+    "wasm"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "eventemitter3": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "29.5.14",
+    "@types/node": "22.15.29",
+    "jest": "29.7.0",
+    "ts-jest": "29.4.0",
+    "typescript": "5.8.3"
+  }
+}
