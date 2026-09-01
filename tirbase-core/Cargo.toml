@@ -6,6 +6,9 @@ rust-version = "1.75"
 description = "TirBase — offline-first, local-first BaaS core library (Rust)"
 license = "MIT"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 # ─── Feature flags ─────────────────────────────────────────────────────────────
 # `native` and `wasm` are mutually exclusive build targets.
 # `native` is the default (Cloud Ledger and desktop/server builds).

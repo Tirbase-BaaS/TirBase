@@ -9,7 +9,7 @@
     "wasm/"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build ../tirbase-core --features wasm --target web --out-dir ../tirbase-sdk/wasm",
+    "build:wasm": "wasm-pack build ../tirbase-core --no-default-features --features wasm --target web --out-dir ../tirbase-sdk/wasm",
     "build:ts": "tsc --project tsconfig.json",
     "build": "npm run build:wasm && npm run build:ts",
     "test": "jest",

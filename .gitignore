@@ -27,3 +27,6 @@ node_modules/
 **/node_modules/
 package-lock.json
 **/package-lock.json
+
+# tirbase-sdk/wasm/ — generated WASM artefact (produced by wasm-pack, not committed)
+tirbase-sdk/wasm/
