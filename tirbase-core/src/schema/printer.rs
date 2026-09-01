@@ -89,8 +89,10 @@ fn print_default_value(dv: &DefaultValue) -> String {
         DefaultValue::Integer(i) => i.to_string(),
         DefaultValue::Real(f) => {
             // Always produce a decimal point to distinguish from integer literals.
+            // f64's Display may omit it for whole numbers (e.g. 0.0 → "0"),
+            // so we normalise here.
             let s = format!("{}", f);
-            if s.contains('.') {
+            if s.contains('.') || s.contains('e') || s.contains('E') {
                 s
             } else {
                 format!("{}.0", s)
@@ -214,11 +216,12 @@ mod tests {
 
     #[test]
     fn print_real_without_decimal_adds_dot_zero() {
-        // f64 values like 0.0 may format as "0" — printer must ensure "0.0"
-        assert_eq!(print_default_value(&DefaultValue::Real(0.0)), "0");
-        // Note: 0.0 in Rust formats as "0" with format!("{}", 0.0_f64)
-        // so we check the function handles it.
-        let s = print_default_value(&DefaultValue::Real(1.0));
-        assert!(s.contains('.') || s == "1", "got: {}", s);
+        // 0.0 in Rust formats as "0" — printer must add ".0"
+        assert_eq!(print_default_value(&DefaultValue::Real(0.0)), "0.0");
+        // 1.0 also formats as "1" — should become "1.0"
+        assert_eq!(print_default_value(&DefaultValue::Real(1.0)), "1.0");
+        // 3.14 already has a decimal — left as-is
+        let s = print_default_value(&DefaultValue::Real(3.14));
+        assert!(s.contains('.'), "should have decimal: {}", s);
     }
 }
