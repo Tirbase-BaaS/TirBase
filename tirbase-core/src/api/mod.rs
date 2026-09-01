@@ -31,8 +31,11 @@ use crate::migration::version_path::SchemaVersionPath;
 use crate::migration::SchemaMigrationEngine;
 use crate::transport::{MeshTransport, TransportConfig};
 
-// Native-only store import
+// Store import — used on both build targets
 #[cfg(feature = "native")]
+use crate::store::LocalStore;
+
+#[cfg(not(feature = "native"))]
 use crate::store::LocalStore;
 
 /// Default schema hash used when no explicit schema is configured.
@@ -43,8 +46,12 @@ const DEFAULT_SCHEMA_HASH: [u8; 32] = [0u8; 32];
 /// The main handle to a TirBase instance.
 /// Obtained by calling [`CoreHandle::init`].
 pub struct CoreHandle {
-    /// Local SQLite-backed store.
+    /// Local SQLite-backed store (native) or in-memory store (WASM).
     #[cfg(feature = "native")]
+    store: Arc<Mutex<LocalStore>>,
+
+    /// In-memory store for WASM builds.
+    #[cfg(not(feature = "native"))]
     store: Arc<Mutex<LocalStore>>,
 
     /// CRDT engine (Automerge + DAG).
@@ -143,6 +150,13 @@ impl CoreHandle {
             (store, crdt, cce)
         };
 
+        // ── WASM store (in-memory) ────────────────────────────────────────────
+        #[cfg(not(feature = "native"))]
+        let store = {
+            let store = LocalStore::open(":memory:")?;
+            Arc::new(Mutex::new(store))
+        };
+
         // ── Migration Engine ──────────────────────────────────────────────────
         let migration = SchemaMigrationEngine::new(
             [0u8; 32], // CA public key — not configured at init for v1
@@ -185,6 +199,8 @@ impl CoreHandle {
         Ok(CoreHandle {
             #[cfg(feature = "native")]
             store,
+            #[cfg(not(feature = "native"))]
+            store,
             #[cfg(feature = "native")]
             crdt,
             identity,
@@ -223,6 +239,17 @@ impl CoreHandle {
 
         // 2. Write to local store inside a SQLite transaction (Req 3.6).
         #[cfg(feature = "native")]
+        {
+            self.store
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("store mutex poisoned: {e}"),
+                })?
+                .write(table, key, &data)?;
+        }
+
+        // 2b. Write to in-memory store on WASM (Req 3.1, 3.3).
+        #[cfg(not(feature = "native"))]
         {
             self.store
                 .lock()
@@ -328,9 +355,16 @@ impl CoreHandle {
 
         #[cfg(not(feature = "native"))]
         let data = {
-            return Err(TirBaseError::LocalStoreWriteFailed {
-                reason: "read not available on WASM without storage bridge".to_string(),
-            });
+            let store = self.store.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("store mutex poisoned: {e}"),
+                }
+            })?;
+            store.read(table, key)?.ok_or_else(|| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("key '{key}' not found in table '{table}'"),
+                }
+            })?
         };
 
         let unverified_warning = self
@@ -369,7 +403,14 @@ impl CoreHandle {
         };
 
         #[cfg(not(feature = "native"))]
-        let rows: Vec<(String, serde_json::Value)> = vec![];
+        let rows = {
+            let store = self.store.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("store mutex poisoned: {e}"),
+                }
+            })?;
+            store.query(table, filter.as_ref())?
+        };
 
         let unverified_warning = self
             .capability

@@ -240,3 +240,46 @@ async fn test_init_write_read_round_trip() {
 
     assert!(!read_result.is_null(), "read result must not be null");
 }
+
+// ─── Init → Write multiple → Query all rows ───────────────────────────────────
+
+#[wasm_bindgen_test]
+async fn test_init_write_query() {
+    use js_sys::JSON;
+
+    // Re-initialise to get a fresh in-memory store.
+    crate::wasm_exports::core_init("wasm-test-query".to_string())
+        .await
+        .expect("core_init should succeed");
+
+    // Write three rows to the same table.
+    for i in 0u32..3 {
+        let json_str = format!(r#"{{"index": {i}}}"#);
+        let data = JSON::parse(&json_str).unwrap();
+        crate::wasm_exports::core_write(
+            "multi_table".to_string(),
+            format!("key-{i}"),
+            data,
+        )
+        .await
+        .expect("core_write should succeed");
+    }
+
+    // Query all rows (no filter).
+    let query_result = crate::wasm_exports::core_query(
+        "multi_table".to_string(),
+        wasm_bindgen::JsValue::NULL,
+    )
+    .await
+    .expect("core_query should succeed");
+
+    // Result is a JSON array — parse and check length.
+    let arr_str = js_sys::JSON::stringify(&query_result)
+        .expect("stringify")
+        .as_string()
+        .expect("string");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&arr_str).expect("parse json");
+    let rows = parsed.as_array().expect("array");
+    assert_eq!(rows.len(), 3, "query must return all 3 written rows");
+}
