@@ -1,0 +1,114 @@
+// TirBase Schema Definition Language grammar (Req 20.1)
+//
+// Example:
+//   schema {
+//     version = "1.0.0"
+//
+//     table users {
+//       compaction = aggressive(500)
+//
+//       id     TEXT    NOT NULL
+//       name   TEXT    NOT NULL
+//       active BOOLEAN DEFAULT true
+//       score  REAL    DEFAULT 0.0
+//
+//       PRIMARY KEY (id)
+//       UNIQUE (name)
+//     }
+//   }
+
+// ─── Whitespace and comments ──────────────────────────────────────────────────
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// ─── Primitives ───────────────────────────────────────────────────────────────
+
+// Identifiers: letters, digits, underscores; must start with letter or underscore
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// Semver version string: three dot-separated integers
+semver = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+
+// String literal (double-quoted, no escape sequences needed for v1)
+string_literal = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+// Numeric literals
+integer_literal = @{ "-"? ~ ASCII_DIGIT+ }
+real_literal    = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* }
+
+// Boolean / null literals
+bool_true  = { "true" }
+bool_false = { "false" }
+null_lit   = { "null" }
+
+// A default value
+default_value = {
+    real_literal
+  | integer_literal
+  | string_literal
+  | bool_true
+  | bool_false
+  | null_lit
+}
+
+// ─── Field type ───────────────────────────────────────────────────────────────
+
+field_type = {
+    "TEXT"
+  | "INTEGER"
+  | "REAL"
+  | "BLOB"
+  | "BOOLEAN"
+}
+
+// ─── Compaction policy ────────────────────────────────────────────────────────
+
+compaction_aggressive = { "aggressive" ~ "(" ~ integer_literal ~ ")" }
+compaction_none       = { "none" }
+compaction_directive  = { "compaction" ~ "=" ~ (compaction_aggressive | compaction_none) }
+
+// ─── Field definition ─────────────────────────────────────────────────────────
+
+not_null_modifier = { "NOT" ~ "NULL" }
+default_modifier  = { "DEFAULT" ~ default_value }
+
+field_def = {
+    ident
+    ~ field_type
+    ~ not_null_modifier?
+    ~ default_modifier?
+}
+
+// ─── Constraints ─────────────────────────────────────────────────────────────
+
+column_list = { "(" ~ ident ~ ("," ~ ident)* ~ ")" }
+
+primary_key_constraint = { "PRIMARY" ~ "KEY" ~ column_list }
+unique_constraint      = { "UNIQUE" ~ column_list }
+
+constraint = { primary_key_constraint | unique_constraint }
+
+// ─── Table definition ────────────────────────────────────────────────────────
+
+table_item = { constraint | field_def }
+
+table_def = {
+    "table" ~ ident ~ "{"
+    ~ compaction_directive
+    ~ table_item*
+    ~ "}"
+}
+
+// ─── Schema root ─────────────────────────────────────────────────────────────
+
+version_directive = { "version" ~ "=" ~ string_literal }
+
+schema = {
+    SOI
+    ~ "schema" ~ "{"
+    ~ version_directive
+    ~ table_def*
+    ~ "}"
+    ~ EOI
+}

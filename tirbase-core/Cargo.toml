@@ -80,6 +80,10 @@ serde_bytes      = "0.11.19"
 # Async traits
 async-trait      = "0.1.88"
 
+# PEG parser for schema definition language
+pest             = "2.7"
+pest_derive      = "2.7"
+
 # ─── Native-only dependencies ──────────────────────────────────────────────────
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rusqlite     = { version = "0.40.2", optional = true }

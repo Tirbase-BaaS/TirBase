@@ -6,6 +6,7 @@ pub mod hash;
 pub mod parser;
 pub mod printer;
 
+use crate::schema::hash::{compute_schema_identifier_hash, SchemaIdentifierHash};
 use crate::store::compaction::CompactionPolicy;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +18,38 @@ pub struct Schema {
     pub tables: Vec<TableDef>,
     /// Semver string, e.g. "1.0.0".
     pub version: String,
+}
+
+impl Schema {
+    /// Compute the `SchemaIdentifierHash` for this schema (Req 17.1, 20.5).
+    ///
+    /// The hash is deterministic regardless of table or field declaration order
+    /// (Property 15). It delegates to the single authoritative implementation
+    /// in `schema/hash.rs`, which is also re-exported from `crdt/schema_hash.rs`
+    /// to avoid duplicate logic (Req 20.5).
+    pub fn identifier_hash(&self) -> SchemaIdentifierHash {
+        // Build the input slice expected by `compute_schema_identifier_hash`.
+        let table_data: Vec<(&str, Vec<(&str, &str)>)> = self
+            .tables
+            .iter()
+            .map(|t| {
+                let fields: Vec<(&str, &str)> = t
+                    .fields
+                    .iter()
+                    .map(|f| (f.name.as_str(), f.field_type.canonical_str()))
+                    .collect();
+                (t.name.as_str(), fields)
+            })
+            .collect();
+
+        // Convert to the double-reference slice form expected by the hash fn.
+        let table_refs: Vec<(&str, &[(&str, &str)])> = table_data
+            .iter()
+            .map(|(name, fields)| (*name, fields.as_slice()))
+            .collect();
+
+        compute_schema_identifier_hash(&table_refs)
+    }
 }
 
 /// A table definition within a schema.
