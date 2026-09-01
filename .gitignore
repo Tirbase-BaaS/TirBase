@@ -22,3 +22,8 @@ Thumbs.db
 .env.local
 
 .kiro
+# Node / TypeScript SDK (tirbase-sdk)
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
