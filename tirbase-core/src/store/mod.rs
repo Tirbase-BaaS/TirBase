@@ -25,6 +25,9 @@ use compaction::{compact_table, should_compact, CompactionPolicy};
 pub struct LocalStore {
     #[cfg(feature = "native")]
     conn: rusqlite::Connection,
+    /// In-memory backing store for WASM builds (table → key → value).
+    #[cfg(not(feature = "native"))]
+    tables: std::collections::HashMap<String, std::collections::HashMap<String, Value>>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -304,23 +307,55 @@ impl LocalStore {
 #[cfg(not(feature = "native"))]
 impl LocalStore {
     pub fn open(_path: &str) -> Result<Self, TirBaseError> {
-        todo!("Task 14: wire WASM LocalStore bridge")
+        Ok(LocalStore {
+            tables: std::collections::HashMap::new(),
+        })
     }
 
-    pub fn write(&mut self, _table: &str, _key: &str, _data: &Value) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM write bridge")
+    pub fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
+        self.tables
+            .entry(table.to_string())
+            .or_default()
+            .insert(key.to_string(), data.clone());
+        Ok(())
     }
 
-    pub fn read(&self, _table: &str, _key: &str) -> Result<Option<Value>, TirBaseError> {
-        todo!("Task 14: wire WASM read bridge")
+    pub fn read(&self, table: &str, key: &str) -> Result<Option<Value>, TirBaseError> {
+        Ok(self
+            .tables
+            .get(table)
+            .and_then(|t| t.get(key))
+            .cloned())
     }
 
     pub fn query(
         &self,
-        _table: &str,
-        _filter: Option<&Value>,
+        table: &str,
+        filter: Option<&Value>,
     ) -> Result<Vec<(String, Value)>, TirBaseError> {
-        todo!("Task 14: wire WASM query bridge")
+        let rows = match self.tables.get(table) {
+            Some(t) => t,
+            None => return Ok(vec![]),
+        };
+
+        let results = rows
+            .iter()
+            .filter(|(_k, v)| {
+                if let Some(filter_obj) = filter {
+                    if let (Some(filter_map), Some(val_map)) =
+                        (filter_obj.as_object(), v.as_object())
+                    {
+                        return filter_map
+                            .iter()
+                            .all(|(fk, fv)| val_map.get(fk) == Some(fv));
+                    }
+                }
+                true
+            })
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        Ok(results)
     }
 }
 

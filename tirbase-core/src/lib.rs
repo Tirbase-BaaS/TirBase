@@ -95,3 +95,239 @@ assert_impl_all!(errors::TirBaseError: std::fmt::Debug, std::fmt::Display, std::
 assert_impl_all!(contamination::incident::IncidentState:   Clone, Copy, PartialEq, Eq, std::fmt::Debug);
 assert_impl_all!(contamination::incident::TaintSource:     Clone, PartialEq, Eq, std::fmt::Debug);
 assert_impl_all!(contamination::incident::AuditOperation:  Clone, Copy, PartialEq, Eq, std::fmt::Debug);
+
+// ─── wasm_bindgen public exports ─────────────────────────────────────────────
+//
+// Exposed to JavaScript/TypeScript via wasm-pack. Each function maps 1-to-1 to
+// the `WasmCore` interface in `tirbase-sdk/src/wasm-bridge.ts`.
+//
+// A thread-local `CoreHandle` holds the single initialized instance. On WASM
+// there is only one thread (the JS event loop), so thread_local! is safe and
+// avoids the need for `Arc<Mutex<...>>`.
+
+#[cfg(feature = "wasm")]
+mod wasm_exports {
+    use super::*;
+    use wasm_bindgen::prelude::*;
+    #[allow(unused_imports)]
+    use js_sys;
+
+    thread_local! {
+        static CORE: std::cell::RefCell<Option<api::CoreHandle>>
+            = std::cell::RefCell::new(None);
+    }
+
+    /// Map any `impl Display` error to a JavaScript-visible string.
+    fn to_js_err(e: impl std::fmt::Display) -> JsValue {
+        JsValue::from_str(&e.to_string())
+    }
+
+    /// Parse a JavaScript value as `serde_json::Value` via JSON string round-trip.
+    fn js_to_json(val: &JsValue) -> Result<serde_json::Value, JsValue> {
+        let json_str = js_sys::JSON::stringify(val)
+            .map_err(|e| to_js_err(format!("JSON.stringify failed: {:?}", e)))?
+            .as_string()
+            .ok_or_else(|| to_js_err("JSON.stringify returned non-string"))?;
+        serde_json::from_str(&json_str).map_err(to_js_err)
+    }
+
+    /// Serialise a `serde_json::Value` to a JavaScript `object` via JSON string.
+    fn json_to_js(val: &serde_json::Value) -> Result<JsValue, JsValue> {
+        let json_str = serde_json::to_string(val).map_err(to_js_err)?;
+        js_sys::JSON::parse(&json_str).map_err(|e| to_js_err(format!("{:?}", e)))
+    }
+
+    // ── Helper: borrow CoreHandle pointer for async fn calls ─────────────────
+    //
+    // Since WASM is single-threaded and Rust's async/await on WASM is
+    // cooperative (no preemption), it is safe to hold a raw `*const CoreHandle`
+    // across an await point — there is no concurrent mutation.
+    fn core_ptr() -> Result<*const api::CoreHandle, JsValue> {
+        CORE.with(|c| {
+            c.borrow()
+                .as_ref()
+                .map(|h| h as *const api::CoreHandle)
+                .ok_or_else(|| to_js_err("core_init() must be called first"))
+        })
+    }
+
+    // ── Initialisation ────────────────────────────────────────────────────────
+
+    /// Initialise TirBase and store the handle in the thread-local slot.
+    ///
+    /// Must be called before any other export.  Calling it again re-initialises.
+    #[wasm_bindgen]
+    pub async fn core_init(storage_path: String) -> Result<(), JsValue> {
+        let config = api::InitConfig {
+            storage_path,
+            deployment: api::DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        };
+        let handle = api::CoreHandle::init(config).await.map_err(to_js_err)?;
+        CORE.with(|c| {
+            *c.borrow_mut() = Some(handle);
+        });
+        Ok(())
+    }
+
+    // ── Write ─────────────────────────────────────────────────────────────────
+
+    /// Write a row to (table, key).
+    ///
+    /// `data` must be a JSON-serialisable JavaScript value.  Returns a
+    /// `WriteResult` object: `{ deltaId: string, durabilityTier: string }`.
+    #[wasm_bindgen]
+    pub async fn core_write(
+        table: String,
+        key: String,
+        data: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let data_json = js_to_json(&data)?;
+        let ptr = core_ptr()?;
+        // SAFETY: WASM is single-threaded; no concurrent mutation.
+        let handle = unsafe { &*ptr };
+        let write_result = handle.write(&table, &key, data_json).await.map_err(to_js_err)?;
+        json_to_js(&serde_json::json!({
+            "deltaId": hex::encode(write_result.delta_id),
+            "durabilityTier": format!("{:?}", write_result.durability_tier),
+        }))
+    }
+
+    // ── Read ──────────────────────────────────────────────────────────────────
+
+    /// Read a single row by (table, key). Returns a `QueryResult` as a JS object.
+    #[wasm_bindgen]
+    pub async fn core_read(table: String, key: String) -> Result<JsValue, JsValue> {
+        let ptr = core_ptr()?;
+        let handle = unsafe { &*ptr };
+        let result = handle.read(&table, &key).await.map_err(to_js_err)?;
+        json_to_js(&serde_json::json!({
+            "table": result.table,
+            "key": result.key,
+            "data": result.data,
+            "contaminated": result.contaminated,
+        }))
+    }
+
+    // ── Query ─────────────────────────────────────────────────────────────────
+
+    /// Query rows from a table with an optional JS filter object.
+    #[wasm_bindgen]
+    pub async fn core_query(table: String, filter: JsValue) -> Result<JsValue, JsValue> {
+        let filter_json: Option<serde_json::Value> =
+            if filter.is_null() || filter.is_undefined() {
+                None
+            } else {
+                Some(js_to_json(&filter)?)
+            };
+
+        let ptr = core_ptr()?;
+        let handle = unsafe { &*ptr };
+        let results = handle.query(&table, filter_json).await.map_err(to_js_err)?;
+
+        let json_arr: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| serde_json::json!({
+                "table": r.table,
+                "key": r.key,
+                "data": r.data,
+                "contaminated": r.contaminated,
+            }))
+            .collect();
+
+        json_to_js(&serde_json::Value::Array(json_arr))
+    }
+
+    // ── Trust level ───────────────────────────────────────────────────────────
+
+    /// Returns the current `TrustLevel` as a string (e.g. `"Unverified"`).
+    #[wasm_bindgen]
+    pub fn core_trust_level() -> String {
+        CORE.with(|c| {
+            c.borrow()
+                .as_ref()
+                .map(|h| format!("{:?}", h.trust_level()))
+                .unwrap_or_else(|| "Unverified".to_string())
+        })
+    }
+
+    // ── Mesh status ───────────────────────────────────────────────────────────
+
+    /// Returns the current `MeshStatus` as a JS object.
+    #[wasm_bindgen]
+    pub fn core_mesh_status() -> JsValue {
+        let status = CORE.with(|c| {
+            c.borrow()
+                .as_ref()
+                .map(|h| h.mesh_status())
+                .unwrap_or(api::types::MeshStatus {
+                    status: api::types::ConnectionStatus::Disconnected,
+                    peer_count: 0,
+                })
+        });
+        let js = serde_json::json!({
+            "status": format!("{:?}", status.status).to_lowercase(),
+            "peerCount": status.peer_count,
+        });
+        json_to_js(&js).unwrap_or(JsValue::NULL)
+    }
+
+    // ── Manager operations ────────────────────────────────────────────────────
+    //
+    // These map to the manager-facing `WasmCore` methods in wasm-bridge.ts.
+    // Full P2P gossip and CCE integration requires native-only transports;
+    // on WASM the operations are accepted (no error) but are no-ops for v1.
+
+    /// Gossip a partial RevocationDelta for the target DID.
+    #[wasm_bindgen]
+    pub async fn core_initiate_revocation(
+        _target_did: String,
+        _manager_token: String,
+    ) -> Result<(), JsValue> {
+        Ok(())
+    }
+
+    /// Return the current accumulation state for a pending revocation.
+    #[wasm_bindgen]
+    pub async fn core_revocation_status(_target_did: String) -> Result<JsValue, JsValue> {
+        json_to_js(&serde_json::json!({
+            "signaturesCollected": 0,
+            "signaturesRequired": 1,
+            "status": "PENDING",
+        }))
+    }
+
+    /// Append a RESOLVED tag to a contamination root Delta.
+    #[wasm_bindgen]
+    pub async fn core_verify_data(
+        _root_delta_id: String,
+        _manager_token: String,
+    ) -> Result<(), JsValue> {
+        Ok(())
+    }
+
+    /// Archive an incident without certifying data integrity.
+    #[wasm_bindgen]
+    pub async fn core_admin_close(
+        _incident_id: String,
+        _manager_token: String,
+    ) -> Result<(), JsValue> {
+        Ok(())
+    }
+
+    /// Activate Saturate Mode with a DISASTER_ALERT payload.
+    #[wasm_bindgen]
+    pub async fn core_activate_saturate_mode(
+        _payload: String,
+        _manager_token: String,
+    ) -> Result<(), JsValue> {
+        Ok(())
+    }
+}

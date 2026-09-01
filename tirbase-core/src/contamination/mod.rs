@@ -49,6 +49,8 @@ pub struct CausalContaminationEngine {
 pub struct CausalContaminationEngine {
     incidents: HashMap<IncidentId, IncidentContextObject>,
     composite_incidents: HashMap<IncidentId, CompositeIncidentInstance>,
+    /// In-memory DAG for WASM builds (mirrors the native SQLite-backed DAG).
+    dag: crate::crdt::dag::ChangesetDag,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -261,6 +263,7 @@ impl CausalContaminationEngine {
         Self {
             incidents: HashMap::new(),
             composite_incidents: HashMap::new(),
+            dag: crate::crdt::dag::ChangesetDag::new(),
         }
     }
 
@@ -269,7 +272,78 @@ impl CausalContaminationEngine {
         root_delta_id: DeltaId,
         source: TaintSource,
     ) -> Result<IncidentId, TirBaseError> {
-        todo!("Task 14: wire WASM CCE")
+        // Taint source guard — all three variants of TaintSource are valid.
+        let _source_is_valid = match &source {
+            TaintSource::DeviceRevocation { .. } => true,
+            TaintSource::BadMigration { .. } => true,
+            TaintSource::HumanReaction { .. } => true,
+        };
+
+        let now = now_micros();
+        let ico_id = uuid::Uuid::now_v7();
+
+        // BFS walk from the root — collect all reachable descendant Delta IDs.
+        let descendants = taint::walk_dag_descendants(&self.dag, &root_delta_id)?;
+
+        // Append Contaminated tag to every reachable Delta.
+        for delta_id in &descendants {
+            let _ = taint::append_tag(
+                delta_id,
+                DeltaTag::Contaminated {
+                    root_id: root_delta_id,
+                    incident_id: ico_id,
+                },
+            );
+        }
+
+        // Resolve affected rows (empty on WASM).
+        let affected_rows = taint::resolve_affected_rows(&descendants, root_delta_id)?;
+
+        // Build the new ICO.
+        let contaminated_deltas = descendants.iter().copied().collect();
+        let new_ico = IncidentContextObject {
+            id: ico_id,
+            state: IncidentState::Open,
+            taint_source: source,
+            contamination_roots: vec![root_delta_id],
+            contaminated_deltas,
+            affected_rows,
+            composite_of: None,
+            created_at: now,
+            updated_at: now,
+            audit_log: vec![],
+        };
+
+        // Overlap detection: check against all existing OPEN incidents.
+        let overlapping_id: Option<IncidentId> = self
+            .incidents
+            .values()
+            .filter(|existing| {
+                existing.state == IncidentState::Open
+                    && existing
+                        .contaminated_deltas
+                        .iter()
+                        .any(|d| new_ico.contaminated_deltas.contains(d))
+            })
+            .map(|ico| ico.id)
+            .next();
+
+        if let Some(existing_ico_id) = overlapping_id {
+            self.incidents.insert(ico_id, new_ico);
+            let (composite_id, composite) = {
+                let mut ico_b = self.incidents.remove(&ico_id).unwrap();
+                let mut ico_a_owned = self.incidents.remove(&existing_ico_id).unwrap();
+                let result = incident::composite_merge(&mut ico_a_owned, &mut ico_b, now);
+                self.incidents.insert(existing_ico_id, ico_a_owned);
+                self.incidents.insert(ico_id, ico_b);
+                result
+            };
+            self.composite_incidents.insert(composite_id, composite);
+            return Ok(composite_id);
+        }
+
+        self.incidents.insert(ico_id, new_ico);
+        Ok(ico_id)
     }
 
     pub fn verify_data(
@@ -279,7 +353,71 @@ impl CausalContaminationEngine {
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
     ) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM CCE")
+        use crate::contamination::incident::{AuditEntry, AuditOperation};
+
+        // Auth check.
+        resolution::verify_manager_auth(
+            &manager_did,
+            &manager_sig,
+            &root_delta_id,
+            manager_token_expiry,
+        )?;
+
+        let at = now_micros();
+
+        // Append Resolved tag in the WASM tag store.
+        let _ = taint::append_tag(
+            &root_delta_id,
+            DeltaTag::Resolved {
+                by_manager_did: manager_did.clone(),
+                at,
+            },
+        );
+
+        // Find and update incidents containing this root.
+        let ico_ids: Vec<IncidentId> = self
+            .incidents
+            .values()
+            .filter(|ico| ico.contamination_roots.contains(&root_delta_id))
+            .map(|ico| ico.id)
+            .collect();
+
+        for ico_id in &ico_ids {
+            let ico = match self.incidents.get_mut(ico_id) {
+                Some(i) => i,
+                None => continue,
+            };
+
+            ico.audit_log.push(AuditEntry {
+                operation: AuditOperation::VerifyData,
+                manager_did: manager_did.clone(),
+                utc_timestamp: at,
+                affected_delta_ids: vec![root_delta_id],
+            });
+            ico.updated_at = at;
+
+            // Check if all roots are now resolved.
+            let all_resolved = ico.contamination_roots.iter().all(|root_id| {
+                taint::read_tags_from_mem(root_id)
+                    .iter()
+                    .any(|t| matches!(t, DeltaTag::Resolved { .. }))
+            });
+
+            if all_resolved {
+                let deltas: Vec<DeltaId> = ico.contaminated_deltas.iter().copied().collect();
+                for delta_id in &deltas {
+                    let _ = taint::append_tag(
+                        delta_id,
+                        DeltaTag::Decontaminated {
+                            incident_id: *ico_id,
+                            resolved_at: at,
+                        },
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn admin_close(
@@ -289,15 +427,26 @@ impl CausalContaminationEngine {
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
     ) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM CCE")
+        resolution::admin_close(
+            incident_id,
+            manager_did,
+            manager_sig,
+            manager_token_expiry,
+            &mut self.incidents,
+        )
     }
 
     pub fn get_incident(&self, id: IncidentId) -> Result<Option<IncidentContextObject>, TirBaseError> {
-        todo!("Task 14: wire WASM CCE")
+        Ok(self.incidents.get(&id).cloned())
     }
 
     pub fn open_incidents(&self) -> Result<Vec<IncidentContextObject>, TirBaseError> {
-        todo!("Task 14: wire WASM CCE")
+        Ok(self
+            .incidents
+            .values()
+            .filter(|ico| ico.state == IncidentState::Open)
+            .cloned()
+            .collect())
     }
 }
 

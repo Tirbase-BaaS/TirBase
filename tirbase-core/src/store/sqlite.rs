@@ -97,9 +97,11 @@ pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
     Ok(conn)
 }
 
-/// WASM stub — the WASM target uses the OPFS-based SQLite implementation
-/// exposed through the TypeScript SDK bridge (Task 14).
-#[cfg(feature = "wasm")]
+/// WASM stub — on WASM the LocalStore uses an in-memory HashMap; there is no
+/// SQLite connection.  This function is a no-op placeholder so callers that
+/// are guarded by `#[cfg(not(feature = "native"))]` can still reference the
+/// module without a build error.
+#[cfg(not(feature = "native"))]
 pub fn open(_path: &str) -> Result<(), TirBaseError> {
-    todo!("Task 14: wire WASM SQLite bridge")
+    Ok(())
 }

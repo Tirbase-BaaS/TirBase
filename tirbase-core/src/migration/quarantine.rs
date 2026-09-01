@@ -278,38 +278,76 @@ impl QuarantineLedger {
 // ─── WASM stub ─────────────────────────────────────────────────────────────
 
 #[cfg(not(feature = "native"))]
-pub struct QuarantineLedger;
+pub struct QuarantineLedger {
+    entries: Vec<QuarantineEntry>,
+}
 
 #[cfg(not(feature = "native"))]
 impl QuarantineLedger {
     pub fn new() -> Self {
-        Self
+        Self { entries: Vec::new() }
     }
 
+    /// Store a raw incoming Delta without modification (Req 17.5).
+    ///
+    /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
     pub fn quarantine(
         &mut self,
-        _sender_did: Did,
-        _raw_bytes: Vec<u8>,
-        _schema_hash: Option<SchemaIdentifierHash>,
-        _reason: QuarantineReason,
-        _received_at: i64,
+        sender_did: Did,
+        raw_bytes: Vec<u8>,
+        schema_hash: Option<SchemaIdentifierHash>,
+        reason: QuarantineReason,
+        received_at: i64,
     ) -> Result<DeltaId, TirBaseError> {
-        todo!("Task 14: wire WASM QuarantineLedger")
+        use sha2::{Digest, Sha256};
+        let id: DeltaId = Sha256::digest(&raw_bytes).into();
+
+        // Deduplicate by id (INSERT OR IGNORE semantics).
+        if !self.entries.iter().any(|e| e.id == id) {
+            self.entries.push(QuarantineEntry {
+                id,
+                sender_did,
+                raw_bytes,
+                schema_hash,
+                reason,
+                received_at,
+                migration_id: None,
+            });
+        }
+        Ok(id)
     }
 
     pub fn get_by_schema_hash(
         &self,
-        _hash: &SchemaIdentifierHash,
+        hash: &SchemaIdentifierHash,
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        todo!("Task 14: wire WASM QuarantineLedger")
+        Ok(self
+            .entries
+            .iter()
+            .filter(|e| e.schema_hash.as_ref() == Some(hash))
+            .cloned()
+            .collect())
+    }
+
+    pub fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
+        Ok(self.entries.clone())
     }
 
     pub fn release_for_migration(
         &mut self,
-        _schema_hash: &SchemaIdentifierHash,
-        _migration_id: [u8; 32],
+        schema_hash: &SchemaIdentifierHash,
+        migration_id: [u8; 32],
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        todo!("Task 14: wire WASM QuarantineLedger")
+        for entry in self.entries.iter_mut() {
+            if entry.schema_hash.as_ref() == Some(schema_hash) {
+                entry.migration_id = Some(migration_id);
+            }
+        }
+        self.get_by_schema_hash(schema_hash)
+    }
+
+    pub fn count(&self) -> Result<usize, TirBaseError> {
+        Ok(self.entries.len())
     }
 }
 

@@ -97,6 +97,12 @@ pub struct DagNode {
 pub struct ChangesetDag {
     #[cfg(feature = "native")]
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
+    /// In-memory node store for WASM builds.
+    #[cfg(not(feature = "native"))]
+    nodes: std::collections::HashMap<DeltaId, DagNode>,
+    /// In-memory children edges for WASM builds: parent → [child, ...].
+    #[cfg(not(feature = "native"))]
+    children_map: std::collections::HashMap<DeltaId, Vec<DeltaId>>,
 }
 
 #[cfg(feature = "native")]
@@ -427,26 +433,121 @@ impl ChangesetDag {
 
 #[cfg(not(feature = "native"))]
 impl ChangesetDag {
+    /// Create a new in-memory ChangesetDag (WASM build — no SQLite connection).
+    pub fn new() -> Self {
+        ChangesetDag {
+            nodes: std::collections::HashMap::new(),
+            children_map: std::collections::HashMap::new(),
+        }
+    }
+
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        // Register parent → child edges.
+        for parent_id in &node.parent_ids {
+            self.children_map
+                .entry(*parent_id)
+                .or_default()
+                .push(node.delta_id);
+        }
+        // Ensure the node itself has an (empty) entry in children_map.
+        self.children_map.entry(node.delta_id).or_default();
+        self.nodes.insert(node.delta_id, node);
+        Ok(())
     }
+
     pub fn children(&self, parent_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        Ok(self
+            .children_map
+            .get(parent_id)
+            .cloned()
+            .unwrap_or_default())
     }
+
     pub fn parents(&self, child_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        Ok(self
+            .nodes
+            .get(child_id)
+            .map(|n| n.parent_ids.clone())
+            .unwrap_or_default())
     }
-    pub fn bfs_descendants(&self, root_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+
+    pub fn bfs_descendants(
+        &self,
+        root_id: &DeltaId,
+    ) -> Result<Vec<DeltaId>, TirBaseError> {
+        let mut visited: std::collections::HashSet<DeltaId> =
+            std::collections::HashSet::new();
+        let mut queue: std::collections::VecDeque<DeltaId> =
+            std::collections::VecDeque::new();
+        let mut result: Vec<DeltaId> = Vec::new();
+
+        queue.push_back(*root_id);
+        while let Some(current) = queue.pop_front() {
+            if !visited.insert(current) {
+                continue;
+            }
+            result.push(current);
+            for child in self.children(&current)? {
+                if !visited.contains(&child) {
+                    queue.push_back(child);
+                }
+            }
+        }
+        Ok(result)
     }
+
     pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        use std::collections::HashMap;
+
+        let all_ids: Vec<DeltaId> = self.nodes.keys().copied().collect();
+
+        // Build in-degree map and children adjacency.
+        let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
+        let mut adj: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+
+        for id in &all_ids {
+            in_degree.entry(*id).or_insert(0);
+            adj.entry(*id).or_default();
+        }
+        for node in self.nodes.values() {
+            for parent in &node.parent_ids {
+                *in_degree.entry(node.delta_id).or_insert(0) += 1;
+                adj.entry(*parent).or_default().push(node.delta_id);
+            }
+        }
+
+        // Kahn's algorithm.
+        let mut queue: std::collections::VecDeque<DeltaId> = in_degree
+            .iter()
+            .filter(|(_, &deg)| deg == 0)
+            .map(|(id, _)| *id)
+            .collect();
+
+        let mut sorted: Vec<DeltaId> = Vec::new();
+        while let Some(node) = queue.pop_front() {
+            sorted.push(node);
+            if let Some(children) = adj.get(&node) {
+                for &child in children {
+                    let deg = in_degree.entry(child).or_insert(0);
+                    *deg -= 1;
+                    if *deg == 0 {
+                        queue.push_back(child);
+                    }
+                }
+            }
+        }
+        Ok(sorted)
     }
+
     pub fn get(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        Ok(self.nodes.get(delta_id).cloned())
     }
+
     pub fn mark_compacted(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM DAG")
+        if let Some(node) = self.nodes.get_mut(delta_id) {
+            node.compacted = true;
+        }
+        Ok(())
     }
 }
 

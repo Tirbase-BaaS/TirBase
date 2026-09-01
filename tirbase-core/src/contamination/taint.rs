@@ -6,6 +6,28 @@ use crate::contamination::incident::{IncidentContextObject, IncidentId, TaintSou
 use crate::crdt::delta::{DeltaId, DeltaTag};
 use crate::errors::TirBaseError;
 
+// ─── WASM in-memory tag store ─────────────────────────────────────────────────
+
+/// Thread-local in-memory tag store for WASM builds.
+///
+/// The native build writes tags directly to `dag_nodes.tags_json` in SQLite.
+/// On WASM there is no SQLite, so we keep tags here.  The tag log is still
+/// append-only — entries are pushed but never removed (Req 10.4).
+#[cfg(not(feature = "native"))]
+thread_local! {
+    static WASM_TAG_STORE: std::cell::RefCell<
+        std::collections::HashMap<DeltaId, Vec<DeltaTag>>
+    > = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// WASM in-memory projection contamination store (table → key → contaminated flag).
+#[cfg(not(feature = "native"))]
+thread_local! {
+    pub(crate) static WASM_PROJ_STORE: std::cell::RefCell<
+        std::collections::HashMap<String, std::collections::HashMap<String, bool>>
+    > = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
 // ─── SQLite tag-append helper ─────────────────────────────────────────────────
 
 /// Append a single `DeltaTag` to the `tags_json` column of `dag_nodes`.
@@ -73,8 +95,9 @@ pub(crate) fn read_tags_from_db(
 ///
 /// This operation is **append-only** — existing tags are never modified (Req 10.4).
 ///
-/// On native this writes directly to `dag_nodes.tags_json`.  On WASM this is a
-/// stub until Task 14 wires the bridge.
+/// On native this writes directly to `dag_nodes.tags_json`.  On WASM this stores
+/// tags in a thread-local HashMap so the signature stays compatible with how the
+/// CCE calls it.
 #[cfg(feature = "native")]
 pub(crate) fn append_tag(
     conn: &rusqlite::Connection,
@@ -89,7 +112,16 @@ pub(crate) fn append_tag(
     delta_id: &DeltaId,
     tag: DeltaTag,
 ) -> Result<(), TirBaseError> {
-    todo!("Task 14: wire WASM append_tag bridge")
+    WASM_TAG_STORE.with(|store| {
+        store.borrow_mut().entry(*delta_id).or_default().push(tag);
+    });
+    Ok(())
+}
+
+/// Read the current tag list for a Delta from the WASM thread-local tag store.
+#[cfg(not(feature = "native"))]
+pub(crate) fn read_tags_from_mem(delta_id: &DeltaId) -> Vec<DeltaTag> {
+    WASM_TAG_STORE.with(|store| store.borrow().get(delta_id).cloned().unwrap_or_default())
 }
 
 // ─── BFS walk helper ──────────────────────────────────────────────────────────
@@ -108,9 +140,10 @@ pub(crate) fn walk_dag_descendants(
 
 #[cfg(not(feature = "native"))]
 pub(crate) fn walk_dag_descendants(
+    dag: &crate::crdt::dag::ChangesetDag,
     root_delta_id: &DeltaId,
 ) -> Result<Vec<DeltaId>, TirBaseError> {
-    todo!("Task 14: wire WASM walk_dag_descendants bridge")
+    dag.bfs_descendants(root_delta_id)
 }
 
 // ─── Affected row resolver ────────────────────────────────────────────────────
@@ -180,4 +213,13 @@ pub(crate) fn resolve_affected_rows(
     }
 
     Ok(affected)
+}
+
+/// WASM stub for resolve_affected_rows — returns empty (no SQLite tables to query).
+#[cfg(not(feature = "native"))]
+pub(crate) fn resolve_affected_rows(
+    _delta_ids: &[DeltaId],
+    _root_delta_id: DeltaId,
+) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
+    Ok(vec![])
 }

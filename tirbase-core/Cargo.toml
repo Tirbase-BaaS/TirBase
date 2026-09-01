@@ -27,6 +27,7 @@ wasm    = [
     "dep:wasm-bindgen",
     "dep:js-sys",
     "dep:web-sys",
+    "dep:wasm-bindgen-futures",
     # wasm3 is intentionally deferred: the C FFI cannot cross-compile to
     # wasm32-unknown-unknown with a standard Rust toolchain. Task 8 will
     # implement the WASM-in-WASM sandbox using a pure-Rust WASM interpreter
@@ -43,7 +44,8 @@ ed25519-dalek    = { version = "3.0.0", features = ["rand_core"] }
 
 # Cryptographically secure random bytes (for Ed25519 key generation)
 # getrandom v0.4 is already a transitive dep via ed25519-dalek v3.
-getrandom        = { version = "0.4" }
+# The "wasm_js" feature is required when targeting wasm32-unknown-unknown.
+getrandom        = { version = "0.4", features = ["wasm_js"] }
 
 # Error handling
 thiserror        = "2.0.20"
@@ -108,9 +110,6 @@ rand         = { version = "0.8.5", optional = true }
 
 # ─── WASM-only dependencies ────────────────────────────────────────────────────
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# getrandom v0.2 on WASM requires the "js" feature to source entropy from the browser
-getrandom    = { version = "0.2", features = ["js"] }
-
 wasm-bindgen = { version = "0.2.127", optional = true }
 js-sys       = { version = "0.3.104", optional = true }
 web-sys      = { version = "0.3.104", optional = true, features = [
@@ -118,6 +117,7 @@ web-sys      = { version = "0.3.104", optional = true, features = [
     "Navigator",
     "console",
 ] }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 # ─── Dev dependencies ──────────────────────────────────────────────────────────
 [dev-dependencies]
@@ -125,3 +125,4 @@ proptest = "1.11.0"
 tokio    = { version = "1.53.1", features = ["full", "test-util"] }
 # WAT (WebAssembly text format) parser used in sandbox tests
 wat      = "1.229.0"
+wasm-bindgen-test = "0.3"

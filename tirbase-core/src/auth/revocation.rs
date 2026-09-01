@@ -593,18 +593,112 @@ impl RevocationSubsystem {
 
     pub fn process_incoming_delta(
         &mut self,
-        _delta: &RevocationDelta,
-        _on_revocation_applied: &mut dyn FnMut(&Did, &RevocationDelta),
-        _on_cce_trigger: &mut dyn FnMut(&Did, Vec<DeltaId>),
+        delta: &RevocationDelta,
+        on_revocation_applied: &mut dyn FnMut(&Did, &RevocationDelta),
+        on_cce_trigger: &mut dyn FnMut(&Did, Vec<DeltaId>),
     ) -> Result<RevocationStatus, TirBaseError> {
-        todo!("Task 14: wire WASM RevocationSubsystem")
+        if delta.target_did.is_empty() {
+            return Err(TirBaseError::DeltaMalformed {
+                reason: "RevocationDelta.target_did is empty".to_string(),
+            });
+        }
+        if delta.signatures.is_empty() {
+            return Err(TirBaseError::ThresholdNotMet {
+                got: 0,
+                need: self.threshold_m,
+            });
+        }
+
+        let mut last_status = None;
+        for sig in &delta.signatures {
+            match self.store.add_signature(
+                delta.target_did.clone(),
+                sig.clone(),
+                self.threshold_m,
+                self.threshold_n,
+                &self.revoked_dids,
+            ) {
+                Ok(status) => { last_status = Some(status); }
+                Err(TirBaseError::AuthorisationFailed { reason }) => {
+                    log_revocation_failure(&delta.target_did, &reason);
+                }
+                Err(e) => {
+                    log_revocation_failure(&delta.target_did, &e.to_string());
+                }
+            }
+        }
+
+        let current_status = last_status
+            .or_else(|| self.store.status(&delta.target_did))
+            .ok_or_else(|| TirBaseError::ThresholdNotMet {
+                got: 0,
+                need: self.threshold_m,
+            })?;
+
+        if current_status == RevocationStatus::Applied
+            && !self.revoked_dids.contains(&delta.target_did)
+        {
+            let now = current_timestamp_micros();
+            self.revoked_dids.push(delta.target_did.clone());
+            let complete_delta = self
+                .store
+                .build_revocation_delta(&delta.target_did)
+                .unwrap_or_else(|| delta.clone());
+
+            self.device_status.insert(
+                delta.target_did.clone(),
+                DeviceRevocationStatus {
+                    device_did: delta.target_did.clone(),
+                    last_known_trust_level: crate::api::types::TrustLevel::Revoked,
+                    last_revocation_delta_received_at: Some(now),
+                },
+            );
+
+            on_revocation_applied(&delta.target_did, &complete_delta);
+            // No DAG to query on WASM — CCE trigger called with empty list.
+            on_cce_trigger(&delta.target_did, vec![]);
+        }
+
+        Ok(current_status)
     }
 
     pub fn validate_revocation_delta(
         &self,
-        _delta: &RevocationDelta,
+        delta: &RevocationDelta,
     ) -> Result<(), TirBaseError> {
-        todo!("Task 14: wire WASM RevocationSubsystem")
+        if delta.target_did.is_empty() {
+            return Err(TirBaseError::DeltaMalformed {
+                reason: "RevocationDelta.target_did is empty".to_string(),
+            });
+        }
+
+        let payload = RevocationDelta::signing_payload(&delta.target_did);
+        let mut valid_count = 0usize;
+        let mut seen_dids: std::collections::HashSet<&str> = std::collections::HashSet::new();
+
+        for sig in &delta.signatures {
+            if self.revoked_dids.contains(&sig.manager_did) {
+                continue;
+            }
+            if !seen_dids.insert(sig.manager_did.as_str()) {
+                continue;
+            }
+            let Ok(public_key) = did_mod::resolve_did(&sig.manager_did) else {
+                continue;
+            };
+            if keypair::verify(&public_key, &payload, &sig.signature).is_ok() {
+                valid_count += 1;
+            }
+        }
+
+        if valid_count >= self.threshold_m {
+            Ok(())
+        } else {
+            Err(TirBaseError::ThresholdNotMet {
+                got: valid_count,
+                need: self.threshold_m,
+            })
+        }
     }
 
     pub fn produce_partial_delta(
@@ -613,7 +707,16 @@ impl RevocationSubsystem {
         manager_did: Did,
         manager_signing_key: &[u8; 32],
     ) -> Result<RevocationDelta, TirBaseError> {
-        todo!("Task 14: wire WASM RevocationSubsystem")
+        let payload = RevocationDelta::signing_payload(&target_did);
+        let sig = keypair::sign(manager_signing_key, &payload)?;
+        Ok(RevocationDelta {
+            target_did,
+            signatures: vec![ManagerSignature {
+                manager_did,
+                signature: sig,
+            }],
+            created_at: current_timestamp_micros(),
+        })
     }
 
     pub fn device_status(&self, device_did: &Did) -> Option<&DeviceRevocationStatus> {

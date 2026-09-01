@@ -92,10 +92,10 @@ pub fn project_table(
     Ok(())
 }
 
-/// WASM stub for project_table.
+/// WASM stub for project_table — no-op (no automerge-to-SQLite projection on WASM).
 #[cfg(not(feature = "native"))]
 pub fn project_table(table_name: &str) -> Result<(), TirBaseError> {
-    todo!("Task 14: wire WASM projection")
+    Ok(())
 }
 
 /// Mark a projected row as CONTAMINATED (contaminated=1) for query-layer filtering.
@@ -162,12 +162,24 @@ pub fn clear_row_contamination(
 
 #[cfg(not(feature = "native"))]
 pub fn mark_row_contaminated(table: &str, row_key: &str) -> Result<(), TirBaseError> {
-    todo!("Task 19: wire WASM projection contamination")
+    crate::contamination::taint::WASM_PROJ_STORE.with(|store| {
+        store
+            .borrow_mut()
+            .entry(table.to_string())
+            .or_default()
+            .insert(row_key.to_string(), true);
+    });
+    Ok(())
 }
 
 #[cfg(not(feature = "native"))]
 pub fn clear_row_contamination(table: &str, row_key: &str) -> Result<(), TirBaseError> {
-    todo!("Task 19: wire WASM projection contamination")
+    crate::contamination::taint::WASM_PROJ_STORE.with(|store| {
+        if let Some(t) = store.borrow_mut().get_mut(table) {
+            t.insert(row_key.to_string(), false);
+        }
+    });
+    Ok(())
 }
 
 #[cfg(all(test, feature = "native"))]

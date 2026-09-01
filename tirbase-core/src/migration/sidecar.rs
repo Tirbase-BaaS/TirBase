@@ -339,31 +339,134 @@ impl SideCarLedger {
 // ─── WASM stub ─────────────────────────────────────────────────────────────
 
 #[cfg(not(feature = "native"))]
-pub struct SideCarLedger;
+pub struct SideCarLedger {
+    entries: Vec<SideCarEntry>,
+}
 
 #[cfg(not(feature = "native"))]
 impl SideCarLedger {
     pub fn new() -> Self {
-        Self
+        Self { entries: Vec::new() }
     }
 
+    /// Record a write operation in the Side-Car Ledger (Req 19.2).
+    ///
+    /// The `id` is SHA-256(delta_bytes || recorded_ts_le8) for uniqueness.
     pub fn record(
         &mut self,
-        _migration_id: MigrationId,
-        _table_name: String,
-        _delta_bytes: Vec<u8>,
-        _recorded_ts: i64,
+        migration_id: MigrationId,
+        table_name: String,
+        delta_bytes: Vec<u8>,
+        recorded_ts: i64,
     ) -> Result<DeltaId, TirBaseError> {
-        todo!("Task 14: wire WASM SideCarLedger")
+        use sha2::{Digest, Sha256};
+
+        let mut hasher = Sha256::new();
+        hasher.update(&delta_bytes);
+        hasher.update(&recorded_ts.to_le_bytes());
+        let id: DeltaId = hasher.finalize().into();
+
+        // INSERT OR IGNORE semantics.
+        if !self.entries.iter().any(|e| e.id == id) {
+            self.entries.push(SideCarEntry {
+                id,
+                migration_id,
+                table_name,
+                delta_bytes,
+                recorded_ts,
+                replay_status: ReplayStatus::Pending,
+            });
+        }
+        Ok(id)
     }
 
+    /// Replay all Side-Car entries for `migration_id` against the corrected
+    /// projection in recorded-timestamp order (Req 19.3–19.6).
     pub fn replay_sidecar(
         &mut self,
-        _migration_id: MigrationId,
+        migration_id: MigrationId,
         _corrected_schema_hash: SchemaIdentifierHash,
-        _engine: &mut crate::crdt::CrdtEngine,
+        engine: &mut crate::crdt::CrdtEngine,
     ) -> Result<ReplaySummary, TirBaseError> {
-        todo!("Task 14: wire WASM SideCarLedger")
+        // Sort entries by recorded_ts ASC.
+        let mut entries: Vec<SideCarEntry> = self
+            .entries
+            .iter()
+            .filter(|e| e.migration_id == migration_id)
+            .cloned()
+            .collect();
+        entries.sort_by_key(|e| e.recorded_ts);
+
+        let total_entries = entries.len();
+        let mut replayed = 0usize;
+        let mut conflicts = 0usize;
+
+        for entry in &entries {
+            let delta: crate::crdt::delta::Delta = match serde_json::from_slice(&entry.delta_bytes) {
+                Ok(d) => d,
+                Err(e) => {
+                    conflicts += 1;
+                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                        conflict_info: format!("deserialise error: {e}"),
+                    });
+                    continue;
+                }
+            };
+
+            match engine.apply(&delta) {
+                Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
+                    replayed += 1;
+                    self.update_entry_status(&entry.id, ReplayStatus::Replayed);
+                }
+                Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
+                    conflicts += 1;
+                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                        conflict_info: format!("quarantined during replay: {reason:?}"),
+                    });
+                }
+                Ok(crate::crdt::merge::MergeOutcome::Rejected { reason }) => {
+                    conflicts += 1;
+                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                        conflict_info: format!("rejected during replay: {reason}"),
+                    });
+                }
+                Err(e) => {
+                    conflicts += 1;
+                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                        conflict_info: format!("engine error: {e}"),
+                    });
+                }
+            }
+        }
+
+        let complete = conflicts == 0 && total_entries > 0;
+        if complete {
+            for entry in self.entries.iter_mut() {
+                if entry.migration_id == migration_id {
+                    entry.replay_status = ReplayStatus::Complete;
+                }
+            }
+        }
+
+        Ok(ReplaySummary {
+            total_entries,
+            replayed,
+            conflicts,
+            complete,
+        })
+    }
+
+    // ─── Private helpers ──────────────────────────────────────────────────────
+
+    fn update_entry_status(&mut self, id: &DeltaId, status: ReplayStatus) {
+        if let Some(entry) = self.entries.iter_mut().find(|e| e.id == *id) {
+            entry.replay_status = status;
+        }
+    }
+
+    /// Count entries for a migration (used by tests).
+    pub fn count_for_migration(&self, migration_id: MigrationId) -> Result<usize, TirBaseError> {
+        Ok(self.entries.iter().filter(|e| e.migration_id == migration_id).count())
     }
 }
 
