@@ -10,3 +10,5 @@ cc 62231f367702e8708a36e30266805657e27968e412be1678b41d7bebea648fce # shrinks to
 cc fa28a0b68bd3c3ef590c429c28b92bf5ae9199aa9b8dcc8779e023995131d0e3 # shrinks to _dummy = 0
 cc 139a1b4c3b3082ee8675dce6bd1fe24dcbc5b0b2fe8bbf6e12650986649ab889 # shrinks to _dummy = 0
 cc e7d829d9347d89312d1ea4cb84fc50682079c4843df48508adca0e4fcc2ed8c8 # shrinks to _dummy = 0
+cc ec97b8e7377ff269e37dcb7ba535cc96b953fe3b30b229435364ac83a1f3c6b3 # shrinks to _dummy = 0
+cc d880cada2af7b921ec08808cdbb0cca12ea8616d77e370f06b34df901cb43c81 # shrinks to _dummy = 0

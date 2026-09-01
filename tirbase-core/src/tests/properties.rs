@@ -1176,7 +1176,16 @@ proptest! {
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);
-        let mut engine_valid = SchemaMigrationEngine::new(ca_public, source, path.clone(), 1);
+        let mut engine_valid = SchemaMigrationEngine::new(
+            ca_public,
+            source,
+            path.clone(),
+            1,
+            #[cfg(feature = "native")]
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::store::LocalStore::open(":memory:").expect("test store"),
+            )),
+        );
 
         let result_valid = engine_valid.receive_migration_delta(good_delta.clone(), "did:key:sender");
         // Should succeed (Success) or be an Ok result.
@@ -1197,7 +1206,16 @@ proptest! {
             bad_delta.transform_sha256[0] ^= 0xFF;
         }
 
-        let mut engine_invalid = SchemaMigrationEngine::new(ca_public, source, path, 1);
+        let mut engine_invalid = SchemaMigrationEngine::new(
+            ca_public,
+            source,
+            path,
+            1,
+            #[cfg(feature = "native")]
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::store::LocalStore::open(":memory:").expect("test store"),
+            )),
+        );
         let result_invalid = engine_invalid.receive_migration_delta(bad_delta, "did:key:tamper");
         prop_assert!(
             result_invalid.is_err(),
@@ -1497,7 +1515,16 @@ proptest! {
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);
-        let mut engine = SchemaMigrationEngine::new(ca_public, source, path, 1);
+        let mut engine = SchemaMigrationEngine::new(
+            ca_public,
+            source,
+            path,
+            1,
+            #[cfg(feature = "native")]
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::store::LocalStore::open(":memory:").expect("test store"),
+            )),
+        );
 
         engine.receive_revocation_delta(revocation)
             .expect("revocation must succeed");

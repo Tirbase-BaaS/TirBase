@@ -11,6 +11,9 @@ pub mod wasm_sandbox;
 
 use std::collections::HashSet;
 
+#[cfg(feature = "native")]
+use std::sync::{Arc, Mutex};
+
 use crate::errors::TirBaseError;
 use migration_delta::{MigrationDelta, MigrationId, MigrationRevocationDelta};
 use revocation::RevokedMigrationRegistry;
@@ -43,6 +46,10 @@ pub struct SchemaMigrationEngine {
 
     /// Minimum number of Manager DID signatures required for a revocation delta.
     revocation_threshold_m: usize,
+
+    /// Handle to the local store for migration sandbox host functions (native only).
+    #[cfg(feature = "native")]
+    store: Arc<Mutex<crate::store::LocalStore>>,
 }
 
 impl SchemaMigrationEngine {
@@ -52,11 +59,13 @@ impl SchemaMigrationEngine {
     /// - `local_schema_hash`: current schema hash of the local store.
     /// - `version_path`: deployment's ordered schema version path.
     /// - `revocation_threshold_m`: M value for M-of-N manager signature requirement.
+    /// - `store`: handle to the local store for sandbox host functions (native only).
     pub fn new(
         ca_public_key: [u8; 32],
         local_schema_hash: crate::schema::hash::SchemaIdentifierHash,
         version_path: SchemaVersionPath,
         revocation_threshold_m: usize,
+        #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
     ) -> Self {
         Self {
             ca_public_key,
@@ -65,6 +74,8 @@ impl SchemaMigrationEngine {
             revocation_registry: RevokedMigrationRegistry::default(),
             blacklisted_senders: HashSet::new(),
             revocation_threshold_m,
+            #[cfg(feature = "native")]
+            store,
         }
     }
 
@@ -142,6 +153,10 @@ impl SchemaMigrationEngine {
         // ── 7. Execute in sandbox ─────────────────────────────────────────────
         self.revocation_registry.mark_in_progress(delta.id);
 
+        #[cfg(feature = "native")]
+        let result = execute_migration(&delta.transform_bytes, delta.id, 30, &self.store);
+
+        #[cfg(not(feature = "native"))]
         let result = execute_migration(&delta.transform_bytes, delta.id, 30);
 
         self.revocation_registry.clear_in_progress(&delta.id);
@@ -327,7 +342,16 @@ mod tests {
         target: [u8; 32],
     ) -> SchemaMigrationEngine {
         let path = SchemaVersionPath::new(vec![source, target]);
-        SchemaMigrationEngine::new(ca_public, source, path, 1)
+        SchemaMigrationEngine::new(
+            ca_public,
+            source,
+            path,
+            1,
+            #[cfg(feature = "native")]
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::store::LocalStore::open(":memory:").expect("test store"),
+            )),
+        )
     }
 
     fn make_revocation(

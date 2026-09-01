@@ -212,6 +212,7 @@ impl CoreHandle {
             [0u8; 32], // local schema hash — default (no schema)
             SchemaVersionPath::new(vec![]),
             config.deployment.revocation_m.max(1),
+            #[cfg(feature = "native")] store.clone(),
         );
         let migration = Arc::new(Mutex::new(migration));
 

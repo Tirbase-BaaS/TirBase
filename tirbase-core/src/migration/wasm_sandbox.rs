@@ -30,13 +30,15 @@ pub enum MigrationResult {
 /// - `transform`: validated WASM bytecode.
 /// - `migration_id`: the migration being executed (for revocation checks).
 /// - `timeout_secs`: epoch-interrupt timeout (default: 30s per Req 18.4).
+/// - `store`: handle to the local store for host function access (native only).
 #[cfg(feature = "native")]
 pub fn execute_migration(
     transform: &[u8],
     migration_id: MigrationId,
     timeout_secs: u64,
+    store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
 ) -> Result<MigrationResult, TirBaseError> {
-    execute_native(transform, migration_id, timeout_secs)
+    execute_native(transform, migration_id, timeout_secs, store)
 }
 
 // ─── WASM-in-WASM implementation (wasmi) ─────────────────────────────────────
@@ -390,6 +392,7 @@ fn execute_native(
     transform: &[u8],
     migration_id: MigrationId,
     timeout_secs: u64,
+    store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
 ) -> Result<MigrationResult, TirBaseError> {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -447,22 +450,67 @@ fn execute_native(
         })?;
 
     // host.read_row(table_ptr, table_len, key_ptr, key_len, out_ptr, out_max) -> i32 (bytes written)
-    // Stub: returns 0 bytes (empty value) for any key.
     linker
         .func_wrap(
             "host",
             "read_row",
-            |_caller: wasmtime::Caller<'_, MigrationHostState>,
-             _table_ptr: i32,
-             _table_len: i32,
-             _key_ptr: i32,
-             _key_len: i32,
-             _out_ptr: i32,
-             _out_max: i32|
+            |mut caller: wasmtime::Caller<'_, MigrationHostState>,
+             table_ptr: i32,
+             table_len: i32,
+             key_ptr: i32,
+             key_len: i32,
+             out_ptr: i32,
+             out_max: i32|
              -> i32 {
-                // For the sandbox gate implementation, returns 0 (no data).
-                // Full Local Store access requires the store handle injection (Task 8 follow-up).
-                0i32
+                // 1. Get memory export
+                let mem = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return 0,
+                };
+
+                // 2. Read table string from WASM memory
+                let mut table_buf = vec![0u8; table_len as usize];
+                if mem.read(&caller, table_ptr as usize, &mut table_buf).is_err() {
+                    return 0;
+                }
+                let table = match std::str::from_utf8(&table_buf) {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return 0,
+                };
+
+                // 3. Read key string from WASM memory
+                let mut key_buf = vec![0u8; key_len as usize];
+                if mem.read(&caller, key_ptr as usize, &mut key_buf).is_err() {
+                    return 0;
+                }
+                let key = match std::str::from_utf8(&key_buf) {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return 0,
+                };
+
+                // 4. Call LocalStore::read
+                let value_bytes = {
+                    let store_guard = match caller.data().store.lock() {
+                        Ok(s) => s,
+                        Err(_) => return 0,
+                    };
+                    match store_guard.read(&table, &key) {
+                        Ok(Some(val)) => {
+                            match serde_json::to_vec(&val) {
+                                Ok(b) => b,
+                                Err(_) => return 0,
+                            }
+                        }
+                        _ => return 0,
+                    }
+                };
+
+                // 5. Write result into WASM memory up to out_max bytes
+                let write_len = value_bytes.len().min(out_max as usize);
+                if mem.write(&mut caller, out_ptr as usize, &value_bytes[..write_len]).is_err() {
+                    return 0;
+                }
+                write_len as i32
             },
         )
         .map_err(|e| TirBaseError::DeltaMalformed {
@@ -474,14 +522,47 @@ fn execute_native(
         .func_wrap(
             "host",
             "write_row",
-            |_caller: wasmtime::Caller<'_, MigrationHostState>,
-             _table_ptr: i32,
-             _table_len: i32,
-             _key_ptr: i32,
-             _key_len: i32,
-             _val_ptr: i32,
-             _val_len: i32| {
-                // Stub: writes are accepted silently.
+            |mut caller: wasmtime::Caller<'_, MigrationHostState>,
+             table_ptr: i32,
+             table_len: i32,
+             key_ptr: i32,
+             key_len: i32,
+             val_ptr: i32,
+             val_len: i32| {
+                let mem = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    Some(m) => m,
+                    None => return,
+                };
+
+                let mut table_buf = vec![0u8; table_len as usize];
+                let mut key_buf = vec![0u8; key_len as usize];
+                let mut val_buf = vec![0u8; val_len as usize];
+
+                if mem.read(&caller, table_ptr as usize, &mut table_buf).is_err() { return; }
+                if mem.read(&caller, key_ptr as usize, &mut key_buf).is_err() { return; }
+                if mem.read(&caller, val_ptr as usize, &mut val_buf).is_err() { return; }
+
+                let table = match std::str::from_utf8(&table_buf) {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return,
+                };
+                let key = match std::str::from_utf8(&key_buf) {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return,
+                };
+
+                // Deserialise value bytes as serde_json::Value
+                let value: serde_json::Value = match serde_json::from_slice(&val_buf) {
+                    Ok(v) => v,
+                    Err(_) => return,
+                };
+
+                // Call LocalStore::write
+                let mut store_guard = match caller.data().store.lock() {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                let _ = store_guard.write(&table, &key, &value);
             },
         )
         .map_err(|e| TirBaseError::DeltaMalformed {
@@ -489,8 +570,8 @@ fn execute_native(
         })?;
 
     // ── 4. Create the store with epoch deadline ────────────────────────────
-    let mut store = Store::new(&engine, MigrationHostState::new(migration_id));
-    store.set_epoch_deadline(1); // will be exceeded after `timeout_secs` real time
+    let mut wt_store = Store::new(&engine, MigrationHostState::new(migration_id, store.clone()));
+    wt_store.set_epoch_deadline(1); // will be exceeded after `timeout_secs` real time
 
     // ── 5. Spawn a background thread to tick the epoch after the deadline ──
     let engine_clone = engine.clone();
@@ -501,7 +582,7 @@ fn execute_native(
     });
 
     // ── 6. Instantiate and call "run" ─────────────────────────────────────
-    let instance = match linker.instantiate(&mut store, &module) {
+    let instance = match linker.instantiate(&mut wt_store, &module) {
         Ok(i) => i,
         Err(e) => {
             return Ok(MigrationResult::Aborted {
@@ -511,7 +592,7 @@ fn execute_native(
     };
 
     // Look for an exported "run" function; if absent, try calling nothing (migration succeeds).
-    let run_func = instance.get_func(&mut store, "run");
+    let run_func = instance.get_func(&mut wt_store, "run");
 
     match run_func {
         None => {
@@ -519,7 +600,7 @@ fn execute_native(
             return Ok(MigrationResult::Success);
         }
         Some(f) => {
-            match f.call(&mut store, &[], &mut []) {
+            match f.call(&mut wt_store, &[], &mut []) {
                 Ok(_) => Ok(MigrationResult::Success),
                 Err(e) => {
                     // Check for epoch interruption — wasmtime represents it as a
@@ -562,12 +643,16 @@ fn execute_native(
 #[cfg(feature = "native")]
 pub struct MigrationHostState {
     pub migration_id: MigrationId,
+    pub store: std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
 }
 
 #[cfg(feature = "native")]
 impl MigrationHostState {
-    pub fn new(migration_id: MigrationId) -> Self {
-        Self { migration_id }
+    pub fn new(
+        migration_id: MigrationId,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    ) -> Self {
+        Self { migration_id, store }
     }
 }
 
@@ -576,6 +661,13 @@ impl MigrationHostState {
 #[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
+
+    /// Helper: create an in-memory LocalStore wrapped in Arc<Mutex<>>.
+    fn test_store() -> std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>> {
+        std::sync::Arc::new(std::sync::Mutex::new(
+            crate::store::LocalStore::open(":memory:").expect("in-memory store"),
+        ))
+    }
 
     /// Minimal WAT that exports a "run" function which returns immediately.
     fn trivial_wasm() -> Vec<u8> {
@@ -622,7 +714,7 @@ mod tests {
     #[test]
     fn trivial_migration_succeeds() {
         let wasm = trivial_wasm();
-        let result = execute_migration(&wasm, [0u8; 32], 30)
+        let result = execute_migration(&wasm, [0u8; 32], 30, &test_store())
             .expect("execute_migration should not return Err");
         assert_eq!(result, MigrationResult::Success);
     }
@@ -631,7 +723,7 @@ mod tests {
     fn infinite_loop_times_out() {
         let wasm = infinite_loop_wasm();
         // Use a very short timeout (1 second) so the test doesn't hang.
-        let result = execute_migration(&wasm, [0xFFu8; 32], 1)
+        let result = execute_migration(&wasm, [0xFFu8; 32], 1, &test_store())
             .expect("execute_migration should not return Err");
         assert!(
             matches!(result, MigrationResult::TimedOut { timeout_secs: 1 }),
@@ -642,18 +734,134 @@ mod tests {
     #[test]
     fn log_message_host_function_accessible() {
         let wasm = log_message_wasm();
-        let result = execute_migration(&wasm, [0x01u8; 32], 30)
+        let result = execute_migration(&wasm, [0x01u8; 32], 30, &test_store())
             .expect("execute_migration should not return Err");
         assert_eq!(result, MigrationResult::Success, "log_message module should succeed");
     }
 
     #[test]
     fn invalid_wasm_bytes_returns_aborted() {
-        let result = execute_migration(b"not-valid-wasm", [0u8; 32], 30)
+        let result = execute_migration(b"not-valid-wasm", [0u8; 32], 30, &test_store())
             .expect("execute_migration should not return Err");
         assert!(
             matches!(result, MigrationResult::Aborted { .. }),
             "invalid WASM should produce Aborted: {result:?}"
+        );
+    }
+
+    // ─── Test A: read_row and write_row round-trip via WAT transform ──────────
+
+    #[test]
+    fn read_write_row_roundtrip_via_wasm_transform() {
+        // WAT: reads from table="test", key="src", writes result to key="dst"
+        let wat = r#"
+            (module
+              (import "host" "read_row"  (func $read  (param i32 i32 i32 i32 i32 i32) (result i32)))
+              (import "host" "write_row" (func $write (param i32 i32 i32 i32 i32 i32)))
+              (memory (export "memory") 1)
+
+              ;; Memory layout:
+              ;; 0..4   = "test"  (table name, 4 bytes)
+              ;; 4..7   = "src"   (source key, 3 bytes)
+              ;; 7..10  = "dst"   (dest key, 3 bytes)
+              ;; 256..  = output buffer for read_row (up to 256 bytes)
+
+              (data (i32.const 0)   "test")
+              (data (i32.const 4)   "src")
+              (data (i32.const 7)   "dst")
+
+              (func (export "run")
+                (local $n i32)
+                ;; read_row("test", "src") → output at byte 256
+                (local.set $n
+                  (call $read
+                    (i32.const 0)   ;; table_ptr
+                    (i32.const 4)   ;; table_len
+                    (i32.const 4)   ;; key_ptr
+                    (i32.const 3)   ;; key_len
+                    (i32.const 256) ;; out_ptr
+                    (i32.const 256) ;; out_max
+                  )
+                )
+                ;; write_row("test", "dst", bytes_at_256, n_bytes)
+                (call $write
+                  (i32.const 0)   ;; table_ptr
+                  (i32.const 4)   ;; table_len
+                  (i32.const 7)   ;; key_ptr
+                  (i32.const 3)   ;; key_len
+                  (i32.const 256) ;; val_ptr
+                  (local.get $n)  ;; val_len
+                )
+              )
+            )
+        "#;
+
+        let wasm = wat::parse_str(wat).expect("parse WAT");
+        let store_handle = test_store();
+
+        // Pre-populate the store with the source value.
+        {
+            let mut s = store_handle.lock().unwrap();
+            s.write("test", "src", &serde_json::json!({"greeting": "hello"}))
+                .expect("pre-populate store");
+        }
+
+        let result = execute_migration(&wasm, [0xABu8; 32], 30, &store_handle)
+            .expect("execute_migration must not return Err");
+
+        assert_eq!(result, MigrationResult::Success, "transform must succeed: {result:?}");
+
+        // Verify the value was read and written to "dst"
+        let s = store_handle.lock().unwrap();
+        let dst_val = s
+            .read("test", "dst")
+            .expect("read dst")
+            .expect("dst should exist after migration");
+        let expected = serde_json::json!({"greeting": "hello"});
+        assert_eq!(dst_val, expected, "dst value must equal src value (copy transform)");
+    }
+
+    // ─── Test B: Timeout during a store-read-heavy transform ─────────────────
+
+    #[test]
+    fn timeout_during_store_read_heavy_transform() {
+        // A transform that loops calling read_row indefinitely.
+        let wat = r#"
+            (module
+              (import "host" "read_row" (func $read (param i32 i32 i32 i32 i32 i32) (result i32)))
+              (memory (export "memory") 1)
+              (data (i32.const 0) "test")
+              (data (i32.const 4) "key")
+              (func (export "run")
+                (loop $spin
+                  (drop
+                    (call $read
+                      (i32.const 0) (i32.const 4)
+                      (i32.const 4) (i32.const 3)
+                      (i32.const 8) (i32.const 64)
+                    )
+                  )
+                  br $spin
+                )
+              )
+            )
+        "#;
+
+        let wasm = wat::parse_str(wat).expect("parse WAT");
+        let store_handle = test_store();
+
+        // Populate a key so read_row actually does real work.
+        {
+            let mut s = store_handle.lock().unwrap();
+            s.write("test", "key", &serde_json::json!(42)).expect("write");
+        }
+
+        let result = execute_migration(&wasm, [0xCDu8; 32], 1, &store_handle)
+            .expect("execute_migration must not return Err");
+
+        assert!(
+            matches!(result, MigrationResult::TimedOut { timeout_secs: 1 }),
+            "spinning read_row transform must time out after 1s: {result:?}"
         );
     }
 }
