@@ -59,31 +59,31 @@ pub struct CoreHandle {
     crdt: Arc<Mutex<CrdtEngine>>,
 
     /// Device identity (Ed25519 keypair + DID).
-    identity: Arc<IdentityManager>,
+    pub(crate) identity: Arc<IdentityManager>,
 
     /// Biscuit token / TrustLevel state machine.
     capability: Arc<Mutex<CapabilityManager>>,
 
     /// Mesh transport layer (libp2p Swarm on native).
-    transport: Arc<Mutex<MeshTransport>>,
+    pub(crate) transport: Arc<Mutex<MeshTransport>>,
 
     /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
 
     /// Causal Contamination Engine.
     #[cfg(feature = "native")]
-    cce: Arc<Mutex<CausalContaminationEngine>>,
+    pub(crate) cce: Arc<Mutex<CausalContaminationEngine>>,
 
     /// Schema Migration Engine.
     migration: Arc<Mutex<SchemaMigrationEngine>>,
 
     /// Causal Contamination Engine (WASM build).
     #[cfg(not(feature = "native"))]
-    cce: Arc<Mutex<crate::contamination::CausalContaminationEngine>>,
+    pub(crate) cce: Arc<Mutex<crate::contamination::CausalContaminationEngine>>,
 
     /// Revocation Subsystem (WASM build).
     #[cfg(not(feature = "native"))]
-    revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
+    pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
 
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
