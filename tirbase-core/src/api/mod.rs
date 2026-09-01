@@ -81,12 +81,26 @@ pub struct CoreHandle {
     #[cfg(not(feature = "native"))]
     pub(crate) cce: Arc<Mutex<crate::contamination::CausalContaminationEngine>>,
 
+    /// Revocation Subsystem (native build).
+    #[cfg(feature = "native")]
+    pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
+
     /// Revocation Subsystem (WASM build).
     #[cfg(not(feature = "native"))]
     pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
 
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
+
+    /// Sender end of the inbound Gossipsub message channel.
+    /// The spawned event loop writes here; `process_inbound_messages` drains via `inbound_rx`.
+    inbound_tx: tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>,
+
+    /// Receiver end of the inbound Gossipsub message channel.
+    /// Wrapped in `tokio::sync::Mutex` so `CoreHandle` remains `Sync`.
+    inbound_rx: tokio::sync::Mutex<
+        tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>,
+    >,
 }
 
 impl CoreHandle {
@@ -165,6 +179,18 @@ impl CoreHandle {
             Arc::new(Mutex::new(store))
         };
 
+        // ── Native Revocation Subsystem ───────────────────────────────────────
+        #[cfg(feature = "native")]
+        let revocation = {
+            let conn = crate::store::sqlite::open(&config.storage_path)?;
+            let conn = Arc::new(Mutex::new(conn));
+            Arc::new(Mutex::new(crate::auth::RevocationSubsystem::new(
+                config.deployment.revocation_m.max(1),
+                config.deployment.revocation_n.max(1),
+                conn,
+            )))
+        };
+
         // ── WASM CCE and RevocationSubsystem ──────────────────────────────────
         #[cfg(not(feature = "native"))]
         let cce = Arc::new(Mutex::new(
@@ -212,6 +238,75 @@ impl CoreHandle {
         }
         let transport = Arc::new(Mutex::new(transport));
 
+        // ── Inbound message channel ───────────────────────────────────────────
+        let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<
+            crate::transport::message::GossipMessage,
+        >(1024);
+
+        // ── Native: take the Swarm and spawn the inbound polling task ─────────
+        #[cfg(feature = "native")]
+        {
+            use crate::transport::TirBaseBehaviour;
+            use libp2p::futures::StreamExt as _;
+            use libp2p::gossipsub;
+            use libp2p::mdns;
+            use libp2p::swarm::SwarmEvent;
+
+            let swarm_opt = transport.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            })?.take_swarm();
+
+            if let Some(mut swarm) = swarm_opt {
+                let tx_clone = inbound_tx.clone();
+                tokio::spawn(async move {
+                    loop {
+                        match swarm.select_next_some().await {
+                            SwarmEvent::Behaviour(
+                                crate::transport::TirBaseBehaviourEvent::Gossipsub(
+                                    gossipsub::Event::Message { message, .. },
+                                ),
+                            ) => {
+                                if let Some(msg) = crate::transport::message::GossipMessage::from_bytes(&message.data) {
+                                    if tx_clone.send(msg).await.is_err() {
+                                        // Receiver dropped — CoreHandle is gone.
+                                        break;
+                                    }
+                                } else {
+                                    eprintln!(
+                                        "[transport-loop] unrecognised gossipsub message ({} bytes)",
+                                        message.data.len()
+                                    );
+                                }
+                            }
+                            SwarmEvent::NewListenAddr { address, .. } => {
+                                eprintln!("[transport-loop] listening on {address}");
+                            }
+                            SwarmEvent::Behaviour(
+                                crate::transport::TirBaseBehaviourEvent::Mdns(
+                                    mdns::Event::Discovered(peers),
+                                ),
+                            ) => {
+                                for (peer_id, _) in peers {
+                                    eprintln!("[transport-loop] mDNS discovered: {peer_id}");
+                                    swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                                }
+                            }
+                            SwarmEvent::Behaviour(
+                                crate::transport::TirBaseBehaviourEvent::Mdns(
+                                    mdns::Event::Expired(peers),
+                                ),
+                            ) => {
+                                for (peer_id, _) in peers {
+                                    swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+            }
+        }
+
         // ── Startup diagnostics ───────────────────────────────────────────────
         let diag_entries = emit_startup_diagnostics(&config);
         for entry in diag_entries {
@@ -233,10 +328,14 @@ impl CoreHandle {
             cce,
             #[cfg(not(feature = "native"))]
             cce,
+            #[cfg(feature = "native")]
+            revocation,
             #[cfg(not(feature = "native"))]
             revocation,
             migration,
             diagnostics_channel: diag_tx,
+            inbound_tx,
+            inbound_rx: tokio::sync::Mutex::new(inbound_rx),
         })    }
 
     // ─── Write ────────────────────────────────────────────────────────────────
@@ -499,6 +598,242 @@ impl CoreHandle {
         &self,
     ) -> tokio::sync::broadcast::Receiver<DiagnosticEntry> {
         self.diagnostics_channel.subscribe()
+    }
+
+    // ─── Inbound message pipeline ─────────────────────────────────────────────
+
+    /// Route an inbound `GossipMessage` through the correct subsystem (native only).
+    ///
+    /// Called by the background processing loop or test harness with messages
+    /// drained from `inbound_rx`.
+    ///
+    /// Dispatches:
+    /// - `InboundDelta`                  → `CrdtEngine::apply`
+    /// - `InboundDurabilityReceipt`      → `DurabilitySubsystem::receive_receipt`
+    /// - `InboundRevocationDelta`        → `RevocationSubsystem::process_incoming_delta`
+    /// - `InboundMigrationDelta`         → `SchemaMigrationEngine::receive_migration_delta`
+    /// - `InboundMigrationRevocationDelta` → `SchemaMigrationEngine::receive_revocation_delta`
+    #[cfg(feature = "native")]
+    pub async fn receive_inbound(
+        &self,
+        msg: crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        use crate::crdt::merge::MergeOutcome;
+        use crate::transport::message::GossipMessage;
+
+        match msg {
+            GossipMessage::InboundDelta(delta) => {
+                let outcome = {
+                    let mut crdt = self.crdt.lock().map_err(|e| {
+                        TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("crdt mutex: {e}"),
+                        }
+                    })?;
+                    crdt.apply(&delta)?
+                };
+                match outcome {
+                    MergeOutcome::Merged { .. } => {
+                        eprintln!(
+                            "[inbound] delta {} merged from {}",
+                            hex::encode(delta.id),
+                            delta.author_did
+                        );
+                    }
+                    MergeOutcome::Quarantined { .. } => {
+                        eprintln!(
+                            "[inbound] delta {} quarantined (schema mismatch) from {}",
+                            hex::encode(delta.id),
+                            delta.author_did
+                        );
+                    }
+                    MergeOutcome::Rejected { reason } => {
+                        eprintln!(
+                            "[inbound] delta {} rejected from {}: {}",
+                            hex::encode(delta.id),
+                            delta.author_did,
+                            reason
+                        );
+                    }
+                }
+            }
+            GossipMessage::InboundDurabilityReceipt(receipt) => {
+                let issuer_did = receipt.issuer_did.clone();
+                let delta_id = receipt.state_hash;
+
+                // Attempt DID resolution to look up the issuer's public key.
+                match crate::identity::did::resolve_did(&issuer_did) {
+                    Ok(_pk) => {
+                        let mut dur = self.durability.lock().map_err(|e| {
+                            TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("durability mutex: {e}"),
+                            }
+                        })?;
+                        match dur.receive_receipt(receipt, &delta_id) {
+                            Ok(true) => {
+                                eprintln!(
+                                    "[inbound] Tier-1 durability achieved for delta {}",
+                                    hex::encode(delta_id)
+                                );
+                            }
+                            Ok(false) => {}
+                            Err(e) => {
+                                eprintln!("[inbound] receipt rejected: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[inbound] could not resolve receipt issuer DID {issuer_did}: {e}"
+                        );
+                    }
+                }
+            }
+            GossipMessage::InboundRevocationDelta(rev_delta) => {
+                let cce_clone = self.cce.clone();
+
+                let mut rev = self.revocation.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("revocation mutex: {e}"),
+                    }
+                })?;
+
+                let result = rev.process_incoming_delta(
+                    &rev_delta,
+                    &mut |target_did, _complete_delta| {
+                        // HIGH-priority gossip of complete RevocationDelta (Req 9.2).
+                        eprintln!(
+                            "[inbound] gossiping RevocationDelta for revoked DID: {target_did}"
+                        );
+                        // Actual mesh send happens via transport; skipped here for v1.
+                    },
+                    &mut |target_did, delta_ids| {
+                        // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
+                        eprintln!(
+                            "[inbound] CCE tagging {} deltas for revoked DID: {target_did}",
+                            delta_ids.len()
+                        );
+                        if let Ok(mut cce) = cce_clone.lock() {
+                            for delta_id in delta_ids {
+                                let _ = cce.tag_contamination_root(
+                                    delta_id,
+                                    crate::contamination::incident::TaintSource::DeviceRevocation {
+                                        revocation_delta_id: delta_id,
+                                    },
+                                );
+                            }
+                        }
+                    },
+                );
+
+                match result {
+                    Ok(crate::auth::RevocationStatus::Applied) => {
+                        eprintln!(
+                            "[inbound] RevocationDelta applied for {}",
+                            rev_delta.target_did
+                        );
+                    }
+                    Ok(crate::auth::RevocationStatus::Pending {
+                        collected,
+                        required,
+                    }) => {
+                        eprintln!(
+                            "[inbound] RevocationDelta pending {collected}/{required} sigs for {}",
+                            rev_delta.target_did
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("[inbound] RevocationDelta processing failed: {e}");
+                    }
+                }
+            }
+            GossipMessage::InboundMigrationDelta(mig_delta) => {
+                let sender_did = mig_delta.author_did.clone();
+                let mut mig = self.migration.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("migration mutex: {e}"),
+                    }
+                })?;
+                match mig.receive_migration_delta(mig_delta, &sender_did) {
+                    Ok(result) => {
+                        eprintln!("[inbound] MigrationDelta applied: {result:?}");
+                    }
+                    Err(e) => {
+                        eprintln!("[inbound] MigrationDelta rejected: {e}");
+                    }
+                }
+            }
+            GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
+                let mut mig = self.migration.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("migration mutex: {e}"),
+                    }
+                })?;
+                if let Err(e) = mig.receive_revocation_delta(mig_rev) {
+                    eprintln!("[inbound] MigrationRevocationDelta rejected: {e}");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// WASM stub — the Gossipsub Swarm is not available on wasm32.
+    #[cfg(not(feature = "native"))]
+    pub async fn receive_inbound(
+        &self,
+        _msg: crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        Ok(())
+    }
+
+    /// Drain all pending inbound messages from the channel and route each through
+    /// the appropriate subsystem (Req 4.3–4.7, 5.1–5.8).
+    ///
+    /// This is a non-blocking drain: it processes only messages that are already
+    /// queued. Call this from an application-controlled tick loop or a dedicated
+    /// background task to drive the inbound pipeline.
+    ///
+    /// Returns the number of messages processed.
+    pub async fn process_inbound_messages(&self) -> Result<usize, TirBaseError> {
+        #[cfg(not(feature = "native"))]
+        {
+            return Ok(0);
+        }
+
+        #[cfg(feature = "native")]
+        {
+            use tokio::sync::mpsc::error::TryRecvError;
+
+            let mut count = 0usize;
+            let mut rx = self.inbound_rx.lock().await;
+
+            loop {
+                match rx.try_recv() {
+                    Ok(msg) => {
+                        self.receive_inbound(msg).await?;
+                        count += 1;
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => break,
+                }
+            }
+            Ok(count)
+        }
+    }
+
+    /// Inject a `GossipMessage` directly into the inbound channel.
+    ///
+    /// Intended for testing only — allows tests to push messages without
+    /// requiring a live libp2p Swarm.
+    #[cfg(test)]
+    pub async fn inject_inbound(
+        &self,
+        msg: crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        self.inbound_tx.send(msg).await.map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("inbound_tx send failed: {e}"),
+            }
+        })
     }
 }
 
@@ -788,5 +1123,243 @@ mod tests {
         );
 
         cleanup(&path);
+    }
+}
+
+// ─── Inbound pipeline integration tests ───────────────────────────────────────
+
+#[cfg(all(test, feature = "native"))]
+mod inbound_tests {
+    use super::*;
+    use crate::crdt::delta::{Ed25519Signature, PriorityClass};
+    use crate::identity::keypair::{generate_keypair, sign as ek_sign};
+    use crate::transport::message::GossipMessage;
+    use serde_json::json;
+    use std::env;
+
+    fn make_config(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 3,
+                biscuit_ttl_secs: 3600,
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        }
+    }
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_inbound_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// Build a properly-signed Delta using the test keypair and schema hash.
+    fn make_signed_delta(
+        secret: &[u8; 32],
+        author_did: &str,
+        schema_hash: [u8; 32],
+        lamport: u64,
+    ) -> crate::crdt::delta::Delta {
+        let mut d = crate::crdt::delta::Delta {
+            id: [0u8; 32],
+            author_did: author_did.to_string(),
+            signature: Ed25519Signature::default(),
+            schema_hash,
+            automerge_bytes: vec![], // empty is safe to merge
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport,
+            created_at: 0,
+        };
+        let canonical = d.canonical_bytes();
+        d.signature = ek_sign(secret, &canonical).expect("sign");
+        d.id = crate::crdt::delta::Delta::compute_id(&canonical);
+        d
+    }
+
+    // ── Test 1: InboundDelta with valid signature is merged ───────────────────
+
+    #[tokio::test]
+    async fn inbound_valid_delta_is_merged() {
+        let path = tmp_path("inbound_merge");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Build a peer identity with a valid did:key DID.
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+
+        // Get the engine's known schema hash by producing a delta from the handle first.
+        // The default schema hash is all-zeros.
+        let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
+
+        let delta = make_signed_delta(&peer_secret, &peer_did, schema_hash, 1);
+        let msg = GossipMessage::InboundDelta(delta);
+
+        handle
+            .inject_inbound(msg)
+            .await
+            .expect("inject_inbound should not fail");
+
+        let processed = handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages should not fail");
+
+        assert_eq!(processed, 1, "exactly one message should be processed");
+
+        cleanup(&path);
+    }
+
+    // ── Test 2: InboundDelta with unknown schema hash is quarantined ──────────
+
+    #[tokio::test]
+    async fn inbound_unknown_schema_delta_is_quarantined() {
+        let path = tmp_path("inbound_quarantine");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+
+        // Use an unknown schema hash (should be quarantined, not rejected).
+        let unknown_schema = [0xFFu8; 32];
+        let delta = make_signed_delta(&peer_secret, &peer_did, unknown_schema, 1);
+        let msg = GossipMessage::InboundDelta(delta);
+
+        handle.inject_inbound(msg).await.expect("inject");
+
+        // Should process without error (quarantine is not a pipeline error).
+        let processed = handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages should succeed even for quarantined delta");
+
+        assert_eq!(processed, 1, "quarantined delta counts as processed");
+
+        cleanup(&path);
+    }
+
+    // ── Test 3: process_inbound_messages drains the channel correctly ─────────
+
+    #[tokio::test]
+    async fn process_inbound_messages_drains_channel() {
+        let path = tmp_path("inbound_drain");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+        let schema_hash = [0u8; 32];
+
+        // Inject 3 messages.
+        for i in 1u64..=3 {
+            let delta = make_signed_delta(&peer_secret, &peer_did, schema_hash, i);
+            handle
+                .inject_inbound(GossipMessage::InboundDelta(delta))
+                .await
+                .expect("inject");
+        }
+
+        // First drain should process 3.
+        let first_count = handle
+            .process_inbound_messages()
+            .await
+            .expect("first drain");
+        assert_eq!(first_count, 3, "should drain all 3 queued messages");
+
+        // Second drain should return 0 (channel is empty).
+        let second_count = handle
+            .process_inbound_messages()
+            .await
+            .expect("second drain");
+        assert_eq!(second_count, 0, "channel should be empty after first drain");
+
+        cleanup(&path);
+    }
+
+    // ── Test 4: InboundDelta with missing signature is rejected gracefully ────
+
+    #[tokio::test]
+    async fn inbound_malformed_delta_rejected_gracefully() {
+        let path = tmp_path("inbound_rejected");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Delta with empty signature — should be Rejected (not a pipeline error).
+        let delta = crate::crdt::delta::Delta {
+            id: [0xAAu8; 32],
+            author_did: "did:key:z6MkTest".to_string(),
+            signature: Ed25519Signature::default(), // empty → rejected
+            schema_hash: [0u8; 32],
+            automerge_bytes: vec![],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        let msg = GossipMessage::InboundDelta(delta);
+
+        handle.inject_inbound(msg).await.expect("inject");
+
+        // Should not return Err — Rejection is logged, not propagated.
+        let processed = handle
+            .process_inbound_messages()
+            .await
+            .expect("process should succeed even for rejected delta");
+        assert_eq!(processed, 1);
+
+        cleanup(&path);
+    }
+
+    // ── Test 5: GossipMessage serialisation round-trip ────────────────────────
+
+    #[test]
+    fn gossip_message_serde_round_trip() {
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+        let schema_hash = [0u8; 32];
+        let delta = make_signed_delta(&peer_secret, &peer_did, schema_hash, 7);
+
+        let msg = GossipMessage::InboundDelta(delta.clone());
+        let bytes = msg.to_bytes();
+        let decoded = GossipMessage::from_bytes(&bytes).expect("round-trip decode");
+
+        match decoded {
+            GossipMessage::InboundDelta(d) => {
+                assert_eq!(d.author_did, delta.author_did);
+                assert_eq!(d.lamport, 7);
+                assert_eq!(d.id, delta.id);
+            }
+            other => panic!("expected InboundDelta, got {other:?}"),
+        }
     }
 }

@@ -8,6 +8,7 @@
 
 pub mod discovery;
 pub mod fragment;
+pub mod message;
 pub mod priority;
 pub mod saturate;
 pub mod scheduler;
@@ -100,6 +101,9 @@ pub struct MeshTransport {
     /// The local device DID.
     pub local_did: Did,
 
+    /// The shared Gossipsub topic all TirBase nodes subscribe to.
+    pub gossip_topic: String,
+
     /// Native-only: libp2p Swarm (None before `start()` is called).
     #[cfg(feature = "native")]
     swarm: Option<libp2p::Swarm<TirBaseBehaviour>>,
@@ -126,6 +130,7 @@ impl MeshTransport {
             reassembly_buffer: ReassemblyBuffer::default(),
             local_did,
             config,
+            gossip_topic: "tirbase/v1".to_string(),
             #[cfg(feature = "native")]
             swarm: None,
             saturate_active: false,
@@ -306,14 +311,58 @@ impl MeshTransport {
             .build();
 
         self.swarm = Some(swarm);
+
+        // Subscribe to the shared TirBase Gossipsub topic (Req 5.1).
+        if let Some(ref mut swarm) = self.swarm {
+            use libp2p::gossipsub::IdentTopic;
+            let topic = IdentTopic::new(&self.gossip_topic);
+            swarm
+                .behaviour_mut()
+                .gossipsub
+                .subscribe(&topic)
+                .map_err(|e| TirBaseError::NoiseHandshakeFailed {
+                    peer_did: self.local_did.clone(),
+                    reason: format!("gossipsub subscribe failed: {e:?}"),
+                })?;
+
+            // Start listening for incoming connections (Req 5.1).
+            let listen_addr: libp2p::Multiaddr =
+                self.config.listen_addr.parse().map_err(|e| {
+                    TirBaseError::NoiseHandshakeFailed {
+                        peer_did: self.local_did.clone(),
+                        reason: format!("invalid listen addr: {e}"),
+                    }
+                })?;
+            swarm.listen_on(listen_addr).map_err(|e| {
+                TirBaseError::NoiseHandshakeFailed {
+                    peer_did: self.local_did.clone(),
+                    reason: format!("listen_on failed: {e}"),
+                }
+            })?;
+        }
+
         Ok(())
     }
 
-    /// Send serialised bytes to a connected peer via Gossipsub (Req 5.1).
+    /// Take ownership of the native libp2p Swarm out of this transport.
     ///
-    /// The bytes are published to the Gossipsub topic corresponding to the
-    /// peer's DID.  This function is a thin wrapper; routing, fragmentation,
-    /// and Noise encryption are handled by the libp2p transport stack.
+    /// Used by `CoreHandle::init` to move the Swarm into a dedicated polling
+    /// task so it can be polled across `.await` points without holding the
+    /// `MeshTransport` mutex (Rust forbids holding a sync mutex across `.await`).
+    ///
+    /// After this call `self.swarm` is `None`; `send_delta` will be unavailable
+    /// until a new Swarm is re-installed (or the device is offline-only).
+    #[cfg(feature = "native")]
+    pub fn take_swarm(&mut self) -> Option<libp2p::Swarm<TirBaseBehaviour>> {
+        self.swarm.take()
+    }
+
+    /// Send serialised bytes to the shared Gossipsub topic (Req 5.1).
+    ///
+    /// The `peer_did` argument is accepted for API compatibility but the
+    /// message is published to the shared `tirbase/v1` topic so all subscribed
+    /// peers receive it.  Routing, fragmentation, and Noise encryption are
+    /// handled by the libp2p transport stack.
     #[cfg(feature = "native")]
     pub async fn send_delta(
         &mut self,
@@ -329,7 +378,8 @@ impl MeshTransport {
             reason: "transport not started".to_string(),
         })?;
 
-        let topic = IdentTopic::new(peer_did);
+        // Publish to the shared topic (not per-peer) so all subscribers receive it.
+        let topic = IdentTopic::new(&self.gossip_topic);
 
         for payload in payloads {
             swarm

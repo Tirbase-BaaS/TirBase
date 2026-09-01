@@ -41,7 +41,7 @@ use crate::identity::{did as did_mod, keypair};
 // ─── Core data types ──────────────────────────────────────────────────────────
 
 /// A Manager DID signature contribution toward a RevocationDelta.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ManagerSignature {
     /// The DID of the Manager who produced this signature.
     pub manager_did: Did,
@@ -53,7 +53,7 @@ pub struct ManagerSignature {
 }
 
 /// A complete Revocation_Delta — produced when M signatures are accumulated (Req 9.1).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RevocationDelta {
     /// DID of the device being revoked.
     pub target_did: Did,
