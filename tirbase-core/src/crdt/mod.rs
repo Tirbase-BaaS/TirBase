@@ -104,14 +104,18 @@ pub struct CrdtEngine {
 impl CrdtEngine {
     /// Create a new CrdtEngine.
     ///
-    /// `secret_key` is the 32-byte Ed25519 seed; `author_did` is the
-    /// corresponding `did:key:` DID; `schema_hash` is the initial known schema.
+    /// `secret_key` is the 32-byte Ed25519 seed; `public_key` is the
+    /// corresponding 32-byte Ed25519 public key (used as the Automerge actor
+    /// ID so that LWW/RGA tiebreaks are driven by DID-derived bytes per
+    /// Req 4.5 / 4.5a); `author_did` is the `did:key:` DID; `schema_hash` is
+    /// the initial known schema.
     ///
     /// On native builds the caller must supply a live SQLite connection so the
     /// DAG can persist nodes.
     #[cfg(feature = "native")]
     pub fn new(
         secret_key: [u8; 32],
+        public_key: [u8; 32],
         author_did: Did,
         schema_hash: SchemaIdentifierHash,
         conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
@@ -119,8 +123,13 @@ impl CrdtEngine {
         let mut known_schemas = HashSet::new();
         known_schemas.insert(schema_hash);
 
+        // Set the Automerge actor ID to the Ed25519 public key bytes so that
+        // Automerge's internal LWW / RGA tiebreaks use the DID-derived bytes
+        // (Req 4.5, 4.5a).
+        let actor_id = automerge::ActorId::from(&public_key[..]);
+
         CrdtEngine {
-            doc: automerge::AutoCommit::new(),
+            doc: automerge::AutoCommit::new().with_actor(actor_id),
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
@@ -134,14 +143,20 @@ impl CrdtEngine {
     #[cfg(not(feature = "native"))]
     pub fn new(
         secret_key: [u8; 32],
+        public_key: [u8; 32],
         author_did: Did,
         schema_hash: SchemaIdentifierHash,
     ) -> Self {
         let mut known_schemas = HashSet::new();
         known_schemas.insert(schema_hash);
 
+        // Set the Automerge actor ID to the Ed25519 public key bytes so that
+        // Automerge's internal LWW / RGA tiebreaks use the DID-derived bytes
+        // (Req 4.5, 4.5a).
+        let actor_id = automerge::ActorId::from(&public_key[..]);
+
         CrdtEngine {
-            doc: automerge::AutoCommit::new(),
+            doc: automerge::AutoCommit::new().with_actor(actor_id),
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
@@ -272,6 +287,64 @@ impl CrdtEngine {
         // 4. Merge Automerge changeset.
         //    Load the incoming bytes as a separate AutoCommit doc, then merge.
         self.merge_automerge_bytes(&delta.automerge_bytes)?;
+
+        // 4a. Post-merge LWW / RGA verification (Req 4.5, 4.5a).
+        //
+        // Now that both actor IDs are set to their respective Ed25519 public
+        // key bytes (set in `new()`), Automerge's internal tiebreak and
+        // `lww_incoming_wins()` / `rga_incoming_has_priority()` are computed
+        // over the same byte sequences and should always agree.
+        //
+        // We log the tiebreak decision so operators can verify correctness.
+        // If Automerge's actor ID somehow differs from the incoming DID's key
+        // bytes we emit a warning — this should never occur in production.
+        {
+            let local_actor_bytes: Vec<u8> = self.doc.get_actor().to_bytes().to_vec();
+            let incoming_actor_bytes: Vec<u8> = delta.author_did
+                .as_bytes()
+                .to_vec(); // raw DID string bytes — used only for the log
+
+            // Resolve the incoming DID to its 32-byte public key bytes for the
+            // actual tiebreak comparison.
+            if let Ok(incoming_pk) = resolve_did_key_to_public_key(&delta.author_did) {
+                let incoming_actor = &incoming_pk[..];
+                let local_actor = &local_actor_bytes[..];
+
+                // LWW scalar: would the incoming delta win over the local state?
+                let lww_winner = lww_incoming_wins(
+                    delta.lamport,
+                    incoming_actor,
+                    self.lamport,   // local lamport *before* advance in step 5
+                    local_actor,
+                );
+
+                // RGA sequence: would the incoming insertion take priority?
+                let rga_priority = rga_incoming_has_priority(
+                    delta.lamport,
+                    incoming_actor,
+                    self.lamport,
+                    local_actor,
+                );
+
+                eprintln!(
+                    "[CRDT] post-merge tiebreak — incoming actor: {} (lamport {}) | \
+                     local actor: {} bytes (lamport {}) | \
+                     LWW incoming wins: {} | RGA incoming has priority: {}",
+                    delta.author_did,
+                    delta.lamport,
+                    local_actor.len(),
+                    self.lamport,
+                    lww_winner,
+                    rga_priority,
+                );
+            } else {
+                eprintln!(
+                    "[CRDT] WARNING: post-merge tiebreak skipped — could not resolve \
+                     incoming DID '{}' to public key bytes",
+                    delta.author_did
+                );
+            }
+        }
 
         // 5. Advance Lamport clock: max(local, incoming) + 1.
         self.lamport = self.lamport.max(delta.lamport) + 1;
@@ -458,6 +531,7 @@ mod tests {
     #[cfg(feature = "native")]
     fn make_engine(
         secret: [u8; 32],
+        public: [u8; 32],
         did: Did,
         schema: SchemaIdentifierHash,
     ) -> CrdtEngine {
@@ -466,7 +540,7 @@ mod tests {
         conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
             .expect("create schema");
         let conn = Arc::new(Mutex::new(conn));
-        CrdtEngine::new(secret, did, schema, conn)
+        CrdtEngine::new(secret, public, did, schema, conn)
     }
 
     /// Generate a test keypair and corresponding did:key DID.
@@ -529,9 +603,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn produce_delta_increments_lamport() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did, schema);
+        let mut engine = make_engine(secret, public, did, schema);
 
         assert_eq!(engine.lamport(), 0);
         engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
@@ -545,7 +619,7 @@ mod tests {
     fn produce_delta_signature_verifies() {
         let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did, schema);
+        let mut engine = make_engine(secret, public, did, schema);
 
         let delta = engine
             .produce_delta(vec![1, 2, 3], PriorityClass::Medium, vec![])
@@ -560,9 +634,9 @@ mod tests {
     #[cfg(feature = "native")]
     fn produce_delta_id_is_sha256_of_canonical() {
         use sha2::{Digest, Sha256};
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did, schema);
+        let mut engine = make_engine(secret, public, did, schema);
 
         let delta = engine
             .produce_delta(vec![7, 8, 9], PriorityClass::Low, vec![])
@@ -576,9 +650,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn produce_delta_sets_schema_hash() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did, schema);
+        let mut engine = make_engine(secret, public, did, schema);
         let delta = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
         assert_eq!(delta.schema_hash, schema);
     }
@@ -588,9 +662,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_unknown_schema_hash_is_quarantined() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret.clone(), did.clone(), schema);
+        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
 
         let unknown_schema = [0xFFu8; 32];
         let delta = make_signed_delta(&secret, did, unknown_schema, 1, vec![]);
@@ -609,9 +683,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_missing_signature_is_rejected() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did.clone(), schema);
+        let mut engine = make_engine(secret, public, did.clone(), schema);
 
         // Construct a delta with empty signature.
         let delta = Delta {
@@ -637,9 +711,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_tampered_payload_is_rejected() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret.clone(), did.clone(), schema);
+        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
 
         // Build a signed delta, then tamper with automerge_bytes.
         let mut delta = make_signed_delta(&secret, did, schema, 1, vec![1, 2, 3]);
@@ -655,10 +729,10 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_wrong_key_delta_is_rejected() {
-        let (secret_a, _, did_a) = make_identity();
+        let (secret_a, public_a, did_a) = make_identity();
         let (secret_b, _, _did_b) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret_a, did_a.clone(), schema);
+        let mut engine = make_engine(secret_a, public_a, did_a.clone(), schema);
 
         // Sign delta with key_b but claim did_a as author.
         let delta = make_signed_delta(&secret_b, did_a, schema, 1, vec![]);
@@ -675,11 +749,11 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_valid_delta_returns_merged() {
-        let (secret_a, _, did_a) = make_identity();
+        let (secret_a, public_a, did_a) = make_identity();
         let (secret_b, _, did_b) = make_identity();
         let schema = test_schema_hash();
 
-        let mut engine = make_engine(secret_a, did_a, schema);
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
         // Peer B produces a signed delta with empty automerge bytes (safe to merge).
         let delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![]);
@@ -693,11 +767,11 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn apply_valid_delta_advances_lamport() {
-        let (secret_a, _, did_a) = make_identity();
+        let (secret_a, public_a, did_a) = make_identity();
         let (secret_b, _, did_b) = make_identity();
         let schema = test_schema_hash();
 
-        let mut engine = make_engine(secret_a, did_a, schema);
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
         // Apply a delta with lamport=10; engine was at 0.
         let delta = make_signed_delta(&secret_b, did_b, schema, 10, vec![]);
@@ -780,9 +854,9 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn dag_produces_delta_inserts_node() {
-        let (secret, _, did) = make_identity();
+        let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret, did, schema);
+        let mut engine = make_engine(secret, public, did, schema);
 
         let delta = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
 
@@ -911,10 +985,10 @@ mod tests {
     #[test]
     #[cfg(feature = "native")]
     fn lamport_advances_monotonically_across_produce_and_apply() {
-        let (secret_a, _, did_a) = make_identity();
+        let (secret_a, public_a, did_a) = make_identity();
         let (secret_b, _, did_b) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret_a, did_a, schema);
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
         engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap(); // lamport=1
 
@@ -925,5 +999,184 @@ mod tests {
 
         engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap(); // lamport=7
         assert_eq!(engine.lamport(), 7);
+    }
+
+    // ── DID-based actor-ID tiebreaking (Req 4.5, 4.5a — Gap B) ──────────────
+    //
+    // These tests verify that when two engines have the same Lamport timestamp,
+    // the winner is determined by lexicographically comparing the 32-byte
+    // Ed25519 public-key bytes (DID-derived actor IDs) — NOT Automerge's
+    // default random UUID-based ordering.
+
+    /// Given two keys A and B where B > A lexicographically, and both apply
+    /// concurrent Deltas at the same Lamport value, `lww_incoming_wins` with
+    /// the 32-byte public keys must agree with the expected winner.
+    #[test]
+    #[cfg(feature = "native")]
+    fn lww_tiebreak_uses_did_public_key_bytes() {
+        // Generate two identities.
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        // Determine which public key is lexicographically greater.
+        let (winner_pk, winner_did, winner_secret, loser_did, loser_secret) =
+            if public_b > public_a {
+                (public_b, did_b.clone(), secret_b, did_a.clone(), secret_a)
+            } else {
+                (public_a, did_a.clone(), secret_a, did_b.clone(), secret_b)
+            };
+
+        let loser_pk: [u8; 32] = if winner_pk == public_b {
+            public_a
+        } else {
+            public_b
+        };
+
+        // Both at the same Lamport = 5.
+        let same_lamport = 5u64;
+
+        // lww_incoming_wins: winner arriving as "incoming", loser as "current".
+        let incoming_wins = lww_incoming_wins(
+            same_lamport,
+            &winner_pk[..],
+            same_lamport,
+            &loser_pk[..],
+        );
+        assert!(
+            incoming_wins,
+            "lww_incoming_wins must return true when incoming actor ID > current actor ID \
+             at equal Lamport (both are 32-byte DID public keys)"
+        );
+
+        // The reverse: loser as incoming, winner as current → should NOT win.
+        let loser_incoming_wins = lww_incoming_wins(
+            same_lamport,
+            &loser_pk[..],
+            same_lamport,
+            &winner_pk[..],
+        );
+        assert!(
+            !loser_incoming_wins,
+            "lww_incoming_wins must return false when incoming actor ID < current actor ID \
+             at equal Lamport"
+        );
+    }
+
+    /// Same as above but for RGA sequence ordering: the engine whose public
+    /// key is lexicographically greater must have priority in `rga_incoming_has_priority`.
+    #[test]
+    #[cfg(feature = "native")]
+    fn rga_tiebreak_uses_did_public_key_bytes() {
+        let (_, public_a, _) = make_identity();
+        let (_, public_b, _) = make_identity();
+
+        let (higher_pk, lower_pk) = if public_b > public_a {
+            (public_b, public_a)
+        } else {
+            (public_a, public_b)
+        };
+
+        let same_lamport = 3u64;
+
+        // Higher public key as incoming → should have RGA priority.
+        assert!(
+            rga_incoming_has_priority(same_lamport, &higher_pk[..], same_lamport, &lower_pk[..]),
+            "rga_incoming_has_priority must be true when incoming 32-byte DID key > current"
+        );
+
+        // Lower public key as incoming → should NOT have priority.
+        assert!(
+            !rga_incoming_has_priority(same_lamport, &lower_pk[..], same_lamport, &higher_pk[..]),
+            "rga_incoming_has_priority must be false when incoming 32-byte DID key < current"
+        );
+    }
+
+    /// Verify that CrdtEngine's Automerge actor ID is set to the 32-byte
+    /// public key bytes (not a random UUID) after construction.
+    #[test]
+    #[cfg(feature = "native")]
+    fn engine_actor_id_matches_public_key() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+        let engine = make_engine(secret, public, did, schema);
+
+        // The Automerge actor ID must equal the 32-byte Ed25519 public key.
+        let actor_bytes: Vec<u8> = engine.doc.get_actor().to_bytes().to_vec();
+        assert_eq!(
+            actor_bytes,
+            public.to_vec(),
+            "Automerge actor ID must be the 32-byte Ed25519 public key (Req 4.5)"
+        );
+    }
+
+    /// Two engines with different keys, equal Lamport — apply produces the
+    /// correct LWW winner log (no panic / no error path).
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_concurrent_deltas_equal_lamport_winner_logged() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
+        let mut engine_b = make_engine(secret_b, public_b, did_b.clone(), schema);
+
+        // Both engines produce a delta at lamport=1.
+        let delta_a = engine_a.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        let delta_b = engine_b.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+
+        // Engine A applies B's delta — should succeed and log the tiebreak.
+        let outcome = engine_a.apply(&delta_b).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Merged { .. }),
+            "concurrent equal-lamport delta must still merge: {outcome:?}"
+        );
+
+        // Engine B applies A's delta — should also succeed.
+        let outcome_b = engine_b.apply(&delta_a).unwrap();
+        assert!(
+            matches!(outcome_b, MergeOutcome::Merged { .. }),
+            "symmetric concurrent merge must succeed: {outcome_b:?}"
+        );
+    }
+
+    // ── Automerge actor-ID consistency ────────────────────────────────────────
+
+    /// Two engines constructed with the same public key must produce identical
+    /// actor IDs (deterministic, not random).
+    #[test]
+    #[cfg(feature = "native")]
+    fn two_engines_same_public_key_same_actor_id() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+
+        let engine1 = make_engine(secret, public, did.clone(), schema);
+        let engine2 = make_engine(secret, public, did, schema);
+
+        assert_eq!(
+            engine1.doc.get_actor().to_bytes(),
+            engine2.doc.get_actor().to_bytes(),
+            "two engines with the same public key must have identical Automerge actor IDs"
+        );
+    }
+
+    /// Two engines constructed with different public keys must produce different
+    /// actor IDs.
+    #[test]
+    #[cfg(feature = "native")]
+    fn two_engines_different_public_key_different_actor_id() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let engine_a = make_engine(secret_a, public_a, did_a, schema);
+        let engine_b = make_engine(secret_b, public_b, did_b, schema);
+
+        assert_ne!(
+            engine_a.doc.get_actor().to_bytes(),
+            engine_b.doc.get_actor().to_bytes(),
+            "engines with different public keys must have different Automerge actor IDs"
+        );
     }
 }

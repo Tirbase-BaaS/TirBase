@@ -160,6 +160,7 @@ impl CoreHandle {
 
             let crdt = CrdtEngine::new(
                 identity.signing_key_bytes(),
+                identity.public_key_bytes(),
                 identity.did().to_string(),
                 DEFAULT_SCHEMA_HASH,
                 conn.clone(),

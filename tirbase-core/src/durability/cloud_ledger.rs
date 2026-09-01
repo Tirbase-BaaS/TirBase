@@ -98,6 +98,9 @@ impl CloudLedger {
         author_did: Did,
         schema_hash: SchemaIdentifierHash,
     ) -> Result<Self, TirBaseError> {
+        use ed25519_dalek::SigningKey;
+        let public_key: [u8; 32] = SigningKey::from_bytes(&secret_key).verifying_key().to_bytes();
+
         let conn = rusqlite::Connection::open_in_memory().map_err(|e| {
             TirBaseError::LocalStoreWriteFailed {
                 reason: format!("CloudLedger in-memory SQLite: {e}"),
@@ -109,7 +112,7 @@ impl CloudLedger {
             }
         })?;
         let conn = Arc::new(Mutex::new(conn));
-        let engine = CrdtEngine::new(secret_key, author_did, schema_hash, conn);
+        let engine = CrdtEngine::new(secret_key, public_key, author_did, schema_hash, conn);
 
         Ok(Self {
             engine,

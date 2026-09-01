@@ -299,7 +299,7 @@ fn make_engine(secret: [u8; 32], schema_hash: [u8; 32]) -> CrdtEngine {
     conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
         .expect("create schema");
     let conn = Arc::new(Mutex::new(conn));
-    CrdtEngine::new(secret, did, schema_hash, conn)
+    CrdtEngine::new(secret, public_bytes, did, schema_hash, conn)
 }
 
 /// Open an in-memory SQLite connection with the full schema.

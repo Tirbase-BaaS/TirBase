@@ -51,7 +51,9 @@ fn make_conn() -> Arc<Mutex<rusqlite::Connection>> {
 
 /// Build a `CrdtEngine` for a peer device.
 fn make_engine(secret: [u8; 32], did: String, schema: SchemaIdentifierHash) -> CrdtEngine {
-    CrdtEngine::new(secret, did, schema, make_conn())
+    use ed25519_dalek::SigningKey;
+    let public: [u8; 32] = SigningKey::from_bytes(&secret).verifying_key().to_bytes();
+    CrdtEngine::new(secret, public, did, schema, make_conn())
 }
 
 /// Produce a signed Delta using a `CrdtEngine`.
