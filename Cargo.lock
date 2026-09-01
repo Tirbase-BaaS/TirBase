@@ -4208,6 +4208,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasmtime",
+ "wat",
  "web-sys",
  "zstd",
 ]

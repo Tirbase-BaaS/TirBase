@@ -123,3 +123,5 @@ web-sys      = { version = "0.3.104", optional = true, features = [
 [dev-dependencies]
 proptest = "1.11.0"
 tokio    = { version = "1.53.1", features = ["full", "test-util"] }
+# WAT (WebAssembly text format) parser used in sandbox tests
+wat      = "1.229.0"

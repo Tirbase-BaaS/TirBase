@@ -80,6 +80,11 @@ impl IdentityManager {
         self.signing_key.verifying_key().to_bytes()
     }
 
+    /// Return the 32-byte Ed25519 secret key seed (used for signing in tests).
+    pub fn signing_key_bytes(&self) -> [u8; 32] {
+        self.signing_key.to_bytes()
+    }
+
     /// Sign a payload with this device's Ed25519 private key (Req 7.2).
     ///
     /// Returns the 64-byte signature.
