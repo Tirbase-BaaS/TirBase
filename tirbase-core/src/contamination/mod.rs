@@ -244,6 +244,9 @@ impl CausalContaminationEngine {
             &mut self.composite_incidents,
         )?;
 
+        // Drop the connection guard before taking a mutable borrow of self.
+        drop(conn_guard);
+
         // After resolution, prune contaminated_rows entries for any row that now
         // has no active OPEN incident referencing it.  This keeps is_row_contaminated()
         // returning false after all roots are resolved (Req 19.5 / Test C).

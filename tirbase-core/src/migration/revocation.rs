@@ -93,6 +93,11 @@ impl RevokedMigrationRegistry {
         self.in_progress.contains(id)
     }
 
+    /// Check whether any migration is currently executing.
+    pub fn has_in_progress(&self) -> bool {
+        !self.in_progress.is_empty()
+    }
+
     /// Process an incoming MigrationRevocationDelta (Req 18.5–18.7).
     ///
     /// Steps:
