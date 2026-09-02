@@ -63,6 +63,51 @@ mod tests;
 #[allow(unused_imports)]
 use wasm_bindgen::prelude::*;
 
+// ─── WASM event queue ─────────────────────────────────────────────────────────
+// A thread-local queue of side-effect events produced by Rust subsystems while
+// running in the WASM target. The TypeScript SDK drains this queue via
+// `core_poll_events()` at the end of every `write()`, `read()`, and `query()`
+// call, dispatching each event to the appropriate `_apply*` helper on the
+// `TirBase` class (Task 31).
+
+#[cfg(feature = "wasm")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum WasmEvent {
+    TrustLevelChanged {
+        previous: String,
+        new: String,
+    },
+    IncidentCreated {
+        ico: serde_json::Value,
+    },
+    IncidentUpdated {
+        ico: serde_json::Value,
+    },
+    IncidentClosed {
+        ico: serde_json::Value,
+    },
+    DurabilityTierChanged {
+        delta_id: String,
+        previous_tier: String,
+        new_tier: String,
+    },
+}
+
+#[cfg(feature = "wasm")]
+thread_local! {
+    static WASM_EVENT_QUEUE: std::cell::RefCell<Vec<WasmEvent>>
+        = std::cell::RefCell::new(Vec::new());
+}
+
+/// Push a WASM event into the thread-local outbound queue.
+///
+/// Callable from any crate module gated on `#[cfg(feature = "wasm")]`.
+#[cfg(feature = "wasm")]
+pub(crate) fn push_wasm_event(event: WasmEvent) {
+    WASM_EVENT_QUEUE.with(|q| q.borrow_mut().push(event));
+}
+
 // ─── Compile-time API surface assertions ──────────────────────────────────────
 //
 // `static_assertions::assert_type_eq_all!` and `assert_impl_all!` confirm that
@@ -426,5 +471,22 @@ mod wasm_exports {
             transport.set_saturate_mode(true);
             Ok(())
         })
+    }
+
+    // ── Event polling ──────────────────────────────────────────────────────────
+
+    /// Drain and return all queued WASM events as a JS array.
+    ///
+    /// Each element is a plain JS object serialised from `WasmEvent`.
+    /// The TypeScript SDK calls this at the end of every `write()`, `read()`,
+    /// and `query()` to surface Rust-side side-effects (trust-level changes,
+    /// contamination incidents, durability tier promotions) without requiring
+    /// a separate polling loop (Task 31).
+    #[wasm_bindgen]
+    pub fn core_poll_events() -> JsValue {
+        let events: Vec<crate::WasmEvent> =
+            crate::WASM_EVENT_QUEUE.with(|q| q.borrow_mut().drain(..).collect());
+        let json = serde_json::to_string(&events).unwrap_or_else(|_| "[]".to_string());
+        js_sys::JSON::parse(&json).unwrap_or(JsValue::NULL)
     }
 }

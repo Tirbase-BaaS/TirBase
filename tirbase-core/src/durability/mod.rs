@@ -257,6 +257,27 @@ fn notify_tier_changed(delta_id: DeltaId, tier: DurabilityTier) {
         "[durability] tier-changed: delta={}, tier={tier:?}",
         hex::encode(delta_id)
     );
+    #[cfg(feature = "wasm")]
+    {
+        // Map tier to string names matching TypeScript DurabilityTier.
+        let tier_str = match tier {
+            DurabilityTier::Uncommitted => "UNCOMMITTED",
+            DurabilityTier::Tier1 => "TIER1",
+            DurabilityTier::Tier2 => "TIER2",
+        };
+        // Infer the previous tier from the new tier (this function is only called
+        // at Tier-1 and Tier-2 transition points).
+        let previous_str = match tier {
+            DurabilityTier::Tier1 => "UNCOMMITTED",
+            DurabilityTier::Tier2 => "TIER1",
+            DurabilityTier::Uncommitted => "UNCOMMITTED",
+        };
+        crate::push_wasm_event(crate::WasmEvent::DurabilityTierChanged {
+            delta_id: hex::encode(delta_id),
+            previous_tier: previous_str.to_string(),
+            new_tier: tier_str.to_string(),
+        });
+    }
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

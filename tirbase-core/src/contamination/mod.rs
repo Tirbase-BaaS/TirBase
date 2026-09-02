@@ -338,8 +338,22 @@ impl CausalContaminationEngine {
                 self.incidents.insert(ico_id, ico_b);
                 result
             };
+            // Push IncidentCreated for the composite ICO.
+            #[cfg(feature = "wasm")]
+            {
+                let composite_json = serde_json::to_value(&composite)
+                    .unwrap_or(serde_json::Value::Null);
+                crate::push_wasm_event(crate::WasmEvent::IncidentCreated { ico: composite_json });
+            }
             self.composite_incidents.insert(composite_id, composite);
             return Ok(composite_id);
+        }
+
+        // Push IncidentCreated for the new ICO.
+        #[cfg(feature = "wasm")]
+        {
+            let ico_json = serde_json::to_value(&new_ico).unwrap_or(serde_json::Value::Null);
+            crate::push_wasm_event(crate::WasmEvent::IncidentCreated { ico: ico_json });
         }
 
         self.incidents.insert(ico_id, new_ico);
@@ -414,6 +428,23 @@ impl CausalContaminationEngine {
                         },
                     );
                 }
+                // All roots resolved → IncidentClosed event.
+                #[cfg(feature = "wasm")]
+                {
+                    let ico_json = self.incidents.get(ico_id)
+                        .and_then(|i| serde_json::to_value(i).ok())
+                        .unwrap_or(serde_json::Value::Null);
+                    crate::push_wasm_event(crate::WasmEvent::IncidentClosed { ico: ico_json });
+                }
+            } else {
+                // Partial resolution → IncidentUpdated event.
+                #[cfg(feature = "wasm")]
+                {
+                    let ico_json = self.incidents.get(ico_id)
+                        .and_then(|i| serde_json::to_value(i).ok())
+                        .unwrap_or(serde_json::Value::Null);
+                    crate::push_wasm_event(crate::WasmEvent::IncidentUpdated { ico: ico_json });
+                }
             }
         }
 
@@ -433,7 +464,16 @@ impl CausalContaminationEngine {
             manager_sig,
             manager_token_expiry,
             &mut self.incidents,
-        )
+        )?;
+        // Push IncidentClosed event after successful close (WASM path).
+        #[cfg(feature = "wasm")]
+        {
+            let ico_json = self.incidents.get(&incident_id)
+                .and_then(|i| serde_json::to_value(i).ok())
+                .unwrap_or(serde_json::Value::Null);
+            crate::push_wasm_event(crate::WasmEvent::IncidentClosed { ico: ico_json });
+        }
+        Ok(())
     }
 
     pub fn get_incident(&self, id: IncidentId) -> Result<Option<IncidentContextObject>, TirBaseError> {

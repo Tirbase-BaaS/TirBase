@@ -664,6 +664,13 @@ impl RevocationSubsystem {
                 },
             );
 
+            // Push TrustLevelChanged event (WASM target only).
+            #[cfg(feature = "wasm")]
+            crate::push_wasm_event(crate::WasmEvent::TrustLevelChanged {
+                previous: "Verified".to_string(),
+                new: "Revoked".to_string(),
+            });
+
             on_revocation_applied(&delta.target_did, &complete_delta);
             // No DAG to query on WASM — CCE trigger called with empty list.
             on_cce_trigger(&delta.target_did, vec![]);

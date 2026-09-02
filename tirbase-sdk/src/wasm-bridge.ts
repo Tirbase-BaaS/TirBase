@@ -66,6 +66,9 @@ export interface WasmCore {
     disasterAlertPayload: string,
     managerToken: string,
   ): Promise<void>;
+
+  /** Drain and return queued WASM events. Optional — absent on older builds. */
+  pollEvents?(): unknown[];
 }
 
 // ─── Loader function ──────────────────────────────────────────────────────────
@@ -183,6 +186,12 @@ function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
           t: string,
         ) => Promise<void>
       )(payload, managerToken),
+    pollEvents: () => {
+      if (typeof mod['core_poll_events'] === 'function') {
+        return (mod['core_poll_events'] as () => unknown[])();
+      }
+      return [];
+    },
   };
 }
 
@@ -252,6 +261,8 @@ export class MockWasmCore implements WasmCore {
     managerToken: string,
   ) => Promise<void> = async () => undefined;
 
+  pollEventsImpl: () => unknown[] = () => [];
+
   // ── WasmCore implementation ───────────────────────────────────────────────
 
   read(table: string, key: string): Promise<unknown> {
@@ -295,6 +306,10 @@ export class MockWasmCore implements WasmCore {
     managerToken: string,
   ): Promise<void> {
     return this.activateSaturateModeImpl(payload, managerToken);
+  }
+
+  pollEvents(): unknown[] {
+    return this.pollEventsImpl();
   }
 }
 
