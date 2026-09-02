@@ -631,7 +631,7 @@ impl CoreHandle {
                             reason: format!("crdt mutex: {e}"),
                         }
                     })?;
-                    crdt.apply(&delta)?
+                    crate::crdt::merge::apply_incoming_delta(&mut crdt, &delta)?
                 };
                 match outcome {
                     MergeOutcome::Merged { .. } => {
