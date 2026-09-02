@@ -30,10 +30,9 @@ use resolution::now_micros;
 /// The Causal Contamination Engine.
 ///
 /// Holds an in-memory index of incidents (ICOs) and composite incidents.
-/// The `dag_nodes.tags_json` column in SQLite is the durable append-only tag store;
-/// the in-memory HashMaps are derived state that can be rebuilt from the DAG on
-/// restart (ICO state is in-memory only and not persisted across process restarts;
-/// persistence is explicitly deferred to a post-v1 task).
+/// The `dag_nodes.tags_json` column in SQLite is the durable append-only tag store.
+/// ICO state is in-memory only and not persisted across process restarts;
+/// persistence is explicitly deferred to a post-v1 task.
 #[cfg(feature = "native")]
 pub struct CausalContaminationEngine {
     /// Shared SQLite connection (same pool as LocalStore and ChangesetDag).

@@ -76,8 +76,8 @@ pub fn compact_table(
     }
 
     // Mark dag_nodes as compacted for nodes authored under this table's schema_hash.
-    // Best-effort: mark all uncompacted nodes (table-level association is approximate).
-    // A more precise association is wired in Task 5 when schema_hash is available.
+    // Best-effort: mark all uncompacted nodes (table-level association is approximate;
+    // a per-table schema_hash index was not added in T5 — this is a known limitation).
     let mark_result = conn.execute(
         "UPDATE dag_nodes SET compacted = 1 WHERE compacted = 0;",
         [],

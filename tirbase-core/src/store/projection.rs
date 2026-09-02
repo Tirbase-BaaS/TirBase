@@ -67,8 +67,9 @@ pub fn project_table(
                     }
                 }
                 Value::Object(_) => {
-                    // Composite objects are not projected to flat rows in Task 3.
-                    // Task 5 (CRDT Engine) will handle nested structures.
+                    // Composite objects are not projected to flat rows.
+                    // Nested structures are flattened to Null in v1; full nested
+                    // projection support is deferred to a post-v1 task.
                     serde_json::Value::Null
                 }
             };

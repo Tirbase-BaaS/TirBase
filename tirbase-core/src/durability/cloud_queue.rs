@@ -175,9 +175,9 @@ pub enum RefetchOutcome {
 
 /// Attempt to re-fetch a compacted Delta from receipt-holding peers (Req 16.8).
 ///
-/// In v1, the session manager is not yet wired into the durability subsystem;
-/// this function provides the protocol logic and logging behaviour.  Callers
-/// inject a callback that handles the actual peer communication.
+/// The session manager is not embedded in this function; instead, callers inject
+/// a `try_fetch_from_peer` callback that handles the actual peer communication.
+/// This keeps the function pure and testable without a live transport.
 ///
 /// # Parameters
 ///

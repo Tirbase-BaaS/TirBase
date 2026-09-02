@@ -596,7 +596,8 @@ impl RevocationSubsystem {
 
 // ─── WASM stub ────────────────────────────────────────────────────────────────
 
-/// Minimal no-op stub for the WASM target (Task 14 wires the real implementation).
+/// WASM-target RevocationSubsystem — full M-of-N threshold logic using the shared
+/// PendingRevocationStore; no SQLite connection required.
 #[cfg(not(feature = "native"))]
 pub struct RevocationSubsystem {
     store: PendingRevocationStore,

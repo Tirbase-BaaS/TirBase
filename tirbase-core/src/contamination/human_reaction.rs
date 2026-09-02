@@ -41,8 +41,8 @@ pub fn on_write_commit(delta: &mut Delta, ctx: &WriteContext) -> Result<(), TirB
 
 /// Register a Delta as a human-reaction contamination root with the CCE.
 ///
-/// For Task 7 this is a lightweight in-process call — the full CCE wiring
-/// is completed when the engine holds a mutable reference at call time.
+/// This is a lightweight in-process call — the CCE wiring is completed when
+/// the engine holds a mutable reference at call time.
 /// The function signature is kept simple so tests can call it directly.
 pub(crate) fn register_human_reaction_root(
     _delta_id: [u8; 32],

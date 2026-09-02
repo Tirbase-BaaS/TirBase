@@ -135,13 +135,21 @@ pub fn verify_token(
             reason: format!("authorizer construction failed: {e}"),
         })?;
 
-    authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
+    // Use generous limits so that authorize() + three query() calls don't
+    // exhaust the default 100-iteration Datalog budget (Req 8.1).
+    let generous = biscuit_auth::AuthorizerLimits {
+        max_facts: 10_000,
+        max_iterations: 10_000,
+        max_time: Duration::from_secs(5),
+    };
+
+    authorizer.authorize_with_limits(generous.clone()).map_err(|e| TirBaseError::AuthorisationFailed {
         reason: format!("token authorization failed (possibly expired): {e}"),
     })?;
 
-    // Extract claims via datalog queries
+    // Extract claims via datalog queries (use generous limits to share budget).
     let did_results: Vec<(String,)> = authorizer
-        .query("data($did) <- did($did)")
+        .query_with_limits("data($did) <- did($did)", generous.clone())
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("did query failed: {e}"),
         })?;
@@ -153,7 +161,7 @@ pub fn verify_token(
         .unwrap_or_default();
 
     let role_results: Vec<(String,)> = authorizer
-        .query("data($role) <- role($role)")
+        .query_with_limits("data($role) <- role($role)", generous.clone())
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("role query failed: {e}"),
         })?;
@@ -165,7 +173,7 @@ pub fn verify_token(
         .unwrap_or_default();
 
     let issued_results: Vec<(i64,)> = authorizer
-        .query("data($t) <- issued_at($t)")
+        .query_with_limits("data($t) <- issued_at($t)", generous)
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("issued_at query failed: {e}"),
         })?;

@@ -116,7 +116,9 @@ impl SpatialDiversityTracker {
 
 /// Log a spatial diversity degradation warning.
 ///
-/// In v1 this writes to stderr. Task 16 wires this to the structured diagnostics channel.
+/// In v1 this writes to stderr. Runtime degradation warnings are not yet routed
+/// through the structured diagnostics channel (startup-only in v1; runtime routing is
+/// deferred to a post-v1 task).
 fn log_spatial_degradation(available: usize, required: usize) {
     eprintln!(
         "[durability] spatial diversity degraded: available={available}, required={required}. \

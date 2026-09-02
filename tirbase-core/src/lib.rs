@@ -68,7 +68,7 @@ use wasm_bindgen::prelude::*;
 // running in the WASM target. The TypeScript SDK drains this queue via
 // `core_poll_events()` at the end of every `write()`, `read()`, and `query()`
 // call, dispatching each event to the appropriate `_apply*` helper on the
-// `TirBase` class (Task 31).
+// `TirBase` class (see tirbase-sdk/src/tirbase.ts).
 
 #[cfg(feature = "wasm")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -520,7 +520,7 @@ mod wasm_exports {
     /// The TypeScript SDK calls this at the end of every `write()`, `read()`,
     /// and `query()` to surface Rust-side side-effects (trust-level changes,
     /// contamination incidents, durability tier promotions) without requiring
-    /// a separate polling loop (Task 31).
+    /// a separate polling loop.
     #[wasm_bindgen]
     pub fn core_poll_events() -> JsValue {
         let events: Vec<crate::WasmEvent> =

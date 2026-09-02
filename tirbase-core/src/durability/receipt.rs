@@ -102,12 +102,14 @@ pub fn verify_receipt(
     Ok(())
 }
 
-/// Log a receipt rejection (writes to stderr in production; testable via
-/// the structured log channel in the diagnostics module — Task 16).
+/// Log a receipt rejection (writes to stderr in production; runtime receipt
+/// rejection events are not routed through the structured diagnostics channel,
+/// which is startup-only in v1).
 fn log_receipt_rejection(peer_did: &str, reason: &str) {
-    // In v1 this uses eprintln! as the structured log channel is implemented
-    // in Task 16.  The caller is responsible for constructing the full reason
-    // string that identifies both the peer DID and the failure reason (Req 14.6).
+    // In v1 this uses eprintln! as the structured diagnostics channel is
+    // startup-only (see diagnostics/mod.rs).  The caller is responsible for
+    // constructing the full reason string that identifies both the peer DID
+    // and the failure reason (Req 14.6).
     eprintln!("[durability] receipt rejected from {peer_did}: {reason}");
 }
 

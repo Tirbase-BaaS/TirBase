@@ -250,8 +250,10 @@ impl DurabilitySubsystem {
 
 /// Notify the application layer of a durability tier change (Req 14.7).
 ///
-/// In v1 this writes to stderr. The TypeScript SDK wires this to the
-/// `durability-tier-changed` event emitter (Task 14).
+/// On native builds this writes to stderr. On WASM builds this pushes a
+/// `DurabilityTierChanged` event to the WASM event queue, which the TypeScript
+/// SDK drains via `core_poll_events()` and dispatches to `durability-tier-changed`
+/// event listeners (implemented in T31).
 fn notify_tier_changed(delta_id: DeltaId, tier: DurabilityTier) {
     eprintln!(
         "[durability] tier-changed: delta={}, tier={tier:?}",

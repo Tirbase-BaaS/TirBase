@@ -77,7 +77,8 @@ pub fn derive_did_from_public_key(public_key: &[u8; 32]) -> Did {
 /// The CRDT Engine wraps `automerge::AutoCommit` and adds TirBase-specific
 /// routing, signing, and DAG management.
 pub struct CrdtEngine {
-    /// One Automerge doc (simplified for Task 5; multi-table is Task 3).
+    /// One Automerge doc per engine instance (the CRDT engine is table-scoped at the
+    /// `CoreHandle` level; each table gets its own `CrdtEngine`).
     doc: automerge::AutoCommit,
 
     /// Monotonically increasing Lamport clock.
@@ -87,7 +88,7 @@ pub struct CrdtEngine {
     known_schema_hash: SchemaIdentifierHash,
 
     /// All schema hashes accepted by this engine.
-    /// Grows as additive schema migrations are applied (Task 8).
+    /// Grows as additive schema migrations are applied.
     known_schemas: HashSet<SchemaIdentifierHash>,
 
     /// DID of the local device's identity (used in `produce_delta`).
@@ -384,8 +385,8 @@ impl CrdtEngine {
         // Topological sort gives all nodes; tips are those not referenced
         // as a parent of any other node.  We compute this by fetching all
         // nodes and all edges, then finding nodes with no outgoing child edge.
-        // For Task 5 we use a simpler but correct approach: collect all node
-        // IDs and all parent_ids used in the DAG; tips = nodes – parents.
+        // Simpler but correct approach: collect all node IDs and all parent_ids
+        // used in the DAG; tips = nodes – parents.
         let all_nodes = self.dag.topological_sort()?;
         if all_nodes.is_empty() {
             return Ok(vec![]);

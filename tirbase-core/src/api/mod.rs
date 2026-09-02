@@ -426,7 +426,9 @@ impl CoreHandle {
                 .produce_delta(automerge_bytes, PriorityClass::Low, vec![])?
         };
 
-        // Placeholder delta for WASM builds where CrdtEngine doesn't run.
+        // WASM build produces an unsigned, zero-ID placeholder Delta because CrdtEngine
+        // is not available without SQLite. Delta signing, causal parent tracking, and
+        // DAG persistence are native-only.
         #[cfg(not(feature = "native"))]
         let mut delta = crate::crdt::delta::Delta {
             id: [0u8; 32],

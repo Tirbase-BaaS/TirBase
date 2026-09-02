@@ -3,7 +3,7 @@
 //! The DAG records causal ordering across all known Deltas. Each node stores
 //! a zstd-compressed Delta payload and inline parent IDs for fast graph traversal.
 //!
-//! SQLite schema (created by LocalStore in Task 3):
+//! SQLite schema (created by `LocalStore::open`):
 //! ```sql
 //! CREATE TABLE dag_nodes (
 //!     id          BLOB PRIMARY KEY,
@@ -34,7 +34,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// On the native build this uses the `zstd` C-backed crate.  The WASM build
 /// cannot link zstd's C FFI into `wasm32-unknown-unknown`, so payloads are
-/// stored uncompressed (Task 8 will add a pure-Rust deflate path if needed).
+/// stored uncompressed. A pure-Rust deflate path is deferred to a post-v1 task
+/// if compression on WASM is later required.
 ///
 /// The returned bytes are always safe to pass to [`decompress_payload`].
 pub fn compress_payload(data: &[u8]) -> Result<Vec<u8>, TirBaseError> {
@@ -48,7 +49,7 @@ pub fn compress_payload(data: &[u8]) -> Result<Vec<u8>, TirBaseError> {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        // No zstd on WASM — store uncompressed until Task 8 adds a pure-Rust path.
+        // No zstd on WASM — payloads stored uncompressed (pure-Rust deflate deferred to post-v1).
         Ok(data.to_vec())
     }
 }

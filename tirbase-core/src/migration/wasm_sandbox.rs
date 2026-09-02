@@ -1,7 +1,8 @@
 //! WASM sandbox gate — executes migration transforms in a restricted runtime (Req 18.4).
 //!
 //! On the native build:  uses `wasmtime` with a restricted linker.
-//! On the WASM build:    stub that returns Aborted (WASM-in-WASM deferred to a later task).
+//! On the WASM build:    uses `wasmi` with fuel-metered execution, import validation, and real
+//!                       `read_row`/`write_row` host functions (implemented in T20).
 //!
 //! The sandbox exposes only three host functions:
 //!   - `read_row(table, key) -> value`
