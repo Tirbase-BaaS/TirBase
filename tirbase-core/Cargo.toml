@@ -32,6 +32,7 @@ wasm    = [
     "dep:web-sys",
     "dep:wasm-bindgen-futures",
     "dep:wasmi",
+    "dep:biscuit-auth",
 ]
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
@@ -86,6 +87,9 @@ async-trait      = "0.1.88"
 pest             = "2.7"
 pest_derive      = "2.7"
 
+# Capability tokens (pure-Rust; compiles on both native and wasm32 targets)
+biscuit-auth = { version = "6.0.0", optional = true }
+
 # ─── Native-only dependencies ──────────────────────────────────────────────────
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rusqlite     = { version = "0.40.2", optional = true }
@@ -101,9 +105,6 @@ libp2p       = { version = "0.56.0", optional = true, features = [
 
 # Noise protocol session cryptography
 snow         = { version = "0.10.0", optional = true, features = ["default-resolver"] }
-
-# Capability tokens
-biscuit-auth = { version = "6.0.0", optional = true }
 
 # Random number generation
 rand         = { version = "0.8.5", optional = true }

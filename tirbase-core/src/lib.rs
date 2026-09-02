@@ -452,25 +452,63 @@ mod wasm_exports {
     /// Activate Saturate Mode with a DISASTER_ALERT payload.
     #[wasm_bindgen]
     pub async fn core_activate_saturate_mode(
-        _payload: String,
-        manager_token: String,
+        biscuit_token_hex: String,
+        manager_token: String,  // kept for API compat (same arg order from TS)
     ) -> Result<(), JsValue> {
-        if manager_token.trim().is_empty() {
+        // Decode the hex-encoded Biscuit token bytes.
+        let token_bytes = hex::decode(&biscuit_token_hex)
+            .map_err(|_| to_js_err(
+                crate::errors::TirBaseError::SignatureVerificationFailed {
+                    reason: "biscuit_token_hex: invalid hex encoding".to_string(),
+                }.to_string()
+            ))?;
+
+        if token_bytes.is_empty() {
             return Err(to_js_err(
                 crate::errors::TirBaseError::SignatureVerificationFailed {
-                    reason: "manager_token is absent or empty".to_string(),
-                }
-                .to_string(),
+                    reason: "biscuit token is absent or empty".to_string(),
+                }.to_string()
             ));
         }
+
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow.as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            let mut transport = handle.transport.lock()
-                .map_err(|e| to_js_err(format!("transport lock: {e}")))?;
-            transport.set_saturate_mode(true);
-            Ok(())
+
+            // Get root CA key for verification.
+            let root_ca_key = handle.root_ca_public_key();
+
+            // Get current time.
+            let now_secs = {
+                use std::time::{SystemTime, UNIX_EPOCH};
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64
+            };
+
+            // Verify token has disaster-alert caveat (Req 13.1, 13.7).
+            match crate::auth::biscuit::verify_and_check_caveat(
+                &token_bytes,
+                "disaster-alert",
+                &root_ca_key,
+                now_secs,
+            ) {
+                Ok(true) => {
+                    // Valid token with caveat — activate.
+                    let mut transport = handle.transport.lock()
+                        .map_err(|e| to_js_err(format!("transport lock: {e}")))?;
+                    transport.set_saturate_mode(true);
+                    Ok(())
+                }
+                Ok(false) => Err(to_js_err(
+                    crate::errors::TirBaseError::SignatureVerificationFailed {
+                        reason: "biscuit token is missing the disaster-alert caveat".to_string(),
+                    }.to_string()
+                )),
+                Err(e) => Err(to_js_err(e.to_string())),
+            }
         })
     }
 

@@ -129,6 +129,14 @@ impl CapabilityManager {
     pub fn pending_revocations_mut(&mut self) -> &mut PendingRevocationStore {
         &mut self.pending_revocations
     }
+
+    /// Return the primary root CA public key for offline Biscuit token verification (Req 8.1).
+    ///
+    /// Returns `Some([u8; 32])` if at least one root CA key is registered, or `None` if
+    /// the registry is empty (e.g. not yet configured at init time for v1).
+    pub fn root_ca_primary_key(&self) -> Option<[u8; 32]> {
+        self.root_ca_registry.primary_key().copied()
+    }
 }
 
 fn current_timestamp_micros() -> i64 {

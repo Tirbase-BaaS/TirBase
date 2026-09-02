@@ -1,8 +1,8 @@
 //! Biscuit token creation, offline verification, and caveat checking (Req 8.1).
 //!
-//! Biscuit-auth is a native-only dependency. On WASM builds all functions return
-//! stub errors or `false` since there is no CA key material available in the browser
-//! context.
+//! The `biscuit-auth` crate is pure Rust and compiles on both `native` and
+//! `wasm32-unknown-unknown` targets. These functions are therefore available
+//! on both build targets without any platform-specific stubs.
 
 #![allow(dead_code, unused_variables)]
 
@@ -22,406 +22,80 @@ pub struct BiscuitClaims {
     pub expires_at: i64,
 }
 
-// ─── Native implementation ───────────────────────────────────────────────────
+// ─── Implementation (compiles on native and wasm32) ──────────────────────────
 
-#[cfg(not(target_arch = "wasm32"))]
-mod native {
-    use super::*;
-    use biscuit_auth::{
-        builder::{date, fact, Algorithm},
-        builder_ext::{AuthorizerExt, BuilderExt},
-        macros::*,
-        AuthorizerBuilder, Biscuit, KeyPair, PrivateKey, PublicKey,
-    };
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    /// Create a new Biscuit token for the given DID and role.
-    ///
-    /// TTL must be between 1 hour (3600s) and 24 hours (86400s) (Req 8.7).
-    pub fn create_token(
-        did: &str,
-        role: &str,
-        ttl_secs: u64,
-        root_ca_private_key: &[u8],
-    ) -> Result<Vec<u8>, TirBaseError> {
-        if ttl_secs < TTL_MIN_SECS {
-            return Err(TirBaseError::AuthorisationFailed {
-                reason: format!(
-                    "TTL {ttl_secs}s is below minimum of {TTL_MIN_SECS}s (1 hour)"
-                ),
-            });
-        }
-        if ttl_secs > TTL_MAX_SECS {
-            return Err(TirBaseError::AuthorisationFailed {
-                reason: format!(
-                    "TTL {ttl_secs}s exceeds maximum of {TTL_MAX_SECS}s (24 hours)"
-                ),
-            });
-        }
-
-        let now = SystemTime::now();
-        let expiry = now + Duration::from_secs(ttl_secs);
-        let issued_secs = now
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-
-        // Build key from raw private key seed
-        let private_key = PrivateKey::from_bytes(root_ca_private_key, Algorithm::Ed25519)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("invalid root CA private key: {e}"),
-            })?;
-        let keypair = KeyPair::from(&private_key);
-
-        // Use Datalog builder API to add facts
-        let did_str = did.to_string();
-        let role_str = role.to_string();
-        let issued_at_val = issued_secs as i64;
-
-        let token = Biscuit::builder()
-            .fact(format!("did(\"{did_str}\")").as_str())
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("failed to add did fact: {e}"),
-            })?
-            .fact(format!("role(\"{role_str}\")").as_str())
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("failed to add role fact: {e}"),
-            })?
-            .fact(format!("issued_at({issued_at_val})").as_str())
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("failed to add issued_at fact: {e}"),
-            })?
-            .check_expiration_date(expiry)
-            .build(&keypair)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("failed to build Biscuit token: {e}"),
-            })?;
-
-        token.to_vec().map_err(|e| TirBaseError::AuthorisationFailed {
-            reason: format!("failed to serialize Biscuit token: {e}"),
-        })
-    }
-
-    /// Verify a Biscuit token offline against the root CA public key (Req 8.1).
-    ///
-    /// Returns `Ok(BiscuitClaims)` if the token is valid and not expired.
-    pub fn verify_token(
-        token_bytes: &[u8],
-        root_ca_public_key: &[u8],
-        now_secs: i64,
-    ) -> Result<BiscuitClaims, TirBaseError> {
-        use biscuit_auth::builder::{date, fact};
-
-        let public_key =
-            PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
-                TirBaseError::AuthorisationFailed {
-                    reason: format!("invalid root CA public key: {e}"),
-                }
-            })?;
-
-        let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("failed to parse/verify Biscuit token: {e}"),
-            }
-        })?;
-
-        // Build a "now" SystemTime from now_secs for expiration checking
-        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
-        let time_fact = fact("time", &[date(&fake_now)]);
-
-        // Build authorizer with the provided "now" time for expiration check
-        let mut authorizer = AuthorizerBuilder::new()
-            .fact(time_fact)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer build error: {e}"),
-            })?
-            .allow_all()
-            .build(&token)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer construction failed: {e}"),
-            })?;
-
-        authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
-            reason: format!("token authorization failed (possibly expired): {e}"),
-        })?;
-
-        // Extract claims via datalog queries
-        let did_results: Vec<(String,)> = authorizer
-            .query("data($did) <- did($did)")
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("did query failed: {e}"),
-            })?;
-
-        let did = did_results
-            .into_iter()
-            .next()
-            .map(|(d,)| d)
-            .unwrap_or_default();
-
-        let role_results: Vec<(String,)> = authorizer
-            .query("data($role) <- role($role)")
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("role query failed: {e}"),
-            })?;
-
-        let role = role_results
-            .into_iter()
-            .next()
-            .map(|(r,)| r)
-            .unwrap_or_default();
-
-        let issued_results: Vec<(i64,)> = authorizer
-            .query("data($t) <- issued_at($t)")
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("issued_at query failed: {e}"),
-            })?;
-
-        let issued_at = issued_results
-            .into_iter()
-            .next()
-            .map(|(t,)| t)
-            .unwrap_or(0);
-
-        // expires_at: we don't store it as a fact; approximate from now_secs + TTL
-        // For a more precise implementation we could store it explicitly.
-        // Use now_secs as a conservative fallback (token is valid at this moment).
-        let expires_at = now_secs; // actual expiry tracked by Biscuit's check_expiration_date
-
-        Ok(BiscuitClaims {
-            did,
-            role,
-            issued_at,
-            expires_at,
-        })
-    }
-
-    /// Check that a token carries a specific caveat fact (e.g., `disaster-alert` — Req 13.1).
-    ///
-    /// Uses a proper Biscuit datalog authorizer query rather than substring matching.
-    /// The token must also be valid and not expired at `now_secs`.
-    ///
-    /// This function uses a single authorizer instance for both the expiry check and
-    /// the caveat query, minimising Datalog execution budget consumption.
-    pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], now_secs: i64) -> bool {
-        let public_key = match PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519) {
-            Ok(k) => k,
-            Err(_) => return false,
-        };
-
-        let token = match Biscuit::from(token_bytes, public_key) {
-            Ok(t) => t,
-            Err(_) => return false,
-        };
-
-        // Build a fake_now SystemTime from now_secs for expiration checking (same pattern as verify_token).
-        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
-        let time_fact = fact("time", &[date(&fake_now)]);
-
-        // Build the authorizer: inject time fact so check_expiration_date works,
-        // then allow_all so we can do our own caveat query afterward.
-        let mut authorizer = match AuthorizerBuilder::new()
-            .fact(time_fact)
-            .map_err(|_| ())
-            .and_then(|b| b.allow_all().build(&token).map_err(|_| ()))
-        {
-            Ok(a) => a,
-            Err(_) => return false,
-        };
-
-        // authorize() enforces TTL (check_expiration_date) and signature; fail fast if expired/invalid.
-        if authorizer.authorize().is_err() {
-            return false;
-        }
-
-        // Query for the caveat fact: caveat($x) where $x == caveat string.
-        let results: Vec<(String,)> = authorizer
-            .query("data($x) <- caveat($x)")
-            .unwrap_or_default();
-
-        results.into_iter().any(|(v,)| v == caveat)
-    }
-
-    /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims,
-    /// and simultaneously check for a required caveat fact.
-    ///
-    /// This single-authorizer function replaces the two-step pattern of calling
-    /// `verify_token_expiry_only` followed by `has_caveat`, halving the number of
-    /// Datalog authorizer runs and reducing execution budget consumption. The
-    /// `verify_disaster_alert_token` path in `saturate.rs` uses this function.
-    ///
-    /// Returns `Ok(true)` if valid and caveat present, `Ok(false)` if valid but
-    /// caveat absent, `Err` if the token is invalid or expired.
-    pub fn verify_and_check_caveat(
-        token_bytes: &[u8],
-        caveat: &str,
-        root_ca_public_key: &[u8],
-        now_secs: i64,
-    ) -> Result<bool, TirBaseError> {
-        let public_key =
-            PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
-                TirBaseError::AuthorisationFailed {
-                    reason: format!("invalid root CA public key: {e}"),
-                }
-            })?;
-
-        let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("failed to parse/verify Biscuit token: {e}"),
-            }
-        })?;
-
-        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
-        let time_fact = fact("time", &[date(&fake_now)]);
-
-        let mut authorizer = AuthorizerBuilder::new()
-            .fact(time_fact)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer build error: {e}"),
-            })?
-            .allow_all()
-            .build(&token)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer construction failed: {e}"),
-            })?;
-
-        // Use authorize_with_limits with a generous per-call budget so that cumulative
-        // world.iterations from the initial run() pass does not exhaust the 100-iteration
-        // default limit when authorize() and query() are both called on the same authorizer.
-        let generous = biscuit_auth::AuthorizerLimits {
-            max_facts: 10_000,
-            max_iterations: 10_000,
-            max_time: Duration::from_secs(5),
-        };
-        authorizer.authorize_with_limits(generous.clone()).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("token authorization failed (possibly expired): {e}"),
-            }
-        })?;
-
-        // Query for the caveat fact in the same authorizer run (no additional authorize() call).
-        let results: Result<Vec<(String,)>, _> =
-            authorizer.query_with_limits("data($x) <- caveat($x)", generous);
-        let has_it = results.unwrap_or_default().into_iter().any(|(v,)| v == caveat);
-        Ok(has_it)
-    }
-
-    /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims.
-    ///
-    /// This is a lighter variant of `verify_token` that skips the three extra Datalog
-    /// queries (did, role, issued_at). It is used by `verify_disaster_alert_token` in
-    /// `saturate.rs` to reduce Datalog execution budget consumption during testing.
-    pub fn verify_token_expiry_only(
-        token_bytes: &[u8],
-        root_ca_public_key: &[u8],
-        now_secs: i64,
-    ) -> Result<(), TirBaseError> {
-        let public_key =
-            PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
-                TirBaseError::AuthorisationFailed {
-                    reason: format!("invalid root CA public key: {e}"),
-                }
-            })?;
-
-        let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("failed to parse/verify Biscuit token: {e}"),
-            }
-        })?;
-
-        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
-        let time_fact = fact("time", &[date(&fake_now)]);
-
-        let mut authorizer = AuthorizerBuilder::new()
-            .fact(time_fact)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer build error: {e}"),
-            })?
-            .allow_all()
-            .build(&token)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("authorizer construction failed: {e}"),
-            })?;
-
-        authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
-            reason: format!("token authorization failed (possibly expired): {e}"),
-        })?;
-
-        Ok(())
-    }
-}
-
-// ─── WASM stubs ──────────────────────────────────────────────────────────────
-
-#[cfg(target_arch = "wasm32")]
-mod wasm_stubs {
-    use super::*;
-
-    pub fn create_token(
-        _did: &str,
-        _role: &str,
-        _ttl_secs: u64,
-        _root_ca_private_key: &[u8],
-    ) -> Result<Vec<u8>, TirBaseError> {
-        Err(TirBaseError::AuthorisationFailed {
-            reason: "Biscuit token creation is not available on WASM builds".to_string(),
-        })
-    }
-
-    pub fn verify_token(
-        _token_bytes: &[u8],
-        _root_ca_public_key: &[u8],
-        _now_secs: i64,
-    ) -> Result<BiscuitClaims, TirBaseError> {
-        Err(TirBaseError::AuthorisationFailed {
-            reason: "Biscuit token verification is not available on WASM builds".to_string(),
-        })
-    }
-
-    pub fn has_caveat(_token_bytes: &[u8], _caveat: &str, _root_ca_public_key: &[u8], _now_secs: i64) -> bool {
-        // Disaster-alert activation on WASM requires a native device to relay the
-        // activation. Biscuit token verification is native-only in v1; all caveat
-        // checks on WASM builds unconditionally return false.
-        false
-    }
-
-    pub fn verify_and_check_caveat(
-        _token_bytes: &[u8],
-        _caveat: &str,
-        _root_ca_public_key: &[u8],
-        _now_secs: i64,
-    ) -> Result<bool, TirBaseError> {
-        Err(TirBaseError::AuthorisationFailed {
-            reason: "Biscuit token verification is not available on WASM builds".to_string(),
-        })
-    }
-
-    pub fn verify_token_expiry_only(
-        _token_bytes: &[u8],
-        _root_ca_public_key: &[u8],
-        _now_secs: i64,
-    ) -> Result<(), TirBaseError> {
-        Err(TirBaseError::AuthorisationFailed {
-            reason: "Biscuit token verification is not available on WASM builds".to_string(),
-        })
-    }
-}
-
-// ─── Public API — dispatch to native or WASM ─────────────────────────────────
+use biscuit_auth::{
+    builder::{date, fact, Algorithm},
+    builder_ext::{AuthorizerExt, BuilderExt},
+    AuthorizerBuilder, Biscuit, KeyPair, PrivateKey, PublicKey,
+};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Create a new Biscuit token for the given DID and role.
 ///
-/// TTL must be between 1 hour and 24 hours (Req 8.7).
+/// TTL must be between 1 hour (3600s) and 24 hours (86400s) (Req 8.7).
 pub fn create_token(
     did: &str,
     role: &str,
     ttl_secs: u64,
     root_ca_private_key: &[u8],
 ) -> Result<Vec<u8>, TirBaseError> {
-    #[cfg(not(target_arch = "wasm32"))]
-    return native::create_token(did, role, ttl_secs, root_ca_private_key);
+    if ttl_secs < TTL_MIN_SECS {
+        return Err(TirBaseError::AuthorisationFailed {
+            reason: format!(
+                "TTL {ttl_secs}s is below minimum of {TTL_MIN_SECS}s (1 hour)"
+            ),
+        });
+    }
+    if ttl_secs > TTL_MAX_SECS {
+        return Err(TirBaseError::AuthorisationFailed {
+            reason: format!(
+                "TTL {ttl_secs}s exceeds maximum of {TTL_MAX_SECS}s (24 hours)"
+            ),
+        });
+    }
 
-    #[cfg(target_arch = "wasm32")]
-    return wasm_stubs::create_token(did, role, ttl_secs, root_ca_private_key);
+    let now = SystemTime::now();
+    let expiry = now + Duration::from_secs(ttl_secs);
+    let issued_secs = now
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    // Build key from raw private key seed
+    let private_key = PrivateKey::from_bytes(root_ca_private_key, Algorithm::Ed25519)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("invalid root CA private key: {e}"),
+        })?;
+    let keypair = KeyPair::from(&private_key);
+
+    // Use Datalog builder API to add facts
+    let did_str = did.to_string();
+    let role_str = role.to_string();
+    let issued_at_val = issued_secs as i64;
+
+    let token = Biscuit::builder()
+        .fact(format!("did(\"{did_str}\")").as_str())
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to add did fact: {e}"),
+        })?
+        .fact(format!("role(\"{role_str}\")").as_str())
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to add role fact: {e}"),
+        })?
+        .fact(format!("issued_at({issued_at_val})").as_str())
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to add issued_at fact: {e}"),
+        })?
+        .check_expiration_date(expiry)
+        .build(&keypair)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to build Biscuit token: {e}"),
+        })?;
+
+    token.to_vec().map_err(|e| TirBaseError::AuthorisationFailed {
+        reason: format!("failed to serialize Biscuit token: {e}"),
+    })
 }
 
 /// Verify a Biscuit token offline against the root CA public key (Req 8.1).
@@ -432,59 +106,241 @@ pub fn verify_token(
     root_ca_public_key: &[u8],
     now_secs: i64,
 ) -> Result<BiscuitClaims, TirBaseError> {
-    #[cfg(not(target_arch = "wasm32"))]
-    return native::verify_token(token_bytes, root_ca_public_key, now_secs);
+    let public_key =
+        PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid root CA public key: {e}"),
+            }
+        })?;
 
-    #[cfg(target_arch = "wasm32")]
-    return wasm_stubs::verify_token(token_bytes, root_ca_public_key, now_secs);
+    let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
+        TirBaseError::AuthorisationFailed {
+            reason: format!("failed to parse/verify Biscuit token: {e}"),
+        }
+    })?;
+
+    // Build a "now" SystemTime from now_secs for expiration checking
+    let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+    let time_fact = fact("time", &[date(&fake_now)]);
+
+    // Build authorizer with the provided "now" time for expiration check
+    let mut authorizer = AuthorizerBuilder::new()
+        .fact(time_fact)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer build error: {e}"),
+        })?
+        .allow_all()
+        .build(&token)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer construction failed: {e}"),
+        })?;
+
+    authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
+        reason: format!("token authorization failed (possibly expired): {e}"),
+    })?;
+
+    // Extract claims via datalog queries
+    let did_results: Vec<(String,)> = authorizer
+        .query("data($did) <- did($did)")
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("did query failed: {e}"),
+        })?;
+
+    let did = did_results
+        .into_iter()
+        .next()
+        .map(|(d,)| d)
+        .unwrap_or_default();
+
+    let role_results: Vec<(String,)> = authorizer
+        .query("data($role) <- role($role)")
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("role query failed: {e}"),
+        })?;
+
+    let role = role_results
+        .into_iter()
+        .next()
+        .map(|(r,)| r)
+        .unwrap_or_default();
+
+    let issued_results: Vec<(i64,)> = authorizer
+        .query("data($t) <- issued_at($t)")
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("issued_at query failed: {e}"),
+        })?;
+
+    let issued_at = issued_results
+        .into_iter()
+        .next()
+        .map(|(t,)| t)
+        .unwrap_or(0);
+
+    // expires_at: we don't store it as a fact; approximate from now_secs + TTL
+    // For a more precise implementation we could store it explicitly.
+    // Use now_secs as a conservative fallback (token is valid at this moment).
+    let expires_at = now_secs; // actual expiry tracked by Biscuit's check_expiration_date
+
+    Ok(BiscuitClaims {
+        did,
+        role,
+        issued_at,
+        expires_at,
+    })
 }
 
-/// Check that a token carries a specific caveat (e.g., `disaster-alert` — Req 13.1).
+/// Check that a token carries a specific caveat fact (e.g., `disaster-alert` — Req 13.1).
 ///
-/// Uses a proper Biscuit datalog authorizer query. The token must be valid and
-/// not expired at `now_secs`. Returns `false` on WASM builds unconditionally.
+/// Uses a proper Biscuit datalog authorizer query rather than substring matching.
+/// The token must also be valid and not expired at `now_secs`.
+///
+/// This function uses a single authorizer instance for both the expiry check and
+/// the caveat query, minimising Datalog execution budget consumption.
 pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], now_secs: i64) -> bool {
-    #[cfg(not(target_arch = "wasm32"))]
-    return native::has_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
+    let public_key = match PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519) {
+        Ok(k) => k,
+        Err(_) => return false,
+    };
 
-    #[cfg(target_arch = "wasm32")]
-    return false;
+    let token = match Biscuit::from(token_bytes, public_key) {
+        Ok(t) => t,
+        Err(_) => return false,
+    };
+
+    // Build a fake_now SystemTime from now_secs for expiration checking (same pattern as verify_token).
+    let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+    let time_fact = fact("time", &[date(&fake_now)]);
+
+    // Build the authorizer: inject time fact so check_expiration_date works,
+    // then allow_all so we can do our own caveat query afterward.
+    let mut authorizer = match AuthorizerBuilder::new()
+        .fact(time_fact)
+        .map_err(|_| ())
+        .and_then(|b| b.allow_all().build(&token).map_err(|_| ()))
+    {
+        Ok(a) => a,
+        Err(_) => return false,
+    };
+
+    // authorize() enforces TTL (check_expiration_date) and signature; fail fast if expired/invalid.
+    if authorizer.authorize().is_err() {
+        return false;
+    }
+
+    // Query for the caveat fact: caveat($x) where $x == caveat string.
+    let results: Vec<(String,)> = authorizer
+        .query("data($x) <- caveat($x)")
+        .unwrap_or_default();
+
+    results.into_iter().any(|(v,)| v == caveat)
 }
 
 /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims,
 /// and simultaneously check for a required caveat fact.
 ///
-/// Single-authorizer variant that combines `verify_token_expiry_only` and `has_caveat`
-/// into one Datalog run. Returns `Ok(true)` if valid and caveat present, `Ok(false)` if
-/// valid but caveat absent, `Err` if the token is invalid or expired.
+/// This single-authorizer function replaces the two-step pattern of calling
+/// `verify_token_expiry_only` followed by `has_caveat`, halving the number of
+/// Datalog authorizer runs and reducing execution budget consumption. The
+/// `verify_disaster_alert_token` path in `saturate.rs` uses this function.
+///
+/// Returns `Ok(true)` if valid and caveat present, `Ok(false)` if valid but
+/// caveat absent, `Err` if the token is invalid or expired.
 pub fn verify_and_check_caveat(
     token_bytes: &[u8],
     caveat: &str,
     root_ca_public_key: &[u8],
     now_secs: i64,
 ) -> Result<bool, TirBaseError> {
-    #[cfg(not(target_arch = "wasm32"))]
-    return native::verify_and_check_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
+    let public_key =
+        PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid root CA public key: {e}"),
+            }
+        })?;
 
-    #[cfg(target_arch = "wasm32")]
-    return wasm_stubs::verify_and_check_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
+    let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
+        TirBaseError::AuthorisationFailed {
+            reason: format!("failed to parse/verify Biscuit token: {e}"),
+        }
+    })?;
+
+    let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+    let time_fact = fact("time", &[date(&fake_now)]);
+
+    let mut authorizer = AuthorizerBuilder::new()
+        .fact(time_fact)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer build error: {e}"),
+        })?
+        .allow_all()
+        .build(&token)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer construction failed: {e}"),
+        })?;
+
+    // Use authorize_with_limits with a generous per-call budget so that cumulative
+    // world.iterations from the initial run() pass does not exhaust the 100-iteration
+    // default limit when authorize() and query() are both called on the same authorizer.
+    let generous = biscuit_auth::AuthorizerLimits {
+        max_facts: 10_000,
+        max_iterations: 10_000,
+        max_time: Duration::from_secs(5),
+    };
+    authorizer.authorize_with_limits(generous.clone()).map_err(|e| {
+        TirBaseError::AuthorisationFailed {
+            reason: format!("token authorization failed (possibly expired): {e}"),
+        }
+    })?;
+
+    // Query for the caveat fact in the same authorizer run (no additional authorize() call).
+    let results: Result<Vec<(String,)>, _> =
+        authorizer.query_with_limits("data($x) <- caveat($x)", generous);
+    let has_it = results.unwrap_or_default().into_iter().any(|(v,)| v == caveat);
+    Ok(has_it)
 }
 
 /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims.
 ///
-/// Lighter variant of `verify_token` — runs only `authorize()`, not the three
-/// claim-extraction queries (did, role, issued_at). Used by `verify_disaster_alert_token`
-/// to reduce Datalog execution budget consumption.
+/// This is a lighter variant of `verify_token` that skips the three extra Datalog
+/// queries (did, role, issued_at). It is used by `verify_disaster_alert_token` in
+/// `saturate.rs` to reduce Datalog execution budget consumption.
 pub fn verify_token_expiry_only(
     token_bytes: &[u8],
     root_ca_public_key: &[u8],
     now_secs: i64,
 ) -> Result<(), TirBaseError> {
-    #[cfg(not(target_arch = "wasm32"))]
-    return native::verify_token_expiry_only(token_bytes, root_ca_public_key, now_secs);
+    let public_key =
+        PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid root CA public key: {e}"),
+            }
+        })?;
 
-    #[cfg(target_arch = "wasm32")]
-    return wasm_stubs::verify_token_expiry_only(token_bytes, root_ca_public_key, now_secs);
+    let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
+        TirBaseError::AuthorisationFailed {
+            reason: format!("failed to parse/verify Biscuit token: {e}"),
+        }
+    })?;
+
+    let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+    let time_fact = fact("time", &[date(&fake_now)]);
+
+    let mut authorizer = AuthorizerBuilder::new()
+        .fact(time_fact)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer build error: {e}"),
+        })?
+        .allow_all()
+        .build(&token)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("authorizer construction failed: {e}"),
+        })?;
+
+    authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
+        reason: format!("token authorization failed (possibly expired): {e}"),
+    })?;
+
+    Ok(())
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

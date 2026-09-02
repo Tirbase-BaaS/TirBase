@@ -646,6 +646,22 @@ impl CoreHandle {
         self.diagnostics_channel.subscribe()
     }
 
+    /// Return the primary root CA public key for offline Biscuit token verification.
+    ///
+    /// Used by `core_activate_saturate_mode` on the WASM target to verify
+    /// the disaster-alert Biscuit token (Req 13.1, 13.7).
+    /// Returns an empty `Vec<u8>` if no root CA key is configured (e.g. v1 default).
+    pub fn root_ca_public_key(&self) -> Vec<u8> {
+        self.capability
+            .lock()
+            .map(|cap| {
+                cap.root_ca_primary_key()
+                    .map(|k| k.to_vec())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+    }
+
     // ─── Inbound message pipeline ─────────────────────────────────────────────
 
     /// Route an inbound `GossipMessage` through the correct subsystem (native only).
