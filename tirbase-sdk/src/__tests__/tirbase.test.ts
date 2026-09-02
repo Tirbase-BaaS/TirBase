@@ -646,3 +646,253 @@ describe('TrustLevel state progression', () => {
     },
   );
 });
+
+// ─── Test: WASM event bridge (_pollWasmEvents) ────────────────────────────────
+
+describe('WASM event bridge (_pollWasmEvents)', () => {
+  test('incident-created emitter fires when pollEvents returns IncidentCreated event', async () => {
+    const mock = installMock();
+    const icoPayload = {
+      type: 'incidentCreated',
+      ico: {
+        id: 'test-incident-id',
+        state: 'Open',
+        taint_source: { tag: 'DeviceRevocation', revocation_delta_id: 'abc123' },
+        contamination_roots: ['abc123'],
+        contaminated_deltas: [],
+        affected_rows: [],
+        composite_of: null,
+        created_at: 0,
+        updated_at: 0,
+        audit_log: [],
+      },
+    };
+    mock.pollEventsImpl = () => [icoPayload];
+    mock.writeImpl = async (_t, _k, _d) => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const handler = jest.fn();
+    db.on('incident-created', handler);
+
+    await db.write({ table: 'test', key: 'k', data: {} });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0]![0]).toHaveProperty('id', 'test-incident-id');
+  });
+
+  test('trust-level-changed fires when pollEvents returns TrustLevelChanged', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [
+      {
+        type: 'trustLevelChanged',
+        previous: 'Verified',
+        new: 'Revoked',
+      },
+    ];
+    mock.writeImpl = async () => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const handler = jest.fn();
+    db.on('trust-level-changed', handler);
+
+    await db.write({ table: 't', key: 'k', data: {} });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const evt = handler.mock.calls[0]![0];
+    expect(evt.newLevel).toBe('REVOKED');
+    expect(db.trustLevel).toBe('REVOKED');
+  });
+
+  test('durability-tier-changed fires when pollEvents returns DurabilityTierChanged', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [
+      {
+        type: 'durabilityTierChanged',
+        delta_id: 'deadbeef'.repeat(8),
+        previous_tier: 'UNCOMMITTED',
+        new_tier: 'TIER1',
+      },
+    ];
+    mock.writeImpl = async () => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const handler = jest.fn();
+    db.on('durability-tier-changed', handler);
+
+    await db.write({ table: 't', key: 'k', data: {} });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const evt = handler.mock.calls[0]![0];
+    expect(evt.previousTier).toBe('UNCOMMITTED');
+    expect(evt.newTier).toBe('TIER1');
+  });
+
+  test('pollEvents called on read() and query() as well', async () => {
+    const mock = installMock();
+    const pollSpy = jest.fn().mockReturnValue([]);
+    mock.pollEventsImpl = pollSpy;
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    await db.read({ table: 't', key: 'k' });
+    await db.query({ table: 't' });
+
+    expect(pollSpy).toHaveBeenCalledTimes(2);
+  });
+
+  test('no events fired when pollEvents returns empty array', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [];
+    mock.writeImpl = async () => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const h1 = jest.fn();
+    const h2 = jest.fn();
+    db.on('incident-created', h1);
+    db.on('trust-level-changed', h2);
+
+    await db.write({ table: 't', key: 'k', data: {} });
+
+    expect(h1).not.toHaveBeenCalled();
+    expect(h2).not.toHaveBeenCalled();
+  });
+
+  test('pollEvents not called when method is absent on WasmCore', async () => {
+    const mock = installMock();
+    // Remove pollEvents from the mock so the optional-method guard is exercised.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mock as any).pollEvents = undefined;
+    mock.writeImpl = async () => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    // Should not throw — _pollWasmEvents must guard on method existence.
+    await expect(
+      db.write({ table: 't', key: 'k', data: {} }),
+    ).resolves.toBeDefined();
+  });
+
+  test('incident-updated event fires when pollEvents returns IncidentUpdated', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [
+      {
+        type: 'incidentUpdated',
+        ico: {
+          id: 'upd-incident-id',
+          state: 'Open',
+          taint_source: { tag: 'DeviceRevocation', revocation_delta_id: 'abc' },
+          contamination_roots: [],
+          contaminated_deltas: [],
+          affected_rows: [],
+          composite_of: null,
+          created_at: 0,
+          updated_at: 0,
+          audit_log: [],
+        },
+      },
+    ];
+    mock.readImpl = async (table, key) => ({
+      table,
+      key,
+      data: {},
+      contaminated: false,
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const handler = jest.fn();
+    db.on('incident-updated', handler);
+
+    await db.read({ table: 't', key: 'k' });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0]![0]).toHaveProperty('id', 'upd-incident-id');
+  });
+
+  test('incident-closed event fires when pollEvents returns IncidentClosed', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [
+      {
+        type: 'incidentClosed',
+        ico: {
+          id: 'closed-incident-id',
+          state: 'Closed',
+          taint_source: { tag: 'DeviceRevocation', revocation_delta_id: 'abc' },
+          contamination_roots: [],
+          contaminated_deltas: [],
+          affected_rows: [],
+          composite_of: null,
+          created_at: 0,
+          updated_at: 0,
+          audit_log: [],
+        },
+      },
+    ];
+    mock.queryImpl = async () => [];
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const handler = jest.fn();
+    db.on('incident-closed', handler);
+
+    await db.query({ table: 't' });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const ico = handler.mock.calls[0]![0] as IncidentContextObject;
+    expect(ico.id).toBe('closed-incident-id');
+    expect(ico.state).toBe('CLOSED');
+  });
+
+  test('multiple events in one poll batch all dispatched', async () => {
+    const mock = installMock();
+    mock.pollEventsImpl = () => [
+      {
+        type: 'trustLevelChanged',
+        previous: 'Verified',
+        new: 'Unverified',
+      },
+      {
+        type: 'incidentCreated',
+        ico: {
+          id: 'batch-ico',
+          state: 'Open',
+          taint_source: { tag: 'DeviceRevocation', revocation_delta_id: 'xyz' },
+          contamination_roots: [],
+          contaminated_deltas: [],
+          affected_rows: [],
+          composite_of: null,
+          created_at: 0,
+          updated_at: 0,
+          audit_log: [],
+        },
+      },
+    ];
+    mock.writeImpl = async () => ({
+      deltaId: 'a'.repeat(64),
+      durabilityTier: 'UNCOMMITTED',
+    });
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const trustHandler = jest.fn();
+    const incidentHandler = jest.fn();
+    db.on('trust-level-changed', trustHandler);
+    db.on('incident-created', incidentHandler);
+
+    await db.write({ table: 't', key: 'k', data: {} });
+
+    expect(trustHandler).toHaveBeenCalledTimes(1);
+    expect(incidentHandler).toHaveBeenCalledTimes(1);
+    expect(incidentHandler.mock.calls[0]![0]).toHaveProperty('id', 'batch-ico');
+  });
+});

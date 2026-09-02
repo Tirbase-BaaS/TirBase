@@ -16,6 +16,7 @@ import type { WasmCore } from './wasm-bridge';
 import { loadWasmCore } from './wasm-bridge';
 
 import type {
+  AffectedRow,
   DeploymentConfig,
   DurabilityTierChangedEvent,
   IncidentContextObject,
@@ -23,6 +24,7 @@ import type {
   MeshStatus,
   QueryResult,
   RevocationStatus,
+  TaintSource,
   TirBaseEvents,
   TrustLevel,
   TrustLevelChangedEvent,
@@ -191,6 +193,7 @@ export class TirBase {
       ...(warning !== undefined ? { unverifiedWarning: warning } : {}),
     };
 
+    this._pollWasmEvents();
     return result;
   }
 
@@ -209,13 +212,16 @@ export class TirBase {
     )) as RawQueryResult;
 
     const warning = this._buildUnverifiedWarning();
-    return {
+    const readResult: QueryResult = {
       table: raw.table,
       key: raw.key,
       data: raw.data ?? {},
       contaminated: raw.contaminated ?? false,
       ...(warning !== undefined ? { unverifiedWarning: warning } : {}),
     };
+
+    this._pollWasmEvents();
+    return readResult;
   }
 
   /**
@@ -236,13 +242,16 @@ export class TirBase {
     )) as RawQueryResult[];
 
     const warning = this._buildUnverifiedWarning();
-    return rawItems.map((raw) => ({
+    const queryResults = rawItems.map((raw) => ({
       table: raw.table,
       key: raw.key,
       data: raw.data ?? {},
       contaminated: raw.contaminated ?? false,
       ...(warning !== undefined ? { unverifiedWarning: warning } : {}),
     }));
+
+    this._pollWasmEvents();
+    return queryResults;
   }
 
   // ── Readable properties ───────────────────────────────────────────────────
@@ -364,6 +373,138 @@ export class TirBase {
    */
   _applyDurabilityTierChanged(event: DurabilityTierChangedEvent): void {
     this._emitter.emit('durability-tier-changed', event);
+  }
+
+  // ── WASM event bridge ─────────────────────────────────────────────────────
+
+  /**
+   * Drain pending WASM events and dispatch each to the correct internal helper.
+   *
+   * Called at the end of `write()`, `read()`, and `query()` to surface
+   * Rust-side side-effects (trust-level changes, contamination incidents,
+   * durability tier promotions) to the application layer without requiring
+   * a separate polling loop (Task 31).
+   */
+  private _pollWasmEvents(): void {
+    if (!this._wasm.pollEvents) return;
+    const events: unknown[] = this._wasm.pollEvents() ?? [];
+    for (const raw of events) {
+      const event = raw as Record<string, unknown>;
+      const type = event['type'] as string | undefined;
+      switch (type) {
+        case 'trustLevelChanged': {
+          const newLevel = String(event['new']).toUpperCase() as TrustLevel;
+          this._applyTrustLevelChange(newLevel);
+          break;
+        }
+        case 'incidentCreated':
+          if (event['ico']) {
+            this._applyIncidentEvent(
+              'incident-created',
+              this._parseIco(event['ico']),
+            );
+          }
+          break;
+        case 'incidentUpdated':
+          if (event['ico']) {
+            this._applyIncidentEvent(
+              'incident-updated',
+              this._parseIco(event['ico']),
+            );
+          }
+          break;
+        case 'incidentClosed':
+          if (event['ico']) {
+            this._applyIncidentEvent(
+              'incident-closed',
+              this._parseIco(event['ico']),
+            );
+          }
+          break;
+        case 'durabilityTierChanged': {
+          const evt: DurabilityTierChangedEvent = {
+            deltaSetId: String(event['delta_id'] ?? ''),
+            previousTier: String(
+              event['previous_tier'] ?? 'UNCOMMITTED',
+            ).toUpperCase() as DurabilityTierChangedEvent['previousTier'],
+            newTier: String(
+              event['new_tier'] ?? 'UNCOMMITTED',
+            ).toUpperCase() as DurabilityTierChangedEvent['newTier'],
+            timestamp: new Date(),
+          };
+          this._applyDurabilityTierChanged(evt);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  /**
+   * Convert a raw JSON object from WASM into a TypeScript `IncidentContextObject`.
+   * Handles snake_case → camelCase field name differences.
+   */
+  private _parseIco(raw: unknown): IncidentContextObject {
+    const r = raw as Record<string, unknown>;
+    const compositeOf = r['composite_of'] as string[] | null | undefined;
+    const ico: IncidentContextObject = {
+      id: String(r['id'] ?? ''),
+      state:
+        String(r['state'] ?? 'Open').toLowerCase() === 'closed'
+          ? 'CLOSED'
+          : 'OPEN',
+      taintSource: this._parseTaintSource(
+        r['taint_source'] ?? r['taintSource'],
+      ),
+      contaminationRoots: (
+        (r['contamination_roots'] ?? r['contaminationRoots'] ?? []) as string[]
+      ),
+      affectedTableCount: Number(
+        r['affected_table_count'] ?? r['affectedTableCount'] ?? 0,
+      ),
+      affectedRowCount: Number(
+        r['affected_row_count'] ?? r['affectedRowCount'] ?? 0,
+      ),
+      affectedRows: (
+        (r['affected_rows'] ?? r['affectedRows'] ?? []) as AffectedRow[]
+      ),
+      createdAt: new Date(
+        Number(r['created_at'] ?? r['createdAt'] ?? 0) / 1000,
+      ),
+      updatedAt: new Date(
+        Number(r['updated_at'] ?? r['updatedAt'] ?? 0) / 1000,
+      ),
+      auditLog: [],
+    };
+    if (compositeOf != null) {
+      ico.compositeOf = compositeOf;
+    }
+    return ico;
+  }
+
+  /**
+   * Convert a raw taint_source JSON object to a typed `TaintSource`.
+   */
+  private _parseTaintSource(raw: unknown): TaintSource {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    const tag = String(r['tag'] ?? r['type'] ?? 'DeviceRevocation');
+    if (tag === 'BadMigration' || tag === 'BAD_MIGRATION') {
+      return {
+        type: 'BAD_MIGRATION',
+        migrationId: String(r['migration_id'] ?? ''),
+      };
+    }
+    if (tag === 'HumanReaction' || tag === 'HUMAN_REACTION') {
+      return {
+        type: 'HUMAN_REACTION',
+        triggeredByIncidentId: String(r['triggered_by_incident_id'] ?? ''),
+      };
+    }
+    return {
+      type: 'DEVICE_REVOCATION',
+      revocationDeltaId: String(r['revocation_delta_id'] ?? ''),
+    };
   }
 
   // ── Manager operations ────────────────────────────────────────────────────
