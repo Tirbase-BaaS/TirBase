@@ -32,7 +32,8 @@ use resolution::now_micros;
 /// Holds an in-memory index of incidents (ICOs) and composite incidents.
 /// The `dag_nodes.tags_json` column in SQLite is the durable append-only tag store;
 /// the in-memory HashMaps are derived state that can be rebuilt from the DAG on
-/// restart (full persistence is deferred to a later task).
+/// restart (ICO state is in-memory only and not persisted across process restarts;
+/// persistence is explicitly deferred to a post-v1 task).
 #[cfg(feature = "native")]
 pub struct CausalContaminationEngine {
     /// Shared SQLite connection (same pool as LocalStore and ChangesetDag).
@@ -43,6 +44,13 @@ pub struct CausalContaminationEngine {
     incidents: HashMap<IncidentId, IncidentContextObject>,
     /// In-memory composite incident registry.
     composite_incidents: HashMap<IncidentId, CompositeIncidentInstance>,
+    /// O(1) lookup index: (table_name, row_key) → active IncidentId.
+    ///
+    /// Populated when `tag_contamination_root` resolves affected rows.
+    /// Pruned when `verify_data` appends `DeltaTag::Decontaminated` to a fully
+    /// resolved incident.  This map is the fast path for `CoreHandle::write()`
+    /// to check whether the current row is contaminated (Req 19.5).
+    contaminated_rows: HashMap<(String, String), IncidentId>,
 }
 
 #[cfg(not(feature = "native"))]
@@ -51,6 +59,8 @@ pub struct CausalContaminationEngine {
     composite_incidents: HashMap<IncidentId, CompositeIncidentInstance>,
     /// In-memory DAG for WASM builds (mirrors the native SQLite-backed DAG).
     dag: crate::crdt::dag::ChangesetDag,
+    /// O(1) lookup index: (table_name, row_key) → active IncidentId.
+    contaminated_rows: HashMap<(String, String), IncidentId>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -65,6 +75,7 @@ impl CausalContaminationEngine {
             dag,
             incidents: HashMap::new(),
             composite_incidents: HashMap::new(),
+            contaminated_rows: HashMap::new(),
         }
     }
 
@@ -182,11 +193,27 @@ impl CausalContaminationEngine {
             };
 
             self.composite_incidents.insert(composite_id, composite);
+            // Populate contaminated_rows index for the composite ICO (native).
+            if let Some(comp) = self.composite_incidents.get(&composite_id) {
+                for row in &comp.affected_rows {
+                    self.contaminated_rows
+                        .insert((row.table.clone(), row.row_key.clone()), composite_id);
+                }
+            }
             return Ok(composite_id);
         }
 
         // No overlap — just register the new ICO.
         self.incidents.insert(ico_id, new_ico);
+
+        // Populate the O(1) contaminated_rows index for this ICO.
+        if let Some(ico) = self.incidents.get(&ico_id) {
+            for row in &ico.affected_rows {
+                self.contaminated_rows
+                    .insert((row.table.clone(), row.row_key.clone()), ico_id);
+            }
+        }
+
         Ok(ico_id)
     }
 
@@ -215,7 +242,14 @@ impl CausalContaminationEngine {
             &self.dag,
             &mut self.incidents,
             &mut self.composite_incidents,
-        )
+        )?;
+
+        // After resolution, prune contaminated_rows entries for any row that now
+        // has no active OPEN incident referencing it.  This keeps is_row_contaminated()
+        // returning false after all roots are resolved (Req 19.5 / Test C).
+        self.prune_contaminated_rows();
+
+        Ok(())
     }
 
     // ─── admin_close ─────────────────────────────────────────────────────────
@@ -253,6 +287,38 @@ impl CausalContaminationEngine {
             .cloned()
             .collect())
     }
+
+    /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
+    /// contaminated by an active incident (Req 19.5).
+    pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
+        self.contaminated_rows.contains_key(&(table.to_string(), row_key.to_string()))
+    }
+
+    /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
+    /// if the row is contaminated, or `None` otherwise (Req 19.5).
+    pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
+        self.contaminated_rows.get(&(table.to_string(), row_key.to_string())).copied()
+    }
+
+    // ─── Private helpers ──────────────────────────────────────────────────────
+
+    /// Remove entries from `contaminated_rows` that no longer have an active OPEN
+    /// incident.  Called after `verify_data` to prune rows that have been fully
+    /// decontaminated.
+    fn prune_contaminated_rows(&mut self) {
+        self.contaminated_rows.retain(|_key, incident_id| {
+            // Keep the entry if the incident still exists AND is still Open.
+            self.incidents
+                .get(incident_id)
+                .map(|ico| ico.state == IncidentState::Open)
+                .unwrap_or(false)
+                || self
+                    .composite_incidents
+                    .get(incident_id)
+                    .map(|c| c.state == IncidentState::Open)
+                    .unwrap_or(false)
+        });
+    }
 }
 
 // ─── WASM stubs ───────────────────────────────────────────────────────────────
@@ -264,6 +330,7 @@ impl CausalContaminationEngine {
             incidents: HashMap::new(),
             composite_incidents: HashMap::new(),
             dag: crate::crdt::dag::ChangesetDag::new(),
+            contaminated_rows: HashMap::new(),
         }
     }
 
@@ -346,6 +413,13 @@ impl CausalContaminationEngine {
                 crate::push_wasm_event(crate::WasmEvent::IncidentCreated { ico: composite_json });
             }
             self.composite_incidents.insert(composite_id, composite);
+            // Populate contaminated_rows index for the composite ICO (WASM).
+            if let Some(comp) = self.composite_incidents.get(&composite_id) {
+                for row in &comp.affected_rows {
+                    self.contaminated_rows
+                        .insert((row.table.clone(), row.row_key.clone()), composite_id);
+                }
+            }
             return Ok(composite_id);
         }
 
@@ -357,6 +431,15 @@ impl CausalContaminationEngine {
         }
 
         self.incidents.insert(ico_id, new_ico);
+
+        // Populate the O(1) contaminated_rows index for this ICO (WASM).
+        if let Some(ico) = self.incidents.get(&ico_id) {
+            for row in &ico.affected_rows {
+                self.contaminated_rows
+                    .insert((row.table.clone(), row.row_key.clone()), ico_id);
+            }
+        }
+
         Ok(ico_id)
     }
 
@@ -448,6 +531,19 @@ impl CausalContaminationEngine {
             }
         }
 
+        // Prune contaminated_rows for any row that no longer has an active OPEN incident.
+        self.contaminated_rows.retain(|_key, incident_id| {
+            self.incidents
+                .get(incident_id)
+                .map(|ico| ico.state == IncidentState::Open)
+                .unwrap_or(false)
+                || self
+                    .composite_incidents
+                    .get(incident_id)
+                    .map(|c| c.state == IncidentState::Open)
+                    .unwrap_or(false)
+        });
+
         Ok(())
     }
 
@@ -487,6 +583,18 @@ impl CausalContaminationEngine {
             .filter(|ico| ico.state == IncidentState::Open)
             .cloned()
             .collect())
+    }
+
+    /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
+    /// contaminated by an active incident (Req 19.5).
+    pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
+        self.contaminated_rows.contains_key(&(table.to_string(), row_key.to_string()))
+    }
+
+    /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
+    /// if the row is contaminated, or `None` otherwise (Req 19.5).
+    pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
+        self.contaminated_rows.get(&(table.to_string(), row_key.to_string())).copied()
     }
 }
 
