@@ -199,6 +199,9 @@ mod native {
     ///
     /// Uses a proper Biscuit datalog authorizer query rather than substring matching.
     /// The token must also be valid and not expired at `now_secs`.
+    ///
+    /// This function uses a single authorizer instance for both the expiry check and
+    /// the caveat query, minimising Datalog execution budget consumption.
     pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], now_secs: i64) -> bool {
         let public_key = match PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519) {
             Ok(k) => k,
@@ -237,6 +240,114 @@ mod native {
 
         results.into_iter().any(|(v,)| v == caveat)
     }
+
+    /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims,
+    /// and simultaneously check for a required caveat fact.
+    ///
+    /// This single-authorizer function replaces the two-step pattern of calling
+    /// `verify_token_expiry_only` followed by `has_caveat`, halving the number of
+    /// Datalog authorizer runs and reducing execution budget consumption. The
+    /// `verify_disaster_alert_token` path in `saturate.rs` uses this function.
+    ///
+    /// Returns `Ok(true)` if valid and caveat present, `Ok(false)` if valid but
+    /// caveat absent, `Err` if the token is invalid or expired.
+    pub fn verify_and_check_caveat(
+        token_bytes: &[u8],
+        caveat: &str,
+        root_ca_public_key: &[u8],
+        now_secs: i64,
+    ) -> Result<bool, TirBaseError> {
+        let public_key =
+            PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+                TirBaseError::AuthorisationFailed {
+                    reason: format!("invalid root CA public key: {e}"),
+                }
+            })?;
+
+        let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("failed to parse/verify Biscuit token: {e}"),
+            }
+        })?;
+
+        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+        let time_fact = fact("time", &[date(&fake_now)]);
+
+        let mut authorizer = AuthorizerBuilder::new()
+            .fact(time_fact)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer build error: {e}"),
+            })?
+            .allow_all()
+            .build(&token)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer construction failed: {e}"),
+            })?;
+
+        // Use authorize_with_limits with a generous per-call budget so that cumulative
+        // world.iterations from the initial run() pass does not exhaust the 100-iteration
+        // default limit when authorize() and query() are both called on the same authorizer.
+        let generous = biscuit_auth::AuthorizerLimits {
+            max_facts: 10_000,
+            max_iterations: 10_000,
+            max_time: Duration::from_secs(5),
+        };
+        authorizer.authorize_with_limits(generous.clone()).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("token authorization failed (possibly expired): {e}"),
+            }
+        })?;
+
+        // Query for the caveat fact in the same authorizer run (no additional authorize() call).
+        let results: Result<Vec<(String,)>, _> =
+            authorizer.query_with_limits("data($x) <- caveat($x)", generous);
+        let has_it = results.unwrap_or_default().into_iter().any(|(v,)| v == caveat);
+        Ok(has_it)
+    }
+
+    /// Verify that a Biscuit token is valid (signature + expiry) without extracting claims.
+    ///
+    /// This is a lighter variant of `verify_token` that skips the three extra Datalog
+    /// queries (did, role, issued_at). It is used by `verify_disaster_alert_token` in
+    /// `saturate.rs` to reduce Datalog execution budget consumption during testing.
+    pub fn verify_token_expiry_only(
+        token_bytes: &[u8],
+        root_ca_public_key: &[u8],
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        let public_key =
+            PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+                TirBaseError::AuthorisationFailed {
+                    reason: format!("invalid root CA public key: {e}"),
+                }
+            })?;
+
+        let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("failed to parse/verify Biscuit token: {e}"),
+            }
+        })?;
+
+        let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+        let time_fact = fact("time", &[date(&fake_now)]);
+
+        let mut authorizer = AuthorizerBuilder::new()
+            .fact(time_fact)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer build error: {e}"),
+            })?
+            .allow_all()
+            .build(&token)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer construction failed: {e}"),
+            })?;
+
+        authorizer.authorize().map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("token authorization failed (possibly expired): {e}"),
+        })?;
+
+        Ok(())
+    }
 }
 
 // ─── WASM stubs ──────────────────────────────────────────────────────────────
@@ -271,6 +382,27 @@ mod wasm_stubs {
         // activation. Biscuit token verification is native-only in v1; all caveat
         // checks on WASM builds unconditionally return false.
         false
+    }
+
+    pub fn verify_and_check_caveat(
+        _token_bytes: &[u8],
+        _caveat: &str,
+        _root_ca_public_key: &[u8],
+        _now_secs: i64,
+    ) -> Result<bool, TirBaseError> {
+        Err(TirBaseError::AuthorisationFailed {
+            reason: "Biscuit token verification is not available on WASM builds".to_string(),
+        })
+    }
+
+    pub fn verify_token_expiry_only(
+        _token_bytes: &[u8],
+        _root_ca_public_key: &[u8],
+        _now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        Err(TirBaseError::AuthorisationFailed {
+            reason: "Biscuit token verification is not available on WASM builds".to_string(),
+        })
     }
 }
 
@@ -317,6 +449,42 @@ pub fn has_caveat(token_bytes: &[u8], caveat: &str, root_ca_public_key: &[u8], n
 
     #[cfg(target_arch = "wasm32")]
     return false;
+}
+
+/// Verify that a Biscuit token is valid (signature + expiry) without extracting claims,
+/// and simultaneously check for a required caveat fact.
+///
+/// Single-authorizer variant that combines `verify_token_expiry_only` and `has_caveat`
+/// into one Datalog run. Returns `Ok(true)` if valid and caveat present, `Ok(false)` if
+/// valid but caveat absent, `Err` if the token is invalid or expired.
+pub fn verify_and_check_caveat(
+    token_bytes: &[u8],
+    caveat: &str,
+    root_ca_public_key: &[u8],
+    now_secs: i64,
+) -> Result<bool, TirBaseError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    return native::verify_and_check_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
+
+    #[cfg(target_arch = "wasm32")]
+    return wasm_stubs::verify_and_check_caveat(token_bytes, caveat, root_ca_public_key, now_secs);
+}
+
+/// Verify that a Biscuit token is valid (signature + expiry) without extracting claims.
+///
+/// Lighter variant of `verify_token` — runs only `authorize()`, not the three
+/// claim-extraction queries (did, role, issued_at). Used by `verify_disaster_alert_token`
+/// to reduce Datalog execution budget consumption.
+pub fn verify_token_expiry_only(
+    token_bytes: &[u8],
+    root_ca_public_key: &[u8],
+    now_secs: i64,
+) -> Result<(), TirBaseError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    return native::verify_token_expiry_only(token_bytes, root_ca_public_key, now_secs);
+
+    #[cfg(target_arch = "wasm32")]
+    return wasm_stubs::verify_token_expiry_only(token_bytes, root_ca_public_key, now_secs);
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

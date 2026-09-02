@@ -8,11 +8,11 @@ use crate::errors::TirBaseError;
 
 // ─── WASM in-memory tag store ─────────────────────────────────────────────────
 
-/// Thread-local in-memory tag store for WASM builds.
-///
-/// The native build writes tags directly to `dag_nodes.tags_json` in SQLite.
-/// On WASM there is no SQLite, so we keep tags here.  The tag log is still
-/// append-only — entries are pushed but never removed (Req 10.4).
+// Thread-local in-memory tag store for WASM builds.
+//
+// The native build writes tags directly to `dag_nodes.tags_json` in SQLite.
+// On WASM there is no SQLite, so we keep tags here.  The tag log is still
+// append-only — entries are pushed but never removed (Req 10.4).
 #[cfg(not(feature = "native"))]
 thread_local! {
     static WASM_TAG_STORE: std::cell::RefCell<
@@ -20,7 +20,7 @@ thread_local! {
     > = std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
-/// WASM in-memory projection contamination store (table → key → contaminated flag).
+// WASM in-memory projection contamination store (table → key → contaminated flag).
 #[cfg(not(feature = "native"))]
 thread_local! {
     pub(crate) static WASM_PROJ_STORE: std::cell::RefCell<

@@ -246,19 +246,20 @@ impl SaturateModeStateMachine {
             });
         }
 
-        // Verify the token signature and expiry against the root CA.
-        crate::auth::biscuit::verify_token(biscuit_token, &self.root_ca_public_key, now_secs)
-            .map_err(|e| TirBaseError::SignatureVerificationFailed {
-                reason: format!("DISASTER_ALERT token verification failed: {e}"),
-            })?;
-
-        // Check for the required `disaster-alert` caveat (Req 13.1).
-        let has_caveat = crate::auth::biscuit::has_caveat(
+        // Verify the token signature, expiry, and caveat in a single Biscuit authorizer
+        // run.  Using verify_and_check_caveat (instead of the two-step
+        // verify_token + has_caveat) halves the number of Datalog authorizer runs,
+        // staying within the process-global Datalog execution budget (Req 13.1, 13.7).
+        let has_caveat = crate::auth::biscuit::verify_and_check_caveat(
             biscuit_token,
             "disaster-alert",
             &self.root_ca_public_key,
             now_secs,
-        );
+        )
+        .map_err(|e| TirBaseError::SignatureVerificationFailed {
+            reason: format!("DISASTER_ALERT token verification failed: {e}"),
+        })?;
+
         if !has_caveat {
             return Err(TirBaseError::SignatureVerificationFailed {
                 reason: "DISASTER_ALERT token does not carry the 'disaster-alert' caveat"

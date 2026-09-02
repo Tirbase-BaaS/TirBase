@@ -7,11 +7,8 @@
 cc d618346b5280ab1b12937999a4246c0dc27896471ee021b0344ce6c6b2fb381a # shrinks to m = 1
 cc 5fe6c7ce952d7b5d1f07a414d718fbe404569c6c63addb91e65fe89619f2f0e7 # shrinks to deltas = [Delta { id: [221, 198, 120, 231, 22, 193, 219, 237, 240, 31, 10, 57, 122, 250, 249, 234, 156, 204, 156, 215, 169, 109, 145, 211, 163, 167, 79, 203, 111, 93, 161, 235], author_did: "did:key:6Mkon3Necd6NkkyfoGoHxid2znGc59LU3K7mubaRcFbLfLX", signature: Ed25519Signature([204, 63, 10, 56, 136, 4, 48, 171, 57, 173, 129, 66, 150, 175, 234, 233, 44, 2, 173, 159, 129, 10, 3, 147, 81, 55, 32, 130, 8, 119, 6, 235, 168, 0, 168, 127, 30, 100, 95, 26, 12, 52, 166, 151, 8, 46, 47, 68, 39, 38, 18, 126, 13, 208, 103, 198, 212, 88, 59, 190, 82, 154, 49, 7]), schema_hash: [171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171], automerge_bytes: [], priority: Low, causal_parents: [], tags: [], lamport: 1, created_at: 0 }, Delta { id: [212, 113, 222, 70, 54, 151, 40, 106, 212, 96, 208, 35, 81, 123, 251, 86, 132, 182, 29, 16, 82, 103, 98, 18, 197, 21, 144, 96, 152, 87, 238, 110], author_did: "did:key:6Mkon3Necd6NkkyfoGoHxid2znGc59LU3K7mubaRcFbLfLX", signature: Ed25519Signature([249, 70, 181, 239, 93, 146, 242, 222, 60, 44, 192, 50, 163, 85, 253, 146, 24, 187, 126, 52, 81, 62, 233, 254, 22, 74, 58, 167, 78, 39, 97, 244, 14, 9, 175, 223, 191, 112, 186, 242, 199, 87, 162, 18, 62, 71, 99, 203, 164, 50, 46, 167, 176, 144, 220, 115, 204, 58, 234, 67, 78, 27, 6, 2]), schema_hash: [171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171], automerge_bytes: [], priority: Low, causal_parents: [], tags: [], lamport: 2, created_at: 0 }]
 cc 62231f367702e8708a36e30266805657e27968e412be1678b41d7bebea648fce # shrinks to payload = [0]
-cc fa28a0b68bd3c3ef590c429c28b92bf5ae9199aa9b8dcc8779e023995131d0e3 # shrinks to _dummy = 0
-cc 139a1b4c3b3082ee8675dce6bd1fe24dcbc5b0b2fe8bbf6e12650986649ab889 # shrinks to _dummy = 0
-cc e7d829d9347d89312d1ea4cb84fc50682079c4843df48508adca0e4fcc2ed8c8 # shrinks to _dummy = 0
-cc ec97b8e7377ff269e37dcb7ba535cc96b953fe3b30b229435364ac83a1f3c6b3 # shrinks to _dummy = 0
-cc d880cada2af7b921ec08808cdbb0cca12ea8616d77e370f06b34df901cb43c81 # shrinks to _dummy = 0
-cc 21cb513fdac6dd3ef99270b74f05de34da1f3a2ddb7204df43b1266d774057fd # shrinks to _dummy = 0
-cc 8df48521a1575a4880fa050e3bfba74d27a886c2c2f0f8bfe4aa75e59213b8a2 # shrinks to _dummy = 0
-cc 0db9a4eafef91210aa117b3dbc24f06e0ef6d5b44893e19c9d83676e04ef2f7e # shrinks to _dummy = 0
+
+cc f12fd2595fbc421ef6cf54dda52a8815612d7bc8edf0798b51d2c314aa02a36c # shrinks to _dummy = 0 (prop_20a - was Biscuit budget exhaustion, now fixed)
+cc 1d821662d8693e36bd8b6c0232501c01a0fcc615f2a1e1a7c06d8d5c0c685abb # shrinks to _dummy = 0 (prop_20 - was Biscuit budget exhaustion, now fixed)
+cc ebd62d311642c0bfaa3f601d7c31f17e0afe4ebd147242cf0840a5021d0af3d0 # shrinks to _dummy = 0 (prop_20d - was Biscuit budget exhaustion, now fixed)
+cc 3028b412314127a4ef2345986086035c0eb5ccc634375822ee92c2a6ea976ff3 # shrinks to _dummy = 0 (prop_20a - was Biscuit budget exhaustion, now fixed)

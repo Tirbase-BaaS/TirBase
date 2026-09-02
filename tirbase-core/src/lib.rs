@@ -153,6 +153,7 @@ assert_impl_all!(contamination::incident::AuditOperation:  Clone, Copy, PartialE
 #[cfg(feature = "wasm")]
 mod wasm_exports {
     use super::*;
+    #[allow(unused_imports)]
     use wasm_bindgen::prelude::*;
     #[allow(unused_imports)]
     use js_sys;

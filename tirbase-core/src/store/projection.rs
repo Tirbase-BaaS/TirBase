@@ -184,11 +184,11 @@ pub fn clear_row_contamination(table: &str, row_key: &str) -> Result<(), TirBase
 
 // ─── WASM delta-row index ─────────────────────────────────────────────────────
 
-/// Maps `delta_id -> Vec<(table, row_key)>` so `resolve_affected_rows` can look
-/// up which rows were last written by a given delta on the WASM build.
-///
-/// Written to by `record_delta_row`; read by `rows_by_delta_id`.
-/// The index is append-only per delta — entries are never removed.
+// Maps `delta_id -> Vec<(table, row_key)>` so `resolve_affected_rows` can look
+// up which rows were last written by a given delta on the WASM build.
+//
+// Written to by `record_delta_row`; read by `rows_by_delta_id`.
+// The index is append-only per delta — entries are never removed.
 #[cfg(not(feature = "native"))]
 thread_local! {
     pub(crate) static WASM_DELTA_INDEX: std::cell::RefCell<

@@ -129,7 +129,7 @@ impl CoreHandle {
         let identity = Arc::new(identity);
 
         // ── Capability Manager ────────────────────────────────────────────────
-        let mut capability = CapabilityManager::new(
+        let capability = CapabilityManager::new(
             vec![],
             config.deployment.revocation_m,
             config.deployment.revocation_n,
@@ -226,6 +226,7 @@ impl CoreHandle {
         let durability = Arc::new(Mutex::new(durability));
 
         // ── Mesh Transport ────────────────────────────────────────────────────
+        #[cfg_attr(not(feature = "native"), allow(unused_mut))]
         let mut transport = MeshTransport::new(
             identity.did().to_string(),
             TransportConfig::default(),
