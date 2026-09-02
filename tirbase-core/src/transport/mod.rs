@@ -20,8 +20,14 @@ use crate::errors::TirBaseError;
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
+    scheduler::{DrrScheduler, QueuedDelta},
     session::SessionManager,
 };
+
+fn current_timestamp_micros() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64
+}
 
 // ─── TransportConfig ──────────────────────────────────────────────────────────
 
@@ -104,6 +110,9 @@ pub struct MeshTransport {
     /// The shared Gossipsub topic all TirBase nodes subscribe to.
     pub gossip_topic: String,
 
+    /// DRR Scheduler for outbound Delta prioritisation (Req 12).
+    pub scheduler: DrrScheduler,
+
     /// Native-only: libp2p Swarm (None before `start()` is called).
     #[cfg(feature = "native")]
     swarm: Option<libp2p::Swarm<TirBaseBehaviour>>,
@@ -131,6 +140,7 @@ impl MeshTransport {
             local_did,
             config,
             gossip_topic: "tirbase/v1".to_string(),
+            scheduler: DrrScheduler::new(1_000_000), // 1 MB/s default link capacity
             #[cfg(feature = "native")]
             swarm: None,
             saturate_active: false,
@@ -199,6 +209,32 @@ impl MeshTransport {
     /// can record the transition.
     pub fn set_saturate_mode(&mut self, active: bool) {
         self.saturate_active = active;
+    }
+
+    // ── Scheduler interface ───────────────────────────────────────────────────
+
+    /// Returns `true` if the DRR scheduler has any pending Deltas (any priority queue).
+    pub fn has_backlog(&self) -> bool {
+        self.scheduler.has_backlog()
+    }
+
+    /// Returns the current depth of the HIGH priority queue.
+    pub fn high_queue_depth(&self) -> usize {
+        self.scheduler.high_queue_depth()
+    }
+
+    /// Enqueue a Delta for outbound transmission via the DRR scheduler.
+    ///
+    /// The Delta is placed in the queue corresponding to its `priority` field.
+    /// Actual Gossipsub publish happens when the scheduler is ticked.
+    pub fn enqueue_outbound(&mut self, delta: Delta) {
+        let serialized_len = serde_json::to_vec(&delta).map(|b| b.len() as u64).unwrap_or(0);
+        let queued = QueuedDelta {
+            delta,
+            serialized_len,
+            enqueued_at: current_timestamp_micros(),
+        };
+        self.scheduler.enqueue(queued);
     }
 
     // ── Fragmentation ─────────────────────────────────────────────────────────

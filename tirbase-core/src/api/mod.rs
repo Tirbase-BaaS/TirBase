@@ -261,6 +261,8 @@ impl CoreHandle {
 
             if let Some(mut swarm) = swarm_opt {
                 let tx_clone = inbound_tx.clone();
+                let revocation_arc = revocation.clone();
+                let transport_arc = transport.clone();
                 tokio::spawn(async move {
                     loop {
                         match swarm.select_next_some().await {
@@ -292,6 +294,31 @@ impl CoreHandle {
                                 for (peer_id, _) in peers {
                                     eprintln!("[transport-loop] mDNS discovered: {peer_id}");
                                     swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                                }
+
+                                // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
+                                let recent = revocation_arc.lock().map(|rev| {
+                                    rev.build_recent_revocation_deltas(24 * 3600 * 1_000_000)
+                                }).unwrap_or_default();
+
+                                for rd in recent {
+                                    let gossip_msg = crate::transport::message::GossipMessage::InboundRevocationDelta(rd);
+                                    let gossip_bytes = gossip_msg.to_bytes();
+                                    let wrapper = crate::crdt::delta::Delta {
+                                        id: [0u8; 32],
+                                        author_did: "tirbase/revocation".to_string(),
+                                        signature: crate::crdt::delta::Ed25519Signature::default(),
+                                        schema_hash: [0u8; 32],
+                                        automerge_bytes: gossip_bytes,
+                                        priority: crate::crdt::delta::PriorityClass::High,
+                                        causal_parents: vec![],
+                                        tags: vec![],
+                                        lamport: 0,
+                                        created_at: 0,
+                                    };
+                                    if let Ok(mut t) = transport_arc.lock() {
+                                        t.enqueue_outbound(wrapper);
+                                    }
                                 }
                             }
                             SwarmEvent::Behaviour(
@@ -693,6 +720,7 @@ impl CoreHandle {
             }
             GossipMessage::InboundRevocationDelta(rev_delta) => {
                 let cce_clone = self.cce.clone();
+                let transport_clone = self.transport.clone();
 
                 let mut rev = self.revocation.lock().map_err(|e| {
                     TirBaseError::LocalStoreWriteFailed {
@@ -702,12 +730,28 @@ impl CoreHandle {
 
                 let result = rev.process_incoming_delta(
                     &rev_delta,
-                    &mut |target_did, _complete_delta| {
-                        // HIGH-priority gossip of complete RevocationDelta (Req 9.2).
+                    &mut |target_did, complete_delta| {
+                        // Req 9.2: gossip the complete RevocationDelta at HIGH priority.
                         eprintln!(
-                            "[inbound] gossiping RevocationDelta for revoked DID: {target_did}"
+                            "[inbound] gossiping RevocationDelta at HIGH priority for revoked DID: {target_did}"
                         );
-                        // Actual mesh send happens via transport; skipped here for v1.
+                        let gossip_msg = GossipMessage::InboundRevocationDelta(complete_delta.clone());
+                        let gossip_bytes = gossip_msg.to_bytes();
+                        let revocation_delta_wrapper = crate::crdt::delta::Delta {
+                            id: [0u8; 32],
+                            author_did: "tirbase/revocation".to_string(),
+                            signature: crate::crdt::delta::Ed25519Signature::default(),
+                            schema_hash: [0u8; 32],
+                            automerge_bytes: gossip_bytes,
+                            priority: crate::crdt::delta::PriorityClass::High,
+                            causal_parents: vec![],
+                            tags: vec![],
+                            lamport: 0,
+                            created_at: 0,
+                        };
+                        if let Ok(mut t) = transport_clone.lock() {
+                            t.enqueue_outbound(revocation_delta_wrapper);
+                        }
                     },
                     &mut |target_did, delta_ids| {
                         // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
@@ -1481,6 +1525,198 @@ mod inbound_tests {
             read_result.is_err(),
             "v1: inbound delta is not yet projected to the SQL store; \
              read returns Err (not found). This is the documented projection gap."
+        );
+
+        cleanup(&path_a);
+        cleanup(&path_b);
+    }
+
+    // ── Test 7: RevocationDelta enqueued at HIGH priority after threshold met ─
+    //
+    // Validates Req 9.2: when M-of-N signatures are collected for a revocation,
+    // the complete RevocationDelta must be enqueued at HIGH priority for gossip
+    // rebroadcast.
+
+    #[tokio::test]
+    async fn revocation_delta_enqueued_at_high_priority_after_threshold_met() {
+        let path = tmp_path("rev_enqueue");
+        cleanup(&path);
+
+        // Create a CoreHandle with M=2, N=2 revocation config.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 2,
+                biscuit_ttl_secs: 3600,
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        // Create 2 manager identities.
+        let mgr1 = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr1_did = mgr1.did().to_string();
+        let mgr1_sk = mgr1.signing_key_bytes();
+
+        let mgr2 = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr2_did = mgr2.did().to_string();
+        let mgr2_sk = mgr2.signing_key_bytes();
+
+        // Choose a target DID.
+        let target = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let target_did = target.did().to_string();
+
+        // Produce two partial RevocationDeltas (one per manager).
+        let (partial1, partial2) = {
+            let rev = handle.revocation.lock().unwrap();
+            let p1 = rev
+                .produce_partial_delta(target_did.clone(), mgr1_did.clone(), &mgr1_sk)
+                .expect("produce partial 1");
+            let p2 = rev
+                .produce_partial_delta(target_did.clone(), mgr2_did.clone(), &mgr2_sk)
+                .expect("produce partial 2");
+            (p1, p2)
+        };
+
+        // Combine both signatures into a single RevocationDelta.
+        let combined = crate::auth::RevocationDelta {
+            target_did: target_did.clone(),
+            signatures: [partial1.signatures, partial2.signatures].concat(),
+            created_at: crate::auth::revocation::current_timestamp_micros(),
+        };
+
+        // Inject the combined delta — this should cross the M=2 threshold.
+        handle
+            .inject_inbound(GossipMessage::InboundRevocationDelta(combined))
+            .await
+            .expect("inject_inbound must not fail");
+
+        // Process — this triggers the on_revocation_applied callback which enqueues.
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages must not fail");
+
+        // Verify the scheduler has a HIGH-priority entry.
+        let transport = handle.transport.lock().unwrap();
+        assert!(
+            transport.has_backlog(),
+            "transport scheduler must have backlog after RevocationDelta threshold met"
+        );
+        assert!(
+            transport.high_queue_depth() > 0,
+            "HIGH queue must be non-empty after revocation gossip enqueue (depth: {})",
+            transport.high_queue_depth()
+        );
+
+        drop(transport);
+        cleanup(&path);
+    }
+
+    // ── Test 8: Completed RevocationDelta marks target as REVOKED on a second instance ─
+    //
+    // Validates end-to-end rebroadcast path: handle A processes a complete
+    // RevocationDelta (marking the target REVOKED and enqueuing for gossip),
+    // then the same RevocationDelta is injected into handle B which should also
+    // mark the target as REVOKED.
+    //
+    // Idempotency of the second call is covered by revocation.rs test 11.
+
+    #[tokio::test]
+    async fn completed_revocation_delta_marks_target_revoked_on_second_instance() {
+        let path_a = tmp_path("rev_e2e_A");
+        let path_b = tmp_path("rev_e2e_B");
+        cleanup(&path_a);
+        cleanup(&path_b);
+
+        // Handle A: M=1, N=1 for simplicity (1 manager can revoke alone).
+        let config_a = InitConfig {
+            storage_path: path_a.clone(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        };
+        // Handle B: same M/N so it also accepts the same 1-of-1 delta.
+        let config_b = InitConfig {
+            storage_path: path_b.clone(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                ..config_a.deployment.clone()
+            },
+        };
+
+        let handle_a = CoreHandle::init(config_a).await.expect("init A");
+        let handle_b = CoreHandle::init(config_b).await.expect("init B");
+
+        // Manager and target identities.
+        let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr_did = mgr.did().to_string();
+        let mgr_sk = mgr.signing_key_bytes();
+
+        let target = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let target_did = target.did().to_string();
+
+        // Produce a 1-of-1 partial delta (this IS the complete delta at M=1).
+        let complete_delta = {
+            let rev = handle_a.revocation.lock().unwrap();
+            rev.produce_partial_delta(target_did.clone(), mgr_did.clone(), &mgr_sk)
+                .expect("produce complete delta")
+        };
+
+        // ── Step A: Process on handle_a — marks target REVOKED + enqueues rebroadcast.
+        handle_a
+            .inject_inbound(GossipMessage::InboundRevocationDelta(complete_delta.clone()))
+            .await
+            .expect("inject into A");
+
+        handle_a
+            .process_inbound_messages()
+            .await
+            .expect("process A");
+
+        // Verify A revoked the target.
+        assert!(
+            handle_a
+                .revocation
+                .lock()
+                .unwrap()
+                .revoked_dids()
+                .contains(&target_did),
+            "handle_a must have target_did in revoked_dids"
+        );
+
+        // ── Step B: Inject the same RevocationDelta into handle_b.
+        handle_b
+            .inject_inbound(GossipMessage::InboundRevocationDelta(complete_delta))
+            .await
+            .expect("inject into B");
+
+        handle_b
+            .process_inbound_messages()
+            .await
+            .expect("process B");
+
+        // Verify B also revoked the target (Idempotency on A's side is tested in revocation.rs test 11).
+        assert!(
+            handle_b
+                .revocation
+                .lock()
+                .unwrap()
+                .revoked_dids()
+                .contains(&target_did),
+            "handle_b must have target_did in revoked_dids after receiving rebroadcast"
         );
 
         cleanup(&path_a);

@@ -547,6 +547,23 @@ impl RevocationSubsystem {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
     }
 
+    /// Return all complete RevocationDeltas that were received/applied within
+    /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
+    pub fn build_recent_revocation_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
+        let cutoff = current_timestamp_micros() - within_micros;
+        self.revoked_dids
+            .iter()
+            .filter(|did| {
+                self.device_status
+                    .get(*did)
+                    .and_then(|s| s.last_revocation_delta_received_at)
+                    .map(|ts| ts >= cutoff)
+                    .unwrap_or(false)
+            })
+            .filter_map(|did| self.store.build_revocation_delta(did))
+            .collect()
+    }
+
     /// Query the DAG for all Delta IDs authored by a given DID.
     ///
     /// This is used to collect the initial set of root Deltas to pass to the CCE
@@ -756,6 +773,23 @@ impl RevocationSubsystem {
 
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
+    }
+
+    /// Return all complete RevocationDeltas that were received/applied within
+    /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
+    pub fn build_recent_revocation_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
+        let cutoff = current_timestamp_micros() - within_micros;
+        self.revoked_dids
+            .iter()
+            .filter(|did| {
+                self.device_status
+                    .get(*did)
+                    .and_then(|s| s.last_revocation_delta_received_at)
+                    .map(|ts| ts >= cutoff)
+                    .unwrap_or(false)
+            })
+            .filter_map(|did| self.store.build_revocation_delta(did))
+            .collect()
     }
 }
 
