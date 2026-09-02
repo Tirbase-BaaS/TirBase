@@ -33,6 +33,7 @@ wasm    = [
     "dep:wasm-bindgen-futures",
     "dep:wasmi",
     "dep:biscuit-auth",
+    "biscuit-auth?/wasm",
 ]
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
@@ -123,6 +124,12 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 # Pure-Rust WASM interpreter for WASM-in-WASM sandbox (replaces deferred wasm3 dependency).
 # wasmi 0.38 is the latest stable release that cross-compiles to wasm32-unknown-unknown.
 wasmi        = { version = "0.38", optional = true, default-features = false, features = ["std"] }
+
+# Force getrandom v0.2 (a biscuit-auth transitive dep) to enable the "js" feature
+# so rand_core 0.6.x can generate randomness on wasm32-unknown-unknown.
+getrandom02  = { package = "getrandom", version = "0.2", features = ["js"] }
+
+
 
 # ─── Dev dependencies ──────────────────────────────────────────────────────────
 [dev-dependencies]
