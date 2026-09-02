@@ -135,19 +135,25 @@ impl SideCarLedger {
     /// Does **not** abort on CRDT conflicts — each conflict is flagged and
     /// logged, and replay continues to the remaining entries.
     ///
-    /// Returns a `ReplaySummary`; appends `DeltaTag::ReplayComplete` only when
-    /// `conflicts == 0` (Req 19.6).
+    /// Returns a `ReplaySummary`; appends `DeltaTag::ReplayComplete` to every
+    /// successfully-replayed Delta only when `conflicts == 0` (Req 19.6).
     pub fn replay_sidecar(
         &mut self,
         migration_id: MigrationId,
         corrected_schema_hash: SchemaIdentifierHash,
         engine: &mut crate::crdt::CrdtEngine,
     ) -> Result<ReplaySummary, TirBaseError> {
+        use crate::contamination::taint::append_tag_to_db;
+
         // 1. Load all entries for this migration ordered by recorded_ts ASC.
         let entries = self.load_entries_ordered(migration_id)?;
 
         let mut replayed = 0usize;
         let mut conflicts = 0usize;
+        // Track the original Delta IDs of entries that were successfully replayed.
+        // We use the embedded Delta.id (not the sidecar entry id) so we can
+        // append DeltaTag::ReplayComplete to the matching dag_nodes row.
+        let mut replayed_delta_ids: Vec<DeltaId> = Vec::new();
 
         for entry in &entries {
             // 2a. Deserialise the stored delta bytes back into a Delta.
@@ -169,10 +175,14 @@ impl SideCarLedger {
                 }
             };
 
+            // Capture the Delta ID before moving delta into apply().
+            let delta_id = delta.id;
+
             // 2b. Apply via CrdtEngine::apply().
             match engine.apply(&delta) {
                 Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
                     replayed += 1;
+                    replayed_delta_ids.push(delta_id);
                     self.update_entry_status(&entry.id, "REPLAYED", None)?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
@@ -202,11 +212,33 @@ impl SideCarLedger {
 
         let total_entries = entries.len();
 
-        // 3. Mark COMPLETE only when zero conflicts (Req 19.6).
-        let complete = conflicts == 0;
+        // 3. Mark COMPLETE only when zero conflicts AND at least one entry was
+        // processed (Req 19.6).  An empty ledger is not "complete" — nothing
+        // was replayed.
+        let complete = conflicts == 0 && total_entries > 0;
         if complete && total_entries > 0 {
-            // Update all entries for this migration to COMPLETE status.
+            // Update all entries for this migration to COMPLETE status in SQLite.
             self.mark_migration_complete(migration_id)?;
+
+            // Append DeltaTag::ReplayComplete to every successfully-replayed Delta
+            // in dag_nodes (Req 19.6, design.md §replay algorithm step 3).
+            // This is the canonical append-only tag path — tags are never removed.
+            let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned appending ReplayComplete: {e}"),
+            })?;
+            for delta_id in &replayed_delta_ids {
+                // Best-effort: the delta may have been compacted from dag_nodes
+                // (dag_nodes.compacted = 1).  We attempt the append and silently
+                // continue if the row is absent — a missing row simply means the
+                // tag store has no record to update, which is acceptable.
+                let tag = DeltaTag::ReplayComplete { migration_id };
+                if let Err(e) = append_tag_to_db(&conn, delta_id, tag) {
+                    eprintln!(
+                        "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
+                        delta_id
+                    );
+                }
+            }
         }
 
         Ok(ReplaySummary {
@@ -382,12 +414,20 @@ impl SideCarLedger {
 
     /// Replay all Side-Car entries for `migration_id` against the corrected
     /// projection in recorded-timestamp order (Req 19.3–19.6).
+    ///
+    /// Does **not** abort on CRDT conflicts — each conflict is flagged and
+    /// replay continues to the remaining entries.
+    ///
+    /// Returns a `ReplaySummary`; appends `DeltaTag::ReplayComplete` to every
+    /// successfully-replayed Delta only when `conflicts == 0` (Req 19.6).
     pub fn replay_sidecar(
         &mut self,
         migration_id: MigrationId,
         _corrected_schema_hash: SchemaIdentifierHash,
         engine: &mut crate::crdt::CrdtEngine,
     ) -> Result<ReplaySummary, TirBaseError> {
+        use crate::contamination::taint::append_tag;
+
         // Sort entries by recorded_ts ASC.
         let mut entries: Vec<SideCarEntry> = self
             .entries
@@ -400,6 +440,8 @@ impl SideCarLedger {
         let total_entries = entries.len();
         let mut replayed = 0usize;
         let mut conflicts = 0usize;
+        // Track delta IDs of successfully-replayed entries for tag appending.
+        let mut replayed_delta_ids: Vec<DeltaId> = Vec::new();
 
         for entry in &entries {
             let delta: crate::crdt::delta::Delta = match serde_json::from_slice(&entry.delta_bytes) {
@@ -413,9 +455,12 @@ impl SideCarLedger {
                 }
             };
 
+            let delta_id = delta.id;
+
             match engine.apply(&delta) {
                 Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
                     replayed += 1;
+                    replayed_delta_ids.push(delta_id);
                     self.update_entry_status(&entry.id, ReplayStatus::Replayed);
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
@@ -441,9 +486,22 @@ impl SideCarLedger {
 
         let complete = conflicts == 0 && total_entries > 0;
         if complete {
+            // Update status for all entries for this migration.
             for entry in self.entries.iter_mut() {
                 if entry.migration_id == migration_id {
                     entry.replay_status = ReplayStatus::Complete;
+                }
+            }
+
+            // Append DeltaTag::ReplayComplete to the WASM in-memory tag store
+            // for every successfully-replayed Delta (Req 19.6).
+            for delta_id in &replayed_delta_ids {
+                let tag = DeltaTag::ReplayComplete { migration_id };
+                if let Err(e) = append_tag(delta_id, tag) {
+                    eprintln!(
+                        "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
+                        delta_id
+                    );
                 }
             }
         }
@@ -475,14 +533,85 @@ impl SideCarLedger {
 #[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
+    use crate::contamination::taint::read_tags_from_db;
+    use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+    use crate::crdt::dag::{ChangesetDag, DagNode};
     use crate::store::sqlite::CREATE_SCHEMA_SQL;
     use std::sync::{Arc, Mutex};
 
-    fn open_ledger() -> SideCarLedger {
+    fn open_conn() -> Arc<Mutex<rusqlite::Connection>> {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory DB");
         conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
-        let conn = Arc::new(Mutex::new(conn));
-        SideCarLedger::new(conn)
+        Arc::new(Mutex::new(conn))
+    }
+
+    fn open_ledger() -> SideCarLedger {
+        SideCarLedger::new(open_conn())
+    }
+
+    /// Build a valid signed Delta and insert its DagNode into the database
+    /// so that `append_tag_to_db` can find it.
+    ///
+    /// Uses empty `automerge_bytes` (accepted by `CrdtEngine::apply()` as a
+    /// no-op merge) so the delta passes the Automerge parse step.  Deltas are
+    /// differentiated by their `lamport` value.
+    fn make_and_insert_delta(
+        conn: &Arc<Mutex<rusqlite::Connection>>,
+        schema_hash: [u8; 32],
+        lamport: u64,
+    ) -> Delta {
+        use ed25519_dalek::SigningKey;
+
+        let secret = [0xA1u8; 32];
+        let sk = SigningKey::from_bytes(&secret);
+        let public: [u8; 32] = sk.verifying_key().to_bytes();
+        let did = crate::crdt::derive_did_from_public_key(&public);
+
+        let mut delta = Delta {
+            id: [0u8; 32],
+            author_did: did.clone(),
+            signature: Ed25519Signature::default(),
+            schema_hash,
+            // Empty bytes → CrdtEngine::apply() treats this as a no-op merge.
+            automerge_bytes: vec![],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport,
+            created_at: 0,
+        };
+        let canonical = delta.canonical_bytes();
+        delta.signature = crate::identity::keypair::sign(&secret, &canonical).expect("sign");
+        delta.id = Delta::compute_id(&canonical);
+
+        // Insert a DagNode so append_tag_to_db can find the row.
+        let mut dag = ChangesetDag::new(conn.clone());
+        dag.insert(DagNode {
+            delta_id: delta.id,
+            payload: vec![],
+            parent_ids: vec![],
+            actor_id: public.to_vec(),
+            lamport,
+            schema_hash,
+            compacted: false,
+            author_did: did,
+        })
+        .expect("insert DagNode");
+
+        delta
+    }
+
+    /// Build a CrdtEngine backed by the shared connection.
+    fn make_engine_on(
+        conn: Arc<Mutex<rusqlite::Connection>>,
+        schema_hash: [u8; 32],
+    ) -> crate::crdt::CrdtEngine {
+        use ed25519_dalek::SigningKey;
+        let secret = [0xA1u8; 32];
+        let sk = SigningKey::from_bytes(&secret);
+        let public: [u8; 32] = sk.verifying_key().to_bytes();
+        let did = crate::crdt::derive_did_from_public_key(&public);
+        crate::crdt::CrdtEngine::new(secret, public, did, schema_hash, conn)
     }
 
     #[test]
@@ -560,5 +689,121 @@ mod tests {
         for e in &entries {
             assert_eq!(e.replay_status, ReplayStatus::Complete);
         }
+    }
+
+    // ─── ReplayComplete DeltaTag tests (Req 19.6) ────────────────────────────
+
+    /// Zero-conflict replay: every successfully-replayed Delta must receive a
+    /// `DeltaTag::ReplayComplete { migration_id }` entry in its tag log.
+    #[test]
+    fn replay_with_zero_conflicts_appends_replay_complete_tag_to_all_deltas() {
+        let schema_hash = [0xABu8; 32];
+        let migration_id: MigrationId = [0xF1u8; 32];
+        let conn = open_conn();
+
+        // Build and insert 3 valid deltas into DAG so their dag_nodes rows exist.
+        let d1 = make_and_insert_delta(&conn, schema_hash, 1);
+        let d2 = make_and_insert_delta(&conn, schema_hash, 2);
+        let d3 = make_and_insert_delta(&conn, schema_hash, 3);
+
+        let mut ledger = SideCarLedger::new(conn.clone());
+
+        // Serialise each delta and store in the sidecar.
+        for (i, d) in [&d1, &d2, &d3].iter().enumerate() {
+            let bytes = serde_json::to_vec(d).expect("serialise");
+            ledger
+                .record(migration_id, "users".to_string(), bytes, i as i64)
+                .expect("record");
+        }
+
+        // Replay against a fresh engine.
+        let mut engine = make_engine_on(conn.clone(), schema_hash);
+        let summary = ledger
+            .replay_sidecar(migration_id, schema_hash, &mut engine)
+            .expect("replay_sidecar must not error");
+
+        // Confirm zero conflicts.
+        assert_eq!(summary.conflicts, 0, "expected zero conflicts");
+        assert!(summary.complete, "summary.complete must be true");
+
+        // Every replayed delta must carry DeltaTag::ReplayComplete { migration_id }.
+        let lock = conn.lock().unwrap();
+        for d in [&d1, &d2, &d3] {
+            let tags = read_tags_from_db(&lock, &d.id).expect("read_tags_from_db");
+            let has_replay_complete = tags.iter().any(|t| {
+                matches!(t, DeltaTag::ReplayComplete { migration_id: mid } if *mid == migration_id)
+            });
+            assert!(
+                has_replay_complete,
+                "delta {:?} must carry ReplayComplete tag after zero-conflict replay",
+                d.id,
+            );
+        }
+    }
+
+    /// Replay with at least one conflict: NO Delta should receive a
+    /// `DeltaTag::ReplayComplete` tag (Req 19.6 — flag only on zero failures).
+    #[test]
+    fn replay_with_conflicts_does_not_append_replay_complete_tag() {
+        let schema_hash = [0xABu8; 32];
+        let migration_id: MigrationId = [0xF2u8; 32];
+        let conn = open_conn();
+
+        // One valid delta.
+        let d1 = make_and_insert_delta(&conn, schema_hash, 1);
+        let mut ledger = SideCarLedger::new(conn.clone());
+
+        let bytes = serde_json::to_vec(&d1).expect("serialise");
+        ledger
+            .record(migration_id, "users".to_string(), bytes, 0)
+            .expect("record valid");
+
+        // One malformed entry (guaranteed conflict).
+        ledger
+            .record(
+                migration_id,
+                "users".to_string(),
+                b"not-valid-json-delta".to_vec(),
+                1,
+            )
+            .expect("record malformed");
+
+        let mut engine = make_engine_on(conn.clone(), schema_hash);
+        let summary = ledger
+            .replay_sidecar(migration_id, schema_hash, &mut engine)
+            .expect("replay_sidecar must not error");
+
+        assert!(summary.conflicts >= 1, "expected at least 1 conflict");
+        assert!(!summary.complete, "summary.complete must be false when conflicts > 0");
+
+        // The valid delta must NOT carry a ReplayComplete tag.
+        let lock = conn.lock().unwrap();
+        let tags = read_tags_from_db(&lock, &d1.id).expect("read_tags_from_db");
+        let has_replay_complete = tags.iter().any(|t| {
+            matches!(t, DeltaTag::ReplayComplete { .. })
+        });
+        assert!(
+            !has_replay_complete,
+            "ReplayComplete must NOT be appended when replay has conflicts",
+        );
+    }
+
+    /// Empty sidecar (no entries): replay must return complete=false and append
+    /// no tags.  (The spec: REPLAY_COMPLETE only when zero *failures*, but also
+    /// only when entries exist — an empty ledger has nothing to mark complete.)
+    #[test]
+    fn replay_with_no_entries_does_not_mark_complete() {
+        let migration_id: MigrationId = [0xF3u8; 32];
+        let conn = open_conn();
+        let mut ledger = SideCarLedger::new(conn.clone());
+        let mut engine = make_engine_on(conn.clone(), [0xABu8; 32]);
+
+        let summary = ledger
+            .replay_sidecar(migration_id, [0xABu8; 32], &mut engine)
+            .expect("replay_sidecar must not error on empty ledger");
+
+        assert_eq!(summary.total_entries, 0);
+        assert_eq!(summary.conflicts, 0);
+        assert!(!summary.complete, "complete must be false for empty ledger");
     }
 }

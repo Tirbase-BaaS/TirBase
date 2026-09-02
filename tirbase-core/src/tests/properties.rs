@@ -1565,6 +1565,8 @@ proptest! {
         n_invalid in 0usize..=4usize,
     ) {
         use crate::migration::sidecar::SideCarLedger;
+        use crate::contamination::taint::read_tags_from_db;
+        use crate::crdt::dag::{ChangesetDag, DagNode};
 
         // We need at least one entry to make the test meaningful.
         if n_valid + n_invalid == 0 {
@@ -1575,7 +1577,9 @@ proptest! {
         let mut ledger = SideCarLedger::new(conn.clone());
         let migration_id: [u8; 32] = [0xF0u8; 32];
 
-        // Record valid delta entries (serialised Delta JSON).
+        // Build and record valid delta entries.
+        // We also insert each delta's DagNode so append_tag_to_db can find the row.
+        let mut valid_delta_ids: Vec<[u8; 32]> = Vec::new();
         for i in 0..n_valid {
             let d = make_signed_delta_from(
                 &FIXED_SECRET,
@@ -1584,6 +1588,21 @@ proptest! {
                 vec![],
                 vec![],
             );
+            // Insert DagNode so the tag-append path has a row to update.
+            {
+                let mut dag = ChangesetDag::new(conn.clone());
+                dag.insert(DagNode {
+                    delta_id: d.id,
+                    payload: vec![],
+                    parent_ids: vec![],
+                    actor_id: vec![0xA1u8; 32],
+                    lamport: (i + 1) as u64,
+                    schema_hash: TEST_SCHEMA_HASH,
+                    compacted: false,
+                    author_did: "did:key:prop22test".to_string(),
+                }).expect("insert DagNode for prop22");
+            }
+            valid_delta_ids.push(d.id);
             let bytes = serde_json::to_vec(&d).expect("serialise delta");
             ledger.record(migration_id, "users".to_string(), bytes, i as i64)
                 .expect("record valid entry");
@@ -1628,5 +1647,37 @@ proptest! {
             summary.conflicts == 0,
             "complete must be true iff conflicts == 0"
         );
+
+        // ── NEW: DeltaTag::ReplayComplete assertion (Req 19.6) ──────────────
+        let lock = conn.lock().unwrap();
+        if summary.complete {
+            // Zero conflicts: every replayed delta must have ReplayComplete tag.
+            for &delta_id in &valid_delta_ids {
+                let tags = read_tags_from_db(&lock, &delta_id)
+                    .expect("read_tags_from_db must not error");
+                let has_replay_complete = tags.iter().any(|t| {
+                    matches!(t, DeltaTag::ReplayComplete { migration_id: mid } if *mid == migration_id)
+                });
+                prop_assert!(
+                    has_replay_complete,
+                    "delta {:?} must carry DeltaTag::ReplayComplete after zero-conflict replay",
+                    delta_id
+                );
+            }
+        } else {
+            // Conflicts present: NO delta must have ReplayComplete tag.
+            for &delta_id in &valid_delta_ids {
+                let tags = read_tags_from_db(&lock, &delta_id)
+                    .expect("read_tags_from_db must not error");
+                let has_replay_complete = tags.iter().any(|t| {
+                    matches!(t, DeltaTag::ReplayComplete { .. })
+                });
+                prop_assert!(
+                    !has_replay_complete,
+                    "delta {:?} must NOT carry DeltaTag::ReplayComplete when replay has conflicts",
+                    delta_id
+                );
+            }
+        }
     }
 }
