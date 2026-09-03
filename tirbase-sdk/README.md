@@ -77,7 +77,7 @@ await db.initiateRevocation({ targetDid: 'did:key:...', managerToken: myToken })
 const status = await db.revocationStatus({ targetDid: 'did:key:...' });
 await db.verifyData({ contaminationRootDeltaId: '...', managerToken: myToken });
 await db.adminClose({ incidentId: '...', managerToken: myToken });
-await db.activateSaturateMode({ disasterAlertPayload: '...', managerToken: myToken });
+await db.activateSaturateMode({ biscuitTokenHex: myTokenHex });
 ```
 
 ## Running Tests

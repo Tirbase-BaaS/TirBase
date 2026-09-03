@@ -162,7 +162,7 @@ describe('not-initialized guard (Req 2.6)', () => {
       db.adminClose({ incidentId: 'uuid', managerToken: 't' }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
     await expect(
-      db.activateSaturateMode({ disasterAlertPayload: 'alert', managerToken: 't' }),
+      db.activateSaturateMode({ biscuitTokenHex: 'deadbeef' }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
   });
 
@@ -592,9 +592,9 @@ describe('manager operations', () => {
     mock.activateSaturateModeImpl = spy;
 
     const db = await TirBase.init(DEFAULT_CONFIG);
-    await db.activateSaturateMode({ disasterAlertPayload: 'alert-payload', managerToken: 'tok' });
+    await db.activateSaturateMode({ biscuitTokenHex: 'deadbeef' });
 
-    expect(spy).toHaveBeenCalledWith('alert-payload', 'tok');
+    expect(spy).toHaveBeenCalledWith('deadbeef');
   });
 });
 

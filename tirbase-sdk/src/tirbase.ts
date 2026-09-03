@@ -561,16 +561,15 @@ export class TirBase {
   /**
    * Activate Saturate_Mode with a signed DISASTER_ALERT (Req 13.1).
    *
-   * The `managerToken` must carry the `disaster-alert` Biscuit caveat.
+   * The `biscuitTokenHex` must be a hex-encoded Biscuit token carrying the
+   * `disaster-alert` caveat, issued by a registered Manager DID.
    */
   async activateSaturateMode(params: {
-    disasterAlertPayload: string;
-    managerToken: string;
+    biscuitTokenHex: string;
   }): Promise<void> {
     this._assertInitialized();
     await this._wasm.activateSaturateMode(
-      params.disasterAlertPayload,
-      params.managerToken,
+      params.biscuitTokenHex,
     );
   }
 

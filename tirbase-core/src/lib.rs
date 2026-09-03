@@ -453,7 +453,6 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub async fn core_activate_saturate_mode(
         biscuit_token_hex: String,
-        _manager_token: String,  // kept for API compat — not used after biscuit-auth enabled on WASM
     ) -> Result<(), JsValue> {
         // Decode the hex-encoded Biscuit token bytes.
         let token_bytes = hex::decode(&biscuit_token_hex)

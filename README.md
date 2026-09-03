@@ -248,8 +248,7 @@ await db.adminClose({ incidentId: '...', managerToken: myBiscuitToken });
 
 // Activate emergency broadcast mode
 await db.activateSaturateMode({
-  disasterAlertPayload: '...',
-  managerToken: myBiscuitToken,  // must carry 'disaster-alert' caveat
+  biscuitTokenHex: myBiscuitTokenHex,  // hex-encoded Biscuit token carrying 'disaster-alert' caveat
 });
 ```
 

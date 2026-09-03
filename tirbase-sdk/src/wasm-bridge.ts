@@ -63,8 +63,7 @@ export interface WasmCore {
 
   /** Activate Saturate Mode with a DISASTER_ALERT payload. */
   activateSaturateMode(
-    disasterAlertPayload: string,
-    managerToken: string,
+    biscuitTokenHex: string,
   ): Promise<void>;
 
   /** Drain and return queued WASM events. Optional — absent on older builds. */
@@ -191,13 +190,12 @@ function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
           t: string,
         ) => Promise<void>
       )(incidentId, managerToken),
-    activateSaturateMode: (payload, managerToken) =>
+    activateSaturateMode: (biscuitTokenHex) =>
       (
         required('core_activate_saturate_mode') as (
           p: string,
-          t: string,
         ) => Promise<void>
-      )(payload, managerToken),
+      )(biscuitTokenHex),
     pollEvents: () => {
       if (typeof mod['core_poll_events'] === 'function') {
         return (mod['core_poll_events'] as () => unknown[])();
@@ -279,8 +277,7 @@ export class MockWasmCore implements WasmCore {
   ) => Promise<void> = async () => undefined;
 
   activateSaturateModeImpl: (
-    payload: string,
-    managerToken: string,
+    biscuitTokenHex: string,
   ) => Promise<void> = async () => undefined;
 
   pollEventsImpl: () => unknown[] = () => [];
@@ -328,10 +325,9 @@ export class MockWasmCore implements WasmCore {
   }
 
   activateSaturateMode(
-    payload: string,
-    managerToken: string,
+    biscuitTokenHex: string,
   ): Promise<void> {
-    return this.activateSaturateModeImpl(payload, managerToken);
+    return this.activateSaturateModeImpl(biscuitTokenHex);
   }
 
   pollEvents(): unknown[] {
