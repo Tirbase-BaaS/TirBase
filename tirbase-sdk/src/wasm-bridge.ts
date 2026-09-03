@@ -204,14 +204,16 @@ function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
       }
       return [];
     },
-    receiveMessage: typeof mod['core_receive_peer_message'] === 'function'
-      ? (rawBytes: Uint8Array) =>
-          (
-            mod['core_receive_peer_message'] as (
-              b: Uint8Array,
-            ) => Promise<void>
-          )(rawBytes)
-      : undefined,
+    ...(typeof mod['core_receive_peer_message'] === 'function'
+      ? {
+          receiveMessage: (rawBytes: Uint8Array) =>
+            (
+              mod['core_receive_peer_message'] as (
+                b: Uint8Array,
+              ) => Promise<void>
+            )(rawBytes),
+        }
+      : {}),
   };
 }
 

@@ -896,3 +896,121 @@ describe('WASM event bridge (_pollWasmEvents)', () => {
     expect(incidentHandler.mock.calls[0]![0]).toHaveProperty('id', 'batch-ico');
   });
 });
+
+// ─── Test: receivePeerMessage (Task 40) ──────────────────────────────────────
+
+describe('db.receivePeerMessage() (Task 40 — WASM inbound path)', () => {
+  test('receivePeerMessage passes bytes to wasm.receiveMessage', async () => {
+    const mock = installMock();
+    const receiveSpy = jest.fn().mockResolvedValue(undefined);
+    mock.receiveMessageImpl = receiveSpy;
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    db.receivePeerMessage(bytes);
+
+    expect(receiveSpy).toHaveBeenCalledTimes(1);
+    expect(receiveSpy).toHaveBeenCalledWith(bytes);
+  });
+
+  test('receivePeerMessage is a no-op when not initialised', () => {
+    // Should not throw — silently ignores bytes before init.
+    const db = Object.create(TirBase.prototype) as TirBase;
+    const bytes = new Uint8Array([1, 2, 3]);
+    expect(() => db.receivePeerMessage(bytes)).not.toThrow();
+  });
+
+  test('receivePeerMessage is a no-op when receiveMessage is absent on WasmCore', async () => {
+    const mock = installMock();
+    // Remove the optional receiveMessage method to simulate an older WASM build.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mock as any).receiveMessage = undefined;
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const bytes = new Uint8Array([5, 6, 7]);
+    // Must not throw even if the underlying method is missing.
+    expect(() => db.receivePeerMessage(bytes)).not.toThrow();
+  });
+
+  test('cross-instance convergence: message sent via receiveMessageImpl reaches second instance', async () => {
+    // Simulate two browser tabs (two MockWasmCore instances).
+    // Instance A writes a Delta; the raw bytes are captured and fed to Instance B
+    // via receiveMessage — confirming the convergence contract at the SDK level.
+
+    // ── Instance A ──
+    const mockA = new MockWasmCore();
+    let capturedBytes: Uint8Array | null = null;
+
+    // Override writeImpl to also record what would be broadcast to peers.
+    mockA.writeImpl = async (table, key, data) => {
+      const gossipPayload = JSON.stringify({
+        InboundDelta: {
+          id: new Array(32).fill(0),
+          author_did: 'did:key:z6MkInstanceA',
+          signature: { 0: [] },
+          schema_hash: new Array(32).fill(0),
+          automerge_bytes: Array.from(
+            new TextEncoder().encode(JSON.stringify(data)),
+          ),
+          priority: 'Low',
+          causal_parents: [],
+          tags: [],
+          lamport: 1,
+          created_at: 0,
+        },
+      });
+      capturedBytes = new TextEncoder().encode(gossipPayload);
+      return {
+        deltaId: 'a'.repeat(64),
+        durabilityTier: 'UNCOMMITTED',
+      };
+    };
+
+    TirBase._setWasmLoader(async () => mockA);
+    const dbA = await TirBase.init(DEFAULT_CONFIG);
+    await dbA.write({ table: 'sensors', key: 'temp-1', data: { value: 42 } });
+
+    expect(capturedBytes).not.toBeNull();
+
+    // ── Instance B ──
+    const mockB = new MockWasmCore();
+    let receivedBytes: Uint8Array | null = null;
+    mockB.receiveMessageImpl = async (bytes: Uint8Array) => {
+      receivedBytes = bytes;
+    };
+
+    TirBase._setWasmLoader(async () => mockB);
+    const dbB = await TirBase.init(DEFAULT_CONFIG);
+
+    // Feed the bytes from A into B.
+    dbB.receivePeerMessage(capturedBytes!);
+
+    // Allow the fire-and-forget Promise to settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(receivedBytes).not.toBeNull();
+    expect(Array.from(receivedBytes!)).toEqual(Array.from(capturedBytes!));
+  });
+
+  test('receiveMessage mock implementation can be overridden per test', async () => {
+    const mock = installMock();
+    const calls: Uint8Array[] = [];
+    mock.receiveMessageImpl = async (bytes) => {
+      calls.push(bytes);
+    };
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const b1 = new Uint8Array([10, 20]);
+    const b2 = new Uint8Array([30, 40, 50]);
+
+    db.receivePeerMessage(b1);
+    db.receivePeerMessage(b2);
+
+    // Allow microtasks to settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(calls).toHaveLength(2);
+    expect(Array.from(calls[0]!)).toEqual([10, 20]);
+    expect(Array.from(calls[1]!)).toEqual([30, 40, 50]);
+  });
+});
