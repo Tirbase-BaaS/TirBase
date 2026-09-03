@@ -223,13 +223,28 @@ impl CoreHandle {
         ));
 
         // ── Migration Engine ──────────────────────────────────────────────────
+        #[cfg(feature = "native")]
+        let migration = {
+            let mig_conn = crate::store::sqlite::open(&config.storage_path)?;
+            let mig_conn = Arc::new(Mutex::new(mig_conn));
+            SchemaMigrationEngine::new(
+                [0u8; 32], // CA public key — not configured at init for v1
+                [0u8; 32], // local schema hash — default (no schema)
+                SchemaVersionPath::new(vec![]),
+                config.deployment.revocation_m.max(1),
+                store.clone(),
+                mig_conn,
+            )
+        };
+
+        #[cfg(not(feature = "native"))]
         let migration = SchemaMigrationEngine::new(
             [0u8; 32], // CA public key — not configured at init for v1
             [0u8; 32], // local schema hash — default (no schema)
             SchemaVersionPath::new(vec![]),
             config.deployment.revocation_m.max(1),
-            #[cfg(feature = "native")] store.clone(),
         );
+
         let migration = Arc::new(Mutex::new(migration));
 
         // ── Durability Subsystem ──────────────────────────────────────────────

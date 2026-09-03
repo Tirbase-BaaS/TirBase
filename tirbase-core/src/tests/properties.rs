@@ -1450,6 +1450,12 @@ proptest! {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::store::LocalStore::open(":memory:").expect("test store"),
             )),
+            #[cfg(feature = "native")]
+            {
+                let conn = rusqlite::Connection::open_in_memory().expect("open in-memory migration conn");
+                conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
+                std::sync::Arc::new(std::sync::Mutex::new(conn))
+            },
         );
 
         let result_valid = engine_valid.receive_migration_delta(good_delta.clone(), "did:key:sender");
@@ -1480,6 +1486,12 @@ proptest! {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::store::LocalStore::open(":memory:").expect("test store"),
             )),
+            #[cfg(feature = "native")]
+            {
+                let conn = rusqlite::Connection::open_in_memory().expect("open in-memory migration conn");
+                conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
+                std::sync::Arc::new(std::sync::Mutex::new(conn))
+            },
         );
         let result_invalid = engine_invalid.receive_migration_delta(bad_delta, "did:key:tamper");
         prop_assert!(
@@ -1789,6 +1801,12 @@ proptest! {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::store::LocalStore::open(":memory:").expect("test store"),
             )),
+            #[cfg(feature = "native")]
+            {
+                let conn = rusqlite::Connection::open_in_memory().expect("open in-memory migration conn");
+                conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
+                std::sync::Arc::new(std::sync::Mutex::new(conn))
+            },
         );
 
         engine.receive_revocation_delta(revocation)

@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::errors::TirBaseError;
 use migration_delta::{MigrationDelta, MigrationId, MigrationRevocationDelta};
+use quarantine::{QuarantineLedger, QuarantineReason};
 use revocation::RevokedMigrationRegistry;
 use version_path::SchemaVersionPath;
 use wasm_sandbox::{execute_migration, MigrationResult};
@@ -50,6 +51,16 @@ pub struct SchemaMigrationEngine {
     /// Handle to the local store for migration sandbox host functions (native only).
     #[cfg(feature = "native")]
     store: Arc<Mutex<crate::store::LocalStore>>,
+
+    /// Quarantine ledger for schema-incompatible Deltas (Req 17.4–17.6).
+    ///
+    /// Native: SQLite-backed via a dedicated connection.
+    /// WASM: in-memory Vec.
+    #[cfg(feature = "native")]
+    quarantine_ledger: QuarantineLedger,
+
+    #[cfg(not(feature = "native"))]
+    quarantine_ledger: QuarantineLedger,
 }
 
 impl SchemaMigrationEngine {
@@ -60,13 +71,21 @@ impl SchemaMigrationEngine {
     /// - `version_path`: deployment's ordered schema version path.
     /// - `revocation_threshold_m`: M value for M-of-N manager signature requirement.
     /// - `store`: handle to the local store for sandbox host functions (native only).
+    /// - `migration_conn`: dedicated SQLite connection for the quarantine ledger (native only).
     pub fn new(
         ca_public_key: [u8; 32],
         local_schema_hash: crate::schema::hash::SchemaIdentifierHash,
         version_path: SchemaVersionPath,
         revocation_threshold_m: usize,
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
+        #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
     ) -> Self {
+        #[cfg(feature = "native")]
+        let quarantine_ledger = QuarantineLedger::new(migration_conn);
+
+        #[cfg(not(feature = "native"))]
+        let quarantine_ledger = QuarantineLedger::new();
+
         Self {
             ca_public_key,
             local_schema_hash,
@@ -76,6 +95,7 @@ impl SchemaMigrationEngine {
             revocation_threshold_m,
             #[cfg(feature = "native")]
             store,
+            quarantine_ledger,
         }
     }
 
@@ -89,42 +109,34 @@ impl SchemaMigrationEngine {
         self.revocation_registry.is_revoked(migration_id)
     }
 
-    /// Return `true` if the QuarantineLedger holds any entry whose schema hash
-    /// matches the engine's current `local_schema_hash` and has not yet been
-    /// released via `release_for_migration()`.
+    /// Return `true` if the QuarantineLedger holds any unreleased entry whose
+    /// schema hash matches the engine's current `local_schema_hash`.
+    ///
+    /// The quarantine is keyed by schema hash, not by table name. The `table`
+    /// parameter is accepted for call-site compatibility but the check applies
+    /// schema-wide.
     ///
     /// Used by `CoreHandle::write()` to determine whether to auto-tag writes as
     /// `ContaminatedByHumanReaction` (Req 19.5).
-    pub fn is_schema_quarantined(&self, _table: &str) -> bool {
-        // The quarantine ledger is keyed by schema hash, not by table name.
-        // A quarantined delta with our local schema hash means that *this* device
-        // is receiving deltas it cannot merge — the whole schema is in quarantine.
-        // We report true for any table if the local schema hash appears in the ledger
-        // without a migration_id (not yet released for replay).
+    pub fn is_schema_quarantined(&self, table: &str) -> bool {
         #[cfg(feature = "native")]
         {
-            // We need a QuarantineLedger handle here.  In practice the Migration Engine
-            // holds the quarantine logic inline — we check whether any delta with our
-            // current local_schema_hash is sitting unreleased in the quarantine ledger
-            // via the stored Arc<Mutex<LocalStore>> connection.
-            //
-            // For v1 the conservative approach: if the blacklisted_senders set is
-            // non-empty (implying at least one migration validation failure occurred),
-            // or if the revocation_registry has any in-progress migration, consider
-            // the schema potentially quarantined.  This is a safe over-approximation.
-            //
-            // A more precise implementation would query the quarantine_ledger table
-            // directly; that requires passing a DB connection into this method.
-            // The quarantine-active flag is set to true only when there ARE quarantined
-            // deltas pending — we approximate by checking if any migration is in-progress
-            // (meaning the engine has started but not finished a schema migration),
-            // which happens when deltas for the next schema are sitting in quarantine.
-            self.revocation_registry.has_in_progress()
+            // Query all quarantined entries and check if any match our local schema
+            // hash without having been released for migration.
+            match self.quarantine_ledger.get_all() {
+                Ok(entries) => entries.iter().any(|e| {
+                    e.schema_hash == Some(self.local_schema_hash) && e.migration_id.is_none()
+                }),
+                Err(_) => false,
+            }
         }
         #[cfg(not(feature = "native"))]
         {
-            // WASM: same conservative check.
-            self.revocation_registry.has_in_progress()
+            // WASM: use the in-memory get_by_schema_hash.
+            match self.quarantine_ledger.get_by_schema_hash(&self.local_schema_hash) {
+                Ok(entries) => entries.iter().any(|e| e.migration_id.is_none()),
+                Err(_) => false,
+            }
         }
     }
 
@@ -311,6 +323,34 @@ impl SchemaMigrationEngine {
     }
 }
 
+// ─── Public quarantine helper ─────────────────────────────────────────────────
+
+impl SchemaMigrationEngine {
+    /// Quarantine a raw incoming Delta that is incompatible with the current schema.
+    ///
+    /// This is called by the inbound pipeline (e.g. `CoreHandle::receive_inbound`)
+    /// when a Delta's schema hash does not match the local schema hash. The Delta
+    /// is stored byte-for-byte in the quarantine ledger without modification (Req 17.5).
+    ///
+    /// Returns the quarantine entry ID (SHA-256 of `raw_bytes`).
+    pub fn quarantine_incoming(
+        &mut self,
+        sender_did: &str,
+        raw_bytes: Vec<u8>,
+        schema_hash: Option<crate::schema::hash::SchemaIdentifierHash>,
+        reason: QuarantineReason,
+        received_at: i64,
+    ) -> Result<[u8; 32], TirBaseError> {
+        self.quarantine_ledger.quarantine(
+            sender_did.to_string(),
+            raw_bytes,
+            schema_hash,
+            reason,
+            received_at,
+        )
+    }
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -319,6 +359,9 @@ mod tests {
     use crate::crdt::delta::{Ed25519Signature, PriorityClass};
     use crate::identity::keypair::{generate_keypair, sign};
     use crate::migration::migration_delta::{CaSignature, ManagerSignature, MigrationRevocationDelta};
+    use crate::migration::quarantine::QuarantineReason;
+    #[cfg(feature = "native")]
+    use crate::store::sqlite::CREATE_SCHEMA_SQL;
     use sha2::{Digest, Sha256};
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -390,6 +433,12 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::store::LocalStore::open(":memory:").expect("test store"),
             )),
+            #[cfg(feature = "native")]
+            {
+                let conn = rusqlite::Connection::open_in_memory().expect("open in-memory migration conn");
+                conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
+                std::sync::Arc::new(std::sync::Mutex::new(conn))
+            },
         )
     }
 
@@ -656,6 +705,104 @@ mod tests {
         assert!(
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
             "blacklisted sender must be blocked: {result:?}"
+        );
+    }
+
+    // ─── Test: quarantine entry → is_schema_quarantined returns true ──────────
+
+    #[test]
+    fn quarantine_entry_causes_is_schema_quarantined_to_return_true() {
+        let (_, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x42u8; 32];
+        let target = [0x43u8; 32];
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // Initially no quarantined entries → should be false.
+        assert!(
+            !engine.is_schema_quarantined("any_table"),
+            "is_schema_quarantined must be false when ledger is empty"
+        );
+
+        // Add a raw delta to the quarantine ledger matching the engine's local schema hash.
+        let raw_bytes = b"fake-raw-delta-bytes".to_vec();
+        engine
+            .quarantine_incoming(
+                "did:key:z6MkSender",
+                raw_bytes,
+                Some(source), // schema_hash == local_schema_hash
+                QuarantineReason::UnknownSchemaHash,
+                1_720_000_000_000_000,
+            )
+            .expect("quarantine_incoming must succeed");
+
+        // Now should be true.
+        assert!(
+            engine.is_schema_quarantined("any_table"),
+            "is_schema_quarantined must be true after adding an unreleased quarantine entry"
+        );
+    }
+
+    // ─── Test: after release_for_migration → is_schema_quarantined returns false ──
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn is_schema_quarantined_false_after_release_for_migration() {
+        let (_, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x44u8; 32];
+        let target = [0x45u8; 32];
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // Quarantine an entry.
+        let raw_bytes = b"raw-delta-to-release".to_vec();
+        engine
+            .quarantine_incoming(
+                "did:key:z6MkPeer",
+                raw_bytes,
+                Some(source),
+                QuarantineReason::BreakingSchemaChange,
+                0,
+            )
+            .expect("quarantine_incoming must succeed");
+
+        assert!(
+            engine.is_schema_quarantined("tbl"),
+            "must be quarantined before release"
+        );
+
+        // Release via quarantine_ledger directly.
+        let migration_id = [0xCCu8; 32];
+        engine
+            .quarantine_ledger
+            .release_for_migration(&source, migration_id)
+            .expect("release_for_migration must succeed");
+
+        // After release (migration_id is now set) → should be false.
+        assert!(
+            !engine.is_schema_quarantined("tbl"),
+            "is_schema_quarantined must be false after entry is released for migration"
+        );
+    }
+
+    // ─── Test: in-progress sandbox (no quarantine entries) → is_schema_quarantined false ──
+
+    #[test]
+    fn no_quarantine_entries_means_not_quarantined_even_if_migration_in_progress() {
+        let (_, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x46u8; 32];
+        let target = [0x47u8; 32];
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // Simulate a migration that is "in progress" via the revocation registry.
+        let migration_id: [u8; 32] = [0xABu8; 32];
+        engine.revocation_registry.mark_in_progress(migration_id);
+
+        // No quarantine entries have been added.
+        assert!(
+            !engine.is_schema_quarantined("any_table"),
+            "is_schema_quarantined must be false when ledger is empty, even if a migration is in-progress"
         );
     }
 }
