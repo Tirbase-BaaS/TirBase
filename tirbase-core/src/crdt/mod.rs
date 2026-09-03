@@ -468,6 +468,42 @@ impl CrdtEngine {
         Ok(())
     }
 
+    /// Project all ROOT-level scalar keys from the current Automerge doc to a
+    /// `Vec<(String, serde_json::Value)>`.
+    ///
+    /// Used by the WASM inbound pipeline to materialise a merged Delta's state
+    /// into the in-memory `LocalStore` without requiring SQLite (Req 4.3, 1.4).
+    pub fn doc_map_range_root(&self) -> Vec<(String, serde_json::Value)> {
+        use automerge::{ReadDoc, Value, ROOT};
+        use automerge::ScalarValue;
+
+        self.doc
+            .map_range(ROOT, ..)
+            .filter_map(|item| {
+                let json_val = match &item.value {
+                    Value::Scalar(scalar) => {
+                        match scalar.as_ref() {
+                            ScalarValue::Str(s)       => serde_json::Value::String(s.to_string()),
+                            ScalarValue::Int(n)       => serde_json::json!(n),
+                            ScalarValue::Uint(n)      => serde_json::json!(n),
+                            ScalarValue::F64(f)       => serde_json::json!(f),
+                            ScalarValue::Boolean(b)   => serde_json::Value::Bool(*b),
+                            ScalarValue::Null         => serde_json::Value::Null,
+                            ScalarValue::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
+                            ScalarValue::Counter(c)   => serde_json::json!(i64::from(c.clone())),
+                            ScalarValue::Timestamp(t) => serde_json::json!(t),
+                            ScalarValue::Unknown { type_code, bytes } => {
+                                serde_json::json!({ "type_code": type_code, "bytes": hex::encode(bytes) })
+                            }
+                        }
+                    }
+                    Value::Object(_) => return None,
+                };
+                Some((item.key.to_string(), json_val))
+            })
+            .collect()
+    }
+
     /// Project the current Automerge doc state for `table` into the SQL store.
     ///
     /// Used by the inbound pipeline to materialise a peer's merged Delta into

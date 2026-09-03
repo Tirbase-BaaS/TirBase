@@ -58,6 +58,10 @@ pub struct CoreHandle {
     #[cfg(feature = "native")]
     crdt: Arc<Mutex<CrdtEngine>>,
 
+    /// CRDT engine for WASM builds (in-memory, no SQLite).
+    #[cfg(not(feature = "native"))]
+    crdt: Arc<Mutex<CrdtEngine>>,
+
     /// Device identity (Ed25519 keypair + DID).
     pub(crate) identity: Arc<IdentityManager>,
 
@@ -178,6 +182,18 @@ impl CoreHandle {
         let store = {
             let store = LocalStore::open(":memory:")?;
             Arc::new(Mutex::new(store))
+        };
+
+        // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
+        #[cfg(not(feature = "native"))]
+        let crdt = {
+            let crdt = CrdtEngine::new(
+                identity.signing_key_bytes(),
+                identity.public_key_bytes(),
+                identity.did().to_string(),
+                DEFAULT_SCHEMA_HASH,
+            );
+            Arc::new(Mutex::new(crdt))
         };
 
         // ── Native Revocation Subsystem ───────────────────────────────────────
@@ -350,6 +366,8 @@ impl CoreHandle {
             store,
             #[cfg(feature = "native")]
             crdt,
+            #[cfg(not(feature = "native"))]
+            crdt,
             identity,
             capability,
             transport,
@@ -441,21 +459,16 @@ impl CoreHandle {
                 .produce_delta(automerge_bytes, PriorityClass::Low, vec![])?
         };
 
-        // WASM build produces an unsigned, zero-ID placeholder Delta because CrdtEngine
-        // is not available without SQLite. Delta signing, causal parent tracking, and
-        // DAG persistence are native-only.
+        // WASM build uses the real CrdtEngine (in-memory, no SQLite) to produce
+        // a properly signed Delta with causal parent tracking.
         #[cfg(not(feature = "native"))]
-        let mut delta = crate::crdt::delta::Delta {
-            id: [0u8; 32],
-            author_did: self.identity.did().to_string(),
-            signature: crate::crdt::delta::Ed25519Signature::default(),
-            schema_hash: DEFAULT_SCHEMA_HASH,
-            automerge_bytes,
-            priority: PriorityClass::Low,
-            causal_parents: vec![],
-            tags: vec![],
-            lamport: 0,
-            created_at: 0,
+        let mut delta = {
+            self.crdt
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned: {e}"),
+                })?
+                .produce_delta(automerge_bytes, PriorityClass::Low, vec![])?
         };
 
         // 4. Human-reaction auto-tag (Req 19.5).
