@@ -414,7 +414,22 @@ impl CoreHandle {
         }
 
         // 3. Produce a signed Delta.
-        let automerge_bytes = serde_json::to_vec(&data).unwrap_or_default();
+        // Embed _tirbase_table and _tirbase_key metadata so that receiving peers can
+        // project the inbound Delta directly to the SQL store (Req 4.3, 3.3).
+        let automerge_bytes = {
+            let mut meta = serde_json::Map::new();
+            meta.insert("_tirbase_table".to_string(), serde_json::Value::String(table.to_string()));
+            meta.insert("_tirbase_key".to_string(), serde_json::Value::String(key.to_string()));
+            // Merge application data fields (if data is an object) or store under "_data".
+            if let Some(obj) = data.as_object() {
+                for (k, v) in obj {
+                    meta.insert(k.clone(), v.clone());
+                }
+            } else {
+                meta.insert("_data".to_string(), data.clone());
+            }
+            serde_json::to_vec(&serde_json::Value::Object(meta)).unwrap_or_default()
+        };
 
         #[cfg(feature = "native")]
         let mut delta = {
@@ -702,6 +717,103 @@ impl CoreHandle {
                             hex::encode(delta.id),
                             delta.author_did
                         );
+
+                        // Project the merged Delta to the SQLite store so that
+                        // `read()` and `query()` reflect the new peer state (Req 4.3, 3.3).
+                        //
+                        // Strategy:
+                        //  1. If automerge_bytes parses as valid Automerge format, project
+                        //     the doc state via CrdtEngine's internal document.
+                        //  2. Otherwise try to parse automerge_bytes as the TirBase JSON
+                        //     envelope (contains _tirbase_table and _tirbase_key metadata)
+                        //     and call store.write() directly.
+                        //  3. If no table/key can be determined, skip projection (conservative
+                        //     fallback — data is in the CRDT doc but not in SQL projection yet).
+                        if !delta.automerge_bytes.is_empty() {
+                            if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes) {
+                                if let Some(obj) = json_val.as_object() {
+                                    let table_name = obj.get("_tirbase_table").and_then(|v| v.as_str());
+                                    let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
+
+                                    if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
+                                        // Reconstruct the application data (strip metadata keys).
+                                        let mut app_data = serde_json::Map::new();
+                                        for (k, v) in obj {
+                                            if k != "_tirbase_table" && k != "_tirbase_key" {
+                                                if k == "_data" {
+                                                    // Scalar/non-object data stored under _data.
+                                                    // Write as-is under the original key.
+                                                    let _ = self.store
+                                                        .lock()
+                                                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                                            reason: format!("store mutex: {e}"),
+                                                        })?
+                                                        .write(tbl, rkey, v);
+                                                    eprintln!(
+                                                        "[inbound] projected delta {} → {tbl}/{rkey}",
+                                                        hex::encode(delta.id)
+                                                    );
+                                                    // Break early — _data is the whole value.
+                                                    app_data.clear();
+                                                    break;
+                                                }
+                                                app_data.insert(k.clone(), v.clone());
+                                            }
+                                        }
+                                        if !app_data.is_empty() {
+                                            let app_val = serde_json::Value::Object(app_data);
+                                            let _ = self.store
+                                                .lock()
+                                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                                    reason: format!("store mutex: {e}"),
+                                                })?
+                                                .write(tbl, rkey, &app_val);
+                                            eprintln!(
+                                                "[inbound] projected delta {} → {tbl}/{rkey}",
+                                                hex::encode(delta.id)
+                                            );
+                                        }
+                                    } else {
+                                        // JSON but no table/key metadata — cannot project.
+                                        eprintln!(
+                                            "[inbound] delta {} merged but no _tirbase_table/_tirbase_key in bytes — skipping SQL projection",
+                                            hex::encode(delta.id)
+                                        );
+                                    }
+                                }
+                            } else {
+                                // Real Automerge binary bytes — use CrdtEngine's doc state
+                                // to project all tables via project_table().
+                                // NOTE: The CrdtEngine's Automerge doc is cross-table;
+                                // project all tables found in automerge_docs.
+                                let tables_result = {
+                                    let store = self.store.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                        reason: format!("store mutex: {e}"),
+                                    })?;
+                                    // Query automerge_docs to find known tables.
+                                    // Ignore error — fall back to no projection.
+                                    store.list_automerge_tables().unwrap_or_default()
+                                };
+
+                                if !tables_result.is_empty() {
+                                    let crdt = self.crdt.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                        reason: format!("crdt mutex: {e}"),
+                                    })?;
+                                    for tbl in &tables_result {
+                                        if let Err(e) = crdt.project_table_to_store(tbl, &self.store) {
+                                            eprintln!(
+                                                "[inbound] project_table_to_store({tbl}) failed: {e}"
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    eprintln!(
+                                        "[inbound] delta {} has binary automerge bytes but no known tables for projection",
+                                        hex::encode(delta.id)
+                                    );
+                                }
+                            }
+                        }
                     }
                     MergeOutcome::Quarantined { .. } => {
                         eprintln!(
@@ -1769,30 +1881,21 @@ mod inbound_tests {
 
     // ── Test 6: End-to-end inbound pipeline — write on A, read on B ──────────
     //
-    // Verifies the full path described in Task 34, checklist item 7:
-    //   1. Write a value to handle_a (persists to local store + produces a signed Delta).
-    //   2. Construct a GossipMessage from the same peer identity and schema hash,
-    //      carrying data equivalent to what was written.
-    //   3. Inject the GossipMessage into handle_b via inject_inbound.
-    //   4. Call process_inbound_messages() on handle_b.
-    //   5. Verify the CRDT merge was accepted (Merged outcome).
+    // Verifies that after receiving and processing a peer Delta that carries
+    // TirBase JSON metadata (_tirbase_table, _tirbase_key, and data fields),
+    // the data is readable via handle_b.read() — closing the projection gap
+    // documented in earlier versions.
     //
-    // NOTE: The current v1 inbound pipeline merges the Delta at the CRDT (Automerge)
-    // level but does not write-through to the SQLite projection store.  Reading
-    // handle_b.read() after an inbound merge therefore returns "key not found" —
-    // the data lives in the Automerge document, not in the SQL projection table.
+    // Step 1: Write a value to handle_a (stores locally + produces a signed Delta).
+    // Step 2: Build an equivalent Delta manually, embedding table/key metadata in
+    //         automerge_bytes so the receiving peer can project it to the SQL store.
+    // Step 3: Inject the Delta into handle_b via inject_inbound.
+    // Step 4: Call process_inbound_messages() on handle_b.
+    // Step 5: Verify handle_b.read("sensors", "reading-1") succeeds and returns
+    //         the same data that was written on handle_a.
     //
-    // Full cross-instance readable sync requires a post-merge projection step
-    // (calling `project_table` or `store.write()` from `receive_inbound`).  This
-    // is documented in tests/README.md §End-to-End Test Coverage Notes as
-    // DEFERRED: projection-update-on-inbound pending a follow-on task.
-    //
-    // What this test DOES verify (the implemented inbound path):
-    //   - A valid signed Delta injected from a peer identity is accepted (Merged).
-    //   - process_inbound_messages() drains the channel and returns 1.
-    //   - The handle_b store is unchanged (key not found) — demonstrates the gap.
-    //
-    // Validates: Task 34 item 7, Req 4.3 (Delta routing), Req 5.1 (Swarm message handling)
+    // Validates: Req 4.3 (merged peer state readable), Req 3.3 (store fully readable),
+    //            Task 41 (projection-update-on-inbound implemented).
 
     #[tokio::test]
     async fn end_to_end_inbound_pipeline_write_a_read_b() {
@@ -1823,21 +1926,34 @@ mod inbound_tests {
         );
 
         // ── Step 2: Construct an equivalent GossipMessage ─────────────────────
-        // Use handle_a's identity to produce a signed delta with the same schema hash
-        // (DEFAULT_SCHEMA_HASH = [0u8; 32]) and a matching peer DID.
+        // Build a delta whose automerge_bytes embeds _tirbase_table and _tirbase_key
+        // metadata plus the application data fields — this is the format produced by
+        // CoreHandle::write() (which embeds the metadata in the JSON envelope).
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
 
-        // Build a delta carrying empty automerge_bytes (valid for Automerge merge).
-        // Using serde_json bytes directly would cause an Automerge parse error.
         let delta = {
+            // Build the JSON envelope that receive_inbound() expects:
+            //   { "_tirbase_table": "sensors", "_tirbase_key": "reading-1", <data fields> }
+            let mut envelope = serde_json::Map::new();
+            envelope.insert("_tirbase_table".to_string(), serde_json::Value::String("sensors".to_string()));
+            envelope.insert("_tirbase_key".to_string(), serde_json::Value::String("reading-1".to_string()));
+            // Flatten data fields directly into the envelope (matching CoreHandle::write() behaviour).
+            if let Some(data_obj) = written_data.as_object() {
+                for (k, v) in data_obj {
+                    envelope.insert(k.clone(), v.clone());
+                }
+            }
+            let envelope_bytes = serde_json::to_vec(&serde_json::Value::Object(envelope))
+                .expect("envelope serialisation");
+
             let mut d = crate::crdt::delta::Delta {
                 id: [0u8; 32],
                 author_did: peer_did.clone(),
                 signature: Ed25519Signature::default(),
                 schema_hash,
-                automerge_bytes: vec![], // empty is valid for Automerge merge
+                automerge_bytes: envelope_bytes,
                 priority: PriorityClass::Low,
                 causal_parents: vec![],
                 tags: vec![],
@@ -1867,22 +1983,23 @@ mod inbound_tests {
             "exactly one inbound message must be processed"
         );
 
-        // ── Step 5: Verify CRDT merge acceptance ──────────────────────────────
-        // The delta was from a known schema hash, valid signature → must be Merged.
-        // (Absence of error from process_inbound_messages above confirms Merged outcome;
-        // Rejected and Quarantined outcomes are logged but don't propagate as Err.)
-
-        // ── Note: projection gap (documented) ────────────────────────────────
-        // Currently, handle_b.read("sensors", "reading-1") returns Err (not found)
-        // because receive_inbound does not project to the SQLite store.
-        // This is the documented v1 limitation — see tests/README.md.
+        // ── Step 5: Verify data is readable on handle_b ───────────────────────
+        // After projection, handle_b's SQL store must contain the row that was
+        // written on handle_a — this closes the documented projection gap (Task 41).
         let read_result = handle_b.read("sensors", "reading-1").await;
-        // The key is not in B's SQL projection yet (no projection-on-inbound step).
         assert!(
-            read_result.is_err(),
-            "v1: inbound delta is not yet projected to the SQL store; \
-             read returns Err (not found). This is the documented projection gap."
+            read_result.is_ok(),
+            "inbound delta must be readable via store after merge; got: {:?}",
+            read_result.err()
         );
+
+        let result = read_result.unwrap();
+        assert_eq!(
+            result.data, written_data,
+            "data read from handle_b must match what was written on handle_a"
+        );
+        assert_eq!(result.key, "reading-1");
+        assert_eq!(result.table, "sensors");
 
         cleanup(&path_a);
         cleanup(&path_b);

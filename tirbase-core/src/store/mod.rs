@@ -206,7 +206,34 @@ impl LocalStore {
 
     // ─── Automerge document helpers ───────────────────────────────────────────
 
-    /// Load (or create) the Automerge document for a given table.
+    /// List all table names present in `automerge_docs`.
+    ///
+    /// Used by the inbound pipeline to find which tables to re-project after
+    /// merging binary Automerge bytes from a peer.
+    pub fn list_automerge_tables(&self) -> Result<Vec<String>, TirBaseError> {
+        let sql = "SELECT table_name FROM automerge_docs;";
+        let mut stmt = self.conn.prepare(sql).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("prepare list_automerge_tables failed: {e}"),
+        })?;
+
+        let tables = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("query list_automerge_tables failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<String>>();
+
+        Ok(tables)
+    }
+
+    /// Return a reference to the underlying SQLite connection.
+    ///
+    /// Used by the inbound projection pipeline to run `project_table()` on
+    /// the same connection as the store (Req 4.3, 3.3).
+    pub fn raw_conn(&self) -> &rusqlite::Connection {
+        &self.conn
+    }
     pub(crate) fn get_or_create_automerge_doc(
         conn: &rusqlite::Connection,
         table: &str,

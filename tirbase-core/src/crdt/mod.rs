@@ -434,23 +434,92 @@ impl CrdtEngine {
     ///
     /// The idiomatic Automerge approach is to load the bytes as a second
     /// `AutoCommit` and call `local_doc.merge(&mut their_doc)`.
+    ///
+    /// If the bytes are not valid Automerge format (e.g. JSON metadata from
+    /// the TirBase write path), the merge step is skipped without error.
+    /// The projection path in `CoreHandle::receive_inbound()` handles the
+    /// JSON case separately.
     fn merge_automerge_bytes(&mut self, bytes: &[u8]) -> Result<(), TirBaseError> {
         if bytes.is_empty() {
             // Empty byte slice — nothing to merge (e.g. test stubs).
             return Ok(());
         }
 
-        let mut their_doc = automerge::AutoCommit::load(bytes).map_err(|e| {
-            TirBaseError::DeltaMalformed {
-                reason: format!("failed to load automerge bytes: {e}"),
+        let mut their_doc = match automerge::AutoCommit::load(bytes) {
+            Ok(doc) => doc,
+            Err(_) => {
+                // Non-Automerge bytes (e.g. JSON envelope from TirBase write path).
+                // Skip the Automerge-level merge; the projection path will handle
+                // data extraction from JSON separately.
+                eprintln!(
+                    "[CRDT] automerge_bytes are not valid Automerge format — \
+                     skipping Automerge merge (JSON/metadata path)"
+                );
+                return Ok(());
             }
-        })?;
+        };
 
         self.doc.merge(&mut their_doc).map_err(|e| {
             TirBaseError::DeltaMalformed {
                 reason: format!("automerge merge failed: {e}"),
             }
         })?;
+
+        Ok(())
+    }
+
+    /// Project the current Automerge doc state for `table` into the SQL store.
+    ///
+    /// Used by the inbound pipeline to materialise a peer's merged Delta into
+    /// the SQLite projection rows that `LocalStore::read()` and `query()` serve
+    /// (Req 4.3, 3.3).
+    ///
+    /// Walks the doc using `project_table()` (which reads ROOT-level keys) and
+    /// then calls `store.write()` for each (key, value) pair so the projection
+    /// table stays in sync with the Automerge state.
+    #[cfg(feature = "native")]
+    pub fn project_table_to_store(
+        &self,
+        table: &str,
+        store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    ) -> Result<(), TirBaseError> {
+        use automerge::{ReadDoc, Value, ROOT};
+        use automerge::ScalarValue;
+
+        let mut store_guard = store.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("store mutex poisoned in project_table_to_store: {e}"),
+        })?;
+
+        // Walk ROOT-level keys in the Automerge doc.
+        let items: Vec<(String, serde_json::Value)> = self.doc
+            .map_range(ROOT, ..)
+            .filter_map(|item| {
+                let json_val = match &item.value {
+                    Value::Scalar(scalar) => {
+                        match scalar.as_ref() {
+                            ScalarValue::Str(s)       => serde_json::Value::String(s.to_string()),
+                            ScalarValue::Int(n)       => serde_json::json!(n),
+                            ScalarValue::Uint(n)      => serde_json::json!(n),
+                            ScalarValue::F64(f)       => serde_json::json!(f),
+                            ScalarValue::Boolean(b)   => serde_json::Value::Bool(*b),
+                            ScalarValue::Null         => serde_json::Value::Null,
+                            ScalarValue::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
+                            ScalarValue::Counter(c)   => serde_json::json!(i64::from(c.clone())),
+                            ScalarValue::Timestamp(t) => serde_json::json!(t),
+                            ScalarValue::Unknown { type_code, bytes } => {
+                                serde_json::json!({ "type_code": type_code, "bytes": hex::encode(bytes) })
+                            }
+                        }
+                    }
+                    Value::Object(_) => serde_json::Value::Null,
+                };
+                Some((item.key.to_string(), json_val))
+            })
+            .collect();
+
+        for (key, val) in items {
+            store_guard.write(table, &key, &val)?;
+        }
 
         Ok(())
     }
