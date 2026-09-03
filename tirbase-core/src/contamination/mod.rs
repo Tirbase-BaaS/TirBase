@@ -249,7 +249,43 @@ impl CausalContaminationEngine {
         // After resolution, prune contaminated_rows entries for any row that now
         // has no active OPEN incident referencing it.  This keeps is_row_contaminated()
         // returning false after all roots are resolved (Req 19.5 / Test C).
-        self.prune_contaminated_rows();
+        //
+        // The standard prune only retains rows while the ICO is `Open`.  But `Open`
+        // is the correct state even after full resolution (only `admin_close`
+        // transitions to `Closed`).  So we also prune rows whose ICO's entire
+        // contamination_roots set now carries a `Resolved` tag — i.e. the incident
+        // has been fully verified even if not yet admin-closed.
+        {
+            let conn_guard2 = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("CCE mutex poisoned during prune: {e}"),
+            })?;
+            self.contaminated_rows.retain(|_key, incident_id| {
+                // Check regular ICO.
+                if let Some(ico) = self.incidents.get(incident_id) {
+                    if ico.state != IncidentState::Open {
+                        return false;
+                    }
+                    // Keep entry only if at least one contamination root is NOT yet resolved.
+                    return ico.contamination_roots.iter().any(|root_id| {
+                        let tags = crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
+                            .unwrap_or_default();
+                        !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
+                    });
+                }
+                // Check composite ICO.
+                if let Some(comp) = self.composite_incidents.get(incident_id) {
+                    if comp.state != IncidentState::Open {
+                        return false;
+                    }
+                    return comp.contamination_roots.iter().any(|root_id| {
+                        let tags = crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
+                            .unwrap_or_default();
+                        !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
+                    });
+                }
+                false
+            });
+        }
 
         Ok(())
     }
@@ -320,6 +356,26 @@ impl CausalContaminationEngine {
                     .map(|c| c.state == IncidentState::Open)
                     .unwrap_or(false)
         });
+    }
+
+    // ─── Test-only helpers ────────────────────────────────────────────────────
+
+    /// Insert a DagNode directly into the CCE's DAG.
+    /// Used by integration tests to set up causal ancestry without going through
+    /// the full write pipeline.
+    #[cfg(test)]
+    pub fn test_insert_dag_node(&mut self, node: crate::crdt::dag::DagNode) -> Result<(), TirBaseError> {
+        self.dag.insert(node).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("test_insert_dag_node: {e}"),
+        })
+    }
+
+    /// Manually set the `contaminated_rows` entry for a `(table, row_key)` pair.
+    /// Used by integration tests to simulate projection-layer contamination without
+    /// requiring a full `tag_contamination_root` walk over live store rows.
+    #[cfg(test)]
+    pub fn test_set_contaminated_row(&mut self, table: &str, row_key: &str, incident_id: IncidentId) {
+        self.contaminated_rows.insert((table.to_string(), row_key.to_string()), incident_id);
     }
 }
 

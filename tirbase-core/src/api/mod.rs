@@ -508,7 +508,23 @@ impl CoreHandle {
             quarantine_active,
             active_incident_id,
         };
-        on_write_commit(&mut delta, &write_ctx)?;
+        let human_reaction_result = on_write_commit(&mut delta, &write_ctx)?;
+
+        // If a ContaminatedByHumanReaction tag was appended, register the new Delta
+        // as a contamination root with the CCE so the ICO's contaminated_deltas and
+        // affected_rows are extended to include it (Req 19.5).
+        if let Some((hr_delta_id, hr_incident_id)) = human_reaction_result {
+            let _ = self.cce.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("cce mutex poisoned in human-reaction wiring: {e}"),
+            }).map(|mut cce| {
+                cce.tag_contamination_root(
+                    hr_delta_id,
+                    crate::contamination::incident::TaintSource::HumanReaction {
+                        triggered_by_incident_id: hr_incident_id,
+                    },
+                )
+            });
+        }
 
         // 5. Register with durability subsystem (adds to cloud outbound queue).
         let delta_bytes = serde_json::to_vec(&delta).unwrap_or_default();
@@ -1742,6 +1758,239 @@ mod tests {
                 .await
                 .unwrap_or_else(|e| panic!("write {i} failed: {e}"));
         }
+
+        cleanup(&path);
+    }
+
+    // ── Task-44 Test A: write on contaminated row → new Delta added to ICO ───
+
+    /// Validates Req 19.5: when `tag_contamination_root` has marked a row as
+    /// contaminated, a subsequent `CoreHandle::write()` to that same row must
+    /// register the resulting Delta in the active ICO's `contaminated_deltas`.
+    #[tokio::test]
+    async fn task44_test_a_human_reaction_delta_added_to_ico() {
+        use crate::contamination::incident::TaintSource;
+        use crate::crdt::dag::DagNode;
+        use crate::crdt::delta::DeltaTag;
+
+        let path = tmp_path("t44_test_a");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Step 1: write an initial row so the table and key exist in the store.
+        let first_write = handle
+            .write("events", "evt-1", json!({"status": "initial"}))
+            .await
+            .expect("first write");
+        let first_delta_id = first_write.delta_id;
+
+        // Step 2: insert that delta as a DagNode so the BFS walk can find it,
+        //         then tag it as a contamination root.
+        let ico_id = {
+            let mut cce = handle.cce.lock().unwrap();
+
+            // Insert the first delta's ID as a DagNode so the BFS walk succeeds.
+            cce.test_insert_dag_node(DagNode {
+                delta_id: first_delta_id,
+                payload: vec![],
+                parent_ids: vec![],
+                actor_id: b"actor".to_vec(),
+                lamport: 1,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            }).expect("insert DagNode for first delta");
+
+            cce.tag_contamination_root(
+                first_delta_id,
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: first_delta_id,
+                },
+            ).expect("tag_contamination_root")
+        };
+
+        // Confirm the first delta is in the ICO.
+        let ico_before = handle.cce.lock().unwrap()
+            .get_incident(ico_id).unwrap().unwrap();
+        assert!(
+            ico_before.contaminated_deltas.contains(&first_delta_id),
+            "first delta must be in ICO before second write"
+        );
+
+        // Step 3: manually set the contaminated_rows entry to simulate the projection
+        // layer having resolved affected rows. The BFS walk only populates
+        // contaminated_rows when affected_rows is non-empty, which requires a
+        // live projection table. We use the test helper to inject the entry directly.
+        {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.test_set_contaminated_row("events", "evt-1", ico_id);
+        }
+
+        // Confirm is_row_contaminated returns true.
+        assert!(
+            handle.cce.lock().unwrap().is_row_contaminated("events", "evt-1"),
+            "row must appear contaminated before second write"
+        );
+
+        let second_write = handle
+            .write("events", "evt-1", json!({"status": "updated"}))
+            .await
+            .expect("second write must succeed");
+        let second_delta_id = second_write.delta_id;
+
+        // Step 4: the second delta must now appear in the active open ICOs.
+        // CoreHandle::write() calls on_write_commit → returns Some((id, incident_id))
+        // → calls cce.tag_contamination_root(TaintSource::HumanReaction) → BFS walk
+        // from second_delta_id → new ICO or composite ICO containing second_delta_id.
+        let all_open_icos = handle.cce.lock().unwrap()
+            .open_incidents().unwrap();
+
+        let found = all_open_icos.iter().any(|ico| {
+            ico.contaminated_deltas.contains(&second_delta_id)
+        });
+
+        assert!(
+            found,
+            "second write delta {second_delta_id:?} must be registered in an active ICO; \
+             open ICOs (ids): {:?}",
+            all_open_icos.iter().map(|i| i.id).collect::<Vec<_>>()
+        );
+
+        cleanup(&path);
+    }
+
+    // ── Task-44 Test B: write on uncontaminated row → no ContaminatedByHumanReaction ─
+
+    /// Validates Req 19.5 negative case: a write to a completely clean row must
+    /// produce no `ContaminatedByHumanReaction` tag, and no ICO must be updated.
+    #[tokio::test]
+    async fn task44_test_b_clean_row_write_has_no_human_reaction_tag() {
+        let path = tmp_path("t44_test_b");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Write to a table/key that has never been contaminated.
+        let _result = handle
+            .write("clean_sensors", "reading-42", json!({"temp": 22.5}))
+            .await
+            .expect("write must succeed");
+
+        // No ICOs must be open (nothing was contaminated).
+        let open_icos = handle.cce.lock().unwrap().open_incidents().unwrap();
+        assert!(
+            open_icos.is_empty(),
+            "no ICOs must be created for a clean write; found: {open_icos:?}"
+        );
+
+        // The CCE's contaminated_rows must not contain this key.
+        let is_contaminated = handle.cce.lock().unwrap()
+            .is_row_contaminated("clean_sensors", "reading-42");
+        assert!(
+            !is_contaminated,
+            "row must not appear in contaminated_rows after a clean write"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── Task-44 Test C: write after resolution → no ContaminatedByHumanReaction ─
+
+    /// Validates Req 19.5 resolution case: after `verify_data` resolves all roots
+    /// and the CCE prunes `contaminated_rows`, a subsequent write to the previously
+    /// contaminated row must not trigger human-reaction tagging or update any ICO.
+    #[tokio::test]
+    async fn task44_test_c_write_after_resolution_no_human_reaction_tag() {
+        use crate::contamination::incident::TaintSource;
+        use crate::crdt::dag::DagNode;
+        use crate::identity::{keypair, IdentityManager};
+        use crate::contamination::resolution::now_micros;
+
+        let path = tmp_path("t44_test_c");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Step 1: write an initial row.
+        let first_write = handle
+            .write("telemetry", "node-7", json!({"reading": 100}))
+            .await
+            .expect("initial write");
+        let first_delta_id = first_write.delta_id;
+
+        // Step 2: insert the DagNode and tag as contamination root.
+        let ico_id = {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.test_insert_dag_node(DagNode {
+                delta_id: first_delta_id,
+                payload: vec![],
+                parent_ids: vec![],
+                actor_id: b"actor".to_vec(),
+                lamport: 1,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            }).expect("insert DagNode");
+
+            cce.tag_contamination_root(
+                first_delta_id,
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: first_delta_id,
+                },
+            ).expect("tag_contamination_root")
+        };
+
+        // Set contaminated_rows so is_row_contaminated returns true.
+        {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.test_set_contaminated_row("telemetry", "node-7", ico_id);
+        }
+
+        // Confirm the row is contaminated before resolution.
+        assert!(
+            handle.cce.lock().unwrap().is_row_contaminated("telemetry", "node-7"),
+            "row must be contaminated before verify_data"
+        );
+
+        // Step 3: resolve the contamination root via verify_data.
+        let mgr = IdentityManager::init_in_memory().expect("manager identity");
+        let mgr_did = mgr.did().to_string();
+        let mgr_secret = mgr.signing_key_bytes();
+        let sig = keypair::sign(&mgr_secret, &first_delta_id).expect("sign");
+        let expiry = now_micros() + 3_600_000_000; // +1h
+
+        handle.cce.lock().unwrap()
+            .verify_data(first_delta_id, mgr_did, sig, expiry)
+            .expect("verify_data must succeed");
+
+        // Step 4: after resolution, contaminated_rows must be pruned.
+        assert!(
+            !handle.cce.lock().unwrap().is_row_contaminated("telemetry", "node-7"),
+            "row must NOT be contaminated after verify_data resolves all roots"
+        );
+
+        // Count open ICOs before the third write.
+        let icos_before = handle.cce.lock().unwrap().open_incidents().unwrap().len();
+
+        // Step 5: write again to the previously contaminated row.
+        let _third_write = handle
+            .write("telemetry", "node-7", json!({"reading": 200}))
+            .await
+            .expect("third write must succeed");
+
+        // No new ICOs must have been opened by the third write.
+        let icos_after = handle.cce.lock().unwrap().open_incidents().unwrap().len();
+        assert_eq!(
+            icos_after, icos_before,
+            "no new ICO must be opened by a write on a resolved row"
+        );
 
         cleanup(&path);
     }
