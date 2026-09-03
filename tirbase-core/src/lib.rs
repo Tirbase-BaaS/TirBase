@@ -512,6 +512,61 @@ mod wasm_exports {
         })
     }
 
+    // ── Inbound peer message ───────────────────────────────────────────────────
+
+    /// Accept raw peer message bytes from the JS transport layer and route them
+    /// through the signature-verification → schema-hash gate → in-memory store
+    /// merge pipeline.
+    ///
+    /// ## Contract for application developers
+    ///
+    /// The JS transport layer (WebRTC `RTCDataChannel`, BLE bridge, or any
+    /// browser-compatible peer-to-peer transport) is responsible for calling
+    /// this function when raw bytes arrive from a peer.  TirBase is
+    /// transport-agnostic — it does not know *how* the bytes arrived, only what
+    /// to do with them once they have.
+    ///
+    /// **Typical usage in a WebRTC `ondatachannel` handler:**
+    /// ```js
+    /// channel.onmessage = (event) => {
+    ///   const bytes = new Uint8Array(event.data);
+    ///   await core_receive_peer_message(bytes);
+    ///   // Then poll for side-effect events produced by the merge:
+    ///   const events = core_poll_events();
+    ///   // … dispatch events to the TirBase SDK …
+    /// };
+    /// ```
+    ///
+    /// ## Message format
+    ///
+    /// `raw_bytes` must be a JSON-serialised `GossipMessage` (the same format
+    /// produced by `GossipMessage::to_bytes()` on the Rust side).  Any bytes
+    /// that cannot be deserialised into a known variant are silently dropped
+    /// and an error is returned.
+    ///
+    /// ## Relationship to native builds
+    ///
+    /// Native builds use a libp2p Swarm spawned at `init()` time and a
+    /// background task that calls `process_inbound_messages()` automatically.
+    /// WASM builds have no Swarm; this function is the explicit equivalent
+    /// entry point for the inbound pipeline (Req 5, Req 1.4).
+    #[wasm_bindgen]
+    pub async fn core_receive_peer_message(raw_bytes: &[u8]) -> Result<(), JsValue> {
+        use crate::transport::message::GossipMessage;
+
+        let msg = GossipMessage::from_bytes(raw_bytes).ok_or_else(|| {
+            to_js_err(
+                "core_receive_peer_message: unrecognised payload — \
+                 bytes could not be deserialised as a GossipMessage",
+            )
+        })?;
+
+        let handle_ptr = core_ptr()?;
+        // SAFETY: WASM is single-threaded; cooperative async, no concurrent mutation.
+        let handle = unsafe { &*handle_ptr };
+        handle.receive_inbound_wasm(msg).await.map_err(to_js_err)
+    }
+
     // ── Event polling ──────────────────────────────────────────────────────────
 
     /// Drain and return all queued WASM events as a JS array.

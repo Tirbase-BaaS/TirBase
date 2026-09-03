@@ -857,13 +857,236 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// WASM stub — the Gossipsub Swarm is not available on wasm32.
+    /// WASM stub for the native `receive_inbound` — the Gossipsub Swarm is not
+    /// available on wasm32. Use `receive_inbound_wasm` instead, which is driven
+    /// by the JS transport layer calling `core_receive_peer_message`.
     #[cfg(not(feature = "native"))]
     pub async fn receive_inbound(
         &self,
         _msg: crate::transport::message::GossipMessage,
     ) -> Result<(), TirBaseError> {
         Ok(())
+    }
+
+    /// Process an inbound peer message on the WASM target.
+    ///
+    /// This is the JS-driven equivalent of the native Swarm spawn loop.
+    /// The JS transport layer (WebRTC data channel, BLE bridge, or any
+    /// browser-compatible transport) calls `core_receive_peer_message()` with
+    /// raw bytes, which deserialises them into a `GossipMessage` and delegates
+    /// here. Each variant is routed to the correct in-memory subsystem (Req 5,
+    /// Req 1.4).
+    ///
+    /// Routing:
+    /// - `InboundDelta`                   → signature verification + in-memory store write
+    /// - `InboundDurabilityReceipt`       → `DurabilitySubsystem::receive_receipt`
+    /// - `InboundRevocationDelta`         → `RevocationSubsystem::process_incoming_delta`
+    /// - `InboundMigrationDelta`          → `SchemaMigrationEngine::receive_migration_delta`
+    /// - `InboundMigrationRevocationDelta`→ `SchemaMigrationEngine::receive_revocation_delta`
+    #[cfg(not(feature = "native"))]
+    pub async fn receive_inbound_wasm(
+        &self,
+        msg: crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        use crate::transport::message::GossipMessage;
+
+        match msg {
+            GossipMessage::InboundDelta(delta) => {
+                // 1. Verify Ed25519 signature via DID-based resolution.
+                //    Reject silently on failure (log + discard, no pipeline error).
+                let canonical = delta.canonical_bytes();
+                let sig_result = self.identity.verify_delta_signature(
+                    &delta.author_did,
+                    &canonical,
+                    &delta.signature.as_bytes().unwrap_or([0u8; 64]),
+                );
+                if let Err(e) = sig_result {
+                    eprintln!(
+                        "[wasm-inbound] Delta {} rejected from {}: {}",
+                        hex::encode(delta.id),
+                        delta.author_did,
+                        e
+                    );
+                    return Ok(()); // Rejected — not a pipeline error
+                }
+
+                // 2. Schema-hash gate: only merge if known (DEFAULT_SCHEMA_HASH = [0u8; 32]).
+                //    Unknown schema hash → quarantine (route to migration engine).
+                if delta.schema_hash != DEFAULT_SCHEMA_HASH {
+                    eprintln!(
+                        "[wasm-inbound] Delta {} quarantined (unknown schema hash) from {}",
+                        hex::encode(delta.id),
+                        delta.author_did
+                    );
+                    // Route to migration engine for quarantine storage.
+                    // receive_migration_delta expects a MigrationDelta but we have a
+                    // regular Delta — log the schema mismatch and discard for v1.
+                    // A future task can wire the quarantine ledger path here.
+                    return Ok(());
+                }
+
+                // 3. Try to deserialise automerge_bytes as JSON and write to the store.
+                //    Empty automerge_bytes are valid (no data to write).
+                if !delta.automerge_bytes.is_empty() {
+                    if let Ok(data) = serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes) {
+                        // Extract table/key from the data if encoded as a JSON object with
+                        // `_tirbase_table` and `_tirbase_key` metadata fields.
+                        // Fall back to writing under the delta's author_did as the key
+                        // in a synthetic "_inbound" table when metadata is absent.
+                        let (table, key) = if let Some(obj) = data.as_object() {
+                            let t = obj.get("_tirbase_table")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("_inbound");
+                            let k = obj.get("_tirbase_key")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| hex::encode(delta.id));
+                            (t.to_string(), k)
+                        } else {
+                            ("_inbound".to_string(), hex::encode(delta.id))
+                        };
+
+                        if let Err(e) = self
+                            .store
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("store mutex poisoned: {e}"),
+                            })?
+                            .write(&table, &key, &data)
+                        {
+                            eprintln!(
+                                "[wasm-inbound] Failed to write inbound delta {} to store: {}",
+                                hex::encode(delta.id),
+                                e
+                            );
+                        } else {
+                            eprintln!(
+                                "[wasm-inbound] Delta {} from {} merged into store ({table}/{key})",
+                                hex::encode(delta.id),
+                                delta.author_did
+                            );
+                        }
+                    }
+                    // If not valid JSON — no write, no error. Automerge binary format
+                    // is not interpretable on the WASM target without a CrdtEngine.
+                }
+
+                // 4. Register with the durability subsystem so Tier-1 tracking works.
+                let delta_bytes = serde_json::to_vec(&delta).unwrap_or_default();
+                let _ = self
+                    .durability
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("durability mutex poisoned: {e}"),
+                    })?
+                    .register_delta(
+                        delta.id,
+                        delta.id,
+                        delta_bytes,
+                        delta.causal_parents.clone(),
+                        std::collections::HashMap::new(),
+                    );
+
+                Ok(())
+            }
+
+            GossipMessage::InboundDurabilityReceipt(receipt) => {
+                let delta_id = receipt.state_hash;
+                match self
+                    .durability
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("durability mutex poisoned: {e}"),
+                    })?
+                    .receive_receipt(receipt, &delta_id)
+                {
+                    Ok(true) => {
+                        eprintln!(
+                            "[wasm-inbound] Tier-1 durability achieved for delta {}",
+                            hex::encode(delta_id)
+                        );
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        eprintln!("[wasm-inbound] receipt rejected: {e}");
+                    }
+                }
+                Ok(())
+            }
+
+            GossipMessage::InboundRevocationDelta(rev_delta) => {
+                let mut rev = self.revocation.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("revocation mutex poisoned: {e}"),
+                    }
+                })?;
+
+                match rev.process_incoming_delta(
+                    &rev_delta,
+                    &mut |target_did, _complete_delta| {
+                        // No Swarm gossip rebroadcast on WASM — the JS transport
+                        // layer handles peer messaging (Req 9.2 is best-effort on WASM).
+                        eprintln!(
+                            "[wasm-inbound] RevocationDelta threshold met for {target_did}"
+                        );
+                    },
+                    &mut |target_did, delta_ids| {
+                        eprintln!(
+                            "[wasm-inbound] CCE: {} deltas to tag for revoked DID {target_did}",
+                            delta_ids.len()
+                        );
+                        // CCE tagging on WASM — best-effort (no SQLite DAG walk).
+                    },
+                ) {
+                    Ok(crate::auth::RevocationStatus::Applied) => {
+                        eprintln!(
+                            "[wasm-inbound] RevocationDelta applied for {}",
+                            rev_delta.target_did
+                        );
+                    }
+                    Ok(crate::auth::RevocationStatus::Pending { collected, required }) => {
+                        eprintln!(
+                            "[wasm-inbound] RevocationDelta pending {collected}/{required} sigs for {}",
+                            rev_delta.target_did
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("[wasm-inbound] RevocationDelta failed: {e}");
+                    }
+                }
+                Ok(())
+            }
+
+            GossipMessage::InboundMigrationDelta(mig_delta) => {
+                let sender_did = mig_delta.author_did.clone();
+                let mut mig = self.migration.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("migration mutex poisoned: {e}"),
+                    }
+                })?;
+                match mig.receive_migration_delta(mig_delta, &sender_did) {
+                    Ok(result) => {
+                        eprintln!("[wasm-inbound] MigrationDelta applied: {result:?}");
+                    }
+                    Err(e) => {
+                        eprintln!("[wasm-inbound] MigrationDelta rejected: {e}");
+                    }
+                }
+                Ok(())
+            }
+
+            GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
+                let mut mig = self.migration.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("migration mutex poisoned: {e}"),
+                    }
+                })?;
+                if let Err(e) = mig.receive_revocation_delta(mig_rev) {
+                    eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
+                }
+                Ok(())
+            }
+        }
     }
 
     /// Drain all pending inbound messages from the channel and route each through

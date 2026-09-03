@@ -574,6 +574,35 @@ export class TirBase {
     );
   }
 
+  /**
+   * Forward raw peer message bytes to the WASM inbound pipeline (Req 5, Req 1.4).
+   *
+   * The JS transport layer (WebRTC `RTCDataChannel`, BLE bridge, or any
+   * browser-compatible transport) calls this when raw bytes arrive from a
+   * remote peer.  TirBase deserialises the bytes, verifies the embedded
+   * signature, applies the schema-hash gate, and merges the payload into the
+   * local in-memory store.
+   *
+   * After calling this method you should call `write()`, `read()`, or `query()`
+   * to trigger `_pollWasmEvents()` so any side-effect events produced by the
+   * merge (e.g. `incident-created`, `trust-level-changed`) are surfaced.
+   *
+   * @param bytes  Raw `GossipMessage` bytes as produced by `GossipMessage::to_bytes()`
+   *               on the Rust side.  Must be a `Uint8Array`.
+   */
+  receivePeerMessage(bytes: Uint8Array): void {
+    if (!this._initialized) {
+      // Silently ignore if not yet initialised — the SDK may not be set up yet
+      // when transport bytes arrive.  Callers that need error visibility can
+      // wrap in a try/catch after calling this method.
+      return;
+    }
+    // Fire-and-forget: the underlying WASM call is async but we expose a
+    // synchronous entry point matching the WebRTC `ondatachannel` pattern.
+    // Errors are logged inside receive_inbound_wasm; they don't propagate here.
+    void this._wasm.receiveMessage?.(bytes);
+  }
+
   // ── Deployment config helpers ─────────────────────────────────────────────
 
   /**

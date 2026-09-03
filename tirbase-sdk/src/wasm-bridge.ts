@@ -69,6 +69,18 @@ export interface WasmCore {
 
   /** Drain and return queued WASM events. Optional — absent on older builds. */
   pollEvents?(): unknown[];
+
+  /**
+   * Accept raw peer message bytes from the JS transport layer.
+   *
+   * The JS transport (WebRTC `RTCDataChannel`, BLE bridge, etc.) must call
+   * this when raw bytes arrive from a remote peer.  The bytes are deserialised
+   * into a `GossipMessage` and routed through the WASM-side inbound pipeline
+   * (signature verification → schema-hash gate → in-memory merge).
+   *
+   * Optional — absent on builds that pre-date Task 40.
+   */
+  receiveMessage?(rawBytes: Uint8Array): Promise<void>;
 }
 
 // ─── Loader function ──────────────────────────────────────────────────────────
@@ -192,6 +204,14 @@ function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
       }
       return [];
     },
+    receiveMessage: typeof mod['core_receive_peer_message'] === 'function'
+      ? (rawBytes: Uint8Array) =>
+          (
+            mod['core_receive_peer_message'] as (
+              b: Uint8Array,
+            ) => Promise<void>
+          )(rawBytes)
+      : undefined,
   };
 }
 
@@ -263,6 +283,10 @@ export class MockWasmCore implements WasmCore {
 
   pollEventsImpl: () => unknown[] = () => [];
 
+  /** Stub for the WASM inbound peer message path (Task 40). Override in tests. */
+  receiveMessageImpl: (rawBytes: Uint8Array) => Promise<void> =
+    async (_bytes) => undefined;
+
   // ── WasmCore implementation ───────────────────────────────────────────────
 
   read(table: string, key: string): Promise<unknown> {
@@ -310,6 +334,10 @@ export class MockWasmCore implements WasmCore {
 
   pollEvents(): unknown[] {
     return this.pollEventsImpl();
+  }
+
+  receiveMessage(rawBytes: Uint8Array): Promise<void> {
+    return this.receiveMessageImpl(rawBytes);
   }
 }
 
