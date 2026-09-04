@@ -410,6 +410,26 @@ impl MeshTransport {
         Ok(())
     }
 
+    /// Advance the Saturate_Mode state machine's clock (Req 13.5).
+    ///
+    /// Delegates to [`SaturateModeStateMachine::tick`]: when the active lease
+    /// has expired without renewal, the state machine transitions to NORMAL
+    /// and drops the lease.  The DRR scheduler is then reconciled from the
+    /// resulting state — a lease-expiry demotion clears the scheduler's
+    /// Saturate_Mode flag (MEDIUM/LOW resumes normal service, Req 13.5)
+    /// exactly like an M-of-N termination does.  The reconcile runs
+    /// unconditionally: `set_saturate_mode` is idempotent and cheap, so this
+    /// stays the single reconciler every lifecycle transition funnels through.
+    ///
+    /// Production caller: `CoreHandle::spawn_scheduler_tick_loop`
+    /// (api/mod.rs) — the Phase 1.4 production tick loop — calls this every
+    /// epoch with the wall clock, so lease expiry and auto-demotion happen
+    /// automatically without manual (test-driven) ticking.
+    pub(crate) fn tick_saturate(&mut self, now_secs: i64) {
+        self.saturate.tick(now_secs);
+        self.reconcile_scheduler_saturate_mode();
+    }
+
     // ── Scheduler interface ───────────────────────────────────────────────────
 
     /// Returns `true` if the DRR scheduler has any pending Deltas (any priority queue).
@@ -1195,6 +1215,43 @@ mod tests {
         // scheduler may move on failure.
         assert_eq!(t.saturate.state(), SaturateState::Normal);
         assert!(!t.scheduler.is_saturate_mode());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn tick_saturate_demotes_expired_lease_and_clears_scheduler() {
+        use crate::transport::saturate::{
+            make_disaster_alert_token_for_test, SaturateState, SATURATE_LEASE_DURATION_SECS,
+        };
+
+        let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &token, now)
+            .expect("activation must succeed");
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        assert!(t.scheduler.is_saturate_mode());
+
+        // A tick inside the lease window (even within the renewal window) must
+        // not demote — only expiry does (Req 13.5).
+        t.tick_saturate(now + SATURATE_LEASE_DURATION_SECS - 60);
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        assert!(t.scheduler.is_saturate_mode());
+
+        // A tick past the lease deadline demotes the state machine AND clears
+        // the scheduler mirror — expiry must flow through the same reconciler
+        // as M-of-N termination; the bare `set_saturate_mode(true)` boolean
+        // bypass could never demote the scheduler again.
+        t.tick_saturate(now + SATURATE_LEASE_DURATION_SECS + 1);
+        assert_eq!(t.saturate.state(), SaturateState::Normal);
+        assert!(
+            t.saturate.lease().is_none(),
+            "lease must be cleared on lease-expiry demotion"
+        );
+        assert!(
+            !t.scheduler.is_saturate_mode(),
+            "scheduler must leave Saturate Mode when lease expiry demotes the state machine"
+        );
     }
 
     #[test]

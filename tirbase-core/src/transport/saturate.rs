@@ -230,6 +230,20 @@ impl SaturateModeStateMachine {
         }
     }
 
+    /// Test-only: backdate the active lease's expiry so a real-clock tick
+    /// sees it as already expired.
+    ///
+    /// The production tick loop (Subphase 3.3) passes wall-clock seconds, so
+    /// the Subphase 3.3 integration test cannot wait out the 60-minute lease
+    /// — it makes the lease look past-due instead and asserts the background
+    /// loop (not a manual `tick()` call) performs the demotion.
+    #[cfg(test)]
+    pub(crate) fn backdate_lease_expiry_for_test(&mut self, expires_at: i64) {
+        if let Some(lease) = self.lease.as_mut() {
+            lease.expires_at = expires_at;
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /// Verify a Biscuit token against the root CA and check for the

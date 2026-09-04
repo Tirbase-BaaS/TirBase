@@ -246,9 +246,22 @@ DRR scheduler's Saturate_Mode flag (the bare `set_saturate_mode(true)` boolean
 bypass could never demote it).  Renewal/termination on WASM are reachable via
 the `core_renew_saturate_mode` / `core_terminate_saturate_mode` exports.
 
-**Deferred aspect:** lease expiry auto-demotion is still only driven by an
-explicit `tick()` (Subphase 3.3 wires the state machine into the production
-tick loop; Subphase 3.4 lands the runtime expiry integration test).  The
+**Production wiring (Subphase 3.3):** lease expiry auto-demotion is now
+driven by the production tick loop — `CoreHandle::spawn_scheduler_tick_loop`
+(the Phase 1.4 loop `CoreHandle::init` spawns) calls
+`MeshTransport::tick_saturate` every epoch with the wall clock, which ticks
+the real `SaturateModeStateMachine` and reconciles the DRR scheduler mirror
+(transport/mod.rs → saturate.rs).  The integration test
+`api::tests::scheduler_tick_loop_auto_demotes_expired_saturate_lease` drives
+that identical loop with a short interval, activates Saturate_Mode through the
+real production facade, backdates the lease (the loop runs on real time; a
+60-minute lease cannot be waited out in a test), and asserts the background
+task — not a manual `tick()` call — demotes the state machine and clears the
+scheduler.  `transport::tests::tick_saturate_demotes_expired_lease_and_clears_scheduler`
+covers the transport-level demotion + scheduler reconcile.
+
+**Deferred aspect:** Subphase 3.4 lands the runtime expiry integration test
+that lets the lease expire through the actual runtime with no renewal.  The
 proptest generator also does not include time-ordered activation + renewal
 sequences because generating valid ordered Biscuit token pairs inside a
 proptest strategy is impractical without a custom strategy that maintains the

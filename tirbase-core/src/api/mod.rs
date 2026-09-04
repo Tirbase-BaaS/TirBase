@@ -2151,9 +2151,12 @@ impl CoreHandle {
 
     /// Spawn the production DRR scheduler tick loop for this handle.
     ///
-    /// Every `interval`, the background task locks the mesh transport and
-    /// calls [`MeshTransport::tick_scheduler`], which runs one DRR scheduling
-    /// epoch (Req 12) and forwards the drained Deltas to the outbound publish
+    /// Every `interval`, the background task locks the mesh transport,
+    /// advances the Saturate_Mode state machine's clock
+    /// ([`MeshTransport::tick_saturate`] — Subphase 3.3, so lease expiry
+    /// auto-demotion happens without manual ticking), then calls
+    /// [`MeshTransport::tick_scheduler`], which runs one DRR scheduling epoch
+    /// (Req 12) and forwards the drained Deltas to the outbound publish
     /// channel; the Swarm polling task (Subphase 1.1) receives them and
     /// publishes to the shared Gossipsub topic.  Without this loop, Deltas
     /// enqueued via `MeshTransport::enqueue_outbound` (HIGH-priority
@@ -2180,6 +2183,15 @@ impl CoreHandle {
                 ticker.tick().await;
                 match handle.transport.lock() {
                     Ok(mut transport) => {
+                        // Subphase 3.3: advance the Saturate_Mode state
+                        // machine's clock every epoch.  A lease that expired
+                        // without renewal demotes the state machine — and the
+                        // transport reconciles the DRR scheduler mirror — even
+                        // when no Manager event ever arrives again.  This runs
+                        // BEFORE the DRR epoch so a just-expired lease cannot
+                        // keep scheduling everything at HIGH priority for even
+                        // one extra epoch.
+                        transport.tick_saturate(now_secs());
                         match transport.tick_scheduler(
                             crate::transport::DEFAULT_LINK_CAPACITY_BYTES,
                         ) {
@@ -3821,6 +3833,104 @@ mod tests {
                 !transport.scheduler.is_saturate_mode(),
                 "scheduler must leave Saturate Mode on M-of-N termination — \
                  the bare-boolean bypass could never demote it"
+            );
+        }
+
+        cleanup(&path);
+    }
+
+    // ── Test 3d (Subphase 3.3): the production tick loop auto-demotes an ───
+    //
+    // `SaturateModeStateMachine::tick()` is now called from the *same* loop
+    // `init` spawns (`CoreHandle::spawn_scheduler_tick_loop`, established in
+    // Phase 1.4) every epoch with the wall clock, so a lease that expires
+    // without renewal demotes the state machine — and clears the DRR
+    // scheduler mirror — automatically.  This test drives the identical loop
+    // with a short interval, activates Saturate_Mode through the real
+    // production facade, backdates the lease (the loop runs on real time; a
+    // 60-minute lease cannot be waited out in a test), and asserts the
+    // background task — NOT a manual `tick()` / `tick_saturate()` call —
+    // performs the demotion.
+
+    #[tokio::test]
+    async fn scheduler_tick_loop_auto_demotes_expired_saturate_lease() {
+        use crate::transport::saturate::SaturateState;
+
+        let path = tmp_path("saturate_tick_loop");
+        cleanup(&path);
+
+        let (ca_private, ca_public) = make_ca_keypair();
+        let handle = CoreHandle::init(make_config_with_ca_key(&path, ca_public))
+            .await
+            .expect("init");
+
+        // Activate Saturate_Mode through the production facade (Req 13.1):
+        // real Biscuit DISASTER_ALERT token → state machine SATURATE + DRR
+        // scheduler mirror in Saturate Mode.
+        let token = make_disaster_alert_token(&ca_private);
+        handle
+            .activate_saturate_mode(&token)
+            .expect("a valid disaster-alert token must activate Saturate_Mode");
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Saturate);
+            assert!(
+                transport.scheduler.is_saturate_mode(),
+                "scheduler must follow the state machine into Saturate_Mode"
+            );
+        }
+
+        // Backdate the lease so a real-clock tick sees it as already expired
+        // (test-only manipulation of the state machine's lease; the loop
+        // itself only ever sees the wall clock).
+        {
+            let mut transport = handle.transport.lock().unwrap();
+            transport
+                .saturate
+                .backdate_lease_expiry_for_test(now_secs() - 1);
+        }
+
+        // Spawn the production tick loop with a short interval (production
+        // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
+        // use 1 hour so deterministic tests can drive the identical loop).
+        let _loop = CoreHandle::spawn_scheduler_tick_loop(
+            &handle,
+            std::time::Duration::from_millis(10),
+        );
+
+        // Do NOT call tick() / tick_saturate() manually — the background loop
+        // must perform the auto-demotion.  Poll until the state machine drops
+        // back to NORMAL and the scheduler mirror follows.
+        let mut attempts = 0u32;
+        loop {
+            let demoted = {
+                let transport = handle.transport.lock().unwrap();
+                transport.saturate.state() == SaturateState::Normal
+                    && !transport.scheduler.is_saturate_mode()
+            };
+            if demoted {
+                break;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "scheduler tick loop never auto-demoted the expired Saturate_Mode lease"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        // The lease must be gone and the scheduler mirror cleared — the
+        // expiry demotion ran the full reconcile, not just the state machine.
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Normal);
+            assert!(
+                transport.saturate.lease().is_none(),
+                "lease must be cleared by the expiry demotion"
+            );
+            assert!(
+                !transport.scheduler.is_saturate_mode(),
+                "scheduler must leave Saturate Mode on lease-expiry auto-demotion"
             );
         }
 
