@@ -355,6 +355,11 @@ pub fn cloud_sync_loop(
     let mut acknowledged = 0usize;
     let mut rejected = 0usize;
     let mut deferred = 0usize;
+    // Delta IDs the Cloud Ledger freshly acknowledged this cycle.  The caller
+    // uses these to mark each Delta Tier-2 durable in its durability-state
+    // table (Subphase 4.2 — `DurabilitySubsystem::on_cloud_ack`), so a real
+    // cloud ack transitions `WriteResult`-backing state out of `Uncommitted`.
+    let mut acknowledged_ids: Vec<DeltaId> = Vec::new();
 
     // Compute causal order before processing (Req 16.3).
     let ids = topological_sort_queue(queue);
@@ -366,7 +371,10 @@ pub fn cloud_sync_loop(
         };
 
         if entry.tier2_durable {
-            // Already acknowledged — remove and continue.
+            // Already acknowledged in a previous cycle — remove and continue.
+            // Not reported in `acknowledged_ids`: the Tier-2 state marking and
+            // notification for this Delta already happened when it was first
+            // acknowledged, and re-marking would emit a duplicate event.
             queue.acknowledge(&delta_id);
             acknowledged += 1;
             continue;
@@ -395,6 +403,7 @@ pub fn cloud_sync_loop(
             Ok(()) => {
                 queue.acknowledge(&delta_id);
                 acknowledged += 1;
+                acknowledged_ids.push(delta_id);
             }
             Err(reason) => {
                 // Retain in queue; log rejection (Req 16.5).
@@ -408,6 +417,7 @@ pub fn cloud_sync_loop(
         acknowledged,
         rejected,
         deferred,
+        acknowledged_ids,
     }
 }
 
@@ -417,6 +427,12 @@ pub struct CloudSyncResult {
     pub acknowledged: usize,
     pub rejected: usize,
     pub deferred: usize,
+    /// Delta IDs the Cloud Ledger acknowledged **during this cycle** (fresh
+    /// acks only — entries already flagged `tier2_durable` in a previous
+    /// cycle are counted in `acknowledged` but excluded here so their Tier-2
+    /// marking is not repeated).  The production drain caller marks each of
+    /// these Tier-2 durable in the Durability Subsystem (Subphase 4.2).
+    pub acknowledged_ids: Vec<DeltaId>,
 }
 
 // ─── Internal logging ────────────────────────────────────────────────────────

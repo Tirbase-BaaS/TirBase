@@ -149,6 +149,27 @@ const CLOUD_SYNC_INTERVAL_MS: u64 = 1000;
 #[cfg(all(feature = "native", test))]
 const CLOUD_SYNC_INTERVAL_MS: u64 = 3_600_000;
 
+// ─── Durability tier change event (native) ───────────────────────────────────
+
+/// A durability tier transition for one Delta set, surfaced to native host
+/// applications via [`CoreHandle::subscribe_durability_events`] (Req 14.7).
+///
+/// This is the native analogue of the SDK's `DurabilityTierChanged` WASM event
+/// (which `notify_tier_changed` in the durability module continues to push on
+/// the WASM build).  Native-only because the Tier-2 production trigger — the
+/// cloud sync drain loop attached to the in-process `CloudLedger` — exists on
+/// the native build target only (Subphase 4.2).
+#[cfg(feature = "native")]
+#[derive(Debug, Clone)]
+pub struct DurabilityTierChanged {
+    /// The Delta whose durability tier transitioned.
+    pub delta_id: DeltaId,
+    /// The tier before the transition.
+    pub previous_tier: DurabilityTier,
+    /// The tier after the transition (Tier1 or Tier2).
+    pub new_tier: DurabilityTier,
+}
+
 // ─── CoreHandle ───────────────────────────────────────────────────────────────
 
 /// The main handle to a TirBase instance.
@@ -190,6 +211,9 @@ pub struct CoreHandle {
     /// [`DurabilitySubsystem`]'s cloud outbound queue into this ledger in
     /// causal order, sending every locally-written Delta to the Cloud Ledger
     /// and removing it only after the ledger's per-Delta ack (Req 16.3).
+    /// Subphase 4.2: each such ack marks the Delta Tier-2 durable in the
+    /// Durability Subsystem and notifies the host application (see
+    /// [`CoreHandle::subscribe_durability_events`]).
     /// Native-only: the `CloudLedger` embeds a rusqlite-backed
     /// `CrdtEngine`, which does not exist on the WASM build target.
     #[cfg(feature = "native")]
@@ -216,6 +240,19 @@ pub struct CoreHandle {
 
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
+
+    /// Broadcast channel for durability tier transitions (Req 14.7).
+    ///
+    /// The Durability Subsystem's instance-level tier-change listener —
+    /// registered in [`CoreHandle::init`] — forwards every Tier-1 quorum /
+    /// Tier-2 cloud-ack transition here, so native host applications can
+    /// react to a Delta becoming durable through
+    /// [`CoreHandle::subscribe_durability_events`] instead of only observing
+    /// the stderr log.  Native-only: on the WASM target the SDK receives the
+    /// same transitions as `DurabilityTierChanged` events through
+    /// `core_poll_events()` (Subphase 4.2).
+    #[cfg(feature = "native")]
+    durability_events_channel: tokio::sync::broadcast::Sender<DurabilityTierChanged>,
 
     /// Sender end of the inbound Gossipsub message channel.
     /// The spawned event loop writes here; `process_inbound_messages` drains via `inbound_rx`.
@@ -386,12 +423,37 @@ impl CoreHandle {
         let migration = Arc::new(Mutex::new(migration));
 
         // ── Durability Subsystem ──────────────────────────────────────────────
-        let durability = DurabilitySubsystem::new(QuorumConfig {
+        #[cfg_attr(not(feature = "native"), allow(unused_mut))]
+        let mut durability = DurabilitySubsystem::new(QuorumConfig {
             k: config.deployment.quorum_k.max(1),
             n: config.deployment.quorum_n.max(1),
             spatial_diversity_min: config.deployment.spatial_diversity_min,
             max_single_sector_fraction: 0.7,
         });
+
+        // Subphase 4.2: attach a tier-change listener forwarding every
+        // durability transition (Tier-1 quorum, Tier-2 cloud ack) to this
+        // handle's broadcast channel, so CoreHandle/SDK consumers are notified
+        // when a written Delta becomes durable (Req 14.7).  The listener only
+        // sends on the non-blocking broadcast channel — it is invoked while
+        // the Durability Subsystem is locked, so it must never re-enter it.
+        #[cfg(feature = "native")]
+        let (durability_events_channel, _durability_events_rx) =
+            tokio::sync::broadcast::channel::<DurabilityTierChanged>(64);
+
+        #[cfg(feature = "native")]
+        {
+            let tx = durability_events_channel.clone();
+            durability.set_tier_changed_listener(Box::new(
+                move |delta_id, previous_tier, new_tier| {
+                    let _ = tx.send(DurabilityTierChanged {
+                        delta_id,
+                        previous_tier,
+                        new_tier,
+                    });
+                },
+            ));
+        }
         let durability = Arc::new(Mutex::new(durability));
 
         // ── Cloud Ledger (native) ────────────────────────────────────────────
@@ -404,9 +466,9 @@ impl CoreHandle {
         // hash, so locally-written Deltas (produced by the same identity and
         // schema in `write()`) verify and merge.  The production cloud sync
         // loop spawned below drains the queue into it in causal order (Req
-        // 16.3); acknowledging marks the Delta for removal from the outbound
-        // queue — Tier-2 state marking + notification is wired on top in
-        // Subphase 4.2.
+        // 16.3); Subphase 4.2 wires each ack into
+        // `DurabilitySubsystem::on_cloud_ack`, which marks the Delta Tier-2
+        // durable and notifies the handle's durability event channel.
         #[cfg(feature = "native")]
         let cloud_ledger = Arc::new(Mutex::new(CloudLedger::new_in_memory(
             identity.signing_key_bytes(),
@@ -695,6 +757,8 @@ impl CoreHandle {
             revocation,
             migration,
             diagnostics_channel: diag_tx,
+            #[cfg(feature = "native")]
+            durability_events_channel,
             inbound_tx,
             inbound_rx,
             #[cfg(feature = "native")]
@@ -2304,7 +2368,8 @@ impl CoreHandle {
 
     /// Run one cloud sync cycle: drain the Durability Subsystem's cloud
     /// outbound queue through the real `CloudLedgerConnection` in causal
-    /// order (Subphase 4.1).
+    /// order (Subphase 4.1) and mark every freshly-acked Delta Tier-2 durable
+    /// (Subphase 4.2).
     ///
     /// The heavy lifting is [`cloud_sync_loop`]: it topologically sorts the
     /// pending entries by their `causal_parents` (parents before children,
@@ -2316,6 +2381,16 @@ impl CoreHandle {
     /// because no production path marks cloud-queue entries compacted yet,
     /// so the deferral branch never fires in practice (it stays wired for
     /// the day Tier-1 compaction reaches the queue, Req 14.8/16.8).
+    ///
+    /// **Tier-2 marking (Subphase 4.2):** the loop alone removes an acked
+    /// Delta from the queue but never advances the Delta's durability state —
+    /// `WriteResult.durability_tier` would stay `Uncommitted` forever in a
+    /// real deployment.  So for every Delta ID the loop freshly acknowledged
+    /// (`CloudSyncResult::acknowledged_ids`), this cycle invokes
+    /// [`DurabilitySubsystem::on_cloud_ack`], which marks the Delta Tier-2
+    /// durable and notifies the handle's durability event channel / the SDK
+    /// (Req 14.4, 14.7).  `on_cloud_ack`'s queue removal is idempotent, so
+    /// calling it after the loop's own removal is safe.
     ///
     /// Lock order is always `durability` → `cloud_ledger` (matching
     /// `spawn_cloud_sync_loop`); the ledger never takes the durability lock.
@@ -2346,11 +2421,21 @@ impl CoreHandle {
         })?;
         let mut conn = CloudLedgerConnection::new(&mut ledger);
 
-        Ok(cloud_sync_loop(
+        let result = cloud_sync_loop(
             durability.cloud_queue_mut(),
             &mut conn,
             &|_delta_id, _receipt_holders| None,
-        ))
+        );
+
+        // Subphase 4.2: a real cloud ack must mark the Delta durable.  The
+        // queue-level sync loop removed the entry; now advance the per-Delta
+        // durability state (the state backing `WriteResult.durability_tier`)
+        // to Tier-2 and notify CoreHandle/SDK of the transition.
+        for delta_id in &result.acknowledged_ids {
+            durability.on_cloud_ack(delta_id)?;
+        }
+
+        Ok(result)
     }
 
     /// Spawn the production cloud sync loop for this handle.
@@ -2419,6 +2504,39 @@ impl CoreHandle {
             .lock()
             .map(|l| l.is_committed(delta_id))
             .unwrap_or(false)
+    }
+
+    /// The current durability tier of a written Delta (Req 14.7).
+    ///
+    /// This is the same per-Delta state that `WriteResult::durability_tier`
+    /// reports at write time; it transitions `Uncommitted` → `Tier1`/`Tier2`
+    /// as quorum receipts arrive and the Cloud Ledger acknowledges the Delta
+    /// (Subphase 4.2 — the production cloud sync drain now drives the Tier-2
+    /// transition instead of leaving every Delta `Uncommitted` forever).  Host
+    /// applications that poll or that miss the broadcast event (see
+    /// [`CoreHandle::subscribe_durability_events`]) can read the current tier
+    /// here.
+    #[cfg(feature = "native")]
+    pub(crate) fn durability_tier(&self, delta_id: &DeltaId) -> DurabilityTier {
+        self.durability
+            .lock()
+            .map(|d| d.durability_tier(delta_id))
+            .unwrap_or(DurabilityTier::Uncommitted)
+    }
+
+    /// Subscribe to durability tier transitions (Req 14.7).
+    ///
+    /// Returns a new receiver that will receive a [`DurabilityTierChanged`]
+    /// event every time a Delta this handle registered transitions to Tier-1
+    /// (quorum) or Tier-2 (Cloud Ledger ack) — the native analogue of the SDK's
+    /// `durability-tier-changed` event.  Subscribers that lag beyond the
+    /// channel's ring buffer (64 events) miss the oldest transitions, so poll
+    /// [`CoreHandle::durability_tier`] for authoritative current state.
+    #[cfg(feature = "native")]
+    pub fn subscribe_durability_events(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {
+        self.durability_events_channel.subscribe()
     }
 
     /// Inject a `GossipMessage` directly into the inbound channel.
@@ -6043,6 +6161,221 @@ mod cloud_sync_tests {
         // draining.  Poll until the queue is empty and the ledger committed
         // every Delta.
         wait_for_drain(&handle, &delta_ids).await;
+
+        cleanup(&path);
+    }
+}
+
+// ─── Subphase 4.2: Tier-2 acknowledgement path ───────────────────────────────
+
+/// Integration tests for the Tier-2 acknowledgement path (Subphase 4.2): a
+/// real per-Delta Cloud Ledger ack from the production drain —
+/// [`CoreHandle::run_cloud_sync_cycle`] / the `CoreHandle::init`-spawned
+/// [`CoreHandle::spawn_cloud_sync_loop`] — now marks the Delta Tier-2 durable
+/// inside the Durability Subsystem (the state backing
+/// `WriteResult::durability_tier`) and notifies CoreHandle/SDK of the
+/// transition.  Before Subphase 4.2 the queue-level sync loop removed acked
+/// entries but never advanced per-Delta durability state, so every Delta
+/// reported `Uncommitted` forever in a real deployment.
+///
+/// The assertion surface is the real production construction: `CoreHandle::init`
+/// → `write()` → durability cloud outbound queue → production drain → real
+/// Cloud Ledger → `DurabilitySubsystem::on_cloud_ack` (Tier-2 marking +
+/// notification).
+#[cfg(all(test, feature = "native"))]
+mod tier2_ack_tests {
+    use super::*;
+    use serde_json::json;
+    use std::env;
+    use std::time::Duration;
+
+    fn make_config(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+            },
+        }
+    }
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_tier2_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    /// Poll until the cloud outbound queue is empty and every written Delta is
+    /// committed on the ledger, or fail after `attempts` polls.
+    async fn wait_for_drain(handle: &Arc<CoreHandle>, delta_ids: &[[u8; 32]]) {
+        let mut attempts = 0u32;
+        loop {
+            let drained = handle.cloud_queue_depth() == 0
+                && delta_ids
+                    .iter()
+                    .all(|id| handle.cloud_ledger_is_committed(id));
+            if drained {
+                return;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "cloud sync never drained the queue to the ledger (depth={})",
+                handle.cloud_queue_depth()
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    /// Receive one durability tier change event, failing if none arrives.
+    async fn next_tier_event(
+        rx: &mut tokio::sync::broadcast::Receiver<DurabilityTierChanged>,
+    ) -> DurabilityTierChanged {
+        tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("durability tier event must be delivered")
+            .expect("durability event channel closed")
+    }
+
+    // ── Test 1: a real cloud ack marks the Delta Tier-2 + notifies ───────────
+    //
+    // Deterministic end-to-end Tier-2 path: write through the production
+    // `write()`, run exactly one [`CoreHandle::run_cloud_sync_cycle`] (the
+    // function `spawn_cloud_sync_loop` calls every tick), and assert the ack
+    // transitioned the Delta's durability state — the state behind
+    // `WriteResult.durability_tier` — from `Uncommitted` to `Tier2` and
+    // delivered the `DurabilityTierChanged` event to a CoreHandle subscriber.
+
+    #[tokio::test]
+    async fn cloud_ack_marks_delta_tier2_and_notifies_corehandle() {
+        let path = tmp_path("ack");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Subscribe before the ack so the transition is observed.
+        let mut durability_events = handle.subscribe_durability_events();
+
+        let wr = handle
+            .write("cloud", "row-1", json!({ "seq": 1, "phase": "4.2" }))
+            .await
+            .expect("write");
+
+        // A write is a local commit: both the returned WriteResult and the
+        // Durability Subsystem's per-Delta state start Uncommitted.
+        assert_eq!(wr.durability_tier, DurabilityTier::Uncommitted);
+        assert_eq!(
+            handle.durability_tier(&wr.delta_id),
+            DurabilityTier::Uncommitted,
+            "Delta must start Uncommitted before any cloud ack"
+        );
+
+        // One production cloud sync cycle — the drain function
+        // `spawn_cloud_sync_loop` invokes every tick.
+        let result = handle
+            .run_cloud_sync_cycle()
+            .expect("cloud sync cycle must not fail");
+        assert_eq!(result.acknowledged, 1, "the Delta must be acked");
+        assert_eq!(result.rejected, 0);
+        assert_eq!(result.acknowledged_ids.len(), 1);
+        assert_eq!(result.acknowledged_ids[0], wr.delta_id);
+
+        // The real cloud ack marked the Delta durable (Req 14.4): Tier-2,
+        // queue emptied, ledger committed.
+        assert_eq!(
+            handle.durability_tier(&wr.delta_id),
+            DurabilityTier::Tier2,
+            "a cloud ack must transition the Delta to Tier-2, not leave it Uncommitted"
+        );
+        assert_eq!(handle.cloud_queue_depth(), 0);
+        assert!(handle.cloud_ledger_is_committed(&wr.delta_id));
+
+        // CoreHandle was notified of the durable status (Req 14.7).
+        let event = next_tier_event(&mut durability_events).await;
+        assert_eq!(event.delta_id, wr.delta_id);
+        assert_eq!(event.previous_tier, DurabilityTier::Uncommitted);
+        assert_eq!(event.new_tier, DurabilityTier::Tier2);
+
+        cleanup(&path);
+    }
+
+    // ── Test 2: the production cloud sync loop drives the transition ─────────
+    //
+    // Same Tier-2 acceptance over the spawned background loop (the function
+    // `CoreHandle::init` runs in production) instead of a manual cycle call:
+    // writes drain to the Cloud Ledger on their own and each Delta reaches
+    // Tier-2 with a CoreHandle notification per transition.
+
+    #[tokio::test]
+    async fn production_cloud_sync_loop_transitions_writes_to_tier2() {
+        let path = tmp_path("loop");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Subscribe before any ack.
+        let mut durability_events = handle.subscribe_durability_events();
+
+        // Spawn the production cloud sync loop with a short interval.
+        let _loop = CoreHandle::spawn_cloud_sync_loop(&handle, Duration::from_millis(10));
+
+        let mut delta_ids = Vec::new();
+        for i in 0..2 {
+            let wr = handle
+                .write("cloud", &format!("row-{i}"), json!({ "seq": i }))
+                .await
+                .expect("write");
+            assert_eq!(wr.durability_tier, DurabilityTier::Uncommitted);
+            delta_ids.push(wr.delta_id);
+        }
+
+        // Do NOT call run_cloud_sync_cycle() — the background loop must mark
+        // the Deltas durable.
+        wait_for_drain(&handle, &delta_ids).await;
+
+        for id in &delta_ids {
+            assert_eq!(
+                handle.durability_tier(id),
+                DurabilityTier::Tier2,
+                "background drain must transition Delta {} to Tier-2",
+                hex::encode(id)
+            );
+        }
+
+        // One notification per transition, each reporting the Delta's Tier-2
+        // durable status.
+        let mut notified: Vec<[u8; 32]> = Vec::new();
+        for _ in 0..delta_ids.len() {
+            let event = next_tier_event(&mut durability_events).await;
+            assert_eq!(event.new_tier, DurabilityTier::Tier2);
+            notified.push(event.delta_id);
+        }
+        notified.sort();
+        let mut expected = delta_ids.clone();
+        expected.sort();
+        assert_eq!(
+            notified, expected,
+            "every acked Delta must notify CoreHandle of its Tier-2 status"
+        );
 
         cleanup(&path);
     }

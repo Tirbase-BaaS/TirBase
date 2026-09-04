@@ -86,7 +86,28 @@ pub struct DurabilitySubsystem {
     states: HashMap<DeltaId, DeltaDurabilityState>,
     /// Cloud outbound queue (capped at 100,000 entries — Req 16.6).
     cloud_queue: CloudOutboundQueue,
+    /// Optional application-layer listener invoked when a Delta's durability
+    /// tier transitions (Tier-1 via quorum receipts, Tier-2 via a Cloud Ledger
+    /// ack — Req 14.7).
+    ///
+    /// Registered by [`CoreHandle::init`](crate::api::CoreHandle::init) so the
+    /// transition is surfaced to the host application through
+    /// [`CoreHandle::subscribe_durability_events`](crate::api::CoreHandle::subscribe_durability_events)
+    /// on native builds.  Subsystem-level unit tests construct the subsystem
+    /// without a listener; the crate-global `notify_tier_changed` (stderr log,
+    /// WASM event queue) fires regardless.
+    tier_changed_listener: Option<TierChangedListener>,
 }
+
+/// Application-layer callback for a durability tier transition
+/// `(delta_id, previous_tier, new_tier)` (Req 14.7).
+///
+/// `Send + Sync` so the subsystem (and the `CoreHandle` hosting it) can be
+/// shared across the production background loops.  The listener must not lock
+/// the Durability Subsystem itself — it is invoked while the subsystem is
+/// already locked — so `CoreHandle::init` registers a listener that only
+/// forwards onto a non-blocking broadcast channel.
+type TierChangedListener = Box<dyn Fn(DeltaId, DurabilityTier, DurabilityTier) + Send + Sync>;
 
 impl DurabilitySubsystem {
     /// Create a new subsystem with the given quorum configuration.
@@ -95,6 +116,37 @@ impl DurabilitySubsystem {
             quorum_config,
             states: HashMap::new(),
             cloud_queue: CloudOutboundQueue::new(),
+            tier_changed_listener: None,
+        }
+    }
+
+    /// Register an application-layer listener for durability tier transitions
+    /// (Tier-1 quorum reached, Tier-2 Cloud Ledger ack — Req 14.7).
+    ///
+    /// Production caller: [`CoreHandle::init`](crate::api::CoreHandle::init),
+    /// which attaches a listener forwarding transitions to the handle's
+    /// durability event broadcast channel (Subphase 4.2).  The listener is
+    /// invoked while the subsystem mutex is held, so it must not re-enter the
+    /// subsystem.
+    pub fn set_tier_changed_listener(
+        &mut self,
+        listener: TierChangedListener,
+    ) {
+        self.tier_changed_listener = Some(listener);
+    }
+
+    /// Emit a tier transition to the crate-global notifier (stderr on native,
+    /// `DurabilityTierChanged` WASM event queue on the SDK target) and, when
+    /// registered, to the instance-level listener (Req 14.7).
+    fn emit_tier_changed(
+        &self,
+        delta_id: DeltaId,
+        previous_tier: DurabilityTier,
+        new_tier: DurabilityTier,
+    ) {
+        notify_tier_changed(delta_id, new_tier);
+        if let Some(listener) = &self.tier_changed_listener {
+            listener(delta_id, previous_tier, new_tier);
         }
     }
 
@@ -189,7 +241,11 @@ impl DurabilitySubsystem {
             // Track the receipt holder on the cloud queue entry for re-fetch (Req 16.8).
             self.cloud_queue.add_receipt_holder(delta_id, issuer_did);
 
-            notify_tier_changed(*delta_id, DurabilityTier::Tier1);
+            self.emit_tier_changed(
+                *delta_id,
+                DurabilityTier::Uncommitted,
+                DurabilityTier::Tier1,
+            );
             return Ok(true);
         }
 
@@ -203,14 +259,29 @@ impl DurabilitySubsystem {
 
     /// Called when the Cloud Ledger acknowledges a Delta set (Req 14.4, 14.7).
     ///
-    /// Marks the Delta as Tier-2 durable and removes it from the cloud queue.
+    /// Marks the Delta as Tier-2 durable and removes it from the cloud queue
+    /// (the removal is idempotent — safe when the sync loop already removed
+    /// the entry).  Also notifies the application layer of the transition, so
+    /// the Delta's durability tier — the state backing
+    /// `WriteResult::durability_tier` — no longer stays `Uncommitted` forever
+    /// after a real cloud ack.
+    ///
+    /// Production caller: `crate::api::CoreHandle::run_cloud_sync_cycle`, which
+    /// invokes this once per Delta ID the cloud sync loop freshly acknowledged
+    /// (Subphase 4.2).
     pub fn on_cloud_ack(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
+        let previous_tier = self
+            .states
+            .get(delta_id)
+            .map(|s| s.tier)
+            .unwrap_or(DurabilityTier::Uncommitted);
+
         if let Some(state) = self.states.get_mut(delta_id) {
             state.tier = DurabilityTier::Tier2;
         }
         // Remove from cloud queue — Tier-2 confirmed (Req 16.3).
         self.cloud_queue.acknowledge(delta_id);
-        notify_tier_changed(*delta_id, DurabilityTier::Tier2);
+        self.emit_tier_changed(*delta_id, previous_tier, DurabilityTier::Tier2);
         Ok(())
     }
 
@@ -441,6 +512,32 @@ mod tests {
 
         assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Tier2);
         assert_eq!(sys.cloud_queue_depth(), 0, "Delta removed from queue on Tier-2 ack");
+    }
+
+    #[test]
+    fn tier_changed_listener_fires_on_cloud_ack_transition() {
+        let delta_id = [0x1A; 32];
+        let state_hash = [0x2B; 32];
+
+        let mut sys = DurabilitySubsystem::new(make_quorum_k2());
+        let calls: std::sync::Arc<std::sync::Mutex<Vec<(DeltaId, DurabilityTier, DurabilityTier)>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let calls_clone = std::sync::Arc::clone(&calls);
+        sys.set_tier_changed_listener(Box::new(move |id, prev, new| {
+            calls_clone.lock().unwrap().push((id, prev, new));
+        }));
+
+        sys.register_delta(delta_id, state_hash, vec![], vec![], HashMap::new())
+            .unwrap();
+        sys.on_cloud_ack(&delta_id).unwrap();
+
+        let calls = calls.lock().unwrap();
+        assert_eq!(
+            calls.len(),
+            1,
+            "the instance listener must fire exactly once per transition"
+        );
+        assert_eq!(calls[0], (delta_id, DurabilityTier::Uncommitted, DurabilityTier::Tier2));
     }
 
     // ── Tier-1 does not remove from cloud queue ───────────────────────────────

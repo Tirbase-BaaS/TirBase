@@ -315,9 +315,12 @@ The test asserts:
 
 **Status:** VERIFIED (513 tests, 0 failures)
 
-`cargo test --features native` passes all 513 tests including all 22 property
+`cargo test --features native` passes all 516 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
-`api::cloud_sync_tests` production cloud-sync drain tests).
+`api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
+the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
+`durability::tests::tier_changed_listener_fires_on_cloud_ack_transition`
+listener unit test).
 
 ---
 
@@ -451,9 +454,49 @@ loop does the draining — no manual cycle call).  The same `cloud_sync_loop`
 function's causal-order enforcement is additionally covered with a recording
 connection in `durability/integration_tests.rs`.
 
-**Deferred to Subphase 4.2:** converting a drain-loop acks into Tier-2 state
-marking (`DurabilitySubsystem::on_cloud_ack`) and notifying CoreHandle/SDK,
-so `WriteResult`/durability tier transitions in real deployments.
+---
+
+### Item 10 — Tier-2 Acknowledgement Path (Subphase 4.2)
+
+**Status:** VERIFIED
+
+A real Cloud Ledger ack now marks Deltas durable and notifies
+CoreHandle/SDK, so the per-Delta durability state backing
+`WriteResult.durability_tier` no longer stays `Uncommitted` forever in real
+deployments (Req 14.4, 14.7):
+
+- `cloud_sync_loop` now reports the Delta IDs it freshly acknowledged
+  (`CloudSyncResult::acknowledged_ids`; entries already flagged
+  `tier2_durable` by an earlier cycle are excluded so marking is not
+  repeated).
+- `CoreHandle::run_cloud_sync_cycle` — the function the production
+  `CoreHandle::init`-spawned `spawn_cloud_sync_loop` calls every tick —
+  invokes `DurabilitySubsystem::on_cloud_ack` once per freshly-acked Delta:
+  the Delta's tier advances to `Tier2` (the state `WriteResult`
+  `durability_tier` reports), the queue removal is confirmed (idempotent),
+  and the application layer is notified.
+- `DurabilitySubsystem` gained an instance-level tier-change listener
+  (`set_tier_changed_listener`) fired on Tier-1 quorum and Tier-2 ack
+  transitions alongside the existing crate-global notifier (stderr native /
+  `DurabilityTierChanged` WASM event queue).  `CoreHandle::init` registers a
+  listener forwarding each transition onto a new native broadcast channel,
+  consumed by `CoreHandle::subscribe_durability_events` — the native
+  analogue of the SDK's `durability-tier-changed` event.  WASM behaviour is
+  unchanged: the SDK still receives `DurabilityTierChanged` events through
+  `core_poll_events()`.
+
+`api::tier2_ack_tests` covers it over the real production construction
+(`CoreHandle::init` → `write()` → durability cloud queue → production drain →
+real Cloud Ledger → `on_cloud_ack`):
+`cloud_ack_marks_delta_tier2_and_notifies_corehandle` (one explicit cycle —
+asserts the tier transitioned `Uncommitted` → `Tier2` via
+`CoreHandle::durability_tier`, queue depth 0, ledger committed, and a
+`DurabilityTierChanged { previous: Uncommitted, new: Tier2 }` event delivered
+to a subscriber) and
+`production_cloud_sync_loop_transitions_writes_to_tier2` (the spawned
+background loop — no manual cycle call — transitions every write to Tier-2
+with one notification per Delta).  The listener contract itself is unit-tested
+in `durability::tests::tier_changed_listener_fires_on_cloud_ack_transition`.
 
 ---
 
