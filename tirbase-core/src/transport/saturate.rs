@@ -12,7 +12,13 @@
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
 
-/// Duration of a Saturate_Mode Lease: 60 minutes in seconds (Req 13.3).
+/// Default duration of a Saturate_Mode Lease: 60 minutes in seconds (Req 13.3).
+///
+/// This is the spec-mandated window used whenever a deployment does not
+/// override the lease duration (Subphase 3.4): the production config knob
+/// (`TransportConfig::saturate_lease_duration_secs`, fed from
+/// `DeploymentConfig` by `CoreHandle::init`) replaces it per-instance, and
+/// this constant remains the canonical default.
 pub const SATURATE_LEASE_DURATION_SECS: i64 = 60 * 60;
 
 /// Renewal window: 15 minutes before expiry (Req 13.4).
@@ -65,6 +71,10 @@ pub struct SaturateModeStateMachine {
     termination_threshold_m: usize,
     /// Root CA public key used to verify Manager Biscuit tokens (32 bytes).
     root_ca_public_key: Vec<u8>,
+    /// Lease duration in seconds (Req 13.3) — configured per deployment; a
+    /// lease opened by `activate()` expires `lease_duration_secs` after its
+    /// `activated_at`/renewal timestamp.
+    lease_duration_secs: i64,
 }
 
 impl SaturateModeStateMachine {
@@ -76,12 +86,25 @@ impl SaturateModeStateMachine {
     ///
     /// `root_ca_public_key` — 32-byte Ed25519 root CA public key for offline
     /// Biscuit token verification.
-    pub fn new(termination_threshold_m: usize, root_ca_public_key: Vec<u8>) -> Self {
+    ///
+    /// `lease_duration_secs` — lease window opened by a successful
+    /// activation/renewal (Req 13.3).  Pass
+    /// [`SATURATE_LEASE_DURATION_SECS`] (60 minutes) for the spec default.
+    /// The production wiring (`CoreHandle::init` → `TransportConfig` →
+    /// [`MeshTransport::new`](crate::transport::MeshTransport::new)) feeds the
+    /// deployment-configured value here; a short window is how the Subphase
+    /// 3.4 runtime test lets a lease expire through the wall clock.
+    pub fn new(
+        termination_threshold_m: usize,
+        root_ca_public_key: Vec<u8>,
+        lease_duration_secs: i64,
+    ) -> Self {
         Self {
             state: SaturateState::Normal,
             lease: None,
             termination_threshold_m,
             root_ca_public_key,
+            lease_duration_secs,
         }
     }
 
@@ -106,8 +129,8 @@ impl SaturateModeStateMachine {
     ///
     /// On any failure returns `SignatureVerificationFailed` and preserves the
     /// current mode (Req 13.7).  Calling `activate()` while already in
-    /// `SATURATE` state replaces the existing lease with a new 60-minute
-    /// window (Req 13.3).
+    /// `SATURATE` state replaces the existing lease with a new
+    /// `lease_duration_secs` window (Req 13.3).
     pub fn activate(
         &mut self,
         manager_did: Did,
@@ -118,7 +141,7 @@ impl SaturateModeStateMachine {
         self.verify_disaster_alert_token(biscuit_token, now_secs)?;
 
         // Token valid — activate the lease.
-        let expires_at = now_secs + SATURATE_LEASE_DURATION_SECS;
+        let expires_at = now_secs + self.lease_duration_secs;
         self.lease = Some(SaturateLease {
             activated_at: now_secs,
             expires_at,
@@ -135,7 +158,7 @@ impl SaturateModeStateMachine {
     ///
     /// Valid only when in `SATURATE` state **and** within the 15-minute renewal
     /// window before the lease expires.  A valid renewal extends the lease by
-    /// 60 minutes from `now_secs`.
+    /// `lease_duration_secs` from `now_secs` (60 minutes with the spec default).
     ///
     /// An absent, expired, or unverifiable token returns
     /// `SignatureVerificationFailed` and preserves the current mode (Req 13.7).
@@ -155,10 +178,10 @@ impl SaturateModeStateMachine {
         // Verify the token carries a disaster-alert caveat.
         self.verify_disaster_alert_token(biscuit_token, now_secs)?;
 
-        // Extend the lease by 60 minutes from the renewal timestamp.
+        // Extend the lease by `lease_duration_secs` from the renewal timestamp.
         match self.lease.as_mut() {
             Some(lease) => {
-                lease.expires_at = now_secs + SATURATE_LEASE_DURATION_SECS;
+                lease.expires_at = now_secs + self.lease_duration_secs;
                 lease.last_renewed_at = Some(now_secs);
             }
             None => {
@@ -233,10 +256,13 @@ impl SaturateModeStateMachine {
     /// Test-only: backdate the active lease's expiry so a real-clock tick
     /// sees it as already expired.
     ///
-    /// The production tick loop (Subphase 3.3) passes wall-clock seconds, so
-    /// the Subphase 3.3 integration test cannot wait out the 60-minute lease
-    /// — it makes the lease look past-due instead and asserts the background
-    /// loop (not a manual `tick()` call) performs the demotion.
+    /// The production tick loop passes wall-clock seconds, so the Subphase 3.3
+    /// integration test could not wait out the 60-minute lease — it made the
+    /// lease look past-due instead and asserted the background loop (not a
+    /// manual `tick()` call) performs the demotion.  Subphase 3.4 supersedes
+    /// this with a genuinely runtime-expiring lease (a short configured lease
+    /// duration through the production config path), so new tests should not
+    /// reach for this helper.
     #[cfg(test)]
     pub(crate) fn backdate_lease_expiry_for_test(&mut self, expires_at: i64) {
         if let Some(lease) = self.lease.as_mut() {
@@ -545,7 +571,7 @@ mod tests {
     #[test]
     fn activate_with_valid_token_transitions_to_saturate() {
         let (token, ca_pub) = make_disaster_alert_token(3600);
-        let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+        let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
         let now = now_secs();
 
         sm.activate("did:key:z6MkManager".to_string(), &token, now)
@@ -558,7 +584,7 @@ mod tests {
 
     #[test]
     fn activate_with_absent_token_returns_error() {
-        let mut sm = SaturateModeStateMachine::new(2, vec![0u8; 32]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![0u8; 32], SATURATE_LEASE_DURATION_SECS);
         let err = sm
             .activate("did:key:z6MkManager".to_string(), &[], now_secs())
             .unwrap_err();
@@ -574,7 +600,7 @@ mod tests {
     #[test]
     fn activate_without_disaster_alert_caveat_returns_error() {
         let (token, ca_pub) = make_token_without_caveat(3600);
-        let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+        let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
         let err = sm
             .activate("did:key:z6MkManager".to_string(), &token, now_secs())
             .unwrap_err();
@@ -592,7 +618,7 @@ mod tests {
     #[test]
     fn lease_expiry_reverts_to_normal() {
         let (token, ca_pub) = make_disaster_alert_token(3600);
-        let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+        let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
         let now = now_secs();
 
         sm.activate("did:key:z6MkManager".to_string(), &token, now)
@@ -611,7 +637,7 @@ mod tests {
 
     #[test]
     fn tick_in_normal_mode_is_noop() {
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
         sm.tick(now_secs() + 1_000_000);
         assert_eq!(sm.state(), SaturateState::Normal);
     }
@@ -622,7 +648,7 @@ mod tests {
     #[test]
     fn renew_in_normal_mode_returns_error() {
         let (token, ca_pub) = make_disaster_alert_token(3600);
-        let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+        let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
         let err = sm
             .renew("did:key:z6MkManager".to_string(), &token, now_secs())
             .unwrap_err();
@@ -670,7 +696,7 @@ mod tests {
         let activate_token = make_token(&private_bytes, 3600);
         let renew_token    = make_token(&private_bytes, 3600);
 
-        let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+        let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
 
         sm.activate("did:key:z6MkManager".to_string(), &activate_token, now)
             .expect("activate should succeed");
@@ -699,7 +725,7 @@ mod tests {
         use rand::rngs::OsRng;
 
         // Build state machine manually in SATURATE state.
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
         // Force into SATURATE state by directly manipulating (for test isolation).
         sm.state = SaturateState::Saturate;
         sm.lease = Some(SaturateLease {
@@ -746,7 +772,7 @@ mod tests {
         let sig1 = sk1.sign(message).to_bytes().to_vec();
         let sig2 = sk2.sign(message).to_bytes().to_vec();
 
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
         // Force SATURATE state.
         sm.state = SaturateState::Saturate;
         sm.lease = Some(SaturateLease {
@@ -776,7 +802,7 @@ mod tests {
         let did1 = keypair_to_did_key(&sk1);
         let sig1 = sk1.sign(message).to_bytes().to_vec();
 
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
         sm.state = SaturateState::Saturate;
         sm.lease = Some(SaturateLease {
             activated_at: 0,
@@ -810,7 +836,7 @@ mod tests {
         let sig1 = sk1.sign(message).to_bytes().to_vec();
         let sig2 = sk2.sign(message).to_bytes().to_vec();
 
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
         // Already NORMAL — termination is a no-op.
         sm.terminate(vec![(did1, sig1), (did2, sig2)], message, 0)
             .expect("termination in NORMAL is a no-op");

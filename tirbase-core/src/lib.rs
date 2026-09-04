@@ -240,6 +240,9 @@ mod wasm_exports {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);
+                // the WASM export surface does not expose lease-duration tuning.
+                saturate_lease_duration_secs: 3600,
             },
         };
         let handle = api::CoreHandle::init(config).await.map_err(to_js_err)?;

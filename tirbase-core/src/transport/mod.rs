@@ -20,7 +20,7 @@ use crate::errors::TirBaseError;
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
-    saturate::{SaturateModeStateMachine, SaturateState},
+    saturate::{SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS},
     scheduler::{DrrScheduler, QueuedDelta},
     session::SessionManager,
 };
@@ -66,6 +66,13 @@ pub struct TransportConfig {
     /// (Req 13.1, 13.7).  Empty = explicit unconfigured state: activation
     /// fails until a key is configured.
     pub root_ca_public_key: Vec<u8>,
+    /// Duration in seconds of a Saturate_Mode Lease opened by a DISASTER_ALERT
+    /// activation or heartbeat renewal (Req 13.3).  Defaults to
+    /// [`SATURATE_LEASE_DURATION_SECS`] (60 minutes — the spec window); a
+    /// deployment may configure a shorter window (e.g. faster failover or
+    /// runtime tests) or a longer one.  Clamped to `>= 1` at construction so a
+    /// misconfigured zero never opens an already-expired lease.
+    pub saturate_lease_duration_secs: i64,
 }
 
 impl Default for TransportConfig {
@@ -80,6 +87,7 @@ impl Default for TransportConfig {
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             saturate_termination_threshold_m: 1,
             root_ca_public_key: vec![],
+            saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
         }
     }
 }
@@ -233,6 +241,10 @@ impl MeshTransport {
         let saturate = SaturateModeStateMachine::new(
             config.saturate_termination_threshold_m.max(1),
             config.root_ca_public_key.clone(),
+            // Subphase 3.4: the lease window is deployment-configurable; a
+            // short configured duration is what lets a runtime test let the
+            // lease expire through the wall clock instead of backdating it.
+            config.saturate_lease_duration_secs.max(1),
         );
 
         Self {
@@ -769,6 +781,7 @@ mod tests {
                 listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
                 saturate_termination_threshold_m: 1,
                 root_ca_public_key: vec![],
+                saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
             },
         )
     }
@@ -792,6 +805,7 @@ mod tests {
                 listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
                 saturate_termination_threshold_m: termination_threshold_m,
                 root_ca_public_key,
+                saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
             },
         )
     }

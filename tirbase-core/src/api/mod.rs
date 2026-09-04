@@ -373,6 +373,11 @@ impl CoreHandle {
                     .first()
                     .map(|k| k.to_vec())
                     .unwrap_or_default(),
+                // Subphase 3.4: the lease window is deployment-configurable
+                // (default 60 min, Req 13.3).  A short configured window is
+                // what lets a runtime test let the lease expire through the
+                // wall clock instead of backdating it.
+                saturate_lease_duration_secs: config.deployment.saturate_lease_duration_secs.max(1),
                 ..TransportConfig::default()
             },
         );
@@ -2278,7 +2283,7 @@ pub struct InitConfig {
 }
 
 /// Deployment-specific configuration.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct DeploymentConfig {
     /// Revocation threshold M (signatures required).
     pub revocation_m: usize,
@@ -2300,6 +2305,33 @@ pub struct DeploymentConfig {
     pub quorum_k: usize,
     /// N candidate peers for quorum.
     pub quorum_n: usize,
+    /// Duration in seconds of a Saturate_Mode Lease (Req 13.3), fed by
+    /// `CoreHandle::init` into the transport's Saturate_Mode state machine.
+    /// Defaults to [`crate::transport::saturate::SATURATE_LEASE_DURATION_SECS`]
+    /// (60 minutes — the spec window); a deployment may shorten it (faster
+    /// auto-demotion on Manager silence) or lengthen it.  Clamped to `>= 1` at
+    /// init.
+    pub saturate_lease_duration_secs: i64,
+}
+
+impl Default for DeploymentConfig {
+    /// Manual default: every field derives-0 except the Saturate_Mode lease
+    /// duration, which defaults to the spec-mandated 60-minute window
+    /// (Req 13.3) rather than 0 — a zero-length lease would expire on the
+    /// first tick.
+    fn default() -> Self {
+        Self {
+            revocation_m: 0,
+            revocation_n: 0,
+            biscuit_ttl_secs: 0,
+            root_ca_keys: vec![],
+            anchor_attested_location: false,
+            spatial_diversity_min: 0,
+            quorum_k: 0,
+            quorum_n: 0,
+            saturate_lease_duration_secs: crate::transport::saturate::SATURATE_LEASE_DURATION_SECS,
+        }
+    }
 }
 
 // ─── Integration tests ────────────────────────────────────────────────────────
@@ -2324,6 +2356,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         }
     }
@@ -2565,6 +2598,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -2663,6 +2697,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -2775,6 +2810,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -2854,6 +2890,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -2915,6 +2952,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -3049,6 +3087,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -3104,6 +3143,7 @@ mod tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -3937,6 +3977,122 @@ mod tests {
         cleanup(&path);
     }
 
+    // ── Test 3e (Subphase 3.4): lease expiry through the actual runtime ───
+    //
+    // Unlike Test 3d (Subphase 3.3), nothing is backdated and no lease state
+    // is manipulated: the lease duration is a deployment-configurable
+    // production knob (`DeploymentConfig::saturate_lease_duration_secs` →
+    // `TransportConfig::saturate_lease_duration_secs` →
+    // `SaturateModeStateMachine`, wired in `CoreHandle::init`), so this test
+    // configures a 2-second window through the exact production construction,
+    // activates Saturate_Mode through the production facade, never renews, and
+    // asserts the production tick loop — running on wall-clock time —
+    // auto-demotes the state machine AND the DRR scheduler mirror only after
+    // the lease genuinely expires.
+
+    #[tokio::test]
+    async fn saturate_runtime_lease_expiry_auto_demotes_without_renewal() {
+        use crate::transport::saturate::SaturateState;
+
+        let path = tmp_path("saturate_runtime_expiry");
+        cleanup(&path);
+
+        let (ca_private, ca_public) = make_ca_keypair();
+        let mut config = make_config_with_ca_key(&path, ca_public);
+        // Short configured lease window (Req 13.3): the runtime test cannot
+        // wait out the 60-minute spec default, so the deployment configures a
+        // 2-second window through the same field `CoreHandle::init` feeds into
+        // the transport.  This is a production config knob — not a test
+        // backdoor: no lease state is touched after activation.
+        config.deployment.saturate_lease_duration_secs = 2;
+        let handle = CoreHandle::init(config).await.expect("init");
+
+        // Activate through the production facade (Req 13.1): a real Biscuit
+        // DISASTER_ALERT token → state machine SATURATE + DRR scheduler mirror
+        // in Saturate Mode.  The lease must open with the *configured*
+        // 2-second window — expiry is imminent by design.
+        let token = make_disaster_alert_token(&ca_private);
+        handle
+            .activate_saturate_mode(&token)
+            .expect("a valid disaster-alert token must activate Saturate_Mode");
+        let natural_expiry = {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Saturate);
+            assert!(
+                transport.scheduler.is_saturate_mode(),
+                "scheduler must follow the state machine into Saturate_Mode"
+            );
+            let lease = transport
+                .saturate
+                .lease()
+                .expect("activation must open a lease");
+            assert_eq!(
+                lease.expires_at - lease.activated_at,
+                2,
+                "the configured 2-second lease window must be honoured"
+            );
+            lease.expires_at
+        };
+
+        // Spawn the production tick loop with a short interval (production
+        // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
+        // use 1 hour so deterministic tests can drive the identical loop).
+        let _loop = CoreHandle::spawn_scheduler_tick_loop(
+            &handle,
+            std::time::Duration::from_millis(10),
+        );
+
+        // NO renewal, NO backdating, NO manual tick() / tick_saturate() — the
+        // background loop must demote the lease once the wall clock crosses
+        // `natural_expiry`.  Poll until the state machine drops back to NORMAL
+        // and the scheduler mirror follows.
+        let mut attempts = 0u32;
+        loop {
+            let demoted = {
+                let transport = handle.transport.lock().unwrap();
+                transport.saturate.state() == SaturateState::Normal
+                    && !transport.scheduler.is_saturate_mode()
+            };
+            if demoted {
+                break;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 600,
+                "runtime lease expiry never auto-demoted the Saturate_Mode lease"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        // The demotion must have happened because the wall clock genuinely
+        // crossed the natural expiry — not because the lease was backdated or
+        // a manual tick() advanced the state machine.
+        assert!(
+            now_secs() >= natural_expiry,
+            "auto-demotion must follow genuine wall-clock lease expiry \
+             (natural expiry was {natural_expiry}, demoted at {})",
+            now_secs()
+        );
+
+        // The lease must be gone and the scheduler mirror cleared — the
+        // runtime expiry demotion ran the full reconcile, not just the state
+        // machine (Req 13.5).
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Normal);
+            assert!(
+                transport.saturate.lease().is_none(),
+                "lease must be cleared by the runtime expiry demotion"
+            );
+            assert!(
+                !transport.scheduler.is_saturate_mode(),
+                "scheduler must leave Saturate Mode on runtime lease expiry"
+            );
+        }
+
+        cleanup(&path);
+    }
+
     #[tokio::test]
     async fn saturate_mode_activation_with_invalid_token_preserves_normal_mode() {
         use crate::transport::saturate::SaturateState;
@@ -4001,6 +4157,7 @@ mod inbound_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         }
     }
@@ -4569,6 +4726,7 @@ mod inbound_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -4663,6 +4821,7 @@ mod inbound_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         };
         // Handle B: same M/N so it also accepts the same 1-of-1 delta.
@@ -4769,6 +4928,7 @@ mod inbound_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         })
         .await
@@ -5129,6 +5289,7 @@ mod convergence_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         };
 
@@ -5272,6 +5433,7 @@ mod real_mesh_tests {
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
             },
         }
     }

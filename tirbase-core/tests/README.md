@@ -223,7 +223,7 @@ with line, column, and description.
 
 ### Property 20 — Saturate Mode Lease State Machine (Req 13.1–13.7)
 
-**Status:** PARTIAL
+**Status:** VERIFIED
 
 `prop_20_saturate_mode_state_machine_invariants` covers invariants (a)–(d)
 with a mock (non-Biscuit) state machine at 200 cases.
@@ -260,12 +260,29 @@ task — not a manual `tick()` call — demotes the state machine and clears the
 scheduler.  `transport::tests::tick_saturate_demotes_expired_lease_and_clears_scheduler`
 covers the transport-level demotion + scheduler reconcile.
 
-**Deferred aspect:** Subphase 3.4 lands the runtime expiry integration test
-that lets the lease expire through the actual runtime with no renewal.  The
-proptest generator also does not include time-ordered activation + renewal
-sequences because generating valid ordered Biscuit token pairs inside a
-proptest strategy is impractical without a custom strategy that maintains the
-token timestamp invariant.
+**Production wiring (Subphase 3.4):** the runtime expiry path is now covered
+end-to-end with no test-only state manipulation.  The lease duration is a
+production configuration knob (`DeploymentConfig::saturate_lease_duration_secs`
+→ `TransportConfig::saturate_lease_duration_secs` →
+`SaturateModeStateMachine`, wired in `CoreHandle::init`; defaults to the
+spec-mandated 60-minute window, Req 13.3).  `api::tests::saturate_runtime_lease_expiry_auto_demotes_without_renewal`
+configures a 2-second window through that exact production construction,
+activates Saturate_Mode through the production facade, performs **no renewal
+and no backdating**, and asserts the production tick loop
+(`CoreHandle::spawn_scheduler_tick_loop`, wall-clock driven) auto-demotes the
+state machine and clears the DRR scheduler mirror only after the lease
+genuinely expires through the actual runtime — the test additionally asserts
+the wall clock actually crossed the natural expiry before demotion.
+`SaturateModeStateMachine` itself now takes the lease duration as a
+constructor parameter; `SATURATE_LEASE_DURATION_SECS` remains the canonical
+default.
+
+**Deferred aspect (generator-level only):** the proptest generator does not
+include time-ordered activation + renewal sequences because generating valid
+ordered Biscuit token pairs inside a proptest strategy is impractical without
+a custom strategy that maintains the token timestamp invariant.  The runtime
+lease-expiry behaviour this deferral previously covered is now exercised by
+the Subphase 3.4 integration test above.
 
 ---
 
@@ -296,9 +313,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (452 tests, 0 failures)
+**Status:** VERIFIED (511 tests, 0 failures)
 
-`cargo test --features native` passes all 452 tests including all 22 property
+`cargo test --features native` passes all 511 tests including all 22 property
 tests and all CoreHandle integration tests.
 
 ---

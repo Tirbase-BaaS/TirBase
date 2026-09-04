@@ -1596,7 +1596,7 @@ proptest! {
         use crate::transport::saturate::SaturateLease;
 
         // ── Invariant (b): terminate() with 0 sigs preserves NORMAL mode ────
-        let mut sm = SaturateModeStateMachine::new(2, vec![]);
+        let mut sm = SaturateModeStateMachine::new(2, vec![], lease_duration_secs);
         sm.terminate(vec![], b"msg", 0).unwrap();
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(b): NORMAL must be preserved");
 
@@ -1640,7 +1640,7 @@ mod prop_20_biscuit {
             _dummy in 0u8..=0u8,
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -1674,7 +1674,7 @@ mod prop_20_biscuit {
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
             // threshold_m = 2, so 1 sig is insufficient.
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -1698,7 +1698,7 @@ mod prop_20_biscuit {
             _dummy in 0u8..=0u8,
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -1710,7 +1710,7 @@ mod prop_20_biscuit {
 
             // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
             let (bad_token, bad_ca_pub) = make_token_without_disaster_alert_for_test(3600);
-            let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub);
+            let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub, SATURATE_LEASE_DURATION_SECS);
             sm2.activate("did:key:test".to_string(), &bad_token, now_sec).unwrap_err();
             prop_assert_eq!(sm2.state(), SaturateState::Normal, "(c): NORMAL preserved on no-caveat token");
         }
@@ -1721,7 +1721,7 @@ mod prop_20_biscuit {
             _dummy in 0u8..=0u8,
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub);
+            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
