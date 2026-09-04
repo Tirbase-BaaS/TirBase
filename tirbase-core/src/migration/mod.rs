@@ -24,6 +24,27 @@ use wasm_sandbox::{execute_migration, MigrationResult};
 // Re-export for tests in sub-modules
 pub use revocation::resolve_did_key_to_public_key;
 
+/// A migration that passed every pre-flight gate (Req 18.2–18.3a) and is
+/// ready to execute.
+///
+/// Carries everything the sandbox needs as owned data so the transform can
+/// execute OFF the engine lock (Req 18.6): the caller runs the WASM sandbox
+/// and reports the outcome back through [`SchemaMigrationEngine::finish_migration`].
+/// Keeping execution off-lock is what lets a concurrently-arriving
+/// `MigrationRevocationDelta` acquire the engine (to permanently revoke) and
+/// epoch-interrupt the running transform instead of queueing behind it under
+/// the shared mutex.
+pub(crate) struct PreparedMigration {
+    /// SHA-256(transform_bytes) — the migration's identifier.
+    pub(crate) migration_id: MigrationId,
+    /// Schema hash the device must advance to on a clean, non-revoked run.
+    pub(crate) target_schema_hash: crate::schema::hash::SchemaIdentifierHash,
+    /// CA-validated WASM bytecode to hand to the sandbox.
+    pub(crate) transform_bytes: Vec<u8>,
+    /// Epoch-interrupt timeout in seconds (Req 18.4 default: 30).
+    pub(crate) timeout_secs: u64,
+}
+
 // ─── SchemaMigrationEngine ───────────────────────────────────────────────────
 
 /// The Schema Migration Engine orchestrates the zero-trust gate, sandbox
@@ -165,7 +186,8 @@ impl SchemaMigrationEngine {
         }
     }
 
-    /// Receive and validate an incoming MigrationDelta (Req 18.2–18.3a).
+    /// Validate an incoming MigrationDelta and prepare it for execution
+    /// (Req 18.2–18.3a).
     ///
     /// Checks in order:
     /// 1. Sender not blacklisted.
@@ -174,15 +196,24 @@ impl SchemaMigrationEngine {
     /// 4. SHA-256 of transform_bytes matches embedded hash.
     /// 5. source_schema_hash == local current schema.
     /// 6. target_schema_hash == next step in registered version path.
-    /// 7. Execute in sandbox (Req 18.4).
+    /// 7. No other transform is currently executing (migrations are strictly
+    ///    serialised — each step validates against the device's current
+    ///    schema hash, which only advances when the previous step commits).
+    ///
+    /// On success the migration is marked in-progress and a
+    /// [`PreparedMigration`] is returned.  The caller then executes the
+    /// transform OFF this engine's lock and reports the outcome through
+    /// [`SchemaMigrationEngine::finish_migration`]; the synchronous
+    /// [`SchemaMigrationEngine::receive_migration_delta`] convenience wrapper
+    /// does exactly that without releasing the lock (direct-call path).
     ///
     /// On CA sig or hash failure: blacklist sender (Req 18.3).
     /// On version path mismatch: reject + log (no blacklist).
-    pub fn receive_migration_delta(
+    pub(crate) fn prepare_migration(
         &mut self,
         delta: MigrationDelta,
         sender_did: &str,
-    ) -> Result<MigrationResult, TirBaseError> {
+    ) -> Result<PreparedMigration, TirBaseError> {
         // ── 1. Blacklist check ────────────────────────────────────────────────
         if self.blacklisted_senders.contains(sender_did) {
             return Err(TirBaseError::AuthorisationFailed {
@@ -226,47 +257,167 @@ impl SchemaMigrationEngine {
             return Err(e);
         }
 
-        // ── 7. Execute in sandbox ─────────────────────────────────────────────
+        // ── 7. Serialisation gate ────────────────────────────────────────────
+        // At most one transform may execute at a time: schema steps are
+        // ordered, and a second migration can only validate once the first
+        // has committed (or been revoked) and the local schema hash reflects
+        // it.  The CoreHandle inbound pipeline retries on this error instead
+        // of dropping the delta.
+        if self.revocation_registry.has_in_progress() {
+            return Err(TirBaseError::MigrationInProgress {
+                migration_id: hex::encode(delta.id),
+            });
+        }
+
+        // ── 8. Mark in-progress and hand execution to the caller ────────────
         self.revocation_registry.mark_in_progress(delta.id);
 
-        #[cfg(feature = "native")]
-        let result = execute_migration(&delta.transform_bytes, delta.id, 30, &self.store);
+        Ok(PreparedMigration {
+            migration_id: delta.id,
+            target_schema_hash: delta.target_schema_hash,
+            transform_bytes: delta.transform_bytes,
+            timeout_secs: 30, // Req 18.4: default 30s epoch-interrupt timeout
+        })
+    }
 
-        #[cfg(not(feature = "native"))]
-        let result = execute_migration(&delta.transform_bytes, delta.id, 30);
+    /// Report the outcome of a prepared transform back to the engine.
+    ///
+    /// - Clears the in-progress marker unconditionally (the migration is no
+    ///   longer executing regardless of how it ended).
+    /// - **Re-checks revocation before committing**: if the migration was
+    ///   revoked while the transform ran (or between sandbox exit and this
+    ///   call), the local schema hash must NOT advance to the target — the
+    ///   outcome is returned as [`MigrationResult::Revoked`] instead of
+    ///   `Success` (Req 18.6).  This is the authoritative commit gate for the
+    ///   off-lock execution path.
+    pub(crate) fn finish_migration(
+        &mut self,
+        migration_id: &MigrationId,
+        target_schema_hash: &crate::schema::hash::SchemaIdentifierHash,
+        result: Result<MigrationResult, TirBaseError>,
+    ) -> Result<MigrationResult, TirBaseError> {
+        self.revocation_registry.clear_in_progress(migration_id);
 
-        self.revocation_registry.clear_in_progress(&delta.id);
+        if self.revocation_registry.is_revoked(migration_id) {
+            let migration_id_hex = hex::encode(migration_id);
+            eprintln!(
+                "[migration] Migration {migration_id_hex} revoked before commit — \
+                 transform outcome discarded, schema NOT advanced"
+            );
+            return Ok(MigrationResult::Revoked {
+                reason: format!("migration {migration_id_hex} revoked while in progress"),
+            });
+        }
 
         match result {
+            Ok(MigrationResult::Success) => {
+                self.local_schema_hash = *target_schema_hash;
+                Ok(MigrationResult::Success)
+            }
+            Ok(other) => Ok(other),
             Err(e) => Err(e),
+        }
+    }
+
+    /// Whether a migration transform is currently executing (prepared but not
+    /// yet finished).  At most one may run at a time.
+    pub(crate) fn any_migration_in_progress(&self) -> bool {
+        self.revocation_registry.has_in_progress()
+    }
+
+    /// Whether the given migration id is currently executing.
+    pub(crate) fn is_migration_in_progress(&self, migration_id: &MigrationId) -> bool {
+        self.revocation_registry.is_in_progress(migration_id)
+    }
+
+    /// Receive and validate an incoming MigrationDelta, execute it in the
+    /// sandbox, and commit the schema-hash advance (Req 18.2–18.4).
+    ///
+    /// This is the synchronous convenience path: the transform runs while the
+    /// caller holds the engine lock, so a concurrently arriving revocation
+    /// cannot interrupt it mid-flight (it will be processed after this call
+    /// returns and only block *future* applies).  Production inbound traffic
+    /// that must satisfy Req 18.6 goes through [`SchemaMigrationEngine::prepare_migration`]
+    /// → off-lock sandbox execution → [`SchemaMigrationEngine::finish_migration`]
+    /// (see the CoreHandle inbound pipeline).  Regardless of path, the
+    /// post-run revocation re-check in `finish_migration` protects the commit.
+    pub fn receive_migration_delta(
+        &mut self,
+        delta: MigrationDelta,
+        sender_did: &str,
+    ) -> Result<MigrationResult, TirBaseError> {
+        let prepared = self.prepare_migration(delta, sender_did)?;
+
+        #[cfg(feature = "native")]
+        let result = execute_migration(
+            &prepared.transform_bytes,
+            prepared.migration_id,
+            prepared.timeout_secs,
+            &self.store,
+        );
+
+        #[cfg(not(feature = "native"))]
+        let result = execute_migration(
+            &prepared.transform_bytes,
+            prepared.migration_id,
+            prepared.timeout_secs,
+        );
+
+        let outcome = self.finish_migration(
+            &prepared.migration_id,
+            &prepared.target_schema_hash,
+            result,
+        );
+
+        match outcome {
+            Ok(MigrationResult::Success) => {
+                eprintln!(
+                    "[migration] Migration {:?} succeeded; schema updated to {:?}",
+                    prepared.migration_id, prepared.target_schema_hash
+                );
+                Ok(MigrationResult::Success)
+            }
             Ok(MigrationResult::TimedOut { timeout_secs }) => {
-                let migration_id_hex = hex::encode(delta.id);
-                eprintln!("[migration] Migration {migration_id_hex} timed out after {timeout_secs}s");
+                let migration_id_hex = hex::encode(prepared.migration_id);
+                eprintln!(
+                    "[migration] Migration {migration_id_hex} timed out after {timeout_secs}s"
+                );
                 Err(TirBaseError::MigrationTransformTimeout {
                     migration_id: migration_id_hex,
                 })
             }
             Ok(MigrationResult::Aborted { ref reason }) => {
-                eprintln!("[migration] Migration {:?} aborted: {reason}", delta.id);
+                eprintln!(
+                    "[migration] Migration {:?} aborted: {reason}",
+                    prepared.migration_id
+                );
                 Ok(MigrationResult::Aborted { reason: reason.clone() })
             }
-            Ok(MigrationResult::Success) => {
-                // Update local schema hash to target after successful migration.
-                self.local_schema_hash = delta.target_schema_hash;
+            Ok(MigrationResult::Revoked { ref reason }) => {
                 eprintln!(
-                    "[migration] Migration {:?} succeeded; schema updated to {:?}",
-                    delta.id, delta.target_schema_hash
+                    "[migration] Migration {:?} revoked: {reason}",
+                    prepared.migration_id
                 );
-                Ok(MigrationResult::Success)
+                Ok(MigrationResult::Revoked { reason: reason.clone() })
             }
+            Err(e) => Err(e),
         }
     }
 
-    /// Receive a MigrationRevocationDelta and halt any in-progress transform (Req 18.5–18.7).
+    /// Receive a MigrationRevocationDelta (Req 18.5–18.7).
+    ///
+    /// Verifies the M-of-N Manager signature threshold, permanently blocks the
+    /// target migration id, and halts any in-progress transform for it.
+    ///
+    /// Returns `Ok(true)` when a transform for the target was executing and
+    /// has been halted.  The caller must then epoch-interrupt the running
+    /// sandbox via the execution registry so it actually stops (Req 18.6) —
+    /// the engine merely clears the in-progress marker here; the CoreHandle
+    /// inbound pipeline performs the wasmtime interrupt.
     pub fn receive_revocation_delta(
         &mut self,
         delta: MigrationRevocationDelta,
-    ) -> Result<(), TirBaseError> {
+    ) -> Result<bool, TirBaseError> {
         self.revocation_registry
             .apply_revocation(delta, self.revocation_threshold_m)
     }
@@ -685,6 +836,80 @@ mod tests {
         assert!(
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
             "revoked migration must be rejected: {result:?}"
+        );
+    }
+
+    // ─── Test: a revocation landing between prepare and finish blocks the ────
+    //
+    // ── schema-hash commit (Req 18.6 commit gate) ───────────────────────────
+    //
+    // The off-lock execution path prepares a migration, runs the transform
+    // without the engine lock, and finishes afterwards.  If a revocation is
+    // applied while the transform runs, `finish_migration` must NOT advance
+    // the local schema hash even though the transform itself succeeded.
+    #[test]
+    #[cfg(feature = "native")]
+    fn revocation_between_prepare_and_finish_blocks_schema_commit() {
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+
+        let wasm = trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
+        let migration_id = transform_sha256;
+        let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
+        let delta = MigrationDelta {
+            id: migration_id,
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: wasm,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: crate::crdt::delta::PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // Prepare (validates + marks in-progress) but do NOT run yet — this
+        // models the off-lock window in which the CoreHandle pipeline runs the
+        // sandbox while the engine lock is free.
+        let prepared = engine
+            .prepare_migration(delta, "did:key:z6MkSender")
+            .expect("prepare must succeed");
+        assert!(engine.is_migration_in_progress(&migration_id));
+
+        // A revocation arrives and halts the in-progress transform.
+        let (mgr_secret, mgr_did) = make_manager_identity();
+        let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
+        let halted = engine
+            .receive_revocation_delta(revocation)
+            .expect("revocation must succeed");
+        assert!(halted, "revocation must report that it halted the in-progress run");
+
+        // The transform (which "succeeded") reports back: the commit gate must
+        // convert it to Revoked and leave the schema at the source hash.
+        let outcome = engine
+            .finish_migration(
+                &prepared.migration_id,
+                &prepared.target_schema_hash,
+                Ok(MigrationResult::Success),
+            )
+            .expect("finish must succeed");
+        assert!(
+            matches!(outcome, MigrationResult::Revoked { .. }),
+            "a revoked migration must never commit as Success: {outcome:?}"
+        );
+        assert_eq!(
+            engine.local_schema_hash, source,
+            "schema hash must NOT advance for a revoked migration"
+        );
+        assert!(
+            !engine.is_migration_in_progress(&migration_id),
+            "in-progress marker must be cleared after finish"
         );
     }
 

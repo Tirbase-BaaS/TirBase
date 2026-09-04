@@ -306,7 +306,9 @@ the Subphase 3.4 integration test above.
 
 `prop_21_migration_revocation_halts_in_progress_transforms` passes 200 cases,
 confirming that a pre-sent `MigrationRevocationDelta` blocks subsequent
-execution of the same migration hash.
+execution of the same migration hash.  Revocation *during* execution — the
+Req 18.6 interrupt path — is covered by the Subphase 5.4 integration test
+listed in Item 16.
 
 ---
 
@@ -327,9 +329,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (538 tests, 0 failures)
+**Status:** VERIFIED (564 tests, 0 failures)
 
-`cargo test --features native` passes all 538 tests including all 22 property
+`cargo test --features native` passes all 564 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -339,7 +341,8 @@ listed in Item 11; Subphase 4.5 added
 `api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`
 — two real-mesh devices reaching Tier-1 through genuine receipt exchange,
 listed in Item 13; Subphase 5.1 added the four migration CA key + schema
-version path wiring tests listed in Item 14).
+version path wiring tests listed in Item 14; Subphase 5.4 added the three
+migration-revocation-interrupt tests listed in Item 16).
 
 ---
 
@@ -728,6 +731,57 @@ Tests:
   locally produced Deltas stamp the migrated hash (Req 4.6).
 - `api::inbound_tests::init_rejects_schema_definition_hash_mismatch` — init
   fails closed on a definition/path hash mismatch.
+
+---
+
+### Item 16 — Migration revocation interrupts in-progress transforms (Subphase 5.4)
+
+**Status:** VERIFIED
+
+Before this subphase the inbound pipeline executed the migration transform
+synchronously inside `SchemaMigrationEngine::receive_migration_delta` while
+holding the CoreHandle `migration` mutex, so a `MigrationRevocationDelta`
+arriving mid-run queued behind the transform (up to the 30 s epoch timeout)
+and could never halt it (Req 18.6).  The root-cause fix:
+
+- **Off-lock execution** — the native `InboundMigrationDelta` arm now
+  dispatches the transform to a background job
+  (`CoreHandle::dispatch_inbound_migration`): `prepare_migration` validates
+  and marks in-progress under the engine lock, the sandbox then runs OFF the
+  lock (retrying with a short sleep while another transform holds the
+  engine, so schema steps stay serialised).
+- **Epoch interrupt registry** — each sandbox run registers its wasmtime
+  `Engine` in `MigrationExecutionRegistry` *after* the epoch deadline is
+  armed (the deadline is relative to the epoch at set-time, so an earlier
+  increment would be forgiven).  A revocation that reports it halted an
+  in-progress run (`receive_revocation_delta` → `Ok(true)`) triggers
+  `Engine::increment_epoch`, which traps the transform at the next wasm
+  instruction boundary — milliseconds, not the 30 s timeout.
+- **Revocation-aware commit gate** — `SchemaMigrationEngine::finish_migration`
+  re-checks `is_revoked` before advancing `local_schema_hash`, so a
+  transform that was interrupted (or a revocation that landed at the
+  completion edge) returns `MigrationResult::Revoked` and never commits.
+  The synchronous `receive_migration_delta` path runs through the same
+  prepare/execute/finish split.
+- **WASM target** stays synchronous (single-threaded — no concurrent
+  revocation delivery is possible); its commit is still guarded by the
+  post-run revocation re-check.
+
+Tests (all native):
+
+- `api::tests::inbound_migration_revocation_interrupts_in_progress_transform`
+  — full pipeline: an infinite-loop transform is dispatched, a
+  manager-signed revocation is drained while it is genuinely executing
+  (engine in-progress marker + registry registration observed), and the
+  transform is interrupted well before its 30 s timeout, leaving the schema
+  hash unadvanced and the migration permanently revoked.
+- `migration::wasm_sandbox::tests::registry_interrupt_halts_infinite_loop_before_timeout`
+  — the epoch-interrupt mechanism itself: an infinite-loop run registered in
+  the execution registry is interrupted via `increment_epoch` in ~ms.
+- `migration::tests::revocation_between_prepare_and_finish_blocks_schema_commit`
+  — the commit gate: a revocation landing between prepare and finish turns a
+  `Success` outcome into `MigrationResult::Revoked` and leaves the schema
+  hash unchanged.
 
 ---
 

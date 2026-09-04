@@ -83,11 +83,18 @@ impl RevokedMigrationRegistry {
     /// 3. If in-progress: mark as halted (caller must check `is_revoked` before executing).
     /// 4. Permanently block the migration ID.
     /// 5. Append a RevocationRecord to the audit log.
+    ///
+    /// Returns `Ok(true)` when a transform for `target_migration_id` was
+    /// executing and has been halted — the caller is then responsible for
+    /// actually interrupting the sandbox run (epoch interrupt via the
+    /// execution registry on the wasmtime side) so it stops before its
+    /// timeout instead of running to completion behind the revoker.
     pub fn apply_revocation(
         &mut self,
         revocation: MigrationRevocationDelta,
         threshold_m: usize,
-    ) -> Result<(), TirBaseError> {
+    ) -> Result<bool, TirBaseError> {
+        let mut halted = false;
         // ── 1 & 2: verify signatures and count valid distinct ones ──────────
         let signed_payload = &revocation.target_migration_id[..];
         let mut valid_managers: Vec<Did> = Vec::new();
@@ -155,16 +162,20 @@ impl RevokedMigrationRegistry {
         }
 
         // ── 3: halt in-progress execution ────────────────────────────────────
-        // The `in_progress` flag is checked by the sandbox caller; clearing it
-        // here signals that the sandbox must be treated as halted.  The actual
-        // thread/future interruption is the caller's responsibility (epoch
-        // interrupt on wasmtime side).
+        // If a transform for the target is executing, flag the halt for the
+        // caller (which must epoch-interrupt the running sandbox — Req 18.6).
+        // The `in_progress` marker itself is deliberately NOT cleared here:
+        // it is only removed when the sandbox run actually exits (the caller's
+        // `finish_migration`), so schema-migration serialisation holds even if
+        // the interrupt misses the run and it has to fall through to its epoch
+        // timeout — a revoked-but-still-running transform can never overlap a
+        // subsequent migration.
         if self.in_progress.contains(&revocation.target_migration_id) {
             eprintln!(
                 "[revocation] Halting in-progress migration {:?}",
                 revocation.target_migration_id
             );
-            self.in_progress.remove(&revocation.target_migration_id);
+            halted = true;
         }
 
         // ── 4: permanently block ─────────────────────────────────────────────
@@ -188,7 +199,7 @@ impl RevokedMigrationRegistry {
             revocation.target_migration_id
         );
 
-        Ok(())
+        Ok(halted)
     }
 
     /// Return the full revocation audit log.
@@ -243,8 +254,11 @@ mod tests {
         let id2 = make_identity();
 
         let revocation = make_signed_revocation(target, &[id1, id2]);
-        registry.apply_revocation(revocation, 2).expect("apply_revocation should succeed");
+        let halted = registry
+            .apply_revocation(revocation, 2)
+            .expect("apply_revocation should succeed");
 
+        assert!(!halted, "no in-progress transform existed, so nothing was halted");
         assert!(registry.is_revoked(&target), "migration must be revoked");
         assert_eq!(registry.revocation_log().len(), 1);
     }
@@ -275,10 +289,21 @@ mod tests {
         assert!(registry.is_in_progress(&target));
 
         let revocation = make_signed_revocation(target, &[id1]);
-        registry.apply_revocation(revocation, 1).expect("revoke");
+        let halted = registry.apply_revocation(revocation, 1).expect("revoke");
 
-        assert!(!registry.is_in_progress(&target), "in-progress must be cleared on revocation");
+        assert!(halted, "revoking an in-progress migration must report the halt");
+        assert!(
+            registry.is_in_progress(&target),
+            "the in-progress marker must persist until the sandbox run exits \
+             (finish_migration), keeping migrations serialised even when a run \
+             is revoked mid-flight"
+        );
         assert!(registry.is_revoked(&target));
+
+        // Simulate the sandbox run exiting: the caller's finish path clears
+        // the marker.
+        registry.clear_in_progress(&target);
+        assert!(!registry.is_in_progress(&target));
     }
 
     #[test]

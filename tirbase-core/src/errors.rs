@@ -83,6 +83,12 @@ pub enum TirBaseError {
     #[error("Migration transform timeout: {migration_id}")]
     MigrationTransformTimeout { migration_id: String },
 
+    /// Another migration transform is currently executing; schema migrations
+    /// are strictly serialised because each step validates against the
+    /// device's current schema hash (Req 18.3a).
+    #[error("Another migration is already in progress: {migration_id}")]
+    MigrationInProgress { migration_id: String },
+
     // ─── Storage ──────────────────────────────────────────────────────────────
     #[error("Local store write failed: {reason}")]
     LocalStoreWriteFailed { reason: String },
@@ -151,6 +157,16 @@ mod tests {
         };
         let s = e.to_string();
         assert!(s.contains("hash mismatch"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_migration_in_progress() {
+        let e = TirBaseError::MigrationInProgress {
+            migration_id: "abc123".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("already in progress"), "display: {s}");
+        assert!(s.contains("abc123"), "display: {s}");
     }
 
     #[test]

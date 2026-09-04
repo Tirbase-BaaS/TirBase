@@ -22,6 +22,11 @@ pub enum MigrationResult {
     Success,
     TimedOut { timeout_secs: u64 },
     Aborted { reason: String },
+    /// The migration was revoked before it could commit: the transform may
+    /// have been interrupted mid-flight (Req 18.6) or the revocation landed in
+    /// the window between sandbox exit and the schema-hash commit.  In either
+    /// case the schema must NOT advance to the target hash.
+    Revoked { reason: String },
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────
@@ -32,6 +37,12 @@ pub enum MigrationResult {
 /// - `migration_id`: the migration being executed (for revocation checks).
 /// - `timeout_secs`: epoch-interrupt timeout (default: 30s per Req 18.4).
 /// - `store`: handle to the local store for host function access (native only).
+///
+/// This standalone variant registers the run with a throwaway execution
+/// registry, so nothing can externally interrupt it (it runs to completion or
+/// its own epoch timeout) — matching the pre-interruptible behaviour.  The
+/// interruptible CoreHandle migration pipeline uses
+/// [`execute_migration_with_registry`] instead.
 #[cfg(feature = "native")]
 pub fn execute_migration(
     transform: &[u8],
@@ -39,7 +50,100 @@ pub fn execute_migration(
     timeout_secs: u64,
     store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
 ) -> Result<MigrationResult, TirBaseError> {
-    execute_native(transform, migration_id, timeout_secs, store)
+    let registry = MigrationExecutionRegistry::default();
+    execute_native(transform, migration_id, timeout_secs, store, &registry)
+}
+
+// ─── In-flight execution registry (Req 18.6 interruption) ─────────────────────
+//
+// The wasmtime sandbox for a running migration registers its `Engine` here
+// (keyed by migration id) *before* invoking the transform.  A migration
+// revocation that clears the registry's in-progress flag then calls
+// `interrupt(id)`, which increments the engine's epoch — the same mechanism
+// the epoch timeout uses — so the running transform traps at the next wasm
+// instruction boundary instead of running to completion behind the revoker.
+// This registry lives outside the `SchemaMigrationEngine` lock, so it is
+// reachable while a transform is executing off-lock.
+
+/// Registry of interrupt handles for sandbox runs currently in flight.
+///
+/// Native: each entry holds a clone of the run's `wasmtime::Engine`;
+/// interrupting increments that engine's epoch counter, forcing any `Store`
+/// with a reached epoch deadline (the sandbox sets deadline 1) to trap.
+#[cfg(feature = "native")]
+#[derive(Debug, Default)]
+pub struct MigrationExecutionRegistry {
+    inner: std::sync::Mutex<std::collections::HashMap<MigrationId, wasmtime::Engine>>,
+}
+
+#[cfg(feature = "native")]
+impl MigrationExecutionRegistry {
+    /// Register the engine executing `migration_id`.  Returns `true` if the
+    /// id was not already registered (a duplicate registration is a bug).
+    pub fn register(&self, migration_id: MigrationId, engine: wasmtime::Engine) -> bool {
+        let mut guard = match self.inner.lock() {
+            Ok(g) => g,
+            Err(_) => return false,
+        };
+        guard.insert(migration_id, engine).is_none()
+    }
+
+    /// Remove `migration_id` from the registry (called when the run exits,
+    /// regardless of outcome).
+    pub fn unregister(&self, migration_id: &MigrationId) {
+        if let Ok(mut guard) = self.inner.lock() {
+            guard.remove(migration_id);
+        }
+    }
+
+    /// Whether `migration_id` currently has a registered in-flight run.
+    pub fn is_in_flight(&self, migration_id: &MigrationId) -> bool {
+        match self.inner.lock() {
+            Ok(guard) => guard.contains_key(migration_id),
+            Err(_) => false,
+        }
+    }
+
+    /// Number of in-flight runs currently registered.
+    pub fn len(&self) -> usize {
+        match self.inner.lock() {
+            Ok(guard) => guard.len(),
+            Err(_) => 0,
+        }
+    }
+
+    /// Interrupt the in-flight run of `migration_id`, if any: increments the
+    /// run's wasmtime engine epoch so the sandbox traps promptly.
+    ///
+    /// Returns `true` when a registered run was interrupted.
+    pub fn interrupt(&self, migration_id: &MigrationId) -> bool {
+        let engine = match self.inner.lock() {
+            Ok(guard) => guard.get(migration_id).cloned(),
+            Err(_) => None,
+        };
+        match engine {
+            Some(engine) => {
+                engine.increment_epoch();
+                true
+            }
+            None => false,
+        }
+    }
+}
+
+/// Execute `migration_id`'s transform while registered in `registry`, so a
+/// concurrent migration revocation can interrupt it via an epoch interrupt
+/// (Req 18.6).  All other behaviour — restricted linker, epoch timeout,
+/// host functions — is identical to [`execute_migration`].
+#[cfg(feature = "native")]
+pub fn execute_migration_with_registry(
+    transform: &[u8],
+    migration_id: MigrationId,
+    timeout_secs: u64,
+    store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    registry: &MigrationExecutionRegistry,
+) -> Result<MigrationResult, TirBaseError> {
+    execute_native(transform, migration_id, timeout_secs, store, registry)
 }
 
 // ─── WASM-in-WASM implementation (wasmi) ─────────────────────────────────────
@@ -388,12 +492,31 @@ pub fn execute_migration(
 
 // ─── Native implementation (wasmtime) ────────────────────────────────────────
 
+/// RAII guard removing a run from the [`MigrationExecutionRegistry`] on every
+/// exit path of [`execute_native`] (success, abort, timeout, panic-free error).
+#[cfg(feature = "native")]
+struct RegistryGuard<'a> {
+    registry: &'a MigrationExecutionRegistry,
+    migration_id: MigrationId,
+    armed: bool,
+}
+
+#[cfg(feature = "native")]
+impl Drop for RegistryGuard<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            self.registry.unregister(&self.migration_id);
+        }
+    }
+}
+
 #[cfg(feature = "native")]
 fn execute_native(
     transform: &[u8],
     migration_id: MigrationId,
     timeout_secs: u64,
     store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    registry: &MigrationExecutionRegistry,
 ) -> Result<MigrationResult, TirBaseError> {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -401,7 +524,10 @@ fn execute_native(
 
     // ── 1. Build a restricted engine (no net, no component model) ─────────
     let mut config = Config::new();
-    // Epoch-based interruption for timeout.
+    // Epoch-based interruption for timeout AND revocation (Req 18.6):
+    // incrementing this engine's epoch (from the timeout thread or from a
+    // migration revocation via the execution registry) makes the sandbox trap
+    // at the next wasm instruction boundary.
     config.epoch_interruption(true);
     // Disable WASI network access.
     config.wasm_component_model(false);
@@ -571,8 +697,27 @@ fn execute_native(
         })?;
 
     // ── 4. Create the store with epoch deadline ────────────────────────────
+    //
+    // NOTE (Req 18.6): the deadline is RELATIVE to the engine's current epoch
+    // at the moment `set_epoch_deadline` runs — an epoch increment that lands
+    // before this call is "forgiven" (the deadline slides forward past it).
+    // The execution registry registration below therefore happens only AFTER
+    // the deadline is armed, so a revocation interrupt that finds a registered
+    // run is guaranteed to have been made after the deadline and traps at the
+    // next epoch check in the guest code.
     let mut wt_store = Store::new(&engine, MigrationHostState::new(migration_id, store.clone()));
     wt_store.set_epoch_deadline(1); // will be exceeded after `timeout_secs` real time
+
+    // Register this run's engine only now that the epoch deadline is armed; a
+    // migration revocation that reaches it increments the epoch and traps the
+    // transform promptly.  The guard deregisters on every exit path from here
+    // on (instantiation failure, missing "run" export, trap, success).
+    registry.register(migration_id, engine.clone());
+    let registry_guard = RegistryGuard {
+        registry,
+        migration_id,
+        armed: true,
+    };
 
     // ── 5. Spawn a background thread to tick the epoch after the deadline ──
     let engine_clone = engine.clone();
@@ -622,8 +767,13 @@ fn execute_native(
                     };
 
                     if is_timeout {
+                        // An epoch interrupt fired — either the {timeout_secs}s
+                        // deadline elapsed or a migration revocation requested
+                        // the interrupt (Req 18.6); the engine's revocation
+                        // re-check distinguishes the two on commit.
                         eprintln!(
-                            "[migration sandbox] Migration {:?} timed out after {timeout_secs}s",
+                            "[migration sandbox] Migration {:?} epoch-interrupted \
+                             (timeout {timeout_secs}s or migration revocation)",
                             migration_id
                         );
                         Ok(MigrationResult::TimedOut { timeout_secs })
@@ -747,6 +897,67 @@ mod tests {
         assert!(
             matches!(result, MigrationResult::Aborted { .. }),
             "invalid WASM should produce Aborted: {result:?}"
+        );
+    }
+
+    // ─── Test C: registry epoch-interrupt halts a running transform (Req 18.6) ──
+    //
+    // The migration revocation path interrupts an in-progress transform by
+    // incrementing the epoch of the wasmtime Engine registered in the
+    // `MigrationExecutionRegistry`.  This test drives that mechanism directly:
+    // an infinite-loop transform with a 30 s timeout is interrupted via the
+    // registry well before the timeout, and the sandbox run returns (trapped).
+    #[test]
+    fn registry_interrupt_halts_infinite_loop_before_timeout() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let wasm = infinite_loop_wasm();
+        let migration_id: MigrationId = [0x5Eu8; 32];
+        let store = test_store();
+        let registry = Arc::new(MigrationExecutionRegistry::default());
+
+        let started = Arc::new(AtomicBool::new(false));
+        let flag = started.clone();
+        let reg = registry.clone();
+        let handle = std::thread::spawn(move || {
+            flag.store(true, Ordering::SeqCst);
+            execute_migration_with_registry(&wasm, migration_id, 30, &store, &reg)
+        });
+
+        // Wait until the run has registered its engine (i.e. is genuinely
+        // executing) before interrupting — otherwise the interrupt would be a
+        // no-op and the run would only stop at the 30 s timeout.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !registry.is_in_flight(&migration_id) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "run never registered with the execution registry"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert!(started.load(Ordering::SeqCst), "run thread must have started");
+
+        let t0 = std::time::Instant::now();
+        assert!(
+            registry.interrupt(&migration_id),
+            "interrupt must find the registered in-flight run"
+        );
+
+        let result = handle.join().expect("run thread must not panic");
+        let elapsed = t0.elapsed();
+
+        assert!(
+            !matches!(result, Ok(MigrationResult::Success)),
+            "an interrupted transform must not report Success: {result:?}"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(10),
+            "epoch interrupt must halt the transform in well under the 30 s timeout, took {elapsed:?}: {result:?}"
+        );
+        assert!(
+            !registry.is_in_flight(&migration_id),
+            "run must deregister from the registry on exit"
         );
     }
 

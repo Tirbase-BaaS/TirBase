@@ -39,6 +39,12 @@ use crate::migration::version_path::SchemaVersionPath;
 use crate::migration::SchemaMigrationEngine;
 use crate::transport::{MeshTransport, TransportConfig};
 
+// Req 18.6 interruptible sandbox execution (native): the in-flight execution
+// registry lets a migration revocation epoch-interrupt a running transform,
+// and `execute_migration_with_registry` registers the run before invoking it.
+#[cfg(feature = "native")]
+use crate::migration::wasm_sandbox::{execute_migration_with_registry, MigrationExecutionRegistry};
+
 // Store import — used on both build targets
 #[cfg(feature = "native")]
 use crate::store::LocalStore;
@@ -48,6 +54,19 @@ use crate::store::LocalStore;
 
 /// Default schema hash used when no explicit schema is configured.
 const DEFAULT_SCHEMA_HASH: [u8; 32] = [0u8; 32];
+
+/// RAII guard that decrements [`CoreHandle::migration_tasks_active`] when a
+/// background migration job exits, on every code path (native, Req 18.6).
+#[cfg(feature = "native")]
+struct ActiveMigrationJobGuard(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+#[cfg(feature = "native")]
+impl Drop for ActiveMigrationJobGuard {
+    fn drop(&mut self) {
+        use std::sync::atomic::Ordering;
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 /// Current wall-clock time in UTC microseconds (peer-table bookkeeping).
 fn now_micros() -> i64 {
@@ -225,6 +244,24 @@ pub struct CoreHandle {
 
     /// Schema Migration Engine.
     migration: Arc<Mutex<SchemaMigrationEngine>>,
+
+    /// Interrupt handles for schema-migration transforms currently executing
+    /// in the sandbox (Req 18.6).
+    ///
+    /// The inbound pipeline prepares a migration under the engine lock, then
+    /// executes the transform OFF the lock with its `wasmtime::Engine`
+    /// registered here, so a `MigrationRevocationDelta` that halts the run can
+    /// epoch-interrupt it instead of queueing behind it under the shared
+    /// `migration` mutex.
+    #[cfg(feature = "native")]
+    migration_runs: Arc<MigrationExecutionRegistry>,
+
+    /// Number of background migration jobs currently dispatched but not yet
+    /// finished (running, or waiting to prepare behind another transform).
+    /// Lets `await_migration_quiescence` distinguish "no transform executing"
+    /// from "a job has not even started yet".
+    #[cfg(feature = "native")]
+    migration_tasks_active: Arc<std::sync::atomic::AtomicUsize>,
 
     /// Causal Contamination Engine (WASM build).
     #[cfg(not(feature = "native"))]
@@ -494,6 +531,18 @@ impl CoreHandle {
         );
 
         let migration = Arc::new(Mutex::new(migration));
+
+        // ── In-flight migration execution registry (Req 18.6) ────────────────
+        //
+        // Native: holds the `wasmtime::Engine` of each sandbox transform that
+        // is currently executing off the migration lock, so a revocation can
+        // epoch-interrupt it.  Lives outside `SchemaMigrationEngine` on
+        // purpose — it must stay reachable while a transform runs without the
+        // engine lock.
+        #[cfg(feature = "native")]
+        let migration_runs = Arc::new(MigrationExecutionRegistry::default());
+        #[cfg(feature = "native")]
+        let migration_tasks_active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         // ── Durability Subsystem ──────────────────────────────────────────────
         //
@@ -866,6 +915,10 @@ impl CoreHandle {
             #[cfg(not(feature = "native"))]
             revocation,
             migration,
+            #[cfg(feature = "native")]
+            migration_runs,
+            #[cfg(feature = "native")]
+            migration_tasks_active,
             diagnostics_channel: diag_tx,
             #[cfg(feature = "native")]
             durability_events_channel,
@@ -2106,57 +2159,227 @@ impl CoreHandle {
                 }
             }
             GossipMessage::InboundMigrationDelta(mig_delta) => {
+                // Req 18.6: dispatch the transform to a background job instead
+                // of executing it inline under the `migration` mutex.  The job
+                // validates (prepare) under the engine lock, then runs the
+                // sandbox OFF the lock with its wasmtime Engine registered in
+                // `migration_runs` — so a MigrationRevocationDelta drained
+                // moments later can acquire the engine and epoch-interrupt the
+                // run instead of queueing behind it until the 30s timeout.
                 let sender_did = mig_delta.author_did.clone();
-                let mut mig = self.migration.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("migration mutex: {e}"),
-                    }
-                })?;
-                match mig.receive_migration_delta(mig_delta, &sender_did) {
-                    Ok(result) => {
-                        if matches!(
-                            result,
-                            crate::migration::wasm_sandbox::MigrationResult::Success
-                        ) {
-                            // Subphase 5.3: a successfully applied migration
-                            // changes the device's deployed schema.  Mirror it
-                            // into the CRDT engine so locally produced Deltas
-                            // stamp the new hash (Req 4.6) and the merge gate
-                            // classifies inbound Deltas against the new schema
-                            // (Req 17.2–17.4).
-                            let new_current = mig.current_schema_hash();
-                            drop(mig);
-                            let mut crdt = self.crdt.lock().map_err(|e| {
-                                TirBaseError::LocalStoreWriteFailed {
-                                    reason: format!("crdt mutex poisoned: {e}"),
-                                }
-                            })?;
-                            crdt.set_current_schema(new_current);
-                            eprintln!(
-                                "[inbound] MigrationDelta applied: {result:?}; CRDT current schema advanced to {}",
-                                hex::encode(new_current)
-                            );
-                        } else {
-                            eprintln!("[inbound] MigrationDelta applied: {result:?}");
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("[inbound] MigrationDelta rejected: {e}");
-                    }
-                }
+                self.dispatch_inbound_migration(mig_delta, sender_did);
             }
             GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
+                let target_migration_id = mig_rev.target_migration_id;
                 let mut mig = self.migration.lock().map_err(|e| {
                     TirBaseError::LocalStoreWriteFailed {
                         reason: format!("migration mutex: {e}"),
                     }
                 })?;
-                if let Err(e) = mig.receive_revocation_delta(mig_rev) {
-                    eprintln!("[inbound] MigrationRevocationDelta rejected: {e}");
+                // Ok(true) ⇒ the revocation halted a transform that was
+                // executing — the engine only cleared the in-progress marker;
+                // actually stopping the sandbox is the epoch interrupt below.
+                let halted = match mig.receive_revocation_delta(mig_rev) {
+                    Ok(h) => h,
+                    Err(e) => {
+                        eprintln!("[inbound] MigrationRevocationDelta rejected: {e}");
+                        return Ok(());
+                    }
+                };
+                drop(mig);
+                if halted {
+                    eprintln!(
+                        "[inbound] MigrationRevocationDelta halted in-flight run {:?} — \
+                         interrupting sandbox via epoch",
+                        target_migration_id
+                    );
+                    if !self.migration_runs.interrupt(&target_migration_id) {
+                        eprintln!(
+                            "[inbound] no registered run for {:?} to interrupt \
+                             (revocation landed at the completion edge)",
+                            target_migration_id
+                        );
+                    }
                 }
             }
         }
         Ok(())
+    }
+
+    /// Dispatch an inbound `MigrationDelta` to the async migration pipeline
+    /// (native; Req 18.6).
+    ///
+    /// Validates under the engine lock via
+    /// [`SchemaMigrationEngine::prepare_migration`], then executes the
+    /// transform off the lock on a background task so a revocation arriving
+    /// mid-run can epoch-interrupt it (see the
+    /// `InboundMigrationRevocationDelta` arm).  If another transform is
+    /// already executing the job retries with a short sleep: schema steps are
+    /// strictly serialised and each validates against the schema hash the
+    /// previous step committed.
+    ///
+    /// Production caller: [`CoreHandle::receive_inbound`], reached by the
+    /// inbound drain loop (`process_inbound_messages` → `receive_inbound`)
+    /// for every `GossipMessage::InboundMigrationDelta`.
+    #[cfg(feature = "native")]
+    fn dispatch_inbound_migration(&self, mig_delta: crate::migration::migration_delta::MigrationDelta, sender_did: String) {
+        use crate::migration::wasm_sandbox::MigrationResult;
+
+        let migration = self.migration.clone();
+        let store = self.store.clone();
+        let crdt = self.crdt.clone();
+        let runs = self.migration_runs.clone();
+        let active_jobs = self.migration_tasks_active.clone();
+        use std::sync::atomic::Ordering;
+        active_jobs.fetch_add(1, Ordering::SeqCst);
+
+        let _ = tokio::spawn(async move {
+            // RAII: never leave the active-job counter raised, whatever path
+            // the job exits on (so `await_migration_quiescence` cannot hang).
+            let _active_guard = ActiveMigrationJobGuard(active_jobs);
+
+            // ── 1. Prepare (validate + mark in-progress) under the engine ──
+            // lock, retrying while another transform holds the engine.
+            let prepared = loop {
+                let attempt = {
+                    let mut mig = match migration.lock() {
+                        Ok(g) => g,
+                        Err(e) => {
+                            eprintln!("[inbound] migration mutex poisoned: {e}");
+                            return;
+                        }
+                    };
+                    mig.prepare_migration(mig_delta.clone(), &sender_did)
+                };
+                match attempt {
+                    Ok(prepared) => break prepared,
+                    Err(TirBaseError::MigrationInProgress { .. }) => {
+                        // Another migration is executing; a schema step can
+                        // only validate once the previous one committed.
+                        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                        continue;
+                    }
+                    Err(e) => {
+                        eprintln!("[inbound] MigrationDelta rejected: {e}");
+                        return;
+                    }
+                }
+            };
+
+            let migration_id = prepared.migration_id;
+            let target_schema_hash = prepared.target_schema_hash;
+            let transform_bytes = prepared.transform_bytes;
+            let timeout_secs = prepared.timeout_secs;
+
+            // ── 2. Run the sandbox OFF the engine lock, registered in the ──
+            // execution registry so a revocation can epoch-interrupt it.
+            let outcome: Result<MigrationResult, TirBaseError> = tokio::task::spawn_blocking(move || {
+                execute_migration_with_registry(
+                    &transform_bytes,
+                    migration_id,
+                    timeout_secs,
+                    &store,
+                    &runs,
+                )
+            })
+            .await
+            .map_err(|e| TirBaseError::DeltaMalformed {
+                reason: format!("migration background task failed: {e}"),
+            })
+            .and_then(|r| r);
+
+            // ── 3. Finish under the engine lock: the commit gate re-checks ──
+            // revocation, so a transform that was interrupted (or a revocation
+            // that landed at the completion edge) never advances the schema.
+            let normalized = {
+                let mut mig = match migration.lock() {
+                    Ok(g) => g,
+                    Err(e) => {
+                        eprintln!("[inbound] migration mutex poisoned: {e}");
+                        return;
+                    }
+                };
+                mig.finish_migration(&migration_id, &target_schema_hash, outcome)
+            };
+
+            match normalized {
+                Ok(MigrationResult::Success) => {
+                    // Subphase 5.3: a successfully applied migration changes
+                    // the device's deployed schema.  Mirror it into the CRDT
+                    // engine so locally produced Deltas stamp the new hash
+                    // (Req 4.6) and the merge gate classifies inbound Deltas
+                    // against the new schema (Req 17.2–17.4).
+                    let new_current = {
+                        let mig = match migration.lock() {
+                            Ok(g) => g,
+                            Err(e) => {
+                                eprintln!("[inbound] migration mutex poisoned: {e}");
+                                return;
+                            }
+                        };
+                        mig.current_schema_hash()
+                    };
+                    let mut crdt = match crdt.lock() {
+                        Ok(g) => g,
+                        Err(e) => {
+                            eprintln!("[inbound] crdt mutex poisoned: {e}");
+                            return;
+                        }
+                    };
+                    crdt.set_current_schema(new_current);
+                    eprintln!(
+                        "[inbound] MigrationDelta applied; CRDT current schema advanced to {}",
+                        hex::encode(new_current)
+                    );
+                }
+                Ok(MigrationResult::Revoked { reason }) => {
+                    eprintln!(
+                        "[inbound] MigrationDelta {:?} interrupted by revocation — NOT applied: {reason}",
+                        migration_id
+                    );
+                }
+                Ok(other) => {
+                    eprintln!("[inbound] MigrationDelta not applied: {other:?}");
+                }
+                Err(e) => {
+                    eprintln!("[inbound] MigrationDelta rejected: {e}");
+                }
+            }
+        });
+    }
+
+    /// Wait until every dispatched migration job has finished (transform
+    /// committed, aborted, or revoked) or `timeout` elapses.
+    ///
+    /// The inbound pipeline dispatches migration execution to background jobs
+    /// so a revocation can interrupt an in-progress transform; this helper
+    /// lets callers observe the moment the pipeline has fully settled.  The
+    /// production drain loop does not need it (it ticks continuously); it
+    /// exists for integration tests and hosts that drive
+    /// `process_inbound_messages` manually and then assert post-migration
+    /// state.  Returns `false` when `timeout` elapsed first.
+    #[cfg(feature = "native")]
+    pub(crate) async fn await_migration_quiescence(
+        &self,
+        timeout: std::time::Duration,
+    ) -> bool {
+        use std::sync::atomic::Ordering;
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            let active = self.migration_tasks_active.load(Ordering::SeqCst);
+            let busy = self
+                .migration
+                .lock()
+                .map(|g| g.any_migration_in_progress())
+                .unwrap_or(true);
+            if active == 0 && !busy {
+                return true;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
     }
 
     /// WASM stub for the native `receive_inbound` — the Gossipsub Swarm is not
@@ -2564,8 +2787,19 @@ impl CoreHandle {
                         reason: format!("migration mutex poisoned: {e}"),
                     }
                 })?;
-                if let Err(e) = mig.receive_revocation_delta(mig_rev) {
-                    eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
+                match mig.receive_revocation_delta(mig_rev) {
+                    Ok(_halted) => {
+                        // The WASM build is single-threaded: no transform can
+                        // be executing concurrently, so `_halted` is always
+                        // false here.  Mid-flight interruption is a native
+                        // capability (epoch interrupt via the execution
+                        // registry, Req 18.6); on WASM the synchronous
+                        // `receive_migration_delta` path's post-run revocation
+                        // re-check still protects the schema-hash commit.
+                    }
+                    Err(e) => {
+                        eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
+                    }
                 }
                 Ok(())
             }
@@ -4764,6 +4998,15 @@ mod tests {
             .process_inbound_messages()
             .await
             .expect("drain inbound");
+        // The inbound pipeline executes migrations on a background job (so a
+        // revocation can interrupt one — Req 18.6); wait for this one to
+        // commit before asserting post-migration state.
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await,
+            "migration A must finish within the wait budget"
+        );
 
         let mut mig = handle.migration.lock().unwrap();
         assert!(
@@ -4790,6 +5033,170 @@ mod tests {
         );
 
         drop(mig);
+        cleanup(&path);
+    }
+
+    // ── Subphase 5.4: Migration revocation interrupts an in-progress ─────────
+    //
+    // transform (Req 18.6)
+    //
+    // Before this subphase the inbound pipeline executed the migration
+    // transform synchronously inside `receive_migration_delta` while holding
+    // the CoreHandle `migration` mutex, so a MigrationRevocationDelta arriving
+    // mid-run queued behind the transform (up to the 30 s epoch timeout) and
+    // could never halt it.  This test drives the production wiring: a
+    // long-running (infinite-loop) transform is dispatched to the background
+    // migration job, a revocation is drained while it is genuinely executing,
+    // and the transform must be epoch-interrupted promptly — well before its
+    // 30 s timeout — with the schema hash left unadvanced.
+
+    /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
+    ///
+    /// Only the epoch interrupt (timeout or revocation, Req 18.6) can stop it,
+    /// which is exactly what makes it a reliable "in progress" transform.
+    fn infinite_loop_wasm_bytes() -> Vec<u8> {
+        wat::parse_str(r#"(module (func (export "run") (loop $inf br $inf))) "#)
+            .expect("parse infinite-loop WAT")
+    }
+
+    #[tokio::test]
+    async fn inbound_migration_revocation_interrupts_in_progress_transform() {
+        let path = tmp_path("p54_revoke_interrupts");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let v1 = [0x10u8; 32];
+        let v2 = [0x11u8; 32];
+
+        let mut config = make_migration_config(&path, ca_public, vec![v1, v2]);
+        // M-of-N manager threshold for *migration* revocations: a single
+        // Manager signature suffices (the engine uses
+        // `deployment.revocation_m.max(1)`).
+        config.deployment.revocation_m = 1;
+
+        let handle = CoreHandle::init(config)
+            .await
+            .expect("init with migration CA key + version path");
+
+        let sender = "did:key:z6MkMigSender";
+
+        // ── 1. Start a long-running migration through the inbound pipeline ──
+        let wasm = infinite_loop_wasm_bytes();
+        let delta = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm);
+        let migration_id = delta.id;
+
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .await
+            .expect("inject migration");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        // The inbound pipeline runs the transform on a background job; wait
+        // until it has genuinely started executing (engine in-progress marker
+        // set AND its wasmtime Engine registered in the execution registry, so
+        // the epoch interrupt below is guaranteed to land).
+        let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let in_progress = handle
+                .migration
+                .lock()
+                .unwrap()
+                .is_migration_in_progress(&migration_id);
+            let registered = handle.migration_runs.is_in_flight(&migration_id);
+            if in_progress && registered {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < start_deadline,
+                "migration never began executing (in_progress={in_progress}, registered={registered})"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+
+        // ── 2. Revoke it while it is mid-flight (Req 18.5/18.6) ─────────────
+        use crate::crdt::derive_did_from_public_key;
+        use crate::crdt::delta::Ed25519Signature;
+        use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
+        let (mgr_secret, mgr_public) =
+            crate::identity::keypair::generate_keypair().expect("manager keygen");
+        let mgr_did = derive_did_from_public_key(&mgr_public);
+        let mgr_sig = crate::identity::keypair::sign(&mgr_secret, &migration_id).expect("sign");
+        let revocation = MigrationRevocationDelta {
+            target_migration_id: migration_id,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did,
+                signature: Ed25519Signature(mgr_sig.0),
+            }],
+            created_at: 0,
+        };
+
+        let revoke_started = std::time::Instant::now();
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
+            .await
+            .expect("inject revocation");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain revocation");
+
+        // The revocation must interrupt the run; wait for the pipeline to
+        // settle (job finished, in-progress cleared).
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(15))
+                .await,
+            "revoked migration job must settle within the wait budget"
+        );
+        let revoke_elapsed = revoke_started.elapsed();
+
+        // ── 3. Assert the interrupt outcome ──────────────────────────────────
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert!(
+                mig.is_revoked(&migration_id),
+                "migration must be permanently revoked"
+            );
+            assert!(
+                !mig.is_migration_in_progress(&migration_id),
+                "interrupted migration must no longer be in progress"
+            );
+            assert_eq!(
+                mig.current_schema_hash(),
+                v1,
+                "schema hash must NOT advance when the transform was revoked mid-flight"
+            );
+        }
+        assert!(
+            !handle.migration_runs.is_in_flight(&migration_id),
+            "interrupted run must deregister from the execution registry"
+        );
+        assert!(
+            revoke_elapsed < std::time::Duration::from_secs(10),
+            "revocation must halt the transform via epoch interrupt well before \
+             the 30 s sandbox timeout — took {revoke_elapsed:?}"
+        );
+
+        // ── 4. A later attempt to apply the revoked migration is rejected ────
+        let delta_again = make_ca_signed_migration_delta(
+            &ca_secret,
+            v1,
+            v2,
+            infinite_loop_wasm_bytes(),
+        );
+        let result = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta_again, sender);
+        assert!(
+            matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
+            "revoked migration must be rejected on re-apply: {result:?}"
+        );
+
         cleanup(&path);
     }
 
@@ -5638,6 +6045,15 @@ mod inbound_tests {
             .process_inbound_messages()
             .await
             .expect("drain inbound");
+        // The inbound pipeline executes migrations on a background job (so a
+        // revocation can interrupt one — Req 18.6); wait for this one to
+        // commit before asserting post-migration state.
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await,
+            "migration must finish within the wait budget"
+        );
 
         // After the migration: the CRDT engine's current schema advanced to h2
         // and locally produced Deltas stamp h2 (Req 4.6).
