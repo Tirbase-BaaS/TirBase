@@ -189,8 +189,10 @@ impl CoreHandle {
         let identity = Arc::new(identity);
 
         // ── Capability Manager ────────────────────────────────────────────────
+        // Root CA keys come from deployment config; an empty vec is the explicit
+        // unconfigured state (verification fails until keys are registered).
         let capability = CapabilityManager::new(
-            vec![],
+            config.deployment.root_ca_keys.clone(),
             config.deployment.revocation_m,
             config.deployment.revocation_n,
         );
@@ -623,6 +625,31 @@ impl CoreHandle {
         Ok(handle)
     }
 
+    // ─── Local write/read gate (Req 8.5) ──────────────────────────────────────
+
+    /// Local trust-level gate — REVOKED devices cannot write, read, or query
+    /// (Req 8.5).
+    ///
+    /// This is the production gate that a locally-known REVOKED status must
+    /// trip.  The REVOKED status becomes locally known when the inbound
+    /// pipeline ([`CoreHandle::receive_inbound`] / `receive_inbound_wasm`)
+    /// processes a validated `RevocationDelta` whose target is this device's
+    /// own DID and invokes [`CapabilityManager::apply_revocation`]; from then
+    /// on this gate returns `AuthorisationFailed` for every local I/O.
+    fn ensure_local_trust_allows_io(&self) -> Result<(), TirBaseError> {
+        let cap = self.capability.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("capability mutex poisoned: {e}"),
+            }
+        })?;
+        if cap.trust_level() == TrustLevel::Revoked {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "device is REVOKED".to_string(),
+            });
+        }
+        Ok(())
+    }
+
     // ─── Write ────────────────────────────────────────────────────────────────
 
     /// Write a record to a table (Req 2.1, 2.3, 3.2).
@@ -632,19 +659,8 @@ impl CoreHandle {
         key: &str,
         data: serde_json::Value,
     ) -> Result<WriteResult, TirBaseError> {
-        // 1. Trust level gate — REVOKED devices cannot write.
-        {
-            let cap = self.capability.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("capability mutex poisoned: {e}"),
-                }
-            })?;
-            if cap.trust_level() == TrustLevel::Revoked {
-                return Err(TirBaseError::AuthorisationFailed {
-                    reason: "device is REVOKED".to_string(),
-                });
-            }
-        }
+        // 1. Trust level gate — REVOKED devices cannot write (Req 8.5).
+        self.ensure_local_trust_allows_io()?;
 
         // 2. Write to local store inside a SQLite transaction (Req 3.6).
         #[cfg(feature = "native")]
@@ -804,6 +820,9 @@ impl CoreHandle {
 
     /// Read a single record from a table by key (Req 2.1, 3.3).
     pub async fn read(&self, table: &str, key: &str) -> Result<QueryResult, TirBaseError> {
+        // 1. Trust level gate — REVOKED devices cannot read (Req 8.5).
+        self.ensure_local_trust_allows_io()?;
+
         #[cfg(feature = "native")]
         let data = {
             let store = self.store.lock().map_err(|e| {
@@ -857,6 +876,9 @@ impl CoreHandle {
         table: &str,
         filter: Option<serde_json::Value>,
     ) -> Result<Vec<QueryResult>, TirBaseError> {
+        // 1. Trust level gate — REVOKED devices cannot query (Req 8.5).
+        self.ensure_local_trust_allows_io()?;
+
         #[cfg(feature = "native")]
         let rows = {
             let store = self.store.lock().map_err(|e| {
@@ -945,7 +967,8 @@ impl CoreHandle {
     ///
     /// Used by `core_activate_saturate_mode` on the WASM target to verify
     /// the disaster-alert Biscuit token (Req 13.1, 13.7).
-    /// Returns an empty `Vec<u8>` if no root CA key is configured (e.g. v1 default).
+    /// Returns an empty `Vec<u8>` if no root CA key is configured (explicit
+    /// unconfigured state — verification fails until a key is registered).
     pub fn root_ca_public_key(&self) -> Vec<u8> {
         self.capability
             .lock()
@@ -955,6 +978,21 @@ impl CoreHandle {
                     .unwrap_or_default()
             })
             .unwrap_or_default()
+    }
+
+    /// Register an additional root CA public key at runtime (Req 8.1).
+    ///
+    /// Takes effect immediately: subsequent Biscuit token verification (e.g.
+    /// `core_activate_saturate_mode`) accepts tokens signed by this key.
+    /// Registering a duplicate key is a no-op.
+    pub fn register_root_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
+        let mut capability = self.capability.lock().map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("capability mutex poisoned: {e}"),
+            }
+        })?;
+        capability.register_root_ca_key(key);
+        Ok(())
     }
 
     // ─── Inbound message pipeline ─────────────────────────────────────────────
@@ -1202,6 +1240,26 @@ impl CoreHandle {
                             "[inbound] RevocationDelta applied for {}",
                             rev_delta.target_did
                         );
+
+                        // Req 8.5 — a validated revocation targeting THIS
+                        // device makes the REVOKED status locally known: apply
+                        // it to the CapabilityManager so the local write/read
+                        // gate (`ensure_local_trust_allows_io`) blocks all
+                        // further I/O immediately.  Revocations of *other*
+                        // devices must not trip this device's own gate.
+                        if rev_delta.target_did == self.identity.did() {
+                            drop(rev);
+                            self.capability
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("capability mutex poisoned: {e}"),
+                                })?
+                                .apply_revocation()?;
+                            eprintln!(
+                                "[inbound] local device {} is REVOKED — write/read/query gates now block",
+                                rev_delta.target_did
+                            );
+                        }
                     }
                     Ok(crate::auth::RevocationStatus::Pending {
                         collected,
@@ -1510,6 +1568,24 @@ impl CoreHandle {
                             "[wasm-inbound] RevocationDelta applied for {}",
                             rev_delta.target_did
                         );
+
+                        // Req 8.5 — same wiring as the native inbound path: a
+                        // validated revocation targeting THIS device applies
+                        // the REVOKED TrustLevel to the CapabilityManager so
+                        // the local write/read gate blocks all further I/O.
+                        if rev_delta.target_did == self.identity.did() {
+                            drop(rev);
+                            self.capability
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("capability mutex poisoned: {e}"),
+                                })?
+                                .apply_revocation()?;
+                            eprintln!(
+                                "[wasm-inbound] local device {} is REVOKED — write/read/query gates now block",
+                                rev_delta.target_did
+                            );
+                        }
                     }
                     Ok(crate::auth::RevocationStatus::Pending { collected, required }) => {
                         eprintln!(
@@ -1754,6 +1830,12 @@ pub struct DeploymentConfig {
     pub revocation_n: usize,
     /// Biscuit token TTL in seconds (1h–24h; or extended with accepted-risk doc).
     pub biscuit_ttl_secs: u64,
+    /// Root CA Ed25519 public keys trusted for offline Biscuit token verification.
+    ///
+    /// Empty (the default) is the explicit *unconfigured* state: no Biscuit
+    /// token can be verified until at least one key is registered, either here
+    /// at init time or via [`CoreHandle::register_root_ca_key`] at runtime.
+    pub root_ca_keys: Vec<[u8; 32]>,
     /// Whether Anchor_Attested_Location subsystem is enabled.
     pub anchor_attested_location: bool,
     /// Minimum distinct spatial tags required for Quorum.
@@ -1769,6 +1851,7 @@ pub struct DeploymentConfig {
 #[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
+    use crate::transport::message::GossipMessage;
     use serde_json::json;
     use std::env;
 
@@ -1780,6 +1863,7 @@ mod tests {
                 revocation_m: 2,
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -1994,6 +2078,188 @@ mod tests {
             err.contains("REVOKED"),
             "error message must mention REVOKED: {err}"
         );
+
+        cleanup(&path);
+    }
+
+    // ── 8b. Locally-known REVOKED (via inbound RevocationDelta) blocks writes, ─
+    //       reads, and queries (Subphase 2.2 — Req 8.5)
+    //
+    // End-to-end through the PRODUCTION inbound pipeline: a valid 1-of-1
+    // RevocationDelta targeting this device's own DID is injected and drained
+    // exactly like a gossipsub message would be.  The inbound arm must invoke
+    // CapabilityManager::apply_revocation() so the local TrustLevel becomes
+    // REVOKED and every local I/O gate trips.
+
+    #[tokio::test]
+    async fn inbound_revocation_of_local_device_blocks_writes_reads_and_queries() {
+        let path = tmp_path("revoked_gate_e2e");
+        cleanup(&path);
+
+        // M=1, N=1 so a single Manager signature completes the revocation.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        // Sanity: I/O works before the revocation is locally known.
+        handle
+            .write("t", "k1", json!({ "v": 1 }))
+            .await
+            .expect("pre-revocation write must succeed");
+
+        // A Manager signs a 1-of-1 RevocationDelta targeting THIS device's DID.
+        let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr_did = mgr.did().to_string();
+        let mgr_sk = mgr.signing_key_bytes();
+        let local_did = handle.identity.did().to_string();
+
+        let delta = {
+            let rev = handle.revocation.lock().unwrap();
+            rev.produce_partial_delta(local_did.clone(), mgr_did.clone(), &mgr_sk)
+                .expect("produce partial delta")
+        };
+
+        // Deliver through the production inbound pipeline (the same path a
+        // gossipsub message takes in production — Subphase 1.3 drain loop).
+        handle
+            .inject_inbound(GossipMessage::InboundRevocationDelta(delta))
+            .await
+            .expect("inject_inbound");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages");
+
+        // The local device's TrustLevel must now be REVOKED — this is the
+        // production caller of CapabilityManager::apply_revocation().
+        assert_eq!(
+            handle.trust_level(),
+            TrustLevel::Revoked,
+            "local device must be REVOKED after inbound RevocationDelta"
+        );
+
+        // Write must be blocked by the gate.
+        let write = handle.write("t", "k2", json!({ "v": 2 })).await;
+        assert!(
+            write.is_err(),
+            "REVOKED device must not be allowed to write"
+        );
+        assert!(
+            write.unwrap_err().to_string().contains("REVOKED"),
+            "write error must mention REVOKED"
+        );
+
+        // Read must be blocked by the gate.
+        let read = handle.read("t", "k1").await;
+        assert!(
+            read.is_err(),
+            "REVOKED device must not be allowed to read"
+        );
+        assert!(
+            read.unwrap_err().to_string().contains("REVOKED"),
+            "read error must mention REVOKED"
+        );
+
+        // Query must be blocked by the gate.
+        let query = handle.query("t", None).await;
+        assert!(
+            query.is_err(),
+            "REVOKED device must not be allowed to query"
+        );
+        assert!(
+            query.unwrap_err().to_string().contains("REVOKED"),
+            "query error must mention REVOKED"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── 8c. Revoking a DIFFERENT device must not trip this device's gate ─────
+
+    #[tokio::test]
+    async fn inbound_revocation_of_other_device_does_not_block_local_device() {
+        let path = tmp_path("revoked_gate_other");
+        cleanup(&path);
+
+        // M=1, N=1 so the other device's revocation completes immediately.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        // A Manager revokes an unrelated device, not this one.
+        let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr_did = mgr.did().to_string();
+        let mgr_sk = mgr.signing_key_bytes();
+        let other_did = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+        let delta = {
+            let rev = handle.revocation.lock().unwrap();
+            rev.produce_partial_delta(other_did.clone(), mgr_did.clone(), &mgr_sk)
+                .expect("produce partial delta")
+        };
+
+        handle
+            .inject_inbound(GossipMessage::InboundRevocationDelta(delta))
+            .await
+            .expect("inject_inbound");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages");
+
+        // The other device is REVOKED in the subsystem…
+        assert!(
+            handle
+                .revocation
+                .lock()
+                .unwrap()
+                .revoked_dids()
+                .contains(&other_did),
+            "subsystem must know the other device is REVOKED"
+        );
+        // …but this device's own TrustLevel must be untouched.
+        assert_eq!(
+            handle.trust_level(),
+            TrustLevel::Unverified,
+            "revoking another device must not revoke the local device"
+        );
+        handle
+            .write("t", "k", json!({ "v": 1 }))
+            .await
+            .expect("write must still succeed");
+        handle
+            .read("t", "k")
+            .await
+            .expect("read must still succeed");
 
         cleanup(&path);
     }
@@ -2428,6 +2694,135 @@ mod tests {
 
         cleanup(&path);
     }
+
+    // ── Phase 2.1: root CA key registration (Req 8.1) ────────────────────────
+
+    /// Build a config that registers the given root CA public key at init.
+    fn make_config_with_ca_key(path: &str, ca_key: [u8; 32]) -> InitConfig {
+        let mut config = make_config(path);
+        config.deployment.root_ca_keys = vec![ca_key];
+        config
+    }
+
+    /// Create a fresh CA keypair; returns (private_key_bytes, public_key_bytes).
+    fn make_ca_keypair() -> (Vec<u8>, [u8; 32]) {
+        use biscuit_auth::{builder::Algorithm, KeyPair};
+        let kp = KeyPair::new();
+        let private_bytes = kp.private().to_bytes().to_vec();
+        let public_bytes: [u8; 32] = kp
+            .public()
+            .to_bytes()
+            .try_into()
+            .expect("public key must be 32 bytes");
+        (private_bytes, public_bytes)
+    }
+
+    fn now_secs() -> i64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+    }
+
+    /// Init-time registration: keys supplied in `DeploymentConfig` must be
+    /// reachable through `root_ca_public_key()` and must let the exact
+    /// production verification path (`verify_and_check_caveat`, as used by
+    /// `core_activate_saturate_mode`) succeed.
+    #[tokio::test]
+    async fn init_registers_root_ca_keys_and_biscuit_verifies() {
+        let path = tmp_path("p21_init_keys");
+        cleanup(&path);
+
+        let (ca_private, ca_public) = make_ca_keypair();
+        let handle = CoreHandle::init(make_config_with_ca_key(&path, ca_public))
+            .await
+            .expect("init with registered root CA key");
+
+        // The registered key must be the one exposed for offline verification.
+        assert_eq!(handle.root_ca_public_key(), ca_public.to_vec());
+
+        // Build a real disaster-alert Biscuit token signed by the CA.
+        let token_bytes = crate::auth::biscuit::create_token_with_caveat(
+            "did:key:z6MkTest",
+            "manager",
+            3600,
+            "disaster-alert",
+            &ca_private,
+        )
+        .expect("create token");
+
+        // The exact production verification call (`core_activate_saturate_mode`
+        // in lib.rs) must succeed now that a key is registered.
+        assert!(
+            crate::auth::biscuit::verify_and_check_caveat(
+                &token_bytes,
+                "disaster-alert",
+                &handle.root_ca_public_key(),
+                now_secs(),
+            )
+            .expect("verification must not error"),
+            "registered CA key must verify a valid disaster-alert token"
+        );
+
+        cleanup(&path);
+    }
+
+    /// Runtime registration: a handle initialised with no keys starts in the
+    /// explicit unconfigured state (verification fails), and becomes able to
+    /// verify tokens only after `register_root_ca_key` is called.
+    #[tokio::test]
+    async fn runtime_register_root_ca_key_enables_biscuit_verification() {
+        let path = tmp_path("p21_runtime_key");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init without keys");
+        assert!(
+            handle.root_ca_public_key().is_empty(),
+            "unconfigured handle must expose no root CA key"
+        );
+
+        let (ca_private, ca_public) = make_ca_keypair();
+        let token_bytes = crate::auth::biscuit::create_token_with_caveat(
+            "did:key:z6MkTest",
+            "manager",
+            3600,
+            "disaster-alert",
+            &ca_private,
+        )
+        .expect("create token");
+
+        // Before registration: the empty registry must NOT verify the token.
+        let before = crate::auth::biscuit::verify_and_check_caveat(
+            &token_bytes,
+            "disaster-alert",
+            &handle.root_ca_public_key(), // empty — explicit unconfigured state
+            now_secs(),
+        );
+        assert!(before.is_err(), "empty registry must reject verification");
+
+        // Register the CA key at runtime.
+        handle
+            .register_root_ca_key(ca_public)
+            .expect("register_root_ca_key must succeed");
+        assert_eq!(handle.root_ca_public_key(), ca_public.to_vec());
+
+        // Now the same token verifies.
+        assert!(
+            crate::auth::biscuit::verify_and_check_caveat(
+                &token_bytes,
+                "disaster-alert",
+                &handle.root_ca_public_key(),
+                now_secs(),
+            )
+            .expect("verification must not error after registration"),
+            "runtime-registered CA key must verify a valid disaster-alert token"
+        );
+
+        cleanup(&path);
+    }
 }
 
 // ─── Inbound pipeline integration tests ───────────────────────────────────────
@@ -2449,6 +2844,7 @@ mod inbound_tests {
                 revocation_m: 2,
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -3016,6 +3412,7 @@ mod inbound_tests {
                 revocation_m: 2,
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -3109,6 +3506,7 @@ mod inbound_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -3414,6 +3812,7 @@ mod convergence_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -3556,6 +3955,7 @@ mod real_mesh_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,

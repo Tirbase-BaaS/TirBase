@@ -223,7 +223,7 @@ async fn test_init_write_read_round_trip() {
     use js_sys::JSON;
 
     // Initialise with a dummy storage path (in-memory on WASM).
-    crate::wasm_exports::core_init("wasm-test".to_string())
+    crate::wasm_exports::core_init("wasm-test".to_string(), vec![])
         .await
         .expect("core_init should succeed");
 
@@ -248,7 +248,7 @@ async fn test_init_write_query() {
     use js_sys::JSON;
 
     // Re-initialise to get a fresh in-memory store.
-    crate::wasm_exports::core_init("wasm-test-query".to_string())
+    crate::wasm_exports::core_init("wasm-test-query".to_string(), vec![])
         .await
         .expect("core_init should succeed");
 
@@ -284,6 +284,94 @@ async fn test_init_write_query() {
     assert_eq!(rows.len(), 3, "query must return all 3 written rows");
 }
 
+// ─── Subphase 2.2: locally-known REVOKED status blocks I/O (Req 8.5) ──────────
+//
+// Mirrors the native integration test `inbound_revocation_of_local_device_blocks_writes_reads_and_queries`:
+// a valid 1-of-1 RevocationDelta targeting this device's own DID arrives through
+// the production WASM inbound entry point (`core_receive_peer_message` →
+// `receive_inbound_wasm`), which must invoke `CapabilityManager::apply_revocation()`
+// so the local TrustLevel becomes REVOKED and write/read/query are all blocked.
+
+#[wasm_bindgen_test]
+async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
+    use crate::identity::IdentityManager;
+    use crate::transport::message::GossipMessage;
+
+    // Fresh in-memory instance (M=1, N=1 from core_init).
+    crate::wasm_exports::core_init("wasm-test-local-revocation".to_string(), vec![])
+        .await
+        .expect("core_init should succeed");
+
+    // Sanity: trust level is Unverified before the revocation is locally known.
+    assert_eq!(
+        crate::wasm_exports::core_trust_level(),
+        "Unverified",
+        "trust level must be Unverified before revocation"
+    );
+
+    // Produce a 1-of-1 RevocationDelta targeting THIS device's own DID.
+    let local_did = crate::wasm_exports::CORE.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("handle must exist after core_init")
+            .identity
+            .did()
+            .to_string()
+    });
+
+    let mgr = IdentityManager::init_in_memory().unwrap();
+    let mgr_did = mgr.did().to_string();
+    let mgr_sk = mgr.signing_key_bytes();
+
+    let delta = crate::wasm_exports::CORE.with(|c| {
+        let handle = c.borrow().as_ref().expect("handle must exist").clone();
+        let rev = handle.revocation.lock().unwrap();
+        rev.produce_partial_delta(local_did.clone(), mgr_did.clone(), &mgr_sk)
+            .expect("produce partial delta")
+    });
+
+    // Deliver through the production WASM inbound entry point (the equivalent
+    // of the JS transport layer receiving a gossipsub message).
+    let msg = GossipMessage::InboundRevocationDelta(delta);
+    let bytes = msg.to_bytes();
+    crate::wasm_exports::core_receive_peer_message(&bytes)
+        .await
+        .expect("core_receive_peer_message should succeed");
+
+    // The local device's TrustLevel must now be REVOKED — this is the
+    // production caller of CapabilityManager::apply_revocation() on WASM.
+    assert_eq!(
+        crate::wasm_exports::core_trust_level(),
+        "Revoked",
+        "local device must be REVOKED after inbound RevocationDelta"
+    );
+
+    // Write must be blocked by the gate.
+    let data = js_sys::JSON::parse(r#"{"v": 1}"#).unwrap();
+    let write_result =
+        crate::wasm_exports::core_write("t".to_string(), "k".to_string(), data).await;
+    assert!(
+        write_result.is_err(),
+        "REVOKED device must not be allowed to write"
+    );
+
+    // Read must be blocked by the gate.
+    let read_result =
+        crate::wasm_exports::core_read("t".to_string(), "k".to_string()).await;
+    assert!(
+        read_result.is_err(),
+        "REVOKED device must not be allowed to read"
+    );
+
+    // Query must be blocked by the gate.
+    let query_result =
+        crate::wasm_exports::core_query("t".to_string(), wasm_bindgen::JsValue::NULL).await;
+    assert!(
+        query_result.is_err(),
+        "REVOKED device must not be allowed to query"
+    );
+}
+
 // ─── Task 42: WASM inbound Delta merging ─────────────────────────────────────
 //
 // These tests verify sub-tasks 4 and 5 of Task 42:
@@ -304,7 +392,7 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     use crate::transport::message::GossipMessage;
 
     // Re-initialise with a fresh in-memory store.
-    crate::wasm_exports::core_init("wasm-test-inbound-42".to_string())
+    crate::wasm_exports::core_init("wasm-test-inbound-42".to_string(), vec![])
         .await
         .expect("core_init should succeed");
 
