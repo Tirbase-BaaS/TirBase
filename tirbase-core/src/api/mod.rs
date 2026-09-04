@@ -892,6 +892,76 @@ impl CoreHandle {
         Ok(())
     }
 
+    // ─── Durability receipt issuance (Subphase 4.5) ───────────────────────────
+
+    /// Issue a signed `DurabilityReceipt` for a peer Delta this device has just
+    /// merged, and publish it back over the mesh so the author can count this
+    /// device toward Tier-1 quorum (Req 14.1, 14.6).
+    ///
+    /// This is the *genuine* receipt-issuance half of Tier-1 durability: the
+    /// receipt attests "I hold this state" by signing
+    /// `receipt_signing_payload(state_hash = delta.id, receipt_id)` with this
+    /// device's own identity key (the v1 convention `state_hash = delta.id`
+    /// matches what `write()` registers).  The author verifies it against this
+    /// device's DID-resolved public key in
+    /// `DurabilitySubsystem::receive_receipt`.
+    ///
+    /// Best-effort by design (Req 3.3): signing or publish failure is logged,
+    /// not propagated — the merge already succeeded and the local state is
+    /// committed; a lost receipt only means the author waits for another peer.
+    ///
+    /// Production caller: [`CoreHandle::receive_inbound`] (native), invoked
+    /// after a peer Delta reports `MergeOutcome::Merged` (Subphase 4.5).
+    #[cfg(feature = "native")]
+    fn issue_durability_receipt(&self, state_hash: &DeltaId) {
+        use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
+
+        let id = uuid::Uuid::now_v7();
+        let payload = receipt_signing_payload(state_hash, &id);
+        let issuer_signature = match crate::identity::keypair::sign(
+            &self.identity.signing_key_bytes(),
+            &payload,
+        ) {
+            Ok(sig) => sig,
+            Err(e) => {
+                eprintln!(
+                    "[durability] receipt signing failed for delta {}: {e}",
+                    hex::encode(state_hash)
+                );
+                return;
+            }
+        };
+
+        let receipt = DurabilityReceipt {
+            id,
+            state_hash: *state_hash,
+            issuer_did: self.identity.did().to_string(),
+            issuer_signature,
+            // No squad/tunnel_sector configured on this device (v1); with
+            // Anchor_Attested_Location disabled the receipt is counted by its
+            // (absent) declared tag — untagged peers fall back to flat K-of-N
+            // diversity (Req 14.5).
+            spatial_tag: None,
+            beacon_token: None,
+            issued_at: now_micros(),
+        };
+
+        if let Err(e) = self
+            .transport
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            })
+            .and_then(|mut transport| transport.send_receipt(&receipt))
+        {
+            eprintln!(
+                "[durability] receipt publish failed for delta {}: {e} — \
+                 author will not count this device toward its quorum",
+                hex::encode(state_hash)
+            );
+        }
+    }
+
     // ─── Write ────────────────────────────────────────────────────────────────
 
     /// Write a record to a table (Req 2.1, 2.3, 3.2).
@@ -1727,6 +1797,15 @@ impl CoreHandle {
                                 }
                             }
                         }
+
+                        // Subphase 4.5: this device genuinely holds the merged
+                        // state — sign a DurabilityReceipt over the Delta and
+                        // publish it back to the mesh so the author can count
+                        // this device toward Tier-1 quorum (Req 14.1, 14.6).
+                        // Issued only after a successful merge: a receipt
+                        // attests held state, and only a signature-verified
+                        // merge inserted the Delta into this device's DAG.
+                        self.issue_durability_receipt(&delta.id);
                     }
                     MergeOutcome::Quarantined { .. } => {
                         eprintln!(
@@ -1749,14 +1828,26 @@ impl CoreHandle {
                 let issuer_did = receipt.issuer_did.clone();
                 let delta_id = receipt.state_hash;
 
-                // Attempt DID resolution to look up the issuer's public key.
+                // A `did:key:` DID *is* the issuer's public key: resolution
+                // yields the key the receipt must verify against (Req 14.6).
                 match crate::identity::did::resolve_did(&issuer_did) {
-                    Ok(_pk) => {
+                    Ok(issuer_public_key) => {
                         let mut dur = self.durability.lock().map_err(|e| {
                             TirBaseError::LocalStoreWriteFailed {
                                 reason: format!("durability mutex: {e}"),
                             }
                         })?;
+
+                        // Subphase 4.5: register the issuer's self-certified
+                        // key with the Delta's durability state so
+                        // `receive_receipt` can verify the signature.  A
+                        // genuine two-device receipt exchange needs no
+                        // pre-provisioned peer roster: the receipt itself
+                        // carries the key (as its DID), and registration only
+                        // enables verification — acceptance still requires the
+                        // Ed25519 signature + state-hash to check out.
+                        dur.register_peer_key(&delta_id, &issuer_did, issuer_public_key);
+
                         match dur.receive_receipt(receipt, &delta_id) {
                             Ok(true) => {
                                 eprintln!(
@@ -2133,23 +2224,37 @@ impl CoreHandle {
 
             GossipMessage::InboundDurabilityReceipt(receipt) => {
                 let delta_id = receipt.state_hash;
-                match self
-                    .durability
-                    .lock()
-                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("durability mutex poisoned: {e}"),
-                    })?
-                    .receive_receipt(receipt, &delta_id)
-                {
-                    Ok(true) => {
-                        eprintln!(
-                            "[wasm-inbound] Tier-1 durability achieved for delta {}",
-                            hex::encode(delta_id)
-                        );
+                let issuer_did = receipt.issuer_did.clone();
+
+                // Same as the native receipt arm: resolve the issuer's
+                // self-certifying `did:key:` DID and register the key with the
+                // Delta's durability state so `receive_receipt` can verify the
+                // receipt (Req 14.6, Subphase 4.5 parity).
+                match crate::identity::did::resolve_did(&issuer_did) {
+                    Ok(issuer_public_key) => {
+                        let mut dur = self.durability.lock().map_err(|e| {
+                            TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("durability mutex poisoned: {e}"),
+                            }
+                        })?;
+                        dur.register_peer_key(&delta_id, &issuer_did, issuer_public_key);
+                        match dur.receive_receipt(receipt, &delta_id) {
+                            Ok(true) => {
+                                eprintln!(
+                                    "[wasm-inbound] Tier-1 durability achieved for delta {}",
+                                    hex::encode(delta_id)
+                                );
+                            }
+                            Ok(false) => {}
+                            Err(e) => {
+                                eprintln!("[wasm-inbound] receipt rejected: {e}");
+                            }
+                        }
                     }
-                    Ok(false) => {}
                     Err(e) => {
-                        eprintln!("[wasm-inbound] receipt rejected: {e}");
+                        eprintln!(
+                            "[wasm-inbound] could not resolve receipt issuer DID {issuer_did}: {e}"
+                        );
                     }
                 }
                 Ok(())
@@ -6063,6 +6168,168 @@ mod real_mesh_tests {
 
         cleanup(&tmp_path("p03b_A"));
         cleanup(&tmp_path("p03b_B"));
+    }
+
+    // ── Subphase 4.5: Tier-1 durability via genuine receipt exchange ─────────
+    //
+    // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
+    // Device A writes; device B receives and merges the Delta through the
+    // production inbound pipeline, then — Subphase 4.5 — issues a *genuine*
+    // DurabilityReceipt (signed with B's own identity key over the canonical
+    // payload) and publishes it back over the mesh.  A's inbound pipeline
+    // resolves B's DID to its public key, verifies the receipt (signature +
+    // state-hash), and reaches Tier-1 through the production quorum path.
+    //
+    // No test helper manufactures the receipt: every byte travels
+    //   A: write() → register_delta → gossipsub.publish
+    //   B: receive_inbound → merge → issue_durability_receipt → send_receipt
+    //      → gossipsub.publish
+    //   A: receive_inbound → resolve DID → register_peer_key → receive_receipt
+    //      → quorum → Tier-1 (+ DurabilityTierChanged event)
+
+    /// Poll device B's outbound publish point for the `DurabilityReceipt` it
+    /// issued for `delta_id` after merging the Delta (Subphase 4.5).  Returns
+    /// the receipt parsed from the framed
+    /// `GossipMessage::InboundDurabilityReceipt` payload — proving the receipt
+    /// genuinely left B's mesh layer (same observability the Phase 0.3(a)
+    /// tests use for outbound Deltas).
+    async fn wait_for_issued_receipt(
+        handle: &Arc<CoreHandle>,
+        delta_id: &DeltaId,
+    ) -> crate::durability::receipt::DurabilityReceipt {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            if let Ok(transport) = handle.transport.lock() {
+                for payload in &transport.outbound_published {
+                    if let Some(crate::transport::message::GossipMessage::InboundDurabilityReceipt(
+                        receipt,
+                    )) = crate::transport::message::GossipMessage::from_bytes(payload)
+                    {
+                        if &receipt.state_hash == delta_id {
+                            return receipt;
+                        }
+                    }
+                }
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "device B never published a DurabilityReceipt for delta {}",
+                hex::encode(delta_id)
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    /// Poll `handle` until the Delta's durability tier reaches `Tier1` — the
+    /// production per-Delta state backing `WriteResult::durability_tier`
+    /// (Req 14.7).
+    async fn wait_for_tier1(handle: &CoreHandle, delta_id: &DeltaId) {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            if handle.durability_tier(delta_id) == DurabilityTier::Tier1 {
+                return;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "delta {} never reached Tier-1 within 20s (tier: {:?})",
+                hex::encode(delta_id),
+                handle.durability_tier(delta_id)
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn two_devices_reach_tier1_durability_via_genuine_receipt_exchange() {
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        let handle_a = init_mesh_handle("p45_A", port_a).await;
+        let handle_b = init_mesh_handle("p45_B", port_b).await;
+
+        // Subscribe to A's durability event channel BEFORE the write: the
+        // Tier-1 transition must be observed through the production
+        // notification path (Subphase 4.2), not just polled afterwards.
+        let mut tier_events = handle_a.subscribe_durability_events();
+
+        // The only manual step: A dials B's listen address over the production
+        // dial path (mDNS would do this automatically on a LAN; loopback tests
+        // use the explicit path so no multicast is involved).
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+
+        // Let the gossipsub subscription exchange settle so the publish on A
+        // reaches B's mesh rather than being deferred as "no subscribers".
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // A writes — production write path (store + signed Delta + mesh
+        // publish + durability registration).
+        let written = json!({ "device": "A", "msg": "tier1 over the real mesh" });
+        let write_result = handle_a
+            .write("durable", "row-1", written.clone())
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write_result.delta_id;
+        assert_ne!(delta_id, [0u8; 32], "A must produce a real Delta");
+        assert_eq!(
+            handle_a.durability_tier(&delta_id),
+            DurabilityTier::Uncommitted,
+            "Tier-1 must not be reached before a genuine receipt arrives"
+        );
+
+        // 1. B genuinely receives and merges the Delta (Phase 1) — only then
+        //    can B attest holding the state.
+        let _ = wait_for_data(&handle_b, "durable", "row-1", &written, Duration::from_secs(20)).await;
+
+        // 2. B must have issued a genuine receipt and published it to the
+        //    mesh.  Capture it at B's outbound publish point.
+        let receipt = wait_for_issued_receipt(&handle_b, &delta_id).await;
+
+        // 3. The receipt is genuine, not manufactured: it is signed over the
+        //    canonical payload by B's real identity key (state_hash =
+        //    delta.id, issuer = B's DID) and verifies against B's public key.
+        assert_eq!(receipt.state_hash, delta_id, "receipt must attest THIS delta");
+        assert_eq!(
+            receipt.issuer_did,
+            handle_b.identity.did(),
+            "receipt must be issued by B's identity"
+        );
+        let b_public_key = handle_b.identity.public_key_bytes();
+        crate::durability::receipt::verify_receipt(&receipt, &b_public_key, &delta_id)
+            .expect("receipt must verify against B's real public key");
+
+        // 4. A receives the receipt over the mesh, resolves B's DID to B's
+        //    public key, verifies signature + state-hash, and reaches Tier-1
+        //    through the production quorum path.
+        wait_for_tier1(&handle_a, &delta_id).await;
+
+        // 5. The production notification (Req 14.7, Subphase 4.2) delivered a
+        //    DurabilityTierChanged event for the Uncommitted → Tier1 transition.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        loop {
+            match tier_events.try_recv() {
+                Ok(evt)
+                    if evt.delta_id == delta_id
+                        && evt.previous_tier == DurabilityTier::Uncommitted
+                        && evt.new_tier == DurabilityTier::Tier1 =>
+                {
+                    break;
+                }
+                Ok(_) => {}
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => {}
+                Err(e) => panic!("durability event channel closed: {e}"),
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "no DurabilityTierChanged(Uncommitted → Tier1) event for delta {}",
+                hex::encode(delta_id)
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        cleanup(&tmp_path("p45_A"));
+        cleanup(&tmp_path("p45_B"));
     }
 }
 

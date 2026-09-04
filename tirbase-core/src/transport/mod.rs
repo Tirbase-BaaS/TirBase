@@ -698,8 +698,45 @@ impl MeshTransport {
         Ok(())
     }
 
-    /// Run one DRR scheduling epoch and forward the drained Deltas to the
-    /// outbound publish channel (Subphase 1.4 — Req 12).
+    /// Forward a signed `DurabilityReceipt` to the shared Gossipsub topic
+    /// (Req 14.6 — the receipt-issuance half of Tier-1 durability, Subphase
+    /// 4.5).
+    ///
+    /// Frames the receipt as `GossipMessage::InboundDurabilityReceipt` so the
+    /// receiving Swarm poll task can dispatch it to the Durability Subsystem
+    /// without heuristics — the same wire framing `send_delta` applies to
+    /// whole-Delta payloads (Subphase 1.5).  The framed bytes go over the
+    /// outbound publish channel to the Swarm polling task, which performs the
+    /// actual `gossipsub.publish`; a receipt is small and latency-sensitive
+    /// (it completes the writer's quorum), so it is sent directly rather than
+    /// queued through the DRR scheduler.
+    ///
+    /// Production caller: [`crate::api::CoreHandle::issue_durability_receipt`]
+    /// (api/mod.rs), which runs after a peer Delta merges in
+    /// `CoreHandle::receive_inbound` (Subphase 4.5).
+    #[cfg(feature = "native")]
+    pub fn send_receipt(
+        &mut self,
+        receipt: &crate::durability::receipt::DurabilityReceipt,
+    ) -> Result<(), TirBaseError> {
+        let wire_payload = crate::transport::message::GossipMessage::InboundDurabilityReceipt(
+            receipt.clone(),
+        )
+        .to_bytes();
+
+        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
+            TirBaseError::MeshUnavailable {
+                reason: "transport not started (no outbound channel installed)".to_string(),
+            }
+        })?;
+
+        tx.try_send(wire_payload).map_err(|e| {
+            TirBaseError::MeshUnavailable {
+                reason: format!("outbound publish channel unavailable: {e}"),
+            }
+        })?;
+        Ok(())
+    }
     ///
     /// Called by the production scheduler tick loop spawned from
     /// `CoreHandle::init`; the Swarm polling task (Subphase 1.1) receives the

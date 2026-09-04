@@ -168,9 +168,13 @@ within 10 epochs.
 receipts and a mock `DurabilitySubsystem`.
 
 **Deferred aspect:** Live K-of-N quorum formation with distinct networked
-peers is not exercised.  The in-process test uses injected receipts rather
+peers is not exercised here.  The in-process test uses injected receipts rather
 than receipts from distinct tokio tasks over loopback libp2p.  Full live
-quorum testing is deferred to `durability/integration_tests.rs` (post-v1).
+quorum testing is now landed in Subphase 4.5 (`api::real_mesh_tests::
+two_devices_reach_tier1_durability_via_genuine_receipt_exchange`, Item 13):
+two real Swarm-backed devices exchange a Delta and a *genuine* (device-signed)
+receipt over loopback, and the writer reaches Tier-1 through the production
+quorum path.
 
 ---
 
@@ -315,13 +319,16 @@ The test asserts:
 
 **Status:** VERIFIED (525 tests, 0 failures)
 
-`cargo test --features native` passes all 525 tests including all 22 property
+`cargo test --features native` passes all 534 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
 `durability::tests::tier_changed_listener_fires_on_cloud_ack_transition`
 listener unit test; Subphase 4.3 added the nine Anchor-Attested Location tests
-listed in Item 11).
+listed in Item 11; Subphase 4.5 added
+`api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`
+— two real-mesh devices reaching Tier-1 through genuine receipt exchange,
+listed in Item 13).
 
 ---
 
@@ -542,9 +549,9 @@ registry-from-config construction, and `api::tier2_ack_tests::anchor_*`
 asserts the production `CoreHandle::init` plumbing (verifier present and in
 BeaconAttested mode when enabled, absent when disabled).
 
-Receipt *issuance* between two live devices remains deferred to Subphase 4.5
-(real mesh receipt exchange); this subphase wires the verification/consumption
-side into the production receipt-handling path that issuance will feed.
+Receipt *issuance* between two live devices landed in Subphase 4.5 (real mesh
+receipt exchange — see Item 13); this subphase wired the verification/consumption
+side into the production receipt-handling path that issuance now feeds.
 
 ---
 
@@ -587,19 +594,58 @@ Coverage:
 
 ---
 
+### Item 13 — Real-Mesh Tier-1 Durability via Genuine Receipt Exchange (Subphase 4.5)
+
+**Status:** VERIFIED
+
+Two devices that exchange messages over the real mesh (Phase 0.3(a)/(b)) now
+reach real Tier-1 durability through *genuine* receipt exchange — no
+manufactured test receipts anywhere on the path:
+
+- `CoreHandle::receive_inbound` (native) issues a `DurabilityReceipt` for
+every peer Delta that reports `MergeOutcome::Merged`: it signs
+`receipt_signing_payload(state_hash = delta.id, receipt_id)` with the device's
+own identity key (`CoreHandle::issue_durability_receipt`) and publishes it
+back over the mesh via the new `MeshTransport::send_receipt`, which frames the
+receipt as `GossipMessage::InboundDurabilityReceipt` (the same wire framing
+Subphase 1.5 applies to Deltas).  A receipt is only issued after a
+signature-verified merge — it attests held state.
+- The writer's inbound pipeline (`receive_inbound` / `receive_inbound_wasm`)
+now resolves the receipt issuer's self-certifying `did:key:` DID to its public
+key and registers it with the Delta's durability state
+(`DurabilitySubsystem::register_peer_key`) before `receive_receipt` verifies
+signature + state-hash (Req 14.6).  No pre-provisioned peer roster is needed:
+the receipt itself carries the key (as its DID), and registration only enables
+verification — acceptance still requires the Ed25519 signature to check out.
+- The integration test
+`api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`
+drives the full production path with two real Swarm-backed handles on loopback:
+`A.write()` → gossipsub → B merges (data readable on B, Phase 1) → B signs a
+geniuine receipt and publishes it (captured at B's outbound publish point,
+independently verified against B's real public key) → the receipt travels over
+the mesh → A resolves B's DID, verifies, and reaches `Tier1` — asserted via
+`CoreHandle::durability_tier` **and** via the `DurabilityTierChanged`
+(Uncommitted → Tier1) event on A's production durability event channel
+(Req 14.7).
+
+WASM parity: `receive_inbound_wasm` verifies inbound receipts exactly like the
+native path (resolve DID → register key → `receive_receipt`).  Receipt
+*issuance* on WASM remains with the JS transport layer, mirroring Delta
+outbound delivery: the WASM build has no mesh of its own, so the SDK's JS
+transport is the outbound path (documented in `core_receive_peer_message`).
+
+---
+
 ## Cross-Device Mesh Sync
 
-**Status:** DEFERRED — requires two live networked peers
+**Status:** PARTIAL (real-mesh Delta + Tier-1 receipt exchange landed)
 
 Properties and requirements that depend on real P2P message delivery
-(Req 4.3–4.7, 5.1–5.8, 6.1–6.7, 9.2–9.4, 14.2–14.4, 16.3) cannot be fully
-verified within a single-process unit test.  They require:
-
-- Two distinct `CoreHandle` instances with separate Ed25519 identities.
-- A loopback libp2p Swarm (or in-memory transport channel) so that Deltas
-  written on instance A are received by instance B via the Gossipsub event loop.
-- The `process_inbound_messages` loop on instance B must be driven by a real
-  tokio task polling `transport.poll_next_message()`.
-
-This is deferred to the post-v1 integration test suite in
-`durability/integration_tests.rs`.
+(Req 4.3–4.7, 5.1–5.8, 9.2–9.4, 14.2–14.4, 16.3) cannot be fully verified
+within a single-process unit test.  Two-device real-mesh coverage is landed in
+`api::real_mesh_tests`: Phase 0.3(a)/(b) (Delta exchange and full
+write→gossip→receive→merge round trip, Item 7's mesh half) and Subphase 4.5
+(Tier-1 durability via genuine receipt exchange, Item 13).  The remaining
+deficits — e.g. live mesh transport of RevocationDeltas, MigrationDeltas, and
+cloud sync over a real network — are deferred to the post-v1 integration test
+suite in `durability/integration_tests.rs`.

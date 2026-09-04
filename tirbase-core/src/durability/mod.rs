@@ -53,6 +53,11 @@ struct DeltaDurabilityState {
     tier: DurabilityTier,
     /// Ed25519 public keys of known peers, keyed by DID.
     /// Used to verify incoming receipt signatures (Req 14.6).
+    ///
+    /// Seeded at registration and extended dynamically when a receipt arrives
+    /// from an issuer whose self-certifying `did:key:` DID resolves to its
+    /// public key (Subphase 4.5 — see
+    /// [`DurabilitySubsystem::register_peer_key`]).
     peer_public_keys: HashMap<Did, [u8; 32]>,
     /// Tier-1 quorum tracker.
     quorum: Tier1QuorumTracker,
@@ -203,6 +208,10 @@ impl DurabilitySubsystem {
     /// - `serialised_bytes` — serialised Delta bytes for cloud sync.
     /// - `causal_parents` — for topological ordering in the cloud queue.
     /// - `peer_public_keys` — Ed25519 public keys of candidate receipt-issuing peers.
+    ///   Subphase 4.5: this map is a seed, not a fixed roster — a receipt from
+    ///   an issuer not listed here is still accepted when its self-certifying
+    ///   `did:key:` DID resolves to the key that verifies its signature
+    ///   ([`DurabilitySubsystem::register_peer_key`]).
     ///
     /// The Delta is enqueued in the cloud outbound queue (Req 16.3, 14.8).
     pub fn register_delta(
@@ -225,6 +234,37 @@ impl DurabilitySubsystem {
         self.cloud_queue.enqueue(entry)?;
 
         Ok(())
+    }
+
+    /// Register (or refresh) the Ed25519 public key of a receipt-issuing peer
+    /// for a specific Delta set, resolved from the peer's self-certifying
+    /// `did:key:` DID (Req 14.6 — the issuer's key must be known before its
+    /// receipt can be verified).
+    ///
+    /// Subphase 4.5: the inbound receipt path resolves `receipt.issuer_did`
+    /// (a `did:key:` DID *is* the public key) and registers it here before
+    /// calling [`DurabilitySubsystem::receive_receipt`], so a genuine receipt
+    /// exchanged between two live devices is verified against the key its
+    /// issuer self-certifies — no pre-provisioned peer roster required.  The
+    /// receipt's Ed25519 signature must still verify against the resolved key,
+    /// so registration grants no trust by itself: only the device that holds
+    /// the key can produce a verifiable receipt for it.
+    ///
+    /// `pub(crate)`: peer-key learning is internal durability policy, not
+    /// external API surface.
+    ///
+    /// Production callers: `crate::api::CoreHandle::receive_inbound` and
+    /// `receive_inbound_wasm` — the native/WASM inbound pipelines every
+    /// incoming `GossipMessage::InboundDurabilityReceipt` flows through.
+    pub(crate) fn register_peer_key(
+        &mut self,
+        delta_id: &DeltaId,
+        peer_did: &Did,
+        public_key: [u8; 32],
+    ) {
+        if let Some(state) = self.states.get_mut(delta_id) {
+            state.peer_public_keys.insert(peer_did.clone(), public_key);
+        }
     }
 
     // ─── Receipt handling ─────────────────────────────────────────────────────
