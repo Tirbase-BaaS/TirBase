@@ -430,13 +430,33 @@ impl CoreHandle {
         // `DurabilitySubsystem::receive_receipt` — the function the native/WASM
         // inbound pipelines call for every incoming `DurabilityReceipt` — gates
         // Quorum formation on valid beacon attestations (Req 15.1–15.3).
+        // Subphase 4.4: `max_single_sector_fraction` is deployment-configurable
+        // (Req 14.3 cap; default 0.7 — the historical hardcode).  A value
+        // outside (0, 1] cannot express a fraction cap: 0 (or negative) would
+        // forbid every receipt and disable Quorum, and > 1 would disable the
+        // cap silently.  Such values fall back to the 0.7 default instead of
+        // being enforced literally.
+        let max_single_sector_fraction = config.deployment.max_single_sector_fraction;
+        let max_single_sector_fraction = if max_single_sector_fraction.is_finite()
+            && max_single_sector_fraction > 0.0
+            && max_single_sector_fraction <= 1.0
+        {
+            max_single_sector_fraction
+        } else {
+            0.7
+        };
+
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
         let mut durability = DurabilitySubsystem::with_anchor(
             QuorumConfig {
                 k: config.deployment.quorum_k.max(1),
                 n: config.deployment.quorum_n.max(1),
+                // Subphase 4.4: 0 is the *unconfigured* marker carried through
+                // to the quorum tracker, which resolves Req 14.3's default rule
+                // min(K, distinct tags available) at runtime — no longer a raw
+                // "require 0 distinct tags" minimum.
                 spatial_diversity_min: config.deployment.spatial_diversity_min,
-                max_single_sector_fraction: 0.7,
+                max_single_sector_fraction,
             },
             if config.deployment.anchor_attested_location {
                 Some(crate::durability::anchor::AnchorAttestedLocation::from_beacon_public_keys(
@@ -2642,8 +2662,26 @@ pub struct DeploymentConfig {
     /// rejected as unknown-beacon, so Quorum cannot form — a deployment must
     /// configure its beacons here.  Mirror of `root_ca_keys`.
     pub beacon_public_keys: Vec<[u8; 32]>,
-    /// Minimum distinct spatial tags required for Quorum.
+    /// Minimum distinct spatial tags required for Quorum (Req 14.3).
+    ///
+    /// `0` (the default) is the explicit *unconfigured* state: the quorum
+    /// tracker then applies Req 14.3's default rule `min(K, distinct tags
+    /// available)` at runtime instead of enforcing a raw 0-distinct minimum
+    /// (Subphase 4.4 — see
+    /// [`Tier1QuorumTracker::effective_min_distinct`](crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct)).
+    /// An explicit value `> 0` is enforced as configured, with the Req 14.5
+    /// degradation fallback (flat K-of-N + warning) when fewer distinct tags
+    /// are available.
     pub spatial_diversity_min: usize,
+    /// Maximum fraction of Quorum receipts that may come from any single
+    /// squad/tunnel_sector tag (Req 14.3).  E.g. `0.7` means no single sector
+    /// may provide more than 70% of the receipts collected for a Delta.
+    ///
+    /// Defaults to `0.7` (the pre-Subphase-4.4 hardcode).  Values outside
+    /// `(0, 1]` cannot express a fraction cap (0 would forbid every receipt
+    /// and disable Quorum; > 1 is meaningless), so `CoreHandle::init` falls
+    /// back to the `0.7` default for them.
+    pub max_single_sector_fraction: f64,
     /// K-of-N quorum (K receipts required).
     pub quorum_k: usize,
     /// N candidate peers for quorum.
@@ -2658,10 +2696,16 @@ pub struct DeploymentConfig {
 }
 
 impl Default for DeploymentConfig {
-    /// Manual default: every field derives-0 except the Saturate_Mode lease
-    /// duration, which defaults to the spec-mandated 60-minute window
-    /// (Req 13.3) rather than 0 — a zero-length lease would expire on the
-    /// first tick.
+    /// Manual default: every field derives-0 except two spec-mandated defaults
+    /// that a 0 would actively corrupt:
+    /// - `saturate_lease_duration_secs` defaults to the 60-minute window
+    ///   (Req 13.3) — a zero-length lease would expire on the first tick;
+    /// - `max_single_sector_fraction` defaults to `0.7` (Req 14.3 cap, the
+    ///   pre-Subphase-4.4 hardcode) — a 0 cap would forbid every receipt and
+    ///   disable Quorum entirely.
+    /// `spatial_diversity_min: 0` is *not* a bug: it is the explicit
+    /// unconfigured marker resolved to Req 14.3's default rule
+    /// `min(K, distinct tags available)` at runtime (Subphase 4.4).
     fn default() -> Self {
         Self {
             revocation_m: 0,
@@ -2671,6 +2715,7 @@ impl Default for DeploymentConfig {
             anchor_attested_location: false,
             beacon_public_keys: vec![],
             spatial_diversity_min: 0,
+            max_single_sector_fraction: 0.7,
             quorum_k: 0,
             quorum_n: 0,
             saturate_lease_duration_secs: crate::transport::saturate::SATURATE_LEASE_DURATION_SECS,
@@ -2699,6 +2744,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -2942,6 +2988,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3042,6 +3089,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3156,6 +3204,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3237,6 +3286,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3300,6 +3350,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3436,6 +3487,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -3493,6 +3545,7 @@ mod tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -4508,6 +4561,7 @@ mod inbound_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -5078,6 +5132,7 @@ mod inbound_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -5174,6 +5229,7 @@ mod inbound_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -5282,6 +5338,7 @@ mod inbound_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -5644,6 +5701,7 @@ mod convergence_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -5789,6 +5847,7 @@ mod real_mesh_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -6042,6 +6101,7 @@ mod cloud_sync_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -6240,6 +6300,7 @@ mod tier2_ack_tests {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -6434,6 +6495,7 @@ mod tier2_ack_tests {
                 anchor_attested_location: enabled,
                 beacon_public_keys,
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
@@ -6495,5 +6557,305 @@ mod tier2_ack_tests {
         drop(dur);
 
         cleanup(&path);
+    }
+}
+
+// ─── Subphase 4.4: Req 14.3 default diversity rule + configurable cap ────────
+
+/// Integration tests for Subphase 4.4 — the two diversity knobs of Req 14.3
+/// resolved through the *production* construction (`CoreHandle::init` →
+/// `DeploymentConfig` → `QuorumConfig` → `DurabilitySubsystem` →
+/// `Tier1QuorumTracker`):
+///
+/// 1. `DeploymentConfig::max_single_sector_fraction` (new in Subphase 4.4)
+///    replaces the hardcoded `0.7` in `CoreHandle::init`; a deployment can now
+///    raise it (single-sector deployments) or lower it (strict cross-sector
+///    quorums).
+/// 2. `DeploymentConfig::spatial_diversity_min == 0` is the *unconfigured*
+///    marker carried through to the quorum tracker, which resolves Req 14.3's
+///    default rule `min(K, distinct tags available)` at runtime — no longer a
+///    raw "require 0 distinct tags" minimum.
+///
+/// The behaviour asserted here is Tier-1 durability reached/blocked through
+/// the exact `DurabilitySubsystem::receive_receipt` path the production
+/// native/WASM inbound pipelines call for real inbound receipts.
+#[cfg(all(test, feature = "native"))]
+mod diversity_config_tests {
+    use super::*;
+    use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
+    use crate::durability::quorum::QuorumConfig;
+    use crate::identity::keypair::{generate_keypair, sign};
+    use std::env;
+    use std::sync::Arc;
+
+    fn make_config(path: &str, quorum_k: usize, min_distinct: usize, fraction: f64) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: min_distinct,
+                max_single_sector_fraction: fraction,
+                quorum_k,
+                quorum_n: quorum_k + 2,
+                saturate_lease_duration_secs: 3600,
+            },
+        }
+    }
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_divcfg_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    /// Build `k` peer keypairs registered for the Delta and return
+    /// `(secrets, peers_map)`.
+    fn make_peers(k: usize) -> (Vec<[u8; 32]>, std::collections::HashMap<String, [u8; 32]>) {
+        let mut secrets = Vec::new();
+        let mut peers = std::collections::HashMap::new();
+        for i in 0..k {
+            let (secret, public) = generate_keypair().expect("keygen");
+            let did = format!("did:key:peer{i}");
+            peers.insert(did, public);
+            secrets.push(secret);
+        }
+        (secrets, peers)
+    }
+
+    /// A properly Ed25519-signed receipt from `secret` for `state_hash`,
+    /// declaring `spatial_tag` (mirrors `durability::tests` helpers).
+    fn make_signed_receipt(
+        state_hash: [u8; 32],
+        secret: &[u8; 32],
+        did: &str,
+        spatial_tag: Option<&str>,
+    ) -> DurabilityReceipt {
+        let id = uuid::Uuid::now_v7();
+        let payload = receipt_signing_payload(&state_hash, &id);
+        let sig = sign(secret, &payload).expect("sign receipt");
+        DurabilityReceipt {
+            id,
+            state_hash,
+            issuer_did: did.to_string(),
+            issuer_signature: sig,
+            spatial_tag: spatial_tag.map(|s| s.to_string()),
+            beacon_token: None,
+            issued_at: 0,
+        }
+    }
+
+    /// Drive `k` receipts (one per registered peer) into the subsystem and
+    /// return whether Tier-1 was achieved by the last receipt.
+    fn push_receipts(
+        dur: &mut crate::durability::DurabilitySubsystem,
+        delta_id: [u8; 32],
+        state_hash: [u8; 32],
+        secrets: &[[u8; 32]],
+        tags: &[&str],
+    ) -> Vec<bool> {
+        let mut outcomes = Vec::new();
+        for (i, secret) in secrets.iter().enumerate() {
+            let did = format!("did:key:peer{i}");
+            let receipt = make_signed_receipt(state_hash, secret, &did, Some(tags[i]));
+            outcomes.push(
+                dur.receive_receipt(receipt, &delta_id)
+                    .expect("receipt must verify"),
+            );
+        }
+        outcomes
+    }
+
+    /// Subphase 4.4: `CoreHandle::init` must install the deployment's
+    /// `max_single_sector_fraction` on the Durability Subsystem's quorum
+    /// config, and the raised cap must let a single-sector deployment reach
+    /// Tier-1 — impossible under the pre-4.4 hardcoded `0.7` (three receipts
+    /// from one sector are 100% of the set, which always exceeds 0.7).
+    #[tokio::test]
+    async fn configured_fraction_above_default_allows_single_sector_tier1() {
+        let path = tmp_path("fraction_up");
+        cleanup(&path);
+
+        // K=3, explicit min 1, cap raised to 1.0 (no single-sector limit).
+        let handle = Arc::new(
+            CoreHandle::init(make_config(&path, 3, 1, 1.0))
+                .await
+                .expect("CoreHandle::init"),
+        );
+
+        let mut dur = handle.durability.lock().unwrap();
+        assert_eq!(
+            dur.quorum_config().max_single_sector_fraction, 1.0,
+            "deployment-configured cap must reach the quorum tracker"
+        );
+        assert_eq!(dur.quorum_config().k, 3);
+
+        let delta_id = [0x41; 32];
+        let state_hash = [0x42; 32];
+        let (secrets, peers) = make_peers(3);
+        dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .expect("register_delta");
+
+        // Three receipts, all declaring the same single sector.
+        let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
+        assert_eq!(
+            outcomes[2], true,
+            "a cap of 1.0 must allow a single-sector K=3 quorum to form"
+        );
+        assert_eq!(
+            dur.durability_tier(&delta_id),
+            DurabilityTier::Tier1,
+            "Tier-1 must be reached under the raised deployment cap"
+        );
+        drop(dur);
+
+        cleanup(&path);
+    }
+
+    /// Subphase 4.4: the deployment-configured cap must also bind downwards —
+    /// a stricter 0.5 cap must block a sector at 100% of the receipt set even
+    /// though the pre-change code would have applied 0.7 here too (0.5 < 0.7).
+    #[tokio::test]
+    async fn configured_fraction_cap_binds_at_stricter_value() {
+        let path = tmp_path("fraction_strict");
+        cleanup(&path);
+
+        // K=3, min 1, strict 0.5 cap.
+        let handle = Arc::new(
+            CoreHandle::init(make_config(&path, 3, 1, 0.5))
+                .await
+                .expect("CoreHandle::init"),
+        );
+
+        let mut dur = handle.durability.lock().unwrap();
+        assert_eq!(dur.quorum_config().max_single_sector_fraction, 0.5);
+
+        let delta_id = [0x51; 32];
+        let state_hash = [0x52; 32];
+        let (secrets, peers) = make_peers(3);
+        dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .expect("register_delta");
+
+        // Three receipts from one sector: 100% > 50% → blocked.
+        let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
+        assert_eq!(
+            outcomes[2], false,
+            "a single sector at 100% must exceed the 0.5 cap"
+        );
+        assert_eq!(
+            dur.durability_tier(&delta_id),
+            DurabilityTier::Uncommitted,
+            "Tier-1 must be blocked while one sector exceeds the configured cap"
+        );
+        drop(dur);
+
+        cleanup(&path);
+    }
+
+    /// Subphase 4.4: `spatial_diversity_min = 0` — the `DeploymentConfig`
+    /// default — must flow to the quorum tracker as the *unconfigured* marker
+    /// and be resolved there to Req 14.3's default rule `min(K, distinct tags
+    /// available)`, not enforced as a raw 0-distinct minimum.  Behaviourally:
+    /// with the cap at 1.0 a single-sector deployment still forms Tier-1 (the
+    /// rule never demands more diversity than exists), while with the default
+    /// 0.7 cap the same single-sector receipts stay blocked (the marker must
+    /// not disable the fraction leg either).
+    #[tokio::test]
+    async fn unconfigured_min_uses_default_rule_and_keeps_fraction_cap() {
+        // (a) Unconfigured min + cap 1.0 → single-sector quorum forms.
+        let path_a = tmp_path("min_unset_cap_off");
+        cleanup(&path_a);
+        let handle_a = Arc::new(
+            CoreHandle::init(make_config(&path_a, 3, 0, 1.0))
+                .await
+                .expect("CoreHandle::init"),
+        );
+        let mut dur = handle_a.durability.lock().unwrap();
+        assert_eq!(
+            dur.quorum_config().spatial_diversity_min, 0,
+            "the unconfigured 0 marker must be carried through to the tracker"
+        );
+        assert_eq!(
+            dur.quorum_config().max_single_sector_fraction, 1.0,
+            "the Req 14.3 default rule operates alongside the configured cap"
+        );
+
+        let delta_id_a = [0x61; 32];
+        let state_hash_a = [0x62; 32];
+        let (secrets_a, peers_a) = make_peers(3);
+        dur.register_delta(delta_id_a, state_hash_a, vec![], vec![], peers_a)
+            .expect("register_delta");
+        let outcomes_a =
+            push_receipts(&mut dur, delta_id_a, state_hash_a, &secrets_a, &["sector-x"; 3]);
+        assert_eq!(
+            outcomes_a[2], true,
+            "default rule must not demand more diversity than exists (cap 1.0)"
+        );
+        assert_eq!(dur.durability_tier(&delta_id_a), DurabilityTier::Tier1);
+        drop(dur);
+        cleanup(&path_a);
+
+        // (b) Unconfigured min + default 0.7 cap → same single-sector receipts
+        // stay blocked: the marker only governs the min-distinct leg, the
+        // fraction cap still binds.
+        let path_b = tmp_path("min_unset_cap_default");
+        cleanup(&path_b);
+        let handle_b = Arc::new(
+            CoreHandle::init(make_config(&path_b, 3, 0, 0.7))
+                .await
+                .expect("CoreHandle::init"),
+        );
+        let mut dur = handle_b.durability.lock().unwrap();
+        assert_eq!(dur.quorum_config().max_single_sector_fraction, 0.7);
+
+        let delta_id_b = [0x63; 32];
+        let state_hash_b = [0x64; 32];
+        let (secrets_b, peers_b) = make_peers(3);
+        dur.register_delta(delta_id_b, state_hash_b, vec![], vec![], peers_b)
+            .expect("register_delta");
+        let outcomes_b =
+            push_receipts(&mut dur, delta_id_b, state_hash_b, &secrets_b, &["sector-x"; 3]);
+        assert_eq!(
+            outcomes_b[2], false,
+            "the Req 14.3 fraction cap must still bind under the unconfigured marker"
+        );
+        assert_eq!(dur.durability_tier(&delta_id_b), DurabilityTier::Uncommitted);
+        drop(dur);
+        cleanup(&path_b);
+    }
+
+    /// Subphase 4.4: values outside (0, 1] cannot express a fraction cap and
+    /// must fall back to the 0.7 default at init instead of being enforced
+    /// literally (a 0 cap would forbid every receipt and disable Quorum).
+    #[tokio::test]
+    async fn invalid_fraction_falls_back_to_default() {
+        for (label, invalid) in [("zero", 0.0), ("over_one", 1.5), ("negative", -0.2)] {
+            let path = tmp_path(label);
+            cleanup(&path);
+            let handle = Arc::new(
+                CoreHandle::init(make_config(&path, 3, 1, invalid))
+                    .await
+                    .expect("CoreHandle::init"),
+            );
+            let dur = handle.durability.lock().unwrap();
+            assert_eq!(
+                dur.quorum_config().max_single_sector_fraction, 0.7,
+                "invalid cap {invalid} must fall back to the 0.7 default"
+            );
+            drop(dur);
+            cleanup(&path);
+        }
     }
 }

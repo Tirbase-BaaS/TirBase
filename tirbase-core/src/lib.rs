@@ -239,6 +239,7 @@ mod wasm_exports {
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
                 // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);

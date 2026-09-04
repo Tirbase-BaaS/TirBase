@@ -548,6 +548,45 @@ side into the production receipt-handling path that issuance will feed.
 
 ---
 
+### Item 12 — Req 14.3 default diversity rule + configurable max fraction (Subphase 4.4)
+
+**Status:** VERIFIED
+
+Req 14.3's *real* default diversity rule is implemented and the single-sector
+fraction cap is now deployment-configurable:
+
+- `DeploymentConfig::spatial_diversity_min == 0` (the default) is no longer
+  passed straight through as a raw "require 0 distinct tags" minimum.  It is
+  the explicit *unconfigured* marker that `Tier1QuorumTracker` resolves at
+  runtime to the Req 14.3 default rule `min(K, distinct tags available)`
+  (`quorum.rs effective_min_distinct`) — "available" being the distinct tags
+  among the receipts collected so far, the tracker's only knowledge of tag
+  availability (the reconciled model documented in design.md:914; the candidate
+  pool carries no tag registry).  An explicit `spatial_diversity_min > 0` is
+  enforced as configured, with the existing Req 14.5 degradation fallback
+  (flat K-of-N + warning) when fewer distinct tags are available.
+- `DeploymentConfig` gained `max_single_sector_fraction` (default `0.7` — the
+  pre-4.4 hardcode), replacing the hardcoded `0.7` in `CoreHandle::init`.
+  Values outside `(0, 1]` fall back to the `0.7` default at init rather than
+  being enforced literally (a 0 cap would forbid every receipt and disable
+  Quorum).
+
+Coverage:
+- `durability::quorum::tests` unit-tests the resolution
+  (`unconfigured_min_resolves_to_min_of_k_and_available_distinct`,
+  `configured_min_is_used_verbatim_not_recomputed`,
+  `unconfigured_min_with_cap_off_accepts_single_sector_deployment`,
+  `unconfigured_min_keeps_fraction_cap_enforcement`).
+- `api::diversity_config_tests` drives the knobs through the production
+  construction (`CoreHandle::init` → `DeploymentConfig` → `QuorumConfig` →
+  `DurabilitySubsystem` → `Tier1QuorumTracker`): a raised 1.0 cap lets a
+  single-sector K=3 deployment reach Tier-1 (impossible under the old 0.7
+  hardcode), a strict 0.5 cap blocks it, the unconfigured-min marker flows
+  through untouched and keeps the fraction cap binding, and invalid fractions
+  fall back to 0.7.
+
+---
+
 ## Cross-Device Mesh Sync
 
 **Status:** DEFERRED — requires two live networked peers

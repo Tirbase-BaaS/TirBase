@@ -7,6 +7,18 @@
 //! Receipt verification (Ed25519 signature + state-hash) is handled by
 //! `durability::receipt::verify_receipt` before receipts reach the quorum tracker.
 //! The quorum tracker only needs to count valid receipts and check diversity.
+//!
+//! # Req 14.3 default diversity rule (Subphase 4.4)
+//!
+//! A `spatial_diversity_min` of `0` in [`QuorumConfig`] is the *unconfigured*
+//! marker (the `DeploymentConfig` default).  It is **not** enforced as "require
+//! 0 distinct tags": instead the tracker resolves the Req 14.3 default rule
+//! `min(K, distinct tags available)` at runtime (see
+//! [`Tier1QuorumTracker::effective_min_distinct`]).  Because the tracker only
+//! learns spatial tags from verified receipts, "distinct tags available" is the
+//! distinct tag set among the receipts collected so far — the codebase's
+//! documented model (design.md:914 reconciles the pool-tag model to the
+//! observed-tag model; the candidate pool itself carries no tag registry).
 
 #![allow(dead_code)]
 
@@ -23,7 +35,13 @@ pub struct QuorumConfig {
     /// N total candidate peers in the pool (Req 14.2).
     pub n: usize,
     /// Minimum number of distinct spatial tags required across the K receipts (Req 14.3).
-    /// Defaults to `min(k, total_distinct_tags_available)` at runtime when not overridden.
+    ///
+    /// `0` is the *unconfigured* marker (the `DeploymentConfig` default): the
+    /// tracker then applies Req 14.3's default rule `min(k, distinct tags
+    /// available)` at runtime (see [`Tier1QuorumTracker::effective_min_distinct`])
+    /// rather than enforcing a raw 0-distinct minimum.  An explicit value `> 0`
+    /// is enforced as configured, with the Req 14.5 degradation fallback (flat
+    /// K-of-N + warning) when fewer distinct tags are available.
     pub spatial_diversity_min: usize,
     /// Maximum fraction of Quorum receipts from any single spatial tag (Req 14.3).
     /// E.g. `0.5` means no single sector may provide more than 50% of the K receipts.
@@ -113,7 +131,7 @@ impl Tier1QuorumTracker {
         // Check if quorum is achieved.
         if !self.tier1_achieved && self.receipts.len() >= self.config.k {
             let diversity_ok = self.spatial.satisfies_diversity(
-                self.config.spatial_diversity_min,
+                self.effective_min_distinct(),
                 self.config.max_single_sector_fraction,
                 self.receipts.len(),
             )?;
@@ -145,6 +163,28 @@ impl Tier1QuorumTracker {
     /// Access the spatial diversity tracker (for introspection / testing).
     pub fn spatial(&self) -> &SpatialDiversityTracker {
         &self.spatial
+    }
+
+    /// The effective minimum-distinct-tag requirement for the receipts
+    /// collected so far (Req 14.3).
+    ///
+    /// - Configured (`spatial_diversity_min > 0`): returned verbatim.
+    /// - Unconfigured (`0` marker): Req 14.3's default rule —
+    ///   `min(K, distinct tags available)`, where "available" is the distinct
+    ///   spatial tags among the receipts collected so far (the tracker's only
+    ///   knowledge of tag availability).  The rule never demands more distinct
+    ///   tags than actually exist, so an unconfigured deployment is governed by
+    ///   the `max_single_sector_fraction` cap rather than a min-distinct floor.
+    ///
+    /// `pub(crate)`: introspection for in-crate callers/tests; quorum diversity
+    /// is internal policy, not external API surface.
+    pub(crate) fn effective_min_distinct(&self) -> usize {
+        let configured = self.config.spatial_diversity_min;
+        if configured == 0 {
+            self.config.k.min(self.spatial.distinct_tag_count())
+        } else {
+            configured
+        }
     }
 }
 
@@ -281,6 +321,142 @@ mod tests {
         }
         assert!(achieved_at_k, "degradation fallback should allow Tier-1 via flat K-of-N");
         assert!(tracker.is_tier1());
+    }
+
+    // ── Req 14.3 default diversity rule (Subphase 4.4) ────────────────────────
+    //
+    // A `spatial_diversity_min` of 0 is the *unconfigured* marker: the tracker
+    // must resolve it to the Req 14.3 default `min(K, distinct tags available)`
+    // at runtime, not enforce a raw 0-distinct minimum.
+
+    #[test]
+    fn unconfigured_min_resolves_to_min_of_k_and_available_distinct() {
+        // K=3, unconfigured (0) → effective min tracks min(K, distinct seen).
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 0,
+            max_single_sector_fraction: 1.0,
+        };
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+
+        // Empty tracker: no distinct tags available yet → min(3, 0) = 0.
+        assert_eq!(tracker.effective_min_distinct(), 0);
+
+        // One distinct tag seen → min(3, 1) = 1.
+        add_tagged(&mut tracker, "sq-a");
+        assert_eq!(tracker.effective_min_distinct(), 1);
+
+        // Two distinct tags seen → min(3, 2) = 2.
+        add_tagged(&mut tracker, "sq-b");
+        assert_eq!(tracker.effective_min_distinct(), 2);
+
+        // Three distinct tags seen → min(3, 3) = 3 (capped at K).
+        add_tagged(&mut tracker, "sq-c");
+        assert_eq!(tracker.effective_min_distinct(), 3);
+
+        // A fourth distinct tag cannot raise the requirement above K.
+        add_tagged(&mut tracker, "sq-d");
+        assert_eq!(tracker.effective_min_distinct(), 3, "min-distinct caps at K");
+    }
+
+    #[test]
+    fn configured_min_is_used_verbatim_not_recomputed() {
+        // Explicit min=2 must NOT be recomputed as min(K, distinct) or as 0.
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 2,
+            max_single_sector_fraction: 1.0,
+        };
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+
+        add_tagged(&mut tracker, "sq-a");
+        add_tagged(&mut tracker, "sq-b");
+        assert_eq!(tracker.effective_min_distinct(), 2);
+
+        // Even when more than 2 tags are available the configured min holds.
+        add_tagged(&mut tracker, "sq-c");
+        assert_eq!(tracker.effective_min_distinct(), 2);
+    }
+
+    #[test]
+    fn unconfigured_min_with_cap_off_accepts_single_sector_deployment() {
+        // K=3, unconfigured min, cap 1.0 (no single-sector limit): a deployment
+        // whose receipts span only 1 distinct tag needs min(3, 1) = 1 distinct
+        // tag — met — so Tier-1 forms at K receipts.  The default rule must not
+        // demand more diversity than is available.
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 0,
+            max_single_sector_fraction: 1.0,
+        };
+        let state_hash = [0xAB; 32];
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+
+        let mut achieved = false;
+        for i in 0..3u8 {
+            let (secret, _) = generate_keypair().unwrap();
+            let did = format!("did:key:single-sector{i}");
+            let receipt = make_receipt(state_hash, &secret, &did, Some("only-sector"));
+            let result = tracker.add_receipt(receipt).unwrap();
+            if i == 2 {
+                achieved = result;
+            }
+        }
+        assert!(achieved, "default rule must not block a single-sector quorum when the cap allows it");
+        assert!(tracker.is_tier1());
+    }
+
+    #[test]
+    fn unconfigured_min_keeps_fraction_cap_enforcement() {
+        // The default-rule resolution only governs the min-distinct leg; the
+        // Req 14.3 `max_single_sector_fraction` cap must still bind.  K=3,
+        // unconfigured min, cap 0.5: two sq-a receipts (66% of 3) exceed the
+        // cap → no Tier-1 at 3 receipts; a third distinct tag dilutes sq-a to
+        // exactly 50% → Tier-1.
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 0,
+            max_single_sector_fraction: 0.5,
+        };
+        let state_hash = [0xCD; 32];
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+
+        // Receipt 1: sq-a. Receipt 2: sq-a (2/2 = 100% > 50%, and 2 < K anyway).
+        // Receipt 3: sq-b → sq-a = 2/3 ≈ 66.7% > 50% → blocked.
+        let mut achieved_at_3 = false;
+        for (i, tag) in ["sq-a", "sq-a", "sq-b"].iter().enumerate() {
+            let (secret, _) = generate_keypair().unwrap();
+            let did = format!("did:key:cap{i}");
+            let receipt = make_receipt(state_hash, &secret, &did, Some(tag));
+            let result = tracker.add_receipt(receipt).unwrap();
+            if i == 2 {
+                achieved_at_3 = result;
+            }
+        }
+        assert!(!achieved_at_3, "sq-a at 66% must exceed the 50% cap");
+        assert!(!tracker.is_tier1());
+
+        // Receipt 4 from sq-c: sq-a = 2/4 = 50% ≤ 50%, distinct = 3 ≥
+        // min(3, 3) → Tier-1.
+        let (secret, _) = generate_keypair().unwrap();
+        let receipt = make_receipt(state_hash, &secret, "did:key:cap3", Some("sq-c"));
+        let achieved = tracker.add_receipt(receipt).unwrap();
+        assert!(achieved, "dilution below the cap must allow Tier-1");
+        assert!(tracker.is_tier1());
+    }
+
+    /// Helper: record a tagged receipt under the tracker's default rule.
+    fn add_tagged(tracker: &mut Tier1QuorumTracker, tag: &str) {
+        let (secret, _) = generate_keypair().unwrap();
+        let did = format!("did:key:eff-{}-{}", tag, uuid::Uuid::new_v4());
+        let receipt = make_receipt([0u8; 32], &secret, &did, Some(tag));
+        // add_receipt may return Ok(true) once ≥ K distinct tags are in —
+        // irrelevant here; the tag count is what matters.
+        let _ = tracker.add_receipt(receipt).unwrap();
     }
 
     // ── Duplicate issuer deduplication ────────────────────────────────────────

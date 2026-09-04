@@ -154,6 +154,15 @@ impl DurabilitySubsystem {
         self.anchor.as_ref()
     }
 
+    /// The quorum configuration this subsystem applies to every Delta set
+    /// (as resolved from `DeploymentConfig` by `CoreHandle::init`).
+    ///
+    /// `pub(crate)`: introspection for in-crate callers/tests; quorum policy is
+    /// deployment configuration, not external API surface.
+    pub(crate) fn quorum_config(&self) -> &QuorumConfig {
+        &self.quorum_config
+    }
+
     /// Register an application-layer listener for durability tier transitions
     /// (Tier-1 quorum reached, Tier-2 Cloud Ledger ack — Req 14.7).
     ///
