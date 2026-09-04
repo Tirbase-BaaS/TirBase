@@ -56,6 +56,23 @@ const INBOUND_DRAIN_INTERVAL_MS: u64 = 50;
 #[cfg(all(feature = "native", test))]
 const INBOUND_DRAIN_INTERVAL_MS: u64 = 3_600_000;
 
+/// Production cadence (ms) of the DRR scheduler tick loop spawned by
+/// `CoreHandle::init` (Subphase 1.4): every 1000 ms the task calls
+/// `MeshTransport::tick_scheduler`, which runs one DRR scheduling epoch
+/// (Req 12 — the design defines one epoch as 1 second) and forwards the
+/// drained Deltas to the outbound publish channel.
+#[cfg(all(feature = "native", not(test)))]
+const SCHEDULER_TICK_INTERVAL_MS: u64 = 1000;
+
+/// Test-build cadence (ms) of the DRR scheduler tick loop spawned by
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests enqueue
+/// Deltas and assert queue state (e.g. the revocation HIGH-priority enqueue
+/// test), so the loop init spawns must not drain the scheduler while they
+/// run; the Subphase 1.4 integration test exercises the identical loop via
+/// `CoreHandle::spawn_scheduler_tick_loop` with a short interval.
+#[cfg(all(feature = "native", test))]
+const SCHEDULER_TICK_INTERVAL_MS: u64 = 3_600_000;
+
 // ─── CoreHandle ───────────────────────────────────────────────────────────────
 
 /// The main handle to a TirBase instance.
@@ -311,6 +328,14 @@ impl CoreHandle {
         // `write()` → `MeshTransport::send_delta` forwards prepared payloads
         // into `outbound_rx`, and this task publishes them to the shared
         // Gossipsub topic (Subphase 1.1 — Req 5.1).
+        //
+        // `scheduler_tick_armed` records whether a Swarm polling task is
+        // actually running; the DRR scheduler tick loop (Subphase 1.4) is only
+        // spawned when it is, because the tick loop forwards scheduled Deltas
+        // into the same outbound channel and would fail every epoch otherwise.
+        #[cfg(feature = "native")]
+        let mut scheduler_tick_armed = false;
+
         #[cfg(feature = "native")]
         {
             use crate::transport::TirBaseBehaviour;
@@ -442,6 +467,10 @@ impl CoreHandle {
                         }
                     }
                 });
+
+                // The outbound channel is being drained by the polling task
+                // above, so the scheduler tick loop can forward into it.
+                scheduler_tick_armed = true;
             }
         }
 
@@ -492,6 +521,28 @@ impl CoreHandle {
             CoreHandle::spawn_inbound_drain_loop(
                 &handle,
                 std::time::Duration::from_millis(INBOUND_DRAIN_INTERVAL_MS),
+            );
+        }
+
+        // ── Production DRR scheduler tick loop (Subphase 1.4) ─────────────────
+        //
+        // Spawn a background task that runs one DRR scheduling epoch per
+        // second, draining the outbound queues built by
+        // `MeshTransport::enqueue_outbound` (HIGH-priority revocation
+        // rebroadcast, mDNS re-announcement) and forwarding the scheduled
+        // Deltas to the outbound publish channel, which the Swarm polling task
+        // drains and publishes — enqueued Deltas are now scheduled and sent,
+        // not just accumulated (Req 12).
+        //
+        // Gated on `scheduler_tick_armed`: when `transport.start()` failed,
+        // no polling task is draining the outbound channel, so the tick loop
+        // would fail to forward every epoch (offline device — the durability
+        // queue remains authoritative, Req 3.3).
+        #[cfg(feature = "native")]
+        if scheduler_tick_armed {
+            CoreHandle::spawn_scheduler_tick_loop(
+                &handle,
+                std::time::Duration::from_millis(SCHEDULER_TICK_INTERVAL_MS),
             );
         }
 
@@ -1504,6 +1555,59 @@ impl CoreHandle {
         })
     }
 
+    /// Spawn the production DRR scheduler tick loop for this handle.
+    ///
+    /// Every `interval`, the background task locks the mesh transport and
+    /// calls [`MeshTransport::tick_scheduler`], which runs one DRR scheduling
+    /// epoch (Req 12) and forwards the drained Deltas to the outbound publish
+    /// channel; the Swarm polling task (Subphase 1.1) receives them and
+    /// publishes to the shared Gossipsub topic.  Without this loop, Deltas
+    /// enqueued via `MeshTransport::enqueue_outbound` (HIGH-priority
+    /// revocation rebroadcast, mDNS re-announcement) would accumulate in the
+    /// scheduler queues forever.
+    ///
+    /// Production caller: [`CoreHandle::init`] spawns this loop before
+    /// returning, gated on a live outbound publish channel (Subphase 1.4).  It
+    /// is `pub(crate)` rather than private so the Subphase 1.4 integration
+    /// test can drive the *identical* loop with a short interval without
+    /// racing the queue-state unit tests.
+    ///
+    /// Returns the `JoinHandle` so callers can observe or abort the task.
+    #[cfg(feature = "native")]
+    pub(crate) fn spawn_scheduler_tick_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                match handle.transport.lock() {
+                    Ok(mut transport) => {
+                        match transport.tick_scheduler(
+                            crate::transport::DEFAULT_LINK_CAPACITY_BYTES,
+                        ) {
+                            Ok(0) => {}
+                            Ok(n) => {
+                                eprintln!(
+                                    "[scheduler-loop] DRR tick forwarded {n} outbound payload(s)"
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("[scheduler-loop] DRR tick failed: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[scheduler-loop] transport mutex poisoned: {e}");
+                    }
+                }
+            }
+        })
+    }
+
     /// Inject a `GossipMessage` directly into the inbound channel.
     ///
     /// Intended for testing only — allows tests to push messages without
@@ -2475,6 +2579,111 @@ mod inbound_tests {
         );
         assert_eq!(observed.key, "k1");
         assert_eq!(observed.table, "loop");
+
+        cleanup(&path);
+    }
+
+    // ── Test 3c (Subphase 1.4): the production DRR scheduler tick loop sends ──
+    //
+    // `CoreHandle::init` spawns a background task that ticks the DRR
+    // scheduler — previously nothing in production ever called
+    // `DrrScheduler::tick`, so Deltas enqueued via `enqueue_outbound`
+    // (revocation rebroadcast at HIGH priority, mDNS re-announcement)
+    // accumulated forever.  This test drives the *identical* loop —
+    // `CoreHandle::spawn_scheduler_tick_loop`, the function `init` calls —
+    // with a short interval, enqueues a Delta through the production enqueue
+    // path, and asserts the background task (NOT a manual `tick()` call)
+    // schedules it out of the queue and forwards it to the outbound publish
+    // point, observable via the test-only `outbound_published` recording hook
+    // (Subphase 1.1).
+
+    #[tokio::test]
+    async fn drr_scheduler_tick_loop_schedules_and_sends_enqueued_deltas() {
+        let path = tmp_path("scheduler_tick_loop");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Spawn the production scheduler tick loop with a short interval so
+        // the test completes quickly.  (In production builds `CoreHandle::init`
+        // does exactly this with `SCHEDULER_TICK_INTERVAL_MS`; in test builds
+        // init uses a 1-hour interval so queue-state unit tests stay
+        // deterministic.)
+        let _loop = CoreHandle::spawn_scheduler_tick_loop(
+            &handle,
+            std::time::Duration::from_millis(10),
+        );
+
+        // Enqueue a HIGH-priority Delta exactly like the production enqueue
+        // callbacks do (RevocationDelta threshold → `enqueue_outbound`, Req 9.2).
+        let delta_id = [0x14u8; 32];
+        let wrapper = crate::crdt::delta::Delta {
+            id: delta_id,
+            author_did: "tirbase/revocation".to_string(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: serde_json::to_vec(&json!({
+                "type": "InboundRevocationDelta",
+            }))
+            .expect("envelope serialisation"),
+            priority: crate::crdt::delta::PriorityClass::High,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 0,
+            created_at: 0,
+        };
+        {
+            let mut transport = handle.transport.lock().unwrap();
+            transport.enqueue_outbound(wrapper);
+            assert!(
+                transport.has_backlog(),
+                "enqueued Delta must sit in the scheduler queue before any tick"
+            );
+        }
+
+        // Do NOT call tick_scheduler() manually — the background loop must do
+        // the scheduling and sending.  Poll until the prepared payload reaches
+        // the outbound publish point (the Swarm polling task records it there).
+        let mut attempts = 0u32;
+        let published = loop {
+            let published = handle
+                .transport
+                .lock()
+                .unwrap()
+                .outbound_published
+                .clone();
+            if !published.is_empty() {
+                break published;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "scheduler tick loop never forwarded the enqueued Delta to the publish path"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        };
+
+        // The payload must be the exact serialised Delta that was enqueued —
+        // scheduled out of the DRR queue and sent, not merely accumulated.
+        assert_eq!(
+            published.len(),
+            1,
+            "exactly one outbound payload must be produced per enqueued Delta (mtu=0)"
+        );
+        let decoded: crate::crdt::delta::Delta = serde_json::from_slice(&published[0])
+            .expect("published payload must deserialise as the enqueued Delta");
+        assert_eq!(
+            decoded.id, delta_id,
+            "published payload must be the enqueued Delta"
+        );
+
+        // The scheduler queue must now be empty — the loop drained it.
+        assert!(
+            !handle.transport.lock().unwrap().has_backlog(),
+            "scheduler must have no backlog after the tick loop drained it"
+        );
 
         cleanup(&path);
     }

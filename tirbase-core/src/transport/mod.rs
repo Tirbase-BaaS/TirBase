@@ -29,6 +29,14 @@ fn current_timestamp_micros() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64
 }
 
+/// Default link capacity (bytes/sec) for the DRR scheduler when no transport
+/// link speed has been reported (Req 12).
+///
+/// Used both when constructing the scheduler and when ticking it from the
+/// production loop, so the per-epoch budget and the quantum allotments stay
+/// in sync.
+pub(crate) const DEFAULT_LINK_CAPACITY_BYTES: u64 = 1_000_000;
+
 // ─── TransportConfig ──────────────────────────────────────────────────────────
 
 /// Runtime configuration for the mesh transport layer.
@@ -210,7 +218,7 @@ impl MeshTransport {
             local_did,
             config,
             gossip_topic: "tirbase/v1".to_string(),
-            scheduler: DrrScheduler::new(1_000_000), // 1 MB/s default link capacity
+            scheduler: DrrScheduler::new(DEFAULT_LINK_CAPACITY_BYTES),
             #[cfg(feature = "native")]
             swarm: None,
             #[cfg(feature = "native")]
@@ -515,6 +523,58 @@ impl MeshTransport {
             })?;
         }
         Ok(())
+    }
+
+    /// Run one DRR scheduling epoch and forward the drained Deltas to the
+    /// outbound publish channel (Subphase 1.4 — Req 12).
+    ///
+    /// Called by the production scheduler tick loop spawned from
+    /// `CoreHandle::init`; the Swarm polling task (Subphase 1.1) receives the
+    /// forwarded payloads on the outbound channel and publishes them to the
+    /// shared Gossipsub topic.  Without this, Deltas enqueued via
+    /// [`MeshTransport::enqueue_outbound`] (HIGH-priority revocation
+    /// rebroadcast, mDNS re-announcement) would accumulate in the scheduler
+    /// queues forever.
+    ///
+    /// Returns the number of payloads forwarded.  Best-effort by design: if
+    /// the outbound channel is full or closed, the unsent Delta is re-enqueued
+    /// so it is not silently dropped — the next epoch reschedules it (the
+    /// durability queue remains authoritative while the mesh is unavailable,
+    /// Req 3.3).
+    #[cfg(feature = "native")]
+    pub(crate) fn tick_scheduler(
+        &mut self,
+        link_capacity_bytes: u64,
+    ) -> Result<usize, TirBaseError> {
+        let drained = self.scheduler.tick(link_capacity_bytes);
+        if drained.is_empty() {
+            return Ok(0);
+        }
+
+        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
+            TirBaseError::MeshUnavailable {
+                reason: "transport not started (no outbound channel installed)".to_string(),
+            }
+        })?;
+
+        let mut forwarded = 0usize;
+        for queued in drained {
+            let payloads = self.prepare_outbound(&queued.delta)?;
+            for payload in payloads {
+                match tx.try_send(payload) {
+                    Ok(()) => forwarded += 1,
+                    Err(e) => {
+                        // Channel full/closed — put the Delta back so it is
+                        // rescheduled on the next epoch rather than lost.
+                        self.scheduler.enqueue(queued);
+                        return Err(TirBaseError::MeshUnavailable {
+                            reason: format!("outbound publish channel unavailable: {e}"),
+                        });
+                    }
+                }
+            }
+        }
+        Ok(forwarded)
     }
 
     /// Record a payload at the outbound publish point (test-only).
