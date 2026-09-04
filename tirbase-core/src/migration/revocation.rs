@@ -7,39 +7,16 @@ use crate::errors::TirBaseError;
 use crate::migration::migration_delta::{MigrationId, MigrationRevocationDelta};
 use std::collections::HashSet;
 
-// ─── DID resolution helper (mirrors crdt/mod.rs) ─────────────────────────────
+// ─── DID resolution helper ───────────────────────────────────────────────────
 
 /// Decode a `did:key:z6Mk…` DID to its 32-byte Ed25519 public key.
+///
+/// Delegates to the canonical [`crate::identity::did::resolve_did`].  (This
+/// helper previously re-implemented resolution but forgot the multibase `z`
+/// marker, so real manager DIDs — always `did:key:z6Mk…` — could never be
+/// resolved and every migration-revocation signature failed verification.)
 pub fn resolve_did_key_to_public_key(did: &str) -> Result<[u8; 32], TirBaseError> {
-    let suffix = did
-        .strip_prefix("did:key:")
-        .ok_or_else(|| TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: "not a did:key: DID".to_string(),
-        })?;
-
-    let multikey = bs58::decode(suffix)
-        .into_vec()
-        .map_err(|e| TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: format!("base58 decode failed: {e}"),
-        })?;
-
-    if multikey.len() < 2 || multikey[0] != 0xed || multikey[1] != 0x01 {
-        return Err(TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: "missing or wrong ed25519 multicodec prefix [0xed, 0x01]".to_string(),
-        });
-    }
-
-    let key_bytes: &[u8] = &multikey[2..];
-    key_bytes.try_into().map_err(|_| TirBaseError::DidResolutionFailed {
-        did: did.to_string(),
-        reason: format!(
-            "expected 32 public-key bytes after prefix, got {}",
-            key_bytes.len()
-        ),
-    })
+    crate::identity::did::resolve_did(&did.to_string())
 }
 
 // ─── RevocationRecord ────────────────────────────────────────────────────────

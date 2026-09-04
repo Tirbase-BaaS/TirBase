@@ -497,6 +497,21 @@ impl MeshTransport {
     /// delivery working after `take_swarm` empties `self.swarm`: the channel
     /// sender replaces the Swarm handle as the publish path.
     ///
+    /// ## Wire framing (Subphase 1.5)
+    ///
+    /// The documented mesh protocol (`transport/message.rs`) frames **every**
+    /// message as a tagged `GossipMessage` variant so the receiving side can
+    /// dispatch without heuristics.  Whole-Delta payloads are therefore
+    /// wrapped in `GossipMessage::InboundDelta` here, at the send side.  (A
+    /// real peer round-trip test — Phase 0.3(b) — exposed that the write path
+    /// previously published the bare serialised `Delta`, which the receiving
+    /// poll task could never parse: "unrecognised gossipsub message".)
+    ///
+    /// Fragmented payloads (`config.mtu` in `(0, 256)`) remain the raw
+    /// `DeltaFragment` units they have always been — inbound fragment
+    /// reassembly is not yet wired into the receive path — so only
+    /// whole-Delta payloads are framed.
+    ///
     /// Returns [`TirBaseError::MeshUnavailable`] when no outbound channel is
     /// installed (transport never started) or the channel cannot accept the
     /// payload (polling task backlogged or shut down).  Callers treat this as
@@ -518,9 +533,18 @@ impl MeshTransport {
         })?;
 
         for payload in payloads {
-            tx.try_send(payload).map_err(|e| TirBaseError::MeshUnavailable {
-                reason: format!("outbound publish channel unavailable: {e}"),
-            })?;
+            // Frame whole-Delta payloads as the documented wire message.
+            // (See "Wire framing" above; only unfragmented payloads parse as
+            // a `Delta`, so the sniff is exact, not a heuristic.)
+            let wire_payload = if serde_json::from_slice::<Delta>(&payload).is_ok() {
+                crate::transport::message::GossipMessage::InboundDelta(delta.clone()).to_bytes()
+            } else {
+                payload.clone()
+            };
+            tx.try_send(wire_payload)
+                .map_err(|e| TirBaseError::MeshUnavailable {
+                    reason: format!("outbound publish channel unavailable: {e}"),
+                })?;
         }
         Ok(())
     }
@@ -765,10 +789,21 @@ mod tests {
             .recv()
             .await
             .expect("prepared payload must be forwarded to the outbound channel");
+
+        // The wire protocol frames whole-Delta payloads as
+        // `GossipMessage::InboundDelta` (Subphase 1.5) so the receiving poll
+        // task can dispatch without heuristics; the framed message must carry
+        // the exact prepared Delta.
+        let wire: crate::transport::message::GossipMessage =
+            serde_json::from_slice(&payload).expect("payload must be a GossipMessage");
+        let carried = match wire {
+            crate::transport::message::GossipMessage::InboundDelta(d) => d,
+            other => panic!("expected InboundDelta framing, got: {other:?}"),
+        };
+        assert_eq!(carried.id, delta.id, "framed message must carry the Delta");
         assert_eq!(
-            payload,
-            serde_json::to_vec(&delta).unwrap(),
-            "send_delta must forward the exact output of prepare_outbound"
+            carried.automerge_bytes, delta.automerge_bytes,
+            "framed message must carry the prepared payload bytes"
         );
     }
 

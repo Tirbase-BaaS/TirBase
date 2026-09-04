@@ -114,6 +114,7 @@ mod tests {
     fn base_config() -> InitConfig {
         InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig::default(),
         }
     }
@@ -144,6 +145,7 @@ mod tests {
     fn unilateral_exile_present_when_m1_n1() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -161,6 +163,7 @@ mod tests {
     fn unilateral_exile_absent_when_m2_n3() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 2,
                 revocation_n: 3,
@@ -179,6 +182,7 @@ mod tests {
         // M=1 but N≠1 — not a unilateral configuration
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 2,
@@ -196,6 +200,7 @@ mod tests {
     fn unilateral_exile_is_warning() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -213,6 +218,7 @@ mod tests {
     fn tag_spoof_risk_present_when_anchor_attested_disabled() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 anchor_attested_location: false,
                 ..Default::default()
@@ -229,6 +235,7 @@ mod tests {
     fn tag_spoof_risk_absent_when_anchor_attested_enabled() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 anchor_attested_location: true,
                 ..Default::default()
@@ -245,6 +252,7 @@ mod tests {
     fn tag_spoof_risk_is_info() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 anchor_attested_location: false,
                 ..Default::default()
@@ -301,6 +309,7 @@ mod tests {
     fn extended_ttl_present_when_ttl_exceeds_24h() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 biscuit_ttl_secs: 24 * 3600 + 1, // one second over 24h
                 ..Default::default()
@@ -317,6 +326,7 @@ mod tests {
     fn extended_ttl_absent_when_ttl_exactly_24h() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 biscuit_ttl_secs: 24 * 3600, // exactly 24h — not extended
                 ..Default::default()
@@ -333,6 +343,7 @@ mod tests {
     fn extended_ttl_absent_when_ttl_below_24h() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 biscuit_ttl_secs: 3600, // 1h
                 ..Default::default()
@@ -349,6 +360,7 @@ mod tests {
     fn extended_ttl_is_warning() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 biscuit_ttl_secs: 48 * 3600,
                 ..Default::default()
@@ -365,6 +377,7 @@ mod tests {
     fn all_six_diagnostics_emitted_when_all_conditions_met() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -399,6 +412,7 @@ mod tests {
         // so TAG_SPOOF_RISK fires but UNILATERAL_EXILE and EXTENDED_TTL do not.
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 anchor_attested_location: true, // suppress TAG_SPOOF_RISK
                 revocation_m: 2,

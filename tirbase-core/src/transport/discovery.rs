@@ -33,6 +33,11 @@ pub enum PeerTransport {
     BleBridge { bridge_did: Did },
     /// Peer reachable via multi-hop relay (Req 5.5).
     MultiHopRelay { next_hop_did: Did },
+    /// Peer connected via an explicitly configured address (application-initiated
+    /// dial — `CoreHandle::dial_peer`, Subphase 1.5).  Used for topologies where
+    /// mDNS discovery is unavailable (WAN peers, cloud relay) and recorded when
+    /// the libp2p connection is established.
+    Explicit { multiaddr: String },
 }
 
 // ─── RetryEntry ───────────────────────────────────────────────────────────────

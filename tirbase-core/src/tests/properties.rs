@@ -79,12 +79,12 @@ use crate::store::compaction::CompactionPolicy;
 const FIXED_SECRET: [u8; 32] = [0x01u8; 32];
 const TEST_SCHEMA_HASH: [u8; 32] = [0xABu8; 32];
 
-/// Derive a did:key from a 32-byte public key (using crdt module's format, no z prefix).
+/// Derive a did:key from a 32-byte public key (canonical `did:key:z6Mk…` format).
 fn did_from_public(public: &[u8; 32]) -> String {
     crate::crdt::derive_did_from_public_key(public)
 }
 
-/// Derive a did:key with the identity module's format (with z prefix), used by revocation/auth.
+/// Derive a did:key with the identity module's format (same canonical z format).
 fn did_from_public_identity(public: &[u8; 32]) -> String {
     crate::identity::did::derive_did(public)
 }

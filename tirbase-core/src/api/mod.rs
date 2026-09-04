@@ -41,6 +41,15 @@ use crate::store::LocalStore;
 /// Default schema hash used when no explicit schema is configured.
 const DEFAULT_SCHEMA_HASH: [u8; 32] = [0u8; 32];
 
+/// Current wall-clock time in UTC microseconds (peer-table bookkeeping).
+fn now_micros() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_micros() as i64
+}
+
 /// Production cadence (ms) of the inbound drain loop spawned by
 /// `CoreHandle::init` (Subphase 1.3): every 50 ms the task calls
 /// `process_inbound_messages()` to drain `inbound_rx`.
@@ -140,6 +149,14 @@ pub struct CoreHandle {
     inbound_rx: Arc<tokio::sync::Mutex<
         tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>,
     >>,
+
+    /// Sender end of the explicit-dial channel (native only).
+    ///
+    /// [`CoreHandle::dial_peer`] forwards the target multiaddr here and the
+    /// Swarm polling task (which owns the receiver end) dials it.  `None` when
+    /// the transport never started (offline device — Req 3.3) or on wasm.
+    #[cfg(feature = "native")]
+    dial_tx: Option<tokio::sync::mpsc::Sender<libp2p::Multiaddr>>,
 }
 
 impl CoreHandle {
@@ -299,7 +316,10 @@ impl CoreHandle {
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
         let mut transport = MeshTransport::new(
             identity.did().to_string(),
-            TransportConfig::default(),
+            TransportConfig {
+                listen_addr: config.listen_addr.clone(),
+                ..TransportConfig::default()
+            },
         );
         #[cfg(feature = "native")]
         {
@@ -337,7 +357,7 @@ impl CoreHandle {
         let mut scheduler_tick_armed = false;
 
         #[cfg(feature = "native")]
-        {
+        let dial_tx = {
             use crate::transport::TirBaseBehaviour;
             use libp2p::futures::StreamExt as _;
             use libp2p::gossipsub;
@@ -345,6 +365,13 @@ impl CoreHandle {
             use libp2p::swarm::SwarmEvent;
 
             let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(4096);
+
+            // Explicit-dial channel (Subphase 1.5): `CoreHandle::dial_peer`
+            // forwards target multiaddrs here; the Swarm polling task owns the
+            // receiver and performs the actual `swarm.dial`.  `None` when no
+            // polling task can be spawned (transport failed to start).
+            let (dial_tx, mut dial_rx) =
+                tokio::sync::mpsc::channel::<libp2p::Multiaddr>(64);
 
             let (swarm_opt, gossip_topic) = {
                 let mut transport_guard =
@@ -385,6 +412,26 @@ impl CoreHandle {
                                     }
                                     SwarmEvent::NewListenAddr { address, .. } => {
                                         eprintln!("[transport-loop] listening on {address}");
+                                    }
+                                    // Subphase 1.5: record live connections in
+                                    // the peer table so `mesh_status()` (Req 2.5)
+                                    // reflects real connectivity — including
+                                    // peers reached via `CoreHandle::dial_peer`
+                                    // (no mDNS announcement involved).
+                                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                                        let did = crate::transport::discovery::mdns_adapter::peer_id_to_did(&peer_id);
+                                        if let Ok(mut t) = transport_arc.lock() {
+                                            let _ = t.on_peer_discovered(
+                                                crate::transport::discovery::DiscoveredPeer {
+                                                    did,
+                                                    transport: crate::transport::discovery::PeerTransport::Explicit {
+                                                        multiaddr: format!("/p2p/{peer_id}"),
+                                                    },
+                                                    hop_count: 0,
+                                                },
+                                                now_micros(),
+                                            );
+                                        }
                                     }
                                     SwarmEvent::Behaviour(
                                         crate::transport::TirBaseBehaviourEvent::Mdns(
@@ -464,6 +511,24 @@ impl CoreHandle {
                                     }
                                 }
                             }
+                            Some(addr) = dial_rx.recv() => {
+                                // Subphase 1.5: explicit application-initiated
+                                // dial (`CoreHandle::dial_peer`).  The peer id
+                                // is not known in advance (only the address), so
+                                // use `unknown_peer_id` — the Noise handshake
+                                // reveals the real peer id on connect.
+                                let opts = libp2p::swarm::dial_opts::DialOpts::unknown_peer_id()
+                                    .address(addr.clone())
+                                    .build();
+                                match swarm.dial(opts) {
+                                    Ok(()) => {
+                                        eprintln!("[transport-loop] dialing explicit peer {addr}");
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[transport-loop] explicit dial to {addr} failed: {e}");
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -472,7 +537,14 @@ impl CoreHandle {
                 // above, so the scheduler tick loop can forward into it.
                 scheduler_tick_armed = true;
             }
-        }
+
+            // `dial_tx` is only usable while a polling task owns its receiver.
+            if scheduler_tick_armed {
+                Some(dial_tx)
+            } else {
+                None
+            }
+        };
 
         // ── Startup diagnostics ───────────────────────────────────────────────
         let diag_entries = emit_startup_diagnostics(&config);
@@ -505,6 +577,8 @@ impl CoreHandle {
             diagnostics_channel: diag_tx,
             inbound_tx,
             inbound_rx,
+            #[cfg(feature = "native")]
+            dial_tx,
         });
 
         // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
@@ -1623,6 +1697,34 @@ impl CoreHandle {
             }
         })
     }
+
+    /// Dial a peer by multiaddr (native only).
+    ///
+    /// Forwards the target address to the Swarm polling task spawned by
+    /// [`CoreHandle::init`], which performs the actual `swarm.dial`.  This is
+    /// the explicit-connect path for topologies where mDNS discovery is
+    /// unavailable or unsuitable (WAN peers, a known cloud/relay endpoint).
+    /// The connection — once established — is recorded in the peer table, so
+    /// `mesh_status()` reflects it like any mDNS-discovered peer.
+    ///
+    /// Current callers: the Subphase 1.5 mesh integration tests (two real
+    /// Swarm-backed handles dialing each other on loopback), which are the
+    /// definition of done for Phase 0.3(a)/(b).  The SDK-facing mesh-connect
+    /// operation (Phase 4 cloud sync) is the stated production consumer.
+    #[cfg(feature = "native")]
+    pub(crate) async fn dial_peer(
+        &self,
+        addr: libp2p::Multiaddr,
+    ) -> Result<(), TirBaseError> {
+        let tx = self.dial_tx.as_ref().ok_or_else(|| {
+            TirBaseError::MeshUnavailable {
+                reason: "transport not started (no Swarm polling task)".to_string(),
+            }
+        })?;
+        tx.send(addr).await.map_err(|e| TirBaseError::MeshUnavailable {
+            reason: format!("dial channel closed: {e}"),
+        })
+    }
 }
 
 // ─── Configuration types ──────────────────────────────────────────────────────
@@ -1634,6 +1736,13 @@ pub struct InitConfig {
     pub storage_path: String,
     /// Deployment-specific settings (M-of-N thresholds, spatial diversity, etc.).
     pub deployment: DeploymentConfig,
+    /// libp2p listen address (native-only; ignored on wasm).
+    ///
+    /// Passed through to [`MeshTransport`] at init so deployments can pin the
+    /// device to a specific interface / port (firewall rules, NAT port
+    /// forwarding).  The default ephemeral bind on all interfaces paired with
+    /// mDNS discovery is what LAN operation uses.
+    pub listen_addr: String,
 }
 
 /// Deployment-specific configuration.
@@ -1666,6 +1775,7 @@ mod tests {
     fn make_config(path: &str) -> InitConfig {
         InitConfig {
             storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 2,
                 revocation_n: 3,
@@ -1963,10 +2073,21 @@ mod tests {
             "exactly one outbound payload must be produced per write (mtu=0)"
         );
 
-        // The published payload must be the prepared Delta — i.e. the output
-        // of prepare_outbound() is used, not discarded.
-        let decoded: crate::crdt::delta::Delta = serde_json::from_slice(&published[0])
-            .expect("published payload must deserialise as the Delta");
+        // The published payload must carry the prepared Delta — i.e. the
+        // output of prepare_outbound() is used, not discarded.  Since the
+        // wire protocol frames every mesh message as a `GossipMessage`
+        // (Subphase 1.5 — the receiving poll task dispatches on the variant),
+        // the recorded payload is `GossipMessage::InboundDelta(delta)` rather
+        // than the bare serialised Delta.
+        let wire: crate::transport::message::GossipMessage =
+            serde_json::from_slice(&published[0])
+                .expect("published payload must deserialise as a GossipMessage");
+        let decoded = match wire {
+            crate::transport::message::GossipMessage::InboundDelta(d) => d,
+            other => panic!(
+                "published payload must be InboundDelta framing, got: {other:?}"
+            ),
+        };
         assert_eq!(
             decoded.id, result.delta_id,
             "published payload must be the Delta produced by this write"
@@ -2323,6 +2444,7 @@ mod inbound_tests {
     fn make_config(path: &str) -> InitConfig {
         InitConfig {
             storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 2,
                 revocation_n: 3,
@@ -2889,6 +3011,7 @@ mod inbound_tests {
         // Create a CoreHandle with M=2, N=2 revocation config.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 2,
                 revocation_n: 2,
@@ -2981,6 +3104,7 @@ mod inbound_tests {
         // Handle A: M=1, N=1 for simplicity (1 manager can revoke alone).
         let config_a = InitConfig {
             storage_path: path_a.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -2994,6 +3118,7 @@ mod inbound_tests {
         // Handle B: same M/N so it also accepts the same 1-of-1 delta.
         let config_b = InitConfig {
             storage_path: path_b.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -3284,6 +3409,7 @@ mod convergence_tests {
 
         let make_cfg = |p: &str| InitConfig {
             storage_path: p.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
@@ -3368,5 +3494,283 @@ mod convergence_tests {
 
         cleanup(&path_a);
         cleanup(&path_b);
+    }
+}
+
+// ─── Phase 0.3(a)/(b): real-mesh integration tests (Subphase 1.5) ────────────
+//
+// Two in-process `CoreHandle`s with **real libp2p Swarms**, connected over
+// loopback TCP by the production explicit-dial path (`CoreHandle::dial_peer`).
+// No test-only injection helpers are involved anywhere on the write→receive
+// path: the Delta travels
+//
+//   A: write() → send_delta → outbound channel → Swarm polling task
+//      → gossipsub.publish → TCP/Noise/Yamux → wire
+//   B: Swarm polling task (gossipsub message) → inbound channel
+//      → production drain loop → receive_inbound → signature verification
+//      → merge → SQL projection
+//
+// and is asserted on B via `read()` plus CRDT-level state (DAG node, Lamport
+// clock) — i.e. the same observations a real second device would produce.
+//
+// These are the definition of done for Phase 0.3(a) (two-device real mesh
+// Delta exchange) and Phase 0.3(b) (full write→gossip→receive→merge round
+// trip with a signature-verified, merged, projected Delta on the receiver).
+
+#[cfg(all(test, feature = "native"))]
+mod real_mesh_tests {
+    use super::*;
+    use serde_json::json;
+    use std::env;
+    use std::net::TcpListener;
+    use std::time::Duration;
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_mesh_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    /// Reserve a free loopback TCP port for a transport listen address.
+    ///
+    /// The listener is dropped before `CoreHandle::init` binds it, so there is
+    /// a tiny reuse window; reserving both ports up front (before either
+    /// handle inits) keeps that window to microseconds per port.
+    fn reserve_loopback_port() -> u16 {
+        let l = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
+        l.local_addr().expect("local addr").port()
+    }
+
+    fn mesh_config(path: &str, port: u16) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: format!("/ip4/127.0.0.1/tcp/{port}"),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        }
+    }
+
+    /// Initialise a handle on its own loopback port with a real Swarm (the
+    /// production `CoreHandle::init` path spawns the Swarm polling task) and
+    /// start the production inbound drain loop at accelerated cadence — the
+    /// identical loop `init` spawns at 50 ms in production builds (Subphase
+    /// 1.3); test builds make `init`'s own instance inert so count-based unit
+    /// tests stay deterministic, so the test drives the accelerated loop
+    /// explicitly, exactly as the Subphase 1.3 acceptance does.
+    async fn init_mesh_handle(suffix: &str, port: u16) -> Arc<CoreHandle> {
+        let path = tmp_path(suffix);
+        cleanup(&path);
+        let handle = CoreHandle::init(mesh_config(&path, port))
+            .await
+            .expect("init must succeed with a real Swarm");
+        CoreHandle::spawn_inbound_drain_loop(&handle, Duration::from_millis(10));
+        handle
+    }
+
+    /// Dial `from` → `to`'s listen address via the production
+    /// `CoreHandle::dial_peer` path and wait until the connection is recorded
+    /// (the Swarm polling task's `ConnectionEstablished` arm populates the
+    /// peer table, so `mesh_status()` reports it).
+    async fn connect_peers(from: &Arc<CoreHandle>, target_addr: &str) {
+        let addr: libp2p::Multiaddr =
+            target_addr.parse().expect("valid multiaddr");
+        from.dial_peer(addr).await.expect("dial_peer must succeed");
+
+        let mut attempts = 0u32;
+        loop {
+            if from.mesh_status().peer_count >= 1 {
+                return;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 500,
+                "explicit dial never established a connection (mesh_status stayed disconnected for 5s)"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    /// Poll `handle.read(table, key)` until the row's data equals `expected`
+    /// or `timeout` elapses.  (Polling for a bare successful read is not
+    /// enough across multiple round trips — a row written by an earlier
+    /// round trip already reads successfully with stale data.)
+    async fn wait_for_data(
+        handle: &CoreHandle,
+        table: &str,
+        key: &str,
+        expected: &serde_json::Value,
+        timeout: Duration,
+    ) -> QueryResult {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            match handle.read(table, key).await {
+                Ok(res) if &res.data == expected => return res,
+                _ => {
+                    assert!(
+                        tokio::time::Instant::now() < deadline,
+                        "row {table}/{key} never projected the expected data on the receiving device within {timeout:?}"
+                    );
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            }
+        }
+    }
+
+    // ── Phase 0.3(a): two-device real mesh Delta exchange ────────────────────
+    //
+    // Two real Swarm-backed CoreHandles on loopback; a write on device A
+    // becomes visible (readable) on device B with no test-only injection
+    // helpers on the path.
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn two_devices_exchange_delta_over_real_mesh() {
+        // Reserve both ports before either init to minimise reuse races.
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        let handle_a = init_mesh_handle("p03a_A", port_a).await;
+        let handle_b = init_mesh_handle("p03a_B", port_b).await;
+
+        // The only manual step: device A dials device B's listen address over
+        // the production dial path (mDNS would do this automatically on a LAN;
+        // loopback tests use the explicit path so no multicast is involved).
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+
+        // Let the gossipsub subscription exchange settle so the publish on A
+        // reaches B's mesh rather than being deferred as "no subscribers".
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Write on A — production write path (store + signed Delta + publish).
+        let written = json!({ "device": "A", "seq": 1, "msg": "hello over the real mesh" });
+        let write_result = handle_a
+            .write("mesh", "row-a", written.clone())
+            .await
+            .expect("write on A must succeed");
+        assert_ne!(write_result.delta_id, [0u8; 32], "A must produce a real Delta");
+
+        // Assert the Delta arrived on B through the wire: signature-verified
+        // (else Rejected — nothing would be stored), merged, projected — i.e.
+        // readable via B's normal read() path.
+        let observed = wait_for_data(&handle_b, "mesh", "row-a", &written, Duration::from_secs(20)).await;
+        assert_eq!(
+            observed.data, written,
+            "data read on device B must exactly match what was written on device A"
+        );
+
+        cleanup(&tmp_path("p03a_A"));
+        cleanup(&tmp_path("p03a_B"));
+    }
+
+    // ── Phase 0.3(b): full write→gossip→receive→merge round trip ────────────
+    //
+    // Same real mesh, but asserting each stage of the receiving pipeline on
+    // B's CRDT engine and store:
+    //   - signature-verified: the exact Delta A produced (Delta ID) is present
+    //     in B's DAG under A's author DID — `CrdtEngine::apply` only inserts
+    //     the DagNode after Ed25519 verification succeeds (step 3) and the
+    //     merge completes (step 6).
+    //   - merged: B's Lamport clock advanced (apply step 5).
+    //   - projected: the row is readable via B's read() with A's exact data.
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn write_gossip_receive_merge_round_trip_is_signature_verified_and_projected() {
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b);
+
+        let handle_a = init_mesh_handle("p03b_A", port_a).await;
+        let handle_b = init_mesh_handle("p03b_B", port_b).await;
+
+        // B's engine starts with a zero Lamport clock and an empty DAG.
+        let author_did_a = handle_a.identity.did().to_string();
+        assert_eq!(handle_b.crdt.lock().unwrap().lamport(), 0, "B must start clean");
+
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // ── Round trip 1 ─────────────────────────────────────────────────────
+        let written_1 = json!({ "sensor": "temp", "value": 23.4 });
+        let write_1 = handle_a
+            .write("roundtrip", "k1", written_1.clone())
+            .await
+            .expect("first write on A");
+
+        let observed_1 = wait_for_data(&handle_b, "roundtrip", "k1", &written_1, Duration::from_secs(20)).await;
+        assert_eq!(observed_1.data, written_1, "round trip 1 data must match on B");
+
+        // The exact Delta A signed and published must have been merged into B's
+        // DAG — signature-verified (author DID resolves from did:key and the
+        // Ed25519 check passes, otherwise `apply` returns Rejected and no node
+        // is inserted), merged (DagNode persisted), authored by A.
+        let node_1 = handle_b
+            .crdt
+            .lock()
+            .unwrap()
+            .dag_node(&write_1.delta_id)
+            .expect("DAG lookup must not fail")
+            .unwrap_or_else(|| {
+                panic!(
+                    "B's DAG must contain the Delta A produced ({}); \
+                     without a signature-verified merge no DagNode is inserted",
+                    hex::encode(write_1.delta_id)
+                )
+            });
+        assert_eq!(
+            node_1.author_did, author_did_a,
+            "B's DAG node must be attributed to A's DID"
+        );
+        assert!(
+            handle_b.crdt.lock().unwrap().lamport() > 0,
+            "B's Lamport clock must advance after merging A's Delta"
+        );
+
+        // ── Round trip 2: a second write chains off the first causally ───────
+        let written_2 = json!({ "sensor": "temp", "value": 25.7 });
+        let write_2 = handle_a
+            .write("roundtrip", "k1", written_2.clone())
+            .await
+            .expect("second write on A");
+        assert_ne!(
+            write_2.delta_id, write_1.delta_id,
+            "the second write must produce a distinct Delta"
+        );
+
+        let observed_2 = wait_for_data(&handle_b, "roundtrip", "k1", &written_2, Duration::from_secs(20)).await;
+        assert_eq!(observed_2.data, written_2, "round trip 2 data must match on B");
+
+        // Both Deltas must be present in B's DAG (converged state), each signed
+        // by A.
+        let node_2 = handle_b
+            .crdt
+            .lock()
+            .unwrap()
+            .dag_node(&write_2.delta_id)
+            .expect("DAG lookup must not fail")
+            .expect("second Delta must be merged into B's DAG");
+        assert_eq!(node_2.author_did, author_did_a);
+        assert!(
+            handle_b.crdt.lock().unwrap().dag_node(&write_1.delta_id).unwrap().is_some(),
+            "first Delta must still be in B's DAG after the second merge"
+        );
+
+        cleanup(&tmp_path("p03b_A"));
+        cleanup(&tmp_path("p03b_B"));
     }
 }

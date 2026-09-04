@@ -26,50 +26,21 @@ use dag::{ChangesetDag, DagNode};
 
 /// Decode a `did:key:z6Mk…` DID to its 32-byte Ed25519 public key.
 ///
-/// Format: `did:key:` + base58btc(multikey_bytes)
-/// Multikey bytes: `[0xed, 0x01]` (ed25519 multicodec prefix) + 32 public-key bytes
+/// Delegates to the canonical [`crate::identity::did::resolve_did`].  (This
+/// helper previously re-implemented resolution but forgot the multibase `z`
+/// marker, so real device DIDs — which are always `did:key:z6Mk…` — could
+/// never be resolved and every peer Delta was rejected at signature
+/// verification.  A real-mesh round-trip test — Phase 0.3(b) — surfaced it.)
 fn resolve_did_key_to_public_key(did: &str) -> Result<[u8; 32], TirBaseError> {
-    let suffix = did
-        .strip_prefix("did:key:")
-        .ok_or_else(|| TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: "not a did:key: DID".to_string(),
-        })?;
-
-    let multikey = bs58::decode(suffix)
-        .into_vec()
-        .map_err(|e| TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: format!("base58 decode failed: {e}"),
-        })?;
-
-    // Ed25519 multicodec prefix is [0xed, 0x01]
-    if multikey.len() < 2 || multikey[0] != 0xed || multikey[1] != 0x01 {
-        return Err(TirBaseError::DidResolutionFailed {
-            did: did.to_string(),
-            reason: "missing or wrong ed25519 multicodec prefix [0xed, 0x01]".to_string(),
-        });
-    }
-
-    let key_bytes: &[u8] = &multikey[2..];
-    key_bytes.try_into().map_err(|_| TirBaseError::DidResolutionFailed {
-        did: did.to_string(),
-        reason: format!(
-            "expected 32 public-key bytes after prefix, got {}",
-            key_bytes.len()
-        ),
-    })
+    crate::identity::did::resolve_did(&did.to_string())
 }
 
 /// Derive a `did:key:` DID from a 32-byte Ed25519 public key.
+///
+/// Delegates to the canonical [`crate::identity::did::derive_did`] so every
+/// DID in the system uses the multibase `z` marker (`did:key:z6Mk…`).
 pub fn derive_did_from_public_key(public_key: &[u8; 32]) -> Did {
-    // Prepend ed25519 multicodec prefix [0xed, 0x01]
-    let mut multikey = Vec::with_capacity(34);
-    multikey.push(0xed);
-    multikey.push(0x01);
-    multikey.extend_from_slice(public_key);
-    let encoded = bs58::encode(&multikey).into_string();
-    format!("did:key:{encoded}")
+    crate::identity::did::derive_did(public_key)
 }
 
 // ─── CrdtEngine ──────────────────────────────────────────────────────────────
@@ -174,6 +145,20 @@ impl CrdtEngine {
     /// Current Lamport clock value.
     pub fn lamport(&self) -> u64 {
         self.lamport
+    }
+
+    /// Look up a persisted DagNode by Delta ID (native only).
+    ///
+    /// Crate-internal observability: lets callers (mesh integration tests,
+    /// diagnostics) assert that a specific inbound Delta — identified by the
+    /// Delta ID its author produced — actually landed in this engine's DAG
+    /// after a merge.
+    #[cfg(feature = "native")]
+    pub(crate) fn dag_node(
+        &self,
+        delta_id: &DeltaId,
+    ) -> Result<Option<DagNode>, TirBaseError> {
+        self.dag.get(delta_id)
     }
 
     /// Produce a Delta for a local write that has already been committed to the

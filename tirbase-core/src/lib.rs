@@ -209,6 +209,7 @@ mod wasm_exports {
     pub async fn core_init(storage_path: String) -> Result<(), JsValue> {
         let config = api::InitConfig {
             storage_path,
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: api::DeploymentConfig {
                 revocation_m: 1,
                 revocation_n: 1,
