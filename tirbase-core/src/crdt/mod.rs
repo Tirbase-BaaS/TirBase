@@ -68,6 +68,14 @@ pub struct CrdtEngine {
     /// Ed25519 secret key seed (32 bytes) for signing produced Deltas.
     secret_key: [u8; 32],
 
+    /// DIDs whose devices are REVOKED (Req 8.6).
+    ///
+    /// Inbound Deltas authored by any DID in this set are rejected by
+    /// [`CrdtEngine::apply`] before schema/signature checks — a revoked
+    /// author's Deltas must never enter the merged state, even if they
+    /// are well-formed and correctly signed.
+    revoked_dids: HashSet<Did>,
+
     /// SQLite-backed Changeset DAG (native build only).
     #[cfg(feature = "native")]
     dag: ChangesetDag,
@@ -107,6 +115,7 @@ impl CrdtEngine {
             known_schemas,
             author_did,
             secret_key,
+            revoked_dids: HashSet::new(),
             dag: ChangesetDag::new(conn),
         }
     }
@@ -134,12 +143,23 @@ impl CrdtEngine {
             known_schemas,
             author_did,
             secret_key,
+            revoked_dids: HashSet::new(),
         }
     }
 
     /// Register an additional known schema hash (called during additive migration).
     pub fn add_known_schema(&mut self, hash: SchemaIdentifierHash) {
         self.known_schemas.insert(hash);
+    }
+
+    /// Record `did` as REVOKED (Req 8.6) so all future inbound Deltas authored
+    /// by it are rejected by [`CrdtEngine::apply`].
+    ///
+    /// Idempotent. Called by the inbound revocation pipeline when a validated
+    /// `RevocationDelta` crosses its M-of-N threshold
+    /// (`CoreHandle::receive_inbound` / `receive_inbound_wasm`).
+    pub(crate) fn mark_did_revoked(&mut self, did: &Did) {
+        self.revoked_dids.insert(did.clone());
     }
 
     /// Current Lamport clock value.
@@ -214,9 +234,10 @@ impl CrdtEngine {
         Ok(delta)
     }
 
-    /// Apply an incoming Delta from a peer (Req 4.4, 4.5, 4.5a).
+    /// Apply an incoming Delta from a peer (Req 4.4, 4.5, 4.5a, 8.6).
     ///
     /// Pipeline:
+    /// 0. Revocation gate — Delta authored by a REVOKED DID → Rejected (Req 8.6).
     /// 1. Schema-hash gate — unknown hash → Rejected.
     /// 2. Malformed-signature guard.
     /// 3. Ed25519 signature verification via DID resolution.
@@ -224,6 +245,20 @@ impl CrdtEngine {
     /// 5. Advance Lamport clock.
     /// 6. Persist DagNode.
     pub fn apply(&mut self, delta: &Delta) -> Result<MergeOutcome, TirBaseError> {
+        // 0. Revocation gate (Req 8.6) — reject Deltas authored by a REVOKED
+        //    DID outright, before any schema or signature processing.  A revoked
+        //    author must not be able to inject state through the mesh even with
+        //    a correctly-signed Delta (the local write/read gate of Req 8.5
+        //    cannot stop the peer, so the merge path must).
+        if self.revoked_dids.contains(&delta.author_did) {
+            let reason = format!(
+                "author DID '{}' is REVOKED — inbound Deltas from revoked devices are rejected (Req 8.6)",
+                delta.author_did
+            );
+            eprintln!("[CRDT] Rejected delta from {}: {reason}", delta.author_did);
+            return Ok(MergeOutcome::Rejected { reason });
+        }
+
         // 1. Schema-hash gate (Req 4.4).
         if !self.known_schemas.contains(&delta.schema_hash) {
             let hash_hex = hex::encode(delta.schema_hash);
@@ -833,6 +868,84 @@ mod tests {
             matches!(outcome, MergeOutcome::Rejected { .. }),
             "mismatched key must be rejected: {outcome:?}"
         );
+    }
+
+    // ── apply — revocation gate (Req 8.6) ────────────────────────────────────
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_rejects_delta_from_revoked_author() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        // Engine A is the receiver; peer B's DID is marked REVOKED.
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+        engine.mark_did_revoked(&did_b);
+
+        // B produces a *validly signed* delta — it must still be rejected.
+        let delta = make_signed_delta(&secret_b, did_b.clone(), schema, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+
+        assert!(
+            matches!(outcome, MergeOutcome::Rejected { .. }),
+            "delta from revoked author must be Rejected: {outcome:?}"
+        );
+        match outcome {
+            MergeOutcome::Rejected { reason } => {
+                assert!(
+                    reason.contains("REVOKED") && reason.contains(&did_b),
+                    "rejection reason must name the revoked author: {reason}"
+                );
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_revoked_author_delta_is_not_persisted_to_dag() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+        engine.mark_did_revoked(&did_b);
+
+        let delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(matches!(outcome, MergeOutcome::Rejected { .. }));
+
+        // Rejected Deltas must never land in the Changeset DAG.
+        assert!(
+            engine.dag_node(&delta.id).unwrap().is_none(),
+            "rejected delta must not be persisted as a DagNode"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_revocation_gate_does_not_block_other_authors() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (secret_c, _, did_c) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+        engine.mark_did_revoked(&did_b);
+
+        // C is NOT revoked — its delta must merge normally.
+        let delta_c = make_signed_delta(&secret_c, did_c, schema, 1, vec![]);
+        let outcome = engine.apply(&delta_c).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Merged { .. }),
+            "non-revoked author must still merge: {outcome:?}"
+        );
+
+        // The revoked author's delta is still rejected after a merge happened.
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 2, vec![]);
+        let outcome = engine.apply(&delta_b).unwrap();
+        assert!(matches!(outcome, MergeOutcome::Rejected { .. }));
     }
 
     // ── apply — valid delta ───────────────────────────────────────────────────

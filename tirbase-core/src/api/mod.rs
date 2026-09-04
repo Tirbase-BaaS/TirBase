@@ -1241,6 +1241,26 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
+                        // Req 8.6 — a validated revocation makes the target
+                        // DID locally known as REVOKED: register it in the CRDT
+                        // engine so `CrdtEngine::apply` rejects all future
+                        // inbound Deltas authored by it (the local write/read
+                        // gate of Req 8.5 only protects this device's own
+                        // operations, not the merge path).
+                        drop(rev);
+                        {
+                            let mut crdt = self.crdt.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("crdt mutex: {e}"),
+                                }
+                            })?;
+                            crdt.mark_did_revoked(&rev_delta.target_did);
+                        }
+                        eprintln!(
+                            "[inbound] CRDT engine now rejects Deltas authored by revoked DID {}",
+                            rev_delta.target_did
+                        );
+
                         // Req 8.5 — a validated revocation targeting THIS
                         // device makes the REVOKED status locally known: apply
                         // it to the CapabilityManager so the local write/read
@@ -1248,7 +1268,6 @@ impl CoreHandle {
                         // further I/O immediately.  Revocations of *other*
                         // devices must not trip this device's own gate.
                         if rev_delta.target_did == self.identity.did() {
-                            drop(rev);
                             self.capability
                                 .lock()
                                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -1569,12 +1588,29 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
+                        // Req 8.6 — same wiring as the native inbound path: a
+                        // validated revocation makes the target DID locally
+                        // known as REVOKED, so the CRDT engine rejects all
+                        // future inbound Deltas authored by it.
+                        drop(rev);
+                        {
+                            let mut crdt = self.crdt.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("crdt mutex poisoned: {e}"),
+                                }
+                            })?;
+                            crdt.mark_did_revoked(&rev_delta.target_did);
+                        }
+                        eprintln!(
+                            "[wasm-inbound] CRDT engine now rejects Deltas authored by revoked DID {}",
+                            rev_delta.target_did
+                        );
+
                         // Req 8.5 — same wiring as the native inbound path: a
                         // validated revocation targeting THIS device applies
                         // the REVOKED TrustLevel to the CapabilityManager so
                         // the local write/read gate blocks all further I/O.
                         if rev_delta.target_did == self.identity.did() {
-                            drop(rev);
                             self.capability
                                 .lock()
                                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -3588,6 +3624,166 @@ mod inbound_tests {
 
         cleanup(&path_a);
         cleanup(&path_b);
+    }
+
+    // ── Test 8b: inbound Delta from a REVOKED peer is rejected (Req 8.6) ────
+    //
+    // End-to-end through the PRODUCTION inbound pipeline: a peer's Delta is
+    // merged normally; then a validated RevocationDelta (M=1) marks the peer
+    // REVOKED (which registers the DID in the CRDT engine); a second Delta
+    // from the same peer is then rejected by the revocation gate inside
+    // CrdtEngine::apply — reached via apply_incoming_delta — and never lands
+    // in the Changeset DAG or the SQL projection.
+
+    #[tokio::test]
+    async fn inbound_delta_from_revoked_peer_is_rejected() {
+        let path = tmp_path("inbound_revoked_author");
+        cleanup(&path);
+
+        // M=1, N=1 so a single Manager signature completes the revocation.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        // Peer identity + a Manager identity that can revoke the peer.
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+        let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
+
+        let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr_did = mgr.did().to_string();
+        let mgr_sk = mgr.signing_key_bytes();
+
+        // Build a signed peer Delta carrying a projectable JSON envelope.
+        let make_peer_delta = |table: &str, key: &str, value: i64, lamport: u64| {
+            let mut envelope = serde_json::Map::new();
+            envelope.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String(table.to_string()),
+            );
+            envelope.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String(key.to_string()),
+            );
+            envelope.insert("v".to_string(), serde_json::Value::from(value));
+            let envelope_bytes = serde_json::to_vec(&serde_json::Value::Object(envelope))
+                .expect("envelope serialisation");
+
+            let mut d = crate::crdt::delta::Delta {
+                id: [0u8; 32],
+                author_did: peer_did.clone(),
+                signature: Ed25519Signature::default(),
+                schema_hash,
+                automerge_bytes: envelope_bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport,
+                created_at: 0,
+            };
+            let canonical = d.canonical_bytes();
+            d.signature = ek_sign(&peer_secret, &canonical).expect("sign");
+            d.id = crate::crdt::delta::Delta::compute_id(&canonical);
+            d
+        };
+
+        // ── Before revocation: the peer's Delta merges and projects. ────────
+        let delta_before = make_peer_delta("revtest", "k_before", 1, 1);
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta_before.clone()))
+            .await
+            .expect("inject pre-revocation delta");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process pre-revocation delta");
+        assert!(
+            handle
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&delta_before.id)
+                .expect("dag_node lookup")
+                .is_some(),
+            "pre-revocation delta must be merged and persisted to the DAG"
+        );
+        handle
+            .read("revtest", "k_before")
+            .await
+            .expect("pre-revocation delta must be projected to the store");
+
+        // ── Revoke the peer (1-of-1), through the production inbound path. ───
+        let rev_delta = {
+            let rev = handle.revocation.lock().unwrap();
+            rev.produce_partial_delta(peer_did.clone(), mgr_did.clone(), &mgr_sk)
+                .expect("produce revocation delta")
+        };
+        handle
+            .inject_inbound(GossipMessage::InboundRevocationDelta(rev_delta))
+            .await
+            .expect("inject revocation delta");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process revocation delta");
+        assert!(
+            handle
+                .revocation
+                .lock()
+                .unwrap()
+                .revoked_dids()
+                .contains(&peer_did),
+            "revocation subsystem must know the peer DID is REVOKED"
+        );
+
+        // ── After revocation: the peer's next Delta must be rejected. ────────
+        let delta_after = make_peer_delta("revtest", "k_after", 2, 2);
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta_after.clone()))
+            .await
+            .expect("inject post-revocation delta");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process post-revocation delta");
+
+        // The rejected delta must NOT be persisted to the DAG…
+        assert!(
+            handle
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&delta_after.id)
+                .expect("dag_node lookup")
+                .is_none(),
+            "post-revocation delta must be rejected — no DagNode may be persisted"
+        );
+        // …and must NOT be projected into the store.
+        let read_after = handle.read("revtest", "k_after").await;
+        assert!(
+            read_after.is_err(),
+            "post-revocation delta must not be readable (rejected before projection)"
+        );
+        // The pre-revocation row is untouched.
+        handle
+            .read("revtest", "k_before")
+            .await
+            .expect("pre-revocation data must survive");
+
+        cleanup(&path);
     }
 }
 

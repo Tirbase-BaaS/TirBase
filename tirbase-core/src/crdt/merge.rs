@@ -353,6 +353,38 @@ mod routing_tests {
         );
     }
 
+    /// A Delta authored by a REVOKED DID is rejected through the routing entry
+    /// point (Req 8.6) — `apply_incoming_delta` must surface the gate that
+    /// lives in `CrdtEngine::apply`.
+    #[test]
+    fn revoked_author_delta_is_rejected_via_routing() {
+        let (secret_a, public_a) = generate_keypair().unwrap();
+        let did_a = derive_did_from_public_key(&public_a);
+        let (secret_b, public_b) = generate_keypair().unwrap();
+        let did_b = derive_did_from_public_key(&public_b);
+        let schema = test_schema();
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+
+        // Mark B's DID revoked, then route B's validly-signed delta inbound.
+        engine.mark_did_revoked(&did_b);
+        let delta = make_signed_delta(&secret_b, did_b.clone(), schema, 1, vec![]);
+        let outcome = apply_incoming_delta(&mut engine, &delta).unwrap();
+
+        assert!(
+            matches!(outcome, MergeOutcome::Rejected { .. }),
+            "revoked author must be Rejected through apply_incoming_delta: {outcome:?}"
+        );
+        match outcome {
+            MergeOutcome::Rejected { reason } => {
+                assert!(
+                    reason.contains("REVOKED") && reason.contains(&did_b),
+                    "reason must name the revoked author: {reason}"
+                );
+            }
+            _ => unreachable!(),
+        }
+    }
+
     /// apply_incoming_delta and CrdtEngine::apply produce the same outcome (regression test).
     #[test]
     fn routing_layer_produces_same_outcome_as_engine_apply() {
