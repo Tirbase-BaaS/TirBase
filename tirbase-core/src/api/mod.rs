@@ -1848,12 +1848,43 @@ impl CoreHandle {
                         // merge inserted the Delta into this device's DAG.
                         self.issue_durability_receipt(&delta.id);
                     }
-                    MergeOutcome::Quarantined { .. } => {
-                        eprintln!(
-                            "[inbound] delta {} quarantined (schema mismatch) from {}",
-                            hex::encode(delta.id),
-                            delta.author_did
-                        );
+                    MergeOutcome::Quarantined { reason } => {
+                        // Subphase 5.2: persist the raw received Delta in the
+                        // QuarantineLedger (Req 17.4–17.6) instead of only
+                        // logging it. The full serialised Delta is stored
+                        // byte-for-byte so a later schema migration can replay
+                        // it through the same signature-verified merge path.
+                        let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
+                            eprintln!(
+                                "[inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
+                                hex::encode(delta.id)
+                            );
+                            delta.automerge_bytes.clone()
+                        });
+                        match self
+                            .migration
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("migration mutex poisoned: {e}"),
+                            })?
+                            .quarantine_incoming(
+                                &delta.author_did,
+                                raw_bytes,
+                                Some(delta.schema_hash),
+                                reason.into(),
+                                now_micros(),
+                            ) {
+                            Ok(entry_id) => eprintln!(
+                                "[inbound] delta {} quarantined (schema mismatch) from {} → stored in quarantine ledger as {}",
+                                hex::encode(delta.id),
+                                delta.author_did,
+                                hex::encode(entry_id)
+                            ),
+                            Err(e) => eprintln!(
+                                "[inbound] delta {} could not be stored in the quarantine ledger: {e}",
+                                hex::encode(delta.id)
+                            ),
+                        }
                     }
                     MergeOutcome::Rejected { reason } => {
                         eprintln!(
@@ -2229,11 +2260,43 @@ impl CoreHandle {
                         }
                     }
                     MergeOutcome::Quarantined { reason } => {
-                        eprintln!(
-                            "[wasm-inbound] delta {} quarantined ({reason:?}) from {}",
-                            hex::encode(delta.id),
-                            delta.author_did
-                        );
+                        // Subphase 5.2: persist the raw received Delta in the
+                        // QuarantineLedger (Req 17.4–17.6) instead of only
+                        // logging it — identical wiring to the native
+                        // `receive_inbound` path. The full serialised Delta is
+                        // stored byte-for-byte for later schema-migration
+                        // replay.
+                        let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
+                            eprintln!(
+                                "[wasm-inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
+                                hex::encode(delta.id)
+                            );
+                            delta.automerge_bytes.clone()
+                        });
+                        match self
+                            .migration
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("migration mutex poisoned in receive_inbound_wasm: {e}"),
+                            })?
+                            .quarantine_incoming(
+                                &delta.author_did,
+                                raw_bytes,
+                                Some(delta.schema_hash),
+                                reason.clone().into(),
+                                now_micros(),
+                            ) {
+                            Ok(entry_id) => eprintln!(
+                                "[wasm-inbound] delta {} quarantined ({reason:?}) from {} → stored in quarantine ledger as {}",
+                                hex::encode(delta.id),
+                                delta.author_did,
+                                hex::encode(entry_id)
+                            ),
+                            Err(e) => eprintln!(
+                                "[wasm-inbound] delta {} could not be stored in the quarantine ledger: {e}",
+                                hex::encode(delta.id)
+                            ),
+                        }
                     }
                     MergeOutcome::Rejected { reason } => {
                         eprintln!(
@@ -5124,6 +5187,8 @@ mod inbound_tests {
         // Use an unknown schema hash (should be quarantined, not rejected).
         let unknown_schema = [0xFFu8; 32];
         let delta = make_signed_delta(&peer_secret, &peer_did, unknown_schema, 1);
+        // Subphase 5.2: the byte-for-byte raw bytes the ledger must hold.
+        let expected_raw = serde_json::to_vec(&delta).expect("serialise delta");
         let msg = GossipMessage::InboundDelta(delta);
 
         handle.inject_inbound(msg).await.expect("inject");
@@ -5135,6 +5200,36 @@ mod inbound_tests {
             .expect("process_inbound_messages should succeed even for quarantined delta");
 
         assert_eq!(processed, 1, "quarantined delta counts as processed");
+
+        // Subphase 5.2: the raw bytes must be stored in the QuarantineLedger,
+        // not merely logged.
+        let migration = handle.migration.lock().expect("migration lock");
+        let entries = migration
+            .quarantined_entries()
+            .expect("quarantined_entries should succeed");
+        assert_eq!(
+            entries.len(),
+            1,
+            "exactly one entry must be stored in the quarantine ledger"
+        );
+        assert_eq!(
+            entries[0].raw_bytes, expected_raw,
+            "raw_bytes must be the byte-for-byte serialised Delta"
+        );
+        assert_eq!(
+            entries[0].sender_did, peer_did,
+            "sender DID must be recorded"
+        );
+        assert_eq!(
+            entries[0].schema_hash,
+            Some(unknown_schema),
+            "schema hash must be recorded"
+        );
+        assert_eq!(
+            entries[0].reason,
+            crate::migration::quarantine::QuarantineReason::UnknownSchemaHash,
+            "quarantine reason must be recorded"
+        );
 
         cleanup(&path);
     }

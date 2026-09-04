@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::errors::TirBaseError;
 use migration_delta::{MigrationDelta, MigrationId, MigrationRevocationDelta};
-use quarantine::{QuarantineLedger, QuarantineReason};
+use quarantine::{QuarantineEntry, QuarantineLedger, QuarantineReason};
 use revocation::RevokedMigrationRegistry;
 use version_path::SchemaVersionPath;
 use wasm_sandbox::{execute_migration, MigrationResult};
@@ -362,6 +362,15 @@ impl SchemaMigrationEngine {
             reason,
             received_at,
         )
+    }
+
+    /// Return all entries currently held in the quarantine ledger.
+    ///
+    /// Used by the inbound integration tests to assert that a quarantined
+    /// Delta's raw bytes were persisted byte-for-byte (Subphase 5.2); also the
+    /// inspection entry point for quarantine replay tooling (Req 17.4–17.6).
+    pub(crate) fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
+        self.quarantine_ledger.get_all()
     }
 }
 

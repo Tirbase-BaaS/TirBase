@@ -49,6 +49,25 @@ impl QuarantineReason {
     }
 }
 
+impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
+    /// Bridge the CRDT merge-outcome reason (produced by the schema-hash gate
+    /// in `CrdtEngine::apply`) to the ledger's storage reason. The two enums
+    /// carry the same variants but live in different layers.
+    fn from(r: crate::crdt::merge::QuarantineReason) -> Self {
+        match r {
+            crate::crdt::merge::QuarantineReason::BreakingSchemaChange => {
+                Self::BreakingSchemaChange
+            }
+            crate::crdt::merge::QuarantineReason::UnknownSchemaHash => {
+                Self::UnknownSchemaHash
+            }
+            crate::crdt::merge::QuarantineReason::MissingOrMalformedHash => {
+                Self::MissingOrMalformedHash
+            }
+        }
+    }
+}
+
 /// A quarantined Delta entry stored byte-for-byte without modification (Req 17.5).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuarantineEntry {
