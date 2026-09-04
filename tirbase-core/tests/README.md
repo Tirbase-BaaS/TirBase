@@ -34,8 +34,9 @@ comparing serialised Local Store state.  This cannot be done within a single
 
 **Mitigation:** The WASM build compiles without errors
 (`cargo check --no-default-features --features wasm --target wasm32-unknown-unknown`).
-`src/tests/wasm_tests.rs` confirms the WASM in-memory store round-trips
-correctly.  The Automerge library provides cross-platform convergence
+`src/tests/wasm_tests.rs` confirms the WASM store round-trips correctly — and
+since Subphase 6.3 it is IndexedDB-backed, so rows survive page reloads
+(Item 21).  The Automerge library provides cross-platform convergence
 guarantees.  The `arb_ordered_delta_sequence` generator includes
 `Migration_Delta` entries to cover the `wasmi`/`wasmtime` divergence risk
 path when the full WASM test harness is wired.
@@ -373,6 +374,17 @@ cargo build --no-default-features --features wasm --target wasm32-unknown-unknow
 wasm-bindgen target/wasm32-unknown-unknown/release/tirbase_core.wasm \
     --out-dir tirbase-sdk/wasm --target web
 ```
+
+Subphase 6.3: the WASM `LocalStore` is now IndexedDB-backed (see Item 21), so
+`cargo check` also validates the `web-sys` IndexedDB bindings used by
+`store/indexed_db.rs` on the wasm target.
+
+Note: `cargo check --tests --target wasm32-unknown-unknown` is **not** a valid
+verification step — wasm-incompatible dev-dependencies (`proptest` →
+`wait-timeout`, `tokio`/`full` → `mio`) fail to compile on wasm32.  This is a
+pre-existing limitation (the wasm browser tests have always been run through
+`wasm-pack test --headless --chrome`), so CI only runs the lib-level
+`cargo check` above for the wasm target.
 
 ---
 
@@ -1033,6 +1045,64 @@ Tests (all native):
   production `subscribe_rejection_records` API receives the structured,
   UTC-timestamped record, and the rejected Delta neither advances the engine
   Lamport clock nor lands in the Quarantine Ledger.
+
+---
+
+### Item 21 — WASM LocalStore IndexedDB persistence + revocation CCE tagging (Subphase 6.3)
+
+**Status:** VERIFIED (wasm-bindgen browser tests; compile-verified via the
+Item 2 `cargo check` on the wasm target)
+
+Closes two WASM/native parity gaps:
+
+- **WASM LocalStore persistence (Req 3.1–3.3 on the WASM target).**  The WASM
+  `LocalStore` was a HashMap that lost all data on reload; it is now
+  IndexedDB-backed (`store/indexed_db.rs`).  `LocalStore::open` opens a
+  database named `tirbase:{storage_path}` and eagerly loads every row into an
+  in-memory view; `LocalStore::write` writes through an awaited `readwrite`
+  IndexedDB transaction **before returning**, so an acknowledged write
+  survives a page reload (Req 3.2 write-before-ack parity).  Reads and
+  queries stay synchronous, served from the loaded view.  The literal path
+  `":memory:"` keeps the pure in-memory behaviour for tests and throwaway
+  stores.  Production callers: `CoreHandle::init` (api/mod.rs — previously it
+  ignored `storage_path` and opened `":memory:"`; it now opens
+  `LocalStore::open(&config.storage_path).await`), plus
+  `CoreHandle::write`/`read`/`query`/`receive_inbound_wasm` — all reachable
+  through the SDK exports `core_init`/`core_write`/`core_read`/`core_query`/
+  `core_receive_peer_message`.
+- **WASM revocation CCE tagging (Req 10.1).**  The WASM
+  `RevocationSubsystem::process_incoming_delta` previously invoked the CCE
+  trigger with an **empty** Delta-ID list (`vec![]` — "no DAG to query"), and
+  the WASM inbound revocation arm ignored the IDs it received.  The subsystem
+  now maintains a per-author Delta-ID index (`record_authored_delta`),
+  populated by the two WASM paths that prove authorship:
+  `CoreHandle::write` (the local device produced a signed Delta) and
+  `receive_inbound_wasm` (a peer Delta passed signature verification and
+  merged).  The CCE trigger receives the **actual** authored Delta IDs, and
+  both the inbound revocation arm and `initiate_revocation` CCE-tag them via
+  `CausalContaminationEngine::tag_contamination_root` with
+  `TaintSource::DeviceRevocation` — mirroring the native path.  Locally
+  written rows are also recorded in the WASM delta→row index
+  (`projection::record_delta_row`) so the CCE's affected-row resolution
+  (`taint::resolve_affected_rows`) sees them.
+
+Browser tests (`src/tests/wasm_tests.rs`, run with
+`wasm-pack test --headless --chrome`):
+
+- `test_local_store_persists_across_reopen` — the persistence acceptance
+  test: write a row, drop the store (simulating a reload), reopen the same
+  IndexedDB database, and the row is still readable and queryable.
+- `test_inbound_revocation_cce_tags_actual_authored_delta_ids` — full
+  production path: `core_init` → `core_write` (records the authored Delta ID)
+  → 1-of-1 inbound RevocationDelta delivered via `core_receive_peer_message`
+  → the WASM CCE holds exactly one open incident whose contamination root /
+  contaminated deltas contain the **actual** authored Delta ID with
+  `TaintSource::DeviceRevocation`.
+- The pre-existing `:memory:` LocalStore unit tests and the init→write→query
+  round trips were updated for the async `open`/`write` signatures; the
+  exact-row-count query test wipes its IndexedDB database first so it stays
+  deterministic across `wasm-pack test` runs (IndexedDB is per-origin and
+  persists between sessions).
 
 ---
 

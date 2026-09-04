@@ -605,6 +605,15 @@ pub struct RevocationSubsystem {
     threshold_m: usize,
     threshold_n: usize,
     revoked_dids: Vec<Did>,
+    /// Delta IDs authored per DID — the WASM analogue of the native DAG query
+    /// (`query_deltas_by_author` over `dag_nodes`).
+    ///
+    /// Populated by [`Self::record_authored_delta`] from the two WASM paths
+    /// that prove authorship: `CoreHandle::write` (the local device produced a
+    /// signed Delta) and `CoreHandle::receive_inbound_wasm` (a peer Delta
+    /// passed signature verification and merged).  The CCE trigger for a
+    /// revoked DID (Req 10.1) is fed from this index instead of an empty list.
+    authored_deltas: HashMap<Did, std::collections::HashSet<DeltaId>>,
 }
 
 #[cfg(not(feature = "native"))]
@@ -616,7 +625,32 @@ impl RevocationSubsystem {
             threshold_m,
             threshold_n,
             revoked_dids: Vec::new(),
+            authored_deltas: HashMap::new(),
         }
+    }
+
+    /// Record that `delta_id` was authored by `author_did` (WASM only).
+    ///
+    /// Idempotent.  Called by the production WASM paths that establish
+    /// authorship — [`crate::api::CoreHandle::write`] for locally produced
+    /// Deltas and [`crate::api::CoreHandle::receive_inbound_wasm`] for
+    /// signature-verified inbound Deltas that merged.  The CCE trigger for a
+    /// revoked DID reads this index ([`Self::authored_delta_ids`]), mirroring
+    /// the native `query_deltas_by_author` DAG query.
+    pub(crate) fn record_authored_delta(&mut self, author_did: Did, delta_id: DeltaId) {
+        self.authored_deltas
+            .entry(author_did)
+            .or_default()
+            .insert(delta_id);
+    }
+
+    /// Delta IDs authored by `did` that this WASM device has seen (locally
+    /// produced or signature-verified inbound), in arbitrary order.
+    pub(crate) fn authored_delta_ids(&self, did: &Did) -> Vec<DeltaId> {
+        self.authored_deltas
+            .get(did)
+            .map(|ids| ids.iter().copied().collect())
+            .unwrap_or_default()
     }
 
     pub fn process_incoming_delta(
@@ -690,8 +724,17 @@ impl RevocationSubsystem {
             });
 
             on_revocation_applied(&delta.target_did, &complete_delta);
-            // No DAG to query on WASM — CCE trigger called with empty list.
-            on_cce_trigger(&delta.target_did, vec![]);
+
+            // Req 10.1 — CCE-tag every Delta authored by the revoked DID, fed
+            // from the per-author index maintained by
+            // `record_authored_delta` (the WASM analogue of the native
+            // `query_deltas_by_author` DAG query).  Subphase 6.3: the trigger
+            // receives the ACTUAL authored Delta IDs instead of an empty list,
+            // so the revoked device's own writes are tagged on WASM too.
+            let authored_delta_ids = self.authored_delta_ids(&delta.target_did);
+            if !authored_delta_ids.is_empty() {
+                on_cce_trigger(&delta.target_did, authored_delta_ids);
+            }
         }
 
         Ok(current_status)

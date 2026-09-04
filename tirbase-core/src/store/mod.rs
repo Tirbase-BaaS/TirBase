@@ -2,12 +2,22 @@
 //!
 //! All writes land synchronously in SQLite before the Rust Core returns success.
 //! The store remains fully readable and writable with no connectivity (Req 3.3).
+//!
+//! On the WASM build the store is IndexedDB-backed instead of SQLite-backed
+//! (Subphase 6.3): `write()` persists each row through an awaited IndexedDB
+//! transaction before returning, and `open()` eagerly reloads every row into
+//! an in-memory view, so data survives page reloads instead of living in a
+//! throwaway HashMap.  See [`indexed_db`] for the browser glue.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
 pub mod compaction;
 pub mod projection;
 pub mod sqlite;
+
+/// IndexedDB persistence layer for the WASM build (Subphase 6.3).
+#[cfg(not(feature = "native"))]
+pub(crate) mod indexed_db;
 
 use crate::errors::TirBaseError;
 use serde_json::Value;
@@ -25,9 +35,17 @@ use compaction::{compact_table, should_compact, CompactionPolicy};
 pub struct LocalStore {
     #[cfg(feature = "native")]
     conn: rusqlite::Connection,
-    /// In-memory backing store for WASM builds (table → key → value).
+    /// In-memory view of the store on WASM builds (table → key → value).
+    ///
+    /// Eagerly loaded from IndexedDB at [`LocalStore::open`] and kept as the
+    /// read/query source; every `write()` writes through to IndexedDB first
+    /// (Subphase 6.3 — the WASM persistence story).
     #[cfg(not(feature = "native"))]
     tables: std::collections::HashMap<String, std::collections::HashMap<String, Value>>,
+    /// IndexedDB database handle for the WASM persistence layer; `None` for
+    /// the ephemeral `":memory:"` store (tests / throwaway use).
+    #[cfg(not(feature = "native"))]
+    db: Option<web_sys::IdbDatabase>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -329,17 +347,53 @@ impl LocalStore {
     }
 }
 
-// ─── WASM stub implementation ─────────────────────────────────────────────────
+// ─── WASM implementation — IndexedDB-backed (Subphase 6.3) ───────────────────
+//
+// The WASM build has no SQLite, so the persistence story is a browser
+// IndexedDB database keyed by the configured storage path.  `open()` opens
+// the database and eagerly loads every row into the in-memory `tables` view;
+// `write()` persists through an awaited IndexedDB transaction (durable before
+// it returns — Req 3.2 parity) and then updates the view; `read()` / `query()`
+// are served synchronously from the view.
+//
+// The special path `":memory:"` keeps the historical ephemeral behaviour
+// (pure in-memory, no IndexedDB) for tests and throwaway stores.
 
 #[cfg(not(feature = "native"))]
 impl LocalStore {
-    pub fn open(_path: &str) -> Result<Self, TirBaseError> {
+    /// Open (or create) the store for `path`.
+    ///
+    /// IndexedDB-backed for real storage paths: the database is opened (the
+    /// `kv` object store created on first use) and every persisted row is
+    /// eagerly loaded into the in-memory view, so data written by a previous
+    /// session is present after a page reload.  The literal path `":memory:"`
+    /// yields a pure in-memory store with no IndexedDB backing.
+    pub async fn open(path: &str) -> Result<Self, TirBaseError> {
+        if path == ":memory:" {
+            return Ok(LocalStore {
+                tables: std::collections::HashMap::new(),
+                db: None,
+            });
+        }
+        let db = indexed_db::open_database(path).await?;
+        let tables = indexed_db::load_all(&db).await?;
         Ok(LocalStore {
-            tables: std::collections::HashMap::new(),
+            tables,
+            db: Some(db),
         })
     }
 
-    pub fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
+    /// Commit a write to the store (Req 3.2).
+    ///
+    /// On an IndexedDB-backed store the row is written through an awaited
+    /// `readwrite` transaction — `write()` returns only after the transaction
+    /// has committed, so the acknowledged write survives a reload.  The
+    /// in-memory view is updated only after the durable write succeeds.  Does
+    /// **not** produce a Delta — that is the caller's responsibility (Req 3.6).
+    pub async fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
+        if let Some(db) = self.db.as_ref() {
+            indexed_db::put_row(db, table, key, data).await?;
+        }
         self.tables
             .entry(table.to_string())
             .or_default()

@@ -698,8 +698,8 @@ mod wasm_exports {
     // ── Inbound peer message ───────────────────────────────────────────────────
 
     /// Accept raw peer message bytes from the JS transport layer and route them
-    /// through the signature-verification → schema-hash gate → in-memory store
-    /// merge pipeline.
+    /// through the signature-verification → schema-hash gate → IndexedDB-backed
+    /// store merge pipeline (Subphase 6.3).
     ///
     /// ## Contract for application developers
     ///

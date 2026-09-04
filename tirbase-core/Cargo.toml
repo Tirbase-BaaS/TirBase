@@ -118,6 +118,21 @@ web-sys      = { version = "0.3.104", optional = true, features = [
     "Window",
     "Navigator",
     "console",
+    # IndexedDB persistence for the WASM LocalStore (Subphase 6.3) — the
+    # in-browser durable store backing `LocalStore::write` / `LocalStore::open`.
+    "IdbFactory",
+    "IdbOpenDbRequest",
+    "IdbDatabase",
+    "IdbObjectStore",
+    "IdbTransaction",
+    "IdbTransactionMode",
+    "IdbRequest",
+    "IdbCursor",
+    "IdbCursorWithValue",
+    "IdbVersionChangeEvent",
+    "DomException",
+    "Event",
+    "DomStringList",
 ] }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 

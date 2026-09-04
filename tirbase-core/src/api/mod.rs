@@ -193,11 +193,12 @@ pub struct DurabilityTierChanged {
 /// The main handle to a TirBase instance.
 /// Obtained by calling [`CoreHandle::init`].
 pub struct CoreHandle {
-    /// Local SQLite-backed store (native) or in-memory store (WASM).
+    /// Local SQLite-backed store (native) or IndexedDB-backed store (WASM,
+    /// Subphase 6.3 — see `store::indexed_db`).
     #[cfg(feature = "native")]
     store: Arc<Mutex<LocalStore>>,
 
-    /// In-memory store for WASM builds.
+    /// IndexedDB-backed store for WASM builds (Subphase 6.3).
     #[cfg(not(feature = "native"))]
     store: Arc<Mutex<LocalStore>>,
 
@@ -406,10 +407,14 @@ impl CoreHandle {
             (store, crdt, cce)
         };
 
-        // ── WASM store (in-memory) ────────────────────────────────────────────
+        // ── WASM store (IndexedDB-backed, Subphase 6.3) ─────────────────────
+        //
+        // `storage_path` now names the IndexedDB database the store persists
+        // to — previously the WASM store ignored the path and opened a
+        // throwaway HashMap that lost all data on reload.
         #[cfg(not(feature = "native"))]
         let store = {
-            let store = LocalStore::open(":memory:")?;
+            let store = LocalStore::open(&config.storage_path).await?;
             Arc::new(Mutex::new(store))
         };
 
@@ -1152,7 +1157,9 @@ impl CoreHandle {
                 .write(table, key, &data)?;
         }
 
-        // 2b. Write to in-memory store on WASM (Req 3.1, 3.3).
+        // 2b. Write to the IndexedDB-backed store on WASM (Req 3.1, 3.3).
+        //     `LocalStore::write` awaits the IndexedDB transaction, so the
+        //     write is durable before `write()` returns (Subphase 6.3).
         #[cfg(not(feature = "native"))]
         {
             self.store
@@ -1160,7 +1167,8 @@ impl CoreHandle {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("store mutex poisoned: {e}"),
                 })?
-                .write(table, key, &data)?;
+                .write(table, key, &data)
+                .await?;
         }
 
         // 3. Produce a signed Delta.
@@ -1244,6 +1252,20 @@ impl CoreHandle {
                     human_reaction_tag.clone().into_iter().collect(),
                 )?
         };
+
+        // 3b. WASM: record the produced Delta as authored by the local device
+        //     (Subphase 6.3) so the revocation path can CCE-tag the actual
+        //     authored Delta IDs (Req 10.1), and record the delta→row mapping
+        //     so the WASM CCE's affected-row resolution sees locally written
+        //     rows (mirrors the `record_delta_row` calls the inbound arm makes
+        //     when it projects a peer Delta).
+        #[cfg(not(feature = "native"))]
+        {
+            if let Ok(mut rev) = self.revocation.lock() {
+                rev.record_authored_delta(self.identity.did().to_string(), delta.id);
+            }
+            crate::store::projection::record_delta_row(&delta.id, table, key);
+        }
 
         // 4. If the write was auto-tagged, register the new Delta as a
         // contamination root with the CCE so the ICO's contaminated_deltas and
@@ -1693,9 +1715,25 @@ impl CoreHandle {
                     }
                     #[cfg(not(feature = "native"))]
                     {
-                        // No SQLite DAG walk on WASM — mirrors the WASM inbound
-                        // path (best-effort CCE tagging).
-                        let _ = (revoked_did, delta_ids);
+                        // Req 10.1 parity (Subphase 6.3): CCE-tag every Delta
+                        // authored by the revoked DID in the WASM CCE's
+                        // in-memory DAG + tag store — the `delta_ids` here are
+                        // the ACTUAL authored Delta IDs supplied by the WASM
+                        // RevocationSubsystem's per-author index.
+                        eprintln!(
+                            "[initiate] CCE tagging {} deltas for revoked DID {revoked_did} (WASM)",
+                            delta_ids.len()
+                        );
+                        if let Ok(mut cce) = cce_arc.lock() {
+                            for delta_id in delta_ids {
+                                let _ = cce.tag_contamination_root(
+                                    delta_id,
+                                    crate::contamination::incident::TaintSource::DeviceRevocation {
+                                        revocation_delta_id: delta_id,
+                                    },
+                                );
+                            }
+                        }
                     }
                 },
             )?
@@ -2620,6 +2658,15 @@ impl CoreHandle {
                             delta.author_did
                         );
 
+                        // Subphase 6.3: a signature-verified inbound Delta is
+                        // now known to be authored by its author DID — record
+                        // it so the WASM revocation path can CCE-tag the
+                        // actual authored Delta IDs (the analogue of the
+                        // native DAG `query_deltas_by_author`).
+                        if let Ok(mut rev) = self.revocation.lock() {
+                            rev.record_authored_delta(delta.author_did.clone(), delta.id);
+                        }
+
                         // Project the merged state into the in-memory store so that
                         // read() and query() reflect the new peer state (Req 4.3, 3.3).
                         //
@@ -2646,12 +2693,14 @@ impl CoreHandle {
                                         for (k, v) in obj {
                                             if k == "_data" {
                                                 // Scalar/non-object data stored under _data.
-                                                let _ = self.store
-                                                    .lock()
-                                                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                                        reason: format!("store mutex: {e}"),
-                                                    })?
-                                                    .write(tbl, rkey, v);
+                                                {
+                                                    let mut store = self.store
+                                                        .lock()
+                                                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                                            reason: format!("store mutex: {e}"),
+                                                        })?;
+                                                    let _ = store.write(tbl, rkey, v).await;
+                                                }
                                                 // Record the delta→row mapping for CCE resolve_affected_rows.
                                                 crate::store::projection::record_delta_row(
                                                     &delta.id, tbl, rkey,
@@ -2668,12 +2717,14 @@ impl CoreHandle {
                                         }
                                         if !has_data_key && !app_data.is_empty() {
                                             let app_val = serde_json::Value::Object(app_data);
-                                            let _ = self.store
-                                                .lock()
-                                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                                    reason: format!("store mutex: {e}"),
-                                                })?
-                                                .write(tbl, rkey, &app_val);
+                                            {
+                                                let mut store = self.store
+                                                    .lock()
+                                                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                                        reason: format!("store mutex: {e}"),
+                                                    })?;
+                                                let _ = store.write(tbl, rkey, &app_val).await;
+                                            }
                                             // Record the delta→row mapping for CCE.
                                             crate::store::projection::record_delta_row(
                                                 &delta.id, tbl, rkey,
@@ -2718,7 +2769,7 @@ impl CoreHandle {
                                         }
                                     })?;
                                     for (key, val) in &root_pairs {
-                                        let _ = store.write("_merged", key, val);
+                                        let _ = store.write("_merged", key, val).await;
                                         crate::store::projection::record_delta_row(
                                             &delta.id, "_merged", key,
                                         );
@@ -2838,6 +2889,7 @@ impl CoreHandle {
             }
 
             GossipMessage::InboundRevocationDelta(rev_delta) => {
+                let cce_clone = self.cce.clone();
                 let mut rev = self.revocation.lock().map_err(|e| {
                     TirBaseError::LocalStoreWriteFailed {
                         reason: format!("revocation mutex poisoned: {e}"),
@@ -2854,11 +2906,26 @@ impl CoreHandle {
                         );
                     },
                     &mut |target_did, delta_ids| {
+                        // Req 10.1 parity with the native inbound arm: CCE-tag
+                        // every Delta authored by the revoked DID as a
+                        // contamination root (Subphase 6.3).  The `delta_ids`
+                        // are the ACTUAL authored Delta IDs supplied by the
+                        // WASM RevocationSubsystem's per-author index; the WASM
+                        // CCE tags them in its in-memory DAG + tag store.
                         eprintln!(
-                            "[wasm-inbound] CCE: {} deltas to tag for revoked DID {target_did}",
+                            "[wasm-inbound] CCE tagging {} deltas for revoked DID {target_did}",
                             delta_ids.len()
                         );
-                        // CCE tagging on WASM — best-effort (no SQLite DAG walk).
+                        if let Ok(mut cce) = cce_clone.lock() {
+                            for delta_id in delta_ids {
+                                let _ = cce.tag_contamination_root(
+                                    delta_id,
+                                    crate::contamination::incident::TaintSource::DeviceRevocation {
+                                        revocation_delta_id: delta_id,
+                                    },
+                                );
+                            }
+                        }
                     },
                 ) {
                     Ok(crate::auth::RevocationStatus::Applied) => {

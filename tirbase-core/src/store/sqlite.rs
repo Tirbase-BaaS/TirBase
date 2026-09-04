@@ -97,10 +97,11 @@ pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
     Ok(conn)
 }
 
-/// WASM stub — on WASM the LocalStore uses an in-memory HashMap; there is no
-/// SQLite connection.  This function is a no-op placeholder so callers that
-/// are guarded by `#[cfg(not(feature = "native"))]` can still reference the
-/// module without a build error.
+/// WASM stub — on WASM the LocalStore is IndexedDB-backed (Subphase 6.3, see
+/// `store::indexed_db`); there is no SQLite connection.  This function is a
+/// no-op placeholder so callers that are guarded by
+/// `#[cfg(not(feature = "native"))]` can still reference the module without a
+/// build error.
 #[cfg(not(feature = "native"))]
 pub fn open(_path: &str) -> Result<(), TirBaseError> {
     Ok(())

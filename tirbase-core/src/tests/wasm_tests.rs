@@ -12,42 +12,93 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 // ─── LocalStore ───────────────────────────────────────────────────────────────
+//
+// Subphase 6.3: the WASM LocalStore is IndexedDB-backed for real storage paths
+// and stays a pure in-memory store for the literal `":memory:"` path — the
+// three unit tests below exercise the in-memory behaviour (no browser
+// IndexedDB required), while the persistence tests further down exercise the
+// IndexedDB survival-across-reload story.
 
 #[wasm_bindgen_test]
-fn test_local_store_write_then_read() {
+async fn test_local_store_write_then_read() {
     use crate::store::LocalStore;
     use serde_json::json;
 
-    let mut store = LocalStore::open(":memory:").expect("open store");
+    let mut store = LocalStore::open(":memory:").await.expect("open store");
     let data = json!({"name": "Alice", "score": 42});
-    store.write("users", "user-1", &data).expect("write");
+    store.write("users", "user-1", &data).await.expect("write");
 
     let result = store.read("users", "user-1").expect("read");
     assert_eq!(result, Some(data));
 }
 
 #[wasm_bindgen_test]
-fn test_local_store_read_missing_key_returns_none() {
+async fn test_local_store_read_missing_key_returns_none() {
     use crate::store::LocalStore;
 
-    let store = LocalStore::open(":memory:").expect("open store");
+    let store = LocalStore::open(":memory:").await.expect("open store");
     let result = store.read("users", "nonexistent").expect("read");
     assert_eq!(result, None);
 }
 
 #[wasm_bindgen_test]
-fn test_local_store_query_with_filter() {
+async fn test_local_store_query_with_filter() {
     use crate::store::LocalStore;
     use serde_json::json;
 
-    let mut store = LocalStore::open(":memory:").expect("open store");
-    store.write("orders", "o1", &json!({"status": "open"})).unwrap();
-    store.write("orders", "o2", &json!({"status": "closed"})).unwrap();
-    store.write("orders", "o3", &json!({"status": "open"})).unwrap();
+    let mut store = LocalStore::open(":memory:").await.expect("open store");
+    store.write("orders", "o1", &json!({"status": "open"})).await.unwrap();
+    store.write("orders", "o2", &json!({"status": "closed"})).await.unwrap();
+    store.write("orders", "o3", &json!({"status": "open"})).await.unwrap();
 
     let filter = json!({"status": "open"});
     let rows = store.query("orders", Some(&filter)).expect("query");
     assert_eq!(rows.len(), 2, "only open orders should be returned");
+}
+
+// ─── Subphase 6.3: WASM LocalStore IndexedDB persistence ─────────────────────
+
+#[wasm_bindgen_test]
+async fn test_local_store_persists_across_reopen() {
+    use crate::store::LocalStore;
+    use serde_json::json;
+
+    let path = "wasm-test-persist-6-3";
+    // Fresh database so the assertion is deterministic across test runs
+    // (IndexedDB is per-origin and survives between wasm-pack test sessions).
+    crate::store::indexed_db::delete_database(path)
+        .await
+        .expect("delete prior database");
+
+    // First session: write a row, then drop the store — simulating a reload.
+    {
+        let mut store = LocalStore::open(path).await.expect("open first session");
+        store
+            .write("users", "user-1", &json!({"name": "Alice", "score": 42}))
+            .await
+            .expect("write");
+    }
+
+    // Second session: the row must have survived the reload (the acceptance
+    // criterion for the WASM LocalStore persistence story).
+    let store = LocalStore::open(path).await.expect("reopen after reload");
+    let result = store.read("users", "user-1").expect("read after reopen");
+    assert_eq!(
+        result,
+        Some(json!({"name": "Alice", "score": 42})),
+        "data written before the reload must be readable after it"
+    );
+
+    // Query must see the reloaded row too.
+    let rows = store.query("users", None).expect("query after reopen");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].0, "user-1");
+
+    // Clean up so a re-run stays deterministic.
+    drop(store);
+    crate::store::indexed_db::delete_database(path)
+        .await
+        .expect("delete after test");
 }
 
 // ─── ChangesetDag ─────────────────────────────────────────────────────────────
@@ -247,7 +298,14 @@ async fn test_init_write_read_round_trip() {
 async fn test_init_write_query() {
     use js_sys::JSON;
 
-    // Re-initialise to get a fresh in-memory store.
+    // Subphase 6.3: `core_init` now opens an IndexedDB database named after
+    // the storage path (persistent across runs), so wipe it first to keep the
+    // exact-row-count assertion deterministic.
+    crate::store::indexed_db::delete_database("wasm-test-query")
+        .await
+        .expect("delete prior database");
+
+    // Re-initialise to get a fresh store.
     crate::wasm_exports::core_init("wasm-test-query".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
@@ -552,4 +610,112 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
     sorted_a.sort();
     sorted_b.sort();
     assert_eq!(sorted_a, sorted_b, "root key names must be identical");
+}
+
+// ─── Subphase 6.3: WASM revocation path CCE-tags ACTUAL authored Delta IDs ──
+//
+// Before this subphase the WASM RevocationSubsystem invoked the CCE trigger
+// with an empty Delta-ID list (`vec![]` — no DAG to query), and the WASM
+// inbound revocation arm did nothing with the IDs it received.  Now the
+// subsystem maintains a per-author index fed by `CoreHandle::write` (local
+// device) and `receive_inbound_wasm` (signature-verified inbound merges), and
+// the revocation arms actually CCE-tag the authored IDs (Req 10.1 parity).
+//
+// This test drives the full production path: local write → 1-of-1 inbound
+// RevocationDelta → the WASM CCE must hold an open incident whose
+// contamination root is the ACTUAL Delta ID the revoked device authored.
+
+#[wasm_bindgen_test]
+async fn test_inbound_revocation_cce_tags_actual_authored_delta_ids() {
+    use crate::identity::IdentityManager;
+    use crate::transport::message::GossipMessage;
+
+    crate::wasm_exports::core_init("wasm-test-rev-cce-6-3".to_string(), vec![], None, vec![])
+        .await
+        .expect("core_init should succeed");
+
+    // The local device writes a row — the produced signed Delta must be
+    // recorded as authored by the local DID (Subphase 6.3 write wiring).
+    let data = js_sys::JSON::parse(r#"{"msg": "before revocation"}"#).unwrap();
+    let write_result =
+        crate::wasm_exports::core_write("t".to_string(), "k1".to_string(), data)
+            .await
+            .expect("core_write should succeed");
+    let write_json: serde_json::Value = serde_json::from_str(
+        &js_sys::JSON::stringify(&write_result)
+            .expect("stringify")
+            .as_string()
+            .expect("string"),
+    )
+    .expect("parse write result");
+    let authored_id_hex = write_json
+        .get("deltaId")
+        .and_then(|v| v.as_str())
+        .expect("write result must carry deltaId");
+    let authored_id: [u8; 32] = hex::decode(authored_id_hex)
+        .expect("deltaId hex")
+        .try_into()
+        .expect("deltaId must be 32 bytes");
+
+    // A Manager issues a 1-of-1 RevocationDelta targeting the local device.
+    let local_did = crate::wasm_exports::CORE.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("handle must exist after core_init")
+            .identity
+            .did()
+            .to_string()
+    });
+    let mgr = IdentityManager::init_in_memory().unwrap();
+    let rev_delta = crate::wasm_exports::CORE.with(|c| {
+        let handle = c.borrow().as_ref().expect("handle must exist").clone();
+        let rev = handle.revocation.lock().unwrap();
+        rev.produce_partial_delta(
+            local_did.clone(),
+            mgr.did().to_string(),
+            &mgr.signing_key_bytes(),
+        )
+        .expect("produce partial delta")
+    });
+
+    // Deliver through the production WASM inbound entry point.
+    let msg = GossipMessage::InboundRevocationDelta(rev_delta);
+    crate::wasm_exports::core_receive_peer_message(&msg.to_bytes())
+        .await
+        .expect("core_receive_peer_message should succeed");
+
+    // The WASM CCE must have CCE-tagged the ACTUAL authored Delta ID — not an
+    // empty list (Req 10.1 parity with the native revocation path).
+    let incidents = crate::wasm_exports::CORE.with(|c| {
+        c.borrow()
+            .as_ref()
+            .expect("handle must exist")
+            .cce
+            .lock()
+            .unwrap()
+            .open_incidents()
+            .expect("open_incidents")
+    });
+    assert_eq!(
+        incidents.len(),
+        1,
+        "exactly one incident must be open after the revocation: {incidents:?}"
+    );
+    let ico = &incidents[0];
+    assert!(
+        ico.contamination_roots.contains(&authored_id),
+        "ICO must tag the ACTUAL authored Delta ID {authored_id_hex}: {ico:?}"
+    );
+    assert!(
+        ico.contaminated_deltas.contains(&authored_id),
+        "ICO contaminated_deltas must contain the authored Delta ID {authored_id_hex}: {ico:?}"
+    );
+    assert!(
+        matches!(
+            ico.taint_source,
+            crate::contamination::incident::TaintSource::DeviceRevocation { .. }
+        ),
+        "taint source must be DeviceRevocation: {:?}",
+        ico.taint_source
+    );
 }
