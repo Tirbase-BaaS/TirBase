@@ -237,6 +237,7 @@ mod wasm_exports {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys,
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,

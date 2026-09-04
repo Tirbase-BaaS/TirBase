@@ -80,13 +80,31 @@ impl Tier1QuorumTracker {
     /// Receipts from the same issuer DID are deduplicated (the second and subsequent
     /// receipts from the same peer are silently ignored).
     pub fn add_receipt(&mut self, receipt: DurabilityReceipt) -> Result<bool, TirBaseError> {
+        // The spatial diversity tag defaults to the receipt's own declared tag.
+        self.add_receipt_with_tag(receipt, None)
+    }
+
+    /// Add a **pre-verified** receipt whose diversity tag is supplied explicitly.
+    ///
+    /// `diversity_tag` is the spatial tag recorded toward Spatial_Diversity.  When
+    /// `None`, the receipt's own declared `spatial_tag` is used.  The Durability
+    /// Subsystem passes an explicit tag when Anchor_Attested_Location is enabled
+    /// in BeaconAttested mode: there the tag is the **beacon-verified location
+    /// claim** of the receipt's token, never the (spoofable) self-declared squad
+    /// tag (Req 15.2).  `pub(crate)`: only the Durability Subsystem drives the
+    /// anchor mode; external callers use [`Self::add_receipt`].
+    pub(crate) fn add_receipt_with_tag(
+        &mut self,
+        receipt: DurabilityReceipt,
+        diversity_tag: Option<&str>,
+    ) -> Result<bool, TirBaseError> {
         // Idempotency: ignore duplicate receipts from the same issuer.
         if self.seen_issuers.contains(&receipt.issuer_did) {
             return Ok(self.tier1_achieved);
         }
 
         // Record the spatial tag.
-        self.spatial.add(receipt.spatial_tag.as_deref());
+        self.spatial.add(diversity_tag.or(receipt.spatial_tag.as_deref()));
 
         // Mark issuer as seen.
         self.seen_issuers.insert(receipt.issuer_did.clone());

@@ -313,14 +313,15 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (513 tests, 0 failures)
+**Status:** VERIFIED (525 tests, 0 failures)
 
-`cargo test --features native` passes all 516 tests including all 22 property
+`cargo test --features native` passes all 525 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
 `durability::tests::tier_changed_listener_fires_on_cloud_ack_transition`
-listener unit test).
+listener unit test; Subphase 4.3 added the nine Anchor-Attested Location tests
+listed in Item 11).
 
 ---
 
@@ -497,6 +498,53 @@ to a subscriber) and
 background loop — no manual cycle call — transitions every write to Tier-2
 with one notification per Delta).  The listener contract itself is unit-tested
 in `durability::tests::tier_changed_listener_fires_on_cloud_ack_transition`.
+
+---
+
+### Item 11 — Anchor-Attested Location in Quorum Formation (Subphase 4.3)
+
+**Status:** VERIFIED
+
+Anchor-Attested Location now influences real `DurabilityReceipt`s when the
+feature is enabled — `beacon_token` is no longer ignored (`None`-only) in the
+production receipt path (Req 15.1–15.4):
+
+- `DeploymentConfig` gained `beacon_public_keys` (the trusted fixed-beacon
+  Ed25519 keys; empty is the explicit unconfigured state, mirroring
+  `root_ca_keys`).
+- `CoreHandle::init` constructs an `AnchorAttestedLocation` verifier from
+  `anchor_attested_location` + `beacon_public_keys` (DIDs derived `did:key:`)
+  and installs it on the `DurabilitySubsystem` via
+  `DurabilitySubsystem::with_anchor`.
+- `DurabilitySubsystem::receive_receipt` — the function the production
+  native/WASM inbound pipelines call for every inbound
+  `GossipMessage::InboundDurabilityReceipt` (api/mod.rs
+  `receive_inbound`/`receive_inbound_wasm`) — now performs the Req 15.2/15.3
+  gate: in BeaconAttested mode a receipt must carry a beacon token that
+  verifies against the deployment registry (registered beacon DID, current
+  epoch, valid signature); such receipts are counted toward Spatial_Diversity
+  under the **beacon-verified location claim** (never the spoofable
+  self-declared squad tag), and receipts without a valid token are excluded
+  from Quorum formation and logged with the issuer DID + reason.  Squad-tag
+  fallback (Req 15.4) and feature-disabled builds behave exactly as before.
+
+`durability::tests` covers the gate end-to-end at the subsystem level (real
+Ed25519-signed receipts + real beacon-signed tokens):
+`anchor_mode_counts_verified_beacon_claims_toward_diversity_and_reaches_tier1`,
+`anchor_mode_rejects_receipts_with_missing_or_invalid_beacon_tokens` (missing
+/ unknown-beacon / stale-epoch / tampered-signature),
+`anchor_mode_counts_attested_claim_not_declared_squad_tag` (the spoofed
+squad-tag attack cannot fabricate diversity),
+`squad_tag_fallback_after_signal_loss_skips_beacon_gate`, and
+`anchor_is_absent_when_anchor_attested_location_not_enabled`.
+`durability::anchor::tests::from_beacon_public_keys_*` covers the
+registry-from-config construction, and `api::tier2_ack_tests::anchor_*`
+asserts the production `CoreHandle::init` plumbing (verifier present and in
+BeaconAttested mode when enabled, absent when disabled).
+
+Receipt *issuance* between two live devices remains deferred to Subphase 4.5
+(real mesh receipt exchange); this subphase wires the verification/consumption
+side into the production receipt-handling path that issuance will feed.
 
 ---
 

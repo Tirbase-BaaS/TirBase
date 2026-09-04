@@ -13,6 +13,7 @@
 use crate::crdt::delta::Did;
 use crate::durability::receipt::BeaconToken;
 use crate::errors::TirBaseError;
+use crate::identity::did::derive_did;
 use crate::identity::keypair;
 
 /// Entry in the beacon public-key registry.
@@ -27,7 +28,11 @@ pub struct BeaconRegistryEntry {
 /// Produces the canonical signing payload for a `BeaconToken`.
 ///
 /// `payload = epoch (8 bytes, little-endian) || location_claim (UTF-8 bytes)`
-fn beacon_token_signing_payload(epoch: u64, location_claim: &str) -> Vec<u8> {
+///
+/// `pub(crate)`: sibling-module tests (and any future beacon-token issuance
+/// path inside the crate) build signed tokens from this canonical payload;
+/// the beacon registry is deployment-configured in the api layer.
+pub(crate) fn beacon_token_signing_payload(epoch: u64, location_claim: &str) -> Vec<u8> {
     let mut payload = Vec::with_capacity(8 + location_claim.len());
     payload.extend_from_slice(&epoch.to_le_bytes());
     payload.extend_from_slice(location_claim.as_bytes());
@@ -79,6 +84,29 @@ impl AnchorAttestedLocation {
             mode: AnchorMode::BeaconAttested,
             degradation_log: Vec::new(),
         }
+    }
+
+    /// Build the verifier from the deployment-configured beacon **public keys**.
+    ///
+    /// The registry entry DID is derived from each key (`did:key:` — Req 15.1
+    /// compares the token's `beacon_did` against these derived DIDs), so the
+    /// api layer only needs to expose the raw Ed25519 keys.
+    ///
+    /// Production caller: `CoreHandle::init` (api/mod.rs), which constructs
+    /// this instance from `DeploymentConfig.beacon_public_keys` when
+    /// `anchor_attested_location` is enabled (Subphase 4.3).
+    pub(crate) fn from_beacon_public_keys(
+        beacon_public_keys: &[[u8; 32]],
+        initial_epoch: u64,
+    ) -> Self {
+        let registry = beacon_public_keys
+            .iter()
+            .map(|public_key| BeaconRegistryEntry {
+                beacon_did: derive_did(public_key),
+                public_key: *public_key,
+            })
+            .collect();
+        Self::new(registry, initial_epoch)
     }
 
     /// Advance the current Lamport epoch.
@@ -236,6 +264,29 @@ mod tests {
             location_claim: location.to_string(),
             issued_at: 1_720_000_000_000_000,
         }
+    }
+
+    // ── from_beacon_public_keys ──────────────────────────────────────────────
+
+    #[test]
+    fn from_beacon_public_keys_derives_registry_dids() {
+        let (_, public_a) = generate_keypair().unwrap();
+        let (_, public_b) = generate_keypair().unwrap();
+
+        let anchor = AnchorAttestedLocation::from_beacon_public_keys(&[public_a, public_b], 0);
+
+        assert_eq!(anchor.beacon_registry.len(), 2);
+        assert_eq!(anchor.beacon_registry[0].beacon_did, derive_did(&public_a));
+        assert_eq!(anchor.beacon_registry[0].public_key, public_a);
+        assert_eq!(anchor.beacon_registry[1].beacon_did, derive_did(&public_b));
+        assert_eq!(anchor.beacon_registry[1].public_key, public_b);
+        assert_eq!(anchor.mode(), AnchorMode::BeaconAttested);
+    }
+
+    #[test]
+    fn from_beacon_public_keys_empty_gives_empty_registry() {
+        let anchor = AnchorAttestedLocation::from_beacon_public_keys(&[], 0);
+        assert!(anchor.beacon_registry.is_empty());
     }
 
     // ── verify_beacon_token ──────────────────────────────────────────────────

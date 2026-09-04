@@ -423,13 +423,30 @@ impl CoreHandle {
         let migration = Arc::new(Mutex::new(migration));
 
         // ── Durability Subsystem ──────────────────────────────────────────────
+        //
+        // Subphase 4.3: when the deployment enables Anchor_Attested_Location, the
+        // subsystem is constructed with an `AnchorAttestedLocation` verifier built
+        // from the deployment's beacon public keys (DIDs derived `did:key:`), so
+        // `DurabilitySubsystem::receive_receipt` — the function the native/WASM
+        // inbound pipelines call for every incoming `DurabilityReceipt` — gates
+        // Quorum formation on valid beacon attestations (Req 15.1–15.3).
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
-        let mut durability = DurabilitySubsystem::new(QuorumConfig {
-            k: config.deployment.quorum_k.max(1),
-            n: config.deployment.quorum_n.max(1),
-            spatial_diversity_min: config.deployment.spatial_diversity_min,
-            max_single_sector_fraction: 0.7,
-        });
+        let mut durability = DurabilitySubsystem::with_anchor(
+            QuorumConfig {
+                k: config.deployment.quorum_k.max(1),
+                n: config.deployment.quorum_n.max(1),
+                spatial_diversity_min: config.deployment.spatial_diversity_min,
+                max_single_sector_fraction: 0.7,
+            },
+            if config.deployment.anchor_attested_location {
+                Some(crate::durability::anchor::AnchorAttestedLocation::from_beacon_public_keys(
+                    &config.deployment.beacon_public_keys,
+                    0,
+                ))
+            } else {
+                None
+            },
+        );
 
         // Subphase 4.2: attach a tier-change listener forwarding every
         // durability transition (Tier-1 quorum, Tier-2 cloud ack) to this
@@ -2619,6 +2636,12 @@ pub struct DeploymentConfig {
     pub root_ca_keys: Vec<[u8; 32]>,
     /// Whether Anchor_Attested_Location subsystem is enabled.
     pub anchor_attested_location: bool,
+    /// Ed25519 public keys of the fixed beacons trusted for Anchor_Attested_Location
+    /// (Req 15.1).  Empty (the default) is the explicit unconfigured state: when
+    /// `anchor_attested_location` is enabled with no keys, every beacon token is
+    /// rejected as unknown-beacon, so Quorum cannot form — a deployment must
+    /// configure its beacons here.  Mirror of `root_ca_keys`.
+    pub beacon_public_keys: Vec<[u8; 32]>,
     /// Minimum distinct spatial tags required for Quorum.
     pub spatial_diversity_min: usize,
     /// K-of-N quorum (K receipts required).
@@ -2646,6 +2669,7 @@ impl Default for DeploymentConfig {
             biscuit_ttl_secs: 0,
             root_ca_keys: vec![],
             anchor_attested_location: false,
+            beacon_public_keys: vec![],
             spatial_diversity_min: 0,
             quorum_k: 0,
             quorum_n: 0,
@@ -2673,6 +2697,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -2915,6 +2940,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3014,6 +3040,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3127,6 +3154,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3207,6 +3235,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3269,6 +3298,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3404,6 +3434,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -3460,6 +3491,7 @@ mod tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -4474,6 +4506,7 @@ mod inbound_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -5043,6 +5076,7 @@ mod inbound_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -5138,6 +5172,7 @@ mod inbound_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -5245,6 +5280,7 @@ mod inbound_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -5606,6 +5642,7 @@ mod convergence_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -5750,6 +5787,7 @@ mod real_mesh_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -6002,6 +6040,7 @@ mod cloud_sync_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -6199,6 +6238,7 @@ mod tier2_ack_tests {
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
                 anchor_attested_location: false,
+                beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
                 quorum_k: 1,
                 quorum_n: 1,
@@ -6376,6 +6416,83 @@ mod tier2_ack_tests {
             notified, expected,
             "every acked Delta must notify CoreHandle of its Tier-2 status"
         );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 4.3: Anchor-Attested Location wiring ────────────────────────
+
+    fn make_config_with_anchor(path: &str, enabled: bool, beacon_public_keys: Vec<[u8; 32]>) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: enabled,
+                beacon_public_keys,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+            },
+        }
+    }
+
+    /// Subphase 4.3: `CoreHandle::init` (the production constructor) must
+    /// instantiate the `AnchorAttestedLocation` verifier from the deployment's
+    /// `anchor_attested_location` flag + `beacon_public_keys`, and install it on
+    /// the Durability Subsystem — the instance `receive_receipt` consults for
+    /// every real inbound `DurabilityReceipt` (Req 15.1–15.3).
+    #[tokio::test]
+    async fn anchor_attested_location_installed_when_deployment_enables_it() {
+        let path = tmp_path("anchor_on");
+        cleanup(&path);
+
+        let (_beacon_secret, beacon_public) =
+            crate::identity::keypair::generate_keypair().expect("beacon keypair");
+        let handle = CoreHandle::init(make_config_with_anchor(
+            &path,
+            true,
+            vec![beacon_public],
+        ))
+        .await
+        .expect("CoreHandle::init");
+
+        let dur = handle.durability.lock().unwrap();
+        let anchor = dur.anchor().expect(
+            "anchor verifier must be installed on the Durability Subsystem \
+             when anchor_attested_location is enabled",
+        );
+        assert_eq!(
+            anchor.mode(),
+            crate::durability::anchor::AnchorMode::BeaconAttested,
+            "a freshly configured anchor starts in BeaconAttested mode"
+        );
+        drop(dur);
+
+        cleanup(&path);
+    }
+
+    /// Subphase 4.3: with the feature disabled the subsystem must carry no
+    /// anchor verifier — the historical squad-tag quorum path is unchanged.
+    #[tokio::test]
+    async fn anchor_attested_location_absent_when_deployment_disables_it() {
+        let path = tmp_path("anchor_off");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config_with_anchor(&path, false, vec![]))
+            .await
+            .expect("CoreHandle::init");
+
+        let dur = handle.durability.lock().unwrap();
+        assert!(
+            dur.anchor().is_none(),
+            "no anchor verifier when anchor_attested_location is disabled"
+        );
+        drop(dur);
 
         cleanup(&path);
     }

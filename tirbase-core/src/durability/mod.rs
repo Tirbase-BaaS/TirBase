@@ -36,6 +36,7 @@ mod integration_tests;
 use crate::api::types::DurabilityTier;
 use crate::crdt::delta::{DeltaId, Did};
 use crate::errors::TirBaseError;
+use anchor::{AnchorAttestedLocation, AnchorMode};
 use cloud_queue::{CloudOutboundQueue, QueueEntry};
 use quorum::{QuorumConfig, Tier1QuorumTracker};
 use receipt::{verify_receipt, DurabilityReceipt};
@@ -84,6 +85,19 @@ pub struct DurabilitySubsystem {
     quorum_config: QuorumConfig,
     /// Per-Delta durability states.
     states: HashMap<DeltaId, DeltaDurabilityState>,
+    /// Optional Anchor_Attested_Location verifier (Req 15).
+    ///
+    /// Subphase 4.3: when a deployment enables `anchor_attested_location`,
+    /// `CoreHandle::init` constructs an [`AnchorAttestedLocation`] from the
+    /// configured beacon public keys and installs it here.  While the anchor
+    /// operates in [`AnchorMode::BeaconAttested`], `receive_receipt` requires
+    /// every incoming `DurabilityReceipt` to carry a valid current-epoch beacon
+    /// token and counts the receipt toward Spatial_Diversity under its
+    /// beacon-verified location claim — never the spoofable self-declared squad
+    /// tag (Req 15.2).  `None` (or SquadTagFallback mode after beacon signal
+    /// loss, Req 15.4) means receipts are counted by their declared squad tag,
+    /// the historical behaviour.
+    anchor: Option<AnchorAttestedLocation>,
     /// Cloud outbound queue (capped at 100,000 entries — Req 16.6).
     cloud_queue: CloudOutboundQueue,
     /// Optional application-layer listener invoked when a Delta's durability
@@ -112,12 +126,32 @@ type TierChangedListener = Box<dyn Fn(DeltaId, DurabilityTier, DurabilityTier) +
 impl DurabilitySubsystem {
     /// Create a new subsystem with the given quorum configuration.
     pub fn new(quorum_config: QuorumConfig) -> Self {
+        Self::with_anchor(quorum_config, None)
+    }
+
+    /// Create a new subsystem with an optional Anchor_Attested_Location verifier.
+    ///
+    /// Production caller: [`CoreHandle::init`](crate::api::CoreHandle::init),
+    /// which passes a configured [`AnchorAttestedLocation`] when the deployment
+    /// enables `anchor_attested_location` (Subphase 4.3).
+    pub(crate) fn with_anchor(
+        quorum_config: QuorumConfig,
+        anchor: Option<AnchorAttestedLocation>,
+    ) -> Self {
         Self {
             quorum_config,
             states: HashMap::new(),
+            anchor,
             cloud_queue: CloudOutboundQueue::new(),
             tier_changed_listener: None,
         }
+    }
+
+    /// The configured anchor verifier, when Anchor_Attested_Location is enabled
+    /// (`pub(crate)`: introspection for in-crate callers/tests; the anchor is
+    /// deployment configuration, not external API surface).
+    pub(crate) fn anchor(&self) -> Option<&AnchorAttestedLocation> {
+        self.anchor.as_ref()
     }
 
     /// Register an application-layer listener for durability tier transitions
@@ -188,17 +222,21 @@ impl DurabilitySubsystem {
 
     /// Receive a signed `DurabilityReceipt` from a peer.
     ///
-    /// Performs the two required checks before counting toward Quorum (Req 14.6):
-    /// 1. Ed25519 signature verification.
-    /// 2. State-hash match.
+    /// Performs the required checks before counting toward Quorum:
+    /// 1. The issuer has a known Ed25519 public key (Req 14.6).
+    /// 2. Ed25519 signature verification + state-hash match (Req 14.6).
+    /// 3. WHEN Anchor_Attested_Location is enabled and in BeaconAttested mode:
+    ///    the receipt carries a beacon token that verifies against the
+    ///    deployment beacon registry; the receipt is then counted toward
+    ///    Spatial_Diversity under the beacon-verified location claim (Req 15.2).
     ///
-    /// If both checks pass, the receipt is forwarded to the `Tier1QuorumTracker`.
+    /// If all checks pass, the receipt is forwarded to the `Tier1QuorumTracker`.
     /// When K valid receipts spanning spatial diversity are collected, the Delta is
     /// marked Tier-1 durable and compaction is permitted (Req 14.2, 14.8).
     ///
     /// Returns:
     /// - `Ok(true)`  — this receipt caused Tier-1 durability to be achieved.
-    /// - `Ok(false)` — receipt accepted or rejected; Tier-1 not yet reached.
+    /// - `Ok(false)` — receipt accepted; Tier-1 not yet reached.
     pub fn receive_receipt(
         &mut self,
         receipt: DurabilityReceipt,
@@ -229,9 +267,59 @@ impl DurabilitySubsystem {
         // Verify signature + state-hash (Req 14.6).
         verify_receipt(&receipt, &public_key, &state.state_hash)?;
 
-        // Forward verified receipt to the quorum tracker.
+        // Anchor_Attested_Location gate (Req 15.2, 15.3): while the anchor is in
+        // BeaconAttested mode, a receipt contributes to Quorum only when it
+        // carries a beacon token that verifies against the deployment beacon
+        // registry (registered beacon DID, current-epoch token, valid beacon
+        // signature).  Such a receipt is then counted toward Spatial_Diversity
+        // under the beacon-verified location claim, never the spoofable
+        // self-declared squad tag.  Receipts without a valid token are excluded
+        // from Quorum formation entirely and the rejection is logged with the
+        // issuer DID and reason (Req 14.6 pattern).  After beacon signal loss
+        // (SquadTagFallback — Req 15.4) or when the feature is disabled, the
+        // historical squad-tag accounting applies unchanged.
+        let diversity_tag: Option<String> =
+            match self.anchor.as_ref().map(AnchorAttestedLocation::mode) {
+                Some(AnchorMode::BeaconAttested) => {
+                    let token = receipt.beacon_token.as_ref().ok_or_else(|| {
+                        let reason = format!(
+                            "peer {} sent a DurabilityReceipt with no beacon token; \
+                             Anchor_Attested_Location is enabled — peer not counted toward \
+                             Spatial_Diversity (Req 15.2; delta {})",
+                            receipt.issuer_did,
+                            hex::encode(delta_id)
+                        );
+                        eprintln!("[durability] receipt rejected: {reason}");
+                        TirBaseError::SignatureVerificationFailed { reason }
+                    })?;
+                    self.anchor
+                        .as_ref()
+                        .expect("anchor present in BeaconAttested branch")
+                        .verify_beacon_token(token)
+                        .map_err(|e| {
+                            let reason = format!(
+                                "beacon token from peer {} rejected: {e} (delta {})",
+                                receipt.issuer_did,
+                                hex::encode(delta_id)
+                            );
+                            eprintln!("[durability] receipt rejected: {reason}");
+                            TirBaseError::SignatureVerificationFailed { reason }
+                        })?;
+                    // Verified: diversity is counted under the attested location claim.
+                    Some(token.location_claim.clone())
+                }
+                // Feature disabled or squad-tag fallback after signal loss (Req 15.4):
+                // count the receipt's own declared squad tag, as before.
+                _ => None,
+            };
+
+        // Forward verified receipt to the quorum tracker.  In BeaconAttested mode
+        // the diversity tag was derived from the verified beacon token above;
+        // otherwise the tracker falls back to the receipt's declared spatial tag.
         let issuer_did = receipt.issuer_did.clone();
-        let tier1_achieved = state.quorum.add_receipt(receipt)?;
+        let tier1_achieved = state
+            .quorum
+            .add_receipt_with_tag(receipt, diversity_tag.as_deref())?;
 
         if tier1_achieved && state.tier == DurabilityTier::Uncommitted {
             state.tier = DurabilityTier::Tier1;
@@ -359,7 +447,9 @@ fn notify_tier_changed(delta_id: DeltaId, tier: DurabilityTier) {
 mod tests {
     use super::*;
     use crate::api::types::DurabilityTier;
-    use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
+    use crate::durability::anchor::{beacon_token_signing_payload, BeaconRegistryEntry};
+    use crate::durability::receipt::{receipt_signing_payload, BeaconToken, DurabilityReceipt};
+    use crate::identity::did::derive_did;
     use crate::identity::keypair::{generate_keypair, sign};
     use uuid::Uuid;
 
@@ -383,11 +473,49 @@ mod tests {
         }
     }
 
-    fn make_signed_receipt(
+    /// QuorumConfig with K=1 — a single accepted receipt declares Tier-1.
+    fn make_quorum_k1() -> QuorumConfig {
+        QuorumConfig {
+            k: 1,
+            n: 5,
+            spatial_diversity_min: 1,
+            max_single_sector_fraction: 1.0,
+        }
+    }
+
+    /// A registered-beacon entry derived from a fresh beacon keypair.
+    fn make_beacon_entry(public: &[u8; 32]) -> BeaconRegistryEntry {
+        BeaconRegistryEntry {
+            beacon_did: derive_did(public),
+            public_key: *public,
+        }
+    }
+
+    /// Sign a `BeaconToken` for `beacon_secret` over the canonical payload
+    /// `epoch || location_claim` (mirrors the beacon issuance format).
+    fn make_beacon_token(
+        beacon_secret: &[u8; 32],
+        beacon_did: &str,
+        epoch: u64,
+        location_claim: &str,
+    ) -> BeaconToken {
+        let payload = beacon_token_signing_payload(epoch, location_claim);
+        let sig = sign(beacon_secret, &payload).expect("sign beacon token");
+        BeaconToken {
+            beacon_did: beacon_did.to_string(),
+            beacon_signature: sig,
+            epoch,
+            location_claim: location_claim.to_string(),
+            issued_at: 0,
+        }
+    }
+
+    fn make_signed_receipt_with_token(
         state_hash: [u8; 32],
         secret: &[u8; 32],
         did: &str,
         spatial_tag: Option<&str>,
+        beacon_token: Option<BeaconToken>,
     ) -> DurabilityReceipt {
         let id = Uuid::now_v7();
         let payload = receipt_signing_payload(&state_hash, &id);
@@ -398,9 +526,18 @@ mod tests {
             issuer_did: did.to_string(),
             issuer_signature: sig,
             spatial_tag: spatial_tag.map(|s| s.to_string()),
-            beacon_token: None,
+            beacon_token,
             issued_at: 0,
         }
+    }
+
+    fn make_signed_receipt(
+        state_hash: [u8; 32],
+        secret: &[u8; 32],
+        did: &str,
+        spatial_tag: Option<&str>,
+    ) -> DurabilityReceipt {
+        make_signed_receipt_with_token(state_hash, secret, did, spatial_tag, None)
     }
 
     // ── Tier-1 formation ──────────────────────────────────────────────────────
@@ -633,5 +770,247 @@ mod tests {
             matches!(result, Err(TirBaseError::CloudQueueFull { .. })),
             "overflow must return CloudQueueFull"
         );
+    }
+
+    // ── Anchor-Attested Location (Req 15.2, 15.3 — Subphase 4.3) ──────────────
+
+    #[test]
+    fn anchor_is_absent_when_anchor_attested_location_not_enabled() {
+        let sys = DurabilitySubsystem::new(make_quorum_k2());
+        assert!(
+            sys.anchor().is_none(),
+            "feature-disabled construction must carry no anchor verifier"
+        );
+    }
+
+    #[test]
+    fn anchor_mode_counts_verified_beacon_claims_toward_diversity_and_reaches_tier1() {
+        // K=2, spatial_diversity_min=2: two receipts attested to *different*
+        // sectors by the deployment beacons must form Tier-1.
+        let cfg = QuorumConfig {
+            k: 2,
+            n: 5,
+            spatial_diversity_min: 2,
+            max_single_sector_fraction: 0.6,
+        };
+        let delta_id = [0x01; 32];
+        let state_hash = [0x02; 32];
+
+        let (b_secret_a, b_public_a) = generate_keypair().unwrap();
+        let (b_secret_b, b_public_b) = generate_keypair().unwrap();
+        let beacon_did_a = derive_did(&b_public_a);
+        let beacon_did_b = derive_did(&b_public_b);
+
+        let (s1, p1) = generate_keypair().unwrap();
+        let (s2, p2) = generate_keypair().unwrap();
+        let mut peers = HashMap::new();
+        peers.insert("did:key:peer1".to_string(), p1);
+        peers.insert("did:key:peer2".to_string(), p2);
+
+        let mut sys = DurabilitySubsystem::with_anchor(
+            cfg,
+            Some(AnchorAttestedLocation::new(
+                vec![make_beacon_entry(&b_public_a), make_beacon_entry(&b_public_b)],
+                0,
+            )),
+        );
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+
+        let r1 = make_signed_receipt_with_token(
+            state_hash,
+            &s1,
+            "did:key:peer1",
+            Some("sq-a"),
+            Some(make_beacon_token(&b_secret_a, &beacon_did_a, 1, "sector-A")),
+        );
+        assert!(
+            !sys.receive_receipt(r1, &delta_id).unwrap(),
+            "single attested sector must not reach K=2/min=2"
+        );
+
+        let r2 = make_signed_receipt_with_token(
+            state_hash,
+            &s2,
+            "did:key:peer2",
+            Some("sq-b"),
+            Some(make_beacon_token(&b_secret_b, &beacon_did_b, 1, "sector-B")),
+        );
+        assert!(
+            sys.receive_receipt(r2, &delta_id).unwrap(),
+            "two beacon-attested sectors must reach Tier-1"
+        );
+        assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Tier1);
+    }
+
+    #[test]
+    fn anchor_mode_rejects_receipts_with_missing_or_invalid_beacon_tokens() {
+        let delta_id = [0x11; 32];
+        let state_hash = [0x22; 32];
+
+        let (b_secret, b_public) = generate_keypair().unwrap();
+        let beacon_did = derive_did(&b_public);
+
+        // Registered beacon; the anchor's Lamport current epoch is 5.
+        let mut sys = DurabilitySubsystem::with_anchor(
+            make_quorum_k1(),
+            Some(AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 5)),
+        );
+
+        let (s_peer, p_peer) = generate_keypair().unwrap();
+        let mut peers = HashMap::new();
+        peers.insert("did:key:peer".to_string(), p_peer);
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+
+        // (a) No beacon token attached → excluded (Req 15.2).
+        let no_token = make_signed_receipt(state_hash, &s_peer, "did:key:peer", Some("sq-a"));
+        assert!(
+            sys.receive_receipt(no_token, &delta_id).is_err(),
+            "receipt without a beacon token must be excluded in BeaconAttested mode"
+        );
+
+        // (b) Token from an unrecognised beacon (Req 15.1 unknown-beacon).
+        let (rogue_secret, rogue_public) = generate_keypair().unwrap();
+        let rogue = make_signed_receipt_with_token(
+            state_hash,
+            &s_peer,
+            "did:key:peer",
+            Some("sq-a"),
+            Some(make_beacon_token(
+                &rogue_secret,
+                &derive_did(&rogue_public),
+                6,
+                "sector-rogue",
+            )),
+        );
+        assert!(
+            sys.receive_receipt(rogue, &delta_id).is_err(),
+            "token from an unregistered beacon must be rejected (Req 15.1)"
+        );
+
+        // (c) Stale-epoch replay (Req 15.3).
+        let stale = make_signed_receipt_with_token(
+            state_hash,
+            &s_peer,
+            "did:key:peer",
+            Some("sq-a"),
+            Some(make_beacon_token(&b_secret, &beacon_did, 1, "sector-A")),
+        );
+        assert!(
+            sys.receive_receipt(stale, &delta_id).is_err(),
+            "stale-epoch token must be rejected as a replay attempt (Req 15.3)"
+        );
+
+        // (d) Tampered beacon signature.
+        let mut tampered_token = make_beacon_token(&b_secret, &beacon_did, 6, "sector-A");
+        if let Some(byte) = tampered_token.beacon_signature.0.first_mut() {
+            *byte ^= 0xFF;
+        }
+        let tampered = make_signed_receipt_with_token(
+            state_hash,
+            &s_peer,
+            "did:key:peer",
+            Some("sq-a"),
+            Some(tampered_token),
+        );
+        assert!(
+            sys.receive_receipt(tampered, &delta_id).is_err(),
+            "tampered beacon signature must be rejected"
+        );
+
+        assert_eq!(
+            sys.durability_tier(&delta_id),
+            DurabilityTier::Uncommitted,
+            "no rejected receipt may contribute toward Tier-1"
+        );
+    }
+
+    #[test]
+    fn anchor_mode_counts_attested_claim_not_declared_squad_tag() {
+        // K=3, spatial_diversity_min=1, max 60% per sector.  Three peers are all
+        // physically in "sector-X" (their tokens attest the same sector) but
+        // self-declare *different* squad tags — a spoofed-diversity attack that
+        // must not fabricate Spatial_Diversity (Req 15.2).
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 1,
+            max_single_sector_fraction: 0.6,
+        };
+        let delta_id = [0x33; 32];
+        let state_hash = [0x44; 32];
+
+        let (b_secret, b_public) = generate_keypair().unwrap();
+        let beacon_did = derive_did(&b_public);
+
+        let mut peers = HashMap::new();
+        let mut secrets = Vec::new();
+        for i in 0..3u8 {
+            let (s, p) = generate_keypair().unwrap();
+            let did = format!("did:key:peer{i}");
+            peers.insert(did, p);
+            secrets.push(s);
+        }
+
+        let mut sys = DurabilitySubsystem::with_anchor(
+            cfg,
+            Some(AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 0)),
+        );
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+
+        let declared_tags = ["sq-a", "sq-b", "sq-c"];
+        for (i, s) in secrets.iter().enumerate() {
+            let did = format!("did:key:peer{i}");
+            let r = make_signed_receipt_with_token(
+                state_hash,
+                s,
+                &did,
+                Some(declared_tags[i]),
+                Some(make_beacon_token(&b_secret, &beacon_did, 1, "sector-X")),
+            );
+            let t1 = sys.receive_receipt(r, &delta_id).unwrap();
+            assert!(
+                !t1,
+                "all receipts attested to one sector must not fabricate diversity"
+            );
+        }
+        assert_eq!(
+            sys.durability_tier(&delta_id),
+            DurabilityTier::Uncommitted,
+            "single attested sector must block Tier-1 despite distinct declared tags"
+        );
+    }
+
+    #[test]
+    fn squad_tag_fallback_after_signal_loss_skips_beacon_gate() {
+        // Req 15.4: after beacon signal loss the anchor reverts to squad-tag mode,
+        // so subsequent receipts are counted by their declared squad tags again —
+        // no beacon token is required.
+        let (_b_secret, b_public) = generate_keypair().unwrap();
+        let mut anchor =
+            AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 0);
+        anchor.on_beacon_signal_lost(0, vec![]).unwrap();
+        assert_eq!(anchor.mode(), AnchorMode::SquadTagFallback);
+
+        let delta_id = [0x55; 32];
+        let state_hash = [0x66; 32];
+
+        let (s1, p1) = generate_keypair().unwrap();
+        let (s2, p2) = generate_keypair().unwrap();
+        let mut peers = HashMap::new();
+        peers.insert("did:key:peer1".to_string(), p1);
+        peers.insert("did:key:peer2".to_string(), p2);
+
+        let mut sys = DurabilitySubsystem::with_anchor(make_quorum_k2(), Some(anchor));
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+
+        // No beacon tokens at all — fallback mode must accept by declared tags.
+        let r1 = make_signed_receipt(state_hash, &s1, "did:key:peer1", Some("sq-a"));
+        assert!(!sys.receive_receipt(r1, &delta_id).unwrap());
+        let r2 = make_signed_receipt(state_hash, &s2, "did:key:peer2", Some("sq-b"));
+        assert!(
+            sys.receive_receipt(r2, &delta_id).unwrap(),
+            "squad-tag fallback must reach Tier-1 without beacon tokens (Req 15.4)"
+        );
+        assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Tier1);
     }
 }
