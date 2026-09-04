@@ -21,11 +21,19 @@ use types::{
 use crate::auth::CapabilityManager;
 use crate::contamination::human_reaction::{on_write_commit, WriteContext};
 use crate::contamination::CausalContaminationEngine;
-use crate::crdt::delta::PriorityClass;
+use crate::crdt::delta::{DeltaId, PriorityClass};
 use crate::crdt::CrdtEngine;
 use crate::diagnostics::{emit_startup_diagnostics, DiagnosticEntry};
 use crate::durability::quorum::QuorumConfig;
 use crate::durability::DurabilitySubsystem;
+
+// Cloud Ledger / cloud sync wiring (Subphase 4.1) — the `CloudLedger` and its
+// `CloudConnection` adapter are native-only (they embed a rusqlite-backed
+// `CrdtEngine`), so the production drain loop is native-only as well.
+#[cfg(feature = "native")]
+use crate::durability::cloud_ledger::{CloudLedger, CloudLedgerConnection};
+#[cfg(feature = "native")]
+use crate::durability::cloud_queue::{cloud_sync_loop, CloudSyncResult};
 use crate::identity::IdentityManager;
 use crate::migration::version_path::SchemaVersionPath;
 use crate::migration::SchemaMigrationEngine;
@@ -124,6 +132,23 @@ const SCHEDULER_TICK_INTERVAL_MS: u64 = 1000;
 #[cfg(all(feature = "native", test))]
 const SCHEDULER_TICK_INTERVAL_MS: u64 = 3_600_000;
 
+/// Production cadence (ms) of the cloud sync loop spawned by
+/// `CoreHandle::init` (Subphase 4.1): every 1000 ms the task drains the
+/// Durability Subsystem's cloud outbound queue through the real
+/// `CloudLedgerConnection` in causal order, sending each Delta to the
+/// Cloud Ledger (Req 16.3).
+#[cfg(all(feature = "native", not(test)))]
+const CLOUD_SYNC_INTERVAL_MS: u64 = 1000;
+
+/// Test-build cadence (ms) of the cloud sync loop spawned by
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests register
+/// Deltas and assert cloud queue state, so the loop init spawns must not
+/// drain the queue while they run; the Subphase 4.1 integration test drives
+/// the identical loop via `CoreHandle::spawn_cloud_sync_loop` with a short
+/// interval.
+#[cfg(all(feature = "native", test))]
+const CLOUD_SYNC_INTERVAL_MS: u64 = 3_600_000;
+
 // ─── CoreHandle ───────────────────────────────────────────────────────────────
 
 /// The main handle to a TirBase instance.
@@ -156,6 +181,19 @@ pub struct CoreHandle {
 
     /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
+
+    /// The Cloud Ledger this process hosts, reachable through the
+    /// `CloudConnection` adapter (`CloudLedgerConnection`).
+    ///
+    /// Subphase 4.1: the production cloud sync loop
+    /// (`CoreHandle::spawn_cloud_sync_loop`) drains
+    /// [`DurabilitySubsystem`]'s cloud outbound queue into this ledger in
+    /// causal order, sending every locally-written Delta to the Cloud Ledger
+    /// and removing it only after the ledger's per-Delta ack (Req 16.3).
+    /// Native-only: the `CloudLedger` embeds a rusqlite-backed
+    /// `CrdtEngine`, which does not exist on the WASM build target.
+    #[cfg(feature = "native")]
+    cloud_ledger: Arc<Mutex<CloudLedger>>,
 
     /// Causal Contamination Engine.
     #[cfg(feature = "native")]
@@ -355,6 +393,26 @@ impl CoreHandle {
             max_single_sector_fraction: 0.7,
         });
         let durability = Arc::new(Mutex::new(durability));
+
+        // ── Cloud Ledger (native) ────────────────────────────────────────────
+        //
+        // Subphase 4.1: host a real Cloud Ledger for this process and attach it
+        // to the Durability Subsystem's cloud outbound queue via the
+        // `CloudConnection` adapter (`CloudLedgerConnection`).  The ledger runs
+        // the same `CrdtEngine` semantics as every device (Req 16.1) and is
+        // constructed with this process's own identity + the default schema
+        // hash, so locally-written Deltas (produced by the same identity and
+        // schema in `write()`) verify and merge.  The production cloud sync
+        // loop spawned below drains the queue into it in causal order (Req
+        // 16.3); acknowledging marks the Delta for removal from the outbound
+        // queue — Tier-2 state marking + notification is wired on top in
+        // Subphase 4.2.
+        #[cfg(feature = "native")]
+        let cloud_ledger = Arc::new(Mutex::new(CloudLedger::new_in_memory(
+            identity.signing_key_bytes(),
+            identity.did().to_string(),
+            DEFAULT_SCHEMA_HASH,
+        )?));
 
         // ── Mesh Transport ────────────────────────────────────────────────────
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
@@ -626,6 +684,8 @@ impl CoreHandle {
             transport,
             durability,
             #[cfg(feature = "native")]
+            cloud_ledger,
+            #[cfg(feature = "native")]
             cce,
             #[cfg(not(feature = "native"))]
             cce,
@@ -677,6 +737,29 @@ impl CoreHandle {
             CoreHandle::spawn_scheduler_tick_loop(
                 &handle,
                 std::time::Duration::from_millis(SCHEDULER_TICK_INTERVAL_MS),
+            );
+        }
+
+        // ── Production cloud sync loop (Subphase 4.1) ────────────────────────
+        //
+        // Spawn a background task that drains the Durability Subsystem's cloud
+        // outbound queue through the real `CloudLedgerConnection` in causal
+        // order, sending every locally-written Delta to the Cloud Ledger this
+        // process hosts (Req 16.3).  Previously nothing in production ever
+        // drained the cloud queue — causal-order sync + ack-removal existed
+        // only in `durability/integration_tests.rs`.
+        //
+        // Unlike the scheduler tick loop this is not gated on a live Swarm:
+        // cloud sync is independent of the mesh (opportunistic Tier-2 over
+        // TCP/HTTPS in the design; an in-process ledger in this single-crate
+        // codebase), so the queue drains even while the device is offline
+        // (Req 3.3 — the local write and durability queue remain
+        // authoritative).
+        #[cfg(feature = "native")]
+        {
+            CoreHandle::spawn_cloud_sync_loop(
+                &handle,
+                std::time::Duration::from_millis(CLOUD_SYNC_INTERVAL_MS),
             );
         }
 
@@ -2217,6 +2300,125 @@ impl CoreHandle {
                 }
             }
         })
+    }
+
+    /// Run one cloud sync cycle: drain the Durability Subsystem's cloud
+    /// outbound queue through the real `CloudLedgerConnection` in causal
+    /// order (Subphase 4.1).
+    ///
+    /// The heavy lifting is [`cloud_sync_loop`]: it topologically sorts the
+    /// pending entries by their `causal_parents` (parents before children,
+    /// Req 16.3), sends each serialised Delta to the Cloud Ledger via the
+    /// `CloudConnection` adapter, removes entries only after a per-Delta
+    /// acknowledgement (Req 16.3) and retains rejected entries for the next
+    /// cycle (Req 16.5).  Compacted entries would be deferred until a
+    /// re-fetch succeeds (Req 16.8) — the re-fetch callback returns `None`
+    /// because no production path marks cloud-queue entries compacted yet,
+    /// so the deferral branch never fires in practice (it stays wired for
+    /// the day Tier-1 compaction reaches the queue, Req 14.8/16.8).
+    ///
+    /// Lock order is always `durability` → `cloud_ledger` (matching
+    /// `spawn_cloud_sync_loop`); the ledger never takes the durability lock.
+    ///
+    /// Production caller: [`CoreHandle::spawn_cloud_sync_loop`], which
+    /// [`CoreHandle::init`] spawns before returning (Subphase 4.1).  It is a
+    /// separate method so the integration test can exercise a full cycle
+    /// deterministically as well as through the spawned loop.
+    #[cfg(feature = "native")]
+    pub(crate) fn run_cloud_sync_cycle(
+        &self,
+    ) -> Result<CloudSyncResult, TirBaseError> {
+        let mut durability = self.durability.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("durability mutex poisoned: {e}"),
+            }
+        })?;
+
+        // Nothing pending — skip the cycle (no ledger lock, no log noise).
+        if durability.cloud_queue_depth() == 0 {
+            return Ok(CloudSyncResult::default());
+        }
+
+        let mut ledger = self.cloud_ledger.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("cloud ledger mutex poisoned: {e}"),
+            }
+        })?;
+        let mut conn = CloudLedgerConnection::new(&mut ledger);
+
+        Ok(cloud_sync_loop(
+            durability.cloud_queue_mut(),
+            &mut conn,
+            &|_delta_id, _receipt_holders| None,
+        ))
+    }
+
+    /// Spawn the production cloud sync loop for this handle.
+    ///
+    /// Every `interval`, the background task calls
+    /// [`CoreHandle::run_cloud_sync_cycle`], which drains the Durability
+    /// Subsystem's cloud outbound queue through the real
+    /// `CloudLedgerConnection` in causal order and sends each Delta to the
+    /// Cloud Ledger (Req 16.3).  Without this loop the cloud queue only ever
+    /// grows in production — nothing outside
+    /// `durability/integration_tests.rs` drained it.
+    ///
+    /// Production caller: [`CoreHandle::init`] spawns this loop before
+    /// returning (Subphase 4.1).  It is `pub(crate)` rather than private so
+    /// the Subphase 4.1 integration test can drive the *identical* loop with
+    /// a short interval without racing the queue-state unit tests.
+    ///
+    /// Returns the `JoinHandle` so callers can observe or abort the task.
+    #[cfg(feature = "native")]
+    pub(crate) fn spawn_cloud_sync_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                match handle.run_cloud_sync_cycle() {
+                    Ok(result) => {
+                        let processed =
+                            result.acknowledged + result.rejected + result.deferred;
+                        if processed > 0 {
+                            eprintln!(
+                                "[cloud-sync-loop] cycle: {} acked, {} rejected, {} deferred",
+                                result.acknowledged, result.rejected, result.deferred
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[cloud-sync-loop] cloud sync cycle failed: {e}");
+                    }
+                }
+            }
+        })
+    }
+
+    /// Current cloud outbound queue depth (Subphase 4.1 observability).
+    ///
+    /// Mirrors [`DurabilitySubsystem::cloud_queue_depth`] for the
+    /// production drain-loop integration test and diagnostics.
+    #[cfg(feature = "native")]
+    pub(crate) fn cloud_queue_depth(&self) -> usize {
+        self.durability
+            .lock()
+            .map(|d| d.cloud_queue_depth())
+            .unwrap_or(0)
+    }
+
+    /// Whether the Cloud Ledger this process hosts has committed the given
+    /// Delta (Subphase 4.1 observability).
+    #[cfg(feature = "native")]
+    pub(crate) fn cloud_ledger_is_committed(&self, delta_id: &DeltaId) -> bool {
+        self.cloud_ledger
+            .lock()
+            .map(|l| l.is_committed(delta_id))
+            .unwrap_or(false)
     }
 
     /// Inject a `GossipMessage` directly into the inbound channel.
@@ -5646,5 +5848,202 @@ mod real_mesh_tests {
 
         cleanup(&tmp_path("p03b_A"));
         cleanup(&tmp_path("p03b_B"));
+    }
+}
+
+// ─── Subphase 4.1: production cloud sync drain ───────────────────────────────
+
+/// Integration tests for the production cloud drain path (Subphase 4.1): a
+/// real `CloudLedgerConnection` attached to the Durability Subsystem, driven
+/// by [`CoreHandle::run_cloud_sync_cycle`] / [`CoreHandle::spawn_cloud_sync_loop`]
+/// — the functions `CoreHandle::init` wires up.  Previously the causal-order
+/// drain + ack-removal (Req 16.3) existed only in
+/// `durability/integration_tests.rs`; these tests exercise it over the real
+/// production construction: `CoreHandle::init` → `write()` → durability cloud
+/// outbound queue → production drain → real Cloud Ledger.
+///
+/// Causal-order *enforcement* itself is `cloud_sync_loop`'s topological-sort
+/// behaviour (already integration-tested with a recording connection in
+/// `durability/integration_tests.rs`); what this module adds is proof that the
+/// identical loop runs in production against a real ledger and empties the
+/// cloud queue.
+#[cfg(all(test, feature = "native"))]
+mod cloud_sync_tests {
+    use super::*;
+    use serde_json::json;
+    use std::env;
+    use std::time::Duration;
+
+    fn make_config(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+            },
+        }
+    }
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_cloudsync_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    /// Poll until the cloud outbound queue is empty and every written Delta is
+    /// committed on the ledger, or fail after `attempts` polls.
+    async fn wait_for_drain(handle: &Arc<CoreHandle>, delta_ids: &[[u8; 32]]) {
+        let mut attempts = 0u32;
+        loop {
+            let drained = handle.cloud_queue_depth() == 0
+                && delta_ids
+                    .iter()
+                    .all(|id| handle.cloud_ledger_is_committed(id));
+            if drained {
+                return;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "cloud sync never drained the queue to the ledger (depth={}, committed={:?})",
+                handle.cloud_queue_depth(),
+                delta_ids
+                    .iter()
+                    .map(|id| handle.cloud_ledger_is_committed(id))
+                    .collect::<Vec<_>>()
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    // ── Test 1: one full cycle drains every written Delta to the ledger ─────
+    //
+    // Deterministic version of the drain: writes go through the production
+    // `write()` path (SQLite store + signed Delta + durability registration),
+    // then a single explicit [`CoreHandle::run_cloud_sync_cycle`] — the
+    // function the production loop calls — sends the queue to the Cloud
+    // Ledger through the real `CloudLedgerConnection` and removes each entry
+    // only after its per-Delta ack (Req 16.3).  No `durability/` helpers are
+    // involved: the ledger is the one `CoreHandle::init` attaches.
+
+    #[tokio::test]
+    async fn cloud_sync_cycle_drains_writes_to_ledger() {
+        let path = tmp_path("cycle");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Three writes through the production path — each registers a Delta in
+        // the Durability Subsystem's cloud outbound queue (Req 16.3).
+        let mut delta_ids = Vec::new();
+        for i in 0..3 {
+            let wr = handle
+                .write("cloud", &format!("row-{i}"), json!({ "seq": i }))
+                .await
+                .expect("write");
+            delta_ids.push(wr.delta_id);
+        }
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            3,
+            "every write must be queued for cloud sync"
+        );
+
+        // One production cycle — the function `CoreHandle::spawn_cloud_sync_loop`
+        // invokes every tick.
+        let result = handle
+            .run_cloud_sync_cycle()
+            .expect("cloud sync cycle must not fail");
+
+        assert_eq!(
+            result.acknowledged, 3,
+            "all queued Deltas must be acked by the Cloud Ledger"
+        );
+        assert_eq!(result.rejected, 0);
+        assert_eq!(result.deferred, 0);
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            0,
+            "acked Deltas must be removed from the cloud outbound queue (Req 16.3)"
+        );
+
+        for id in &delta_ids {
+            assert!(
+                handle.cloud_ledger_is_committed(id),
+                "Delta {} must be committed on the Cloud Ledger",
+                hex::encode(id)
+            );
+        }
+
+        // An empty-queue cycle is a no-op (returns a zero summary).
+        let idle = handle
+            .run_cloud_sync_cycle()
+            .expect("idle cloud sync cycle must not fail");
+        assert_eq!(idle.acknowledged, 0);
+        assert_eq!(idle.rejected, 0);
+        assert_eq!(idle.deferred, 0);
+
+        cleanup(&path);
+    }
+
+    // ── Test 2: the production cloud sync loop drains without a manual call ──
+    //
+    // `CoreHandle::init` spawns a background task that runs one cloud sync
+    // cycle per interval (in production builds).  This test drives the
+    // *identical* loop — `CoreHandle::spawn_cloud_sync_loop`, the function
+    // `init` calls — with a short interval and asserts the background task
+    // (NOT a manual `run_cloud_sync_cycle()` call) drains the cloud outbound
+    // queue and commits the Deltas to the real Cloud Ledger.
+
+    #[tokio::test]
+    async fn production_cloud_sync_loop_drains_writes_to_ledger() {
+        let path = tmp_path("loop");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Spawn the production cloud sync loop with a short interval so the
+        // test completes quickly.  (In production builds `CoreHandle::init`
+        // does exactly this with `CLOUD_SYNC_INTERVAL_MS`; in test builds init
+        // uses a 1-hour interval so the deterministic tests above stay
+        // race-free.)
+        let _loop = CoreHandle::spawn_cloud_sync_loop(&handle, Duration::from_millis(10));
+
+        // Write through the production path while the loop is already running.
+        let mut delta_ids = Vec::new();
+        for i in 0..3 {
+            let wr = handle
+                .write("cloud", &format!("row-{i}"), json!({ "seq": i, "msg": "background drain" }))
+                .await
+                .expect("write");
+            delta_ids.push(wr.delta_id);
+        }
+        assert_eq!(handle.cloud_queue_depth(), 3, "writes must be queued");
+
+        // Do NOT call run_cloud_sync_cycle() — the background loop must do the
+        // draining.  Poll until the queue is empty and the ledger committed
+        // every Delta.
+        wait_for_drain(&handle, &delta_ids).await;
+
+        cleanup(&path);
     }
 }

@@ -313,10 +313,11 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (511 tests, 0 failures)
+**Status:** VERIFIED (513 tests, 0 failures)
 
-`cargo test --features native` passes all 511 tests including all 22 property
-tests and all CoreHandle integration tests.
+`cargo test --features native` passes all 513 tests including all 22 property
+tests and all CoreHandle integration tests (Subphase 4.1 added the two
+`api::cloud_sync_tests` production cloud-sync drain tests).
 
 ---
 
@@ -419,6 +420,40 @@ the Automerge document is correct; only the SQL projection cache is stale.
 ### Item 8 — Untestable Properties Documentation
 
 This document (you are reading it).
+
+---
+
+### Item 9 — Production Cloud Sync Drain (Subphase 4.1)
+
+**Status:** VERIFIED
+
+A real `CloudConnection` is now attached to the production system and a
+production loop drains the Durability Subsystem's cloud outbound queue in
+causal order (Req 16.3).  The wiring is native-only (the `CloudLedger` embeds
+a rusqlite-backed `CrdtEngine`):
+
+- `CoreHandle::init` hosts a real `CloudLedger` (constructed from the
+  process's own identity + default schema hash) and stores it as the
+  `cloud_ledger` field, then spawns `CoreHandle::spawn_cloud_sync_loop`
+  (`CLOUD_SYNC_INTERVAL_MS` — 1 s in production builds, inert 1 h in test
+  builds so queue-state unit tests stay deterministic).
+- Each tick runs `CoreHandle::run_cloud_sync_cycle`, which calls
+  `cloud_sync_loop` — topological (causal) order over `causal_parents`, send
+  via the real `CloudLedgerConnection` adapter, ack-removal (Req 16.3),
+  rejection retention (Req 16.5) — against that ledger.
+
+`api::cloud_sync_tests` covers it end-to-end over the real production
+construction (`CoreHandle::init` → `write()` → durability cloud queue →
+drain → ledger): `cloud_sync_cycle_drains_writes_to_ledger` (one explicit
+cycle, asserting 3/3 acked, queue depth 0, every Delta committed) and
+`production_cloud_sync_loop_drains_writes_to_ledger` (the spawned background
+loop does the draining — no manual cycle call).  The same `cloud_sync_loop`
+function's causal-order enforcement is additionally covered with a recording
+connection in `durability/integration_tests.rs`.
+
+**Deferred to Subphase 4.2:** converting a drain-loop acks into Tier-2 state
+marking (`DurabilitySubsystem::on_cloud_ack`) and notifying CoreHandle/SDK,
+so `WriteResult`/durability tier transitions in real deployments.
 
 ---
 
