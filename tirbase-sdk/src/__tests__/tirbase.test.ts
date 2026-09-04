@@ -554,6 +554,8 @@ describe('manager operations', () => {
       signaturesCollected: 1,
       signaturesRequired: 2,
       status: 'PENDING',
+      lastKnownTrustLevel: 'REVOKED',
+      lastRevocationDeltaReceivedAt: 1234567890,
     });
 
     const db = await TirBase.init(DEFAULT_CONFIG);
@@ -562,6 +564,18 @@ describe('manager operations', () => {
     expect(status.signaturesCollected).toBe(1);
     expect(status.signaturesRequired).toBe(2);
     expect(status.status).toBe('PENDING');
+    expect(status.lastKnownTrustLevel).toBe('REVOKED');
+    expect(status.lastRevocationDeltaReceivedAt).toBe(1234567890);
+  });
+
+  test('revocationStatus defaults device-status fields to null', async () => {
+    const mock = installMock();
+    // Default mock: no RevocationDelta ever applied → Req 9.5 fields null.
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const status = await db.revocationStatus({ targetDid: 'did:key:z6Mk' });
+
+    expect(status.lastKnownTrustLevel).toBeNull();
+    expect(status.lastRevocationDeltaReceivedAt).toBeNull();
   });
 
   test('verifyData delegates to WASM', async () => {

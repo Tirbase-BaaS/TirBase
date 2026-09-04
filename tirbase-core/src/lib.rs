@@ -402,7 +402,14 @@ mod wasm_exports {
         })
     }
 
-    /// Return the current accumulation state for a pending revocation.
+    /// Return the current revocation status of a device (Req 9.1–9.5).
+    ///
+    /// Combines the in-flight M-of-N accumulation state
+    /// (`signaturesCollected`, `signaturesRequired`, `status`) with the
+    /// Req 9.5 last-known device status recorded in
+    /// `RevocationSubsystem::device_status` (`lastKnownTrustLevel`,
+    /// `lastRevocationDeltaReceivedAt`). The device-status fields are `null`
+    /// until a RevocationDelta for the target has actually been applied.
     #[wasm_bindgen]
     pub async fn core_revocation_status(target_did: String) -> Result<JsValue, JsValue> {
         CORE.with(|c| {
@@ -417,10 +424,21 @@ mod wasm_exports {
                 Some(crate::auth::RevocationStatus::Pending { collected, .. }) => (collected, "PENDING"),
                 None => (0, "PENDING"),
             };
+            drop(rev);
+            // Req 9.5 — the last-known device status recorded by the subsystem.
+            let device_status = handle
+                .device_revocation_status(&target_did)
+                .map_err(to_js_err)?;
             json_to_js(&serde_json::json!({
                 "signaturesCollected": collected,
                 "signaturesRequired": m,
                 "status": status_str,
+                "lastKnownTrustLevel": device_status
+                    .as_ref()
+                    .map(|ds| format!("{:?}", ds.last_known_trust_level).to_uppercase()),
+                "lastRevocationDeltaReceivedAt": device_status
+                    .as_ref()
+                    .and_then(|ds| ds.last_revocation_delta_received_at),
             }))
         })
     }
@@ -540,10 +558,20 @@ mod wasm_exports {
                 now_secs,
             ) {
                 Ok(true) => {
-                    // Valid token with caveat — activate.
+                    // Valid token with caveat — activate through the transport's
+                    // SaturateModeStateMachine (Subphase 3.1): the state machine
+                    // re-verifies the token, opens the 60-minute lease, and the
+                    // DRR scheduler is put into Saturate Mode.  The local device
+                    // is the activating manager recorded on the lease.
                     let mut transport = handle.transport.lock()
                         .map_err(|e| to_js_err(format!("transport lock: {e}")))?;
-                    transport.set_saturate_mode(true);
+                    transport
+                        .activate_saturate_mode(
+                            handle.identity.did().to_string(),
+                            &token_bytes,
+                            now_secs,
+                        )
+                        .map_err(to_js_err)?;
                     Ok(())
                 }
                 Ok(false) => Err(to_js_err(

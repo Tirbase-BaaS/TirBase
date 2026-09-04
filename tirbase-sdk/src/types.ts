@@ -164,11 +164,21 @@ export interface TrustLevelChangedEvent {
 /**
  * Current state of a mesh-accumulated revocation for a target DID
  * (design §Manager Operations — mesh-accumulated signature model).
+ *
+ * `signaturesCollected` / `signaturesRequired` / `status` describe the
+ * in-flight M-of-N accumulation. `lastKnownTrustLevel` and
+ * `lastRevocationDeltaReceivedAt` are the Req 9.5 last-known device status:
+ * both are `null` until a RevocationDelta for the target has been applied
+ * (the subsystem has no record before that point).
  */
 export interface RevocationStatus {
   signaturesCollected: number;
   signaturesRequired: number;
   status: 'PENDING' | 'APPLIED';
+  /** Last-known TrustLevel of the target device (Req 9.5); null if no RevocationDelta has ever been applied for it. */
+  lastKnownTrustLevel: TrustLevel | null;
+  /** UTC microseconds of the last RevocationDelta receipt (Req 9.5); null if none. */
+  lastRevocationDeltaReceivedAt: number | null;
 }
 
 // ─── Initialisation config ────────────────────────────────────────────────────

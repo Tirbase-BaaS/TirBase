@@ -20,6 +20,7 @@ use crate::errors::TirBaseError;
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
+    saturate::{SaturateModeStateMachine, SaturateState},
     scheduler::{DrrScheduler, QueuedDelta},
     session::SessionManager,
 };
@@ -57,6 +58,14 @@ pub struct TransportConfig {
     pub key_rotation_interval_secs: u64,
     /// libp2p listen address (native-only; ignored on wasm).
     pub listen_addr: String,
+    /// M-of-N manager-signature threshold for terminating Saturate_Mode via a
+    /// Lease Termination Delta (Req 13.6).  Clamped to `>= 1` at construction.
+    pub saturate_termination_threshold_m: usize,
+    /// 32-byte Ed25519 root CA public key used by the Saturate_Mode state
+    /// machine to verify Manager DISASTER_ALERT Biscuit tokens offline
+    /// (Req 13.1, 13.7).  Empty = explicit unconfigured state: activation
+    /// fails until a key is configured.
+    pub root_ca_public_key: Vec<u8>,
 }
 
 impl Default for TransportConfig {
@@ -69,6 +78,8 @@ impl Default for TransportConfig {
             mtu: 0,         // no fragmentation by default
             key_rotation_interval_secs: 3_600,
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            saturate_termination_threshold_m: 1,
+            root_ca_public_key: vec![],
         }
     }
 }
@@ -195,8 +206,12 @@ pub struct MeshTransport {
     #[cfg(all(feature = "native", test))]
     pub(crate) outbound_published: Vec<Vec<u8>>,
 
-    /// Whether Saturate Mode is active (used on WASM where there is no live scheduler).
-    pub saturate_active: bool,
+    /// Saturate_Mode state machine (Req 13): owns the lease lifecycle
+    /// (activate / renew / M-of-N terminate / expiry tick) and verifies
+    /// Manager DISASTER_ALERT Biscuit tokens offline.  Instantiated here in
+    /// production code — never only in tests — and driven by
+    /// [`MeshTransport::activate_saturate_mode`].
+    pub(crate) saturate: SaturateModeStateMachine,
 }
 
 impl MeshTransport {
@@ -211,6 +226,15 @@ impl MeshTransport {
         let session_manager =
             SessionManager::new(local_did.clone(), config.key_rotation_interval_secs);
 
+        // The Saturate_Mode state machine is production-instanceable here
+        // (Subphase 3.1): its termination threshold and root CA verification
+        // key come from `TransportConfig`, which `CoreHandle::init` feeds from
+        // the deployment config.
+        let saturate = SaturateModeStateMachine::new(
+            config.saturate_termination_threshold_m.max(1),
+            config.root_ca_public_key.clone(),
+        );
+
         Self {
             discovery,
             session_manager,
@@ -219,13 +243,13 @@ impl MeshTransport {
             config,
             gossip_topic: "tirbase/v1".to_string(),
             scheduler: DrrScheduler::new(DEFAULT_LINK_CAPACITY_BYTES),
+            saturate,
             #[cfg(feature = "native")]
             swarm: None,
             #[cfg(feature = "native")]
             outbound_tx: None,
             #[cfg(all(feature = "native", test))]
             outbound_published: Vec::new(),
-            saturate_active: false,
         }
     }
 
@@ -284,13 +308,29 @@ impl MeshTransport {
 
     // ── Saturate Mode ─────────────────────────────────────────────────────────
 
-    /// Activate or deactivate Saturate Mode (Req 13.2).
+    /// Activate Saturate_Mode from a DISASTER_ALERT Biscuit token (Req 13.1).
     ///
-    /// On the native build this is ordinarily coordinated through `DrrScheduler`;
-    /// on the WASM build we track the flag here so `core_activate_saturate_mode`
-    /// can record the transition.
-    pub fn set_saturate_mode(&mut self, active: bool) {
-        self.saturate_active = active;
+    /// Delegates to the transport's [`SaturateModeStateMachine`]: the token is
+    /// verified offline against the configured root CA key (signature, expiry,
+    /// `disaster-alert` caveat — Req 13.7) and a 60-minute lease is opened on
+    /// success.  The DRR scheduler is then put into Saturate Mode (all
+    /// bandwidth to HIGH, Req 13.2).
+    ///
+    /// Any verification failure returns `SignatureVerificationFailed` and
+    /// leaves both the state machine and the scheduler untouched (Req 13.7).
+    ///
+    /// Production caller: the WASM export `core_activate_saturate_mode`
+    /// (lib.rs), which pre-verifies the token for a clearer unconfigured-CA
+    /// error and then routes the real activation through here.
+    pub(crate) fn activate_saturate_mode(
+        &mut self,
+        manager_did: Did,
+        biscuit_token: &[u8],
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        self.saturate.activate(manager_did, biscuit_token, now_secs)?;
+        self.scheduler.set_saturate_mode(true);
+        Ok(())
     }
 
     // ── Scheduler interface ───────────────────────────────────────────────────
@@ -630,6 +670,31 @@ mod tests {
                 mtu: 0,
                 key_rotation_interval_secs: 3_600,
                 listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+                saturate_termination_threshold_m: 1,
+                root_ca_public_key: vec![],
+            },
+        )
+    }
+
+    /// Transport with a configured Saturate_Mode termination threshold and root
+    /// CA key — the production construction path (`CoreHandle::init` feeds the
+    /// same two values from the deployment config).
+    fn make_saturate_transport(
+        termination_threshold_m: usize,
+        root_ca_public_key: Vec<u8>,
+    ) -> MeshTransport {
+        MeshTransport::new(
+            "did:key:local".to_string(),
+            TransportConfig {
+                peer_timeout_secs: 30,
+                retry_interval_secs: 10,
+                max_retry_queue: 5,
+                max_hop_count: 3,
+                mtu: 0,
+                key_rotation_interval_secs: 3_600,
+                listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+                saturate_termination_threshold_m: termination_threshold_m,
+                root_ca_public_key,
             },
         )
     }
@@ -819,6 +884,89 @@ mod tests {
             matches!(err, TirBaseError::MeshUnavailable { .. }),
             "expected MeshUnavailable, got: {err}"
         );
+    }
+
+    // ── Saturate Mode wiring (Subphase 3.1) ────────────────────────────────
+    //
+    // `SaturateModeStateMachine` is instantiated inside `MeshTransport` in
+    // production code (`MeshTransport::new`).  These integration tests drive
+    // the production entry point (`MeshTransport::activate_saturate_mode`,
+    // called by the WASM export `core_activate_saturate_mode`) with a real
+    // Biscuit DISASTER_ALERT token and assert the state machine AND the DRR
+    // scheduler both transition — the bare-boolean flag this replaces could
+    // not do either.
+
+    fn now_secs() -> i64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn activate_saturate_mode_drives_state_machine_and_scheduler() {
+        use crate::transport::saturate::{
+            make_disaster_alert_token_for_test, SaturateState, SATURATE_LEASE_DURATION_SECS,
+        };
+
+        // Real DISASTER_ALERT token signed by a fresh CA keypair; the transport
+        // is constructed with that CA public key, exactly as `CoreHandle::init`
+        // does from `DeploymentConfig::root_ca_keys`.
+        let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &token, now)
+            .expect("a valid disaster-alert token must activate Saturate_Mode");
+
+        // The transport's production state machine is now in SATURATE with a
+        // 60-minute lease opened by the activating manager.
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        let lease = t.saturate.lease().expect("activation must open a lease");
+        assert_eq!(lease.expires_at, now + SATURATE_LEASE_DURATION_SECS);
+        assert_eq!(lease.activating_manager_did, "did:key:z6MkManager");
+
+        // …and the DRR scheduler is in Saturate Mode (all bandwidth to HIGH).
+        assert!(
+            t.scheduler.is_saturate_mode(),
+            "scheduler must follow the state machine into Saturate_Mode"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn activate_saturate_mode_with_invalid_token_preserves_normal_state() {
+        use crate::transport::saturate::SaturateState;
+
+        // Unconfigured CA key (empty would be "unconfigured"; a zeroed key is
+        // simply wrong) — no token can verify against it.
+        let mut t = make_saturate_transport(2, vec![0u8; 32]);
+        let err = t
+            .activate_saturate_mode("did:key:z6MkManager".to_string(), b"not-a-biscuit", now_secs())
+            .expect_err("an invalid token must be rejected");
+        assert!(
+            matches!(err, TirBaseError::SignatureVerificationFailed { .. }),
+            "expected SignatureVerificationFailed, got: {err}"
+        );
+
+        // Req 13.7: mode is preserved — neither the state machine nor the
+        // scheduler may move on failure.
+        assert_eq!(t.saturate.state(), SaturateState::Normal);
+        assert!(!t.scheduler.is_saturate_mode());
+    }
+
+    #[test]
+    fn transport_constructs_saturate_state_machine_in_normal_state() {
+        use crate::transport::saturate::SaturateState;
+
+        // The state machine is instantiated by `MeshTransport::new` in
+        // production code — not only in test constructions — and starts in
+        // NORMAL with the scheduler out of Saturate Mode.
+        let t = make_transport();
+        assert_eq!(t.saturate.state(), SaturateState::Normal);
+        assert!(!t.scheduler.is_saturate_mode());
     }
 
     // ── Peer dialing (Subphase 1.2) ─────────────────────────────────────────

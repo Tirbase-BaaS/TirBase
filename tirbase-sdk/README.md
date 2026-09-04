@@ -74,6 +74,9 @@ db.on('durability-tier-changed', (e) => console.log('Durability:', e.newTier));
 
 ```typescript
 await db.initiateRevocation({ targetDid: 'did:key:...', managerToken: myToken });
+// Req 9.1–9.4 accumulation state + Req 9.5 last-known device status:
+// { signaturesCollected, signaturesRequired, status,
+//   lastKnownTrustLevel, lastRevocationDeltaReceivedAt }
 const status = await db.revocationStatus({ targetDid: 'did:key:...' });
 await db.verifyData({ contaminationRootDeltaId: '...', managerToken: myToken });
 await db.adminClose({ incidentId: '...', managerToken: myToken });

@@ -264,6 +264,8 @@ export class MockWasmCore implements WasmCore {
       signaturesCollected: 0,
       signaturesRequired: 2,
       status: 'PENDING',
+      lastKnownTrustLevel: null,
+      lastRevocationDeltaReceivedAt: null,
     });
 
   verifyDataImpl: (

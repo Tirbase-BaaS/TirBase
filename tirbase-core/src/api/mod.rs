@@ -352,6 +352,17 @@ impl CoreHandle {
             identity.did().to_string(),
             TransportConfig {
                 listen_addr: config.listen_addr.clone(),
+                // Subphase 3.1: the transport's Saturate_Mode state machine is
+                // configured from the deployment — the M-of-N manager threshold
+                // (Req 13.6) and the primary root CA key for offline Biscuit
+                // verification (Req 13.1, 13.7).
+                saturate_termination_threshold_m: config.deployment.revocation_m.max(1),
+                root_ca_public_key: config
+                    .deployment
+                    .root_ca_keys
+                    .first()
+                    .map(|k| k.to_vec())
+                    .unwrap_or_default(),
                 ..TransportConfig::default()
             },
         );
@@ -1187,6 +1198,32 @@ impl CoreHandle {
         }
 
         Ok(())
+    }
+
+    /// Query the last-known revocation status of a device (Req 9.5).
+    ///
+    /// Returns the `DeviceRevocationStatus` recorded by the `RevocationSubsystem`
+    /// for `device_did` — the last-known `TrustLevel` of the device plus the UTC
+    /// timestamp (microseconds) of the last `RevocationDelta` receipt. This is
+    /// the data that lets an isolated device surface its last-known state even
+    /// before the Biscuit TTL expires (Req 9.5).
+    ///
+    /// Returns `Ok(None)` when no `RevocationDelta` has ever been received for
+    /// the device — the subsystem has no record of it. The device-status record
+    /// is written when a revocation is *applied* (M-of-N reached), so a pending
+    /// revocation with fewer than M signatures still reports `Ok(None)` here;
+    /// use the accumulation state exposed via `core_revocation_status` for the
+    /// in-flight M-of-N picture.
+    pub fn device_revocation_status(
+        &self,
+        device_did: &str,
+    ) -> Result<Option<crate::auth::DeviceRevocationStatus>, TirBaseError> {
+        let rev = self.revocation.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("revocation mutex poisoned: {e}"),
+            }
+        })?;
+        Ok(rev.device_status(device_did).cloned())
     }
 
     // ─── Inbound message pipeline ─────────────────────────────────────────────
@@ -2768,6 +2805,153 @@ mod tests {
                 "complete revocation delta must be re-gossiped at HIGH priority"
             );
         }
+
+        cleanup(&path);
+    }
+
+    // ── 9b. CoreHandle::device_revocation_status — Req 9.5 queryable status ───
+    //
+    // The Req 9.5 data (last-known TrustLevel + last RevocationDelta receipt
+    // timestamp) lives in `RevocationSubsystem::device_status`; these tests
+    // pin the CoreHandle exposure of that map.
+
+    #[tokio::test]
+    async fn device_revocation_status_is_none_for_unknown_device() {
+        let path = tmp_path("rev_dev_status_unknown");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let unknown = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+        // No RevocationDelta has ever been received for this DID: the subsystem
+        // has no record, so the query returns Ok(None) — not an error.
+        assert!(
+            handle
+                .device_revocation_status(&unknown)
+                .expect("query must succeed")
+                .is_none(),
+            "unknown device must have no device-status record (Req 9.5)"
+        );
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn device_revocation_status_reports_applied_revocation() {
+        let path = tmp_path("rev_dev_status_applied");
+        cleanup(&path);
+
+        // M=1, N=1 so a single Manager signature applies the revocation.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        let other_did = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+        handle
+            .initiate_revocation(&other_did, "manager-token")
+            .expect("initiate_revocation must succeed");
+
+        // Req 9.5: the last-known TrustLevel is REVOKED and the receipt
+        // timestamp is recorded for the target device.
+        let status = handle
+            .device_revocation_status(&other_did)
+            .expect("query must succeed")
+            .expect("applied revocation must produce a device-status record");
+        assert_eq!(
+            status.last_known_trust_level,
+            TrustLevel::Revoked,
+            "device-status must record the REVOKED TrustLevel (Req 9.5)"
+        );
+        assert!(
+            status.last_revocation_delta_received_at.is_some(),
+            "device-status must record the receipt timestamp (Req 9.5)"
+        );
+        assert_eq!(
+            status.device_did, other_did,
+            "device-status must be keyed by the target DID"
+        );
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn device_revocation_status_stays_none_while_pending() {
+        let path = tmp_path("rev_dev_status_pending");
+        cleanup(&path);
+
+        // M=2, N=2 — the local contribution keeps the revocation Pending.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 2,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        let target = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+        handle
+            .initiate_revocation(&target, "manager-token")
+            .expect("initiate_revocation must succeed");
+
+        // The M-of-N accumulation is Pending (1/2)…
+        {
+            let rev = handle.revocation.lock().unwrap();
+            match rev.store_status(&target) {
+                Some(crate::auth::RevocationStatus::Pending {
+                    collected,
+                    required,
+                }) => {
+                    assert_eq!(collected, 1);
+                    assert_eq!(required, 2);
+                }
+                _ => panic!("expected Pending accumulation state"),
+            }
+        }
+        // …but the Req 9.5 device-status record is only written on application,
+        // so the query still returns None (no last-known state yet).
+        assert!(
+            handle
+                .device_revocation_status(&target)
+                .expect("query must succeed")
+                .is_none(),
+            "no device-status record until the revocation is applied (Req 9.5)"
+        );
 
         cleanup(&path);
     }

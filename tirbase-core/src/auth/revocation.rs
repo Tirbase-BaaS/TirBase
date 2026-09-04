@@ -111,7 +111,7 @@ pub enum RevocationStatus {
 ///
 /// Exposed to callers so an isolated device can surface its last-known state
 /// even when the Biscuit TTL has not yet expired.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceRevocationStatus {
     /// DID of the device.
     pub device_did: Did,
@@ -523,7 +523,7 @@ impl RevocationSubsystem {
     /// timestamp for the isolated-device scenario (Req 9.5).
     ///
     /// Returns `None` if no RevocationDelta has ever been received for this DID.
-    pub fn device_status(&self, device_did: &Did) -> Option<&DeviceRevocationStatus> {
+    pub fn device_status(&self, device_did: &str) -> Option<&DeviceRevocationStatus> {
         self.device_status.get(device_did)
     }
 
@@ -754,7 +754,7 @@ impl RevocationSubsystem {
         })
     }
 
-    pub fn device_status(&self, device_did: &Did) -> Option<&DeviceRevocationStatus> {
+    pub fn device_status(&self, device_did: &str) -> Option<&DeviceRevocationStatus> {
         self.device_status.get(device_did)
     }
 
