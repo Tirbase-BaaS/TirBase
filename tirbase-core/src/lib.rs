@@ -504,84 +504,140 @@ mod wasm_exports {
         })
     }
 
-    /// Activate Saturate Mode with a DISASTER_ALERT payload.
+    /// Activate Saturate Mode with a DISASTER_ALERT payload (Req 13.1).
+    ///
+    /// `biscuit_token_hex` — hex-encoded Biscuit token carrying the
+    /// `disaster-alert` caveat, signed by a registered root CA key (Req 13.1,
+    /// 13.7).  Delegates to [`api::CoreHandle::activate_saturate_mode`] — the
+    /// shared WASM + native implementation — which verifies the token and
+    /// routes activation through the transport's real `SaturateModeStateMachine`
+    /// (Subphase 3.2): a 60-minute lease is opened and the DRR scheduler is
+    /// reconciled into Saturate Mode.  Any verification failure leaves the
+    /// current mode untouched (Req 13.7).
     #[wasm_bindgen]
     pub async fn core_activate_saturate_mode(
         biscuit_token_hex: String,
     ) -> Result<(), JsValue> {
-        // Decode the hex-encoded Biscuit token bytes.
-        let token_bytes = hex::decode(&biscuit_token_hex)
+        let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle.activate_saturate_mode(&token_bytes).map_err(to_js_err)
+        })
+    }
+
+    /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+    /// (Req 13.4).
+    ///
+    /// `biscuit_token_hex` — hex-encoded Biscuit token as for activation.
+    /// Delegates to [`api::CoreHandle::renew_saturate_mode`] — the shared WASM
+    /// + native implementation — which verifies the token and routes the
+    /// renewal through the transport's real `SaturateModeStateMachine`: the
+    /// lease is extended by 60 minutes from the renewal timestamp and the DRR
+    /// scheduler stays in Saturate Mode.  A failed heartbeat leaves the mode
+    /// untouched (Req 13.7).
+    #[wasm_bindgen]
+    pub async fn core_renew_saturate_mode(
+        biscuit_token_hex: String,
+    ) -> Result<(), JsValue> {
+        let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle.renew_saturate_mode(&token_bytes).map_err(to_js_err)
+        })
+    }
+
+    /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
+    ///
+    /// `termination_message_hex` — hex-encoded canonical bytes that every
+    /// terminating Manager signed.  `co_manager_signatures` — a JSON array of
+    /// objects `[{"did": "did:key:z6Mk…", "signatureHex": "…"}, …]` carrying
+    /// the raw Ed25519 signatures (64 bytes, hex-encoded) already collected
+    /// from the other Managers; this device contributes its own signature over
+    /// the message automatically.  Delegates to
+    /// [`api::CoreHandle::terminate_saturate_mode`] — the shared WASM + native
+    /// implementation — which routes the termination through the transport's
+    /// real `SaturateModeStateMachine` and, at threshold, clears the lease and
+    /// takes the DRR scheduler out of Saturate Mode.
+    #[wasm_bindgen]
+    pub async fn core_terminate_saturate_mode(
+        termination_message_hex: String,
+        co_manager_signatures: JsValue,
+    ) -> Result<(), JsValue> {
+        // Canonical termination message (the bytes the Managers signed).
+        let message = hex::decode(&termination_message_hex)
             .map_err(|_| to_js_err(
-                crate::errors::TirBaseError::SignatureVerificationFailed {
-                    reason: "biscuit_token_hex: invalid hex encoding".to_string(),
+                crate::errors::TirBaseError::AuthorisationFailed {
+                    reason: "termination_message_hex: invalid hex encoding".to_string(),
                 }.to_string()
             ))?;
-
-        if token_bytes.is_empty() {
+        if message.is_empty() {
             return Err(to_js_err(
-                crate::errors::TirBaseError::SignatureVerificationFailed {
-                    reason: "biscuit token is absent or empty".to_string(),
+                crate::errors::TirBaseError::AuthorisationFailed {
+                    reason: "termination message must not be empty".to_string(),
                 }.to_string()
             ));
+        }
+
+        // Parse [{ did, signatureHex }, …] into (did, raw signature bytes).
+        let sigs_json = js_to_json(&co_manager_signatures)
+            .map_err(|e| to_js_err(format!("co_manager_signatures: {e}")))?;
+        let entries = sigs_json.as_array().ok_or_else(|| {
+            to_js_err("co_manager_signatures must be an array of { did, signatureHex } objects")
+        })?;
+        let mut co_signatures: Vec<(String, Vec<u8>)> = Vec::new();
+        for entry in entries {
+            let did = entry.get("did").and_then(|v| v.as_str()).ok_or_else(|| {
+                to_js_err("each co-signature must carry a string \"did\" field")
+            })?;
+            let signature_hex = entry.get("signatureHex").and_then(|v| v.as_str()).ok_or_else(|| {
+                to_js_err("each co-signature must carry a string \"signatureHex\" field")
+            })?;
+            let sig_bytes = hex::decode(signature_hex).map_err(|_| {
+                to_js_err("co-signature signatureHex: invalid hex encoding")
+            })?;
+            if sig_bytes.len() != 64 {
+                return Err(to_js_err(
+                    "co-signature signatureHex must decode to 64 bytes (128 hex chars)"
+                ));
+            }
+            co_signatures.push((did.to_string(), sig_bytes));
         }
 
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow.as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-
-            // Get root CA key for verification.  Empty = explicit unconfigured
-            // state: no key was registered at init or at runtime.
-            let root_ca_key = handle.root_ca_public_key();
-            if root_ca_key.is_empty() {
-                return Err(to_js_err(
-                    crate::errors::TirBaseError::AuthorisationFailed {
-                        reason: "no root CA public key registered; cannot verify Biscuit token".to_string(),
-                    }.to_string()
-                ));
-            }
-
-            // Get current time.
-            let now_secs = {
-                use std::time::{SystemTime, UNIX_EPOCH};
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as i64
-            };
-
-            // Verify token has disaster-alert caveat (Req 13.1, 13.7).
-            match crate::auth::biscuit::verify_and_check_caveat(
-                &token_bytes,
-                "disaster-alert",
-                &root_ca_key,
-                now_secs,
-            ) {
-                Ok(true) => {
-                    // Valid token with caveat — activate through the transport's
-                    // SaturateModeStateMachine (Subphase 3.1): the state machine
-                    // re-verifies the token, opens the 60-minute lease, and the
-                    // DRR scheduler is put into Saturate Mode.  The local device
-                    // is the activating manager recorded on the lease.
-                    let mut transport = handle.transport.lock()
-                        .map_err(|e| to_js_err(format!("transport lock: {e}")))?;
-                    transport
-                        .activate_saturate_mode(
-                            handle.identity.did().to_string(),
-                            &token_bytes,
-                            now_secs,
-                        )
-                        .map_err(to_js_err)?;
-                    Ok(())
-                }
-                Ok(false) => Err(to_js_err(
-                    crate::errors::TirBaseError::SignatureVerificationFailed {
-                        reason: "biscuit token is missing the disaster-alert caveat".to_string(),
-                    }.to_string()
-                )),
-                Err(e) => Err(to_js_err(e.to_string())),
-            }
+            handle
+                .terminate_saturate_mode(&message, co_signatures)
+                .map_err(to_js_err)
         })
+    }
+
+    /// Decode a hex-encoded Biscuit token, rejecting malformed or empty input
+    /// with a `SignatureVerificationFailed`-style error string (shared by
+    /// `core_activate_saturate_mode` and `core_renew_saturate_mode`).
+    fn decode_biscuit_token_hex(biscuit_token_hex: &str) -> Result<Vec<u8>, JsValue> {
+        let token_bytes = hex::decode(biscuit_token_hex).map_err(|_| {
+            to_js_err(
+                crate::errors::TirBaseError::SignatureVerificationFailed {
+                    reason: "biscuit_token_hex: invalid hex encoding".to_string(),
+                }
+                .to_string(),
+            )
+        })?;
+        if token_bytes.is_empty() {
+            return Err(to_js_err(
+                crate::errors::TirBaseError::SignatureVerificationFailed {
+                    reason: "biscuit token is absent or empty".to_string(),
+                }
+                .to_string(),
+            ));
+        }
+        Ok(token_bytes)
     }
 
     // ── Inbound peer message ───────────────────────────────────────────────────

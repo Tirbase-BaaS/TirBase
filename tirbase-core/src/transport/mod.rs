@@ -307,21 +307,45 @@ impl MeshTransport {
     }
 
     // ── Saturate Mode ─────────────────────────────────────────────────────────
+    //
+    // Subphase 3.2: the transport exposes one facade method per lease-lifecycle
+    // event (activate / renew / M-of-N terminate).  Each delegates to the real
+    // [`SaturateModeStateMachine`] and — only on success — reconciles the DRR
+    // scheduler flag from the resulting state.  The scheduler is a mirror, not
+    // a second source of truth: nothing in production may flip it directly.
+
+    /// Reconcile the DRR scheduler's Saturate_Mode flag with the state machine.
+    ///
+    /// This is the **only** production writer of the scheduler flag: the
+    /// scheduler holds no independent opinion about whether Saturate_Mode is
+    /// active — it mirrors `saturate.state()`.  Every lifecycle transition
+    /// funnels through [`SaturateModeStateMachine`] first and then runs this
+    /// reconciler, so the boolean can never drift from the lease.  In
+    /// particular a successful M-of-N termination (Req 13.6) demotes the state
+    /// machine AND clears the scheduler together; the bare
+    /// `scheduler.set_saturate_mode(true)` bypass this replaces could set the
+    /// flag with no lease, renewal, or termination machinery behind it,
+    /// leaving a device in Saturate_Mode forever (audit B-3).
+    fn reconcile_scheduler_saturate_mode(&mut self) {
+        let active = self.saturate.state() == SaturateState::Saturate;
+        self.scheduler.set_saturate_mode(active);
+    }
 
     /// Activate Saturate_Mode from a DISASTER_ALERT Biscuit token (Req 13.1).
     ///
     /// Delegates to the transport's [`SaturateModeStateMachine`]: the token is
     /// verified offline against the configured root CA key (signature, expiry,
     /// `disaster-alert` caveat — Req 13.7) and a 60-minute lease is opened on
-    /// success.  The DRR scheduler is then put into Saturate Mode (all
-    /// bandwidth to HIGH, Req 13.2).
+    /// success.  On success the DRR scheduler is reconciled into Saturate Mode
+    /// (all bandwidth to HIGH, Req 13.2) via
+    /// [`MeshTransport::reconcile_scheduler_saturate_mode`].
     ///
     /// Any verification failure returns `SignatureVerificationFailed` and
     /// leaves both the state machine and the scheduler untouched (Req 13.7).
     ///
-    /// Production caller: the WASM export `core_activate_saturate_mode`
-    /// (lib.rs), which pre-verifies the token for a clearer unconfigured-CA
-    /// error and then routes the real activation through here.
+    /// Production caller: `CoreHandle::activate_saturate_mode`
+    /// (api/mod.rs) — the shared WASM + native entry point — which the WASM
+    /// export `core_activate_saturate_mode` (lib.rs) delegates to.
     pub(crate) fn activate_saturate_mode(
         &mut self,
         manager_did: Did,
@@ -329,7 +353,60 @@ impl MeshTransport {
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
         self.saturate.activate(manager_did, biscuit_token, now_secs)?;
-        self.scheduler.set_saturate_mode(true);
+        self.reconcile_scheduler_saturate_mode();
+        Ok(())
+    }
+
+    /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+    /// (Req 13.4).
+    ///
+    /// Delegates to [`SaturateModeStateMachine::renew`]: valid only while the
+    /// state machine is in SATURATE; a valid heartbeat extends the lease by
+    /// 60 minutes from the renewal timestamp.  On success the scheduler is
+    /// reconciled from the state machine (still SATURATE — all bandwidth to
+    /// HIGH).  Any failure returns `SignatureVerificationFailed` and preserves
+    /// both the state machine and the scheduler untouched (Req 13.7).
+    ///
+    /// Production caller: `CoreHandle::renew_saturate_mode` (api/mod.rs) —
+    /// the shared WASM + native entry point — which the WASM export
+    /// `core_renew_saturate_mode` (lib.rs) delegates to.
+    pub(crate) fn renew_saturate_mode(
+        &mut self,
+        manager_did: Did,
+        biscuit_token: &[u8],
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        self.saturate.renew(manager_did, biscuit_token, now_secs)?;
+        self.reconcile_scheduler_saturate_mode();
+        Ok(())
+    }
+
+    /// Terminate Saturate_Mode via an M-of-N Lease Termination (Req 13.6).
+    ///
+    /// Delegates to [`SaturateModeStateMachine::terminate`]: when at least
+    /// `termination_threshold_m` valid **distinct** Manager DID signatures
+    /// over `message` are supplied, the state machine transitions to NORMAL
+    /// immediately regardless of remaining lease duration.  On success the
+    /// scheduler is reconciled from the state machine — this is the transition
+    /// that clears the scheduler's Saturate_Mode flag (MEDIUM/LOW resumes
+    /// normal service, Req 13.5).
+    ///
+    /// A signature set below the threshold returns `ThresholdNotMet` and
+    /// leaves both the state machine and the scheduler untouched (invariant
+    /// (b), Req 13.7).  When not in SATURATE the call is a no-op that returns
+    /// `Ok(())`.
+    ///
+    /// Production caller: `CoreHandle::terminate_saturate_mode`
+    /// (api/mod.rs) — the shared WASM + native entry point — which the WASM
+    /// export `core_terminate_saturate_mode` (lib.rs) delegates to.
+    pub(crate) fn terminate_saturate_mode(
+        &mut self,
+        signatures: Vec<(Did, Vec<u8>)>,
+        message: &[u8],
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        self.saturate.terminate(signatures, message, now_secs)?;
+        self.reconcile_scheduler_saturate_mode();
         Ok(())
     }
 
@@ -886,15 +963,16 @@ mod tests {
         );
     }
 
-    // ── Saturate Mode wiring (Subphase 3.1) ────────────────────────────────
+    // ── Saturate Mode wiring (Subphase 3.1–3.2) ───────────────────────────
     //
     // `SaturateModeStateMachine` is instantiated inside `MeshTransport` in
     // production code (`MeshTransport::new`).  These integration tests drive
-    // the production entry point (`MeshTransport::activate_saturate_mode`,
-    // called by the WASM export `core_activate_saturate_mode`) with a real
-    // Biscuit DISASTER_ALERT token and assert the state machine AND the DRR
-    // scheduler both transition — the bare-boolean flag this replaces could
-    // not do either.
+    // the production entry points (`MeshTransport::activate_saturate_mode` /
+    // `renew_saturate_mode` / `terminate_saturate_mode`, reached from
+    // `CoreHandle` on both the WASM and native builds) with real tokens and
+    // signatures, and assert the state machine AND the DRR scheduler stay in
+    // lock-step — the scheduler flag is reconciled from the state machine,
+    // never set by a bare boolean.
 
     fn now_secs() -> i64 {
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -902,6 +980,18 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64
+    }
+
+    /// Sign `message` with a fresh Ed25519 key derived from `seed` and return
+    /// `(did:key, signature_bytes)` — a stand-in for one Manager DID's
+    /// contribution to an M-of-N Lease Termination Delta (Req 13.6).
+    #[cfg(not(target_arch = "wasm32"))]
+    fn manager_signature(message: &[u8], seed: u8) -> (Did, Vec<u8>) {
+        use ed25519_dalek::{Signer, SigningKey};
+        let sk = SigningKey::from_bytes(&[seed; 32]);
+        let did = crate::crdt::derive_did_from_public_key(&sk.verifying_key().to_bytes());
+        let sig = sk.sign(message).to_bytes().to_vec();
+        (did, sig)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -934,6 +1024,156 @@ mod tests {
             "scheduler must follow the state machine into Saturate_Mode"
         );
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn renew_saturate_mode_drives_state_machine_and_keeps_scheduler_in_saturate() {
+        use crate::transport::saturate::{SaturateState, SATURATE_LEASE_DURATION_SECS};
+
+        // One CA keypair; the transport is configured with its public key, and
+        // BOTH the activation and the heartbeat tokens are signed by it — the
+        // production construction `CoreHandle::init` uses.
+        use biscuit_auth::{builder::Algorithm, KeyPair};
+        let kp = KeyPair::new();
+        let ca_private = kp.private().to_bytes().to_vec();
+        let ca_pub = kp.public().to_bytes().to_vec();
+        let make_token = |ttl: u64| {
+            crate::auth::biscuit::create_token_with_caveat(
+                "did:key:z6MkManager",
+                "manager",
+                ttl,
+                "disaster-alert",
+                &ca_private,
+            )
+            .expect("token creation must succeed")
+        };
+
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &make_token(3600), now)
+            .expect("activation must succeed");
+        let expiry_before = t
+            .saturate
+            .lease()
+            .expect("activation must open a lease")
+            .expires_at;
+
+        // Heartbeat renewal 5 minutes later (Req 13.4): the state machine must
+        // extend the lease by 60 minutes from the renewal timestamp and the
+        // scheduler must remain in Saturate Mode.
+        let renew_at = now + 5 * 60;
+        t.renew_saturate_mode("did:key:z6MkManager".to_string(), &make_token(3600), renew_at)
+            .expect("a valid heartbeat token must renew the lease");
+
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        let lease = t.saturate.lease().expect("renewal must keep the lease");
+        assert_eq!(
+            lease.expires_at,
+            renew_at + SATURATE_LEASE_DURATION_SECS,
+            "renewal must extend by 60 minutes from the renewal timestamp"
+        );
+        assert!(
+            lease.expires_at > expiry_before,
+            "renewal must push the expiry later"
+        );
+        assert!(
+            t.scheduler.is_saturate_mode(),
+            "scheduler must stay in Saturate Mode across a valid renewal"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn renew_saturate_mode_with_invalid_token_preserves_mode_and_scheduler() {
+        use crate::transport::saturate::{
+            make_disaster_alert_token_for_test, SaturateState,
+        };
+
+        let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &token, now)
+            .expect("activation must succeed");
+
+        // An invalid heartbeat must be rejected with the mode — and therefore
+        // the scheduler mirror — untouched (Req 13.7).
+        let err = t
+            .renew_saturate_mode("did:key:z6MkManager".to_string(), b"not-a-biscuit", now + 60)
+            .expect_err("an invalid heartbeat token must be rejected");
+        assert!(
+            matches!(err, TirBaseError::SignatureVerificationFailed { .. }),
+            "expected SignatureVerificationFailed, got: {err}"
+        );
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        assert!(t.scheduler.is_saturate_mode());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn terminate_saturate_mode_at_threshold_clears_state_machine_and_scheduler() {
+        use crate::transport::saturate::{
+            make_disaster_alert_token_for_test, SaturateState,
+        };
+
+        let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &token, now)
+            .expect("activation must succeed");
+
+        // M-of-N termination (Req 13.6): two distinct valid Manager signatures
+        // over the same termination message meet the configured threshold of 2.
+        let message = b"saturate-terminate:v1";
+        let (did1, sig1) = manager_signature(message, 0x11);
+        let (did2, sig2) = manager_signature(message, 0x22);
+        assert_ne!(did1, did2, "the two Managers must be distinct DIDs");
+
+        t.terminate_saturate_mode(vec![(did1, sig1), (did2, sig2)], message, now + 60)
+            .expect("M-of-N termination must succeed");
+
+        // The state machine demotes to NORMAL and drops the lease…
+        assert_eq!(t.saturate.state(), SaturateState::Normal);
+        assert!(t.saturate.lease().is_none(), "lease must be cleared");
+
+        // …and the scheduler mirror follows: the bare `set_saturate_mode(true)`
+        // boolean bypass this replaces would have left the scheduler in
+        // Saturate Mode forever after a termination.
+        assert!(
+            !t.scheduler.is_saturate_mode(),
+            "scheduler must leave Saturate Mode when M-of-N termination demotes the state machine"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn terminate_saturate_mode_below_threshold_preserves_mode_and_scheduler() {
+        use crate::transport::saturate::{
+            make_disaster_alert_token_for_test, SaturateState,
+        };
+
+        let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+        let mut t = make_saturate_transport(2, ca_pub);
+        let now = now_secs();
+        t.activate_saturate_mode("did:key:z6MkManager".to_string(), &token, now)
+            .expect("activation must succeed");
+
+        // Only 1 of the 2 required Manager signatures — the termination must
+        // fail with ThresholdNotMet and leave mode + scheduler untouched
+        // (invariant (b), Req 13.6).
+        let message = b"saturate-terminate:v1";
+        let (did1, sig1) = manager_signature(message, 0x33);
+        let err = t
+            .terminate_saturate_mode(vec![(did1, sig1)], message, now + 60)
+            .expect_err("below-threshold termination must fail");
+        assert!(
+            matches!(err, TirBaseError::ThresholdNotMet { got: 1, need: 2 }),
+            "expected ThresholdNotMet(1, 2), got: {err}"
+        );
+        assert_eq!(t.saturate.state(), SaturateState::Saturate);
+        assert!(t.scheduler.is_saturate_mode());
+    }
+
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]

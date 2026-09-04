@@ -50,6 +50,16 @@ fn now_micros() -> i64 {
         .as_micros() as i64
 }
 
+/// Current wall-clock time in UTC seconds (Saturate_Mode lease bookkeeping,
+/// Req 13.3–13.5).
+fn now_secs() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
 /// Wrap a `RevocationDelta` in a HIGH-priority outbound Delta and enqueue it on
 /// the mesh transport scheduler, so the scheduler tick loop gossips it to
 /// peers (Req 9.1 partial-delta gossip from initiating Managers; Req 9.2
@@ -1224,6 +1234,173 @@ impl CoreHandle {
             }
         })?;
         Ok(rev.device_status(device_did).cloned())
+    }
+
+    // ─── Manager operations — Saturate Mode (Req 13) ─────────────────────────
+    //
+    // Subphase 3.2: activation, heartbeat renewal, and M-of-N termination all
+    // route through the transport's production `SaturateModeStateMachine` —
+    // never through a bare scheduler boolean.  These methods are the shared
+    // WASM + native implementation: the WASM exports in lib.rs
+    // (`core_activate_saturate_mode` / `core_renew_saturate_mode` /
+    // `core_terminate_saturate_mode`) delegate here, and the native build
+    // (Cloud Ledger / host code holding a `CoreHandle`) calls them directly.
+    // Each locks the mesh transport, drives the state machine, and lets the
+    // transport reconcile the DRR scheduler from the resulting state.
+
+    /// Verify a Manager DISASTER_ALERT Biscuit token for a lease-lifecycle
+    /// event (Req 13.1, 13.4, 13.7) and return the current UTC seconds.
+    ///
+    /// Applies the same gates the WASM export historically applied so the
+    /// shared implementation keeps the same clear error messages: absent or
+    /// empty tokens are rejected as `SignatureVerificationFailed`; an
+    /// unconfigured root CA registry (no key at init or runtime) is reported
+    /// as `AuthorisationFailed`; and a token that fails offline verification
+    /// or lacks the `disaster-alert` caveat is rejected with
+    /// `SignatureVerificationFailed`.  The state machine re-verifies the token
+    /// authoritatively inside the transport — this pre-check only sharpens the
+    /// error the caller sees.
+    fn verify_disaster_alert_token(
+        &self,
+        biscuit_token: &[u8],
+    ) -> Result<i64, TirBaseError> {
+        if biscuit_token.is_empty() {
+            return Err(TirBaseError::SignatureVerificationFailed {
+                reason: "biscuit token is absent or empty".to_string(),
+            });
+        }
+
+        // Root CA key for offline verification.  Empty = explicit unconfigured
+        // state: no key was registered at init or at runtime.
+        let root_ca_key = self.root_ca_public_key();
+        if root_ca_key.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "no root CA public key registered; cannot verify Biscuit token"
+                    .to_string(),
+            });
+        }
+
+        let now = now_secs();
+
+        // Verify the token has the disaster-alert caveat (Req 13.1, 13.7).
+        match crate::auth::biscuit::verify_and_check_caveat(
+            biscuit_token,
+            "disaster-alert",
+            &root_ca_key,
+            now,
+        ) {
+            Ok(true) => Ok(now),
+            Ok(false) => Err(TirBaseError::SignatureVerificationFailed {
+                reason: "biscuit token is missing the disaster-alert caveat".to_string(),
+            }),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Activate Saturate_Mode with a DISASTER_ALERT Biscuit token (Req 13.1).
+    ///
+    /// Verifies `biscuit_token` (signature, expiry, `disaster-alert` caveat —
+    /// Req 13.7) and routes the activation through the transport's real
+    /// [`crate::transport::saturate::SaturateModeStateMachine`], which opens a
+    /// 60-minute lease and — on success — puts the DRR scheduler into Saturate
+    /// Mode.  The local device is recorded as the activating Manager on the
+    /// lease.
+    ///
+    /// Any verification failure returns `SignatureVerificationFailed` (or
+    /// `AuthorisationFailed` when no root CA key is configured) and leaves the
+    /// current mode — state machine and scheduler — untouched (Req 13.7).
+    ///
+    /// Production caller on WASM: `core_activate_saturate_mode` (lib.rs).
+    /// Production caller on native: host/server code holding a `CoreHandle`
+    /// (the native counterpart of the WASM export).
+    pub fn activate_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError> {
+        let now = self.verify_disaster_alert_token(biscuit_token)?;
+        let manager_did = self.identity.did().to_string();
+        self.transport
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            })?
+            .activate_saturate_mode(manager_did, biscuit_token, now)
+    }
+
+    /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+    /// (Req 13.4).
+    ///
+    /// Verifies `biscuit_token` exactly as activation does, then routes the
+    /// renewal through the transport's real
+    /// [`crate::transport::saturate::SaturateModeStateMachine`]: valid only
+    /// while in SATURATE, it extends the lease by 60 minutes from the renewal
+    /// timestamp.  The DRR scheduler remains in Saturate Mode.
+    ///
+    /// Any failure returns `SignatureVerificationFailed` and preserves the
+    /// current mode (Req 13.7).
+    ///
+    /// Production caller on WASM: `core_renew_saturate_mode` (lib.rs).
+    /// Production caller on native: host/server code holding a `CoreHandle`.
+    pub fn renew_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError> {
+        let now = self.verify_disaster_alert_token(biscuit_token)?;
+        let manager_did = self.identity.did().to_string();
+        self.transport
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            })?
+            .renew_saturate_mode(manager_did, biscuit_token, now)
+    }
+
+    /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
+    ///
+    /// `message` is the canonical termination payload the Managers signed
+    /// (callers must share the exact same bytes with every co-signing
+    /// Manager).  This device contributes its own Manager signature over
+    /// `message`; `co_manager_signatures` carries the signatures already
+    /// collected from the remaining Managers `(did:key, raw Ed25519 sig)`.
+    ///
+    /// The transport's real
+    /// [`crate::transport::saturate::SaturateModeStateMachine`] verifies each
+    /// signature against the DID-embedded public key, counts only **distinct**
+    /// valid DIDs, and terminates immediately — clearing the lease and taking
+    /// the DRR scheduler out of Saturate Mode — once the configured threshold
+    /// `M` is met.  Fewer than `M` valid distinct signatures return
+    /// `ThresholdNotMet` and preserve the current mode (invariant (b)).
+    ///
+    /// Note: the codebase models a "Manager" as a DID whose key verifies a
+    /// signature over the termination message — the state machine has no
+    /// separate registry of the N registered Manager DIDs, so co-signatures
+    /// are self-certifying.  This mirrors the `SaturateModeStateMachine`
+    /// contract that Subphase 3.1 established and is unchanged here.
+    ///
+    /// Production caller on WASM: `core_terminate_saturate_mode` (lib.rs).
+    /// Production caller on native: host/server code holding a `CoreHandle`.
+    pub fn terminate_saturate_mode(
+        &self,
+        message: &[u8],
+        co_manager_signatures: Vec<(String, Vec<u8>)>,
+    ) -> Result<(), TirBaseError> {
+        if message.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "termination message must not be empty".to_string(),
+            });
+        }
+
+        // The local device signs the canonical termination message with its
+        // own Manager identity, then any co-signatures collected from other
+        // Managers are appended.  Distinctness and validity are enforced by
+        // the state machine when the threshold is counted.
+        let manager_did = self.identity.did().to_string();
+        let local_signature = self.identity.sign(message)?;
+        let mut signatures = Vec::with_capacity(co_manager_signatures.len() + 1);
+        signatures.push((manager_did, local_signature.to_vec()));
+        signatures.extend(co_manager_signatures);
+
+        let now = now_secs();
+        self.transport
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            })?
+            .terminate_saturate_mode(signatures, message, now)
     }
 
     // ─── Inbound message pipeline ─────────────────────────────────────────────
@@ -3512,6 +3689,179 @@ mod tests {
             .expect("verification must not error after registration"),
             "runtime-registered CA key must verify a valid disaster-alert token"
         );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 3.2: Saturate Mode lifecycle through the real state machine ──
+    //
+    // `CoreHandle::activate_saturate_mode` / `renew_saturate_mode` /
+    // `terminate_saturate_mode` are the shared WASM + native entry points the
+    // WASM exports delegate to (lib.rs).  These integration tests drive a real
+    // `CoreHandle` (the exact production construction: deployment CA key →
+    // `TransportConfig` → transport state machine) through activation,
+    // renewal, a below-threshold M-of-N attempt, and a successful M-of-N
+    // termination, asserting at each step that the DRR scheduler mirrors the
+    // state machine — the bare `set_saturate_mode(true)` boolean bypass could
+    // never demote the scheduler again.
+
+    /// A stand-in for one external Manager DID's contribution to an M-of-N
+    /// Lease Termination Delta (Req 13.6): sign `message` with a fresh Ed25519
+    /// key and return `(did:key, signature_bytes)`.
+    fn external_manager_signature(message: &[u8], seed: u8) -> (String, Vec<u8>) {
+        use ed25519_dalek::{Signer, SigningKey};
+        let sk = SigningKey::from_bytes(&[seed; 32]);
+        let did = crate::crdt::derive_did_from_public_key(&sk.verifying_key().to_bytes());
+        let sig = sk.sign(message).to_bytes().to_vec();
+        (did, sig)
+    }
+
+    /// Build a disaster-alert Biscuit token signed by `ca_private`, as the
+    /// deployment CA would issue to a Manager (Req 13.1).
+    fn make_disaster_alert_token(ca_private: &[u8]) -> Vec<u8> {
+        crate::auth::biscuit::create_token_with_caveat(
+            "did:key:z6MkManager",
+            "manager",
+            3600,
+            "disaster-alert",
+            ca_private,
+        )
+        .expect("token creation must succeed")
+    }
+
+    #[tokio::test]
+    async fn saturate_mode_lifecycle_routes_through_state_machine_and_scheduler() {
+        use crate::transport::saturate::SaturateState;
+
+        let path = tmp_path("saturate_lifecycle");
+        cleanup(&path);
+
+        let (ca_private, ca_public) = make_ca_keypair();
+        let handle = CoreHandle::init(make_config_with_ca_key(&path, ca_public))
+            .await
+            .expect("init");
+
+        // ── Activation (Req 13.1) ────────────────────────────────────────────
+        let activate_token = make_disaster_alert_token(&ca_private);
+        handle
+            .activate_saturate_mode(&activate_token)
+            .expect("a valid disaster-alert token must activate Saturate_Mode");
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Saturate);
+            let lease = transport
+                .saturate
+                .lease()
+                .expect("activation must open a lease");
+            assert_eq!(lease.activating_manager_did, handle.identity.did());
+            assert!(lease.expires_at > now_secs());
+            assert!(
+                transport.scheduler.is_saturate_mode(),
+                "scheduler must follow the state machine into Saturate_Mode"
+            );
+        }
+
+        // ── Heartbeat renewal (Req 13.4) ─────────────────────────────────────
+        let renew_token = make_disaster_alert_token(&ca_private);
+        handle
+            .renew_saturate_mode(&renew_token)
+            .expect("a valid heartbeat token must renew the lease");
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Saturate);
+            let lease = transport
+                .saturate
+                .lease()
+                .expect("renewal must keep the lease");
+            assert!(
+                lease.last_renewed_at.is_some(),
+                "renewal must record a last_renewed_at through the state machine"
+            );
+            assert!(
+                transport.scheduler.is_saturate_mode(),
+                "scheduler must stay in Saturate Mode across a renewal"
+            );
+        }
+
+        // ── Below-threshold termination is rejected (invariant (b)) ──────────
+        let message = b"saturate-terminate:v1";
+        let err = handle
+            .terminate_saturate_mode(message, vec![])
+            .expect_err("only the local signature must not meet an M=2 threshold");
+        assert!(
+            matches!(err, TirBaseError::ThresholdNotMet { got: 1, need: 2 }),
+            "expected ThresholdNotMet(got=1, need=2), got: {err}"
+        );
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(
+                transport.saturate.state(),
+                SaturateState::Saturate,
+                "mode must be preserved below the M-of-N threshold"
+            );
+            assert!(
+                transport.scheduler.is_saturate_mode(),
+                "scheduler must stay in Saturate Mode below the M-of-N threshold"
+            );
+        }
+
+        // ── M-of-N termination (Req 13.6) ────────────────────────────────────
+        let co_sig = external_manager_signature(message, 0x77);
+        handle
+            .terminate_saturate_mode(message, vec![co_sig])
+            .expect("local + one external Manager signature must meet the M=2 threshold");
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert_eq!(transport.saturate.state(), SaturateState::Normal);
+            assert!(
+                transport.saturate.lease().is_none(),
+                "lease must be cleared after termination"
+            );
+            assert!(
+                !transport.scheduler.is_saturate_mode(),
+                "scheduler must leave Saturate Mode on M-of-N termination — \
+                 the bare-boolean bypass could never demote it"
+            );
+        }
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn saturate_mode_activation_with_invalid_token_preserves_normal_mode() {
+        use crate::transport::saturate::SaturateState;
+
+        let path = tmp_path("saturate_invalid");
+        cleanup(&path);
+
+        let (_, ca_public) = make_ca_keypair();
+        let handle = CoreHandle::init(make_config_with_ca_key(&path, ca_public))
+            .await
+            .expect("init");
+
+        // A token signed by a DIFFERENT (unregistered) CA key must be rejected;
+        // the mode and scheduler must stay untouched (Req 13.7).
+        let (other_private, _) = make_ca_keypair();
+        let foreign_token = crate::auth::biscuit::create_token_with_caveat(
+            "did:key:z6MkManager",
+            "manager",
+            3600,
+            "disaster-alert",
+            &other_private,
+        )
+        .expect("token creation must succeed");
+        let err = handle
+            .activate_saturate_mode(&foreign_token)
+            .expect_err("a token from an unregistered CA must be rejected");
+        assert!(
+            matches!(err, TirBaseError::AuthorisationFailed { .. })
+                || matches!(err, TirBaseError::SignatureVerificationFailed { .. }),
+            "expected an authorisation / verification error, got: {err}"
+        );
+
+        let transport = handle.transport.lock().unwrap();
+        assert_eq!(transport.saturate.state(), SaturateState::Normal);
+        assert!(!transport.scheduler.is_saturate_mode());
 
         cleanup(&path);
     }

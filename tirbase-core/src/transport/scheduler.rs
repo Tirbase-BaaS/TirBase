@@ -135,8 +135,18 @@ impl DrrScheduler {
         result
     }
 
-    /// Activate Saturate_Mode (Req 13.1–13.2).
-    pub fn set_saturate_mode(&mut self, active: bool) {
+    /// Activate / deactivate the scheduler's Saturate_Mode flag (Req 13.2).
+    ///
+    /// The scheduler is a **mirror**, not a source of truth: it must only be
+    /// written by `MeshTransport::reconcile_scheduler_saturate_mode`
+    /// (Subphase 3.2), which derives the flag from the transport's
+    /// `SaturateModeStateMachine` after every lease-lifecycle event.  Callers
+    /// outside `transport` must not flip this boolean directly — doing so
+    /// bypasses lease activation / renewal / M-of-N-termination entirely.
+    ///
+    /// When leaving saturate mode the deficit counters may have accumulated;
+    /// reset them to avoid a sudden burst on the first normal-mode epoch.
+    pub(crate) fn set_saturate_mode(&mut self, active: bool) {
         self.saturate_mode = active;
         // When leaving saturate mode the deficit counters may have accumulated;
         // reset them to avoid a sudden burst on the first normal-mode epoch.
@@ -148,7 +158,7 @@ impl DrrScheduler {
     }
 
     /// Returns true if saturate mode is currently active.
-    pub fn is_saturate_mode(&self) -> bool {
+    pub(crate) fn is_saturate_mode(&self) -> bool {
         self.saturate_mode
     }
 

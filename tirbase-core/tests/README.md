@@ -302,10 +302,11 @@ wasm-bindgen target/wasm32-unknown-unknown/release/tirbase_core.wasm \
 
 ### Item 3 — TypeScript SDK Tests
 
-**Status:** VERIFIED (57 tests, 0 failures)
+**Status:** VERIFIED (65 tests, 0 failures)
 
-`npm test` in `tirbase-sdk/` passes all 57 Jest tests, including the WASM
-event bridge tests added in Task 31.
+`npm test` in `tirbase-sdk/` passes all 65 Jest tests (including the WASM
+event bridge tests added in Task 31 and the Subphase 3.2
+`renewSaturateMode` / `terminateSaturateMode` delegation tests).
 
 ---
 
@@ -313,11 +314,14 @@ event bridge tests added in Task 31.
 
 **Status:** VERIFIED
 
-`tirbase-sdk/wasm/tirbase_core.d.ts` contains all 12 required exports:
+The wasm-bindgen export surface — regenerated into
+`tirbase-sdk/wasm/tirbase_core.d.ts` by the manual pipeline above on release —
+consists of 15 required exports:
 `core_init`, `core_read`, `core_write`, `core_query`, `core_trust_level`,
 `core_mesh_status`, `core_initiate_revocation`, `core_revocation_status`,
 `core_verify_data`, `core_admin_close`, `core_activate_saturate_mode`,
-`core_poll_events`.
+`core_renew_saturate_mode`, `core_terminate_saturate_mode`,
+`core_receive_peer_message`, `core_poll_events`.
 
 ---
 
