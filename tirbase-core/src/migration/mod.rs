@@ -194,6 +194,13 @@ impl SchemaMigrationEngine {
     /// 2. Migration not already revoked.
     /// 3. CA signature over transform_bytes is valid.
     /// 4. SHA-256 of transform_bytes matches embedded hash.
+    /// 4a. Record the migration hash as **known / previously-seen** (Req 18.7)
+    ///     — once the CA signature and hash integrity cleared, this is a real
+    ///     migration this device has seen, and the only kind a manager-signed
+    ///     `MigrationRevocationDelta` may target.  Recorded even when a later
+    ///     gate below rejects the delta (e.g. version-path mismatch), so a
+    ///     corrupt-but-CA-signed migration can be revoked before it becomes
+    ///     applicable.
     /// 5. source_schema_hash == local current schema.
     /// 6. target_schema_hash == next step in registered version path.
     /// 7. No other transform is currently executing (migrations are strictly
@@ -207,7 +214,9 @@ impl SchemaMigrationEngine {
     /// [`SchemaMigrationEngine::receive_migration_delta`] convenience wrapper
     /// does exactly that without releasing the lock (direct-call path).
     ///
-    /// On CA sig or hash failure: blacklist sender (Req 18.3).
+    /// On CA sig or hash failure: blacklist sender (Req 18.3) and the hash is
+    /// NOT recorded as known (an unauthenticated hash must not become
+    /// revocable).
     /// On version path mismatch: reject + log (no blacklist).
     pub(crate) fn prepare_migration(
         &mut self,
@@ -251,6 +260,17 @@ impl SchemaMigrationEngine {
                 migration_id: migration_id_hex,
             });
         }
+
+        // ── 4a. Known-hash recording (Req 18.7) ──────────────────────────────
+        // The CA signature (3) and embedded SHA-256 (4) both verified, so this
+        // hash is a genuine migration this device has now seen.  Record it:
+        // `apply_revocation` only accepts a MigrationRevocationDelta whose
+        // target is in this known set, so an arbitrary-hash revocation is
+        // rejected rather than silently poisoning the registry.  Recorded
+        // before the version-path gate on purpose: a corrupt-but-CA-signed
+        // migration for a *future* schema step is still a real hash managers
+        // may legitimately revoke before it becomes applicable.
+        self.revocation_registry.record_known_migration(delta.id);
 
         // ── 5 & 6. Version path validation ───────────────────────────────────
         if let Err(e) = self.verify_version_path(&delta) {
@@ -406,8 +426,12 @@ impl SchemaMigrationEngine {
 
     /// Receive a MigrationRevocationDelta (Req 18.5–18.7).
     ///
-    /// Verifies the M-of-N Manager signature threshold, permanently blocks the
-    /// target migration id, and halts any in-progress transform for it.
+    /// Rejects with [`TirBaseError::UnknownMigrationHash`] unless the target
+    /// is a known, previously-seen migration hash (Req 18.7) — one this
+    /// engine recorded in [`Self::prepare_migration`] after its CA signature
+    /// cleared.  Then verifies the M-of-N Manager signature threshold,
+    /// permanently blocks the target migration id, and halts any in-progress
+    /// transform for it.
     ///
     /// Returns `Ok(true)` when a transform for the target was executing and
     /// has been halted.  The caller must then epoch-interrupt the running
@@ -795,7 +819,12 @@ mod tests {
         );
     }
 
-    // ─── Test: revocation halts in-progress and blocks future apply ───────────
+    // ─── Test: revocation blocks future apply of a seen migration hash ────────
+    //
+    // The migration delta is received first — that is what makes its
+    // CA-validated hash a known, previously-seen migration hash (Req 18.7) —
+    // then a manager-signed revocation permanently blocks it, and a later
+    // re-delivery of the same migration is rejected at the revocation gate.
 
     #[test]
     fn revocation_blocks_migration() {
@@ -806,19 +835,8 @@ mod tests {
         let wasm = trivial_wasm_bytes();
         let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
         let migration_id = transform_sha256;
-
-        let (mgr_secret, mgr_did) = make_manager_identity();
-        let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
-
-        let mut engine = make_engine_with_path(ca_public, source, target);
-        engine
-            .receive_revocation_delta(revocation)
-            .expect("revocation should succeed");
-
-        assert!(engine.is_revoked(&migration_id), "migration must be revoked");
-
-        // Attempting to apply the revoked migration should fail.
         let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
         let delta = MigrationDelta {
             id: migration_id,
             author_did: "did:key:z6MkMgr1".to_string(),
@@ -832,10 +850,82 @@ mod tests {
             created_at: 0,
         };
 
+        let (mgr_secret, mgr_did) = make_manager_identity();
+        let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // 1. Deliver the migration: prepare validates it (CA sig + hash) and
+        // records the hash as known (Req 18.7).  In production the transform
+        // runs off-lock after this; here we hold the prepared run.
+        let prepared = engine
+            .prepare_migration(delta.clone(), "did:key:z6MkSender")
+            .expect("prepare must succeed");
+        assert!(!engine.is_revoked(&migration_id), "not revoked yet");
+
+        // 2. A manager-signed revocation for the seen hash is accepted and
+        // halts the in-progress run.
+        let halted = engine
+            .receive_revocation_delta(revocation)
+            .expect("revocation should succeed");
+        assert!(halted, "revocation must report halting the in-progress run");
+        assert!(engine.is_revoked(&migration_id), "migration must be revoked");
+
+        // 3. The sandbox job exits: the commit gate converts the run to
+        // Revoked — the schema never advances for a revoked migration.
+        let outcome = engine
+            .finish_migration(
+                &prepared.migration_id,
+                &prepared.target_schema_hash,
+                Ok(MigrationResult::Success),
+            )
+            .expect("finish must succeed");
+        assert!(
+            matches!(outcome, MigrationResult::Revoked { .. }),
+            "revoked run must not commit as Success: {outcome:?}"
+        );
+
+        // 4. Attempting to apply the revoked migration again must fail.
         let result = engine.receive_migration_delta(delta, "did:key:z6MkSender");
         assert!(
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
             "revoked migration must be rejected: {result:?}"
+        );
+    }
+
+    // ─── Test: a revocation for a never-seen (arbitrary) hash is rejected ────
+    //
+    // Req 18.7: even a revocation carrying a threshold-valid Manager
+    // signature is rejected when the target hash was never received as a
+    // CA-validated MigrationDelta — arbitrary hashes are no longer accepted.
+
+    #[test]
+    fn revocation_for_never_seen_hash_is_rejected() {
+        let (_, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+
+        // A hash this engine has never seen: nothing was ever prepared or
+        // delivered for it.
+        let arbitrary: MigrationId = [0xEEu8; 32];
+        let (mgr_secret, mgr_did) = make_manager_identity();
+        let revocation = make_revocation(arbitrary, &[(mgr_secret, mgr_did)]);
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+        let result = engine.receive_revocation_delta(revocation);
+
+        assert!(
+            matches!(result, Err(TirBaseError::UnknownMigrationHash { .. })),
+            "arbitrary-hash revocation must be rejected: {result:?}"
+        );
+        assert!(
+            !engine.is_revoked(&arbitrary),
+            "registry must stay un-poisoned by an arbitrary-hash revocation"
+        );
+        assert_eq!(
+            engine.revocation_registry.revocation_log().len(),
+            0,
+            "no audit entry may be appended for a rejected revocation"
         );
     }
 

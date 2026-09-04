@@ -89,6 +89,15 @@ pub enum TirBaseError {
     #[error("Another migration is already in progress: {migration_id}")]
     MigrationInProgress { migration_id: String },
 
+    /// A `MigrationRevocationDelta` targeted a migration hash this device has
+    /// never seen (no CA-validated `MigrationDelta` for it was received).
+    /// Revocations are only accepted for known, previously-seen migration
+    /// hashes (Req 18.7) — an arbitrary-hash revocation would permanently
+    /// poison the registry with a block on a migration that was never
+    /// distributed.
+    #[error("Migration revocation targets an unknown migration hash: {migration_id}")]
+    UnknownMigrationHash { migration_id: String },
+
     // ─── Storage ──────────────────────────────────────────────────────────────
     #[error("Local store write failed: {reason}")]
     LocalStoreWriteFailed { reason: String },
@@ -176,6 +185,16 @@ mod tests {
         };
         let s = e.to_string();
         assert!(s.contains("abc123"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_unknown_migration_hash() {
+        let e = TirBaseError::UnknownMigrationHash {
+            migration_id: "deadbeef".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("deadbeef"), "display: {s}");
+        assert!(s.contains("unknown"), "display: {s}");
     }
 
     #[test]

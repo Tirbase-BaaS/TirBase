@@ -1,4 +1,12 @@
 //! Migration revocation — halt in-progress transforms, block future execution (Req 18.5–18.7).
+//!
+//! Req 18.7 known-hash gate: a `MigrationRevocationDelta` is only accepted
+//! when its `target_migration_id` is a **known, previously-seen** migration
+//! hash — one this device received as a CA-validated `MigrationDelta`
+//! (recorded by `SchemaMigrationEngine::prepare_migration`).  An
+//! arbitrary-hash revocation is rejected with
+//! [`TirBaseError::UnknownMigrationHash`] instead of permanently poisoning
+//! the registry with a block on a migration that was never distributed.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -39,6 +47,17 @@ pub struct RevocationRecord {
 pub struct RevokedMigrationRegistry {
     /// Set of permanently blocked migration IDs.
     revoked: HashSet<MigrationId>,
+    /// Migration hashes this device has genuinely **seen**: every
+    /// CA-validated `MigrationDelta` received (its SHA-256 cleared the
+    /// zero-trust gate) is recorded here by
+    /// [`record_known_migration`](Self::record_known_migration).
+    ///
+    /// A `MigrationRevocationDelta` is only accepted when it targets a hash
+    /// in this set (Req 18.7) — revoking a hash that was never distributed
+    /// would permanently block nothing real while letting an attacker poison
+    /// the audit log and block future, unrelated migrations under a
+    /// compromised signer.
+    known: HashSet<MigrationId>,
     /// Append-only audit log of all revocation events.
     revocation_log: Vec<RevocationRecord>,
     /// Migrations that are currently in-progress (sandbox running).
@@ -47,6 +66,24 @@ pub struct RevokedMigrationRegistry {
 }
 
 impl RevokedMigrationRegistry {
+    /// Record `id` as a known, previously-seen migration hash (Req 18.7).
+    ///
+    /// Production caller: [`crate::migration::SchemaMigrationEngine::prepare_migration`]
+    /// records every migration whose CA signature and embedded SHA-256 clear
+    /// the zero-trust gate — the funnel every inbound `MigrationDelta` passes
+    /// through (the native CoreHandle dispatch job and the synchronous
+    /// `receive_migration_delta` path, which is the WASM inbound arm).  A hash
+    /// is only ever recorded after its transform bytes verified, so junk can
+    /// never mark itself as known.
+    pub(crate) fn record_known_migration(&mut self, id: MigrationId) {
+        self.known.insert(id);
+    }
+
+    /// Whether `id` is a known, previously-seen migration hash (Req 18.7).
+    pub(crate) fn is_known_migration(&self, id: &MigrationId) -> bool {
+        self.known.contains(id)
+    }
+
     /// Check if a migration has been revoked.
     pub fn is_revoked(&self, id: &MigrationId) -> bool {
         self.revoked.contains(id)
@@ -78,6 +115,11 @@ impl RevokedMigrationRegistry {
     /// Process an incoming MigrationRevocationDelta (Req 18.5–18.7).
     ///
     /// Steps:
+    /// 0. Reject if `target_migration_id` is not a known, previously-seen
+    ///    migration hash (Req 18.7).  This is checked first — before any
+    ///    signature work — because a revocation for a hash this device never
+    ///    received cannot refer to a real migration and must not poison the
+    ///    registry.
     /// 1. Verify each Manager DID signature over `target_migration_id`.
     /// 2. Check that at least `threshold_m` distinct, valid signatures are present.
     /// 3. If in-progress: mark as halted (caller must check `is_revoked` before executing).
@@ -94,6 +136,21 @@ impl RevokedMigrationRegistry {
         revocation: MigrationRevocationDelta,
         threshold_m: usize,
     ) -> Result<bool, TirBaseError> {
+        // ── 0: known-hash gate (Req 18.7) ───────────────────────────────────
+        // A revocation may only target a migration hash this device has
+        // genuinely seen (a CA-validated MigrationDelta for it was received).
+        // Arbitrary hashes are rejected rather than accepted.
+        if !self.known.contains(&revocation.target_migration_id) {
+            let migration_id_hex = hex::encode(revocation.target_migration_id);
+            eprintln!(
+                "[revocation] Rejected: target migration hash {migration_id_hex} was \
+                 never seen by this device (Req 18.7)"
+            );
+            return Err(TirBaseError::UnknownMigrationHash {
+                migration_id: migration_id_hex,
+            });
+        }
+
         let mut halted = false;
         // ── 1 & 2: verify signatures and count valid distinct ones ──────────
         let signed_payload = &revocation.target_migration_id[..];
@@ -246,10 +303,20 @@ mod tests {
         (secret, did)
     }
 
+    /// A fresh registry in which `target` is already a known, previously-seen
+    /// migration hash (Req 18.7): revocation tests that exercise the
+    /// signature/threshold/halt logic must seed the known-hash set the way
+    /// `prepare_migration` does in production.
+    fn registry_that_has_seen(target: MigrationId) -> RevokedMigrationRegistry {
+        let mut registry = RevokedMigrationRegistry::default();
+        registry.record_known_migration(target);
+        registry
+    }
+
     #[test]
     fn revocation_with_sufficient_sigs_succeeds() {
-        let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x01u8; 32];
+        let mut registry = registry_that_has_seen(target);
         let id1 = make_identity();
         let id2 = make_identity();
 
@@ -265,8 +332,8 @@ mod tests {
 
     #[test]
     fn revocation_below_threshold_returns_error() {
-        let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x02u8; 32];
+        let mut registry = registry_that_has_seen(target);
         let id1 = make_identity();
 
         let revocation = make_signed_revocation(target, &[id1]);
@@ -281,8 +348,8 @@ mod tests {
 
     #[test]
     fn revocation_halts_in_progress() {
-        let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x03u8; 32];
+        let mut registry = registry_that_has_seen(target);
         let id1 = make_identity();
 
         registry.mark_in_progress(target);
@@ -308,8 +375,8 @@ mod tests {
 
     #[test]
     fn revoked_migration_stays_blocked() {
-        let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x04u8; 32];
+        let mut registry = registry_that_has_seen(target);
         let id1 = make_identity();
 
         let revocation = make_signed_revocation(target, &[id1.clone()]);
@@ -324,8 +391,8 @@ mod tests {
 
     #[test]
     fn invalid_signature_not_counted() {
-        let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x05u8; 32];
+        let mut registry = registry_that_has_seen(target);
 
         let (_secret, did) = make_identity();
         // Use a different secret to sign (wrong key — signature should fail verify)
@@ -346,5 +413,66 @@ mod tests {
             matches!(result, Err(TirBaseError::ThresholdNotMet { .. })),
             "invalid signature should not count toward threshold: {result:?}"
         );
+    }
+
+    #[test]
+    fn revocation_for_unknown_migration_hash_is_rejected() {
+        // Req 18.7: a revocation for a hash this device has never seen — even
+        // one carrying threshold-valid Manager signatures — must be rejected,
+        // not silently recorded.
+        let mut registry = RevokedMigrationRegistry::default();
+        let target: MigrationId = [0x06u8; 32];
+        let id1 = make_identity();
+
+        assert!(
+            !registry.is_known_migration(&target),
+            "the target hash was never seen by this device"
+        );
+
+        let revocation = make_signed_revocation(target, &[id1]);
+        let result = registry.apply_revocation(revocation, 1);
+
+        assert!(
+            matches!(result, Err(TirBaseError::UnknownMigrationHash { .. })),
+            "unknown-hash revocation must be rejected: {result:?}"
+        );
+        assert!(
+            !registry.is_revoked(&target),
+            "registry must stay un-poisoned when the target hash is unknown"
+        );
+        assert_eq!(
+            registry.revocation_log().len(),
+            0,
+            "no audit entry may be appended for a rejected revocation"
+        );
+    }
+
+    #[test]
+    fn revocation_of_known_hash_succeeds_but_never_of_arbitrary_ones() {
+        // The known-hash gate is target-specific: recording one hash as known
+        // does not make any other hash revocable.
+        let seen: MigrationId = [0x07u8; 32];
+        let other: MigrationId = [0x08u8; 32];
+        let mut registry = registry_that_has_seen(seen);
+
+        let id1 = make_identity();
+        let id2 = make_identity();
+
+        // The seen hash revokes fine...
+        let revocation = make_signed_revocation(seen, &[id1]);
+        registry
+            .apply_revocation(revocation, 1)
+            .expect("revocation of a seen hash must succeed");
+        assert!(registry.is_revoked(&seen));
+
+        // ...but an arbitrary sibling hash is still rejected.
+        let revocation_other = make_signed_revocation(other, &[id2]);
+        let result = registry.apply_revocation(revocation_other, 1);
+        assert!(
+            matches!(result, Err(TirBaseError::UnknownMigrationHash { .. })),
+            "an arbitrary hash must never be revocable just because another \
+             hash was seen: {result:?}"
+        );
+        assert!(!registry.is_revoked(&other));
     }
 }

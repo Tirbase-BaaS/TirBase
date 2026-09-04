@@ -2179,6 +2179,10 @@ impl CoreHandle {
                 // Ok(true) ⇒ the revocation halted a transform that was
                 // executing — the engine only cleared the in-progress marker;
                 // actually stopping the sandbox is the epoch interrupt below.
+                // Err(UnknownMigrationHash) ⇒ Req 18.7: the revocation
+                // targeted a hash this device never received as a
+                // CA-validated MigrationDelta, so it is dropped (no block, no
+                // audit entry).
                 let halted = match mig.receive_revocation_delta(mig_rev) {
                     Ok(h) => h,
                     Err(e) => {
@@ -5195,6 +5199,147 @@ mod tests {
         assert!(
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
             "revoked migration must be rejected on re-apply: {result:?}"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 5.5: a revocation for an unknown migration hash is ──────────
+    //
+    // rejected by the inbound pipeline (Req 18.7)
+    //
+    // `prepare_migration` — the funnel every inbound MigrationDelta passes
+    // through — records each CA-validated hash as *known*, and
+    // `apply_revocation` only accepts a MigrationRevocationDelta whose target
+    // is in that known set.  This test drives the production wiring
+    // end-to-end: an arbitrary-hash revocation drained over the real inbound
+    // pipeline is rejected and leaves no trace, while a revocation for a hash
+    // the device genuinely received (a migration delivered just before it) is
+    // accepted — proving the gate keys on the hash being seen, not on the
+    // pipeline being broken.
+    #[tokio::test]
+    async fn inbound_revocation_for_unknown_migration_hash_is_rejected_then_known_hash_accepted() {
+        let path = tmp_path("p55_revoke_unknown");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let v1 = [0x10u8; 32];
+        let v2 = [0x11u8; 32];
+
+        let mut config = make_migration_config(&path, ca_public, vec![v1, v2]);
+        config.deployment.revocation_m = 1;
+
+        let handle = CoreHandle::init(config)
+            .await
+            .expect("init with migration CA key + version path");
+
+        let sender = "did:key:z6MkMigSender";
+
+        // ── 1. An arbitrary hash the device never saw is revoked ────────────
+        // (correctly signed by a manager — the gate must be the unknown hash,
+        // not a signature failure).
+        use crate::crdt::derive_did_from_public_key;
+        use crate::crdt::delta::Ed25519Signature;
+        use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
+        let arbitrary: [u8; 32] = [0xEEu8; 32];
+        let (mgr_secret, mgr_public) =
+            crate::identity::keypair::generate_keypair().expect("manager keygen");
+        let mgr_did = derive_did_from_public_key(&mgr_public);
+        let mgr_sig = crate::identity::keypair::sign(&mgr_secret, &arbitrary).expect("sign");
+        let unknown_revocation = MigrationRevocationDelta {
+            target_migration_id: arbitrary,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did.clone(),
+                signature: Ed25519Signature(mgr_sig.0),
+            }],
+            created_at: 0,
+        };
+
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(
+                unknown_revocation,
+            ))
+            .await
+            .expect("inject revocation for unknown hash");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert!(
+                !mig.is_revoked(&arbitrary),
+                "an arbitrary-hash revocation must be rejected (Req 18.7)"
+            );
+        }
+
+        // ── 2. Control: deliver a real migration, then revoke *its* hash ───
+        // — now known — and confirm the same pipeline accepts it.
+        let delta = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
+        let migration_id = delta.id;
+
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .await
+            .expect("inject migration");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await,
+            "migration must finish within the wait budget"
+        );
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert_eq!(
+                mig.current_schema_hash(),
+                v2,
+                "the delivered migration must have applied before revoking its hash"
+            );
+        }
+
+        let mgr_sig_known = crate::identity::keypair::sign(&mgr_secret, &migration_id).expect("sign");
+        let known_revocation = MigrationRevocationDelta {
+            target_migration_id: migration_id,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did.clone(),
+                signature: Ed25519Signature(mgr_sig_known.0),
+            }],
+            created_at: 0,
+        };
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(
+                known_revocation,
+            ))
+            .await
+            .expect("inject revocation for known hash");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert!(
+                mig.is_revoked(&migration_id),
+                "a revocation for a previously-seen migration hash must be accepted"
+            );
+        }
+
+        // ── 3. Re-delivering the now-revoked migration is blocked ──────────
+        let delta_again = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
+        let result = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta_again, sender);
+        assert!(
+            matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
+            "a revoked migration must be rejected on re-delivery: {result:?}"
         );
 
         cleanup(&path);

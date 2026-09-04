@@ -305,10 +305,14 @@ the Subphase 3.4 integration test above.
 **Status:** VERIFIED
 
 `prop_21_migration_revocation_halts_in_progress_transforms` passes 200 cases,
-confirming that a pre-sent `MigrationRevocationDelta` blocks subsequent
-execution of the same migration hash.  Revocation *during* execution — the
-Req 18.6 interrupt path — is covered by the Subphase 5.4 integration test
-listed in Item 16.
+confirming that a `MigrationRevocationDelta` for a **known, previously-seen**
+migration hash (Req 18.7 — the migration delta is delivered first, so its
+CA-validated hash is in the device's known set) is accepted, halts the
+prepared run, and blocks subsequent execution of the same migration hash:
+the re-apply attempt is rejected at the revocation gate and the schema hash
+never advances.  Revocation *during* execution — the Req 18.6 interrupt path
+— is covered by the Subphase 5.4 integration test listed in Item 16, and the
+Req 18.7 rejection of arbitrary-hash revocations is covered by Item 17.
 
 ---
 
@@ -331,7 +335,7 @@ The test asserts:
 
 **Status:** VERIFIED (564 tests, 0 failures)
 
-`cargo test --features native` passes all 564 tests including all 22 property
+`cargo test --features native` passes all 569 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -342,7 +346,8 @@ listed in Item 11; Subphase 4.5 added
 — two real-mesh devices reaching Tier-1 through genuine receipt exchange,
 listed in Item 13; Subphase 5.1 added the four migration CA key + schema
 version path wiring tests listed in Item 14; Subphase 5.4 added the three
-migration-revocation-interrupt tests listed in Item 16).
+migration-revocation-interrupt tests listed in Item 16; Subphase 5.5 added the
+five known-hash-gate tests listed in Item 17).
 
 ---
 
@@ -782,6 +787,62 @@ Tests (all native):
   — the commit gate: a revocation landing between prepare and finish turns a
   `Success` outcome into `MigrationResult::Revoked` and leaves the schema
   hash unchanged.
+
+---
+
+### Item 17 — Revocation targets a known, previously-seen migration hash (Subphase 5.5)
+
+**Status:** VERIFIED
+
+Before this subphase a `MigrationRevocationDelta` for **any** hash — arbitrary
+or never-distributed — was accepted once the M-of-N Manager signature
+threshold was met, permanently poisoning the registry (and audit log) with a
+block on a migration that was never distributed (Req 18.7).  The fix:
+
+- **Known-hash registry** — `RevokedMigrationRegistry` now tracks the
+  migration hashes this device has genuinely *seen*
+  (`record_known_migration`), and `apply_revocation` rejects any revocation
+  whose `target_migration_id` is not in that set with
+  `TirBaseError::UnknownMigrationHash` **before** any signature work — no
+  registry entry, no audit record.  Arbitrary hashes are no longer accepted.
+- **Recording point** — `SchemaMigrationEngine::prepare_migration` records a
+  hash as known once its CA signature and embedded SHA-256 clear the
+  zero-trust gate.  `prepare_migration` is the funnel every inbound
+  `MigrationDelta` passes through (the native CoreHandle dispatch job
+  `CoreHandle::dispatch_inbound_migration` and the synchronous
+  `receive_migration_delta` path, which is the WASM inbound arm), so the
+  hash is known before any revocation for it can be processed.  Recording
+  happens *before* the version-path gate on purpose: a corrupt-but-CA-signed
+  migration for a future schema step is still a real hash managers may
+  legitimately revoke before it becomes applicable, while an unauthenticated
+  (CA-invalid or hash-mismatched) hash is never recorded and therefore can
+  never be revoked.
+
+Tests (all native):
+
+- `migration::revocation::tests::revocation_for_unknown_migration_hash_is_rejected`
+  — registry level: a threshold-valid revocation for a never-seen hash is
+  rejected, the registry stays un-poisoned, and no audit entry is appended.
+- `migration::revocation::tests::revocation_of_known_hash_succeeds_but_never_of_arbitrary_ones`
+  — the gate is target-specific: recording one hash does not make a sibling
+  arbitrary hash revocable.
+- `migration::tests::revocation_for_never_seen_hash_is_rejected` — engine
+  level: `SchemaMigrationEngine::receive_revocation_delta` rejects a
+  revocation for a hash no `MigrationDelta` was ever prepared for.
+- `api::tests::inbound_revocation_for_unknown_migration_hash_is_rejected_then_known_hash_accepted`
+  — full production pipeline: an arbitrary-hash revocation drained over
+  `inject_inbound` → `process_inbound_messages` is rejected and leaves no
+  trace, while a revocation for a hash the same handle genuinely received
+  (a real CA-signed migration delivered moments earlier) is accepted and the
+  revoked migration is blocked on re-delivery.
+- `errors::tests::error_display_unknown_migration_hash` — display for the new
+  typed error.
+
+The existing revocation tests (`revocation_blocks_migration`, Property 21,
+and the registry unit tests) were updated to deliver the target migration
+first — under Req 18.7 a hash must be *seen* before it can be revoked, so a
+"revocation for a hash that never reached the device" is no longer a valid
+scenario to assert.
 
 ---
 

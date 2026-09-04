@@ -1842,7 +1842,7 @@ proptest! {
         let (mgr_secret, mgr_public) = generate_keypair().expect("mgr keygen");
         let mgr_did = derive_did_from_public_key(&mgr_public);
 
-        // Build and send revocation delta before the migration.
+        // Build the manager-signed revocation delta.
         let mgr_sig = sign(&mgr_secret, &migration_id).expect("mgr sign");
         let revocation = MigrationRevocationDelta {
             target_migration_id: migration_id,
@@ -1850,6 +1850,20 @@ proptest! {
                 manager_did: mgr_did.clone(),
                 signature: Ed25519Signature(mgr_sig.0),
             }],
+            created_at: 0,
+        };
+
+        // The migration delta the revocation will target.
+        let delta = MigrationDelta {
+            id: migration_id,
+            author_did: "did:key:z6MkMgr".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: wasm_bytes.clone(),
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
             created_at: 0,
         };
 
@@ -1871,26 +1885,39 @@ proptest! {
             },
         );
 
-        engine.receive_revocation_delta(revocation)
+        // Req 18.7: a revocation is only accepted for a *known,
+        // previously-seen* migration hash, so deliver the migration first —
+        // prepare validates the CA signature and records the hash as seen,
+        // leaving the transform (in production) queued to run off-lock.
+        let prepared = engine
+            .prepare_migration(delta.clone(), "did:key:sender")
+            .expect("prepare must succeed");
+
+        // A revocation for that seen hash is accepted and halts the
+        // in-progress run.
+        let halted = engine
+            .receive_revocation_delta(revocation)
             .expect("revocation must succeed");
+        prop_assert!(halted, "revocation must halt the prepared run");
 
         // is_revoked must be true.
         prop_assert!(engine.is_revoked(&migration_id), "migration must be marked revoked");
 
-        // Attempt to apply the revoked migration — must be rejected.
-        let delta = MigrationDelta {
-            id: migration_id,
-            author_did: "did:key:z6MkMgr".to_string(),
-            signature: Ed25519Signature::default(),
-            source_schema_hash: source,
-            target_schema_hash: target,
-            transform_bytes: wasm_bytes.clone(),
-            ca_signature: CaSignature(ca_sig.0),
-            transform_sha256,
-            priority: PriorityClass::Medium,
-            created_at: 0,
-        };
+        // The run reports back: the commit gate converts it to Revoked and
+        // never advances the schema hash.
+        let outcome = engine
+            .finish_migration(
+                &prepared.migration_id,
+                &prepared.target_schema_hash,
+                Ok(MigrationResult::Success),
+            )
+            .expect("finish must succeed");
+        prop_assert!(
+            matches!(outcome, MigrationResult::Revoked { .. }),
+            "revoked run must not commit as Success: {outcome:?}"
+        );
 
+        // Attempt to apply the revoked migration — must be rejected.
         let result = engine.receive_migration_delta(delta, "did:key:sender");
         prop_assert!(
             matches!(result, Err(crate::errors::TirBaseError::AuthorisationFailed { .. })),
