@@ -41,6 +41,21 @@ use crate::store::LocalStore;
 /// Default schema hash used when no explicit schema is configured.
 const DEFAULT_SCHEMA_HASH: [u8; 32] = [0u8; 32];
 
+/// Production cadence (ms) of the inbound drain loop spawned by
+/// `CoreHandle::init` (Subphase 1.3): every 50 ms the task calls
+/// `process_inbound_messages()` to drain `inbound_rx`.
+#[cfg(all(feature = "native", not(test)))]
+const INBOUND_DRAIN_INTERVAL_MS: u64 = 50;
+
+/// Test-build cadence (ms) of the inbound drain loop spawned by
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests drive
+/// `process_inbound_messages()` manually and assert exact drain counts, so the
+/// loop init spawns must not tick while they run; the Subphase 1.3 integration
+/// test exercises the identical loop via `CoreHandle::spawn_inbound_drain_loop`
+/// with a short interval.
+#[cfg(all(feature = "native", test))]
+const INBOUND_DRAIN_INTERVAL_MS: u64 = 3_600_000;
+
 // ─── CoreHandle ───────────────────────────────────────────────────────────────
 
 /// The main handle to a TirBase instance.
@@ -101,10 +116,13 @@ pub struct CoreHandle {
     inbound_tx: tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>,
 
     /// Receiver end of the inbound Gossipsub message channel.
-    /// Wrapped in `tokio::sync::Mutex` so `CoreHandle` remains `Sync`.
-    inbound_rx: tokio::sync::Mutex<
+    ///
+    /// Wrapped in `Arc<tokio::sync::Mutex<..>>` so `CoreHandle` remains
+    /// `Sync` while the production inbound drain loop spawned by [`CoreHandle::init`]
+    /// holds its own `Arc` clone of the receiver (Subphase 1.3).
+    inbound_rx: Arc<tokio::sync::Mutex<
         tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>,
-    >,
+    >>,
 }
 
 impl CoreHandle {
@@ -113,7 +131,11 @@ impl CoreHandle {
     /// On the WASM target this is exposed to JavaScript and resolves a
     /// Promise-based ready signal (Req 2.2).
     /// On the native target it blocks until initialisation is complete.
-    pub async fn init(config: InitConfig) -> Result<Self, TirBaseError> {
+    ///
+    /// Returns an `Arc<CoreHandle>`: the handle is shared with the production
+    /// inbound drain loop spawned inside `init` (Subphase 1.3), which keeps
+    /// draining `inbound_rx` for the lifetime of the instance.
+    pub async fn init(config: InitConfig) -> Result<Arc<Self>, TirBaseError> {
         // ── Diagnostics channel ───────────────────────────────────────────────
         let (diag_tx, _diag_rx) =
             tokio::sync::broadcast::channel::<DiagnosticEntry>(64);
@@ -273,9 +295,14 @@ impl CoreHandle {
         let transport = Arc::new(Mutex::new(transport));
 
         // ── Inbound message channel ───────────────────────────────────────────
+        //
+        // The receiver is wrapped in `Arc<tokio::sync::Mutex<..>>` so it can be
+        // shared between this handle (manual `process_inbound_messages()` drains)
+        // and the production inbound drain loop spawned below (Subphase 1.3).
         let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<
             crate::transport::message::GossipMessage,
         >(1024);
+        let inbound_rx = Arc::new(tokio::sync::Mutex::new(inbound_rx));
 
         // ── Native: take the Swarm and spawn the polling task ─────────────────
         //
@@ -424,7 +451,7 @@ impl CoreHandle {
             let _ = diag_tx.send(entry);
         }
 
-        Ok(CoreHandle {
+        let handle = Arc::new(CoreHandle {
             #[cfg(feature = "native")]
             store,
             #[cfg(not(feature = "native"))]
@@ -448,8 +475,28 @@ impl CoreHandle {
             migration,
             diagnostics_channel: diag_tx,
             inbound_tx,
-            inbound_rx: tokio::sync::Mutex::new(inbound_rx),
-        })    }
+            inbound_rx,
+        });
+
+        // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
+        //
+        // Spawn a background task that calls `process_inbound_messages()` on an
+        // interval, so Gossipsub messages received by the Swarm polling task
+        // (above) are actually routed through the subsystems in production —
+        // previously this drain only happened when tests called it explicitly.
+        //
+        // The handle is returned as `Arc<CoreHandle>` precisely so this task can
+        // hold a clone and keep draining for the lifetime of the instance.
+        #[cfg(feature = "native")]
+        {
+            CoreHandle::spawn_inbound_drain_loop(
+                &handle,
+                std::time::Duration::from_millis(INBOUND_DRAIN_INTERVAL_MS),
+            );
+        }
+
+        Ok(handle)
+    }
 
     // ─── Write ────────────────────────────────────────────────────────────────
 
@@ -1419,6 +1466,44 @@ impl CoreHandle {
         }
     }
 
+    /// Spawn the production inbound drain loop for this handle.
+    ///
+    /// Every `interval`, the background task calls
+    /// [`CoreHandle::process_inbound_messages`], which drains `inbound_rx`
+    /// (fed by the Swarm polling task via `inbound_tx`) and routes each
+    /// `GossipMessage` through the correct subsystem.
+    ///
+    /// Production caller: [`CoreHandle::init`] spawns this loop before
+    /// returning, so Gossipsub messages are drained in production rather than
+    /// only from tests (Subphase 1.3).  It is `pub(crate)` rather than private
+    /// so the Subphase 1.3 integration test can drive the *identical* loop
+    /// with a short interval without racing the count-based unit tests.
+    ///
+    /// Returns the `JoinHandle` so callers can observe or abort the task.
+    #[cfg(feature = "native")]
+    pub(crate) fn spawn_inbound_drain_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                match handle.process_inbound_messages().await {
+                    Ok(0) => {}
+                    Ok(n) => {
+                        eprintln!("[inbound-loop] drained {n} inbound message(s)");
+                    }
+                    Err(e) => {
+                        eprintln!("[inbound-loop] drain failed: {e}");
+                    }
+                }
+            }
+        })
+    }
+
     /// Inject a `GossipMessage` directly into the inbound channel.
     ///
     /// Intended for testing only — allows tests to push messages without
@@ -2292,6 +2377,104 @@ mod inbound_tests {
             .await
             .expect("second drain");
         assert_eq!(second_count, 0, "channel should be empty after first drain");
+
+        cleanup(&path);
+    }
+
+    // ── Test 3b (Subphase 1.3): the production inbound drain loop drains ─────
+    //
+    // `CoreHandle::init` spawns a background task that calls
+    // `process_inbound_messages()` on an interval (in production builds).  This
+    // test drives the *identical* loop — `CoreHandle::spawn_inbound_drain_loop`,
+    // the function `init` calls — with a short interval and asserts the
+    // background task (NOT a manual `process_inbound_messages()` call) applies
+    // injected messages.  The injected Delta carries table/key metadata so the
+    // drain projects it into the SQL store, observable via `handle.read()`.
+
+    #[tokio::test]
+    async fn production_inbound_drain_loop_drains_injected_messages() {
+        let path = tmp_path("inbound_drain_loop");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Spawn the production drain loop with a short interval so the test
+        // completes quickly.  (In production builds `CoreHandle::init` does
+        // exactly this with `INBOUND_DRAIN_INTERVAL_MS`; in test builds init
+        // uses a 1-hour interval so the count-based tests above stay
+        // deterministic.)
+        let _loop = CoreHandle::spawn_inbound_drain_loop(
+            &handle,
+            std::time::Duration::from_millis(10),
+        );
+
+        // Build a signed InboundDelta whose automerge_bytes embeds the
+        // _tirbase_table / _tirbase_key envelope plus data fields, exactly as
+        // CoreHandle::write() produces (see Test 6).
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+        let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
+        let delta = {
+            let mut envelope = serde_json::Map::new();
+            envelope.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String("loop".to_string()),
+            );
+            envelope.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String("k1".to_string()),
+            );
+            envelope.insert("v".to_string(), serde_json::Value::from(42));
+            let envelope_bytes = serde_json::to_vec(&serde_json::Value::Object(envelope))
+                .expect("envelope serialisation");
+
+            let mut d = crate::crdt::delta::Delta {
+                id: [0u8; 32],
+                author_did: peer_did.clone(),
+                signature: Ed25519Signature::default(),
+                schema_hash,
+                automerge_bytes: envelope_bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport: 3,
+                created_at: 0,
+            };
+            let canonical = d.canonical_bytes();
+            d.signature = ek_sign(&peer_secret, &canonical).expect("sign");
+            d.id = crate::crdt::delta::Delta::compute_id(&canonical);
+            d
+        };
+
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject_inbound must not fail");
+
+        // Do NOT call process_inbound_messages() — the background loop must do
+        // the draining.  Poll until the projected row becomes readable.
+        let mut attempts = 0u32;
+        let observed = loop {
+            if let Ok(res) = handle.read("loop", "k1").await {
+                break res;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "spawned inbound drain loop never processed the injected message"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        };
+
+        assert_eq!(
+            observed.data,
+            json!({"v": 42}),
+            "background drain loop must project the inbound delta to the store"
+        );
+        assert_eq!(observed.key, "k1");
+        assert_eq!(observed.table, "loop");
 
         cleanup(&path);
     }

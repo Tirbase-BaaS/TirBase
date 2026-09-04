@@ -159,7 +159,10 @@ mod wasm_exports {
     use js_sys;
 
     thread_local! {
-        static CORE: std::cell::RefCell<Option<api::CoreHandle>>
+        // `Arc` because `api::CoreHandle::init` now returns a shared handle:
+        // the production inbound drain loop spawned by init holds a clone
+        // (native builds).  On WASM the handle is owned solely by this slot.
+        static CORE: std::cell::RefCell<Option<std::sync::Arc<api::CoreHandle>>>
             = std::cell::RefCell::new(None);
     }
 
@@ -192,7 +195,7 @@ mod wasm_exports {
         CORE.with(|c| {
             c.borrow()
                 .as_ref()
-                .map(|h| h as *const api::CoreHandle)
+                .map(std::sync::Arc::as_ptr)
                 .ok_or_else(|| to_js_err("core_init() must be called first"))
         })
     }
@@ -545,8 +548,12 @@ mod wasm_exports {
     ///
     /// ## Relationship to native builds
     ///
-    /// Native builds use a libp2p Swarm spawned at `init()` time and a
-    /// background task that calls `process_inbound_messages()` automatically.
+    /// Native builds use a libp2p Swarm spawned at `init()` time.
+    /// `CoreHandle::init` also spawns a background task (Subphase 1.3) that
+    /// calls `process_inbound_messages()` on a 50 ms interval, so Gossipsub
+    /// messages are drained automatically in production.  (Unit tests drive
+    /// `process_inbound_messages()` manually, so the claim holds for
+    /// production builds.)
     /// WASM builds have no Swarm; this function is the explicit equivalent
     /// entry point for the inbound pipeline (Req 5, Req 1.4).
     #[wasm_bindgen]
