@@ -50,6 +50,38 @@ fn now_micros() -> i64 {
         .as_micros() as i64
 }
 
+/// Wrap a `RevocationDelta` in a HIGH-priority outbound Delta and enqueue it on
+/// the mesh transport scheduler, so the scheduler tick loop gossips it to
+/// peers (Req 9.1 partial-delta gossip from initiating Managers; Req 9.2
+/// complete-delta rebroadcast once the M-of-N threshold is met).
+///
+/// The wrapper mirrors the wire framing used by the inbound revocation path
+/// (author `tirbase/revocation`, `PriorityClass::High`); receiving peers parse
+/// the embedded `GossipMessage::InboundRevocationDelta` and accumulate the
+/// signatures via `RevocationSubsystem::process_incoming_delta`.
+#[cfg(feature = "native")]
+fn enqueue_revocation_gossip(
+    transport: &mut MeshTransport,
+    rev_delta: &crate::auth::RevocationDelta,
+) {
+    use crate::transport::message::GossipMessage;
+    let gossip_msg = GossipMessage::InboundRevocationDelta(rev_delta.clone());
+    let gossip_bytes = gossip_msg.to_bytes();
+    let wrapper = crate::crdt::delta::Delta {
+        id: [0u8; 32],
+        author_did: "tirbase/revocation".to_string(),
+        signature: crate::crdt::delta::Ed25519Signature::default(),
+        schema_hash: [0u8; 32],
+        automerge_bytes: gossip_bytes,
+        priority: crate::crdt::delta::PriorityClass::High,
+        causal_parents: vec![],
+        tags: vec![],
+        lamport: 0,
+        created_at: 0,
+    };
+    transport.enqueue_outbound(wrapper);
+}
+
 /// Production cadence (ms) of the inbound drain loop spawned by
 /// `CoreHandle::init` (Subphase 1.3): every 50 ms the task calls
 /// `process_inbound_messages()` to drain `inbound_rx`.
@@ -992,6 +1024,168 @@ impl CoreHandle {
             }
         })?;
         capability.register_root_ca_key(key);
+        Ok(())
+    }
+
+    // ─── Manager operations — Revocation (Req 9) ──────────────────────────────
+
+    /// Initiate a revocation of `target_did` from this Manager device (Req 9.1).
+    ///
+    /// This is the native (non-WASM-only) entry point to initiate a revocation;
+    /// it is the counterpart of the `core_initiate_revocation` WASM export, which
+    /// delegates here so both build targets share one implementation.  The local
+    /// device acts as one Manager and submits its own partial `RevocationDelta`
+    /// signature for the target DID.
+    ///
+    /// Mirrors the WASM export's functionality:
+    /// 1. `manager_token` and `target_did` must be non-blank (the same gate the
+    ///    WASM export applies — full Biscuit authorisation of the calling
+    ///    operator is the caller's responsibility on the native side).
+    /// 2. Produces a partial `RevocationDelta` signed by this device's identity
+    ///    (`IdentityManager`) via `RevocationSubsystem::produce_partial_delta`.
+    /// 3. Gossips the partial delta at HIGH priority so peer Manager devices
+    ///    can accumulate signatures (Req 9.1 mesh-accumulated model).
+    /// 4. Accumulates the signature locally via
+    ///    `RevocationSubsystem::process_incoming_delta` — the same subsystem call
+    ///    an inbound partial delta from a peer takes, so this device's M-of-N
+    ///    bookkeeping stays consistent with what it learns over the mesh.
+    ///
+    /// When the local contribution completes the threshold (e.g. a 1-of-1
+    /// config), the same side effects as the inbound revocation path run:
+    /// HIGH-priority gossip of the complete delta (Req 9.2), CRDT rejection of
+    /// future Deltas authored by the target (Req 8.6), and — when the target is
+    /// this device itself — the local REVOKED I/O gate (Req 8.5).
+    pub fn initiate_revocation(
+        &self,
+        target_did: &str,
+        manager_token: &str,
+    ) -> Result<(), TirBaseError> {
+        if manager_token.trim().is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "manager_token must not be blank".to_string(),
+            });
+        }
+        if target_did.trim().is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "target_did must not be blank".to_string(),
+            });
+        }
+
+        let target_did = target_did.to_string();
+        let manager_did = self.identity.did().to_string();
+        let signing_key = self.identity.signing_key_bytes();
+
+        let revocation_arc = self.revocation.clone();
+        let transport_arc = self.transport.clone();
+        let crdt_arc = self.crdt.clone();
+        let capability_arc = self.capability.clone();
+        let cce_arc = self.cce.clone();
+
+        // 1. Produce this Manager's partial RevocationDelta (Req 9.1).
+        let partial = revocation_arc
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("revocation mutex poisoned: {e}"),
+            })?
+            .produce_partial_delta(target_did.clone(), manager_did, &signing_key)?;
+
+        // 2. Gossip the partial delta at HIGH priority so peer Manager devices
+        //    can accumulate signatures (Req 9.1 — mesh-accumulated model).
+        //    On WASM there is no Swarm scheduler: the JS transport layer handles
+        //    peer messaging, so nothing is enqueued here (same as the WASM
+        //    export's behaviour).
+        #[cfg(feature = "native")]
+        {
+            if let Ok(mut transport) = transport_arc.lock() {
+                enqueue_revocation_gossip(&mut transport, &partial);
+            }
+        }
+
+        // 3. Accumulate this signature locally — identical to processing an
+        //    inbound partial delta from a peer.
+        let status = {
+            let mut rev = revocation_arc.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("revocation mutex poisoned: {e}"),
+                }
+            })?;
+            rev.process_incoming_delta(
+                &partial,
+                &mut |applied_did, complete_delta| {
+                    // Req 9.2: the threshold is now met — gossip the complete
+                    // RevocationDelta at HIGH priority.
+                    #[cfg(feature = "native")]
+                    {
+                        eprintln!(
+                            "[initiate] gossiping complete RevocationDelta at HIGH priority for {applied_did}"
+                        );
+                        if let Ok(mut transport) = transport_arc.lock() {
+                            enqueue_revocation_gossip(&mut transport, complete_delta);
+                        }
+                    }
+                    #[cfg(not(feature = "native"))]
+                    {
+                        // No Swarm scheduler on WASM — the JS transport layer
+                        // handles peer messaging (best-effort, Req 9.2).
+                        eprintln!(
+                            "[initiate] RevocationDelta threshold met for {applied_did} (WASM: JS transport handles gossip)"
+                        );
+                    }
+                },
+                &mut |revoked_did, delta_ids| {
+                    // Req 10.1: tag all Deltas authored by the revoked DID.
+                    #[cfg(feature = "native")]
+                    {
+                        if let Ok(mut cce) = cce_arc.lock() {
+                            for delta_id in delta_ids {
+                                let _ = cce.tag_contamination_root(
+                                    delta_id,
+                                    crate::contamination::incident::TaintSource::DeviceRevocation {
+                                        revocation_delta_id: delta_id,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                    #[cfg(not(feature = "native"))]
+                    {
+                        // No SQLite DAG walk on WASM — mirrors the WASM inbound
+                        // path (best-effort CCE tagging).
+                        let _ = (revoked_did, delta_ids);
+                    }
+                },
+            )?
+        };
+
+        // 4. If this contribution completed the threshold, apply the same local
+        //    REVOKED side effects as the inbound revocation path.
+        if status == crate::auth::RevocationStatus::Applied {
+            // Req 8.6 — reject future inbound Deltas authored by the target.
+            crdt_arc
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned: {e}"),
+                })?
+                .mark_did_revoked(&target_did);
+            eprintln!(
+                "[initiate] CRDT engine now rejects Deltas authored by revoked DID {target_did}"
+            );
+
+            // Req 8.5 — a revocation targeting THIS device makes the REVOKED
+            // status locally known: trip the local write/read/query gate.
+            if target_did == self.identity.did() {
+                capability_arc
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("capability mutex poisoned: {e}"),
+                    })?
+                    .apply_revocation()?;
+                eprintln!(
+                    "[initiate] local device {target_did} is REVOKED — write/read/query gates now block"
+                );
+            }
+        }
+
         Ok(())
     }
 
@@ -2296,6 +2490,284 @@ mod tests {
             .read("t", "k")
             .await
             .expect("read must still succeed");
+
+        cleanup(&path);
+    }
+
+    // ── 9a. CoreHandle::initiate_revocation — native entry point (Subphase 2.4, ─
+    //       Req 9.1)
+    //
+    // The native (non-WASM-only) entry point to initiate a revocation, mirroring
+    // the WASM export `core_initiate_revocation`: the local Manager signs a
+    // partial RevocationDelta, it is gossiped at HIGH priority, and the
+    // signature is accumulated locally through the same subsystem call an
+    // inbound partial delta from a peer would take.
+
+    #[tokio::test]
+    async fn initiate_revocation_rejects_blank_inputs() {
+        let path = tmp_path("rev_init_blank");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let blank_token = handle
+            .initiate_revocation("did:key:z6MkX-target", "  ")
+            .expect_err("blank manager_token must be rejected");
+        assert!(
+            blank_token.to_string().contains("manager_token must not be blank"),
+            "unexpected error: {blank_token}"
+        );
+
+        let blank_target = handle
+            .initiate_revocation("", "manager-token")
+            .expect_err("blank target_did must be rejected");
+        assert!(
+            blank_target.to_string().contains("target_did must not be blank"),
+            "unexpected error: {blank_target}"
+        );
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn initiate_revocation_1of1_marks_target_revoked_and_gossips_at_high() {
+        let path = tmp_path("rev_init_1of1");
+        cleanup(&path);
+
+        // M=1, N=1 so this Manager's single signature completes the revocation.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        let other_did = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+        // Sanity: I/O works before any revocation is initiated.
+        handle
+            .write("t", "k1", json!({ "v": 1 }))
+            .await
+            .expect("pre-revocation write must succeed");
+
+        // This device (the Manager) initiates the revocation of another device.
+        handle
+            .initiate_revocation(&other_did, "manager-token")
+            .expect("initiate_revocation must succeed");
+
+        // The complete delta (M=1) is gossiped at HIGH priority (Req 9.1/9.2).
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert!(
+                transport.has_backlog(),
+                "revocation gossip must be enqueued on the scheduler"
+            );
+            assert!(
+                transport.high_queue_depth() > 0,
+                "revocation gossip must be at HIGH priority (depth: {})",
+                transport.high_queue_depth()
+            );
+        }
+
+        // The target is now REVOKED in the subsystem…
+        {
+            let rev = handle.revocation.lock().unwrap();
+            match rev.store_status(&other_did) {
+                Some(crate::auth::RevocationStatus::Applied) => {}
+                _ => panic!("target must be Applied after a 1-of-1 initiate"),
+            }
+            assert!(
+                rev.revoked_dids().contains(&other_did),
+                "subsystem must know the target DID is REVOKED"
+            );
+        }
+        // …but revoking another device must not trip this device's own gate.
+        assert_ne!(
+            handle.trust_level(),
+            TrustLevel::Revoked,
+            "revoking another device must not revoke the local device"
+        );
+        handle
+            .write("t", "k2", json!({ "v": 2 }))
+            .await
+            .expect("local writes must still succeed");
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn initiate_revocation_of_self_1of1_trips_local_io_gate() {
+        let path = tmp_path("rev_init_self");
+        cleanup(&path);
+
+        // M=1, N=1 — a single Manager signature completes the revocation.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        let local_did = handle.identity.did().to_string();
+        handle
+            .write("t", "k1", json!({ "v": 1 }))
+            .await
+            .expect("pre-revocation write must succeed");
+
+        // The Manager device initiates a 1-of-1 revocation of ITSELF.
+        handle
+            .initiate_revocation(&local_did, "manager-token")
+            .expect("initiate_revocation must succeed");
+
+        // Req 8.5: the locally-known REVOKED status must now block all I/O — the
+        // same end state the inbound path reaches, driven through the native
+        // initiate entry point instead.
+        assert_eq!(
+            handle.trust_level(),
+            TrustLevel::Revoked,
+            "local device must be REVOKED after initiating its own 1-of-1 revocation"
+        );
+
+        let write = handle.write("t", "k2", json!({ "v": 2 })).await;
+        assert!(write.is_err(), "REVOKED device must not be allowed to write");
+        assert!(
+            write.unwrap_err().to_string().contains("REVOKED"),
+            "write error must mention REVOKED"
+        );
+
+        let read = handle.read("t", "k1").await;
+        assert!(read.is_err(), "REVOKED device must not be allowed to read");
+        assert!(
+            read.unwrap_err().to_string().contains("REVOKED"),
+            "read error must mention REVOKED"
+        );
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn initiate_revocation_gossips_partial_and_second_signature_completes() {
+        let path = tmp_path("rev_init_m2");
+        cleanup(&path);
+
+        // M=2, N=2 — the local contribution stays Pending until a second
+        // Manager's signature arrives through the (simulated) mesh.
+        let handle = CoreHandle::init(InitConfig {
+            storage_path: path.clone(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 2,
+                biscuit_ttl_secs: 3600,
+                root_ca_keys: vec![],
+                anchor_attested_location: false,
+                spatial_diversity_min: 1,
+                quorum_k: 1,
+                quorum_n: 1,
+            },
+        })
+        .await
+        .expect("init");
+
+        let target = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+        let mgr2 = crate::identity::IdentityManager::init_in_memory().unwrap();
+        let mgr2_did = mgr2.did().to_string();
+        let mgr2_sk = mgr2.signing_key_bytes();
+
+        // This device contributes signature #1 via the native initiate entry.
+        handle
+            .initiate_revocation(&target, "manager-token")
+            .expect("initiate_revocation must succeed");
+
+        // Status is Pending (1/2) and the partial delta is gossiped at HIGH.
+        {
+            let rev = handle.revocation.lock().unwrap();
+            match rev.store_status(&target) {
+                Some(crate::auth::RevocationStatus::Pending {
+                    collected,
+                    required,
+                }) => {
+                    assert_eq!(collected, 1, "one signature collected after initiate");
+                    assert_eq!(required, 2, "M threshold must be 2");
+                }
+                _ => panic!("expected Pending status after the first signature"),
+            }
+        }
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert!(
+                transport.has_backlog(),
+                "partial revocation delta must be enqueued for gossip"
+            );
+            assert!(
+                transport.high_queue_depth() > 0,
+                "partial revocation delta must gossip at HIGH priority"
+            );
+        }
+
+        // Manager #2's partial signature arrives from the mesh.
+        let partial2 = {
+            let rev = handle.revocation.lock().unwrap();
+            rev.produce_partial_delta(target.clone(), mgr2_did, &mgr2_sk)
+                .expect("produce partial delta for manager 2")
+        };
+        handle
+            .inject_inbound(GossipMessage::InboundRevocationDelta(partial2))
+            .await
+            .expect("inject_inbound");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages");
+
+        // M=2 reached: the target is Applied + REVOKED, and the complete delta
+        // is re-gossiped at HIGH priority (Req 9.2).
+        {
+            let rev = handle.revocation.lock().unwrap();
+            match rev.store_status(&target) {
+                Some(crate::auth::RevocationStatus::Applied) => {}
+                _ => panic!("target must be Applied once M=2 signatures accumulate"),
+            }
+            assert!(
+                rev.revoked_dids().contains(&target),
+                "subsystem must know the target DID is REVOKED"
+            );
+        }
+        {
+            let transport = handle.transport.lock().unwrap();
+            assert!(
+                transport.high_queue_depth() > 0,
+                "complete revocation delta must be re-gossiped at HIGH priority"
+            );
+        }
 
         cleanup(&path);
     }

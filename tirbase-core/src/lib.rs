@@ -373,7 +373,13 @@ mod wasm_exports {
     // Full P2P gossip and CCE integration requires native-only transports;
     // on WASM the operations are accepted (no error) but are no-ops for v1.
 
-    /// Gossip a partial RevocationDelta for the target DID.
+    /// Gossip a partial RevocationDelta for the target DID (Req 9.1).
+    ///
+    /// Delegates to [`api::CoreHandle::initiate_revocation`] so the WASM export
+    /// and the native entry point share one implementation (Subphase 2.4).  On
+    /// WASM the produced partial delta is accumulated locally (and, at M=1,
+    /// applies the local REVOKED side effects); the JS transport layer handles
+    /// any peer messaging.
     #[wasm_bindgen]
     pub async fn core_initiate_revocation(
         target_did: String,
@@ -389,20 +395,9 @@ mod wasm_exports {
             let borrow = c.borrow();
             let handle = borrow.as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            let manager_did = handle.identity.did().to_string();
-            let signing_key = handle.identity.signing_key_bytes();
-            let mut rev = handle.revocation.lock()
-                .map_err(|e| to_js_err(format!("revocation lock: {e}")))?;
-            let partial = rev.produce_partial_delta(
-                target_did.clone(),
-                manager_did,
-                &signing_key,
-            ).map_err(to_js_err)?;
-            rev.process_incoming_delta(
-                &partial,
-                &mut |_, _| {},
-                &mut |_, _| {},
-            ).map_err(to_js_err)?;
+            handle
+                .initiate_revocation(&target_did, &manager_token)
+                .map_err(to_js_err)?;
             Ok(())
         })
     }
