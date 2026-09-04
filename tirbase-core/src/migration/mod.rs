@@ -109,6 +109,20 @@ impl SchemaMigrationEngine {
         self.revocation_registry.is_revoked(migration_id)
     }
 
+    /// Register the deployment's Migration CA Ed25519 public key at runtime
+    /// (Req 18.2).
+    ///
+    /// Takes effect immediately: subsequent [`receive_migration_delta`]
+    /// calls verify `ca_signature` against this key.  Replaces any key
+    /// registered at construction (deployment config).
+    ///
+    /// Production caller: [`crate::api::CoreHandle::register_migration_ca_key`],
+    /// which is reachable from native host applications and the
+    /// `core_register_migration_ca_key` WASM export.
+    pub(crate) fn register_ca_public_key(&mut self, key: [u8; 32]) {
+        self.ca_public_key = key;
+    }
+
     /// Return `true` if the QuarantineLedger holds any unreleased entry whose
     /// schema hash matches the engine's current `local_schema_hash`.
     ///

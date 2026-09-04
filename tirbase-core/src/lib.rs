@@ -202,13 +202,19 @@ mod wasm_exports {
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
+    /// Decode a hex-encoded 32-byte value (public key / schema hash) into raw
+    /// bytes, with a `label` used in error messages to identify the config field.
+    fn decode_32byte_hex(label: &str, hex_str: &str) -> Result<[u8; 32], JsValue> {
+        let bytes = hex::decode(hex_str)
+            .map_err(|e| to_js_err(format!("{label}: invalid hex \"{hex_str}\": {e}")))?;
+        bytes.try_into().map_err(|_| {
+            to_js_err(format!("{label}: \"{hex_str}\" must be 32 bytes (64 hex chars)"))
+        })
+    }
+
     /// Decode a hex-encoded root CA public key into its 32 raw bytes.
     fn decode_root_ca_key_hex(key_hex: &str) -> Result<[u8; 32], JsValue> {
-        let bytes = hex::decode(key_hex)
-            .map_err(|e| to_js_err(format!("root_ca_keys: invalid hex \"{key_hex}\": {e}")))?;
-        bytes
-            .try_into()
-            .map_err(|_| to_js_err(format!("root_ca_keys: \"{key_hex}\" must be 32 bytes (64 hex chars)")))
+        decode_32byte_hex("root_ca_keys", key_hex)
     }
 
     /// Initialise TirBase and store the handle in the thread-local slot.
@@ -219,14 +225,35 @@ mod wasm_exports {
     /// chars each) trusted for offline Biscuit token verification.  An empty
     /// array is the explicit unconfigured state: no Biscuit token verifies
     /// until a key is registered here or via `core_register_root_ca_key`.
+    ///
+    /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
+    /// (64 hex chars; Req 18.2).  `None`/`undefined` is the explicit
+    /// unconfigured state: no inbound Migration_Delta verifies until the key
+    /// is registered here or via `core_register_migration_ca_key` (Subphase
+    /// 5.1).
+    ///
+    /// `schema_version_path_hex` — hex-encoded schema hashes in deployment
+    /// order, oldest → newest (Req 18.3a).  An empty array is the explicit
+    /// unconfigured state: no version step validates until the path is
+    /// registered (Subphase 5.1).
     #[wasm_bindgen]
     pub async fn core_init(
         storage_path: String,
         root_ca_keys_hex: Vec<String>,
+        migration_ca_key_hex: Option<String>,
+        schema_version_path_hex: Vec<String>,
     ) -> Result<(), JsValue> {
         let mut root_ca_keys = Vec::with_capacity(root_ca_keys_hex.len());
         for key_hex in &root_ca_keys_hex {
             root_ca_keys.push(decode_root_ca_key_hex(key_hex)?);
+        }
+        let migration_ca_public_key = match &migration_ca_key_hex {
+            Some(key_hex) => Some(decode_32byte_hex("migration_ca_key", key_hex)?),
+            None => None,
+        };
+        let mut schema_version_path = Vec::with_capacity(schema_version_path_hex.len());
+        for version_hex in &schema_version_path_hex {
+            schema_version_path.push(decode_32byte_hex("schema_version_path", version_hex)?);
         }
         let config = api::InitConfig {
             storage_path,
@@ -236,6 +263,8 @@ mod wasm_exports {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys,
+                migration_ca_public_key,
+                schema_version_path,
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -267,6 +296,23 @@ mod wasm_exports {
             let handle = borrow.as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle.register_root_ca_key(key).map_err(to_js_err)
+        })
+    }
+
+    /// Register the deployment's Migration CA public key at runtime (Req 18.2).
+    ///
+    /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
+    /// (64 hex chars).  Takes effect immediately: subsequent inbound
+    /// Migration_Deltas verify their CA signature against this key,
+    /// replacing any key registered at `core_init` (Subphase 5.1).
+    #[wasm_bindgen]
+    pub fn core_register_migration_ca_key(migration_ca_key_hex: String) -> Result<(), JsValue> {
+        let key = decode_32byte_hex("migration_ca_key", &migration_ca_key_hex)?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle.register_migration_ca_key(key).map_err(to_js_err)
         })
     }
 

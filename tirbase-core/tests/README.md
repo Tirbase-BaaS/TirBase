@@ -317,9 +317,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (525 tests, 0 failures)
+**Status:** VERIFIED (538 tests, 0 failures)
 
-`cargo test --features native` passes all 534 tests including all 22 property
+`cargo test --features native` passes all 538 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -328,7 +328,8 @@ listener unit test; Subphase 4.3 added the nine Anchor-Attested Location tests
 listed in Item 11; Subphase 4.5 added
 `api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`
 — two real-mesh devices reaching Tier-1 through genuine receipt exchange,
-listed in Item 13).
+listed in Item 13; Subphase 5.1 added the four migration CA key + schema
+version path wiring tests listed in Item 14).
 
 ---
 
@@ -633,6 +634,41 @@ native path (resolve DID → register key → `receive_receipt`).  Receipt
 *issuance* on WASM remains with the JS transport layer, mirroring Delta
 outbound delivery: the WASM build has no mesh of its own, so the SDK's JS
 transport is the outbound path (documented in `core_receive_peer_message`).
+
+---
+
+### Item 14 — Migration CA key + schema version path wiring (Subphase 5.1)
+
+**Status:** VERIFIED
+
+The `SchemaMigrationEngine` is now configured from real deployment config
+instead of a hardcoded zero CA key and empty version path (Req 18.2, 18.3a).
+`DeploymentConfig` gained `migration_ca_public_key: Option<[u8; 32]>` and
+`schema_version_path: Vec<[u8; 32]>`; `CoreHandle::init` feeds both into
+`SchemaMigrationEngine::new` on native **and** WASM builds (the WASM
+`core_init` export accepts the same values, hex-encoded).  `None`/empty
+remain the explicit unconfigured states: with no key the zero key rejects
+every signature at the CA gate, and with no path no version step validates.
+
+Four integration tests (`api::tests::`, all driving the production
+`CoreHandle::init` construction):
+
+- `init_registers_migration_ca_key_and_version_path` — a CA-signed migration
+on a valid path step is accepted by the engine `CoreHandle::init` built
+(previously `MigrationCaSignatureInvalid` on the zero key, regardless of
+validity).
+- `unconfigured_migration_ca_still_rejects_at_ca_gate` — default config keeps
+rejecting at the CA gate (the unconfigured state is a fail-closed, not a
+silent-accept, state).
+- `runtime_register_migration_ca_key_enables_migrations` —
+`CoreHandle::register_migration_ca_key` (WASM export:
+`core_register_migration_ca_key`) moves an engine from the unconfigured CA
+gate to the version-path gate without re-init.
+- `inbound_migration_passes_ca_gate_with_configured_key_and_path` — the full
+inbound pipeline (`inject_inbound` → `process_inbound_messages` →
+`SchemaMigrationEngine::receive_migration_delta`) applies a CA-signed
+migration, does not blacklist the sender, and advances the engine's local
+schema hash so the next path step validates.
 
 ---
 

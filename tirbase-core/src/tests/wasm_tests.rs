@@ -223,7 +223,7 @@ async fn test_init_write_read_round_trip() {
     use js_sys::JSON;
 
     // Initialise with a dummy storage path (in-memory on WASM).
-    crate::wasm_exports::core_init("wasm-test".to_string(), vec![])
+    crate::wasm_exports::core_init("wasm-test".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
@@ -248,7 +248,7 @@ async fn test_init_write_query() {
     use js_sys::JSON;
 
     // Re-initialise to get a fresh in-memory store.
-    crate::wasm_exports::core_init("wasm-test-query".to_string(), vec![])
+    crate::wasm_exports::core_init("wasm-test-query".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
@@ -298,7 +298,7 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     use crate::transport::message::GossipMessage;
 
     // Fresh in-memory instance (M=1, N=1 from core_init).
-    crate::wasm_exports::core_init("wasm-test-local-revocation".to_string(), vec![])
+    crate::wasm_exports::core_init("wasm-test-local-revocation".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
@@ -392,7 +392,7 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     use crate::transport::message::GossipMessage;
 
     // Re-initialise with a fresh in-memory store.
-    crate::wasm_exports::core_init("wasm-test-inbound-42".to_string(), vec![])
+    crate::wasm_exports::core_init("wasm-test-inbound-42".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 

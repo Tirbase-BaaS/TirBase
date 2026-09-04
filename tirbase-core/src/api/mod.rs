@@ -398,14 +398,36 @@ impl CoreHandle {
         ));
 
         // ── Migration Engine ──────────────────────────────────────────────────
+        //
+        // Subphase 5.1: the Migration CA public key and the deployment's
+        // ordered schema-version path are wired from `DeploymentConfig` (Req
+        // 18.2, 18.3a).  `None`/empty remain the explicit unconfigured states
+        // — with no key the engine verifies against the zero key (every
+        // signature fails) and with no path no version step validates — but a
+        // deployment that configures both now accepts valid inbound
+        // migrations instead of rejecting every one at the CA gate.
+        let migration_ca_public_key = config
+            .deployment
+            .migration_ca_public_key
+            .unwrap_or([0u8; 32]);
+        let migration_version_path =
+            SchemaVersionPath::new(config.deployment.schema_version_path.clone());
+        // The device starts on the oldest registered schema version; without a
+        // configured path it stays on the default (no-schema) hash.
+        let migration_local_schema_hash = migration_version_path
+            .versions
+            .first()
+            .copied()
+            .unwrap_or(DEFAULT_SCHEMA_HASH);
+
         #[cfg(feature = "native")]
         let migration = {
             let mig_conn = crate::store::sqlite::open(&config.storage_path)?;
             let mig_conn = Arc::new(Mutex::new(mig_conn));
             SchemaMigrationEngine::new(
-                [0u8; 32], // CA public key — not configured at init for v1
-                [0u8; 32], // local schema hash — default (no schema)
-                SchemaVersionPath::new(vec![]),
+                migration_ca_public_key,
+                migration_local_schema_hash,
+                migration_version_path,
                 config.deployment.revocation_m.max(1),
                 store.clone(),
                 mig_conn,
@@ -414,9 +436,9 @@ impl CoreHandle {
 
         #[cfg(not(feature = "native"))]
         let migration = SchemaMigrationEngine::new(
-            [0u8; 32], // CA public key — not configured at init for v1
-            [0u8; 32], // local schema hash — default (no schema)
-            SchemaVersionPath::new(vec![]),
+            migration_ca_public_key,
+            migration_local_schema_hash,
+            migration_version_path,
             config.deployment.revocation_m.max(1),
         );
 
@@ -1304,6 +1326,25 @@ impl CoreHandle {
             }
         })?;
         capability.register_root_ca_key(key);
+        Ok(())
+    }
+
+    /// Register the deployment's Migration CA public key at runtime (Req 18.2).
+    ///
+    /// Takes effect immediately: subsequent inbound Migration_Deltas verify
+    /// their CA signature against this key, replacing any key registered at
+    /// init from `DeploymentConfig.migration_ca_public_key`.  Mirrors
+    /// [`CoreHandle::register_root_ca_key`] for the SchemaMigrationEngine.
+    ///
+    /// Production callers: native host applications and the
+    /// `core_register_migration_ca_key` WASM export (Subphase 5.1).
+    pub fn register_migration_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
+        let mut migration = self.migration.lock().map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("migration mutex poisoned: {e}"),
+            }
+        })?;
+        migration.register_ca_public_key(key);
         Ok(())
     }
 
@@ -2759,6 +2800,27 @@ pub struct DeploymentConfig {
     /// token can be verified until at least one key is registered, either here
     /// at init time or via [`CoreHandle::register_root_ca_key`] at runtime.
     pub root_ca_keys: Vec<[u8; 32]>,
+    /// Ed25519 public key of the deployment's Migration CA, trusted to sign
+    /// Migration_Delta transforms (Req 18.2).
+    ///
+    /// `None` (the default) is the explicit *unconfigured* state: the
+    /// `SchemaMigrationEngine` is constructed with a zero key, so every
+    /// inbound migration fails at the CA-verification gate.  A deployment
+    /// that wants inbound migrations to apply must register its Migration CA
+    /// key here at init time or via [`CoreHandle::register_migration_ca_key`]
+    /// at runtime (Subphase 5.1).
+    pub migration_ca_public_key: Option<[u8; 32]>,
+    /// Ordered schema-version update path (oldest → newest) of this deployment
+    /// (Req 18.3a).  A Migration_Delta is accepted only when its
+    /// `source_schema_hash` equals the device's current schema hash and its
+    /// `target_schema_hash` is the next hash in this path.
+    ///
+    /// Empty (the default) is the explicit *unconfigured* state: no version
+    /// step validates, so every inbound migration is rejected at the
+    /// version-path gate.  The first entry is the schema hash a
+    /// freshly-initialised device is on; the engine advances through the path
+    /// as migrations apply (Subphase 5.1).
+    pub schema_version_path: Vec<[u8; 32]>,
     /// Whether Anchor_Attested_Location subsystem is enabled.
     pub anchor_attested_location: bool,
     /// Ed25519 public keys of the fixed beacons trusted for Anchor_Attested_Location
@@ -2817,6 +2879,8 @@ impl Default for DeploymentConfig {
             revocation_n: 0,
             biscuit_ttl_secs: 0,
             root_ca_keys: vec![],
+            migration_ca_public_key: None,
+            schema_version_path: vec![],
             anchor_attested_location: false,
             beacon_public_keys: vec![],
             spatial_diversity_min: 0,
@@ -2846,6 +2910,8 @@ mod tests {
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3090,6 +3156,8 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3191,6 +3259,8 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3306,6 +3376,8 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3388,6 +3460,8 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3452,6 +3526,8 @@ mod tests {
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3589,6 +3665,8 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3647,6 +3725,8 @@ mod tests {
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -4255,6 +4335,280 @@ mod tests {
         cleanup(&path);
     }
 
+    // ── Subphase 5.1: Migration CA key + schema version path wiring ──────────
+    //
+    // `CoreHandle::init` constructs the `SchemaMigrationEngine` from
+    // `DeploymentConfig.migration_ca_public_key` and
+    // `DeploymentConfig.schema_version_path` (Req 18.2, 18.3a).  Before this
+    // wiring the engine was built with a zero CA key and an empty path, so
+    // every real inbound migration failed at the CA-verification gate
+    // regardless of validity.  These tests drive the exact production
+    // construction (`CoreHandle::init`) and assert that a CA-signed migration
+    // on a valid path step is now accepted, that the full inbound pipeline
+    // (`inject_inbound` → `process_inbound_messages` → engine) applies it, and
+    // that the explicit unconfigured state still rejects at the CA gate.
+
+    /// Trivial WASM module: `(module (func (export "run")))` — the same
+    /// bytecode the SchemaMigrationEngine unit tests execute.
+    fn trivial_wasm_bytes() -> Vec<u8> {
+        vec![
+            0x00, 0x61, 0x73, 0x6d, // magic
+            0x01, 0x00, 0x00, 0x00, // version
+            0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type section: () -> ()
+            0x03, 0x02, 0x01, 0x00, // function section
+            0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00, // export "run"
+            0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b, // code section: empty body
+        ]
+    }
+
+    /// Build a config that registers the Migration CA public key and the
+    /// ordered schema version path at init (Subphase 5.1).
+    fn make_migration_config(
+        path: &str,
+        ca_public: [u8; 32],
+        version_path: Vec<[u8; 32]>,
+    ) -> InitConfig {
+        let mut config = make_config(path);
+        config.deployment.migration_ca_public_key = Some(ca_public);
+        config.deployment.schema_version_path = version_path;
+        config
+    }
+
+    /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`
+    /// (Req 18.2: CA signature over transform bytes, embedded SHA-256).
+    fn make_ca_signed_migration_delta(
+        ca_secret: &[u8; 32],
+        source: [u8; 32],
+        target: [u8; 32],
+        transform_bytes: Vec<u8>,
+    ) -> crate::migration::migration_delta::MigrationDelta {
+        use crate::crdt::delta::{Ed25519Signature, PriorityClass};
+        use crate::migration::migration_delta::{CaSignature, MigrationDelta};
+        use sha2::{Digest, Sha256};
+
+        let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
+        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes)
+            .expect("ca sign");
+
+        MigrationDelta {
+            id: transform_sha256, // id = SHA-256(transform_bytes)
+            author_did: "did:key:z6MkMigSender".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        }
+    }
+
+    /// Init wiring registers the Migration CA key + version path: a CA-signed
+    /// migration on a valid path step is accepted by the engine constructed
+    /// through `CoreHandle::init` — previously the zero key rejected every
+    /// migration with `MigrationCaSignatureInvalid` regardless of validity.
+    #[tokio::test]
+    async fn init_registers_migration_ca_key_and_version_path() {
+        let path = tmp_path("p51_migration_ca");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+
+        let handle = CoreHandle::init(make_migration_config(
+            &path,
+            ca_public,
+            vec![source, target],
+        ))
+        .await
+        .expect("init with migration CA key + version path");
+
+        let delta = make_ca_signed_migration_delta(
+            &ca_secret,
+            source,
+            target,
+            trivial_wasm_bytes(),
+        );
+
+        // The engine `CoreHandle::init` constructed must accept the valid
+        // migration: the CA signature verifies against the config-registered
+        // key and source → target is a valid step in the config-registered
+        // path.
+        let result = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta, "did:key:z6MkMigSender");
+        assert!(
+            matches!(
+                result,
+                Ok(crate::migration::wasm_sandbox::MigrationResult::Success)
+            ),
+            "config-registered CA key + version path must accept a valid migration: {result:?}"
+        );
+
+        cleanup(&path);
+    }
+
+    /// Without a configured Migration CA key the engine must still reject every
+    /// migration at the CA-verification step — `None` is the explicit
+    /// unconfigured state, not a silent acceptance hole.
+    #[tokio::test]
+    async fn unconfigured_migration_ca_still_rejects_at_ca_gate() {
+        let path = tmp_path("p51_unconfigured");
+        cleanup(&path);
+
+        let (ca_secret, _) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+
+        // Default config: migration_ca_public_key = None, schema_version_path = [].
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
+
+        let delta = make_ca_signed_migration_delta(
+            &ca_secret,
+            source,
+            target,
+            trivial_wasm_bytes(),
+        );
+        let result = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta, "did:key:z6MkMigSender");
+        assert!(
+            matches!(result, Err(TirBaseError::MigrationCaSignatureInvalid { .. })),
+            "unconfigured migration CA must keep rejecting at the CA gate: {result:?}"
+        );
+
+        cleanup(&path);
+    }
+
+    /// Runtime registration: a handle initialised without a Migration CA key
+    /// starts in the explicit unconfigured state (CA gate rejects) and becomes
+    /// able to accept CA-signed migrations after `register_migration_ca_key`.
+    #[tokio::test]
+    async fn runtime_register_migration_ca_key_enables_migrations() {
+        let path = tmp_path("p51_runtime_migration_key");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
+
+        let delta = make_ca_signed_migration_delta(
+            &ca_secret,
+            source,
+            target,
+            trivial_wasm_bytes(),
+        );
+
+        // Before registration: the zero key must reject at the CA gate (this
+        // also blacklists the sender).
+        let before = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta.clone(), "did:key:z6MkMigSender");
+        assert!(
+            matches!(before, Err(TirBaseError::MigrationCaSignatureInvalid { .. })),
+            "before registration the CA gate must reject: {before:?}"
+        );
+
+        // Register the Migration CA key at runtime.
+        handle
+            .register_migration_ca_key(ca_public)
+            .expect("register_migration_ca_key must succeed");
+
+        // Now the same migration verifies against the registered key.  The
+        // version path is still unconfigured (empty), so it is rejected at the
+        // version-path gate — not at the CA gate.  (A fresh sender DID: the
+        // pre-registration attempt blacklisted the original one.)
+        let after = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta, "did:key:z6MkMigSender2");
+        assert!(
+            matches!(after, Err(TirBaseError::VersionPathMismatch { .. })),
+            "after registration the CA gate must pass (failure moves to version path): {after:?}"
+        );
+
+        cleanup(&path);
+    }
+
+    /// Full inbound path: a CA-signed migration delivered via `inject_inbound`
+    /// → `process_inbound_messages` → `SchemaMigrationEngine::receive_migration_delta`
+    /// is applied, the sender is not blacklisted, and the engine's local schema
+    /// hash advances so the next path step is accepted.
+    #[tokio::test]
+    async fn inbound_migration_passes_ca_gate_with_configured_key_and_path() {
+        let path = tmp_path("p51_inbound_migration");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let v1 = [0x10u8; 32];
+        let v2 = [0x11u8; 32];
+        let v3 = [0x12u8; 32];
+
+        let handle = CoreHandle::init(make_migration_config(
+            &path,
+            ca_public,
+            vec![v1, v2, v3],
+        ))
+        .await
+        .expect("init with migration CA key + version path");
+
+        let sender = "did:key:z6MkMigSender";
+
+        // Deliver migration v1 → v2 through the production inbound pipeline.
+        let delta_a = make_ca_signed_migration_delta(
+            &ca_secret,
+            v1,
+            v2,
+            trivial_wasm_bytes(),
+        );
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(delta_a))
+            .await
+            .expect("inject migration A");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        let mut mig = handle.migration.lock().unwrap();
+        assert!(
+            !mig.is_blacklisted(sender),
+            "valid CA-signed migration must not blacklist its sender"
+        );
+
+        // The engine's local schema hash advanced to v2 — the next step v2 → v3
+        // must now be a valid migration (it would fail the source-hash check had
+        // migration A not actually applied).
+        let delta_b = make_ca_signed_migration_delta(
+            &ca_secret,
+            v2,
+            v3,
+            trivial_wasm_bytes(),
+        );
+        let result = mig.receive_migration_delta(delta_b, sender);
+        assert!(
+            matches!(
+                result,
+                Ok(crate::migration::wasm_sandbox::MigrationResult::Success)
+            ),
+            "second path step must succeed after the first applied: {result:?}"
+        );
+
+        drop(mig);
+        cleanup(&path);
+    }
+
     // ── Subphase 3.2: Saturate Mode lifecycle through the real state machine ──
     //
     // `CoreHandle::activate_saturate_mode` / `renew_saturate_mode` /
@@ -4663,6 +5017,8 @@ mod inbound_tests {
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5234,6 +5590,8 @@ mod inbound_tests {
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5331,6 +5689,8 @@ mod inbound_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5440,6 +5800,8 @@ mod inbound_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5803,6 +6165,8 @@ mod convergence_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5949,6 +6313,8 @@ mod real_mesh_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6365,6 +6731,8 @@ mod cloud_sync_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6564,6 +6932,8 @@ mod tier2_ack_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6759,6 +7129,8 @@ mod tier2_ack_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: enabled,
                 beacon_public_keys,
                 spatial_diversity_min: 1,
@@ -6864,6 +7236,8 @@ mod diversity_config_tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: min_distinct,
