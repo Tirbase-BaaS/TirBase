@@ -87,6 +87,63 @@ pub struct TirBaseBehaviour {
 #[cfg(feature = "native")]
 pub use libp2p::swarm::NetworkBehaviour;
 
+// ─── mDNS discovery → dialing (Req 5.2) ──────────────────────────────────────
+
+/// Dial every peer reported by an mDNS `Discovered` event and register it as a
+/// Gossipsub explicit peer.
+///
+/// mDNS only *announces* peers — a connection is never opened until the
+/// application asks the Swarm to dial the announced address.  This is the
+/// missing half of discovery: without it, mDNS neighbours stay unconnected and
+/// the `add_explicit_peer` registration (which Gossipsub only honours for
+/// connected peers) has nothing to gossip over.
+///
+/// Each announced address has the remote `/p2p/<peer-id>` suffix appended
+/// before dialing.  Repeated `Discovered` events for an already-connected or
+/// in-flight peer are no-ops (the default `DialOpts` condition is
+/// `DisconnectedAndNotDialing`), so periodic mDNS re-announcements never
+/// trigger duplicate dials.
+///
+/// Production caller: the Swarm polling task spawned in `CoreHandle::init`
+/// (`api/mod.rs`, `Mdns(Discovered)` event arm) forwards every discovered
+/// `(PeerId, Multiaddr)` pair here.
+#[cfg(feature = "native")]
+pub(crate) fn dial_discovered_mdns_peers(
+    swarm: &mut libp2p::Swarm<TirBaseBehaviour>,
+    discovered: Vec<(libp2p::PeerId, libp2p::Multiaddr)>,
+) {
+    for (peer_id, addr) in discovered {
+        // Keep the peer in Gossipsub's explicit set (pre-existing behaviour).
+        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+
+        // Append `/p2p/<peer-id>` unless the announced address already ends
+        // with it; an address bound to a *different* peer id is unusable.
+        let dial_addr = match addr.with_p2p(peer_id) {
+            Ok(addr) => addr,
+            Err(addr) => {
+                eprintln!(
+                    "[transport] mDNS: skipping {peer_id} — announced address {addr} carries a different peer id"
+                );
+                continue;
+            }
+        };
+
+        match swarm
+            .dial(
+                libp2p::swarm::dial_opts::DialOpts::peer_id(peer_id)
+                    .addresses(vec![dial_addr])
+                    .build(),
+            ) {
+            Ok(()) => {
+                eprintln!("[transport] mDNS: dialing discovered peer {peer_id}");
+            }
+            Err(e) => {
+                eprintln!("[transport] mDNS: dial to discovered peer {peer_id} failed: {e}");
+            }
+        }
+    }
+}
+
 // ─── MeshTransport ────────────────────────────────────────────────────────────
 
 /// The mesh transport layer — manages peer connections, scheduling, and
@@ -667,5 +724,121 @@ mod tests {
             matches!(err, TirBaseError::MeshUnavailable { .. }),
             "expected MeshUnavailable, got: {err}"
         );
+    }
+
+    // ── Peer dialing (Subphase 1.2) ─────────────────────────────────────────
+    //
+    // mDNS discovery previously registered Gossipsub explicit peers but never
+    // dialed them, so discovered peers never connected.  The production Swarm
+    // polling task (`CoreHandle::init`, `api/mod.rs`) calls
+    // `dial_discovered_mdns_peers` on every `Mdns(Discovered)` event.  This
+    // integration test starts two real Swarms built by the production
+    // `MeshTransport::start()` path and asserts that handing one swarm the
+    // other's mDNS-style (peer, address) announcement actually establishes a
+    // connection in both directions — no multicast, no test-only injection
+    // helpers.
+    //
+    // The drivers keep their Swarm alive until the test aborts them: dropping
+    // a Swarm the moment its side sees `ConnectionEstablished` closes the
+    // socket while the remote's independent upgrade task may still be
+    // finishing, which fails the remote's negotiation.
+
+    #[cfg(feature = "native")]
+    async fn drive_swarm_until_connected(
+        mut swarm: libp2p::Swarm<TirBaseBehaviour>,
+        peer: libp2p::PeerId,
+        mut on_connected: Option<tokio::sync::oneshot::Sender<()>>,
+    ) {
+        use libp2p::futures::StreamExt as _;
+        loop {
+            if swarm.is_connected(&peer) {
+                if let Some(tx) = on_connected.take() {
+                    let _ = tx.send(());
+                }
+            }
+            swarm.select_next_some().await;
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn discovered_mdns_peers_are_dialed_and_connect() {
+        use libp2p::futures::StreamExt as _;
+        use libp2p::swarm::SwarmEvent;
+        use libp2p::Multiaddr;
+        use std::time::Duration;
+        use tokio::sync::{mpsc, oneshot};
+
+        fn transport_config() -> TransportConfig {
+            TransportConfig {
+                listen_addr: "/ip4/127.0.0.1/tcp/0".to_string(),
+                ..Default::default()
+            }
+        }
+
+        // Two real device instances: each `MeshTransport::start()` builds a
+        // libp2p Swarm with TCP + Noise + Yamux + mDNS + Gossipsub + Identify
+        // + Ping, exactly as `CoreHandle::init` does in production.
+        let mut transport_a =
+            MeshTransport::new("did:key:node-a".to_string(), transport_config());
+        transport_a.start().await.expect("transport A must start");
+        let (tx_a, _rx_a) = mpsc::channel::<Vec<u8>>(16);
+        let mut swarm_a = transport_a
+            .take_swarm(tx_a)
+            .expect("transport A must own a Swarm after start");
+
+        let mut transport_b =
+            MeshTransport::new("did:key:node-b".to_string(), transport_config());
+        transport_b.start().await.expect("transport B must start");
+        let (tx_b, _rx_b) = mpsc::channel::<Vec<u8>>(16);
+        let mut swarm_b = transport_b
+            .take_swarm(tx_b)
+            .expect("transport B must own a Swarm after start");
+
+        let peer_a = *swarm_a.local_peer_id();
+        let peer_b = *swarm_b.local_peer_id();
+        assert_ne!(peer_a, peer_b, "the two transports must have distinct peer ids");
+
+        // Learn B's real listen address — the address its mDNS announcement
+        // would carry.  A's mDNS service reports this exact (peer, address)
+        // pair when it discovers B.
+        let b_listen_addr: Multiaddr = loop {
+            match swarm_b.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => break address,
+                _ => {}
+            }
+        };
+
+        // This is the Subphase 1.2 wiring under test: exactly what the
+        // production poll loop does on `Mdns(Discovered)`.  Before this fix
+        // the loop only called `gossipsub.add_explicit_peer`, so B stayed
+        // unreachable regardless of what mDNS announced.
+        dial_discovered_mdns_peers(&mut swarm_a, vec![(peer_b, b_listen_addr.clone())]);
+
+        // Drive both Swarms until the connection is established end-to-end
+        // (A dials → TCP + Noise + Yamux handshake → B accepts).
+        let (a_connected_tx, a_connected_rx) = oneshot::channel::<()>();
+        let (b_connected_tx, b_connected_rx) = oneshot::channel::<()>();
+        tokio::spawn(drive_swarm_until_connected(
+            swarm_a,
+            peer_b,
+            Some(a_connected_tx),
+        ));
+        tokio::spawn(drive_swarm_until_connected(
+            swarm_b,
+            peer_a,
+            Some(b_connected_tx),
+        ));
+
+        tokio::time::timeout(Duration::from_secs(15), async {
+            a_connected_rx
+                .await
+                .expect("A must observe the connection to B");
+            b_connected_rx
+                .await
+                .expect("B must observe the connection from A");
+        })
+        .await
+        .expect("the mDNS-discovered peer was never dialed into a real connection within 15s");
     }
 }

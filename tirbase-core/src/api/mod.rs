@@ -339,10 +339,12 @@ impl CoreHandle {
                                             mdns::Event::Discovered(peers),
                                         ),
                                     ) => {
-                                        for (peer_id, _) in peers {
-                                            eprintln!("[transport-loop] mDNS discovered: {peer_id}");
-                                            swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                                        }
+                                        // Subphase 1.2: dial every discovered peer so
+                                        // mDNS neighbours actually connect to this
+                                        // Swarm (previously only
+                                        // gossipsub.add_explicit_peer was called and no
+                                        // connection was ever opened).
+                                        crate::transport::dial_discovered_mdns_peers(&mut swarm, peers);
 
                                         // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
                                         let recent = revocation_arc.lock().map(|rev| {
