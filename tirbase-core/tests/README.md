@@ -333,9 +333,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (572 tests, 0 failures)
+**Status:** VERIFIED (591 tests, 0 failures)
 
-`cargo test --features native` passes all 572 tests including all 22 property
+`cargo test --features native` passes all 591 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -348,7 +348,9 @@ listed in Item 13; Subphase 5.1 added the four migration CA key + schema
 version path wiring tests listed in Item 14; Subphase 5.4 added the three
 migration-revocation-interrupt tests listed in Item 16; Subphase 5.5 added the
 five known-hash-gate tests listed in Item 17; Subphase 5.6 added the
-corruption-recovery wiring tests listed in Item 18).
+corruption-recovery wiring tests listed in Item 18; Subphase 6.1 added the
+post-merge read-back tests listed in Item 19; Subphase 6.2 added the eleven
+structured-rejection-record tests listed in Item 20).
 
 ---
 
@@ -958,8 +960,79 @@ value/ordering from the merged Automerge doc and compares it against the rule
     the same-position insertion pairing.
 
 `crdt::verify` unit + `crdt::tests::apply_*` end-to-end tests all pass; the
-full native suite (580 tests, incl. Properties 3/4) and the WASM
+full native suite (591 tests, incl. Properties 3/4) and the WASM
 `cargo check --no-default-features --features wasm` build stay green.
+
+---
+
+### Item 20 — Structured Delta rejection failure records (Subphase 6.2)
+
+**Status:** VERIFIED
+
+Closes Req 7.4/7.5 from the audit: the CRDT engine's rejection failure
+"records" are no longer `eprintln!` lines without a UTC timestamp — every
+`MergeOutcome::Rejected` path in `CrdtEngine::apply` (crdt/mod.rs:496) now
+emits a typed `DeltaRejectionRecord` (`crdt/failure.rs`) carrying the sender
+DID and a UTC timestamp, and the Delta is discarded without merging any data:
+
+- **Structured record type** — `DeltaRejectionRecord { code, author_did,
+  delta_id, reason, occurred_at_utc }` with a stable per-cause code
+  (`RevokedAuthor` — the Req 8.6 revocation gate at crdt/mod.rs:511;
+  `MissingSignature` — crdt/mod.rs:566; `DidResolutionFailed` — the *distinct*
+  Req 7.5 unresolvable-DID record at crdt/mod.rs:577; and
+  `SignatureVerificationFailed` — the Req 7.4 record at crdt/mod.rs:590).
+  `occurred_at_utc` is the UTC wall-clock time in microseconds since the Unix
+  epoch — the codebase-wide clock convention — satisfying the "failure record
+  containing the sender DID and UTC timestamp" spec conjuncts of Req 7.4
+  (requirements.md:160) and Req 7.5 (requirements.md:161, which additionally
+  requires the *distinct* unresolvable-DID record to carry the unresolved DID
+  — it does, in `author_did`).
+- **Production wiring (emission)** — the four rejection sites call
+  `CrdtEngine::record_rejection` (crdt/mod.rs:333), which appends the record
+  to a bounded (1024-entry) engine buffer (`rejection_records` — oldest
+  dropped, so an invalid-Delta flood cannot grow memory), relays it to the
+  host listener, and renders it to the native stderr channel
+  (`notify_delta_rejection`, crdt/failure.rs:131).  These sites are reached
+  by every production inbound path that applies a peer Delta: native
+  `CoreHandle::receive_inbound` (api/mod.rs:1943), WASM
+  `receive_inbound_wasm` (api/mod.rs:2587), the Cloud Ledger's embedded
+  engine, and the migration Side-Car replay.
+- **Production wiring (delivery)** — `CoreHandle::init` registers a rejection
+  listener on the CRDT engine (api/mod.rs:538-547) that forwards each record
+  onto the handle's rejection-record broadcast channel
+  (`rejection_records_channel`, api/mod.rs:963), consumable via
+  `CoreHandle::subscribe_rejection_records` (api/mod.rs:1517) — the native
+  analogue of the durability event subscription pattern (Subphase 4.2).  On
+  the WASM target `eprintln!` is a silent no-op (unchanged from before); the
+  retained engine records are the observable there.
+
+Tests (all native):
+
+- `crdt::tests::apply_tampered_payload_emits_signature_verification_failure_record`
+  — a tampered Delta is rejected and leaves exactly one record with the Req 7.4
+  code, the sender DID, the Delta ID, a plausible recent UTC timestamp, and a
+  zero Lamport advance (no data merged).
+- `crdt::tests::apply_unresolvable_did_emits_distinct_did_resolution_failure_record`
+  — a Delta whose author DID cannot be resolved is rejected with the *distinct*
+  Req 7.5 code; the record carries the unresolved DID itself and its code
+  differs from the signature-failure code.
+- `crdt::tests::apply_missing_signature_emits_missing_signature_record` and
+  `crdt::tests::apply_revoked_author_emits_revoked_author_record` — the
+  malformed-signature guard and the Req 8.6 revocation gate emit their own
+  coded records.
+- `crdt::tests::merged_delta_emits_no_rejection_record` — a clean merge
+  produces no records; `crdt::tests::rejection_records_buffer_is_bounded` —
+  the retention buffer stays capped at 1024 under a rejection flood.
+- `crdt::tests::rejection_records_carry_stable_distinct_codes` and
+  `crdt::failure::tests::*` — the stable serialised code strings stay
+  distinct between the Req 7.4 and Req 7.5 records.
+- `api::inbound_tests::inbound_tampered_delta_emits_structured_signature_failure_record`
+  and `api::inbound_tests::inbound_unresolvable_did_emits_distinct_did_resolution_failure_record`
+  — full production pipeline (`inject_inbound` → `process_inbound_messages` →
+  `receive_inbound` → `CrdtEngine::apply`): a subscriber created through the
+  production `subscribe_rejection_records` API receives the structured,
+  UTC-timestamped record, and the rejected Delta neither advances the engine
+  Lamport clock nor lands in the Quarantine Ledger.
 
 ---
 

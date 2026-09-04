@@ -11,9 +11,14 @@ pub mod delta;
 pub mod merge;
 pub mod schema_hash;
 
+pub(crate) mod failure;
 mod verify;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+
+use failure::{
+    notify_delta_rejection, DeltaRejectionCode, DeltaRejectionListener, DeltaRejectionRecord,
+};
 
 use crate::errors::TirBaseError;
 use crate::identity::keypair;
@@ -91,6 +96,26 @@ pub struct CrdtEngine {
     /// are well-formed and correctly signed.
     revoked_dids: HashSet<Did>,
 
+    /// Structured rejection failure records emitted by [`Self::apply`]
+    /// (Subphase 6.2 — Req 7.4/7.5).
+    ///
+    /// Every rejected inbound Delta appends one record carrying the sender
+    /// DID and a UTC timestamp; the buffer is bounded (oldest dropped) so a
+    /// hostile peer that floods the gate with invalid Deltas cannot grow
+    /// engine memory without bound.  Retained on the engine for introspection
+    /// ([`Self::rejection_records`]) and relayed to the host listener
+    /// ([`Self::set_rejection_listener`]).
+    rejection_records: VecDeque<DeltaRejectionRecord>,
+
+    /// Optional host listener invoked for every rejection record the engine
+    /// emits (Subphase 6.2).
+    ///
+    /// Registered by [`crate::api::CoreHandle::init`], which forwards each
+    /// record onto a non-blocking broadcast channel for host subscribers.  The
+    /// listener runs while the engine is locked (inside [`Self::apply`]), so
+    /// it must never re-enter the engine.
+    rejection_listener: Option<DeltaRejectionListener>,
+
     /// SQLite-backed Changeset DAG (native build only).
     #[cfg(feature = "native")]
     dag: ChangesetDag,
@@ -148,6 +173,8 @@ impl CrdtEngine {
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
+            rejection_records: VecDeque::new(),
+            rejection_listener: None,
             dag: ChangesetDag::new(conn),
         }
     }
@@ -177,6 +204,8 @@ impl CrdtEngine {
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
+            rejection_records: VecDeque::new(),
+            rejection_listener: None,
         }
     }
 
@@ -287,6 +316,71 @@ impl CrdtEngine {
         self.revoked_dids.insert(did.clone());
     }
 
+    /// Emit a structured rejection failure record for an inbound Delta the
+    /// merge gate is about to discard (Subphase 6.2 — Req 7.4/7.5).
+    ///
+    /// 1. Appends a [`DeltaRejectionRecord`] (sender DID + UTC timestamp) to
+    ///    the engine's bounded rejection-record buffer;
+    /// 2. Relays it to the host listener registered by
+    ///    [`crate::api::CoreHandle::init`];
+    /// 3. Notifies the v1 observability channel (native stderr rendering).
+    ///
+    /// Called from every `MergeOutcome::Rejected` path in [`Self::apply`]
+    /// — the revocation gate, the malformed-signature guard, DID-resolution
+    /// failure (Req 7.5), and signature-verification failure (Req 7.4) — so
+    /// a rejected Delta always leaves a structured record behind and never
+    /// merges any data.
+    fn record_rejection(
+        &mut self,
+        code: DeltaRejectionCode,
+        delta: &Delta,
+        reason: String,
+    ) {
+        let record = DeltaRejectionRecord {
+            code,
+            author_did: delta.author_did.clone(),
+            delta_id: delta.id,
+            reason,
+            occurred_at_utc: current_timestamp_micros(),
+        };
+
+        self.rejection_records.push_back(record.clone());
+        if self.rejection_records.len() > MAX_REJECTION_RECORDS {
+            self.rejection_records.pop_front();
+        }
+
+        // Host listener (registered by CoreHandle::init).  Invoked while the
+        // engine is locked, so the listener must only forward onto a
+        // non-blocking channel.
+        if let Some(listener) = self.rejection_listener.as_mut() {
+            listener(&record);
+        }
+
+        // v1 observability channel: stderr on native, silent no-op on WASM.
+        notify_delta_rejection(&record);
+    }
+
+    /// Register the host listener invoked for every rejection record the
+    /// engine emits (Subphase 6.2).
+    ///
+    /// Production caller: [`crate::api::CoreHandle::init`], which attaches a
+    /// listener forwarding each record onto the handle's rejection-record
+    /// broadcast channel so host applications and integration tests can
+    /// subscribe.  The listener is invoked while the engine mutex is held
+    /// (inside [`Self::apply`]) and must not re-enter the engine.
+    pub(crate) fn set_rejection_listener(&mut self, listener: DeltaRejectionListener) {
+        self.rejection_listener = Some(listener);
+    }
+
+    /// Structured rejection records currently retained on the engine
+    /// (oldest-first, bounded to [`MAX_REJECTION_RECORDS`]).
+    ///
+    /// `pub(crate)`: introspection for in-crate callers/tests; rejection
+    /// records are internal diagnostics, not external API surface.
+    pub(crate) fn rejection_records(&self) -> &VecDeque<DeltaRejectionRecord> {
+        &self.rejection_records
+    }
+
     /// Current Lamport clock value.
     pub fn lamport(&self) -> u64 {
         self.lamport
@@ -394,18 +488,27 @@ impl CrdtEngine {
     ///    (Subphase 6.1 — Req 4.5/4.5a).
     /// 5. Advance Lamport clock.
     /// 6. Persist DagNode.
+    ///
+    /// Every rejection (steps 0–3) emits a structured
+    /// [`DeltaRejectionRecord`] carrying the sender DID and a UTC timestamp
+    /// (Subphase 6.2 — Req 7.4/7.5) instead of an `eprintln!` failure log,
+    /// then discards the Delta without merging any data.
     pub fn apply(&mut self, delta: &Delta) -> Result<MergeOutcome, TirBaseError> {
         // 0. Revocation gate (Req 8.6) — reject Deltas authored by a REVOKED
         //    DID outright, before any schema or signature processing.  A revoked
         //    author must not be able to inject state through the mesh even with
         //    a correctly-signed Delta (the local write/read gate of Req 8.5
         //    cannot stop the peer, so the merge path must).
+        //
+        //    Subphase 6.2: the rejection is emitted as a structured record
+        //    (RevokedAuthor code, UTC timestamp, sender DID) rather than an
+        //    `eprintln!` failure log.
         if self.revoked_dids.contains(&delta.author_did) {
             let reason = format!(
                 "author DID '{}' is REVOKED — inbound Deltas from revoked devices are rejected (Req 8.6)",
                 delta.author_did
             );
-            eprintln!("[CRDT] Rejected delta from {}: {reason}", delta.author_did);
+            self.record_rejection(DeltaRejectionCode::RevokedAuthor, delta, reason.clone());
             return Ok(MergeOutcome::Rejected { reason });
         }
 
@@ -459,23 +562,22 @@ impl CrdtEngine {
 
         // 2. Malformed-signature guard.
         if delta.signature.0.is_empty() {
-            eprintln!(
-                "[CRDT] Rejected delta from {}: missing signature",
-                delta.author_did
-            );
-            return Ok(MergeOutcome::Rejected {
-                reason: "malformed delta: missing signature".to_string(),
-            });
+            let reason = "malformed delta: missing signature".to_string();
+            self.record_rejection(DeltaRejectionCode::MissingSignature, delta, reason.clone());
+            return Ok(MergeOutcome::Rejected { reason });
         }
 
         // 3. DID resolution + Ed25519 verification.
         let public_key = match resolve_did_key_to_public_key(&delta.author_did) {
             Ok(pk) => pk,
             Err(e) => {
+                // Req 7.5 — distinct unresolvable-DID failure record.  The
+                // record's `author_did` is the DID that could not be resolved.
                 let reason = e.to_string();
-                eprintln!(
-                    "[CRDT] Rejected delta from {}: DID resolution failed — {reason}",
-                    delta.author_did
+                self.record_rejection(
+                    DeltaRejectionCode::DidResolutionFailed,
+                    delta,
+                    reason.clone(),
                 );
                 return Ok(MergeOutcome::Rejected { reason });
             }
@@ -483,10 +585,12 @@ impl CrdtEngine {
 
         let canonical = delta.canonical_bytes();
         if let Err(e) = keypair::verify(&public_key, &canonical, &delta.signature) {
+            // Req 7.4 — failure record carrying the sender DID + UTC timestamp.
             let reason = e.to_string();
-            eprintln!(
-                "[CRDT] Rejected delta from {}: {reason}",
-                delta.author_did
+            self.record_rejection(
+                DeltaRejectionCode::SignatureVerificationFailed,
+                delta,
+                reason.clone(),
             );
             return Ok(MergeOutcome::Rejected { reason });
         }
@@ -790,6 +894,13 @@ pub fn rga_incoming_has_priority(
         current_actor,
     )
 }
+
+// ─── Rejection-record bounds ─────────────────────────────────────────────────
+
+/// Maximum number of structured rejection records retained on the engine
+/// (Subphase 6.2).  Oldest records are dropped first, so the buffer is
+/// constant-size even under a flood of invalid inbound Deltas.
+const MAX_REJECTION_RECORDS: usize = 1024;
 
 // ─── Timestamp helper ────────────────────────────────────────────────────────
 
@@ -1258,6 +1369,222 @@ mod tests {
         assert!(
             matches!(outcome, MergeOutcome::Rejected { .. }),
             "mismatched key must be rejected: {outcome:?}"
+        );
+    }
+
+    // ── apply — structured rejection failure records (Subphase 6.2, Req 7.4/7.5) ─
+    //
+    // Every `MergeOutcome::Rejected` path in `apply` emits a typed
+    // `DeltaRejectionRecord` carrying the sender DID and a UTC timestamp — the
+    // structured replacement for the former `eprintln!` rejection logs.
+    // Req 7.4 (signature-verification failure) and Req 7.5 (unresolvable-DID
+    // failure) must produce *distinct* records, and a rejected Delta must
+    // never merge any data.
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_tampered_payload_emits_signature_verification_failure_record() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
+
+        // Build a signed delta, then tamper with automerge_bytes so the
+        // Ed25519 signature no longer verifies (Req 7.4).
+        let mut delta = make_signed_delta(&secret, did.clone(), schema, 1, vec![1, 2, 3]);
+        delta.automerge_bytes = vec![9, 9, 9];
+
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Rejected { .. }),
+            "tampered payload must be rejected: {outcome:?}"
+        );
+
+        // The engine must retain exactly one structured failure record with
+        // the sender DID and a UTC timestamp (Req 7.4).
+        let records = engine.rejection_records();
+        assert_eq!(records.len(), 1, "exactly one rejection record expected");
+        let record = &records[0];
+        assert_eq!(
+            record.code,
+            DeltaRejectionCode::SignatureVerificationFailed,
+            "tampered payload must emit the Req 7.4 signature-failure code"
+        );
+        assert_eq!(record.author_did, did, "record must carry the sender DID");
+        assert_eq!(record.delta_id, delta.id, "record must carry the Delta ID");
+        assert!(!record.reason.is_empty(), "record must carry a reason");
+        let now = current_timestamp_micros();
+        assert!(
+            record.occurred_at_utc > 0 && record.occurred_at_utc <= now,
+            "record must carry a plausible UTC timestamp: {} vs now {now}",
+            record.occurred_at_utc
+        );
+        assert!(
+            now - record.occurred_at_utc < 600_000_000,
+            "record timestamp must be recent (UTC micros): {}",
+            record.occurred_at_utc
+        );
+
+        // Req 7.4 — the Delta is discarded without merging any data.
+        assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_unresolvable_did_emits_distinct_did_resolution_failure_record() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+        let mut engine = make_engine(secret, public, did, schema);
+
+        // Req 7.5: the sender's DID cannot be resolved to a public key.  The
+        // signature is present and non-empty so the rejection is attributable
+        // to resolution (not the malformed-signature guard).
+        let unresolvable_did = "did:web:example.com/not-a-did-key".to_string();
+        let delta = make_signed_delta(&secret, unresolvable_did.clone(), schema, 1, vec![]);
+
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Rejected { .. }),
+            "unresolvable DID must be rejected: {outcome:?}"
+        );
+
+        let records = engine.rejection_records();
+        assert_eq!(records.len(), 1, "exactly one rejection record expected");
+        let record = &records[0];
+        assert_eq!(
+            record.code,
+            DeltaRejectionCode::DidResolutionFailed,
+            "unresolvable DID must emit the Req 7.5 DID-resolution-failure code"
+        );
+        // Req 7.5 — the record is *distinct* from the Req 7.4 signature record.
+        assert_ne!(
+            record.code,
+            DeltaRejectionCode::SignatureVerificationFailed,
+            "the unresolvable-DID record must be distinct from the signature record"
+        );
+        // Req 7.5 — the record carries the unresolved DID itself.
+        assert_eq!(
+            record.author_did, unresolvable_did,
+            "record must carry the unresolved DID"
+        );
+        assert!(
+            record.reason.contains("did:web"),
+            "reason must name the resolution failure: {}",
+            record.reason
+        );
+        assert!(
+            record.occurred_at_utc > 0,
+            "record must carry a UTC timestamp"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_missing_signature_emits_missing_signature_record() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+        let mut engine = make_engine(secret, public, did.clone(), schema);
+
+        let delta = Delta {
+            id: [0u8; 32],
+            author_did: did,
+            signature: Ed25519Signature::default(), // empty
+            schema_hash: schema,
+            automerge_bytes: vec![],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(matches!(outcome, MergeOutcome::Rejected { .. }));
+        let records = engine.rejection_records();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].code, DeltaRejectionCode::MissingSignature);
+        assert_eq!(records[0].author_did, delta.author_did);
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_revoked_author_emits_revoked_author_record() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+        engine.mark_did_revoked(&did_b);
+
+        // B produces a *validly signed* delta — the revocation gate (Req 8.6)
+        // must still reject it and emit a RevokedAuthor failure record.
+        let delta = make_signed_delta(&secret_b, did_b.clone(), schema, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(matches!(outcome, MergeOutcome::Rejected { .. }));
+
+        let records = engine.rejection_records();
+        assert_eq!(records.len(), 1, "exactly one rejection record expected");
+        assert_eq!(records[0].code, DeltaRejectionCode::RevokedAuthor);
+        assert_eq!(records[0].author_did, did_b);
+        assert!(records[0].reason.contains("REVOKED"));
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn merged_delta_emits_no_rejection_record() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, schema);
+        let delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(matches!(outcome, MergeOutcome::Merged { .. }));
+        assert!(
+            engine.rejection_records().is_empty(),
+            "a merged Delta must not produce rejection records"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn rejection_records_buffer_is_bounded() {
+        let (secret, public, did) = make_identity();
+        let schema = test_schema_hash();
+        let mut engine = make_engine(secret, public, did.clone(), schema);
+
+        // Flood the gate with more invalid Deltas than the retention cap: the
+        // oldest records must be dropped so a hostile peer cannot grow engine
+        // memory without bound.
+        for i in 0..(MAX_REJECTION_RECORDS + 64) {
+            let mut delta = make_signed_delta(&secret, did.clone(), schema, 1, vec![]);
+            delta.automerge_bytes = vec![0xEE, (i & 0xFF) as u8];
+            let outcome = engine.apply(&delta).unwrap();
+            assert!(matches!(outcome, MergeOutcome::Rejected { .. }));
+        }
+
+        assert_eq!(
+            engine.rejection_records().len(),
+            MAX_REJECTION_RECORDS,
+            "rejection buffer must stay capped at MAX_REJECTION_RECORDS"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn rejection_records_carry_stable_distinct_codes() {
+        // The render code strings are the stable serialised form of the
+        // records; the Req 7.4 vs Req 7.5 distinction must survive rendering.
+        assert_eq!(
+            DeltaRejectionCode::SignatureVerificationFailed.as_str(),
+            "SIGNATURE_VERIFICATION_FAILED"
+        );
+        assert_eq!(
+            DeltaRejectionCode::DidResolutionFailed.as_str(),
+            "DID_RESOLUTION_FAILED"
+        );
+        assert_ne!(
+            DeltaRejectionCode::SignatureVerificationFailed.as_str(),
+            DeltaRejectionCode::DidResolutionFailed.as_str()
         );
     }
 

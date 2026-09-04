@@ -277,6 +277,19 @@ pub struct CoreHandle {
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
 
+    /// Broadcast channel for structured Delta rejection failure records
+    /// (Subphase 6.2 — Req 7.4/7.5).
+    ///
+    /// [`CoreHandle::init`] registers a listener on the CRDT engine
+    /// (see [`CrdtEngine::set_rejection_listener`](crate::crdt::CrdtEngine::set_rejection_listener))
+    /// that forwards every rejection record the merge gate emits — revoked
+    /// author, missing signature, DID-resolution failure, signature-verification
+    /// failure — onto this channel, so host applications can subscribe with
+    /// [`CoreHandle::subscribe_rejection_records`].  Each record carries the
+    /// sender DID and a UTC timestamp per Req 7.4/7.5.
+    rejection_records_channel:
+        tokio::sync::broadcast::Sender<crate::crdt::failure::DeltaRejectionRecord>,
+
     /// Broadcast channel for durability tier transitions (Req 14.7).
     ///
     /// The Durability Subsystem's instance-level tier-change listener —
@@ -326,6 +339,11 @@ impl CoreHandle {
         // ── Diagnostics channel ───────────────────────────────────────────────
         let (diag_tx, _diag_rx) =
             tokio::sync::broadcast::channel::<DiagnosticEntry>(64);
+
+        // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
+        let (rejection_records_tx, _rejection_records_rx) = tokio::sync::broadcast::channel::<
+            crate::crdt::failure::DeltaRejectionRecord,
+        >(64);
 
         // ── Identity ──────────────────────────────────────────────────────────
         let identity_path = format!("{}.identity.json", config.storage_path);
@@ -505,6 +523,29 @@ impl CoreHandle {
                     )?;
                 }
             }
+        }
+
+        // ── CRDT rejection-record listener (Subphase 6.2 — Req 7.4/7.5) ──────
+        //
+        // Register an engine-level listener that relays every structured Delta
+        // rejection record — emitted by `CrdtEngine::apply` when the merge
+        // gate discards an inbound Delta (revoked author, missing signature,
+        // unresolvable DID — Req 7.5, signature failure — Req 7.4) — onto
+        // this handle's broadcast channel.  The listener is invoked while the
+        // engine is locked, so it only sends on the non-blocking broadcast
+        // channel and never re-enters the engine.
+        {
+            let tx = rejection_records_tx.clone();
+            let mut crdt_guard = crdt.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!(
+                        "crdt mutex poisoned while registering rejection listener: {e}"
+                    ),
+                }
+            })?;
+            crdt_guard.set_rejection_listener(Box::new(move |record| {
+                let _ = tx.send(record.clone());
+            }));
         }
 
         #[cfg(feature = "native")]
@@ -919,6 +960,7 @@ impl CoreHandle {
             #[cfg(feature = "native")]
             migration_tasks_active,
             diagnostics_channel: diag_tx,
+            rejection_records_channel: rejection_records_tx,
             #[cfg(feature = "native")]
             durability_events_channel,
             inbound_tx,
@@ -1458,6 +1500,24 @@ impl CoreHandle {
         &self,
     ) -> tokio::sync::broadcast::Receiver<DiagnosticEntry> {
         self.diagnostics_channel.subscribe()
+    }
+
+    /// Subscribe to structured Delta rejection failure records (Req 7.4/7.5).
+    ///
+    /// Returns a new receiver that will receive every rejection record the
+    /// CRDT engine emits from here on — the typed, UTC-timestamped
+    /// replacement for the former `eprintln!` rejection logs (Subphase 6.2).
+    /// Records carry the sender DID and the reason the Delta was discarded
+    /// (`RevokedAuthor`, `MissingSignature`, `DidResolutionFailed` — the
+    /// distinct Req 7.5 record — or `SignatureVerificationFailed` — Req 7.4).
+    ///
+    /// `pub(crate)`: rejection records are internal diagnostics for native
+    /// host applications and in-crate integration tests; the WASM SDK target
+    /// observes rejections through the retained engine records instead.
+    pub(crate) fn subscribe_rejection_records(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::crdt::failure::DeltaRejectionRecord> {
+        self.rejection_records_channel.subscribe()
     }
 
     /// Return the primary root CA public key for offline Biscuit token verification.
@@ -6339,6 +6399,143 @@ mod inbound_tests {
             crate::migration::quarantine::QuarantineReason::UnknownSchemaHash,
             "quarantine reason must be recorded"
         );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 6.2: structured rejection failure records (Req 7.4/7.5) ────
+    //
+    // `CoreHandle::init` registers a listener on the CRDT engine forwarding
+    // every rejection record onto the handle's rejection-record broadcast
+    // channel.  These tests drive the full production inbound pipeline
+    // (`inject_inbound` → `process_inbound_messages` → `receive_inbound` →
+    // `apply_incoming_delta` → `CrdtEngine::apply`) with a tampered Delta
+    // (Req 7.4) and an unresolvable-DID Delta (Req 7.5), and assert the
+    // structured, UTC-timestamped record — not an `eprintln!` — reaches a
+    // subscriber, with no data merged.
+
+    #[tokio::test]
+    async fn inbound_tampered_delta_emits_structured_signature_failure_record() {
+        let path = tmp_path("p62_sig_rejection_record");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        // Subscribe *before* injecting: broadcast only delivers to receivers
+        // that existed at send time.
+        let mut rx = handle.subscribe_rejection_records();
+
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+
+        // A delta signed by the peer, then tampered after signing so the
+        // Ed25519 signature no longer verifies (Req 7.4).  Schema hash is the
+        // handle's current (default) hash so the gate reaches signature
+        // verification instead of quarantining earlier.
+        let mut delta = make_signed_delta(&peer_secret, &peer_did, [0u8; 32], 1);
+        delta.automerge_bytes = vec![0xAA, 0xBB];
+        let delta_id = delta.id;
+
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject");
+        let processed = handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages must not error");
+        assert_eq!(processed, 1);
+
+        // The structured failure record — sender DID + UTC timestamp — must
+        // reach the subscriber (Req 7.4).
+        let record = rx.try_recv().expect("rejection record must be delivered");
+        assert_eq!(
+            record.code,
+            crate::crdt::failure::DeltaRejectionCode::SignatureVerificationFailed,
+            "tampered delta must emit the Req 7.4 signature-failure code"
+        );
+        assert_eq!(record.author_did, peer_did, "record must carry the sender DID");
+        assert_eq!(record.delta_id, delta_id);
+        assert!(!record.reason.is_empty());
+        let now = crate::api::now_micros();
+        assert!(
+            record.occurred_at_utc > 0 && record.occurred_at_utc <= now,
+            "record must carry a UTC timestamp"
+        );
+
+        // Req 7.4: the Delta is discarded without merging any data — the
+        // engine Lamport clock never advanced and nothing was quarantined.
+        {
+            let engine = handle.crdt.lock().expect("crdt lock");
+            assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+        }
+        let migration = handle.migration.lock().expect("migration lock");
+        assert!(
+            migration
+                .quarantined_entries()
+                .expect("quarantined_entries")
+                .is_empty(),
+            "a signature-rejected delta must not be quarantined"
+        );
+        drop(migration);
+
+        cleanup(&path);
+    }
+
+    #[tokio::test]
+    async fn inbound_unresolvable_did_emits_distinct_did_resolution_failure_record() {
+        let path = tmp_path("p62_did_resolution_record");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let mut rx = handle.subscribe_rejection_records();
+
+        // Req 7.5: the sender DID cannot be resolved to a public key.  The
+        // signature is present (non-empty), so the rejection is attributable
+        // to resolution rather than the malformed-signature guard.
+        let (peer_secret, _peer_public) = generate_keypair().expect("keygen");
+        let unresolvable_did = "did:web:example.com/not-a-did-key";
+        let delta = make_signed_delta(&peer_secret, unresolvable_did, [0u8; 32], 1);
+        let delta_id = delta.id;
+
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject");
+        let processed = handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages must not error");
+        assert_eq!(processed, 1);
+
+        let record = rx.try_recv().expect("rejection record must be delivered");
+        assert_eq!(
+            record.code,
+            crate::crdt::failure::DeltaRejectionCode::DidResolutionFailed,
+            "unresolvable DID must emit the Req 7.5 DID-resolution-failure code"
+        );
+        // Req 7.5: the record is distinct from the Req 7.4 signature record and
+        // carries the unresolved DID itself.
+        assert_ne!(
+            record.code,
+            crate::crdt::failure::DeltaRejectionCode::SignatureVerificationFailed
+        );
+        assert_eq!(record.author_did, unresolvable_did);
+        assert_eq!(record.delta_id, delta_id);
+        assert!(
+            record.occurred_at_utc > 0,
+            "record must carry a UTC timestamp"
+        );
+
+        // Discarded without merging: Lamport never advanced.
+        let engine = handle.crdt.lock().expect("crdt lock");
+        assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+        drop(engine);
 
         cleanup(&path);
     }
