@@ -56,11 +56,26 @@ pub fn create_token(
     }
 
     let now = SystemTime::now();
-    let expiry = now + Duration::from_secs(ttl_secs);
     let issued_secs = now
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
+
+    build_token(did, role, ttl_secs, &[], root_ca_private_key, now, issued_secs)
+}
+
+/// Shared token builder: facts (`did`, `role`, `issued_at`) plus optional extra
+/// fact strings (e.g. `caveat("disaster-alert")`), signed by the root CA key.
+fn build_token(
+    did: &str,
+    role: &str,
+    ttl_secs: u64,
+    extra_facts: &[&str],
+    root_ca_private_key: &[u8],
+    now: SystemTime,
+    issued_secs: u64,
+) -> Result<Vec<u8>, TirBaseError> {
+    let expiry = now + Duration::from_secs(ttl_secs);
 
     // Build key from raw private key seed
     let private_key = PrivateKey::from_bytes(root_ca_private_key, Algorithm::Ed25519)
@@ -74,7 +89,7 @@ pub fn create_token(
     let role_str = role.to_string();
     let issued_at_val = issued_secs as i64;
 
-    let token = Biscuit::builder()
+    let mut builder = Biscuit::builder()
         .fact(format!("did(\"{did_str}\")").as_str())
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("failed to add did fact: {e}"),
@@ -87,7 +102,17 @@ pub fn create_token(
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("failed to add issued_at fact: {e}"),
         })?
-        .check_expiration_date(expiry)
+        .check_expiration_date(expiry);
+
+    for fact_str in extra_facts {
+        builder = builder.fact(*fact_str).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("failed to add extra fact: {e}"),
+            }
+        })?;
+    }
+
+    let token = builder
         .build(&keypair)
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("failed to build Biscuit token: {e}"),
@@ -96,6 +121,33 @@ pub fn create_token(
     token.to_vec().map_err(|e| TirBaseError::AuthorisationFailed {
         reason: format!("failed to serialize Biscuit token: {e}"),
     })
+}
+
+/// Build a Biscuit token carrying a `caveat("...")` fact, for tests exercising
+/// the production `verify_and_check_caveat` path (Req 13.1).
+#[cfg(test)]
+pub(crate) fn create_token_with_caveat(
+    did: &str,
+    role: &str,
+    ttl_secs: u64,
+    caveat: &str,
+    root_ca_private_key: &[u8],
+) -> Result<Vec<u8>, TirBaseError> {
+    let now = SystemTime::now();
+    let issued_secs = now
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let caveat_fact = format!("caveat(\"{caveat}\")");
+    build_token(
+        did,
+        role,
+        ttl_secs,
+        &[caveat_fact.as_str()],
+        root_ca_private_key,
+        now,
+        issued_secs,
+    )
 }
 
 /// Verify a Biscuit token offline against the root CA public key (Req 8.1).

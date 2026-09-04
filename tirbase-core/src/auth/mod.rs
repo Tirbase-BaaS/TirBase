@@ -137,6 +137,14 @@ impl CapabilityManager {
     pub fn root_ca_primary_key(&self) -> Option<[u8; 32]> {
         self.root_ca_registry.primary_key().copied()
     }
+
+    /// Register an additional root CA public key at runtime.
+    ///
+    /// The key takes effect immediately for subsequent [`Self::verify_token`] calls
+    /// and is exposed via [`Self::root_ca_primary_key`] if it is the only/primary key.
+    pub(crate) fn register_root_ca_key(&mut self, key: [u8; 32]) {
+        self.root_ca_registry.register(key);
+    }
 }
 
 fn current_timestamp_micros() -> i64 {

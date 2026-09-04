@@ -202,11 +202,32 @@ mod wasm_exports {
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
+    /// Decode a hex-encoded root CA public key into its 32 raw bytes.
+    fn decode_root_ca_key_hex(key_hex: &str) -> Result<[u8; 32], JsValue> {
+        let bytes = hex::decode(key_hex)
+            .map_err(|e| to_js_err(format!("root_ca_keys: invalid hex \"{key_hex}\": {e}")))?;
+        bytes
+            .try_into()
+            .map_err(|_| to_js_err(format!("root_ca_keys: \"{key_hex}\" must be 32 bytes (64 hex chars)")))
+    }
+
     /// Initialise TirBase and store the handle in the thread-local slot.
     ///
     /// Must be called before any other export.  Calling it again re-initialises.
+    ///
+    /// `root_ca_keys_hex` — hex-encoded Ed25519 root CA public keys (64 hex
+    /// chars each) trusted for offline Biscuit token verification.  An empty
+    /// array is the explicit unconfigured state: no Biscuit token verifies
+    /// until a key is registered here or via `core_register_root_ca_key`.
     #[wasm_bindgen]
-    pub async fn core_init(storage_path: String) -> Result<(), JsValue> {
+    pub async fn core_init(
+        storage_path: String,
+        root_ca_keys_hex: Vec<String>,
+    ) -> Result<(), JsValue> {
+        let mut root_ca_keys = Vec::with_capacity(root_ca_keys_hex.len());
+        for key_hex in &root_ca_keys_hex {
+            root_ca_keys.push(decode_root_ca_key_hex(key_hex)?);
+        }
         let config = api::InitConfig {
             storage_path,
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -214,6 +235,7 @@ mod wasm_exports {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                root_ca_keys,
                 anchor_attested_location: false,
                 spatial_diversity_min: 1,
                 quorum_k: 1,
@@ -225,6 +247,22 @@ mod wasm_exports {
             *c.borrow_mut() = Some(handle);
         });
         Ok(())
+    }
+
+    /// Register an additional root CA public key at runtime (Req 8.1).
+    ///
+    /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex
+    /// chars).  Takes effect immediately for subsequent Biscuit token
+    /// verification (e.g. `core_activate_saturate_mode`).
+    #[wasm_bindgen]
+    pub fn core_register_root_ca_key(root_ca_key_hex: String) -> Result<(), JsValue> {
+        let key = decode_root_ca_key_hex(&root_ca_key_hex)?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow.as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle.register_root_ca_key(key).map_err(to_js_err)
+        })
     }
 
     // ── Write ─────────────────────────────────────────────────────────────────
@@ -479,8 +517,16 @@ mod wasm_exports {
             let handle = borrow.as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
 
-            // Get root CA key for verification.
+            // Get root CA key for verification.  Empty = explicit unconfigured
+            // state: no key was registered at init or at runtime.
             let root_ca_key = handle.root_ca_public_key();
+            if root_ca_key.is_empty() {
+                return Err(to_js_err(
+                    crate::errors::TirBaseError::AuthorisationFailed {
+                        reason: "no root CA public key registered; cannot verify Biscuit token".to_string(),
+                    }.to_string()
+                ));
+            }
 
             // Get current time.
             let now_secs = {

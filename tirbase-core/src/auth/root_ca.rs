@@ -21,6 +21,15 @@ impl RootCaRegistry {
         Self { keys }
     }
 
+    /// Register an additional root CA public key at runtime.
+    ///
+    /// Idempotent: registering a key that is already present is a no-op.
+    pub(crate) fn register(&mut self, key: [u8; 32]) {
+        if !self.keys.contains(&key) {
+            self.keys.push(key);
+        }
+    }
+
     /// Return all registered root CA public keys.
     pub fn keys(&self) -> &[[u8; 32]] {
         &self.keys
