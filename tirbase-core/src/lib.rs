@@ -265,6 +265,10 @@ mod wasm_exports {
                 root_ca_keys,
                 migration_ca_public_key,
                 schema_version_path,
+                // The WASM export surface does not carry full schema
+                // definitions; field-level additive-vs-breaking classification
+                // (Subphase 5.3) is a native deployment-config capability.
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,

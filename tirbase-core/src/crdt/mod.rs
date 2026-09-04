@@ -11,10 +11,12 @@ pub mod delta;
 pub mod merge;
 pub mod schema_hash;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::errors::TirBaseError;
 use crate::identity::keypair;
+use crate::schema::diff::{diff_schemas, SchemaDiff};
+use crate::schema::Schema;
 use delta::{Delta, DeltaId, Did, Ed25519Signature, PriorityClass};
 use merge::{MergeOutcome, QuarantineReason};
 use schema_hash::SchemaIdentifierHash;
@@ -55,12 +57,23 @@ pub struct CrdtEngine {
     /// Monotonically increasing Lamport clock.
     lamport: u64,
 
-    /// The schema hash this engine was initialised with.
+    /// The schema hash of the device's current (deployed) schema.  Set at
+    /// construction; advanced to the deployment's next version when an
+    /// over-the-mesh migration applies ([`CrdtEngine::set_current_schema`]).
+    /// Deltas produced locally carry this hash (Req 4.6).
     known_schema_hash: SchemaIdentifierHash,
 
     /// All schema hashes accepted by this engine.
-    /// Grows as additive schema migrations are applied.
+    /// Grows as additive schema migrations are applied and when additive
+    /// peer Deltas are merged (Req 17.3).
     known_schemas: HashSet<SchemaIdentifierHash>,
+
+    /// Full schema definitions the deployment registered, keyed by their
+    /// canonical SchemaIdentifierHash (Subphase 5.3).  Present only for
+    /// schemas the device can reason about at the field level; a hash with no
+    /// definition here cannot be classified as additive vs breaking and falls
+    /// back to the legacy unknown-hash quarantine.
+    schema_definitions: HashMap<SchemaIdentifierHash, Schema>,
 
     /// DID of the local device's identity (used in `produce_delta`).
     author_did: Did,
@@ -79,6 +92,22 @@ pub struct CrdtEngine {
     /// SQLite-backed Changeset DAG (native build only).
     #[cfg(feature = "native")]
     dag: ChangesetDag,
+}
+
+/// Result of the schema-hash gate's additive-vs-breaking classification
+/// (Subphase 5.3 — Req 17.2–17.4).
+enum IncomingSchemaClass {
+    /// Hash is already accepted; merge without further checks (Req 17.2).
+    Known,
+    /// Registered schema definition differs from the local schema only by
+    /// added tables/fields (Req 17.3).
+    Additive { diff: SchemaDiff },
+    /// Registered schema definition removes/renames/retypes an existing field
+    /// or drops a table (Req 17.4).
+    Breaking { diff: SchemaDiff },
+    /// No definition registered for the local or incoming hash — cannot
+    /// classify; legacy unknown-hash quarantine applies.
+    Unknown,
 }
 
 impl CrdtEngine {
@@ -113,6 +142,7 @@ impl CrdtEngine {
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
+            schema_definitions: HashMap::new(),
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
@@ -141,6 +171,7 @@ impl CrdtEngine {
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
+            schema_definitions: HashMap::new(),
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
@@ -150,6 +181,98 @@ impl CrdtEngine {
     /// Register an additional known schema hash (called during additive migration).
     pub fn add_known_schema(&mut self, hash: SchemaIdentifierHash) {
         self.known_schemas.insert(hash);
+    }
+
+    /// Register the full definition of a schema version this deployment
+    /// recognises, keyed by its canonical hash (Subphase 5.3).
+    ///
+    /// The computed `schema.identifier_hash()` must equal `expected_hash`,
+    /// otherwise the registration is rejected with a
+    /// [`TirBaseError::SchemaRegistrationFailed`] — a deployment may not attach
+    /// a definition to a hash it does not actually hash to, because the CRDT
+    /// gate then could not trust its field-level diff.
+    ///
+    /// Registration is **not** an acceptance: the hash is only added to
+    /// [`CrdtEngine::known_schemas`] once it is the device's current schema
+    /// (`set_current_schema`) or an additive Delta under it has merged.
+    pub(crate) fn register_schema_definition(
+        &mut self,
+        expected_hash: SchemaIdentifierHash,
+        schema: Schema,
+    ) -> Result<(), TirBaseError> {
+        let computed = schema.identifier_hash();
+        if computed != expected_hash {
+            return Err(TirBaseError::SchemaRegistrationFailed {
+                reason: format!(
+                    "schema definition hashes to {}, not the registered version hash {}",
+                    hex::encode(computed),
+                    hex::encode(expected_hash),
+                ),
+            });
+        }
+        self.schema_definitions.insert(computed, schema);
+        Ok(())
+    }
+
+    /// Declare `hash` the device's current (deployed) schema.
+    ///
+    /// Makes locally produced Deltas carry `hash` (Req 4.6) and accepts
+    /// inbound Deltas stamped with it (Req 17.2).  Called by
+    /// [`crate::api::CoreHandle::init`] with the first version of a configured
+    /// schema-version path and after every successfully applied
+    /// over-the-mesh migration (Req 17.2 / Req 18).
+    pub(crate) fn set_current_schema(&mut self, hash: SchemaIdentifierHash) {
+        self.known_schema_hash = hash;
+        self.known_schemas.insert(hash);
+    }
+
+    /// Classify an inbound Delta's schema hash at the field level (Subphase 5.3).
+    ///
+    /// Pure read: never mutates engine state, so a Delta that later fails
+    /// signature verification cannot leave an adopted schema behind.
+    fn classify_incoming_schema(&self, hash: &SchemaIdentifierHash) -> IncomingSchemaClass {
+        if self.known_schemas.contains(hash) {
+            return IncomingSchemaClass::Known;
+        }
+
+        // Both the device's own schema definition and the sender's must be
+        // registered before a field-level diff is possible.
+        let local = match self.schema_definitions.get(&self.known_schema_hash) {
+            Some(def) => def,
+            None => return IncomingSchemaClass::Unknown,
+        };
+        let incoming = match self.schema_definitions.get(hash) {
+            Some(def) => def,
+            None => return IncomingSchemaClass::Unknown,
+        };
+
+        let diff = diff_schemas(local, incoming);
+        if diff.is_additive() {
+            IncomingSchemaClass::Additive { diff }
+        } else if diff.is_breaking() {
+            IncomingSchemaClass::Breaking { diff }
+        } else {
+            // Structurally identical yet not "known" is impossible when every
+            // registered definition was stored under its own computed hash
+            // (`register_schema_definition` enforces this) — identical
+            // structure means identical hash, which is already in
+            // `known_schemas`.  Defensive fallback.
+            IncomingSchemaClass::Unknown
+        }
+    }
+
+    /// Set of schema hashes currently accepted by the gate (test introspection).
+    #[cfg(test)]
+    pub(crate) fn known_schema_hashes(&self) -> Vec<SchemaIdentifierHash> {
+        let mut hashes: Vec<SchemaIdentifierHash> = self.known_schemas.iter().copied().collect();
+        hashes.sort();
+        hashes
+    }
+
+    /// Hash of the device's current (deployed) schema.
+    #[cfg(test)]
+    pub(crate) fn current_schema_hash(&self) -> SchemaIdentifierHash {
+        self.known_schema_hash
     }
 
     /// Record `did` as REVOKED (Req 8.6) so all future inbound Deltas authored
@@ -259,16 +382,52 @@ impl CrdtEngine {
             return Ok(MergeOutcome::Rejected { reason });
         }
 
-        // 1. Schema-hash gate (Req 4.4).
-        if !self.known_schemas.contains(&delta.schema_hash) {
-            let hash_hex = hex::encode(delta.schema_hash);
-            eprintln!(
-                "[CRDT] Rejected delta from {}: unknown schema hash {}",
-                delta.author_did, hash_hex
-            );
-            return Ok(MergeOutcome::Quarantined {
-                reason: QuarantineReason::UnknownSchemaHash,
-            });
+        // 1. Schema-hash gate (Req 4.4, 17.2–17.4).  Known hashes merge
+        //    (Req 17.2).  Unknown hashes are now classified at the field level
+        //    (Subphase 5.3): if the deployment registered the schema's full
+        //    definition, a Delta whose schema only *adds* tables/fields merges
+        //    (Req 17.3) and a Delta whose schema removes/renames/retypes an
+        //    existing field or drops a table is quarantined with
+        //    `BreakingSchemaChange` (Req 17.4).  A hash with no registered
+        //    definition cannot be classified and falls back to the legacy
+        //    unknown-hash quarantine.
+        let mut adopt_additive_hash = false;
+        match self.classify_incoming_schema(&delta.schema_hash) {
+            IncomingSchemaClass::Known => {}
+            IncomingSchemaClass::Additive { ref diff } => {
+                eprintln!(
+                    "[CRDT] delta {} from {} carries additive schema {} ({}); merging against local schema {}",
+                    hex::encode(delta.id),
+                    delta.author_did,
+                    hex::encode(delta.schema_hash),
+                    diff.summary(),
+                    hex::encode(self.known_schema_hash),
+                );
+                adopt_additive_hash = true;
+            }
+            IncomingSchemaClass::Breaking { ref diff } => {
+                eprintln!(
+                    "[CRDT] Quarantined delta {} from {}: breaking schema change ({} vs local {}): {}",
+                    hex::encode(delta.id),
+                    delta.author_did,
+                    hex::encode(delta.schema_hash),
+                    hex::encode(self.known_schema_hash),
+                    diff.summary(),
+                );
+                return Ok(MergeOutcome::Quarantined {
+                    reason: QuarantineReason::BreakingSchemaChange,
+                });
+            }
+            IncomingSchemaClass::Unknown => {
+                let hash_hex = hex::encode(delta.schema_hash);
+                eprintln!(
+                    "[CRDT] Rejected delta from {}: unknown schema hash {}",
+                    delta.author_did, hash_hex
+                );
+                return Ok(MergeOutcome::Quarantined {
+                    reason: QuarantineReason::UnknownSchemaHash,
+                });
+            }
         }
 
         // 2. Malformed-signature guard.
@@ -303,6 +462,13 @@ impl CrdtEngine {
                 delta.author_did
             );
             return Ok(MergeOutcome::Rejected { reason });
+        }
+
+        // 3b. Adopt the additive schema only after the Delta's signature
+        //     verified: rejected or malformed Deltas must never mutate engine
+        //     state (mirrors the revoked/unknown gates above).
+        if adopt_additive_hash {
+            self.known_schemas.insert(delta.schema_hash);
         }
 
         // 4. Merge Automerge changeset.
@@ -801,6 +967,231 @@ mod tests {
             MergeOutcome::Quarantined {
                 reason: QuarantineReason::UnknownSchemaHash,
             }
+        );
+    }
+
+    // ── apply — field-level additive-vs-breaking gate (Subphase 5.3, Req 17.3/17.4) ─
+    //
+    // The gate classifies an *unknown* hash by diffing its registered schema
+    // definition against the device's current schema definition: additive
+    // changes merge (and the hash is adopted), breaking changes quarantine
+    // with `BreakingSchemaChange`, and hashes with no registered definition
+    // keep the legacy unknown-hash quarantine.
+
+    /// Three schema versions for the gate tests: v1 users{id,name};
+    /// v2 users{id,name,email} (additive — new field); v3 users{id}
+    /// (breaking — removes `name`).  Returns (v1, v2, v3, h1, h2, h3).
+    fn gate_schema_fixture(
+    ) -> (Schema, Schema, Schema, SchemaIdentifierHash, SchemaIdentifierHash, SchemaIdentifierHash) {
+        use crate::schema::{FieldDef, FieldType, TableDef};
+        use crate::store::compaction::CompactionPolicy;
+
+        let field = |name: &str, ft: FieldType| FieldDef {
+            name: name.to_string(),
+            field_type: ft,
+            nullable: true,
+            default: None,
+        };
+        let table = |name: &str, fields: Vec<FieldDef>| TableDef {
+            name: name.to_string(),
+            fields,
+            compaction_policy: CompactionPolicy::None,
+            constraints: vec![],
+        };
+        let schema = |tables: Vec<TableDef>| Schema {
+            tables,
+            version: "1.0.0".to_string(),
+        };
+
+        let v1 = schema(vec![table(
+            "users",
+            vec![field("id", FieldType::Text), field("name", FieldType::Text)],
+        )]);
+        let v2 = schema(vec![table(
+            "users",
+            vec![
+                field("id", FieldType::Text),
+                field("name", FieldType::Text),
+                field("email", FieldType::Text),
+            ],
+        )]);
+        let v3 = schema(vec![table(
+            "users",
+            vec![field("id", FieldType::Text)],
+        )]);
+
+        let h1 = v1.identifier_hash();
+        let h2 = v2.identifier_hash();
+        let h3 = v3.identifier_hash();
+        (v1, v2, v3, h1, h2, h3)
+    }
+
+    /// An additive-schema Delta merges (Req 17.3) and its hash is adopted so
+    /// later Deltas under it take the known-hash path.
+    #[test]
+    #[cfg(feature = "native")]
+    fn additive_schema_delta_merges_and_adopts_hash() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (v1, v2, v3, h1, h2, h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, h1);
+        engine.register_schema_definition(h1, v1).unwrap();
+        engine.register_schema_definition(h2, v2).unwrap();
+        engine.register_schema_definition(h3, v3).unwrap();
+
+        let d1 = make_signed_delta(&secret_b, did_b.clone(), h2, 1, vec![]);
+        let outcome = engine.apply(&d1).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Merged { .. }),
+            "additive schema delta must merge: {outcome:?}"
+        );
+        assert!(
+            engine.known_schema_hashes().contains(&h2),
+            "additive hash must be adopted after a verified merge"
+        );
+
+        // Second Delta under h2 now merges through the plain known-hash path.
+        let d2 = make_signed_delta(&secret_b, did_b, h2, 2, vec![]);
+        let outcome2 = engine.apply(&d2).unwrap();
+        assert!(
+            matches!(outcome2, MergeOutcome::Merged { .. }),
+            "subsequent delta under the adopted additive schema must merge: {outcome2:?}"
+        );
+    }
+
+    /// A Delta whose registered schema removes an existing field is
+    /// quarantined with the field-level `BreakingSchemaChange` reason
+    /// (Req 17.4) — previously indistinguishable from an unknown hash.
+    #[test]
+    #[cfg(feature = "native")]
+    fn breaking_schema_delta_quarantined_with_breaking_reason() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (v1, v2, v3, h1, h2, h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, h1);
+        engine.register_schema_definition(h1, v1).unwrap();
+        engine.register_schema_definition(h2, v2).unwrap();
+        engine.register_schema_definition(h3, v3).unwrap();
+
+        let delta = make_signed_delta(&secret_b, did_b, h3, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert_eq!(
+            outcome,
+            MergeOutcome::Quarantined {
+                reason: QuarantineReason::BreakingSchemaChange,
+            },
+            "breaking schema delta must quarantine with BreakingSchemaChange"
+        );
+        assert!(
+            !engine.known_schema_hashes().contains(&h3),
+            "breaking schema hash must NOT be adopted"
+        );
+    }
+
+    /// An unknown hash stays on the legacy quarantine path even when other
+    /// definitions are registered — field-level classification requires a
+    /// registered definition for the sender's hash.
+    #[test]
+    #[cfg(feature = "native")]
+    fn unregistered_hash_quarantined_unknown_despite_other_definitions() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (v1, v2, _v3, h1, h2, _h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, h1);
+        engine.register_schema_definition(h1, v1).unwrap();
+        engine.register_schema_definition(h2, v2).unwrap();
+
+        let mystery = [0xABu8; 32];
+        let delta = make_signed_delta(&secret_b, did_b, mystery, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert_eq!(
+            outcome,
+            MergeOutcome::Quarantined {
+                reason: QuarantineReason::UnknownSchemaHash,
+            }
+        );
+    }
+
+    /// A signature-rejected additive Delta must not leave its hash adopted:
+    /// adoption happens only after verification succeeds.
+    #[test]
+    #[cfg(feature = "native")]
+    fn rejected_additive_delta_does_not_adopt_hash() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (v1, v2, _v3, h1, h2, _h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, h1);
+        engine.register_schema_definition(h1, v1).unwrap();
+        engine.register_schema_definition(h2, v2).unwrap();
+
+        // Valid h2 delta, then tamper with the payload after signing.
+        let mut delta = make_signed_delta(&secret_b, did_b, h2, 1, vec![1, 2, 3]);
+        delta.automerge_bytes = vec![9, 9, 9];
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Rejected { .. }),
+            "tampered additive delta must be rejected: {outcome:?}"
+        );
+        assert!(
+            !engine.known_schema_hashes().contains(&h2),
+            "rejected delta must not adopt its schema hash"
+        );
+    }
+
+    /// Registering a definition under a hash its structure does not produce is
+    /// rejected — otherwise the gate could trust a field-level diff for a hash
+    /// that actually denotes a different schema.
+    #[test]
+    #[cfg(feature = "native")]
+    fn register_schema_definition_rejects_hash_mismatch() {
+        let (secret, public, did) = make_identity();
+        let (v1, _v2, _v3, h1, _h2, _h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret, public, did, h1);
+        let wrong_hash = [0x42u8; 32];
+        let err = engine
+            .register_schema_definition(wrong_hash, v1)
+            .expect_err("mismatched registration must fail");
+        assert!(
+            matches!(
+                err,
+                crate::errors::TirBaseError::SchemaRegistrationFailed { .. }
+            ),
+            "expected SchemaRegistrationFailed: {err:?}"
+        );
+    }
+
+    /// `set_current_schema` advances the hash stamped on locally produced
+    /// Deltas (Req 4.6) and accepts inbound Deltas under the new schema
+    /// (Req 17.2) — the migration-success wiring relies on it.
+    #[test]
+    #[cfg(feature = "native")]
+    fn set_current_schema_advances_produced_and_inbound_hashes() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, _, did_b) = make_identity();
+        let (_v1, _v2, _v3, h1, h2, _h3) = gate_schema_fixture();
+
+        let mut engine = make_engine(secret_a, public_a, did_a, h1);
+        assert_eq!(engine.current_schema_hash(), h1);
+
+        engine.set_current_schema(h2);
+        assert_eq!(engine.current_schema_hash(), h2);
+
+        // Locally produced Deltas now carry h2.
+        let produced = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        assert_eq!(produced.schema_hash, h2);
+
+        // Inbound Deltas stamped h2 take the known-hash path without needing
+        // a registered definition.
+        let delta = make_signed_delta(&secret_b, did_b, h2, 1, vec![]);
+        let outcome = engine.apply(&delta).unwrap();
+        assert!(
+            matches!(outcome, MergeOutcome::Merged { .. }),
+            "delta under current schema must merge: {outcome:?}"
         );
     }
 

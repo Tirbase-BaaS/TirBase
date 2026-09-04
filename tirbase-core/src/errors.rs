@@ -47,6 +47,9 @@ pub enum TirBaseError {
         expected_next: String,
     },
 
+    #[error("Schema definition registration failed: {reason}")]
+    SchemaRegistrationFailed { reason: String },
+
     // ─── Transport ────────────────────────────────────────────────────────────
     #[error("Noise handshake failed with peer {peer_did}: {reason}")]
     NoiseHandshakeFailed { peer_did: String, reason: String },
@@ -139,6 +142,15 @@ mod tests {
         let s = e.to_string();
         assert!(s.contains("OPEN"), "display: {s}");
         assert!(s.contains("Closed"), "display: {s}");
+    }
+
+    #[test]
+    fn error_display_schema_registration_failed() {
+        let e = TirBaseError::SchemaRegistrationFailed {
+            reason: "version 1: hash mismatch".to_string(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("hash mismatch"), "display: {s}");
     }
 
     #[test]

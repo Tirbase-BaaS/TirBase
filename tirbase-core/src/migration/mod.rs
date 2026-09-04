@@ -123,6 +123,17 @@ impl SchemaMigrationEngine {
         self.ca_public_key = key;
     }
 
+    /// The device's current (deployed) schema hash — starts at the first
+    /// version of the registered path and advances as migrations apply.
+    ///
+    /// CoreHandle mirrors this into the CRDT engine's current schema after a
+    /// successful inbound migration so that locally produced Deltas stamp the
+    /// new hash (Req 4.6) and the data-Delta gate classifies against the new
+    /// schema (Subphase 5.3, Req 17.3/17.4).
+    pub(crate) fn current_schema_hash(&self) -> crate::schema::hash::SchemaIdentifierHash {
+        self.local_schema_hash
+    }
+
     /// Return `true` if the QuarantineLedger holds any unreleased entry whose
     /// schema hash matches the engine's current `local_schema_hash`.
     ///

@@ -420,6 +420,57 @@ impl CoreHandle {
             .copied()
             .unwrap_or(DEFAULT_SCHEMA_HASH);
 
+        // ── CRDT schema-definition registry (Subphase 5.3) ────────────────────
+        //
+        // The deployment's full schema definitions are registered with the
+        // CRDT engine so its merge gate can classify an unknown inbound hash
+        // at the field level (Req 17.3/17.4) instead of treating every hash
+        // outside the known set alike.  Definitions are matched positionally
+        // to `schema_version_path`; a definition whose canonical hash differs
+        // from its path entry — or a path/definition length mismatch — is a
+        // configuration error and aborts init.  With a configured path the
+        // device's *current* schema becomes the first version (mirroring the
+        // SchemaMigrationEngine below), so locally produced Deltas carry a
+        // real schema hash (Req 4.6) rather than the zero sentinel.
+        let schema_definitions = config.deployment.schema_definitions.clone();
+        match migration_version_path.versions.first().copied() {
+            None => {
+                if !schema_definitions.is_empty() {
+                    return Err(TirBaseError::SchemaRegistrationFailed {
+                        reason: "schema_definitions provided but schema_version_path is empty — \
+                                 every definition must map to a path version"
+                            .to_string(),
+                    });
+                }
+            }
+            Some(current_hash) => {
+                if !schema_definitions.is_empty()
+                    && schema_definitions.len() != migration_version_path.versions.len()
+                {
+                    return Err(TirBaseError::SchemaRegistrationFailed {
+                        reason: format!(
+                            "schema_definitions length {} does not match \
+                             schema_version_path length {}",
+                            schema_definitions.len(),
+                            migration_version_path.versions.len()
+                        ),
+                    });
+                }
+                let mut crdt = crdt.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("crdt mutex poisoned during schema registration: {e}"),
+                    }
+                })?;
+                crdt.set_current_schema(current_hash);
+                for (idx, schema) in schema_definitions.into_iter().enumerate() {
+                    crdt.register_schema_definition(
+                        migration_version_path.versions[idx],
+                        schema,
+                    )?;
+                }
+            }
+        }
+
         #[cfg(feature = "native")]
         let migration = {
             let mig_conn = crate::store::sqlite::open(&config.storage_path)?;
@@ -2063,7 +2114,31 @@ impl CoreHandle {
                 })?;
                 match mig.receive_migration_delta(mig_delta, &sender_did) {
                     Ok(result) => {
-                        eprintln!("[inbound] MigrationDelta applied: {result:?}");
+                        if matches!(
+                            result,
+                            crate::migration::wasm_sandbox::MigrationResult::Success
+                        ) {
+                            // Subphase 5.3: a successfully applied migration
+                            // changes the device's deployed schema.  Mirror it
+                            // into the CRDT engine so locally produced Deltas
+                            // stamp the new hash (Req 4.6) and the merge gate
+                            // classifies inbound Deltas against the new schema
+                            // (Req 17.2–17.4).
+                            let new_current = mig.current_schema_hash();
+                            drop(mig);
+                            let mut crdt = self.crdt.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("crdt mutex poisoned: {e}"),
+                                }
+                            })?;
+                            crdt.set_current_schema(new_current);
+                            eprintln!(
+                                "[inbound] MigrationDelta applied: {result:?}; CRDT current schema advanced to {}",
+                                hex::encode(new_current)
+                            );
+                        } else {
+                            eprintln!("[inbound] MigrationDelta applied: {result:?}");
+                        }
                     }
                     Err(e) => {
                         eprintln!("[inbound] MigrationDelta rejected: {e}");
@@ -2451,7 +2526,30 @@ impl CoreHandle {
                 })?;
                 match mig.receive_migration_delta(mig_delta, &sender_did) {
                     Ok(result) => {
-                        eprintln!("[wasm-inbound] MigrationDelta applied: {result:?}");
+                        if matches!(
+                            result,
+                            crate::migration::wasm_sandbox::MigrationResult::Success
+                        ) {
+                            // Subphase 5.3 (WASM parity): mirror a successful
+                            // migration into the CRDT engine's current schema
+                            // (see the native arm for rationale).
+                            let new_current = mig.current_schema_hash();
+                            drop(mig);
+                            let mut crdt = self.crdt.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!(
+                                        "crdt mutex poisoned in receive_inbound_wasm: {e}"
+                                    ),
+                                }
+                            })?;
+                            crdt.set_current_schema(new_current);
+                            eprintln!(
+                                "[wasm-inbound] MigrationDelta applied: {result:?}; CRDT current schema advanced to {}",
+                                hex::encode(new_current)
+                            );
+                        } else {
+                            eprintln!("[wasm-inbound] MigrationDelta applied: {result:?}");
+                        }
                     }
                     Err(e) => {
                         eprintln!("[wasm-inbound] MigrationDelta rejected: {e}");
@@ -2884,6 +2982,20 @@ pub struct DeploymentConfig {
     /// freshly-initialised device is on; the engine advances through the path
     /// as migrations apply (Subphase 5.1).
     pub schema_version_path: Vec<[u8; 32]>,
+    /// Full schema definitions for each entry in `schema_version_path`, in the
+    /// same order (Subphase 5.3 — Req 17.3/17.4).
+    ///
+    /// When registered, the CRDT engine can classify an inbound Delta whose
+    /// schema hash is not yet known by diffing its sender's schema definition
+    /// field-by-field against the device's current schema: a Delta written
+    /// under a schema that only *adds* tables/fields merges (Req 17.3), while
+    /// a Delta written under a schema that removes/renames/retypes an existing
+    /// field or drops a table is quarantined as a breaking schema change
+    /// (Req 17.4).  Empty (the default) keeps the legacy behaviour: every hash
+    /// outside the known set is quarantined as unknown.  `CoreHandle::init`
+    /// validates that each definition hashes to its corresponding
+    /// `schema_version_path` entry and rejects the configuration otherwise.
+    pub schema_definitions: Vec<crate::schema::Schema>,
     /// Whether Anchor_Attested_Location subsystem is enabled.
     pub anchor_attested_location: bool,
     /// Ed25519 public keys of the fixed beacons trusted for Anchor_Attested_Location
@@ -2944,6 +3056,7 @@ impl Default for DeploymentConfig {
             root_ca_keys: vec![],
             migration_ca_public_key: None,
             schema_version_path: vec![],
+            schema_definitions: vec![],
             anchor_attested_location: false,
             beacon_public_keys: vec![],
             spatial_diversity_min: 0,
@@ -2975,6 +3088,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3221,6 +3335,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3324,6 +3439,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3441,6 +3557,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3525,6 +3642,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3591,6 +3709,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3730,6 +3849,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -3790,6 +3910,7 @@ mod tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5082,6 +5203,7 @@ mod inbound_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5230,6 +5352,304 @@ mod inbound_tests {
             crate::migration::quarantine::QuarantineReason::UnknownSchemaHash,
             "quarantine reason must be recorded"
         );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 5.3: field-level additive-vs-breaking gate (Req 17.3/17.4) ──
+    //
+    // `CoreHandle::init` registers `DeploymentConfig.schema_definitions` with
+    // the CRDT engine and seeds its current schema from the first
+    // `schema_version_path` entry.  The inbound pipeline then classifies an
+    // unknown schema hash by diffing its registered definition field-by-field:
+    // additive deltas merge (Req 17.3), breaking deltas land in the quarantine
+    // ledger with reason `BreakingSchemaChange` (Req 17.4), and hashes without
+    // a registered definition keep the legacy unknown-hash quarantine.
+
+    /// Three users-table schema versions for the gate tests: v1 {id,name};
+    /// v2 {id,name,email} (additive); v3 {id} (breaking — `name` removed).
+    fn gate_schema_fixture(
+    ) -> (
+        crate::schema::Schema,
+        crate::schema::Schema,
+        crate::schema::Schema,
+        [u8; 32],
+        [u8; 32],
+        [u8; 32],
+    ) {
+        use crate::schema::{FieldDef, FieldType, Schema, TableDef};
+        use crate::store::compaction::CompactionPolicy;
+
+        let field = |name: &str, ft: FieldType| FieldDef {
+            name: name.to_string(),
+            field_type: ft,
+            nullable: true,
+            default: None,
+        };
+        let schema = |fields: Vec<FieldDef>| Schema {
+            tables: vec![TableDef {
+                name: "users".to_string(),
+                fields,
+                compaction_policy: CompactionPolicy::None,
+                constraints: vec![],
+            }],
+            version: "1.0.0".to_string(),
+        };
+
+        let v1 = schema(vec![field("id", FieldType::Text), field("name", FieldType::Text)]);
+        let v2 = schema(vec![
+            field("id", FieldType::Text),
+            field("name", FieldType::Text),
+            field("email", FieldType::Text),
+        ]);
+        let v3 = schema(vec![field("id", FieldType::Text)]);
+
+        let h1 = v1.identifier_hash();
+        let h2 = v2.identifier_hash();
+        let h3 = v3.identifier_hash();
+        (v1, v2, v3, h1, h2, h3)
+    }
+
+    /// Number of quarantined entries currently held in the ledger.
+    fn quarantine_count(handle: &CoreHandle) -> usize {
+        handle
+            .migration
+            .lock()
+            .expect("migration lock")
+            .quarantined_entries()
+            .expect("quarantined_entries")
+            .len()
+    }
+
+    /// Deliver an inbound data Delta through the full pipeline and return how
+    /// many messages were drained.
+    async fn deliver_delta(handle: &CoreHandle, delta: crate::crdt::delta::Delta) -> usize {
+        handle
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages must not error")
+    }
+
+    /// Init registers the schema definitions and seeds the CRDT engine's
+    /// current schema; an additive-schema Delta then merges end-to-end while
+    /// a breaking-schema Delta is quarantined with `BreakingSchemaChange` and
+    /// an unregistered hash with `UnknownSchemaHash`.
+    #[tokio::test]
+    async fn inbound_additive_merges_breaking_quarantined_with_field_level_reason() {
+        let path = tmp_path("p53_field_level_gate");
+        cleanup(&path);
+
+        let (v1, v2, v3, h1, h2, h3) = gate_schema_fixture();
+        let mut config = make_config(&path);
+        config.deployment.schema_version_path = vec![h1, h2, h3];
+        config.deployment.schema_definitions = vec![v1, v2, v3];
+
+        let handle = CoreHandle::init(config).await.expect("init with schema defs");
+
+        // The CRDT engine's current schema is the first path version, so its
+        // merge gate can diff against a real definition instead of the zero
+        // sentinel.
+        {
+            let crdt = handle.crdt.lock().unwrap();
+            assert_eq!(
+                crdt.current_schema_hash(),
+                h1,
+                "engine current schema must be the first path version"
+            );
+        }
+
+        let (peer_secret, peer_public) = generate_keypair().expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+
+        // A. Additive schema (h2): merges; no quarantine entry; hash adopted.
+        let d_add = make_signed_delta(&peer_secret, &peer_did, h2, 1);
+        let add_id = d_add.id;
+        assert_eq!(deliver_delta(&handle, d_add).await, 1);
+        assert_eq!(quarantine_count(&handle), 0, "additive delta must not quarantine");
+        {
+            let crdt = handle.crdt.lock().unwrap();
+            assert!(crdt.known_schema_hashes().contains(&h2), "h2 must be adopted");
+            assert!(crdt.dag_node(&add_id).unwrap().is_some(), "additive delta must land in the DAG");
+        }
+
+        // A second h2 delta still merges (now through the known-hash path).
+        let d_add2 = make_signed_delta(&peer_secret, &peer_did, h2, 2);
+        assert_eq!(deliver_delta(&handle, d_add2).await, 1);
+        assert_eq!(quarantine_count(&handle), 0);
+
+        // B. Breaking schema (h3 removes `name`): quarantined with the
+        //    field-level reason, byte-for-byte, and never adopted.
+        let d_break = make_signed_delta(&peer_secret, &peer_did, h3, 3);
+        let break_raw = serde_json::to_vec(&d_break).expect("serialise");
+        assert_eq!(deliver_delta(&handle, d_break).await, 1);
+        {
+            let migration = handle.migration.lock().unwrap();
+            let entries = migration.quarantined_entries().expect("quarantined_entries");
+            assert_eq!(entries.len(), 1, "exactly the breaking delta must be quarantined");
+            assert_eq!(
+                entries[0].reason,
+                crate::migration::quarantine::QuarantineReason::BreakingSchemaChange,
+                "breaking change must be recorded with its field-level reason"
+            );
+            assert_eq!(entries[0].schema_hash, Some(h3));
+            assert_eq!(entries[0].sender_did, peer_did);
+            assert_eq!(entries[0].raw_bytes, break_raw, "raw bytes must be stored byte-for-byte");
+        }
+        {
+            let crdt = handle.crdt.lock().unwrap();
+            assert!(
+                !crdt.known_schema_hashes().contains(&h3),
+                "breaking schema hash must not be adopted"
+            );
+        }
+
+        // C. A hash with no registered definition keeps the legacy reason.
+        let mystery = [0xF0u8; 32];
+        let d_unknown = make_signed_delta(&peer_secret, &peer_did, mystery, 4);
+        assert_eq!(deliver_delta(&handle, d_unknown).await, 1);
+        {
+            let migration = handle.migration.lock().unwrap();
+            let entries = migration.quarantined_entries().expect("quarantined_entries");
+            assert_eq!(entries.len(), 2);
+            assert_eq!(
+                entries[1].reason,
+                crate::migration::quarantine::QuarantineReason::UnknownSchemaHash
+            );
+            assert_eq!(entries[1].schema_hash, Some(mystery));
+        }
+
+        // Only the two additive merges advanced the CRDT clock (breaking and
+        // unknown deltas never reach the merge step).
+        {
+            let crdt = handle.crdt.lock().unwrap();
+            assert_eq!(crdt.lamport(), 3, "two merges (lamport 1, 2) => 3");
+        }
+
+        cleanup(&path);
+    }
+
+    /// Init rejects a deployment that registers a schema definition whose
+    /// canonical hash does not match its `schema_version_path` entry — the
+    /// field-level gate could otherwise trust a diff for the wrong schema.
+    #[tokio::test]
+    async fn init_rejects_schema_definition_hash_mismatch() {
+        let path = tmp_path("p53_bad_defs");
+        cleanup(&path);
+
+        let (v1, _v2, _v3, _h1, _h2, _h3) = gate_schema_fixture();
+        let mut config = make_config(&path);
+        // Register v1 under a path hash it does not hash to.
+        config.deployment.schema_version_path = vec![[0x42u8; 32]];
+        config.deployment.schema_definitions = vec![v1];
+
+        let err = match CoreHandle::init(config).await {
+            Ok(_) => panic!("init must reject mismatched definitions"),
+            Err(e) => e,
+        };
+        assert!(
+            matches!(
+                err,
+                TirBaseError::SchemaRegistrationFailed { .. }
+            ),
+            "expected SchemaRegistrationFailed: {err:?}"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 5.3: migration success advances the CRDT current schema ──────
+    //
+    // A device's deployed schema is *its own* current schema, which changes
+    // when an over-the-mesh migration applies.  `receive_inbound` mirrors the
+    // migration engine's advance into the CRDT engine so locally produced
+    // Deltas stamp the new hash (Req 4.6) and the merge gate diffs against the
+    // migrated schema rather than the pre-migration one.
+
+    /// Trivial WASM module: `(module (func (export "run")))`.
+    fn p53_trivial_wasm_bytes() -> Vec<u8> {
+        vec![
+            0x00, 0x61, 0x73, 0x6d, // magic
+            0x01, 0x00, 0x00, 0x00, // version
+            0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type section: () -> ()
+            0x03, 0x02, 0x01, 0x00, // function section
+            0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00, // export "run"
+            0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b, // code section: empty body
+        ]
+    }
+
+    /// CA-sign a MigrationDelta for `source → target` (Req 18.2).
+    fn p53_ca_signed_migration(
+        ca_secret: &[u8; 32],
+        source: [u8; 32],
+        target: [u8; 32],
+    ) -> crate::migration::migration_delta::MigrationDelta {
+        use crate::crdt::delta::{Ed25519Signature, PriorityClass};
+        use crate::migration::migration_delta::{CaSignature, MigrationDelta};
+        use sha2::{Digest, Sha256};
+
+        let transform_bytes = p53_trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
+        let ca_sig = ek_sign(ca_secret, &transform_bytes).expect("ca sign");
+
+        MigrationDelta {
+            id: transform_sha256,
+            author_did: "did:key:z6MkMigSender".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        }
+    }
+
+    #[tokio::test]
+    async fn inbound_migration_advances_crdt_current_schema() {
+        let path = tmp_path("p53_migration_advance");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let (v1, v2, _v3, h1, h2, _h3) = gate_schema_fixture();
+        let mut config = make_config(&path);
+        config.deployment.migration_ca_public_key = Some(ca_public);
+        config.deployment.schema_version_path = vec![h1, h2];
+        config.deployment.schema_definitions = vec![v1, v2];
+
+        let handle = CoreHandle::init(config).await.expect("init");
+
+        // Before the migration: current schema is h1.
+        {
+            let crdt = handle.crdt.lock().unwrap();
+            assert_eq!(crdt.current_schema_hash(), h1);
+        }
+
+        let mig = p53_ca_signed_migration(&ca_secret, h1, h2);
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(mig))
+            .await
+            .expect("inject migration");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        // After the migration: the CRDT engine's current schema advanced to h2
+        // and locally produced Deltas stamp h2 (Req 4.6).
+        let mut crdt = handle.crdt.lock().unwrap();
+        assert_eq!(
+            crdt.current_schema_hash(),
+            h2,
+            "CRDT current schema must follow the migration engine"
+        );
+        assert!(crdt.known_schema_hashes().contains(&h2));
+        let produced = crdt.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        assert_eq!(produced.schema_hash, h2, "produced deltas must stamp the migrated schema");
 
         cleanup(&path);
     }
@@ -5687,6 +6107,7 @@ mod inbound_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5786,6 +6207,7 @@ mod inbound_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -5897,6 +6319,7 @@ mod inbound_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6262,6 +6685,7 @@ mod convergence_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6410,6 +6834,7 @@ mod real_mesh_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -6828,6 +7253,7 @@ mod cloud_sync_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -7029,6 +7455,7 @@ mod tier2_ack_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: 1,
@@ -7226,6 +7653,7 @@ mod tier2_ack_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: enabled,
                 beacon_public_keys,
                 spatial_diversity_min: 1,
@@ -7333,6 +7761,7 @@ mod diversity_config_tests {
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
+                schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
                 spatial_diversity_min: min_distinct,

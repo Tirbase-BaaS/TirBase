@@ -1356,6 +1356,15 @@ proptest! {
 }
 
 // ─── Property 16 — Schema Delta Routing Additive vs Breaking (Req 17.3, 17.4) ─
+//
+// Subphase 5.3: the property exercises the *real* field-level gate.  Three
+// schema definitions are registered with the engine — v1 users{id,name} (the
+// device's current schema), v2 users{id,name,email} (additive — one new
+// field), and v3 users{id} (breaking — the `name` field is removed).  Deltas
+// stamped with these hashes must be classified by diffing their registered
+// definitions, not by pre-registering "known" hashes: additive merges
+// (Req 17.3), breaking quarantines with the field-level reason (Req 17.4),
+// and a hash with no registered definition quarantines as unknown.
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
@@ -1365,31 +1374,84 @@ proptest! {
         _dummy in 0u8..=0u8,
     ) {
         use crate::crdt::merge::MergeOutcome;
+        use crate::crdt::merge::QuarantineReason;
+        use crate::schema::{FieldDef, FieldType, Schema, TableDef};
+        use crate::store::compaction::CompactionPolicy;
 
-        let schema_h1 = TEST_SCHEMA_HASH;
-        let schema_h2 = [0xCDu8; 32]; // additive schema hash
-        let schema_h3 = [0xEFu8; 32]; // unknown schema hash (breaking)
+        let field = |name: &str, ft: FieldType| FieldDef {
+            name: name.to_string(),
+            field_type: ft,
+            nullable: true,
+            default: None,
+        };
+        let schema = |fields: Vec<FieldDef>| Schema {
+            tables: vec![TableDef {
+                name: "users".to_string(),
+                fields,
+                compaction_policy: CompactionPolicy::None,
+                constraints: vec![],
+            }],
+            version: "1.0.0".to_string(),
+        };
+
+        let v1 = schema(vec![field("id", FieldType::Text), field("name", FieldType::Text)]);
+        let v2 = schema(vec![
+            field("id", FieldType::Text),
+            field("name", FieldType::Text),
+            field("email", FieldType::Text),
+        ]);
+        let v3 = schema(vec![field("id", FieldType::Text)]);
+
+        let h1 = v1.identifier_hash();
+        let h2 = v2.identifier_hash();
+        let h3 = v3.identifier_hash();
 
         let secret = [0x55u8; 32];
-        let mut engine = make_engine(secret, schema_h1);
+        let mut engine = make_engine(secret, h1);
+        engine.register_schema_definition(h1, v1).unwrap();
+        engine.register_schema_definition(h2, v2).unwrap();
+        engine.register_schema_definition(h3, v3).unwrap();
 
-        // H2 = additive — engine accepts H2 after we register it.
-        engine.add_known_schema(schema_h2);
-
-        // Delta with H2 (known) → Merged.
-        let d_additive = make_signed_delta_from(&secret, schema_h2, 1, vec![], vec![]);
+        // Additive schema (h2) — NOT pre-registered as known: the gate must
+        // adopt it only after diffing it against h1 at the field level
+        // (Req 17.3).
+        let d_additive = make_signed_delta_from(&secret, h2, 1, vec![], vec![]);
         let outcome_additive = engine.apply(&d_additive).expect("apply");
         prop_assert!(
             matches!(outcome_additive, MergeOutcome::Merged { .. }),
             "additive schema delta must be merged: {outcome_additive:?}"
         );
-
-        // Delta with H3 (unknown) → Quarantined.
-        let d_breaking = make_signed_delta_from(&secret, schema_h3, 2, vec![], vec![]);
-        let outcome_breaking = engine.apply(&d_breaking).expect("apply");
         prop_assert!(
-            matches!(outcome_breaking, MergeOutcome::Quarantined { .. }),
-            "unknown schema hash delta must be quarantined: {outcome_breaking:?}"
+            engine.known_schema_hashes().contains(&h2),
+            "additive schema hash must be adopted after the merge"
+        );
+
+        // Breaking schema (h3 removes `name`) → Quarantined with the
+        // field-level reason (Req 17.4) — distinguishable from an unknown hash.
+        let d_breaking = make_signed_delta_from(&secret, h3, 2, vec![], vec![]);
+        let outcome_breaking = engine.apply(&d_breaking).expect("apply");
+        prop_assert_eq!(
+            outcome_breaking,
+            MergeOutcome::Quarantined {
+                reason: QuarantineReason::BreakingSchemaChange,
+            },
+            "breaking schema delta must quarantine with BreakingSchemaChange"
+        );
+        prop_assert!(
+            !engine.known_schema_hashes().contains(&h3),
+            "breaking schema hash must not be adopted"
+        );
+
+        // A hash with no registered definition cannot be classified at the
+        // field level → legacy unknown-hash quarantine.
+        let d_unknown = make_signed_delta_from(&secret, [0xEFu8; 32], 3, vec![], vec![]);
+        let outcome_unknown = engine.apply(&d_unknown).expect("apply");
+        prop_assert_eq!(
+            outcome_unknown,
+            MergeOutcome::Quarantined {
+                reason: QuarantineReason::UnknownSchemaHash,
+            },
+            "unregistered hash must quarantine as unknown"
         );
     }
 }

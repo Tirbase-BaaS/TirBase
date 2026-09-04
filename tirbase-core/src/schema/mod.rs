@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+pub(crate) mod diff;
 pub mod hash;
 pub mod parser;
 pub mod printer;

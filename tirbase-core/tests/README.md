@@ -189,10 +189,20 @@ quorum path.
 
 ### Property 16 — Schema Delta Routing Additive vs Breaking (Req 17.3, 17.4)
 
-**Status:** VERIFIED
+**Status:** VERIFIED (Subphase 5.3 — real field-level diffing)
 
-`prop_16_schema_delta_routing_additive_vs_breaking` passes 200 cases,
-confirming additive deltas are merged and breaking deltas are quarantined.
+`prop_16_schema_delta_routing_additive_vs_breaking` passes 200 cases against
+real registered schema definitions — v1 `users{id,name}` (the device's
+current schema), v2 `users{id,name,email}` (additive), v3 `users{id}`
+(breaking — `name` removed) — instead of pre-registering "known" hashes:
+
+- an additive-schema Delta merges (Req 17.3) and the hash is adopted only
+  after the diff;
+- a breaking-schema Delta quarantines with `QuarantineReason::
+  BreakingSchemaChange` (Req 17.4) — now distinguishable from an unknown
+  hash;
+- a hash with no registered definition quarantines as `UnknownSchemaHash`
+  (legacy path).
 
 ---
 
@@ -669,6 +679,55 @@ inbound pipeline (`inject_inbound` → `process_inbound_messages` →
 `SchemaMigrationEngine::receive_migration_delta`) applies a CA-signed
 migration, does not blacklist the sender, and advances the engine's local
 schema hash so the next path step validates.
+
+---
+
+### Item 15 — Real additive-vs-breaking schema diffing (Subphase 5.3)
+
+**Status:** VERIFIED
+
+`DeploymentConfig` gained `schema_definitions: Vec<Schema>` (one full schema
+per `schema_version_path` entry, same order).  `CoreHandle::init` validates
+that each definition hashes to its path entry (a mismatch aborts init with
+`TirBaseError::SchemaRegistrationFailed`) and registers the definitions with
+`CrdtEngine`'s new schema-definition registry, seeding the engine's current
+schema from the first path version — matching the `SchemaMigrationEngine`, so
+locally produced Deltas stamp a real schema hash (Req 4.6).
+
+`CrdtEngine::apply`'s schema-hash gate (the production inbound merge path,
+reachable via `receive_inbound` / `receive_inbound_wasm`) now classifies an
+unknown hash at the field level via `schema::diff::diff_schemas`
+(`schema/diff.rs`): a Delta whose registered schema only *adds* tables/fields
+merges and is adopted (Req 17.3); one whose schema removes, renames, or
+retypes an existing field or drops a table is quarantined with
+`QuarantineReason::BreakingSchemaChange` (Req 17.4); a hash without a
+registered definition keeps the legacy unknown-hash quarantine.  Adoption
+happens only after signature verification, so rejected Deltas never mutate
+engine state.
+
+Successful inbound migrations also advance the CRDT engine's current schema
+(both native and WASM inbound arms call `CrdtEngine::set_current_schema` with
+the migration engine's new hash), keeping the field-level diff base coherent
+as the device migrates.
+
+Tests:
+
+- `schema::diff::tests` (12 unit tests) — additive/breaking/identical
+  classification, rename-as-breaking, retype, table drop/add, hash-consistency.
+- `crdt::tests` gate tests — additive merges and adopts, breaking quarantines
+  with `BreakingSchemaChange`, unregistered hash stays `UnknownSchemaHash`,
+  rejected Deltas don't adopt, `set_current_schema` advances produced/inbound
+  hashes.
+- `api::inbound_tests::inbound_additive_merges_breaking_quarantined_with_field_level_reason`
+  — full pipeline: additive Delta merges (lands in the DAG, no quarantine
+  entry), breaking Delta is stored byte-for-byte in the QuarantineLedger with
+  reason `BreakingSchemaChange`, unregistered hash stores with
+  `UnknownSchemaHash`.
+- `api::inbound_tests::inbound_migration_advances_crdt_current_schema` — a
+  CA-signed inbound migration advances the CRDT current schema; subsequent
+  locally produced Deltas stamp the migrated hash (Req 4.6).
+- `api::inbound_tests::init_rejects_schema_definition_hash_mismatch` — init
+  fails closed on a definition/path hash mismatch.
 
 ---
 
