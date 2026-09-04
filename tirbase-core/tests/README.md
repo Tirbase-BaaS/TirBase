@@ -912,6 +912,57 @@ Tests (all native):
 
 ---
 
+### Item 19 — Post-merge LWW/RGA read-back verification (Subphase 6.1)
+
+**Status:** VERIFIED
+
+Closes T50 from the previous audit: `CrdtEngine::apply` no longer *only*
+logs the Lamport-rule prediction — it now reads back the **actual** winning
+value/ordering from the merged Automerge doc and compares it against the rule
+(Req 4.5 / 4.5a):
+
+- **Post-merge read-back** — before the merge, the conflicting ROOT-level
+  scalar keys (LWW) and same-position list insertions (RGA) present in *both*
+  the local doc and the incoming payload are snapshotted (element IDs from the
+  decoded changes for RGA, `map_range` for LWW).  After the merge, the actual
+  winner is read back from the doc (`verify.rs` in `crdt/`).
+- **Log-and-override on divergence** — in the *definitive* zone (the incoming
+  Delta's Lamport strictly exceeds the local engine's clock, so the rule
+  provably mandates the incoming op wins), a merged doc that resolved to the
+  local op is a real spec violation: it is logged and **overridden** — the
+  LWW winner is re-`put` as a fresh local change, the RGA ordering is
+  re-inserted in rule order.  In the *indeterminate* zone (equal or lower
+  incoming Lamport, where the engine-wide local Lamport is not a per-key
+  write Lamport) the read-back is logged for observability but never
+  overridden — an override there could corrupt data.
+- **End-to-end tests that read the merged document value** (not the
+  Lamport-comparison rule in isolation), all native:
+  - `crdt::tests::apply_equal_lamport_lww_merged_value_readback` — two
+    engines write the same key at equal Lamport (equal payload counters);
+    cross-apply through the production `apply()` path and assert the merged
+    doc value is the greater-DID-bytes winner on *both* engines.
+  - `crdt::tests::apply_higher_lamport_lww_merged_value_readback` — aligned
+    counter==Lamport payloads; the strictly-higher-Lamport write wins the
+    merged doc with zero divergence in the definitive zone.
+  - `crdt::tests::apply_lww_divergence_override_forces_rule_winner` — a
+    delta claiming Lamport 50 with a counter-1 payload: Automerge resolves to
+    the local op (greater actor), the rule mandates incoming → divergence
+    logged and overridden; the merged value becomes the rule winner.
+  - `crdt::tests::apply_rga_concurrent_inserts_merged_ordering_readback` —
+    concurrent same-position list insertions; the merged ordering is read
+    back and must put the greater-DID-bytes element first (Req 4.5a).
+  - `crdt::tests::apply_rga_divergence_override_reorders_to_rule_winner` —
+    the RGA counterpart of the LWW divergence test: merged order is
+    re-inserted to the Lamport-rule ordering.
+  - `crdt::verify::tests::*` — unit coverage for the element-ID parser and
+    the same-position insertion pairing.
+
+`crdt::verify` unit + `crdt::tests::apply_*` end-to-end tests all pass; the
+full native suite (580 tests, incl. Properties 3/4) and the WASM
+`cargo check --no-default-features --features wasm` build stay green.
+
+---
+
 ## Cross-Device Mesh Sync
 
 **Status:** PARTIAL (real-mesh Delta + Tier-1 receipt exchange landed)

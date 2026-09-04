@@ -11,6 +11,8 @@ pub mod delta;
 pub mod merge;
 pub mod schema_hash;
 
+mod verify;
+
 use std::collections::{HashMap, HashSet};
 
 use crate::errors::TirBaseError;
@@ -387,7 +389,9 @@ impl CrdtEngine {
     /// 1. Schema-hash gate — unknown hash → Rejected.
     /// 2. Malformed-signature guard.
     /// 3. Ed25519 signature verification via DID resolution.
-    /// 4. Merge Automerge changeset into local doc.
+    /// 4. Merge Automerge changeset into local doc, then read back the actual
+    ///    LWW/RGA winner and override the doc on definitive divergence
+    ///    (Subphase 6.1 — Req 4.5/4.5a).
     /// 5. Advance Lamport clock.
     /// 6. Persist DagNode.
     pub fn apply(&mut self, delta: &Delta) -> Result<MergeOutcome, TirBaseError> {
@@ -494,64 +498,46 @@ impl CrdtEngine {
             self.known_schemas.insert(delta.schema_hash);
         }
 
-        // 4. Merge Automerge changeset.
+        // 4. Merge Automerge changeset and verify the actual merged outcome
+        //    (Subphase 6.1 — T50).
+        //
         //    Load the incoming bytes as a separate AutoCommit doc, then merge.
-        self.merge_automerge_bytes(&delta.automerge_bytes)?;
+        //    When the payload is real Automerge format, snapshot the conflicting
+        //    ROOT-level keys / list positions present in BOTH docs *before* the
+        //    merge, then read the ACTUAL winning value/ordering back from the
+        //    merged doc and compare it against the Lamport rule (Req 4.5/4.5a).
+        //    On divergence in the definitive zone (`delta.lamport` strictly
+        //    exceeds the local clock — the rule then provably mandates the
+        //    incoming op), the divergence is logged and the doc is overridden
+        //    to the rule winner.  Non-Automerge payloads (the TirBase JSON
+        //    envelope) skip the merge and verification entirely.
+        if let Some(mut their_doc) = self.load_incoming_doc(&delta.automerge_bytes)? {
+            let snapshot = verify::capture_conflicts(&self.doc, &their_doc);
+            self.doc.merge(&mut their_doc).map_err(|e| {
+                TirBaseError::DeltaMalformed {
+                    reason: format!("automerge merge failed: {e}"),
+                }
+            })?;
 
-        // 4a. Post-merge LWW / RGA verification (Req 4.5, 4.5a).
-        //
-        // Now that both actor IDs are set to their respective Ed25519 public
-        // key bytes (set in `new()`), Automerge's internal tiebreak and
-        // `lww_incoming_wins()` / `rga_incoming_has_priority()` are computed
-        // over the same byte sequences and should always agree.
-        //
-        // We log the tiebreak decision so operators can verify correctness.
-        // If Automerge's actor ID somehow differs from the incoming DID's key
-        // bytes we emit a warning — this should never occur in production.
-        {
-            let local_actor_bytes: Vec<u8> = self.doc.get_actor().to_bytes().to_vec();
-            let incoming_actor_bytes: Vec<u8> = delta.author_did
-                .as_bytes()
-                .to_vec(); // raw DID string bytes — used only for the log
-
-            // Resolve the incoming DID to its 32-byte public key bytes for the
-            // actual tiebreak comparison.
-            if let Ok(incoming_pk) = resolve_did_key_to_public_key(&delta.author_did) {
-                let incoming_actor = &incoming_pk[..];
-                let local_actor = &local_actor_bytes[..];
-
-                // LWW scalar: would the incoming delta win over the local state?
-                let lww_winner = lww_incoming_wins(
+            if !snapshot.lww.is_empty() || !snapshot.rga.is_empty() {
+                let local_actor: Vec<u8> = self.doc.get_actor().to_bytes().to_vec();
+                let report = verify::verify_and_override(
+                    &mut self.doc,
+                    &snapshot,
                     delta.lamport,
-                    incoming_actor,
-                    self.lamport,   // local lamport *before* advance in step 5
-                    local_actor,
+                    &public_key, // verified incoming DID public-key bytes
+                    self.lamport, // pre-advance (step 5)
+                    &local_actor,
                 );
-
-                // RGA sequence: would the incoming insertion take priority?
-                let rga_priority = rga_incoming_has_priority(
-                    delta.lamport,
-                    incoming_actor,
-                    self.lamport,
-                    local_actor,
-                );
-
                 eprintln!(
-                    "[CRDT] post-merge tiebreak — incoming actor: {} (lamport {}) | \
-                     local actor: {} bytes (lamport {}) | \
-                     LWW incoming wins: {} | RGA incoming has priority: {}",
-                    delta.author_did,
-                    delta.lamport,
-                    local_actor.len(),
-                    self.lamport,
-                    lww_winner,
-                    rga_priority,
-                );
-            } else {
-                eprintln!(
-                    "[CRDT] WARNING: post-merge tiebreak skipped — could not resolve \
-                     incoming DID '{}' to public key bytes",
-                    delta.author_did
+                    "[CRDT] post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
+                     {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
+                    report.lww_checked,
+                    report.rga_checked,
+                    report.divergences,
+                    report.overrides_applied,
+                    report.overrides_failed,
+                    report.indeterminate,
                 );
             }
         }
@@ -639,23 +625,22 @@ impl CrdtEngine {
         Ok(())
     }
 
-    /// Merge raw Automerge bytes from a remote peer into the local doc.
+    /// Load raw Automerge bytes from a remote peer as a separate doc, or
+    /// `None` when there is nothing to merge.
     ///
     /// The idiomatic Automerge approach is to load the bytes as a second
-    /// `AutoCommit` and call `local_doc.merge(&mut their_doc)`.
-    ///
-    /// If the bytes are not valid Automerge format (e.g. JSON metadata from
-    /// the TirBase write path), the merge step is skipped without error.
-    /// The projection path in `CoreHandle::receive_inbound()` handles the
-    /// JSON case separately.
-    fn merge_automerge_bytes(&mut self, bytes: &[u8]) -> Result<(), TirBaseError> {
+    /// `AutoCommit` and call `local_doc.merge(&mut their_doc)`.  If the bytes
+    /// are not valid Automerge format (e.g. JSON metadata from the TirBase
+    /// write path), the load is skipped without error — the projection path in
+    /// `CoreHandle::receive_inbound()` handles the JSON case separately.
+    fn load_incoming_doc(&self, bytes: &[u8]) -> Result<Option<automerge::AutoCommit>, TirBaseError> {
         if bytes.is_empty() {
             // Empty byte slice — nothing to merge (e.g. test stubs).
-            return Ok(());
+            return Ok(None);
         }
 
-        let mut their_doc = match automerge::AutoCommit::load(bytes) {
-            Ok(doc) => doc,
+        match automerge::AutoCommit::load(bytes) {
+            Ok(doc) => Ok(Some(doc)),
             Err(_) => {
                 // Non-Automerge bytes (e.g. JSON envelope from TirBase write path).
                 // Skip the Automerge-level merge; the projection path will handle
@@ -664,17 +649,9 @@ impl CrdtEngine {
                     "[CRDT] automerge_bytes are not valid Automerge format — \
                      skipping Automerge merge (JSON/metadata path)"
                 );
-                return Ok(());
+                Ok(None)
             }
-        };
-
-        self.doc.merge(&mut their_doc).map_err(|e| {
-            TirBaseError::DeltaMalformed {
-                reason: format!("automerge merge failed: {e}"),
-            }
-        })?;
-
-        Ok(())
+        }
     }
 
     /// Project all ROOT-level scalar keys from the current Automerge doc to a
@@ -1795,6 +1772,268 @@ mod tests {
             engine_a.doc.get_actor().to_bytes(),
             engine_b.doc.get_actor().to_bytes(),
             "engines with different public keys must have different Automerge actor IDs"
+        );
+    }
+
+    // ── Post-merge LWW/RGA read-back verification (Subphase 6.1 — T50) ────
+    //
+    // These are the end-to-end tests the audit demanded: real signed Deltas
+    // carrying real Automerge bytes are cross-applied through the production
+    // `CrdtEngine::apply()` path, and the assertion reads the MERGED DOCUMENT
+    // VALUE/ORDERING back (via `doc_map_range_root` / the engine's doc) rather
+    // than only checking `lww_incoming_wins` / `rga_incoming_has_priority` in
+    // isolation.
+
+    /// Real Automerge bytes for a scalar write under a fresh doc whose actor is
+    /// the engine's DID public key. Every engine built this way gets the same
+    /// payload counter for its first write, so concurrent first writes tie on
+    /// the counter and resolve by actor bytes — exactly the Req 4.5 tiebreak.
+    fn scalar_write_bytes(actor: &[u8; 32], key: &str, value: i64) -> Vec<u8> {
+        use automerge::{transaction::Transactable, AutoCommit, ROOT};
+        let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(actor));
+        doc.put(ROOT, key, value).unwrap();
+        doc.save()
+    }
+
+    /// Read a ROOT-level scalar back from the engine's merged Automerge doc
+    /// through the production projection read (`doc_map_range_root`).
+    fn engine_root_scalar(engine: &CrdtEngine, key: &str) -> Option<serde_json::Value> {
+        engine
+            .doc_map_range_root()
+            .into_iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v)
+    }
+
+    /// Read a ROOT-level list back from the engine's merged doc (in-module test
+    /// access to the private `doc`).
+    fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
+        use automerge::{ObjType, ReadDoc, ScalarValue, Value, ROOT};
+        match engine.doc.get(ROOT, key).unwrap() {
+            Some((Value::Object(ObjType::List), list_id)) => engine
+                .doc
+                .list_range(&list_id, ..)
+                .filter_map(|item| match item.value {
+                    Value::Scalar(sv) => match sv.as_ref() {
+                        ScalarValue::Str(s) => Some(s.to_string()),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .collect(),
+            _ => vec![],
+        }
+    }
+
+    /// Shared base: a fresh Automerge doc with an empty ROOT-level list.
+    fn base_list_bytes(key: &str) -> Vec<u8> {
+        use automerge::{transaction::Transactable, AutoCommit, ObjType, ROOT};
+        let mut base = AutoCommit::new();
+        base.put_object(ROOT, key, ObjType::List).unwrap();
+        base.save()
+    }
+
+    /// Fork `base` with the given actor and insert `value` at index 0; returns
+    /// a full save (base + insertion) for the local engine's pre-load.
+    fn list_insert_full_bytes(base: &[u8], actor: &[u8; 32], key: &str, value: &str) -> Vec<u8> {
+        use automerge::{transaction::Transactable, AutoCommit, ObjType, ReadDoc, ROOT};
+        let mut doc =
+            AutoCommit::load(base).unwrap().with_actor(automerge::ActorId::from(actor));
+        let list = match doc.get(ROOT, key).unwrap() {
+            Some((automerge::Value::Object(ObjType::List), id)) => id,
+            _ => panic!("base doc has no list '{key}'"),
+        };
+        doc.insert(&list, 0, value).unwrap();
+        doc.save()
+    }
+
+    /// Fork `base` with the given actor and insert `value` at index 0; returns
+    /// only the incremental insertion change (like a real peer's Delta).
+    fn list_insert_incremental_bytes(base: &[u8], actor: &[u8; 32], key: &str, value: &str) -> Vec<u8> {
+        use automerge::{transaction::Transactable, AutoCommit, ObjType, ReadDoc, ROOT};
+        let mut doc =
+            AutoCommit::load(base).unwrap().with_actor(automerge::ActorId::from(actor));
+        let list = match doc.get(ROOT, key).unwrap() {
+            Some((automerge::Value::Object(ObjType::List), id)) => id,
+            _ => panic!("base doc has no list '{key}'"),
+        };
+        doc.insert(&list, 0, value).unwrap();
+        doc.save_incremental()
+    }
+
+    /// T50 end-to-end: two engines write the same key at equal Lamport values;
+    /// after cross-applying, the MERGED DOCUMENT VALUE must be the write from
+    /// the engine whose 32-byte DID public key is lexicographically greater
+    /// (Req 4.5 tiebreak) — asserted by reading the doc, not the predicate.
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_equal_lamport_lww_merged_value_readback() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
+        let mut engine_b = make_engine(secret_b, public_b, did_b.clone(), schema);
+
+        let bytes_a = scalar_write_bytes(&public_a, "score", 100);
+        let bytes_b = scalar_write_bytes(&public_b, "score", 200);
+        let delta_a = make_signed_delta(&secret_a, did_a, schema, 1, bytes_a);
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 1, bytes_b);
+
+        // Each engine applies its own write first, so the peer's delta lands on
+        // an existing key and a real conflict is read back after the merge.
+        engine_a.apply(&delta_a).unwrap();
+        engine_b.apply(&delta_b).unwrap();
+        engine_a.apply(&delta_b).unwrap();
+        engine_b.apply(&delta_a).unwrap();
+
+        let expected: i64 = if public_b > public_a { 200 } else { 100 };
+        assert_eq!(
+            engine_root_scalar(&engine_a, "score"),
+            Some(serde_json::json!(expected)),
+            "engine_a merged doc must hold the equal-Lamport winner (Req 4.5 tiebreak)"
+        );
+        assert_eq!(
+            engine_root_scalar(&engine_b, "score"),
+            Some(serde_json::json!(expected)),
+            "engine_b merged doc must hold the equal-Lamport winner (Req 4.5 tiebreak)"
+        );
+    }
+
+    /// A strictly-higher-Lamport write must win the merged doc, and with
+    /// aligned payload counters (counter == Lamport) the read-back must agree
+    /// with the rule in the definitive zone (no divergence, no override).
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_higher_lamport_lww_merged_value_readback() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
+
+        // Engine A: one write (payload counter 1), Lamport 1.
+        let bytes_a = scalar_write_bytes(&public_a, "score", 100);
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        engine_a.apply(&delta_a).unwrap();
+
+        // Engine B: three writes; the last (counter 3) carries the value that
+        // must win. Lamport 3 > engine_a's clock (2) → definitive zone.
+        let bytes_b = {
+            use automerge::{transaction::Transactable, AutoCommit, ROOT};
+            let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(&public_b));
+            doc.put(ROOT, "score", 0).unwrap();
+            doc.put(ROOT, "score", 99).unwrap();
+            doc.put(ROOT, "score", 200).unwrap();
+            doc.save()
+        };
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 3, bytes_b);
+        engine_a.apply(&delta_b).unwrap();
+
+        assert_eq!(
+            engine_root_scalar(&engine_a, "score"),
+            Some(serde_json::json!(200)),
+            "higher-Lamport write must win the merged doc"
+        );
+    }
+
+    /// Divergence + override: the incoming delta claims Lamport 50 but its
+    /// payload is a fresh doc (counter 1). Automerge resolves (1,pk_B) vs
+    /// (1,pk_A) → the LOCAL op wins when pk_A > pk_B, contradicting the rule
+    /// (50 > 1). The verification must log the divergence and OVERRIDE the doc
+    /// so the merged value is the Lamport-rule winner.
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_lww_divergence_override_forces_rule_winner() {
+        let (secret_a, public_a, did_a, secret_b, public_b, did_b) = loop {
+            let (sa, pa, da) = make_identity();
+            let (sb, pb, db) = make_identity();
+            if pa > pb {
+                break (sa, pa, da, sb, pb, db);
+            }
+        };
+        let schema = test_schema_hash();
+        let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
+
+        let bytes_a = scalar_write_bytes(&public_a, "score", 100);
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        engine_a.apply(&delta_a).unwrap();
+
+        let bytes_b = scalar_write_bytes(&public_b, "score", 200);
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 50, bytes_b);
+        engine_a.apply(&delta_b).unwrap();
+
+        assert_eq!(
+            engine_root_scalar(&engine_a, "score"),
+            Some(serde_json::json!(200)),
+            "divergence must be overridden to the Lamport-rule winner"
+        );
+    }
+
+    /// RGA ordering read-back: two concurrent insertions at the same position
+    /// (equal payload counters); the merged list must place the element from
+    /// the engine with the greater DID public key FIRST (Req 4.5a).
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_rga_concurrent_inserts_merged_ordering_readback() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+        let base = base_list_bytes("items");
+
+        let bytes_a = list_insert_full_bytes(&base, &public_a, "items", "A");
+        let bytes_b = list_insert_incremental_bytes(&base, &public_b, "items", "B");
+
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 1, bytes_b);
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a, schema);
+        engine_a.apply(&delta_a).unwrap();
+        engine_a.apply(&delta_b).unwrap();
+
+        let expected: Vec<String> = if public_b > public_a {
+            vec!["B".to_string(), "A".to_string()]
+        } else {
+            vec!["A".to_string(), "B".to_string()]
+        };
+        assert_eq!(
+            engine_root_list(&engine_a, "items"),
+            expected,
+            "merged list must order concurrent inserts by (counter, DID bytes) DESC"
+        );
+    }
+
+    /// RGA divergence + override: pk_A > pk_B and B's delta claims Lamport 50
+    /// (definitive zone) → the rule requires B before A, but Automerge (equal
+    /// counters) resolves A first. The verification must reorder the merged
+    /// list to the Lamport-rule ordering.
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_rga_divergence_override_reorders_to_rule_winner() {
+        let (secret_a, public_a, did_a, secret_b, public_b, did_b) = loop {
+            let (sa, pa, da) = make_identity();
+            let (sb, pb, db) = make_identity();
+            if pa > pb {
+                break (sa, pa, da, sb, pb, db);
+            }
+        };
+        let schema = test_schema_hash();
+        let base = base_list_bytes("items");
+
+        let bytes_a = list_insert_full_bytes(&base, &public_a, "items", "A");
+        let bytes_b = list_insert_incremental_bytes(&base, &public_b, "items", "B");
+
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 50, bytes_b);
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a, schema);
+        engine_a.apply(&delta_a).unwrap();
+        engine_a.apply(&delta_b).unwrap();
+
+        assert_eq!(
+            engine_root_list(&engine_a, "items"),
+            vec!["B".to_string(), "A".to_string()],
+            "RGA divergence must be overridden to the Lamport-rule ordering"
         );
     }
 }
