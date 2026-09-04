@@ -20,7 +20,7 @@ Thumbs.db
 # Local env
 .env
 .env.local
-
+.freebuff
 .kiro
 # Node / TypeScript SDK (tirbase-sdk)
 node_modules/

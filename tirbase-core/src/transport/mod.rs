@@ -113,9 +113,22 @@ pub struct MeshTransport {
     /// DRR Scheduler for outbound Delta prioritisation (Req 12).
     pub scheduler: DrrScheduler,
 
-    /// Native-only: libp2p Swarm (None before `start()` is called).
+    /// Native-only: libp2p Swarm (None before `start()` is called, and None
+    /// after the Swarm is detached into the polling task via `take_swarm`).
     #[cfg(feature = "native")]
     swarm: Option<libp2p::Swarm<TirBaseBehaviour>>,
+
+    /// Native-only: outbound publish channel sender.  Installed by
+    /// `take_swarm` when the Swarm is detached; `send_delta` forwards
+    /// prepared payloads here and the Swarm polling task (which owns the
+    /// receiver end) publishes them to the Gossipsub topic.
+    #[cfg(feature = "native")]
+    outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
+
+    /// Test-only: payloads that reached the outbound publish point (recorded
+    /// by the Swarm polling task immediately before `gossipsub.publish`).
+    #[cfg(all(feature = "native", test))]
+    pub(crate) outbound_published: Vec<Vec<u8>>,
 
     /// Whether Saturate Mode is active (used on WASM where there is no live scheduler).
     pub saturate_active: bool,
@@ -143,6 +156,10 @@ impl MeshTransport {
             scheduler: DrrScheduler::new(1_000_000), // 1 MB/s default link capacity
             #[cfg(feature = "native")]
             swarm: None,
+            #[cfg(feature = "native")]
+            outbound_tx: None,
+            #[cfg(all(feature = "native", test))]
+            outbound_published: Vec::new(),
             saturate_active: false,
         }
     }
@@ -380,53 +397,77 @@ impl MeshTransport {
         Ok(())
     }
 
-    /// Take ownership of the native libp2p Swarm out of this transport.
+    /// Take ownership of the native libp2p Swarm out of this transport and
+    /// install the outbound publish channel.
     ///
     /// Used by `CoreHandle::init` to move the Swarm into a dedicated polling
     /// task so it can be polled across `.await` points without holding the
     /// `MeshTransport` mutex (Rust forbids holding a sync mutex across `.await`).
     ///
-    /// After this call `self.swarm` is `None`; `send_delta` will be unavailable
-    /// until a new Swarm is re-installed (or the device is offline-only).
+    /// The `outbound_tx` sender is retained here: [`MeshTransport::send_delta`]
+    /// forwards prepared payloads over it, and the polling task — which owns
+    /// the receiver end — publishes them to the Gossipsub topic.  Outbound
+    /// delivery therefore keeps working after `self.swarm` is emptied; when no
+    /// polling task is draining the channel (transport never started, or shut
+    /// down), the device is simply offline-only (Req 3.3).
     #[cfg(feature = "native")]
-    pub fn take_swarm(&mut self) -> Option<libp2p::Swarm<TirBaseBehaviour>> {
+    pub fn take_swarm(
+        &mut self,
+        outbound_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
+    ) -> Option<libp2p::Swarm<TirBaseBehaviour>> {
+        self.outbound_tx = Some(outbound_tx);
         self.swarm.take()
     }
 
-    /// Send serialised bytes to the shared Gossipsub topic (Req 5.1).
+    /// Forward a Delta to the shared Gossipsub topic (Req 5.1).
     ///
     /// The `peer_did` argument is accepted for API compatibility but the
     /// message is published to the shared `tirbase/v1` topic so all subscribed
-    /// peers receive it.  Routing, fragmentation, and Noise encryption are
-    /// handled by the libp2p transport stack.
+    /// peers receive it.  Fragmentation and Noise encryption are handled by the
+    /// libp2p transport stack.
+    ///
+    /// Prepared payloads are sent over the outbound publish channel to the
+    /// Swarm polling task, which owns the `&mut Swarm` and performs the actual
+    /// `gossipsub.publish`.  This is the re-architecture that keeps outbound
+    /// delivery working after `take_swarm` empties `self.swarm`: the channel
+    /// sender replaces the Swarm handle as the publish path.
+    ///
+    /// Returns [`TirBaseError::MeshUnavailable`] when no outbound channel is
+    /// installed (transport never started) or the channel cannot accept the
+    /// payload (polling task backlogged or shut down).  Callers treat this as
+    /// best-effort: the local store and the durability queue remain
+    /// authoritative while the device is offline (Req 3.3).
     #[cfg(feature = "native")]
-    pub async fn send_delta(
+    pub fn send_delta(
         &mut self,
         peer_did: &Did,
         delta: &Delta,
     ) -> Result<(), TirBaseError> {
-        use libp2p::gossipsub::IdentTopic;
-
-        // Compute payloads before borrowing swarm (avoids split-borrow conflict).
+        // Compute payloads before borrowing the channel.
         let payloads = self.prepare_outbound(delta)?;
 
-        let swarm = self.swarm.as_mut().ok_or_else(|| TirBaseError::DeltaMalformed {
-            reason: "transport not started".to_string(),
+        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
+            TirBaseError::MeshUnavailable {
+                reason: "transport not started (no outbound channel installed)".to_string(),
+            }
         })?;
 
-        // Publish to the shared topic (not per-peer) so all subscribers receive it.
-        let topic = IdentTopic::new(&self.gossip_topic);
-
         for payload in payloads {
-            swarm
-                .behaviour_mut()
-                .gossipsub
-                .publish(topic.clone(), payload)
-                .map_err(|e| TirBaseError::DeltaMalformed {
-                    reason: format!("gossipsub publish error: {e:?}"),
-                })?;
+            tx.try_send(payload).map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("outbound publish channel unavailable: {e}"),
+            })?;
         }
         Ok(())
+    }
+
+    /// Record a payload at the outbound publish point (test-only).
+    ///
+    /// Called by the Swarm polling task just before `gossipsub.publish` so
+    /// integration tests can observe that outbound Deltas reached the mesh
+    /// layer without requiring a live peer.
+    #[cfg(all(feature = "native", test))]
+    pub(crate) fn record_outbound_payload(&mut self, payload: Vec<u8>) {
+        self.outbound_published.push(payload);
     }
 }
 
@@ -562,5 +603,69 @@ mod tests {
         let payloads = t.prepare_outbound(&delta).unwrap();
         // Serialised Delta > 50 bytes → multiple fragments
         assert!(payloads.len() > 1);
+    }
+
+    // ── Outbound publish channel (Subphase 1.1) ─────────────────────────────
+    //
+    // `send_delta` must not require a live `self.swarm` (it is emptied by
+    // `take_swarm` at init): prepared payloads are forwarded over the outbound
+    // channel to the Swarm polling task, which performs the actual publish.
+
+    #[cfg(feature = "native")]
+    fn sample_delta() -> crate::crdt::delta::Delta {
+        crate::crdt::delta::Delta {
+            id: [0x42u8; 32],
+            author_did: "did:key:test".to_string(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: vec![0xBBu8; 64],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 1_000_000,
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[tokio::test]
+    async fn send_delta_forwards_prepared_payloads_to_outbound_channel() {
+        use tokio::sync::mpsc;
+
+        let mut t = make_transport(); // mtu = 0 → single unfragmented payload
+        let (tx, mut rx) = mpsc::channel::<Vec<u8>>(16);
+        // No live Swarm in this unit test — take_swarm just installs the channel.
+        assert!(
+            t.take_swarm(tx).is_none(),
+            "no Swarm was started in this test"
+        );
+
+        let delta = sample_delta();
+        t.send_delta(&"did:key:peer".to_string(), &delta)
+            .expect("send_delta must succeed once an outbound channel is installed");
+
+        let payload = rx
+            .recv()
+            .await
+            .expect("prepared payload must be forwarded to the outbound channel");
+        assert_eq!(
+            payload,
+            serde_json::to_vec(&delta).unwrap(),
+            "send_delta must forward the exact output of prepare_outbound"
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn send_delta_without_outbound_channel_returns_mesh_unavailable() {
+        let mut t = make_transport();
+        let delta = sample_delta();
+        let err = t
+            .send_delta(&"did:key:peer".to_string(), &delta)
+            .expect_err("send_delta must fail when no outbound channel is installed");
+        assert!(
+            matches!(err, TirBaseError::MeshUnavailable { .. }),
+            "expected MeshUnavailable, got: {err}"
+        );
     }
 }

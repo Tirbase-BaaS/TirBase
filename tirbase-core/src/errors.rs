@@ -51,6 +51,9 @@ pub enum TirBaseError {
     #[error("Noise handshake failed with peer {peer_did}: {reason}")]
     NoiseHandshakeFailed { peer_did: String, reason: String },
 
+    #[error("Mesh unavailable: {reason}")]
+    MeshUnavailable { reason: String },
+
     #[error("Fragment reassembly failed from {sender_did}: expected {expected} fragments")]
     FragmentReassemblyFailed {
         sender_did: String,

@@ -277,7 +277,13 @@ impl CoreHandle {
             crate::transport::message::GossipMessage,
         >(1024);
 
-        // ── Native: take the Swarm and spawn the inbound polling task ─────────
+        // ── Native: take the Swarm and spawn the polling task ─────────────────
+        //
+        // The Swarm is owned exclusively by this task so it can be polled across
+        // `.await` points.  Outbound delivery therefore goes through a channel:
+        // `write()` → `MeshTransport::send_delta` forwards prepared payloads
+        // into `outbound_rx`, and this task publishes them to the shared
+        // Gossipsub topic (Subphase 1.1 — Req 5.1).
         #[cfg(feature = "native")]
         {
             use crate::transport::TirBaseBehaviour;
@@ -286,82 +292,124 @@ impl CoreHandle {
             use libp2p::mdns;
             use libp2p::swarm::SwarmEvent;
 
-            let swarm_opt = transport.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("transport mutex poisoned: {e}"),
-            })?.take_swarm();
+            let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(4096);
+
+            let (swarm_opt, gossip_topic) = {
+                let mut transport_guard =
+                    transport.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("transport mutex poisoned: {e}"),
+                    })?;
+                let topic = transport_guard.gossip_topic.clone();
+                let swarm = transport_guard.take_swarm(outbound_tx);
+                (swarm, topic)
+            };
 
             if let Some(mut swarm) = swarm_opt {
                 let tx_clone = inbound_tx.clone();
                 let revocation_arc = revocation.clone();
                 let transport_arc = transport.clone();
+                let gossip_topic = gossipsub::IdentTopic::new(&gossip_topic);
                 tokio::spawn(async move {
                     loop {
-                        match swarm.select_next_some().await {
-                            SwarmEvent::Behaviour(
-                                crate::transport::TirBaseBehaviourEvent::Gossipsub(
-                                    gossipsub::Event::Message { message, .. },
-                                ),
-                            ) => {
-                                if let Some(msg) = crate::transport::message::GossipMessage::from_bytes(&message.data) {
-                                    if tx_clone.send(msg).await.is_err() {
-                                        // Receiver dropped — CoreHandle is gone.
-                                        break;
+                        tokio::select! {
+                            event = swarm.select_next_some() => {
+                                match event {
+                                    SwarmEvent::Behaviour(
+                                        crate::transport::TirBaseBehaviourEvent::Gossipsub(
+                                            gossipsub::Event::Message { message, .. },
+                                        ),
+                                    ) => {
+                                        if let Some(msg) = crate::transport::message::GossipMessage::from_bytes(&message.data) {
+                                            if tx_clone.send(msg).await.is_err() {
+                                                // Receiver dropped — CoreHandle is gone.
+                                                break;
+                                            }
+                                        } else {
+                                            eprintln!(
+                                                "[transport-loop] unrecognised gossipsub message ({} bytes)",
+                                                message.data.len()
+                                            );
+                                        }
                                     }
-                                } else {
-                                    eprintln!(
-                                        "[transport-loop] unrecognised gossipsub message ({} bytes)",
-                                        message.data.len()
-                                    );
+                                    SwarmEvent::NewListenAddr { address, .. } => {
+                                        eprintln!("[transport-loop] listening on {address}");
+                                    }
+                                    SwarmEvent::Behaviour(
+                                        crate::transport::TirBaseBehaviourEvent::Mdns(
+                                            mdns::Event::Discovered(peers),
+                                        ),
+                                    ) => {
+                                        for (peer_id, _) in peers {
+                                            eprintln!("[transport-loop] mDNS discovered: {peer_id}");
+                                            swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                                        }
+
+                                        // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
+                                        let recent = revocation_arc.lock().map(|rev| {
+                                            rev.build_recent_revocation_deltas(24 * 3600 * 1_000_000)
+                                        }).unwrap_or_default();
+
+                                        for rd in recent {
+                                            let gossip_msg = crate::transport::message::GossipMessage::InboundRevocationDelta(rd);
+                                            let gossip_bytes = gossip_msg.to_bytes();
+                                            let wrapper = crate::crdt::delta::Delta {
+                                                id: [0u8; 32],
+                                                author_did: "tirbase/revocation".to_string(),
+                                                signature: crate::crdt::delta::Ed25519Signature::default(),
+                                                schema_hash: [0u8; 32],
+                                                automerge_bytes: gossip_bytes,
+                                                priority: crate::crdt::delta::PriorityClass::High,
+                                                causal_parents: vec![],
+                                                tags: vec![],
+                                                lamport: 0,
+                                                created_at: 0,
+                                            };
+                                            if let Ok(mut t) = transport_arc.lock() {
+                                                t.enqueue_outbound(wrapper);
+                                            }
+                                        }
+                                    }
+                                    SwarmEvent::Behaviour(
+                                        crate::transport::TirBaseBehaviourEvent::Mdns(
+                                            mdns::Event::Expired(peers),
+                                        ),
+                                    ) => {
+                                        for (peer_id, _) in peers {
+                                            swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                                        }
+                                    }
+                                    _ => {}
                                 }
                             }
-                            SwarmEvent::NewListenAddr { address, .. } => {
-                                eprintln!("[transport-loop] listening on {address}");
-                            }
-                            SwarmEvent::Behaviour(
-                                crate::transport::TirBaseBehaviourEvent::Mdns(
-                                    mdns::Event::Discovered(peers),
-                                ),
-                            ) => {
-                                for (peer_id, _) in peers {
-                                    eprintln!("[transport-loop] mDNS discovered: {peer_id}");
-                                    swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                            Some(payload) = outbound_rx.recv() => {
+                                // Test-only observability: record the payload at
+                                // the publish point so integration tests can
+                                // assert outbound delivery reached the mesh
+                                // layer (Subphase 1.1 acceptance).
+                                #[cfg(test)]
+                                if let Ok(mut t) = transport_arc.lock() {
+                                    t.record_outbound_payload(payload.clone());
                                 }
 
-                                // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
-                                let recent = revocation_arc.lock().map(|rev| {
-                                    rev.build_recent_revocation_deltas(24 * 3600 * 1_000_000)
-                                }).unwrap_or_default();
-
-                                for rd in recent {
-                                    let gossip_msg = crate::transport::message::GossipMessage::InboundRevocationDelta(rd);
-                                    let gossip_bytes = gossip_msg.to_bytes();
-                                    let wrapper = crate::crdt::delta::Delta {
-                                        id: [0u8; 32],
-                                        author_did: "tirbase/revocation".to_string(),
-                                        signature: crate::crdt::delta::Ed25519Signature::default(),
-                                        schema_hash: [0u8; 32],
-                                        automerge_bytes: gossip_bytes,
-                                        priority: crate::crdt::delta::PriorityClass::High,
-                                        causal_parents: vec![],
-                                        tags: vec![],
-                                        lamport: 0,
-                                        created_at: 0,
-                                    };
-                                    if let Ok(mut t) = transport_arc.lock() {
-                                        t.enqueue_outbound(wrapper);
+                                // Publish to the shared topic so all subscribed
+                                // peers receive it (Req 5.1).  No subscribers /
+                                // mesh offline → log and continue: the local
+                                // write and durability queue remain authoritative.
+                                match swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(gossip_topic.clone(), payload)
+                                {
+                                    Ok(_) => {
+                                        eprintln!("[transport-loop] published outbound payload");
+                                    }
+                                    Err(e) => {
+                                        eprintln!(
+                                            "[transport-loop] outbound publish deferred (no subscribers / mesh offline): {e:?}"
+                                        );
                                     }
                                 }
                             }
-                            SwarmEvent::Behaviour(
-                                crate::transport::TirBaseBehaviourEvent::Mdns(
-                                    mdns::Event::Expired(peers),
-                                ),
-                            ) => {
-                                for (peer_id, _) in peers {
-                                    swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                                }
-                            }
-                            _ => {}
                         }
                     }
                 });
@@ -541,14 +589,26 @@ impl CoreHandle {
                 HashMap::new(),
             )?;
 
-        // 6. Prepare outbound (gossip broadcast — real send requires live peers).
-        let _ = self
+        // 6. Publish outbound — forward the prepared Delta payloads to the
+        // Swarm polling task, which publishes them to the shared Gossipsub
+        // topic (Req 5.1).  Best-effort by design: the local store write and
+        // durability registration above are already committed, and a device
+        // must keep operating while the mesh is unavailable (Req 3.3), so a
+        // publish failure is logged rather than failing the write.
+        #[cfg(feature = "native")]
+        if let Err(e) = self
             .transport
             .lock()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("transport mutex poisoned: {e}"),
             })?
-            .prepare_outbound(&delta);
+            .send_delta(&self.identity.did().to_string(), &delta)
+        {
+            eprintln!(
+                "[write] outbound publish failed for delta {}: {e} — delta remains durably queued",
+                hex::encode(delta.id)
+            );
+        }
 
         // 7. Collect unverified warning (Req 8.4).
         let unverified_warning = self
@@ -1657,6 +1717,68 @@ mod tests {
             result.durability_tier,
             DurabilityTier::Uncommitted,
             "initial write must have Uncommitted durability"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── 9b. write() publishes the Delta to the outbound mesh ─────────────────
+    //
+    // Subphase 1.1 acceptance: write() must NOT discard prepare_outbound()'s
+    // output — the prepared payload must reach the outbound publish path (the
+    // Swarm polling task) and be handed to gossipsub.publish.  With no peers
+    // subscribed, gossipsub.publish returns NoPeersSubscribedToTopic, so the
+    // payload is observed at the publish point via the test-only recording
+    // hook rather than via a live peer.
+
+    #[tokio::test]
+    async fn write_publishes_outbound_delta_to_mesh() {
+        let path = tmp_path("outbound_publish");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init");
+
+        let result = handle
+            .write("sensors", "s1", json!({"v": 42}))
+            .await
+            .expect("write must succeed even with no mesh peers connected");
+
+        // The Swarm polling task drains the outbound channel asynchronously;
+        // poll until the prepared payload reaches the publish point.
+        let mut attempts = 0;
+        let published = loop {
+            let published = handle
+                .transport
+                .lock()
+                .unwrap()
+                .outbound_published
+                .clone();
+            if !published.is_empty() {
+                break published;
+            }
+            attempts += 1;
+            assert!(
+                attempts < 100,
+                "write()'s outbound payload never reached the publish path"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        };
+
+        assert_eq!(
+            published.len(),
+            1,
+            "exactly one outbound payload must be produced per write (mtu=0)"
+        );
+
+        // The published payload must be the prepared Delta — i.e. the output
+        // of prepare_outbound() is used, not discarded.
+        let decoded: crate::crdt::delta::Delta = serde_json::from_slice(&published[0])
+            .expect("published payload must deserialise as the Delta");
+        assert_eq!(
+            decoded.id, result.delta_id,
+            "published payload must be the Delta produced by this write"
         );
 
         cleanup(&path);
