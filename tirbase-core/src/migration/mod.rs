@@ -9,15 +9,17 @@ pub mod sidecar;
 pub mod version_path;
 pub mod wasm_sandbox;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "native")]
 use std::sync::{Arc, Mutex};
 
+use crate::crdt::delta::DeltaId;
 use crate::errors::TirBaseError;
 use migration_delta::{MigrationDelta, MigrationId, MigrationRevocationDelta};
 use quarantine::{QuarantineEntry, QuarantineLedger, QuarantineReason};
 use revocation::RevokedMigrationRegistry;
+use sidecar::{ReplaySummary, SideCarEntry, SideCarLedger};
 use version_path::SchemaVersionPath;
 use wasm_sandbox::{execute_migration, MigrationResult};
 
@@ -82,6 +84,29 @@ pub struct SchemaMigrationEngine {
 
     #[cfg(not(feature = "native"))]
     quarantine_ledger: QuarantineLedger,
+
+    /// Side-Car Ledger — non-destructive preservation of writes made against
+    /// a corrupted schema, for replay when a corrected migration arrives
+    /// (Req 19.1–19.6).
+    ///
+    /// Native: SQLite-backed via the migration's dedicated connection.
+    /// WASM: in-memory Vec.
+    sidecar_ledger: SideCarLedger,
+
+    /// Migration hash → target schema hash, recorded at prepare time so a
+    /// revocation can identify which schema a corrupted migration produced
+    /// (Req 19.1/19.2 corruption-window scoping).
+    migration_targets: HashMap<MigrationId, crate::schema::hash::SchemaIdentifierHash>,
+
+    /// Schema hashes currently under a corruption window → the migration IDs
+    /// whose revocations opened them (Req 19.1/19.2).  A window opens when a
+    /// revoked migration's target schema is the device's current schema;
+    /// while it is open, writes stamped with that schema are captured in the
+    /// Side-Car Ledger and the window's entries are replayed onto the
+    /// corrected projection when a migration off that schema commits (Req
+    /// 19.3).
+    corrupted_schema_windows:
+        HashMap<crate::schema::hash::SchemaIdentifierHash, Vec<MigrationId>>,
 }
 
 impl SchemaMigrationEngine {
@@ -102,10 +127,20 @@ impl SchemaMigrationEngine {
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
     ) -> Self {
         #[cfg(feature = "native")]
-        let quarantine_ledger = QuarantineLedger::new(migration_conn);
+        let quarantine_ledger = QuarantineLedger::new(migration_conn.clone());
 
         #[cfg(not(feature = "native"))]
         let quarantine_ledger = QuarantineLedger::new();
+
+        // The Side-Car Ledger shares the migration's dedicated connection
+        // (native) or uses the in-memory stub (WASM).  Both the quarantine
+        // and side-car ledgers live on the same per-migration connection so
+        // they are created by `CREATE_SCHEMA_SQL` at store open.
+        #[cfg(feature = "native")]
+        let sidecar_ledger = SideCarLedger::new(migration_conn);
+
+        #[cfg(not(feature = "native"))]
+        let sidecar_ledger = SideCarLedger::new();
 
         Self {
             ca_public_key,
@@ -117,6 +152,9 @@ impl SchemaMigrationEngine {
             #[cfg(feature = "native")]
             store,
             quarantine_ledger,
+            sidecar_ledger,
+            migration_targets: HashMap::new(),
+            corrupted_schema_windows: HashMap::new(),
         }
     }
 
@@ -271,6 +309,12 @@ impl SchemaMigrationEngine {
         // migration for a *future* schema step is still a real hash managers
         // may legitimately revoke before it becomes applicable.
         self.revocation_registry.record_known_migration(delta.id);
+
+        // Remember the migration's target schema hash so a later revocation
+        // can open the corruption window on the exact schema this migration
+        // produces (Req 19.1/19.2).
+        self.migration_targets
+            .insert(delta.id, delta.target_schema_hash);
 
         // ── 5 & 6. Version path validation ───────────────────────────────────
         if let Err(e) = self.verify_version_path(&delta) {
@@ -442,8 +486,35 @@ impl SchemaMigrationEngine {
         &mut self,
         delta: MigrationRevocationDelta,
     ) -> Result<bool, TirBaseError> {
-        self.revocation_registry
-            .apply_revocation(delta, self.revocation_threshold_m)
+        let revoked_id = delta.target_migration_id;
+        let halted = self
+            .revocation_registry
+            .apply_revocation(delta, self.revocation_threshold_m)?;
+
+        // ── Req 19.1/19.2: corruption window ────────────────────────────────
+        // The revoked migration is now flagged corrupted.  If it produced the
+        // schema this device is currently on, open a corruption window so
+        // every subsequent write stamped with that schema is preserved in the
+        // Side-Car Ledger (scoped to this migration id) instead of being
+        // silently trusted.  A migration revoked before it was ever applied
+        // (local schema != its target) opens nothing — the device never moved
+        // onto the corrupted schema, so there is nothing to capture.
+        if let Some(target) = self.migration_targets.get(&revoked_id).copied() {
+            if target == self.local_schema_hash {
+                self.corrupted_schema_windows
+                    .entry(target)
+                    .or_default()
+                    .push(revoked_id);
+                eprintln!(
+                    "[migration] Corruption window opened for schema {} \
+                     (migration {:?}) — writes are now Side-Car captured (Req 19.2)",
+                    hex::encode(target),
+                    revoked_id
+                );
+            }
+        }
+
+        Ok(halted)
     }
 
     // ─── Private helpers ───────────────────────────────────────────────────────
@@ -557,6 +628,104 @@ impl SchemaMigrationEngine {
     /// inspection entry point for quarantine replay tooling (Req 17.4–17.6).
     pub(crate) fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         self.quarantine_ledger.get_all()
+    }
+}
+
+// ─── Corruption-window + Side-Car capture/replay (Req 19.1–19.6) ───────────────
+
+impl SchemaMigrationEngine {
+    /// If the device's current schema is under an active corruption window — a
+    /// revoked (corrupted) migration produced it — return the migration ID
+    /// that opened the window: the scope under which writes against the
+    /// corrupted schema are preserved in the Side-Car Ledger (Req 19.2).
+    ///
+    /// Returns `None` when the current schema is not corrupted.
+    pub(crate) fn active_corruption_migration(&self) -> Option<MigrationId> {
+        self.corrupted_schema_windows
+            .get(&self.local_schema_hash)
+            .and_then(|ids| ids.first().copied())
+    }
+
+    /// Record a write made against the corrupted schema in the Side-Car
+    /// Ledger, byte-for-byte and scoped to the corrupting migration's ID
+    /// (Req 19.2).
+    ///
+    /// Returns `Ok(None)` when no corruption window is active for the current
+    /// schema (nothing to capture); `Ok(Some(entry_id))` when the write was
+    /// preserved.  The caller (the production write path) treats capture as
+    /// best-effort: a capture failure must not fail the write itself.
+    pub(crate) fn record_corrupted_window_write(
+        &mut self,
+        table: &str,
+        delta_bytes: Vec<u8>,
+        recorded_ts: i64,
+    ) -> Result<Option<DeltaId>, TirBaseError> {
+        let Some(migration_id) = self.active_corruption_migration() else {
+            return Ok(None);
+        };
+        let entry_id = self
+            .sidecar_ledger
+            .record(migration_id, table.to_string(), delta_bytes, recorded_ts)?;
+        Ok(Some(entry_id))
+    }
+
+    /// Replay every Side-Car entry captured while `pre_migration_schema` was
+    /// under a corruption window against the corrected projection (Req 19.3).
+    ///
+    /// Called by the inbound migration success path once a corrected
+    /// migration has committed and the CRDT engine has advanced to
+    /// `corrected_schema_hash`.  Entries are replayed in recorded-timestamp
+    /// order; replay conflicts are flagged, never aborting the pass or the
+    /// already-committed migration (Req 19.4).  The corruption window is
+    /// closed once replayed — the device has left the corrupted schema.
+    pub(crate) fn replay_corrupted_windows(
+        &mut self,
+        pre_migration_schema: &crate::schema::hash::SchemaIdentifierHash,
+        corrected_schema_hash: crate::schema::hash::SchemaIdentifierHash,
+        engine: &mut crate::crdt::CrdtEngine,
+    ) -> Result<(), TirBaseError> {
+        let Some(migration_ids) = self.corrupted_schema_windows.remove(pre_migration_schema) else {
+            return Ok(());
+        };
+
+        for migration_id in &migration_ids {
+            match self
+                .sidecar_ledger
+                .replay_sidecar(*migration_id, corrected_schema_hash, engine)
+            {
+                Ok(summary) => {
+                    eprintln!(
+                        "[migration] Side-Car replay for corrupted migration {:?}: \
+                         {}/{} entries replayed, {} conflicts, complete={} (Req 19.3)",
+                        migration_id,
+                        summary.replayed,
+                        summary.total_entries,
+                        summary.conflicts,
+                        summary.complete,
+                    );
+                }
+                Err(e) => {
+                    // Best-effort: the migration has already committed and the
+                    // entries stay PENDING in the ledger for a later retry.
+                    eprintln!(
+                        "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
+                        migration_id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// All Side-Car entries scoped to `migration_id`, in recorded-timestamp
+    /// order — the replay-order view used by the corruption-recovery
+    /// integration test to assert capture and replay status transitions.
+    pub(crate) fn sidecar_entries(
+        &self,
+        migration_id: &MigrationId,
+    ) -> Result<Vec<SideCarEntry>, TirBaseError> {
+        self.sidecar_ledger.load_entries_ordered(*migration_id)
     }
 }
 
@@ -1152,6 +1321,186 @@ mod tests {
         assert!(
             !engine.is_schema_quarantined("any_table"),
             "is_schema_quarantined must be false when ledger is empty, even if a migration is in-progress"
+        );
+    }
+
+    // ─── Test: revoking an *applied* migration opens the corruption window ──
+    //
+    // Req 19.1/19.2: once a migration that produced the device's current
+    // schema is flagged corrupted (revoked), writes against that schema must
+    // be captured in the Side-Car Ledger scoped to the corrupting migration.
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn revoked_applied_migration_opens_corruption_window_and_captures_writes() {
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x50u8; 32];
+        let target = [0x51u8; 32];
+        let corrected = [0x52u8; 32];
+
+        let wasm = trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
+        let migration_id = transform_sha256;
+        let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
+        let delta = MigrationDelta {
+            id: migration_id,
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: wasm,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // 1. Apply the migration: the device now runs schema `target`.
+        let prepared = engine
+            .prepare_migration(delta, "did:key:z6MkSender")
+            .expect("prepare must succeed");
+        let outcome = engine
+            .finish_migration(
+                &prepared.migration_id,
+                &prepared.target_schema_hash,
+                Ok(MigrationResult::Success),
+            )
+            .expect("finish must succeed");
+        assert_eq!(outcome, MigrationResult::Success);
+        assert_eq!(engine.local_schema_hash, target);
+
+        // 2. Revoke the applied migration → the corruption window opens.
+        let (mgr_secret, mgr_did) = make_manager_identity();
+        let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
+        engine
+            .receive_revocation_delta(revocation)
+            .expect("revocation of the applied migration must succeed");
+        assert!(
+            engine.active_corruption_migration() == Some(migration_id),
+            "corruption window must open on the revoked migration's target schema"
+        );
+
+        // 3. Writes during the corrupted window are Side-Car captured, scoped
+        // to the corrupting migration (Req 19.2), byte-for-byte.
+        let raw = b"user-write-during-corrupted-window".to_vec();
+        let entry = engine
+            .record_corrupted_window_write("reports", raw.clone(), 1234)
+            .expect("capture must succeed")
+            .expect("a capture id must be returned while the window is open");
+        let entries = engine
+            .sidecar_entries(&migration_id)
+            .expect("read sidecar entries");
+        assert_eq!(entries.len(), 1, "exactly one captured write");
+        assert_eq!(entries[0].id, entry);
+        assert_eq!(entries[0].migration_id, migration_id);
+        assert_eq!(entries[0].table_name, "reports");
+        assert_eq!(entries[0].delta_bytes, raw, "Req 19.2: no modification");
+        assert_eq!(entries[0].recorded_ts, 1234);
+
+        // 4. A corrected migration commits → replay runs against the corrected
+        // projection (Req 19.3).  The captured entry is garbage JSON here, so
+        // it flags CONFLICT rather than aborting the pass (Req 19.4) — the
+        // window is still closed afterwards, so capture stops.
+        let (secret, public) = generate_keypair().expect("keygen");
+        let did = crate::crdt::derive_did_from_public_key(&public);
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory");
+        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .expect("create schema");
+        let mut crdt = crate::crdt::CrdtEngine::new(
+            secret,
+            public,
+            did,
+            corrected,
+            std::sync::Arc::new(std::sync::Mutex::new(conn)),
+        );
+        engine
+            .replay_corrupted_windows(&target, corrected, &mut crdt)
+            .expect("replay must not error");
+
+        assert!(
+            engine.active_corruption_migration().is_none(),
+            "the corruption window must close once replayed"
+        );
+        let entries = engine
+            .sidecar_entries(&migration_id)
+            .expect("read sidecar entries after replay");
+        assert_eq!(entries.len(), 1);
+        assert!(
+            matches!(
+                entries[0].replay_status,
+                crate::migration::sidecar::ReplayStatus::Conflict { .. }
+            ),
+            "the replay pass must have touched the entry (garbage bytes → CONFLICT, Req 19.4): {:?}",
+            entries[0].replay_status
+        );
+        let captured_after = engine
+            .record_corrupted_window_write("reports", b"post-replay".to_vec(), 9999)
+            .expect("capture call must not error");
+        assert!(
+            captured_after.is_none(),
+            "no capture after the window closed (device has left the corrupted schema)"
+        );
+    }
+
+    // ─── Test: revoking a *never-applied* migration opens no window ─────────
+    //
+    // If the revoked migration never moved the device onto its target schema
+    // (revoked before apply), the device has no corrupted-window writes to
+    // preserve — capture must stay off.
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn revoked_unapplied_migration_does_not_open_corruption_window() {
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x53u8; 32];
+        let target = [0x54u8; 32];
+
+        let wasm = trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
+        let migration_id = transform_sha256;
+        let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
+        let delta = MigrationDelta {
+            id: migration_id,
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: wasm,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+
+        // Prepare records the migration as known (Req 18.7) and remembers its
+        // target, but the transform never commits — the device stays on
+        // `source`.
+        let _prepared = engine
+            .prepare_migration(delta, "did:key:z6MkSender")
+            .expect("prepare must succeed");
+
+        let (mgr_secret, mgr_did) = make_manager_identity();
+        let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
+        engine
+            .receive_revocation_delta(revocation)
+            .expect("revocation must succeed");
+
+        assert!(
+            engine.active_corruption_migration().is_none(),
+            "no corruption window when the revoked migration was never applied"
+        );
+        let captured = engine
+            .record_corrupted_window_write("reports", b"not-captured".to_vec(), 1)
+            .expect("capture call must not error");
+        assert!(
+            captured.is_none(),
+            "writes must not be captured when no corruption window is active"
         );
     }
 }

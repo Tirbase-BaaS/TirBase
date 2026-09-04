@@ -17,7 +17,7 @@ use crate::errors::TirBaseError;
 use crate::identity::keypair;
 use crate::schema::diff::{diff_schemas, SchemaDiff};
 use crate::schema::Schema;
-use delta::{Delta, DeltaId, Did, Ed25519Signature, PriorityClass};
+use delta::{Delta, DeltaId, DeltaTag, Did, Ed25519Signature, PriorityClass};
 use merge::{MergeOutcome, QuarantineReason};
 use schema_hash::SchemaIdentifierHash;
 
@@ -307,18 +307,41 @@ impl CrdtEngine {
     /// Produce a Delta for a local write that has already been committed to the
     /// Local Store (Req 4.2, 4.6). Called after `LocalStore::write()` succeeds.
     ///
-    /// Steps:
-    /// 1. Increment the Lamport clock.
-    /// 2. Collect causal parents from the DAG's current tips.
-    /// 3. Build the Delta with all metadata.
-    /// 4. Sign with the local private key.
-    /// 5. Compute and assign the DeltaId.
-    /// 6. Insert the DagNode.
+    /// The delta is produced with an empty tag list.  See
+    /// [`Self::produce_delta_with_tags`] when a tag must be part of the signed
+    /// payload.
     pub fn produce_delta(
         &mut self,
         automerge_bytes: Vec<u8>,
         priority: PriorityClass,
         causal_parents: Vec<DeltaId>,
+    ) -> Result<Delta, TirBaseError> {
+        self.produce_delta_with_tags(automerge_bytes, priority, causal_parents, vec![])
+    }
+
+    /// Produce a Delta for a local write with `tags` baked into the **signed**
+    /// payload.
+    ///
+    /// The signature (and the DeltaId, SHA-256 of `canonical_bytes`) covers
+    /// `tags` — `canonical_bytes` serialises them — so a tag must be present
+    /// *before* signing.  Appending a tag to an already-signed Delta would
+    /// invalidate its signature for every verifier (peers, Side-Car replay),
+    /// which is why the human-reaction auto-tag (Req 19.5) flows through this
+    /// path: the tagged delta leaves the device cryptographically valid.
+    ///
+    /// Steps:
+    /// 1. Increment the Lamport clock.
+    /// 2. Collect causal parents from the DAG's current tips.
+    /// 3. Build the Delta with all metadata (including `tags`).
+    /// 4. Sign with the local private key.
+    /// 5. Compute and assign the DeltaId.
+    /// 6. Insert the DagNode.
+    pub(crate) fn produce_delta_with_tags(
+        &mut self,
+        automerge_bytes: Vec<u8>,
+        priority: PriorityClass,
+        causal_parents: Vec<DeltaId>,
+        tags: Vec<DeltaTag>,
     ) -> Result<Delta, TirBaseError> {
         // 1. Increment Lamport clock.
         self.lamport += 1;
@@ -338,7 +361,7 @@ impl CrdtEngine {
             automerge_bytes,
             priority,
             causal_parents: parents,
-            tags: vec![],
+            tags,
             lamport: self.lamport,
             created_at,
         };

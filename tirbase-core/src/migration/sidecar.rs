@@ -251,7 +251,10 @@ impl SideCarLedger {
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
-    fn load_entries_ordered(
+    /// Load every Side-Car entry for `migration_id` in recorded-timestamp
+    /// order (Req 19.3) — the replay pass and the corruption-recovery
+    /// integration test both read through this.
+    pub(crate) fn load_entries_ordered(
         &self,
         migration_id: MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
@@ -515,6 +518,23 @@ impl SideCarLedger {
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
+
+    /// Load every Side-Car entry for `migration_id` in recorded-timestamp
+    /// order (Req 19.3) — the replay pass and the corruption-recovery
+    /// integration test both read through this.
+    pub(crate) fn load_entries_ordered(
+        &self,
+        migration_id: MigrationId,
+    ) -> Result<Vec<SideCarEntry>, TirBaseError> {
+        let mut entries: Vec<SideCarEntry> = self
+            .entries
+            .iter()
+            .filter(|e| e.migration_id == migration_id)
+            .cloned()
+            .collect();
+        entries.sort_by_key(|e| e.recorded_ts);
+        Ok(entries)
+    }
 
     fn update_entry_status(&mut self, id: &DeltaId, status: ReplayStatus) {
         if let Some(entry) = self.entries.iter_mut().find(|e| e.id == *id) {

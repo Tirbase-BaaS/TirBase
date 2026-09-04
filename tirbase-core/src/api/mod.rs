@@ -19,7 +19,6 @@ use types::{
 // ─── Subsystem imports ────────────────────────────────────────────────────────
 
 use crate::auth::CapabilityManager;
-use crate::contamination::human_reaction::{on_write_commit, WriteContext};
 use crate::contamination::CausalContaminationEngine;
 use crate::crdt::delta::{DeltaId, PriorityClass};
 use crate::crdt::CrdtEngine;
@@ -1140,30 +1139,14 @@ impl CoreHandle {
             serde_json::to_vec(&serde_json::Value::Object(meta)).unwrap_or_default()
         };
 
-        #[cfg(feature = "native")]
-        let mut delta = {
-            self.crdt
-                .lock()
-                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("crdt mutex poisoned: {e}"),
-                })?
-                .produce_delta(automerge_bytes, PriorityClass::Low, vec![])?
-        };
-
-        // WASM build uses the real CrdtEngine (in-memory, no SQLite) to produce
-        // a properly signed Delta with causal parent tracking.
-        #[cfg(not(feature = "native"))]
-        let mut delta = {
-            self.crdt
-                .lock()
-                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("crdt mutex poisoned: {e}"),
-                })?
-                .produce_delta(automerge_bytes, PriorityClass::Low, vec![])?
-        };
-
-        // 4. Human-reaction auto-tag (Req 19.5).
-        // Look up live contamination and quarantine state rather than using hardcoded false values.
+        // 3a. Human-reaction auto-tag decision (Req 19.5).
+        //
+        // Look up live contamination and quarantine state *before* the Delta
+        // is signed, and bake the tag into the signed payload via
+        // `produce_delta_with_tags`: `canonical_bytes()` serialises `tags`, so
+        // a tag appended to an already-signed Delta would invalidate its own
+        // signature and every verifier — mesh peers and the Side-Car replay
+        // path (Req 19.3) — would reject the tagged write.
         let local_projection_contaminated = self
             .cce
             .lock()
@@ -1179,17 +1162,59 @@ impl CoreHandle {
             .lock()
             .map(|cce| cce.active_incident_for_row(table, key))
             .unwrap_or(None);
-        let write_ctx = WriteContext {
-            local_projection_contaminated,
-            quarantine_active,
-            active_incident_id,
+        let human_reaction_tag = if local_projection_contaminated || quarantine_active {
+            active_incident_id
+                .map(|incident_id| crate::crdt::delta::DeltaTag::ContaminatedByHumanReaction {
+                    incident_id,
+                })
+        } else {
+            None
         };
-        let human_reaction_result = on_write_commit(&mut delta, &write_ctx)?;
 
-        // If a ContaminatedByHumanReaction tag was appended, register the new Delta
-        // as a contamination root with the CCE so the ICO's contaminated_deltas and
-        // affected_rows are extended to include it (Req 19.5).
-        if let Some((hr_delta_id, hr_incident_id)) = human_reaction_result {
+        #[cfg(feature = "native")]
+        let delta = {
+            self.crdt
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned: {e}"),
+                })?
+                .produce_delta_with_tags(
+                    automerge_bytes,
+                    PriorityClass::Low,
+                    vec![],
+                    human_reaction_tag.clone().into_iter().collect(),
+                )?
+        };
+
+        // WASM build uses the real CrdtEngine (in-memory, no SQLite) to produce
+        // a properly signed Delta with causal parent tracking.
+        #[cfg(not(feature = "native"))]
+        let delta = {
+            self.crdt
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned: {e}"),
+                })?
+                .produce_delta_with_tags(
+                    automerge_bytes,
+                    PriorityClass::Low,
+                    vec![],
+                    human_reaction_tag.clone().into_iter().collect(),
+                )?
+        };
+
+        // 4. If the write was auto-tagged, register the new Delta as a
+        // contamination root with the CCE so the ICO's contaminated_deltas and
+        // affected_rows are extended to include it (Req 19.5).  The tag itself
+        // is already inside the signed payload (step 3a) — this is the CCE
+        // bookkeeping side effect.
+        if let Some(hr_incident_id) = human_reaction_tag.map(|tag| match tag {
+            crate::crdt::delta::DeltaTag::ContaminatedByHumanReaction { incident_id } => {
+                incident_id
+            }
+            _ => unreachable!("only the human-reaction tag is produced here"),
+        }) {
+            let hr_delta_id = delta.id;
             let _ = self.cce.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("cce mutex poisoned in human-reaction wiring: {e}"),
             }).map(|mut cce| {
@@ -1212,10 +1237,44 @@ impl CoreHandle {
             .register_delta(
                 delta.id,
                 delta.id,              // state_hash = delta.id for v1
-                delta_bytes,
+                delta_bytes.clone(),
                 delta.causal_parents.clone(),
                 HashMap::new(),
             )?;
+
+        // 5b. Side-Car capture (Req 19.2).  A write made while the device's
+        // current schema is under a corruption window — a revoked (corrupted)
+        // migration produced it — is preserved byte-for-byte in the Side-Car
+        // Ledger, scoped to the corrupting migration's ID, so a corrected
+        // migration can replay it against the corrected projection instead of
+        // silently losing it.  Best-effort by design: the local store write
+        // and durability registration above are already committed, and a
+        // capture failure must not fail the user's write.
+        match self
+            .migration
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("migration mutex poisoned in side-car capture: {e}"),
+            })
+            .and_then(|mut mig| {
+                mig.record_corrupted_window_write(table, delta_bytes, delta.created_at)
+            }) {
+            Ok(Some(entry_id)) => {
+                eprintln!(
+                    "[write] Side-Car capture: delta {} recorded for corrupted-schema \
+                     replay (entry {})",
+                    hex::encode(delta.id),
+                    hex::encode(entry_id)
+                );
+            }
+            Ok(None) => {
+                // No corruption window active for the current schema — nothing
+                // to capture.  This is the common case.
+            }
+            Err(e) => {
+                eprintln!("[write] Side-Car capture failed (best-effort): {e}");
+            }
+        }
 
         // 6. Publish outbound — forward the prepared Delta payloads to the
         // Swarm polling task, which publishes them to the shared Gossipsub
@@ -2191,6 +2250,30 @@ impl CoreHandle {
                     }
                 };
                 drop(mig);
+
+                // Req 19.1: the migration is now flagged corrupted — CCE-tag
+                // it and let the Causal Contamination Engine mark the affected
+                // projection rows CONTAMINATED (rather than deleting them) and
+                // open an Incident Context Object, so writes during the
+                // corrupted window auto-tag with ContaminatedByHumanReaction
+                // and join the incident (Req 19.5).  The migration id is the
+                // root marker; `resolve_affected_rows` conservatively marks
+                // every projection row (same policy as DeviceRevocation).
+                {
+                    let cce_result = self.cce.lock().map_err(|e| {
+                        TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("cce mutex poisoned in BadMigration tagging: {e}"),
+                        }
+                    });
+                    if let Ok(mut cce) = cce_result {
+                        let _ = cce.tag_contamination_root(
+                            target_migration_id,
+                            crate::contamination::incident::TaintSource::BadMigration {
+                                migration_id: target_migration_id,
+                            },
+                        );
+                    }
+                }
                 if halted {
                     eprintln!(
                         "[inbound] MigrationRevocationDelta halted in-flight run {:?} — \
@@ -2295,7 +2378,10 @@ impl CoreHandle {
             // ── 3. Finish under the engine lock: the commit gate re-checks ──
             // revocation, so a transform that was interrupted (or a revocation
             // that landed at the completion edge) never advances the schema.
-            let normalized = {
+            // The schema the device was on *before* the commit is captured
+            // here: it is the corruption-window key whose Side-Car entries the
+            // corrected migration must replay (Req 19.3).
+            let (normalized, source_schema_hash) = {
                 let mut mig = match migration.lock() {
                     Ok(g) => g,
                     Err(e) => {
@@ -2303,7 +2389,10 @@ impl CoreHandle {
                         return;
                     }
                 };
-                mig.finish_migration(&migration_id, &target_schema_hash, outcome)
+                let source_schema_hash = mig.current_schema_hash();
+                let normalized =
+                    mig.finish_migration(&migration_id, &target_schema_hash, outcome);
+                (normalized, source_schema_hash)
             };
 
             match normalized {
@@ -2331,6 +2420,28 @@ impl CoreHandle {
                         }
                     };
                     crdt.set_current_schema(new_current);
+
+                    // Req 19.3: a corrected migration just committed — replay
+                    // the Side-Car entries captured while the pre-migration
+                    // schema was under a corruption window against the
+                    // corrected projection, in recorded-timestamp order.
+                    // Best-effort: replay conflicts are flagged (Req 19.4),
+                    // never rolled back — the migration itself stays applied.
+                    {
+                        let mut mig = match migration.lock() {
+                            Ok(g) => g,
+                            Err(e) => {
+                                eprintln!("[inbound] migration mutex poisoned: {e}");
+                                return;
+                            }
+                        };
+                        let _ = mig.replay_corrupted_windows(
+                            &source_schema_hash,
+                            new_current,
+                            &mut crdt,
+                        );
+                    }
+
                     eprintln!(
                         "[inbound] MigrationDelta applied; CRDT current schema advanced to {}",
                         hex::encode(new_current)
@@ -2751,6 +2862,10 @@ impl CoreHandle {
                         reason: format!("migration mutex poisoned: {e}"),
                     }
                 })?;
+                // The schema the device is on before the migration — the
+                // corruption-window key whose Side-Car entries a corrected
+                // migration must replay (Req 19.3).
+                let source_schema_hash = mig.current_schema_hash();
                 match mig.receive_migration_delta(mig_delta, &sender_did) {
                     Ok(result) => {
                         if matches!(
@@ -2770,6 +2885,27 @@ impl CoreHandle {
                                 }
                             })?;
                             crdt.set_current_schema(new_current);
+
+                            // Req 19.3 (WASM parity): replay the Side-Car
+                            // entries captured while the pre-migration schema
+                            // was under a corruption window against the
+                            // corrected projection (best-effort, same as the
+                            // native arm).
+                            {
+                                let mut mig = self.migration.lock().map_err(|e| {
+                                    TirBaseError::LocalStoreWriteFailed {
+                                        reason: format!(
+                                            "migration mutex poisoned in receive_inbound_wasm: {e}"
+                                        ),
+                                    }
+                                })?;
+                                let _ = mig.replay_corrupted_windows(
+                                    &source_schema_hash,
+                                    new_current,
+                                    &mut crdt,
+                                );
+                            }
+
                             eprintln!(
                                 "[wasm-inbound] MigrationDelta applied: {result:?}; CRDT current schema advanced to {}",
                                 hex::encode(new_current)
@@ -2786,6 +2922,7 @@ impl CoreHandle {
             }
 
             GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
+                let target_migration_id = mig_rev.target_migration_id;
                 let mut mig = self.migration.lock().map_err(|e| {
                     TirBaseError::LocalStoreWriteFailed {
                         reason: format!("migration mutex poisoned: {e}"),
@@ -2800,6 +2937,28 @@ impl CoreHandle {
                         // registry, Req 18.6); on WASM the synchronous
                         // `receive_migration_delta` path's post-run revocation
                         // re-check still protects the schema-hash commit.
+
+                        // Req 19.1 (WASM parity): the migration is now flagged
+                        // corrupted — CCE-tag it and mark the affected
+                        // projection rows CONTAMINATED (same trigger as the
+                        // native arm).
+                        {
+                            let cce_result = self.cce.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!(
+                                        "cce mutex poisoned in BadMigration tagging (WASM): {e}"
+                                    ),
+                                }
+                            });
+                            if let Ok(mut cce) = cce_result {
+                                let _ = cce.tag_contamination_root(
+                                    target_migration_id,
+                                    crate::contamination::incident::TaintSource::BadMigration {
+                                        migration_id: target_migration_id,
+                                    },
+                                );
+                            }
+                        }
                     }
                     Err(e) => {
                         eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
@@ -4798,6 +4957,25 @@ mod tests {
 
     /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`
     /// (Req 18.2: CA signature over transform bytes, embedded SHA-256).
+    /// A second minimal-but-valid WASM module, byte-distinct from
+    /// [`Self::trivial_wasm_bytes`] (exports `"run2"` instead of `"run"`;
+    /// the sandbox treats a missing `"run"` export as a successful no-op).
+    ///
+    /// Migration IDs are SHA-256(transform_bytes), so a corrected migration
+    /// must carry *different* transform bytes than the revoked one — the same
+    /// bytes would hash to the revoked migration's ID and be rejected at the
+    /// revocation gate.
+    fn trivial_wasm_bytes_v2() -> Vec<u8> {
+        vec![
+            0x00, 0x61, 0x73, 0x6d, // magic
+            0x01, 0x00, 0x00, 0x00, // version
+            0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type section: () -> ()
+            0x03, 0x02, 0x01, 0x00, // function section
+            0x07, 0x08, 0x01, 0x04, 0x72, 0x75, 0x6e, 0x32, 0x00, 0x00, // export "run2"
+            0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b, // code section: empty body
+        ]
+    }
+
     fn make_ca_signed_migration_delta(
         ca_secret: &[u8; 32],
         source: [u8; 32],
@@ -5341,6 +5519,263 @@ mod tests {
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
             "a revoked migration must be rejected on re-delivery: {result:?}"
         );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 5.6: migration-corruption recovery through real triggers ────
+    //
+    // Req 19.1/19.2/19.3, driven end-to-end over the production inbound
+    // pipeline (`inject_inbound` → `process_inbound_messages` →
+    // `CoreHandle::receive_inbound`):
+    //
+    // 1. A migration is delivered and applied (schema S → T).
+    // 2. Managers revoke it — the migration is flagged corrupted.  Req 19.1:
+    //    the CCE tags the migration and marks the affected projection rows
+    //    CONTAMINATED (open ICO, `TaintSource::BadMigration`).  Req 19.2:
+    //    the corruption window opens, so writes against schema T are
+    //    captured in the Side-Car Ledger scoped to the corrupting migration.
+    // 3. A corrected migration (T → U) arrives and commits.  Req 19.3:
+    //    `replay_sidecar()` runs the captured writes onto the corrected
+    //    projection in recorded-timestamp order; zero conflicts ⇒ every
+    //    replayed delta receives `DeltaTag::ReplayComplete` (Req 19.6), the
+    //    window closes, and later writes are no longer captured.
+    #[tokio::test]
+    async fn migration_corruption_recovery_triggers_cce_tagging_sidecar_capture_and_replay() {
+        use crate::contamination::incident::TaintSource;
+        use crate::crdt::delta::DeltaTag;
+        use crate::crdt::derive_did_from_public_key;
+        use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
+        use crate::migration::sidecar::ReplayStatus;
+
+        let path = tmp_path("p56_corruption_recovery");
+        cleanup(&path);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let s = [0x60u8; 32];
+        let t = [0x61u8; 32];
+        let u = [0x62u8; 32];
+
+        let mut config = make_migration_config(&path, ca_public, vec![s, t, u]);
+        config.deployment.revocation_m = 1;
+        let handle = CoreHandle::init(config)
+            .await
+            .expect("init with migration CA key + version path");
+
+        // ── 1. Seed a projection row on schema S so the CCE has rows to ────
+        // mark contaminated when the migration is flagged corrupted.
+        handle
+            .write("reports", "r1", json!({ "v": 1 }))
+            .await
+            .expect("seed write");
+
+        // ── 2. Apply the migration that will later be flagged corrupted ────
+        // (S → T).  It runs through the real dispatch path (off-lock sandbox).
+        let bad_delta = make_ca_signed_migration_delta(&ca_secret, s, t, trivial_wasm_bytes());
+        let bad_migration_id = bad_delta.id;
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(bad_delta))
+            .await
+            .expect("inject migration");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await,
+            "migration must finish within the wait budget"
+        );
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert_eq!(
+                mig.current_schema_hash(),
+                t,
+                "the migration must have applied before it can be revoked"
+            );
+        }
+
+        // ── 3. Managers revoke the corrupted migration. ─────────────────────
+        let (mgr_secret, mgr_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let mgr_did = derive_did_from_public_key(&mgr_public);
+        let mgr_sig = crate::identity::keypair::sign(&mgr_secret, &bad_migration_id).expect("sign");
+        let revocation = MigrationRevocationDelta {
+            target_migration_id: bad_migration_id,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did,
+                signature: crate::crdt::delta::Ed25519Signature(mgr_sig.0),
+            }],
+            created_at: 0,
+        };
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
+            .await
+            .expect("inject revocation");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+
+        // Req 19.1: the revoked (corrupted) migration is CCE-tagged — an open
+        // Incident Context Object with `TaintSource::BadMigration` exists and
+        // the seeded projection row is CONTAMINATED rather than deleted.
+        {
+            let cce = handle.cce.lock().unwrap();
+            let open = cce.open_incidents().expect("open incidents");
+            assert_eq!(open.len(), 1, "exactly one ICO after the corruption flag");
+            assert!(
+                matches!(
+                    &open[0].taint_source,
+                    TaintSource::BadMigration { migration_id }
+                        if *migration_id == bad_migration_id
+                ),
+                "ICO source must be BadMigration for the revoked migration: {:?}",
+                open[0].taint_source
+            );
+            assert!(
+                cce.is_row_contaminated("reports", "r1"),
+                "Req 19.1: the affected projection row must be CONTAMINATED"
+            );
+        }
+
+        // ── 4. Writes during the corrupted window. ──────────────────────────
+        // Req 19.2: every write against schema T is preserved byte-for-byte in
+        // the Side-Car Ledger, scoped to the corrupting migration ID.  The r1
+        // update additionally auto-tags ContaminatedByHumanReaction (Req 19.5)
+        // because its row is CONTAMINATED.
+        let write_new = handle
+            .write("reports", "r2", json!({ "v": 2 }))
+            .await
+            .expect("corrupted-window write");
+        let write_update = handle
+            .write("reports", "r1", json!({ "v": 3 }))
+            .await
+            .expect("corrupted-window update");
+        {
+            let mig = handle.migration.lock().unwrap();
+            let entries = mig
+                .sidecar_entries(&bad_migration_id)
+                .expect("sidecar entries");
+            assert_eq!(
+                entries.len(),
+                2,
+                "both corrupted-window writes must be Side-Car captured (Req 19.2)"
+            );
+            for e in &entries {
+                assert_eq!(e.migration_id, bad_migration_id);
+                assert_eq!(e.table_name, "reports");
+                assert!(
+                    matches!(e.replay_status, ReplayStatus::Pending),
+                    "captured entries start Pending: {e:?}"
+                );
+            }
+        }
+        // The r1 update auto-tagged ContaminatedByHumanReaction and registered
+        // itself as a HumanReaction contamination root (Req 19.5 — the write
+        // went to a row the BadMigration ICO marked CONTAMINATED).  The tag
+        // lives in the serialised delta; the observable production effect is
+        // the new delta joining an active ICO (same assertion the Subphase 1.4
+        // Req 19.5 test uses).
+        {
+            let all_open = handle
+                .cce
+                .lock()
+                .unwrap()
+                .open_incidents()
+                .expect("open incidents");
+            assert!(
+                all_open.iter().any(|ico| {
+                    ico.contaminated_deltas.contains(&write_update.delta_id)
+                }),
+                "a write to a CONTAMINATED row during the corrupted window must \
+                 join an active ICO via ContaminatedByHumanReaction (Req 19.5)"
+            );
+        }
+
+        // ── 5. The corrected migration (T → U) arrives and commits. ─────────
+        // Req 19.3: the captured writes are replayed onto the corrected
+        // projection in recorded-timestamp order through the production
+        // success path.  The corrected transform is byte-distinct from the
+        // revoked one, so its migration ID differs and passes the revocation
+        // gate.
+        let fixed_delta =
+            make_ca_signed_migration_delta(&ca_secret, t, u, trivial_wasm_bytes_v2());
+        handle
+            .inject_inbound(GossipMessage::InboundMigrationDelta(fixed_delta))
+            .await
+            .expect("inject corrected migration");
+        handle
+            .process_inbound_messages()
+            .await
+            .expect("drain inbound");
+        assert!(
+            handle
+                .await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await,
+            "corrected migration must finish within the wait budget"
+        );
+
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert_eq!(
+                mig.current_schema_hash(),
+                u,
+                "the corrected migration must commit"
+            );
+            assert!(
+                mig.active_corruption_migration().is_none(),
+                "the corruption window must close once replayed"
+            );
+            let entries = mig
+                .sidecar_entries(&bad_migration_id)
+                .expect("sidecar entries after replay");
+            assert_eq!(entries.len(), 2);
+            for e in &entries {
+                assert!(
+                    !matches!(e.replay_status, ReplayStatus::Pending),
+                    "every captured write must have been replayed (Req 19.3): {:?}",
+                    e.replay_status
+                );
+            }
+        }
+
+        // Req 19.6: zero-conflict replay appends DeltaTag::ReplayComplete to
+        // every successfully-replayed delta.
+        {
+            let conn = crate::store::sqlite::open(&path).expect("open conn for tag read");
+            let lock = std::sync::Arc::new(std::sync::Mutex::new(conn));
+            for delta_id in [write_new.delta_id, write_update.delta_id] {
+                let tags = {
+                    let g = lock.lock().unwrap();
+                    crate::contamination::taint::read_tags_from_db(&g, &delta_id)
+                        .expect("read tags")
+                };
+                assert!(
+                    tags.iter().any(|t| {
+                        matches!(t, DeltaTag::ReplayComplete { migration_id }
+                            if *migration_id == bad_migration_id)
+                    }),
+                    "delta {} must carry ReplayComplete for the corrupted migration \
+                     after zero-conflict replay (Req 19.6)",
+                    hex::encode(delta_id)
+                );
+            }
+        }
+
+        // ── 6. The window is closed: post-replay writes are NOT captured. ───
+        handle
+            .write("reports", "r4", json!({ "v": 4 }))
+            .await
+            .expect("post-replay write");
+        {
+            let mig = handle.migration.lock().unwrap();
+            assert_eq!(
+                mig.sidecar_entries(&bad_migration_id).expect("entries").len(),
+                2,
+                "writes after the corrected migration must not be Side-Car captured"
+            );
+        }
 
         cleanup(&path);
     }

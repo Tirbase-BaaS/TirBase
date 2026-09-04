@@ -333,9 +333,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (564 tests, 0 failures)
+**Status:** VERIFIED (572 tests, 0 failures)
 
-`cargo test --features native` passes all 569 tests including all 22 property
+`cargo test --features native` passes all 572 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -347,7 +347,8 @@ listed in Item 11; Subphase 4.5 added
 listed in Item 13; Subphase 5.1 added the four migration CA key + schema
 version path wiring tests listed in Item 14; Subphase 5.4 added the three
 migration-revocation-interrupt tests listed in Item 16; Subphase 5.5 added the
-five known-hash-gate tests listed in Item 17).
+five known-hash-gate tests listed in Item 17; Subphase 5.6 added the
+corruption-recovery wiring tests listed in Item 18).
 
 ---
 
@@ -843,6 +844,71 @@ and the registry unit tests) were updated to deliver the target migration
 first — under Req 18.7 a hash must be *seen* before it can be revoked, so a
 "revocation for a hash that never reached the device" is no longer a valid
 scenario to assert.
+
+---
+
+### Item 18 — Migration-corruption recovery wired to real triggers (Subphase 5.6)
+
+**Status:** VERIFIED
+
+Before this subphase `SideCarLedger::record` and `replay_sidecar` had zero
+production callers and the inbound `MigrationRevocationDelta` handler never
+CCE-tagged anything (Req 19.1–19.3 all NM in the audit).  All three recovery
+paths now have real production callers:
+
+- **Req 19.1 (CCE-tag on corruption flag)** — the native `CoreHandle::receive_inbound`
+  `InboundMigrationRevocationDelta` arm and the WASM `receive_inbound_wasm`
+  arm call `CausalContaminationEngine::tag_contamination_root` with
+  `TaintSource::BadMigration { migration_id }` the moment the revocation is
+  accepted: an open ICO is created, `resolve_affected_rows` conservatively
+  marks every projection row CONTAMINATED (same policy as DeviceRevocation),
+  and subsequent writes to those rows auto-tag
+  `ContaminatedByHumanReaction` and join the incident (Req 19.5).
+- **Req 19.2 (Side-Car capture starts on corruption flag)** —
+  `SchemaMigrationEngine` gained corruption-window state: `prepare_migration`
+  records each migration's target schema, and `receive_revocation_delta` opens
+  a window on that schema when it is the device's current schema (a revoked
+  migration the device actually applied).  While a window is open,
+  `CoreHandle::write` (step 5b) preserves every write byte-for-byte in the
+  Side-Car Ledger via `record_corrupted_window_write`, scoped to the
+  corrupting migration's ID and the affected table.  A migration revoked
+  before it was ever applied opens no window (the device never moved onto the
+  corrupted schema).
+- **Req 19.3 (replay on corrected migration)** — when a corrected migration
+  commits, both the native `CoreHandle::dispatch_inbound_migration` success
+  arm and the WASM inbound migration arm call
+  `SchemaMigrationEngine::replay_corrupted_windows` (pre-migration schema →
+  corrected schema): `SideCarLedger::replay_sidecar` replays the captured
+  entries in recorded-timestamp order against the corrected projection,
+  flags conflicts without aborting (Req 19.4), appends
+  `DeltaTag::ReplayComplete` on zero-conflict passes (Req 19.6), and closes
+  the window.
+- **Adjacent fix (Req 19.5 wire validity)** — the human-reaction auto-tag is
+  now baked into the **signed** Delta payload via the new
+  `CrdtEngine::produce_delta_with_tags` instead of being appended to an
+  already-signed Delta (`canonical_bytes` serialises tags, so a post-signature
+  append invalidated the Delta's own signature and every verifier — mesh
+  peers and Side-Car replay — rejected the tagged write, silently dropping
+  exactly the data the Side-Car exists to preserve).
+
+Tests (all native):
+
+- `api::tests::migration_corruption_recovery_triggers_cce_tagging_sidecar_capture_and_replay`
+  — full production chain: seed write → migration applied → manager
+  revocation drained over `inject_inbound`/`process_inbound_messages` → open
+  ICO with `TaintSource::BadMigration`, contaminated projection row, two
+  corrupted-window writes Side-Car captured (scoped to the corrupting
+  migration), corrected migration (byte-distinct transform) applied → every
+  captured entry replayed (none left `Pending`), `DeltaTag::ReplayComplete`
+  appended to both replayed deltas, window closed, and a post-replay write no
+  longer captured.
+- `migration::tests::revoked_applied_migration_opens_corruption_window_and_captures_writes`
+  — engine level: an applied-then-revoked migration opens the window, capture
+  is byte-for-byte and scoped, replay touches every entry (garbage bytes →
+  CONFLICT per Req 19.4) and closes the window.
+- `migration::tests::revoked_unapplied_migration_does_not_open_corruption_window`
+  — engine level: revoking a migration that never committed opens no window
+  and captures nothing.
 
 ---
 

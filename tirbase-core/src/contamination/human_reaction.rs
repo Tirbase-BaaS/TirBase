@@ -8,14 +8,23 @@
 //!
 //! ## Integration with the CCE
 //!
-//! `on_write_commit` now returns `Ok(Some((delta_id, incident_id)))` when a
-//! `ContaminatedByHumanReaction` tag was appended, and `Ok(None)` when the
-//! write context is clean. The caller (`CoreHandle::write`) is responsible for
-//! acting on the returned value by calling
+//! The production write path (`CoreHandle::write`) decides the tag **before**
+//! the Delta is signed and bakes it into the signed payload via
+//! `CrdtEngine::produce_delta_with_tags` — `canonical_bytes()` serialises
+//! `tags`, so a tag appended to an already-signed Delta would invalidate its
+//! own signature for every verifier (mesh peers and the Side-Car replay path,
+//! Req 19.3).  It then calls
 //! `CausalContaminationEngine::tag_contamination_root` with
-//! `TaintSource::HumanReaction { triggered_by_incident_id: incident_id }`.
-//! This keeps the CCE lock outside of the `on_write_commit` call, avoiding a
-//! double-borrow of `CoreHandle` fields.
+//! `TaintSource::HumanReaction { triggered_by_incident_id }` to register the
+//! new Delta in the active ICO and update `affected_rows` (Req 19.5).  The
+//! CCE lock is taken only at that call site, avoiding a double-borrow of
+//! `CoreHandle` fields.
+//!
+//! `on_write_commit` remains available as the pure decision/tagging helper
+//! (used directly by the CCE unit tests and tooling): it returns
+//! `Ok(Some((delta_id, incident_id)))` when a
+//! `ContaminatedByHumanReaction` tag was appended, and `Ok(None)` when the
+//! write context is clean.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
