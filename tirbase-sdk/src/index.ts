@@ -33,6 +33,7 @@ export type {
 
   // Manager types
   RevocationStatus,
+  SaturateManagerSignature,
 
   // Config types
   InitConfig,

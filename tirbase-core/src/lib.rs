@@ -584,7 +584,7 @@ mod wasm_exports {
 
         // Parse [{ did, signatureHex }, …] into (did, raw signature bytes).
         let sigs_json = js_to_json(&co_manager_signatures)
-            .map_err(|e| to_js_err(format!("co_manager_signatures: {e}")))?;
+            .map_err(|e| to_js_err(format!("co_manager_signatures: {e:?}")))?;
         let entries = sigs_json.as_array().ok_or_else(|| {
             to_js_err("co_manager_signatures must be an array of { did, signatureHex } objects")
         })?;

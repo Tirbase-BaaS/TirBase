@@ -81,6 +81,14 @@ const status = await db.revocationStatus({ targetDid: 'did:key:...' });
 await db.verifyData({ contaminationRootDeltaId: '...', managerToken: myToken });
 await db.adminClose({ incidentId: '...', managerToken: myToken });
 await db.activateSaturateMode({ biscuitTokenHex: myTokenHex });
+// Heartbeat renewal extends the 60-minute lease by 60 minutes (Req 13.4):
+await db.renewSaturateMode({ biscuitTokenHex: myTokenHex });
+// M-of-N termination (Req 13.6): this device signs `terminationMessageHex`
+// automatically; pass the co-signatures collected from the other Managers.
+await db.terminateSaturateMode({
+  terminationMessageHex: '7361747572617465',
+  coManagerSignatures: [{ did: 'did:key:z6Mk...', signatureHex: '...' }],
+});
 ```
 
 ## Running Tests

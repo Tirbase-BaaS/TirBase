@@ -24,6 +24,7 @@ import type {
   MeshStatus,
   QueryResult,
   RevocationStatus,
+  SaturateManagerSignature,
   TaintSource,
   TirBaseEvents,
   TrustLevel,
@@ -570,6 +571,44 @@ export class TirBase {
     this._assertInitialized();
     await this._wasm.activateSaturateMode(
       params.biscuitTokenHex,
+    );
+  }
+
+  /**
+   * Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+   * (Req 13.4).
+   *
+   * The `biscuitTokenHex` must be a hex-encoded Biscuit token carrying the
+   * `disaster-alert` caveat issued by a registered Manager DID. A valid
+   * heartbeat extends the lease by 60 minutes from the renewal timestamp;
+   * an invalid one leaves the current mode unchanged (Req 13.7).
+   */
+  async renewSaturateMode(params: {
+    biscuitTokenHex: string;
+  }): Promise<void> {
+    this._assertInitialized();
+    await this._wasm.renewSaturateMode(params.biscuitTokenHex);
+  }
+
+  /**
+   * Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
+   *
+   * `terminationMessageHex` is the hex-encoded canonical message that every
+   * terminating Manager signs — the exact same bytes must be shared with each
+   * co-signing Manager. This device contributes its own signature over the
+   * message automatically; `coManagerSignatures` carries the raw Ed25519
+   * signatures already collected from the remaining Managers. Termination is
+   * immediate once the configured M-of-N threshold of distinct valid Manager
+   * signatures is met, regardless of remaining lease duration.
+   */
+  async terminateSaturateMode(params: {
+    terminationMessageHex: string;
+    coManagerSignatures: SaturateManagerSignature[];
+  }): Promise<void> {
+    this._assertInitialized();
+    await this._wasm.terminateSaturateMode(
+      params.terminationMessageHex,
+      params.coManagerSignatures,
     );
   }
 

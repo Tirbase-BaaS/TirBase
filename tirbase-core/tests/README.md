@@ -235,12 +235,24 @@ authorizer now uses `authorize_with_limits` with a generous budget
 (10 000 iterations) to avoid per-authorizer budget exhaustion across the full
 test suite.
 
-**Deferred aspect:** The heartbeat renewal path (invariant from Req 13.4) is
-covered by `transport::tests::renew_extends_lease_by_60_minutes` as a named
-unit test.  The proptest generator does not include time-ordered
-activation + renewal sequences because generating valid ordered Biscuit token
-pairs inside a proptest strategy is impractical without a custom strategy that
-maintains the token timestamp invariant.
+**Production wiring (Subphase 3.1–3.2):** activation, heartbeat renewal, and
+M-of-N termination are exercised over the real production path — the
+`SaturateModeStateMachine` instantiated inside `MeshTransport` — by
+integration tests at the transport level (`transport::tests::renew_saturate_*`,
+`transport::tests::terminate_saturate_mode_*`) and at the `CoreHandle` level
+(`api::tests::saturate_mode_lifecycle_routes_through_state_machine_and_scheduler`),
+including the regression assert that a successful M-of-N termination clears the
+DRR scheduler's Saturate_Mode flag (the bare `set_saturate_mode(true)` boolean
+bypass could never demote it).  Renewal/termination on WASM are reachable via
+the `core_renew_saturate_mode` / `core_terminate_saturate_mode` exports.
+
+**Deferred aspect:** lease expiry auto-demotion is still only driven by an
+explicit `tick()` (Subphase 3.3 wires the state machine into the production
+tick loop; Subphase 3.4 lands the runtime expiry integration test).  The
+proptest generator also does not include time-ordered activation + renewal
+sequences because generating valid ordered Biscuit token pairs inside a
+proptest strategy is impractical without a custom strategy that maintains the
+token timestamp invariant.
 
 ---
 

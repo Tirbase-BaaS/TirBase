@@ -15,6 +15,7 @@ import type {
   MeshStatus,
   QueryResult,
   RevocationStatus,
+  SaturateManagerSignature,
   TrustLevel,
   WriteResult,
 } from './types';
@@ -64,6 +65,23 @@ export interface WasmCore {
   /** Activate Saturate Mode with a DISASTER_ALERT payload. */
   activateSaturateMode(
     biscuitTokenHex: string,
+  ): Promise<void>;
+
+  /** Renew a Saturate Mode Lease with a heartbeat DISASTER_ALERT token (Req 13.4). */
+  renewSaturateMode(
+    biscuitTokenHex: string,
+  ): Promise<void>;
+
+  /**
+   * Terminate Saturate Mode with an M-of-N Manager signature set (Req 13.6).
+   *
+   * `terminationMessageHex` is the hex-encoded canonical message every
+   * Manager signed; `coManagerSignatures` are the signatures already
+   * collected from the other Managers (this device adds its own).
+   */
+  terminateSaturateMode(
+    terminationMessageHex: string,
+    coManagerSignatures: SaturateManagerSignature[],
   ): Promise<void>;
 
   /** Drain and return queued WASM events. Optional — absent on older builds. */
@@ -196,6 +214,19 @@ function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
           p: string,
         ) => Promise<void>
       )(biscuitTokenHex),
+    renewSaturateMode: (biscuitTokenHex) =>
+      (
+        required('core_renew_saturate_mode') as (
+          p: string,
+        ) => Promise<void>
+      )(biscuitTokenHex),
+    terminateSaturateMode: (terminationMessageHex, coManagerSignatures) =>
+      (
+        required('core_terminate_saturate_mode') as (
+          p: string,
+          s: SaturateManagerSignature[],
+        ) => Promise<void>
+      )(terminationMessageHex, coManagerSignatures),
     pollEvents: () => {
       if (typeof mod['core_poll_events'] === 'function') {
         return (mod['core_poll_events'] as () => unknown[])();
@@ -282,6 +313,15 @@ export class MockWasmCore implements WasmCore {
     biscuitTokenHex: string,
   ) => Promise<void> = async () => undefined;
 
+  renewSaturateModeImpl: (
+    biscuitTokenHex: string,
+  ) => Promise<void> = async () => undefined;
+
+  terminateSaturateModeImpl: (
+    terminationMessageHex: string,
+    coManagerSignatures: SaturateManagerSignature[],
+  ) => Promise<void> = async () => undefined;
+
   pollEventsImpl: () => unknown[] = () => [];
 
   /** Stub for the WASM inbound peer message path (Task 40). Override in tests. */
@@ -330,6 +370,20 @@ export class MockWasmCore implements WasmCore {
     biscuitTokenHex: string,
   ): Promise<void> {
     return this.activateSaturateModeImpl(biscuitTokenHex);
+  }
+
+  renewSaturateMode(biscuitTokenHex: string): Promise<void> {
+    return this.renewSaturateModeImpl(biscuitTokenHex);
+  }
+
+  terminateSaturateMode(
+    terminationMessageHex: string,
+    coManagerSignatures: SaturateManagerSignature[],
+  ): Promise<void> {
+    return this.terminateSaturateModeImpl(
+      terminationMessageHex,
+      coManagerSignatures,
+    );
   }
 
   pollEvents(): unknown[] {

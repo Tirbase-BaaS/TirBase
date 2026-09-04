@@ -610,6 +610,37 @@ describe('manager operations', () => {
 
     expect(spy).toHaveBeenCalledWith('deadbeef');
   });
+
+  test('renewSaturateMode delegates to WASM', async () => {
+    const mock = installMock();
+    const spy = jest.fn().mockResolvedValue(undefined);
+    mock.renewSaturateModeImpl = spy;
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    await db.renewSaturateMode({ biscuitTokenHex: 'deadbeef' });
+
+    expect(spy).toHaveBeenCalledWith('deadbeef');
+  });
+
+  test('terminateSaturateMode delegates to WASM', async () => {
+    const mock = installMock();
+    const spy = jest.fn().mockResolvedValue(undefined);
+    mock.terminateSaturateModeImpl = spy;
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const coSignatures = [
+      { did: 'did:key:z6MkOther', signatureHex: 'ab'.repeat(64) },
+    ];
+    await db.terminateSaturateMode({
+      terminationMessageHex: '73617475726174652d7465726d696e617465',
+      coManagerSignatures: coSignatures,
+    });
+
+    expect(spy).toHaveBeenCalledWith(
+      '73617475726174652d7465726d696e617465',
+      coSignatures,
+    );
+  });
 });
 
 // ─── Test: _normaliseConfig ───────────────────────────────────────────────────

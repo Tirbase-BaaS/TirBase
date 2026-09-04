@@ -181,6 +181,23 @@ export interface RevocationStatus {
   lastRevocationDeltaReceivedAt: number | null;
 }
 
+/**
+ * One external Manager DID's contribution to an M-of-N Saturate_Mode Lease
+ * Termination (Req 13.6).
+ *
+ * `did` is the signing Manager's `did:key:z6Mk…` DID; `signatureHex` is the
+ * raw Ed25519 signature (64 bytes / 128 hex chars) that Manager produced over
+ * the canonical termination message.  This device contributes its own
+ * signature automatically, so these are the co-signatures collected from the
+ * remaining Managers.
+ */
+export interface SaturateManagerSignature {
+  /** Manager DID that produced the signature (`did:key:z6Mk…`). */
+  did: string;
+  /** Hex-encoded raw Ed25519 signature over the termination message (128 hex chars). */
+  signatureHex: string;
+}
+
 // ─── Initialisation config ────────────────────────────────────────────────────
 
 /**
