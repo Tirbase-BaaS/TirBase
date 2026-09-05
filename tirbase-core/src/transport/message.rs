@@ -8,6 +8,7 @@ use crate::auth::RevocationDelta;
 use crate::crdt::delta::Delta;
 use crate::durability::receipt::DurabilityReceipt;
 use crate::migration::migration_delta::{MigrationDelta, MigrationRevocationDelta};
+use crate::transport::fragment::DeltaFragment;
 use serde::{Deserialize, Serialize};
 
 /// A typed inbound message received over the Gossipsub mesh.
@@ -15,6 +16,15 @@ use serde::{Deserialize, Serialize};
 pub enum GossipMessage {
     /// An inbound data Delta from a peer (Req 4.3–4.7).
     InboundDelta(Delta),
+    /// A single fragment of a fragmented Delta from a low-MTU peer (Req 5.7–5.8).
+    ///
+    /// When the active transport MTU is below 256 bytes, a Delta is split into
+    /// multiple `DeltaFragment`s on the sender and reassembled on the receiver.
+    /// Each fragment arrives as a separate Gossipsub message wrapped in this
+    /// variant so the receiving Swarm poll task can detect it and feed it to
+    /// the `ReassemblyBuffer` instead of trying (and failing) to deserialise
+    /// it directly as a `Delta`.
+    InboundDeltaFragment(DeltaFragment),
     /// A signed DurabilityReceipt from a peer (Req 14.6).
     InboundDurabilityReceipt(DurabilityReceipt),
     /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
@@ -84,5 +94,50 @@ mod tests {
     fn gossip_message_from_empty_bytes_returns_none() {
         let result = GossipMessage::from_bytes(b"");
         assert!(result.is_none(), "empty bytes must return None");
+    }
+
+    // ── InboundDeltaFragment ────────────────────────────────────────────────
+
+    #[test]
+    fn gossip_message_inbound_delta_fragment_round_trip() {
+        let frag = DeltaFragment {
+            delta_id: [0xAB; 32],
+            fragment_index: 1,
+            total_fragments: 3,
+            payload: vec![0x01, 0x02, 0x03],
+        };
+        let msg = GossipMessage::InboundDeltaFragment(frag.clone());
+        let bytes = msg.to_bytes();
+        assert!(!bytes.is_empty(), "serialised message must not be empty");
+        let decoded = GossipMessage::from_bytes(&bytes).expect("must deserialise");
+        match decoded {
+            GossipMessage::InboundDeltaFragment(f) => {
+                assert_eq!(f.delta_id, [0xAB; 32]);
+                assert_eq!(f.fragment_index, 1);
+                assert_eq!(f.total_fragments, 3);
+                assert_eq!(f.payload, vec![0x01, 0x02, 0x03]);
+            }
+            other => panic!("expected InboundDeltaFragment, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn gossip_message_fragment_does_not_parse_as_delta() {
+        // A fragment payload must NOT deserialise as an InboundDelta — this
+        // is the invariant that lets the receive path distinguish fragments
+        // from whole Delta messages by variant tag, not by heuristics.
+        let frag = DeltaFragment {
+            delta_id: [0xCD; 32],
+            fragment_index: 0,
+            total_fragments: 2,
+            payload: vec![0xFF; 10],
+        };
+        let msg = GossipMessage::InboundDeltaFragment(frag);
+        let bytes = msg.to_bytes();
+        let decoded = GossipMessage::from_bytes(&bytes).expect("must deserialise");
+        assert!(
+            matches!(decoded, GossipMessage::InboundDeltaFragment(_)),
+            "fragment must round-trip as InboundDeltaFragment, got {decoded:?}"
+        );
     }
 }

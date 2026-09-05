@@ -27,7 +27,10 @@ use crate::transport::{
 
 fn current_timestamp_micros() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_micros() as i64
 }
 
 /// Default link capacity (bytes/sec) for the DRR scheduler when no transport
@@ -82,7 +85,7 @@ impl Default for TransportConfig {
             retry_interval_secs: 30,
             max_retry_queue: 1_000,
             max_hop_count: 4,
-            mtu: 0,         // no fragmentation by default
+            mtu: 0, // no fragmentation by default
             key_rotation_interval_secs: 3_600,
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             saturate_termination_threshold_m: 1,
@@ -155,12 +158,11 @@ pub(crate) fn dial_discovered_mdns_peers(
             }
         };
 
-        match swarm
-            .dial(
-                libp2p::swarm::dial_opts::DialOpts::peer_id(peer_id)
-                    .addresses(vec![dial_addr])
-                    .build(),
-            ) {
+        match swarm.dial(
+            libp2p::swarm::dial_opts::DialOpts::peer_id(peer_id)
+                .addresses(vec![dial_addr])
+                .build(),
+        ) {
             Ok(()) => {
                 eprintln!("[transport] mDNS: dialing discovered peer {peer_id}");
             }
@@ -364,7 +366,8 @@ impl MeshTransport {
         biscuit_token: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        self.saturate.activate(manager_did, biscuit_token, now_secs)?;
+        self.saturate
+            .activate(manager_did, biscuit_token, now_secs)?;
         self.reconcile_scheduler_saturate_mode();
         Ok(())
     }
@@ -459,7 +462,9 @@ impl MeshTransport {
     /// The Delta is placed in the queue corresponding to its `priority` field.
     /// Actual Gossipsub publish happens when the scheduler is ticked.
     pub fn enqueue_outbound(&mut self, delta: Delta) {
-        let serialized_len = serde_json::to_vec(&delta).map(|b| b.len() as u64).unwrap_or(0);
+        let serialized_len = serde_json::to_vec(&delta)
+            .map(|b| b.len() as u64)
+            .unwrap_or(0);
         let queued = QueuedDelta {
             delta,
             serialized_len,
@@ -472,35 +477,43 @@ impl MeshTransport {
 
     /// Serialise and optionally fragment a Delta for transmission (Req 5.7).
     ///
-    /// Returns a list of byte payloads to send.  When `config.mtu < 256` the
-    /// Delta is split into fragments ≤ MTU; otherwise the full serialised
-    /// bytes are returned as a single entry.
+    /// Returns a list of `GossipMessage` payloads to send.  When `config.mtu`
+    /// is in `(0, 256)` the Delta is split into fragments ≤ MTU, each framed
+    /// as `GossipMessage::InboundDeltaFragment`; otherwise the full serialised
+    /// Delta is returned as a single `GossipMessage::InboundDelta`.
+    ///
+    /// Framing at the source (rather than raw bytes) ensures the receiving
+    /// Swarm poll task can dispatch each payload by variant tag without
+    /// heuristics — fragments are never mis-parsed as whole Delta messages
+    /// (Subphase 7.4 wire framing for low-MTU transport).
     pub fn prepare_outbound(
         &self,
         delta: &Delta,
-    ) -> Result<Vec<Vec<u8>>, TirBaseError> {
-        let bytes = serde_json::to_vec(delta)
-            .map_err(|e| TirBaseError::DeltaMalformed {
-                reason: format!("serialisation error: {e}"),
-            })?;
+    ) -> Result<Vec<crate::transport::message::GossipMessage>, TirBaseError> {
+        let bytes = serde_json::to_vec(delta).map_err(|e| TirBaseError::DeltaMalformed {
+            reason: format!("serialisation error: {e}"),
+        })?;
 
         if self.config.mtu > 0 && self.config.mtu < 256 {
             let frags = fragment_delta(delta.id, &bytes, self.config.mtu);
-            let payloads = frags
+            let msgs = frags
                 .into_iter()
                 .map(|f| {
-                    serde_json::to_vec(&crate::transport::fragment::DeltaFragment {
-                        delta_id: f.delta_id,
-                        fragment_index: f.fragment_index,
-                        total_fragments: f.total_fragments,
-                        payload: f.payload,
-                    })
-                    .unwrap_or_default()
+                    crate::transport::message::GossipMessage::InboundDeltaFragment(
+                        crate::transport::fragment::DeltaFragment {
+                            delta_id: f.delta_id,
+                            fragment_index: f.fragment_index,
+                            total_fragments: f.total_fragments,
+                            payload: f.payload,
+                        },
+                    )
                 })
                 .collect();
-            Ok(payloads)
+            Ok(msgs)
         } else {
-            Ok(vec![bytes])
+            Ok(vec![
+                crate::transport::message::GossipMessage::InboundDelta(delta.clone()),
+            ])
         }
     }
 
@@ -515,8 +528,7 @@ impl MeshTransport {
     #[cfg(feature = "native")]
     pub async fn start(&mut self) -> Result<(), TirBaseError> {
         use libp2p::{
-            gossipsub, identify, mdns, noise as libp2p_noise, ping, tcp, SwarmBuilder,
-            yamux,
+            gossipsub, identify, mdns, noise as libp2p_noise, ping, tcp, yamux, SwarmBuilder,
         };
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -546,12 +558,11 @@ impl MeshTransport {
                     .build()
                     .expect("valid gossipsub config");
 
-                let gossipsub_behaviour =
-                    gossipsub::Behaviour::new(
-                        gossipsub::MessageAuthenticity::Signed(key.clone()),
-                        gossipsub_config,
-                    )
-                    .expect("valid gossipsub behaviour");
+                let gossipsub_behaviour = gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub_config,
+                )
+                .expect("valid gossipsub behaviour");
 
                 let mdns_behaviour =
                     mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())
@@ -593,19 +604,18 @@ impl MeshTransport {
                 })?;
 
             // Start listening for incoming connections (Req 5.1).
-            let listen_addr: libp2p::Multiaddr =
-                self.config.listen_addr.parse().map_err(|e| {
-                    TirBaseError::NoiseHandshakeFailed {
-                        peer_did: self.local_did.clone(),
-                        reason: format!("invalid listen addr: {e}"),
-                    }
-                })?;
-            swarm.listen_on(listen_addr).map_err(|e| {
+            let listen_addr: libp2p::Multiaddr = self.config.listen_addr.parse().map_err(|e| {
                 TirBaseError::NoiseHandshakeFailed {
                     peer_did: self.local_did.clone(),
-                    reason: format!("listen_on failed: {e}"),
+                    reason: format!("invalid listen addr: {e}"),
                 }
             })?;
+            swarm
+                .listen_on(listen_addr)
+                .map_err(|e| TirBaseError::NoiseHandshakeFailed {
+                    peer_did: self.local_did.clone(),
+                    reason: format!("listen_on failed: {e}"),
+                })?;
         }
 
         Ok(())
@@ -656,10 +666,11 @@ impl MeshTransport {
     /// previously published the bare serialised `Delta`, which the receiving
     /// poll task could never parse: "unrecognised gossipsub message".)
     ///
-    /// Fragmented payloads (`config.mtu` in `(0, 256)`) remain the raw
-    /// `DeltaFragment` units they have always been — inbound fragment
-    /// reassembly is not yet wired into the receive path — so only
-    /// whole-Delta payloads are framed.
+    /// Fragmented payloads (`config.mtu` in `(0, 256)`) are framed as
+    /// `GossipMessage::InboundDeltaFragment` (Subphase 7.4 — low-MTU
+    /// fragmented transport), so the receiving Swarm poll task can dispatch
+    /// each fragment to the `ReassemblyBuffer` by variant tag, exactly as it
+    /// dispatches whole-Delta payloads as `InboundDelta`.
     ///
     /// Returns [`TirBaseError::MeshUnavailable`] when no outbound channel is
     /// installed (transport never started) or the channel cannot accept the
@@ -667,29 +678,23 @@ impl MeshTransport {
     /// best-effort: the local store and the durability queue remain
     /// authoritative while the device is offline (Req 3.3).
     #[cfg(feature = "native")]
-    pub fn send_delta(
-        &mut self,
-        peer_did: &Did,
-        delta: &Delta,
-    ) -> Result<(), TirBaseError> {
-        // Compute payloads before borrowing the channel.
-        let payloads = self.prepare_outbound(delta)?;
+    pub fn send_delta(&mut self, peer_did: &Did, delta: &Delta) -> Result<(), TirBaseError> {
+        // Compute framed messages before borrowing the channel.
+        let messages = self.prepare_outbound(delta)?;
 
-        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
-            TirBaseError::MeshUnavailable {
+        let tx = self
+            .outbound_tx
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
                 reason: "transport not started (no outbound channel installed)".to_string(),
-            }
-        })?;
+            })?;
 
-        for payload in payloads {
-            // Frame whole-Delta payloads as the documented wire message.
-            // (See "Wire framing" above; only unfragmented payloads parse as
-            // a `Delta`, so the sniff is exact, not a heuristic.)
-            let wire_payload = if serde_json::from_slice::<Delta>(&payload).is_ok() {
-                crate::transport::message::GossipMessage::InboundDelta(delta.clone()).to_bytes()
-            } else {
-                payload.clone()
-            };
+        for msg in messages {
+            // Each message is already a properly-framed GossipMessage variant
+            // (InboundDelta or InboundDeltaFragment) — see `prepare_outbound`.
+            // No additional framing/sniffing is needed: the receiver dispatches
+            // by variant tag.
+            let wire_payload = msg.to_bytes();
             tx.try_send(wire_payload)
                 .map_err(|e| TirBaseError::MeshUnavailable {
                     reason: format!("outbound publish channel unavailable: {e}"),
@@ -698,7 +703,89 @@ impl MeshTransport {
         Ok(())
     }
 
-    /// Forward a signed `DurabilityReceipt` to the shared Gossipsub topic
+    /// Process an inbound wire message, performing fragment reassembly (Req 5.8).
+    ///
+    /// When the active transport has a low MTU, a Delta arrives as multiple
+    /// `GossipMessage::InboundDeltaFragment` messages.  This method:
+    ///
+    /// - **Fragments**: feeds each `DeltaFragment` into the per-`MeshTransport`
+    ///   `ReassemblyBuffer`.  If the fragment completes a Delta, the reassembled
+    ///   bytes are parsed into a `Delta` and returned as `Some(GossipMessage::InboundDelta)`.
+    ///   If reassembly fails (missing/truncated/malformed fragments, or the
+    ///   reassembled bytes don't parse as a valid `Delta`), the failure is
+    ///   logged with the sender DID and fragment count and `None` is returned —
+    ///   the partial Delta is discarded without corrupting any engine state
+    ///   (Req 5.8 / Subphase 7.4 acceptance: clean reassembly failure handling).
+    ///
+    /// - **Non-fragments**: passes `InboundDelta`, `InboundDurabilityReceipt`,
+    ///   `InboundRevocationDelta`, `InboundMigrationDelta`, and
+    ///   `InboundMigrationRevocationDelta` through unchanged.
+    ///
+    /// Production caller: the Swarm polling task spawned in
+    /// [`crate::api::CoreHandle::init`] calls this for every Gossipsub message
+    /// before forwarding the result to `inbound_tx`.  On the WASM target the
+    /// JS transport layer calls `core_receive_peer_message`, which deserialises
+    /// into a `GossipMessage` and delegates to `receive_inbound_wasm` (which
+    /// calls this same method for parity).
+    pub(crate) fn process_wire_message(
+        &mut self,
+        msg: crate::transport::message::GossipMessage,
+    ) -> Option<crate::transport::message::GossipMessage> {
+        use crate::transport::message::GossipMessage;
+
+        match msg {
+            GossipMessage::InboundDeltaFragment(frag) => {
+                let sender_did = frag
+                    .payload
+                    .first()
+                    .map(|_| "unknown".to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                // Feed the fragment to the reassembly buffer.  The sender_did
+                // here is a best-effort label for the failure log; the real
+                // author DID is only known after the Delta is fully reassembled
+                // and its signature is verified by CrdtEngine::apply.
+                let buffer_did = format!("fragment-delta-{}", hex::encode(frag.delta_id));
+                match self.reassembly_buffer.add_fragment(frag, &buffer_did) {
+                    Ok(Some(reassembled_bytes)) => {
+                        // Full Delta reassembled — parse it.
+                        match serde_json::from_slice::<Delta>(&reassembled_bytes) {
+                            Ok(delta) => Some(GossipMessage::InboundDelta(delta)),
+                            Err(e) => {
+                                // Reassembled bytes are not a valid Delta —
+                                // malformed/truncated payload.  Discard
+                                // cleanly: log with sender + fragment context
+                                // and return None so the message is dropped
+                                // from the inbound pipeline without touching
+                                // the CRDT engine or DAG state.
+                                eprintln!(
+                                    "[transport] reassembled Delta failed to parse as Delta: {e} — \
+                                     discarding (delta_id was from fragment reassembly)"
+                                );
+                                None
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        // Partial — awaiting more fragments.  Suppress silently.
+                        None
+                    }
+                    Err(e) => {
+                        // Reassembly failure: missing fragments, inconsistent
+                        // totals, oversized allocation, or slot eviction
+                        // discarded a partial Delta mid-flight (Req 5.8).
+                        eprintln!(
+                            "[transport] fragment reassembly failed: {e} — \
+                             partial Delta discarded without corrupting state"
+                        );
+                        None
+                    }
+                }
+            }
+            other => Some(other),
+        }
+    }
+
     /// (Req 14.6 — the receipt-issuance half of Tier-1 durability, Subphase
     /// 4.5).
     ///
@@ -719,22 +806,21 @@ impl MeshTransport {
         &mut self,
         receipt: &crate::durability::receipt::DurabilityReceipt,
     ) -> Result<(), TirBaseError> {
-        let wire_payload = crate::transport::message::GossipMessage::InboundDurabilityReceipt(
-            receipt.clone(),
-        )
-        .to_bytes();
+        let wire_payload =
+            crate::transport::message::GossipMessage::InboundDurabilityReceipt(receipt.clone())
+                .to_bytes();
 
-        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
-            TirBaseError::MeshUnavailable {
+        let tx = self
+            .outbound_tx
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
                 reason: "transport not started (no outbound channel installed)".to_string(),
-            }
-        })?;
+            })?;
 
-        tx.try_send(wire_payload).map_err(|e| {
-            TirBaseError::MeshUnavailable {
+        tx.try_send(wire_payload)
+            .map_err(|e| TirBaseError::MeshUnavailable {
                 reason: format!("outbound publish channel unavailable: {e}"),
-            }
-        })?;
+            })?;
         Ok(())
     }
     ///
@@ -761,17 +847,19 @@ impl MeshTransport {
             return Ok(0);
         }
 
-        let tx = self.outbound_tx.as_ref().ok_or_else(|| {
-            TirBaseError::MeshUnavailable {
+        let tx = self
+            .outbound_tx
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
                 reason: "transport not started (no outbound channel installed)".to_string(),
-            }
-        })?;
+            })?;
 
         let mut forwarded = 0usize;
         for queued in drained {
-            let payloads = self.prepare_outbound(&queued.delta)?;
-            for payload in payloads {
-                match tx.try_send(payload) {
+            let messages = self.prepare_outbound(&queued.delta)?;
+            for msg in messages {
+                let wire_payload = msg.to_bytes();
+                match tx.try_send(wire_payload) {
                     Ok(()) => forwarded += 1,
                     Err(e) => {
                         // Channel full/closed — put the Delta back so it is
@@ -862,14 +950,16 @@ mod tests {
     #[test]
     fn newly_discovered_peer_appears_in_active_list() {
         let mut t = make_transport();
-        t.on_peer_discovered(mdns_peer("did:key:A", 0), 1_000).unwrap();
+        t.on_peer_discovered(mdns_peer("did:key:A", 0), 1_000)
+            .unwrap();
         assert!(t.active_peers().contains(&"did:key:A".to_string()));
     }
 
     #[test]
     fn peer_removed_immediately_is_no_longer_active() {
         let mut t = make_transport();
-        t.on_peer_discovered(mdns_peer("did:key:B", 0), 1_000).unwrap();
+        t.on_peer_discovered(mdns_peer("did:key:B", 0), 1_000)
+            .unwrap();
         t.remove_peer(&"did:key:B".to_string());
         assert!(!t.active_peers().contains(&"did:key:B".to_string()));
     }
@@ -877,14 +967,16 @@ mod tests {
     #[test]
     fn peer_beyond_max_hop_count_not_added() {
         let mut t = make_transport(); // max_hop_count = 3
-        t.on_peer_discovered(mdns_peer("did:key:far", 4), 1_000).unwrap();
+        t.on_peer_discovered(mdns_peer("did:key:far", 4), 1_000)
+            .unwrap();
         assert!(!t.active_peers().contains(&"did:key:far".to_string()));
     }
 
     #[test]
     fn peer_removed_by_timeout() {
         let mut t = make_transport(); // peer_timeout_secs = 30
-        t.on_peer_discovered(mdns_peer("did:key:timeout", 0), 0).unwrap();
+        t.on_peer_discovered(mdns_peer("did:key:timeout", 0), 0)
+            .unwrap();
         t.tick_timeouts(31 * 1_000_000); // 31s later
         assert!(!t.active_peers().contains(&"did:key:timeout".to_string()));
     }
@@ -895,12 +987,8 @@ mod tests {
     fn retry_queue_bounded() {
         let mut t = make_transport(); // max_retry_queue = 5
         for i in 0..10 {
-            t.enqueue_retry(
-                format!("did:key:p{i}"),
-                vec![i as u8],
-                0,
-            )
-            .unwrap();
+            t.enqueue_retry(format!("did:key:p{i}"), vec![i as u8], 0)
+                .unwrap();
         }
         assert_eq!(t.discovery.retry_queue_len(), 5);
     }
@@ -909,7 +997,8 @@ mod tests {
     fn due_retries_are_drained() {
         let mut t = make_transport(); // retry_interval_secs = 10
         let now_us = 0i64;
-        t.enqueue_retry("did:key:retry".to_string(), vec![0xAA], now_us).unwrap();
+        t.enqueue_retry("did:key:retry".to_string(), vec![0xAA], now_us)
+            .unwrap();
 
         // Not yet due
         assert_eq!(t.drain_due_retries(5_000_000).len(), 0);
@@ -934,8 +1023,15 @@ mod tests {
             lamport: 1,
             created_at: 1_000_000,
         };
-        let payloads = t.prepare_outbound(&delta).unwrap();
-        assert_eq!(payloads.len(), 1);
+        let messages = t.prepare_outbound(&delta).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(
+            matches!(
+                messages[0],
+                crate::transport::message::GossipMessage::InboundDelta(_)
+            ),
+            "unfragmented payload must be InboundDelta"
+        );
     }
 
     #[test]
@@ -954,9 +1050,21 @@ mod tests {
             lamport: 1,
             created_at: 1_000_000,
         };
-        let payloads = t.prepare_outbound(&delta).unwrap();
+        let messages = t.prepare_outbound(&delta).unwrap();
         // Serialised Delta > 50 bytes → multiple fragments
-        assert!(payloads.len() > 1);
+        assert!(
+            messages.len() > 1,
+            "fragmented Delta must produce >1 message"
+        );
+        for msg in &messages {
+            assert!(
+                matches!(
+                    msg,
+                    crate::transport::message::GossipMessage::InboundDeltaFragment(_)
+                ),
+                "each fragmented payload must be InboundDeltaFragment"
+            );
+        }
     }
 
     // ── Outbound publish channel (Subphase 1.1) ─────────────────────────────
@@ -1134,8 +1242,12 @@ mod tests {
         // extend the lease by 60 minutes from the renewal timestamp and the
         // scheduler must remain in Saturate Mode.
         let renew_at = now + 5 * 60;
-        t.renew_saturate_mode("did:key:z6MkManager".to_string(), &make_token(3600), renew_at)
-            .expect("a valid heartbeat token must renew the lease");
+        t.renew_saturate_mode(
+            "did:key:z6MkManager".to_string(),
+            &make_token(3600),
+            renew_at,
+        )
+        .expect("a valid heartbeat token must renew the lease");
 
         assert_eq!(t.saturate.state(), SaturateState::Saturate);
         let lease = t.saturate.lease().expect("renewal must keep the lease");
@@ -1157,9 +1269,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn renew_saturate_mode_with_invalid_token_preserves_mode_and_scheduler() {
-        use crate::transport::saturate::{
-            make_disaster_alert_token_for_test, SaturateState,
-        };
+        use crate::transport::saturate::{make_disaster_alert_token_for_test, SaturateState};
 
         let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
         let mut t = make_saturate_transport(2, ca_pub);
@@ -1170,7 +1280,11 @@ mod tests {
         // An invalid heartbeat must be rejected with the mode — and therefore
         // the scheduler mirror — untouched (Req 13.7).
         let err = t
-            .renew_saturate_mode("did:key:z6MkManager".to_string(), b"not-a-biscuit", now + 60)
+            .renew_saturate_mode(
+                "did:key:z6MkManager".to_string(),
+                b"not-a-biscuit",
+                now + 60,
+            )
             .expect_err("an invalid heartbeat token must be rejected");
         assert!(
             matches!(err, TirBaseError::SignatureVerificationFailed { .. }),
@@ -1183,9 +1297,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn terminate_saturate_mode_at_threshold_clears_state_machine_and_scheduler() {
-        use crate::transport::saturate::{
-            make_disaster_alert_token_for_test, SaturateState,
-        };
+        use crate::transport::saturate::{make_disaster_alert_token_for_test, SaturateState};
 
         let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
         let mut t = make_saturate_transport(2, ca_pub);
@@ -1219,9 +1331,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn terminate_saturate_mode_below_threshold_preserves_mode_and_scheduler() {
-        use crate::transport::saturate::{
-            make_disaster_alert_token_for_test, SaturateState,
-        };
+        use crate::transport::saturate::{make_disaster_alert_token_for_test, SaturateState};
 
         let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
         let mut t = make_saturate_transport(2, ca_pub);
@@ -1245,7 +1355,6 @@ mod tests {
         assert!(t.scheduler.is_saturate_mode());
     }
 
-
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn activate_saturate_mode_with_invalid_token_preserves_normal_state() {
@@ -1255,7 +1364,11 @@ mod tests {
         // simply wrong) — no token can verify against it.
         let mut t = make_saturate_transport(2, vec![0u8; 32]);
         let err = t
-            .activate_saturate_mode("did:key:z6MkManager".to_string(), b"not-a-biscuit", now_secs())
+            .activate_saturate_mode(
+                "did:key:z6MkManager".to_string(),
+                b"not-a-biscuit",
+                now_secs(),
+            )
             .expect_err("an invalid token must be rejected");
         assert!(
             matches!(err, TirBaseError::SignatureVerificationFailed { .. }),
@@ -1370,16 +1483,14 @@ mod tests {
         // Two real device instances: each `MeshTransport::start()` builds a
         // libp2p Swarm with TCP + Noise + Yamux + mDNS + Gossipsub + Identify
         // + Ping, exactly as `CoreHandle::init` does in production.
-        let mut transport_a =
-            MeshTransport::new("did:key:node-a".to_string(), transport_config());
+        let mut transport_a = MeshTransport::new("did:key:node-a".to_string(), transport_config());
         transport_a.start().await.expect("transport A must start");
         let (tx_a, _rx_a) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_a = transport_a
             .take_swarm(tx_a)
             .expect("transport A must own a Swarm after start");
 
-        let mut transport_b =
-            MeshTransport::new("did:key:node-b".to_string(), transport_config());
+        let mut transport_b = MeshTransport::new("did:key:node-b".to_string(), transport_config());
         transport_b.start().await.expect("transport B must start");
         let (tx_b, _rx_b) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_b = transport_b
@@ -1388,7 +1499,10 @@ mod tests {
 
         let peer_a = *swarm_a.local_peer_id();
         let peer_b = *swarm_b.local_peer_id();
-        assert_ne!(peer_a, peer_b, "the two transports must have distinct peer ids");
+        assert_ne!(
+            peer_a, peer_b,
+            "the two transports must have distinct peer ids"
+        );
 
         // Learn B's real listen address — the address its mDNS announcement
         // would carry.  A's mDNS service reports this exact (peer, address)

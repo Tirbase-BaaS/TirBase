@@ -284,6 +284,7 @@ mod wasm_exports {
                 // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);
                 // the WASM export surface does not expose lease-duration tuning.
                 saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
             },
         };
         let handle = api::CoreHandle::init(config).await.map_err(to_js_err)?;
@@ -779,7 +780,33 @@ mod wasm_exports {
         let handle_ptr = core_ptr()?;
         // SAFETY: WASM is single-threaded; cooperative async, no concurrent mutation.
         let handle = unsafe { &*handle_ptr };
-        handle.receive_inbound_wasm(msg).await.map_err(to_js_err)
+
+        // Subphase 7.4 parity: WASM transport also has a ReassemblyBuffer
+        // (MeshTransport is constructed identically on both targets).  If the
+        // incoming message is an InboundDeltaFragment, process_wire_message
+        // buffers it and returns None until reassembly completes; only a fully
+        // reassembled Delta (or a non-fragment message) is dispatched to the
+        // WASM inbound handler.
+        let processed = {
+            let mut transport = handle.transport.lock().map_err(|e| {
+                to_js_err(&format!(
+                    "core_receive_peer_message: transport mutex poisoned: {e}"
+                ))
+            })?;
+            transport.process_wire_message(msg)
+        };
+
+        match processed {
+            Some(dispatch_msg) => handle
+                .receive_inbound_wasm(dispatch_msg)
+                .await
+                .map_err(to_js_err),
+            None => {
+                // Fragment buffered (incomplete) or reassembly failed silently
+                // (logged).  Nothing to dispatch.
+                Ok(())
+            }
+        }
     }
 
     // ── Event polling ──────────────────────────────────────────────────────────

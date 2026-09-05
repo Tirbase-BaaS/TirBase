@@ -28,11 +28,7 @@ pub struct DeltaFragment {
 /// If `delta_bytes` is empty or `mtu` is 0, returns an empty fragment list.
 /// Each fragment carries the `delta_id`, its zero-based index, and the total
 /// fragment count — sufficient for the receiver to reassemble in any order.
-pub fn fragment(
-    delta_id: [u8; 32],
-    delta_bytes: &[u8],
-    mtu: usize,
-) -> Vec<DeltaFragment> {
+pub fn fragment(delta_id: [u8; 32], delta_bytes: &[u8], mtu: usize) -> Vec<DeltaFragment> {
     if delta_bytes.is_empty() || mtu == 0 {
         return vec![];
     }
@@ -133,12 +129,12 @@ pub struct ReassemblyBuffer {
 
 impl ReassemblyBuffer {
     #[cfg(test)]
-    fn pending_count(&self) -> usize {
+    pub(crate) fn pending_count(&self) -> usize {
         self.pending.len()
     }
 
     #[cfg(test)]
-    fn has_delta(&self, id: &[u8; 32]) -> bool {
+    pub(crate) fn has_delta(&self, id: &[u8; 32]) -> bool {
         self.pending.contains_key(id)
     }
 }
@@ -443,7 +439,10 @@ mod tests {
         );
 
         // The new entry must be present
-        assert!(buf.has_delta(&new_delta_id), "newly inserted delta must be present");
+        assert!(
+            buf.has_delta(&new_delta_id),
+            "newly inserted delta must be present"
+        );
     }
 
     #[test]
@@ -475,7 +474,10 @@ mod tests {
         };
         let r0 = buf.add_fragment(frag0, &did).unwrap();
         assert!(r0.is_none());
-        assert!(buf.has_delta(&new_delta_id), "new delta should be present after eviction");
+        assert!(
+            buf.has_delta(&new_delta_id),
+            "new delta should be present after eviction"
+        );
 
         // Sending the second fragment should complete the reassembly
         let frag1 = DeltaFragment {
@@ -485,8 +487,17 @@ mod tests {
             payload: vec![0x02; 10],
         };
         let r1 = buf.add_fragment(frag1, &did).unwrap();
-        assert!(r1.is_some(), "reassembly should complete after both fragments arrive");
-        assert_eq!(r1.unwrap(), vec![0x01u8; 10].into_iter().chain(vec![0x02u8; 10]).collect::<Vec<_>>());
+        assert!(
+            r1.is_some(),
+            "reassembly should complete after both fragments arrive"
+        );
+        assert_eq!(
+            r1.unwrap(),
+            vec![0x01u8; 10]
+                .into_iter()
+                .chain(vec![0x02u8; 10])
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

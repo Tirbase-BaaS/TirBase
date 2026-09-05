@@ -334,9 +334,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (591 tests, 0 failures)
+**Status:** VERIFIED (605 tests, 0 failures)
 
-`cargo test --features native` passes all 591 tests including all 22 property
+`cargo test --features native` passes all 605 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -351,7 +351,9 @@ migration-revocation-interrupt tests listed in Item 16; Subphase 5.5 added the
 five known-hash-gate tests listed in Item 17; Subphase 5.6 added the
 corruption-recovery wiring tests listed in Item 18; Subphase 6.1 added the
 post-merge read-back tests listed in Item 19; Subphase 6.2 added the eleven
-structured-rejection-record tests listed in Item 20).
+structured-rejection-record tests listed in Item 20; Subphase 6.3 added the
+browser-indexed tests listed in Item 21; Subphase 7.4 added the three
+low-MTU fragmented transport tests listed in Item 22).
 
 ---
 
@@ -1106,6 +1108,77 @@ Browser tests (`src/tests/wasm_tests.rs`, run with
 
 ---
 
+### Item 22 — Low-MTU Fragmented Transport with Clean Failure Handling (Subphase 7.4)
+
+**Status:** VERIFIED
+
+Malformed / truncated Deltas over a simulated low-MTU fragmented transport are
+handled cleanly — no crash, no state corruption (Req 5.7–5.8).  The
+`ReassemblyBuffer` (transport/fragment.rs, `MAX_REASSEMBLY_SLOTS = 1024`,
+`MAX_FRAGMENTS_PER_DELTA = 4096`) had correct duplication/gap/slot-eviction
+logic but **no production caller** before this subphase; `process_wire_message`
+is now the production caller on both native and WASM inbound paths:
+
+- **`DeploymentConfig` gained `mesh_mtu: usize`** (default `0` = no
+  fragmentation).  `CoreHandle::init` threads it into
+  `TransportConfig.mtu` (api/mod.rs).  When `0 < mtu < 256`, `prepare_outbound`,
+  the production framing source (called from `send_delta`, which is reached
+  from `CoreHandle::write` step 6 at api/mod.rs:1379), splits the serialised
+  Delta into `DeltaFragment`s framed as `GossipMessage::InboundDeltaFragment`;
+  whole (unfragmented) Deltas remain `GossipMessage::InboundDelta`.  The
+  fragile `serde_json::from_slice::<Delta>` byte-sniffing heuristic is removed.
+- **`MeshTransport::process_wire_message`** (transport/mod.rs, `pub(crate)`)
+  takes a `GossipMessage`: for `InboundDeltaFragment` it feeds the fragment to
+  `ReassemblyBuffer::add_fragment`; when reassembly completes it tries to
+  parse the reconstructed bytes as a `Delta` and returns
+  `Some(InboundDelta)` on success, `None` on parse failure (logged + dropped);
+  for incomplete / failed reassembly it returns `None` (the partial Delta is
+  discarded).  `FragmentReassemblyFailed` is the typed error for
+  inconsistent-fragment cases (e.g. a fragment claiming a different
+  `total_fragments`).
+- **Production caller (native)** — the Swarm polling task (api/mod.rs ~793)
+  calls `transport.process_wire_message(msg)` before forwarding to `inbound_tx`;
+  the lock is dropped before the `.await` on channel send so the future stays
+  `Send`.
+- **Production caller (WASM)** — `core_receive_peer_message` (lib.rs:263)
+  calls `transport.process_wire_message(msg)` before dispatching to
+  `receive_inbound_wasm`.  `receive_inbound`/`receive_inbound_wasm` also carry
+  a defensive `InboundDeltaFragment` arm that logs and returns `Ok(())` (should
+  never be reached, since `process_wire_message` consumes fragments at the
+  transport boundary).
+
+Tests (all native, in `api::real_mesh_tests`):
+
+- `low_mtu_fragmented_delta_reassembles_and_merges_on_peer` — two real
+  Swarm-backed handles with `mesh_mtu = 50`; a Delta written on A is
+  fragmented into >1 `InboundDeltaFragment` messages and reassembled on B;
+  `wait_for_data` asserts B reads the exact value A wrote.  Production path
+  exercised: `CoreHandle::write` → `send_delta` → `prepare_outbound`
+  → `GossipMessage::InboundDeltaFragment` → Swarm → B's polling task →
+  `process_wire_message` → `ReassemblyBuffer` → `InboundDelta` →
+  `receive_inbound` → `CrdtEngine::apply` → projection → `read()`.
+- `low_mtu_mesh_reassembles_multiple_deltas_in_sequence` — a second Delta
+  written after the first round-trip does not collide with the first in the
+  reassembly buffer; both round-trip correctly.  Verifies the buffer's
+  per-`delta_id` slot isolation.
+- `truncated_fragment_stream_fails_cleanly_without_corrupting_state` — unit
+  + transport-level checks: (b1) a partial fragment set (fragments dropped)
+  leaves the Delta buffered as incomplete, no `Some` result; (b2) feeding all
+  fragments of a valid Delta through a standalone `MeshTransport` completes
+  cleanly; (b3) a fragment with an inconsistent `total_fragments` yields
+  `FragmentReassemblyFailed` (no panic); (b4) `process_wire_message` on a
+  truncated stream returns `None` for every fragment and the buffer retains
+  the incomplete `delta_id` (no corruption).
+
+The WASM build has a **pre-existing** compile error
+(`await` inside a non-async closure at api/mod.rs:2935, present before this
+subphase — confirmed via `git stash` + check) in the `receive_inbound_wasm`
+binary-projection path.  Subphase 7.4 does not expand WASM test coverage
+beyond the compile-verified `core_receive_peer_message` wiring; the native
+integration tests cover the reassembly semantics.
+
+---
+
 ## Cross-Device Mesh Sync
 
 **Status:** PARTIAL (real-mesh Delta + Tier-1 receipt exchange landed)
@@ -1114,8 +1187,10 @@ Properties and requirements that depend on real P2P message delivery
 (Req 4.3–4.7, 5.1–5.8, 9.2–9.4, 14.2–14.4, 16.3) cannot be fully verified
 within a single-process unit test.  Two-device real-mesh coverage is landed in
 `api::real_mesh_tests`: Phase 0.3(a)/(b) (Delta exchange and full
-write→gossip→receive→merge round trip, Item 7's mesh half) and Subphase 4.5
-(Tier-1 durability via genuine receipt exchange, Item 13).  The remaining
+write→gossip→receive→merge round trip, Item 7's mesh half), Subphase 4.5
+(Tier-1 durability via genuine receipt exchange, Item 13), and Subphase 7.4
+(low-MTU fragmented Delta transport + clean reassembly failure handling,
+Item 22).  The remaining deficits
 deficits — e.g. live mesh transport of RevocationDeltas, MigrationDeltas, and
 cloud sync over a real network — are deferred to the post-v1 integration test
 suite in `durability/integration_tests.rs`.
