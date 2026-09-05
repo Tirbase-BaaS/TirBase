@@ -72,9 +72,10 @@ CREATE INDEX IF NOT EXISTS idx_quarantine_schema  ON quarantine_ledger (schema_h
 /// Enables WAL journal mode for improved concurrent access.
 #[cfg(feature = "native")]
 pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
-    let conn = rusqlite::Connection::open(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
-        reason: format!("SQLite open failed at {path}: {e}"),
-    })?;
+    let conn =
+        rusqlite::Connection::open(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("SQLite open failed at {path}: {e}"),
+        })?;
 
     // Enable WAL journal mode for better concurrent read/write performance.
     conn.execute_batch("PRAGMA journal_mode=WAL;")
@@ -83,10 +84,11 @@ pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
         })?;
 
     // Enable foreign key enforcement.
-    conn.execute_batch("PRAGMA foreign_keys=ON;")
-        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+    conn.execute_batch("PRAGMA foreign_keys=ON;").map_err(|e| {
+        TirBaseError::LocalStoreWriteFailed {
             reason: format!("PRAGMA foreign_keys=ON failed: {e}"),
-        })?;
+        }
+    })?;
 
     // Create all tables on first open.
     conn.execute_batch(CREATE_SCHEMA_SQL)
@@ -94,7 +96,77 @@ pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
             reason: format!("Schema creation failed: {e}"),
         })?;
 
+    // ── Crash recovery (Subphase 7.3) ────────────────────────────────────────
+    //
+    // WAL mode keeps committed data in `*-wal` and `*-shm` sidecar files.  If
+    // the process was killed mid-transaction (between BEGIN and COMMIT), SQLite
+    // replays the WAL on the next `open()` transparently — an incomplete
+    // transaction is rolled back automatically, so no partial rows survive
+    // (Req 3.2 atomicity).  We still run a `wal_checkpoint(TRUNCATE)` to fold
+    // the recovered WAL back into the main database file (so a crash-during-
+    // write never leaves a stale, half-applied WAL behind) and then an
+    // `integrity_check` so a corrupt DB is detected and reported as a
+    // `LocalStoreWriteFailed` rather than surfacing as a cryptic SQLite error
+    // deeper in the pipeline.
+    //
+    // This is the production recovery path reached from `LocalStore::open` ←
+    // `CoreHandle::init` (store/sqlite.rs:open, api/mod.rs:init).  The
+    // Subphase 7.3 integration test kills a process between BEGIN and COMMIT,
+    // reopens the DB here, and asserts integrity_check reports `ok`.
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("WAL checkpoint failed during crash recovery: {e}"),
+        })?;
+
+    let integrity = conn
+        .query_row("PRAGMA integrity_check;", [], |row| row.get::<_, String>(0))
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("integrity_check could not run: {e}"),
+        })?;
+
+    if integrity.trim() != "ok" {
+        return Err(TirBaseError::LocalStoreWriteFailed {
+            reason: format!(
+                "SQLite integrity_check failed after WAL recovery (mid-write crash \
+                 left a corrupt database state): {integrity}"
+            ),
+        });
+    }
+
     Ok(conn)
+}
+
+/// Re-run the crash-recovery steps against an already-open connection.
+///
+/// `LocalStore::open` runs this once when a DB file is first opened; this helper
+/// exposes the same WAL-checkpoint + integrity-check sequence so callers that
+/// reopen a long-lived connection (e.g. after a forked child process crashed
+/// mid-write) can verify the on-disk DB is consistent before proceeding.
+///
+/// Native-only: the WASM build has no SQLite connection.
+#[cfg(feature = "native")]
+pub(crate) fn recover_from_crash(conn: &rusqlite::Connection) -> Result<(), TirBaseError> {
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("WAL checkpoint failed during crash recovery: {e}"),
+        })?;
+
+    let integrity = conn
+        .query_row("PRAGMA integrity_check;", [], |row| row.get::<_, String>(0))
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("integrity_check could not run: {e}"),
+        })?;
+
+    if integrity.trim() != "ok" {
+        return Err(TirBaseError::LocalStoreWriteFailed {
+            reason: format!(
+                "SQLite integrity_check failed after WAL recovery (mid-write crash \
+                 left a corrupt database state): {integrity}"
+            ),
+        });
+    }
+
+    Ok(())
 }
 
 /// WASM stub — on WASM the LocalStore is IndexedDB-backed (Subphase 6.3, see

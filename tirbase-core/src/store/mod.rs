@@ -67,11 +67,10 @@ impl LocalStore {
     /// Does **not** produce a Delta — that is the caller's responsibility (Req 3.6).
     pub fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
         let proj_table = format!("proj_{table}");
-        let data_json = serde_json::to_string(data).map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let data_json =
+            serde_json::to_string(data).map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("JSON serialisation failed: {e}"),
-            }
-        })?;
+            })?;
 
         // Use execute_batch for the DDL + transaction to avoid borrow conflicts.
         // The CREATE TABLE is idempotent and safe to re-run on every write.
@@ -86,9 +85,20 @@ impl LocalStore {
                 reason: format!("CREATE TABLE {proj_table} failed: {e}"),
             })?;
 
-        // Begin an explicit transaction, upsert, then commit or rollback.
-        self.conn
-            .execute_batch("BEGIN;")
+        // Use rusqlite's RAII `Transaction` guard so that:
+        //  - a panic inside the upsert (or any Rust-level unwind between BEGIN
+        //    and COMMIT) drops the guard and sends `ROLLBACK`, leaving the
+        //    store unlocked; and
+        //  - SQLite's WAL recovery handles a hard process-kill between BEGIN
+        //    and COMMIT (Subphase 7.3): the incomplete transaction is rolled
+        //    back automatically on the next `open()`, so no partial rows
+        //    survive (Req 3.2 atomicity).
+        //
+        // `Connection::transaction()` issues `BEGIN DEFERRED` and returns a
+        // guard whose `Drop` sends `ROLLBACK` if `commit` was never called.
+        let tx = self
+            .conn
+            .transaction()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("BEGIN failed: {e}"),
             })?;
@@ -98,22 +108,19 @@ impl LocalStore {
              ON CONFLICT(key) DO UPDATE SET data_json = excluded.data_json;"
         );
 
-        let result = self
-            .conn
-            .execute(&upsert_sql, rusqlite::params![key, data_json]);
+        let result = tx.execute(&upsert_sql, rusqlite::params![key, data_json]);
 
         match result {
             Ok(_) => {
-                self.conn
-                    .execute_batch("COMMIT;")
+                tx.commit()
                     .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                         reason: format!("COMMIT failed: {e}"),
                     })?;
                 Ok(())
             }
             Err(e) => {
-                // Best-effort rollback; ignore rollback errors.
-                let _ = self.conn.execute_batch("ROLLBACK;");
+                // Best-effort rollback; the RAII guard also rolls back on drop.
+                let _ = tx.rollback();
                 Err(TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Upsert into {proj_table} failed: {e}"),
                 })
@@ -126,9 +133,9 @@ impl LocalStore {
         let proj_table = format!("proj_{table}");
         let sql = format!("SELECT data_json FROM \"{proj_table}\" WHERE key = ?1;");
 
-        let result = self.conn.query_row(&sql, rusqlite::params![key], |row| {
-            row.get::<_, String>(0)
-        });
+        let result = self
+            .conn
+            .query_row(&sql, rusqlite::params![key], |row| row.get::<_, String>(0));
 
         match result {
             Ok(json_str) => {
@@ -150,6 +157,24 @@ impl LocalStore {
                 reason: format!("Read from {proj_table} failed: {e}"),
             }),
         }
+    }
+
+    /// Run crash-recovery verification against the underlying SQLite database.
+    ///
+    /// This folds any recovered WAL frames back into the main database file
+    /// and runs `PRAGMA integrity_check`.  It is the production recovery hook
+    /// reached from [`CoreHandle::init`](crate::api::CoreHandle::init) after
+    /// opening the store: if the previous process was killed mid-write (between
+    /// `BEGIN` and `COMMIT`), SQLite's WAL recovery rolls back the incomplete
+    /// transaction automatically — this method verifies that recovery was
+    /// clean (Subphase 7.3, Req 3.2 atomicity).
+    ///
+    /// A corrupt post-recovery database is reported as a hard
+    /// `LocalStoreWriteFailed` so `init` never returns a handle over a
+    /// poisoned store.
+    #[cfg(feature = "native")]
+    pub(crate) fn check_integrity(&self) -> Result<(), TirBaseError> {
+        sqlite::recover_from_crash(&self.conn)
     }
 
     /// Query records in a table with an optional filter (Req 3.3).
@@ -203,8 +228,7 @@ impl LocalStore {
 
             // Apply filter if provided.
             if let Some(filter_obj) = filter {
-                if let (Some(filter_map), Some(val_map)) =
-                    (filter_obj.as_object(), val.as_object())
+                if let (Some(filter_map), Some(val_map)) = (filter_obj.as_object(), val.as_object())
                 {
                     let matches = filter_map
                         .iter()
@@ -230,9 +254,12 @@ impl LocalStore {
     /// merging binary Automerge bytes from a peer.
     pub fn list_automerge_tables(&self) -> Result<Vec<String>, TirBaseError> {
         let sql = "SELECT table_name FROM automerge_docs;";
-        let mut stmt = self.conn.prepare(sql).map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("prepare list_automerge_tables failed: {e}"),
-        })?;
+        let mut stmt = self
+            .conn
+            .prepare(sql)
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("prepare list_automerge_tables failed: {e}"),
+            })?;
 
         let tables = stmt
             .query_map([], |row| row.get::<_, String>(0))
@@ -319,11 +346,10 @@ impl LocalStore {
         let mut doc = Self::get_or_create_automerge_doc(&self.conn, table)?;
 
         // Put the value into the Automerge doc as a JSON string at ROOT.
-        let value_str = serde_json::to_string(value).map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let value_str =
+            serde_json::to_string(value).map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("JSON serialisation failed: {e}"),
-            }
-        })?;
+            })?;
 
         doc.put(ROOT, key, value_str)
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -390,7 +416,12 @@ impl LocalStore {
     /// has committed, so the acknowledged write survives a reload.  The
     /// in-memory view is updated only after the durable write succeeds.  Does
     /// **not** produce a Delta — that is the caller's responsibility (Req 3.6).
-    pub async fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
+    pub async fn write(
+        &mut self,
+        table: &str,
+        key: &str,
+        data: &Value,
+    ) -> Result<(), TirBaseError> {
         if let Some(db) = self.db.as_ref() {
             indexed_db::put_row(db, table, key, data).await?;
         }
@@ -402,11 +433,7 @@ impl LocalStore {
     }
 
     pub fn read(&self, table: &str, key: &str) -> Result<Option<Value>, TirBaseError> {
-        Ok(self
-            .tables
-            .get(table)
-            .and_then(|t| t.get(key))
-            .cloned())
+        Ok(self.tables.get(table).and_then(|t| t.get(key)).cloned())
     }
 
     pub fn query(
@@ -475,7 +502,9 @@ mod tests {
     #[test]
     fn test_read_missing_table_returns_none() {
         let store = open_memory();
-        let result = store.read("no_such_table", "key").expect("read on missing table should not error");
+        let result = store
+            .read("no_such_table", "key")
+            .expect("read on missing table should not error");
         assert_eq!(result, None);
     }
 
@@ -486,9 +515,11 @@ mod tests {
         // All operations are purely local SQLite — no network calls.
         // This test confirms the store opens and operates without panics.
         let mut store = open_memory();
-        store.write("sensor_data", "reading-1", &json!({"temp": 23.5}))
+        store
+            .write("sensor_data", "reading-1", &json!({"temp": 23.5}))
             .expect("write should succeed offline");
-        let val = store.read("sensor_data", "reading-1")
+        let val = store
+            .read("sensor_data", "reading-1")
             .expect("read should succeed offline");
         assert!(val.is_some(), "data written offline must be readable");
     }
@@ -498,8 +529,14 @@ mod tests {
     #[test]
     fn test_should_compact_threshold_boundary() {
         let policy = CompactionPolicy::Aggressive { threshold: 5 };
-        assert!(!should_compact(&policy, 5), "at threshold: should NOT compact");
-        assert!(should_compact(&policy, 6), "above threshold: SHOULD compact");
+        assert!(
+            !should_compact(&policy, 5),
+            "at threshold: should NOT compact"
+        );
+        assert!(
+            should_compact(&policy, 6),
+            "above threshold: SHOULD compact"
+        );
     }
 
     #[test]
@@ -529,12 +566,18 @@ mod tests {
         // compact_table() returns Ok(()) on failure (Req 3.5).
         // Write data, then confirm it survives after a compaction attempt.
         let mut store = open_memory();
-        store.write("logs", "entry-1", &json!({"msg": "hello"})).expect("write");
-        store.write("logs", "entry-2", &json!({"msg": "world"})).expect("write");
+        store
+            .write("logs", "entry-1", &json!({"msg": "hello"}))
+            .expect("write");
+        store
+            .write("logs", "entry-2", &json!({"msg": "world"}))
+            .expect("write");
 
         // A fresh AutoCommit passed to compact_table is a valid doc — compaction
         // should succeed and data should still be readable.
-        let val = store.read("logs", "entry-1").expect("read after compaction attempt");
+        let val = store
+            .read("logs", "entry-1")
+            .expect("read after compaction attempt");
         assert!(val.is_some(), "data must survive compaction attempt");
     }
 
@@ -543,11 +586,19 @@ mod tests {
     #[test]
     fn test_idempotent_upsert_same_key() {
         let mut store = open_memory();
-        store.write("items", "item-1", &json!({"v": 1})).expect("first write");
-        store.write("items", "item-1", &json!({"v": 2})).expect("second write (upsert)");
+        store
+            .write("items", "item-1", &json!({"v": 1}))
+            .expect("first write");
+        store
+            .write("items", "item-1", &json!({"v": 2}))
+            .expect("second write (upsert)");
 
         let val = store.read("items", "item-1").expect("read");
-        assert_eq!(val, Some(json!({"v": 2})), "second write should overwrite first");
+        assert_eq!(
+            val,
+            Some(json!({"v": 2})),
+            "second write should overwrite first"
+        );
     }
 
     // ── 6. Query with and without filter ─────────────────────────────────────
@@ -555,9 +606,15 @@ mod tests {
     #[test]
     fn test_query_no_filter_returns_all() {
         let mut store = open_memory();
-        store.write("orders", "o1", &json!({"status": "open"})).unwrap();
-        store.write("orders", "o2", &json!({"status": "closed"})).unwrap();
-        store.write("orders", "o3", &json!({"status": "open"})).unwrap();
+        store
+            .write("orders", "o1", &json!({"status": "open"}))
+            .unwrap();
+        store
+            .write("orders", "o2", &json!({"status": "closed"}))
+            .unwrap();
+        store
+            .write("orders", "o3", &json!({"status": "open"}))
+            .unwrap();
 
         let rows = store.query("orders", None).expect("query");
         assert_eq!(rows.len(), 3);
@@ -566,19 +623,29 @@ mod tests {
     #[test]
     fn test_query_with_filter() {
         let mut store = open_memory();
-        store.write("orders", "o1", &json!({"status": "open"})).unwrap();
-        store.write("orders", "o2", &json!({"status": "closed"})).unwrap();
-        store.write("orders", "o3", &json!({"status": "open"})).unwrap();
+        store
+            .write("orders", "o1", &json!({"status": "open"}))
+            .unwrap();
+        store
+            .write("orders", "o2", &json!({"status": "closed"}))
+            .unwrap();
+        store
+            .write("orders", "o3", &json!({"status": "open"}))
+            .unwrap();
 
         let filter = json!({"status": "open"});
-        let rows = store.query("orders", Some(&filter)).expect("filtered query");
+        let rows = store
+            .query("orders", Some(&filter))
+            .expect("filtered query");
         assert_eq!(rows.len(), 2, "should return only 'open' orders");
     }
 
     #[test]
     fn test_query_empty_table_returns_empty_vec() {
         let store = open_memory();
-        let rows = store.query("nonexistent_table", None).expect("query on missing table");
+        let rows = store
+            .query("nonexistent_table", None)
+            .expect("query on missing table");
         assert!(rows.is_empty());
     }
 
@@ -636,9 +703,9 @@ mod tests {
         let conn = Arc::new(Mutex::new(conn));
         let mut dag = ChangesetDag::new(conn);
 
-        let root_id   = [0x01u8; 32];
-        let mid_id    = [0x02u8; 32];
-        let leaf_id   = [0x03u8; 32];
+        let root_id = [0x01u8; 32];
+        let mid_id = [0x02u8; 32];
+        let leaf_id = [0x03u8; 32];
 
         let make_node = |id: [u8; 32], parents: Vec<[u8; 32]>, lamport: u64| DagNode {
             delta_id: id,
@@ -651,14 +718,23 @@ mod tests {
             author_did: "did:key:z6MkTest".to_string(),
         };
 
-        dag.insert(make_node(root_id, vec![], 1)).expect("insert root");
-        dag.insert(make_node(mid_id, vec![root_id], 2)).expect("insert mid");
-        dag.insert(make_node(leaf_id, vec![mid_id], 3)).expect("insert leaf");
+        dag.insert(make_node(root_id, vec![], 1))
+            .expect("insert root");
+        dag.insert(make_node(mid_id, vec![root_id], 2))
+            .expect("insert mid");
+        dag.insert(make_node(leaf_id, vec![mid_id], 3))
+            .expect("insert leaf");
 
         let descendants = dag.bfs_descendants(&root_id).expect("bfs");
-        assert!(descendants.contains(&root_id), "root must be in descendants");
-        assert!(descendants.contains(&mid_id),  "mid must be in descendants");
-        assert!(descendants.contains(&leaf_id), "leaf must be in descendants");
+        assert!(
+            descendants.contains(&root_id),
+            "root must be in descendants"
+        );
+        assert!(descendants.contains(&mid_id), "mid must be in descendants");
+        assert!(
+            descendants.contains(&leaf_id),
+            "leaf must be in descendants"
+        );
     }
 
     // ── 9. DAG topological sort (diamond) ─────────────────────────────────────
@@ -702,5 +778,64 @@ mod tests {
         assert!(pos(a) < pos(c), "A must come before C");
         assert!(pos(b) < pos(d), "B must come before D");
         assert!(pos(c) < pos(d), "C must come before D");
+    }
+
+    // ── 10. Crash-recovery integrity check (Subphase 7.3) ────────────────────
+    //
+    // `check_integrity` runs `PRAGMA wal_checkpoint(TRUNCATE)` +
+    // `PRAGMA integrity_check` — the same recovery step `CoreHandle::init`
+    // invokes on startup (production caller: api/mod.rs:init → LocalStore::open
+    // → sqlite::open → recover_from_crash; and CoreHandle::init calls
+    // store.check_integrity() immediately after open).  This unit test pins
+    // the happy path: a freshly-opened store passes integrity_check, and a
+    // store with a committed row still passes after an in-process rollback of
+    // an in-flight transaction (the in-process analogue of a mid-write crash).
+
+    #[test]
+    fn test_check_integrity_passes_on_clean_store() {
+        let store = open_memory();
+        store
+            .check_integrity()
+            .expect("clean store must pass integrity_check");
+    }
+
+    #[test]
+    fn test_check_integrity_passes_after_rollback_of_uncommitted_tx() {
+        // Simulate the in-process analogue of a mid-write crash: begin a
+        // transaction, insert a row, then roll back (no commit).  After the
+        // rollback the store must still pass integrity_check and the partial
+        // row must not be visible.
+        let mut store = open_memory();
+        store.write("t", "a", &json!({"v": 1})).expect("write a");
+
+        // Begin an uncommitted transaction and insert a partial row, then
+        // roll back — mirroring a crash between BEGIN and COMMIT where SQLite
+        // recovers the rollback during WAL replay.
+        store.conn.execute_batch("BEGIN;").expect("test: BEGIN");
+        store
+            .conn
+            .execute(
+                "INSERT INTO proj_t (key, data_json, contaminated) VALUES (?1, ?2, ?3);",
+                rusqlite::params!["partial", r#"{"v": 2}"#, 0i64],
+            )
+            .expect("test: INSERT partial");
+        store
+            .conn
+            .execute_batch("ROLLBACK;")
+            .expect("test: ROLLBACK");
+
+        // After rollback: integrity holds, partial row is gone, committed
+        // row survives.
+        store
+            .check_integrity()
+            .expect("store must pass integrity_check after rollback");
+        assert!(
+            store.read("t", "partial").expect("read partial").is_none(),
+            "rolled-back row must not survive"
+        );
+        assert!(
+            store.read("t", "a").expect("read a").is_some(),
+            "committed row must survive rollback"
+        );
     }
 }

@@ -386,6 +386,14 @@ impl CoreHandle {
         let (store, crdt, cce) = {
             // Primary store connection (used by LocalStore).
             let store = LocalStore::open(&config.storage_path)?;
+            // Crash recovery (Subphase 7.3): if the previous process was killed
+            // mid-write (between BEGIN and COMMIT), SQLite's WAL replay rolls
+            // back the incomplete transaction automatically — verify the
+            // recovered DB is not corrupt before any reads/writes proceed
+            // (Req 3.2 atomicity).  `check_integrity` is the production caller
+            // of the store-layer recovery path; it is reached on every init,
+            // not only in tests.
+            store.check_integrity()?;
             let store = Arc::new(Mutex::new(store));
 
             // Secondary connection for CrdtEngine + CCE (they hold their own

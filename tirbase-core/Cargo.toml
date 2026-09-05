@@ -9,6 +9,20 @@ license = "MIT"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# ─── Native-only helper binary for the Subphase 7.3 crash-recovery test ────────
+#
+# `crash_writer` opens a SQLite DB, commits a baseline row, begins a second
+# transaction, inserts a partial row, then `std::process::abort()`s —
+# simulating a hard process kill between BEGIN and COMMIT.  The integration
+# test in `tests/crash_recovery.rs` spawns this binary and then reopens the DB
+# through the production `LocalStore::open` path to verify no corrupted state
+# survives.  Native-only: it links `rusqlite` (no WASM).
+[[bin]]
+name = "crash_writer"
+path = "src/bin/crash_writer.rs"
+required-features = ["native"]
+
+
 # ─── Feature flags ─────────────────────────────────────────────────────────────
 # `native` and `wasm` are mutually exclusive build targets.
 # `native` is the default (Cloud Ledger and desktop/server builds).
