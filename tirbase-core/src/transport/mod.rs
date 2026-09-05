@@ -18,7 +18,7 @@ use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Delta, Did, PriorityClass};
 use crate::errors::TirBaseError;
 use crate::transport::{
-    discovery::{DiscoveredPeer, PeerDiscovery, RetryEntry},
+    discovery::{DiscoveredPeer, PeerDiscovery, PeerTransport, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
     saturate::{SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS},
     scheduler::{DrrScheduler, QueuedDelta},
@@ -193,6 +193,10 @@ pub struct MeshTransport {
     /// The local device DID.
     pub local_did: Did,
 
+    /// The local Ed25519 static private key bytes (used for Noise_IK session
+    /// initiation when wiring into the libp2p transport — Req 6.1).
+    pub local_static_privkey: [u8; 32],
+
     /// The shared Gossipsub topic all TirBase nodes subscribe to.
     pub gossip_topic: String,
 
@@ -209,7 +213,7 @@ pub struct MeshTransport {
     /// prepared payloads here and the Swarm polling task (which owns the
     /// receiver end) publishes them to the Gossipsub topic.
     #[cfg(feature = "native")]
-    outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
+    pub(crate) outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
 
     /// Test-only: payloads that reached the outbound publish point (recorded
     /// by the Swarm polling task immediately before `gossipsub.publish`).
@@ -229,7 +233,7 @@ pub struct MeshTransport {
 
 impl MeshTransport {
     /// Create a new `MeshTransport` with the given configuration.
-    pub fn new(local_did: Did, config: TransportConfig) -> Self {
+    pub fn new(local_did: Did, local_static_privkey: [u8; 32], config: TransportConfig) -> Self {
         let discovery = PeerDiscovery::new(
             config.max_hop_count,
             config.peer_timeout_secs,
@@ -257,6 +261,7 @@ impl MeshTransport {
             session_manager,
             reassembly_buffer: ReassemblyBuffer::default(),
             local_did,
+            local_static_privkey,
             config,
             gossip_topic: "tirbase/v1".to_string(),
             scheduler: DrrScheduler::new(DEFAULT_LINK_CAPACITY_BYTES),
@@ -309,7 +314,7 @@ impl MeshTransport {
         self.on_peer_discovered(
             DiscoveredPeer {
                 did: target_did.clone(),
-                transport: PeerTransport::BleBridge { bridge_did },
+                transport: PeerTransport::BleBridge { bridge_did: bridge_did.clone() },
                 hop_count: 1,
             },
             now_us,
@@ -321,8 +326,11 @@ impl MeshTransport {
     /// Initiate a Noise_IK session with a peer after a libp2p connection is
     /// established (Req 6.1).
     ///
-    /// Returns the established `NoiseSession` on success, or an error if the
-    /// handshake fails (backoff, revoked, etc.).
+    /// When `remote_static_pubkey` is provided, performs a full Noise_IK
+    /// handshake via `SessionManager::initiate` (test / direct-connect path).
+    /// When `remote_static_pubkey` is empty, registers the already-established
+    /// session via `SessionManager::register_session` (production libp2p path,
+    /// where the transport has already completed the Noise exchange).
     pub fn initiate_session(
         &mut self,
         peer_did: Did,
@@ -330,16 +338,21 @@ impl MeshTransport {
         local_static_privkey: &[u8],
         remote_static_pubkey: &[u8],
         now_secs: i64,
-    ) -> Result<crate::transport::session::NoiseSession, TirBaseError> {
-        let session = self.session_manager.initiate(
-            peer_did.clone(),
-            peer_trust_level,
-            local_static_privkey,
-            remote_static_pubkey,
-            now_secs,
-        )?;
-        self.active_sessions.insert(peer_did.clone(), session.clone());
-        Ok(session)
+    ) -> Result<(), TirBaseError> {
+        let session = if remote_static_pubkey.is_empty() {
+            self.session_manager
+                .register_session(peer_did.clone(), now_secs)
+        } else {
+            self.session_manager.initiate(
+                peer_did.clone(),
+                peer_trust_level,
+                local_static_privkey,
+                remote_static_pubkey,
+                now_secs,
+            )?
+        };
+        self.active_sessions.insert(peer_did.clone(), session);
+        Ok(())
     }
 
     /// Advance the peer-timeout clock: removes peers not seen within
@@ -972,8 +985,11 @@ mod tests {
     use crate::transport::discovery::PeerTransport;
 
     fn make_transport() -> MeshTransport {
+        let mut dummy_key = [0u8; 32];
+        dummy_key.copy_from_slice(b"tirbase-dummy-key-00000000000000");
         MeshTransport::new(
             "did:key:local".to_string(),
+            dummy_key,
             TransportConfig {
                 peer_timeout_secs: 30,
                 retry_interval_secs: 10,
@@ -996,8 +1012,11 @@ mod tests {
         termination_threshold_m: usize,
         root_ca_public_key: Vec<u8>,
     ) -> MeshTransport {
+        let mut dummy_key = [0u8; 32];
+        dummy_key.copy_from_slice(b"tirbase-dummy-key-00000000000000");
         MeshTransport::new(
             "did:key:local".to_string(),
+            dummy_key,
             TransportConfig {
                 peer_timeout_secs: 30,
                 retry_interval_secs: 10,
@@ -1082,6 +1101,35 @@ mod tests {
         assert_eq!(t.drain_due_retries(5_000_000).len(), 0);
         // Due after retry_interval_secs (10s = 10_000_000 µs)
         assert_eq!(t.drain_due_retries(10_000_001).len(), 1);
+    }
+
+    // ── Retry queue tick (Req 5.6) ─────────────────────────────────────────────
+
+    #[test]
+    fn retry_tick_drains_due_entries_and_advances_timeouts() {
+        let mut t = make_transport(); // retry_interval_secs = 10, peer_timeout_secs = 30
+        let now_us = 0i64;
+
+        // Add a peer and a retry entry
+        t.on_peer_discovered(mdns_peer("did:key:peer", 0), now_us)
+            .unwrap();
+        t.enqueue_retry("did:key:peer".to_string(), vec![0xBB], now_us)
+            .unwrap();
+
+        // Before tick: peer is active, retry not yet due
+        assert!(t.active_peers().contains(&"did:key:peer".to_string()));
+        assert_eq!(t.drain_due_retries(5_000_000).len(), 0);
+
+        // Advance past retry interval but not past peer timeout
+        let tick_us = 11 * 1_000_000;
+        t.tick_timeouts(tick_us);
+        let due = t.drain_due_retries(tick_us);
+
+        // Retry entry is now drained
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].peer_did, "did:key:peer");
+        // Peer is still active (timeout is 30s)
+        assert!(t.active_peers().contains(&"did:key:peer".to_string()));
     }
 
     // ── Fragmentation ─────────────────────────────────────────────────────────
@@ -1561,14 +1609,22 @@ mod tests {
         // Two real device instances: each `MeshTransport::start()` builds a
         // libp2p Swarm with TCP + Noise + Yamux + mDNS + Gossipsub + Identify
         // + Ping, exactly as `CoreHandle::init` does in production.
-        let mut transport_a = MeshTransport::new("did:key:node-a".to_string(), transport_config());
+        let mut transport_a = MeshTransport::new(
+            "did:key:node-a".to_string(),
+            [0u8; 32],
+            transport_config(),
+        );
         transport_a.start().await.expect("transport A must start");
         let (tx_a, _rx_a) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_a = transport_a
             .take_swarm(tx_a)
             .expect("transport A must own a Swarm after start");
 
-        let mut transport_b = MeshTransport::new("did:key:node-b".to_string(), transport_config());
+        let mut transport_b = MeshTransport::new(
+            "did:key:node-b".to_string(),
+            [0u8; 32],
+            transport_config(),
+        );
         transport_b.start().await.expect("transport B must start");
         let (tx_b, _rx_b) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_b = transport_b

@@ -692,6 +692,7 @@ impl CoreHandle {
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
         let mut transport = MeshTransport::new(
             identity.did().to_string(),
+            identity.signing_key_bytes(),
             TransportConfig {
                 listen_addr: config.listen_addr.clone(),
                 // Subphase 3.1: the transport's Saturate_Mode state machine is
@@ -814,7 +815,14 @@ impl CoreHandle {
                                             // (std::sync::MutexGuard is !Send).
                                             let processed = {
                                                 if let Ok(mut t) = transport_arc.lock() {
-                                                    t.process_wire_message(msg)
+                                                    match msg {
+                                                        crate::transport::message::GossipMessage::RelayDelta { target_did, delta }
+                                                            if target_did == t.local_did =>
+                                                        {
+                                                            Some(crate::transport::message::GossipMessage::InboundDelta(delta))
+                                                        }
+                                                        _ => t.process_wire_message(msg),
+                                                    }
                                                 } else {
                                                     Some(msg)
                                                 }
@@ -845,13 +853,30 @@ impl CoreHandle {
                                         if let Ok(mut t) = transport_arc.lock() {
                                             let _ = t.on_peer_discovered(
                                                 crate::transport::discovery::DiscoveredPeer {
-                                                    did,
+                                                    did: did.clone(),
                                                     transport: crate::transport::discovery::PeerTransport::Explicit {
                                                         multiaddr: format!("/p2p/{peer_id}"),
                                                     },
                                                     hop_count: 0,
                                                 },
                                                 now_micros(),
+                                            );
+
+                                            // Req 6.1: register the established libp2p
+                                            // session in the application-layer session
+                                            // manager so rotation tracking and the
+                                            // resumption cache stay in sync with actual
+                                            // connectivity.  The libp2p transport has
+                                            // already performed the Noise handshake;
+                                            // we record the session without re-doing
+                                            // the exchange.
+                                            let local_key = t.local_static_privkey;
+                                            let _ = t.initiate_session(
+                                                did,
+                                                crate::api::types::TrustLevel::Verified,
+                                                &local_key,
+                                                &[],
+                                                now_secs(),
                                             );
                                         }
                                     }
@@ -2530,6 +2555,7 @@ impl CoreHandle {
                     }
                 }
             }
+            _ => {}
         }
         Ok(())
     }
@@ -3389,11 +3415,55 @@ impl CoreHandle {
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            loop {
-                ticker.tick().await;
-                match handle.transport.lock() {
-                    Ok(mut transport) => {
-                        // Subphase 3.3: advance the Saturate_Mode state
+                loop {
+                    ticker.tick().await;
+                    match handle.transport.lock() {
+                        Ok(mut transport) => {
+                            let now_us = now_micros();
+
+                            // Req 5.6: advance the peer-timeout clock every epoch
+                            // so stale peers are evicted without manual intervention.
+                            transport.tick_timeouts(now_us);
+
+                            // Req 5.6: drain the retry queue and re-attempt delivery
+                            // for any entries whose next_retry_at has passed.  Due
+                            // entries are forwarded to the outbound channel so the
+                            // Swarm polling task can publish them.
+                            let due_retries = transport.drain_due_retries(now_us);
+                            if !due_retries.is_empty() {
+                                eprintln!(
+                                    "[scheduler-loop] draining {n} retry entry(ies)",
+                                    n = due_retries.len()
+                                );
+                                let tx = match transport.outbound_tx.as_ref() {
+                                    Some(tx) => tx,
+                                    None => continue,
+                                };
+                                for entry in due_retries {
+                                    let delta = match serde_json::from_slice(&entry.delta_bytes) {
+                                        Ok(d) => d,
+                                        Err(e) => {
+                                            eprintln!(
+                                                "[scheduler-loop] retry entry for {} has malformed delta bytes: {e}",
+                                                entry.peer_did
+                                            );
+                                            continue;
+                                        }
+                                    };
+                                    let gossip_msg =
+                                        crate::transport::message::GossipMessage::InboundDelta(
+                                            delta,
+                                        );
+                                    if let Err(e) = tx.try_send(gossip_msg.to_bytes()) {
+                                        eprintln!(
+                                            "[scheduler-loop] retry entry forward failed for {}: {e}",
+                                            entry.peer_did
+                                        );
+                                    }
+                                }
+                            }
+
+                            // Subphase 3.3: advance the Saturate_Mode state
                         // machine's clock every epoch.  A lease that expired
                         // without renewal demotes the state machine — and the
                         // transport reconciles the DRR scheduler mirror — even
@@ -3628,6 +3698,26 @@ impl CoreHandle {
     /// operation (Phase 4 cloud sync) is the stated production consumer.
     #[cfg(feature = "native")]
     pub(crate) async fn dial_peer(&self, addr: libp2p::Multiaddr) -> Result<(), TirBaseError> {
+        let addr_str = addr.to_string();
+
+        // Req 5.3: BLE bridge path.  BLE multiaddrs are not routable through
+        // libp2p's Swarm, so we record the peer as reachable via the BLE
+        // bridge and skip the `dial_tx` path entirely.
+        if addr_str.starts_with("/ble/") {
+            let parts: Vec<&str> = addr_str.split('/').collect();
+            if parts.len() >= 4 {
+                let target_did = parts[2].to_string();
+                let bridge_did = parts[3].to_string();
+                if let Ok(mut transport) = self.transport.lock() {
+                    transport.dial_ble_bridge(target_did, bridge_did, now_micros())?;
+                    return Ok(());
+                }
+            }
+            return Err(TirBaseError::MeshUnavailable {
+                reason: format!("invalid BLE multiaddr: {addr_str}"),
+            });
+        }
+
         let tx = self
             .dial_tx
             .as_ref()
@@ -9352,6 +9442,7 @@ mod real_mesh_tests {
         // bytes).
         let mut transport = crate::transport::MeshTransport::new(
             "did:key:z6MkTruncatedSource".to_string(),
+            [0u8; 32],
             crate::transport::TransportConfig {
                 mtu: 50,
                 ..crate::transport::TransportConfig::default()
@@ -9410,6 +9501,7 @@ mod real_mesh_tests {
         let trunc_frags: Vec<DeltaFragment> = fragment([0xEF; 32], &delta_bytes, 50);
         let mut trunc_transport = crate::transport::MeshTransport::new(
             "did:key:z6MkTruncatedReceiver".to_string(),
+            [0u8; 32],
             crate::transport::TransportConfig {
                 mtu: 50,
                 ..crate::transport::TransportConfig::default()

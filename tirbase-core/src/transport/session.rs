@@ -89,6 +89,7 @@ impl HandshakeFailureRecord {
 ///
 /// On `native` builds this wraps the live `snow::TransportState`.
 /// On `wasm` builds it is a stub that keeps the API surface uniform.
+#[derive(Debug)]
 pub struct NoiseSession {
     pub remote_did: Did,
     /// UTC seconds of the last successful key rotation (or session establishment).
@@ -96,9 +97,11 @@ pub struct NoiseSession {
     /// Configured key rotation interval in seconds (60–86400 — Req 6.4).
     pub rotation_interval_secs: u64,
 
-    /// Native-only: live Noise transport state.
+    /// Native-only: live Noise transport state (present only when this session
+    /// was created by a local `full_ik_handshake`; `None` for sessions registered
+    /// after an external transport such as libp2p already performed the handshake).
     #[cfg(feature = "native")]
-    pub(crate) transport: snow::TransportState,
+    pub(crate) transport: Option<snow::TransportState>,
 }
 
 impl NoiseSession {
@@ -184,6 +187,31 @@ impl SessionManager {
     /// Current size of the resumption cache.
     pub fn cache_size(&self) -> usize {
         self.resumption_cache.len()
+    }
+
+    /// Register an already-established Noise session (production libp2p path).
+    ///
+    /// When the libp2p transport has already completed the Noise handshake
+    /// (its own built-in transport), the application layer records the session
+    /// here so rotation tracking and the resumption cache stay in sync with
+    /// actual connectivity.
+    #[cfg(feature = "native")]
+    pub fn register_session(&mut self, peer_did: Did, now_secs: i64) -> NoiseSession {
+        let session = NoiseSession {
+            remote_did: peer_did.clone(),
+            last_rotated_secs: now_secs,
+            rotation_interval_secs: self.rotation_interval_secs,
+            transport: None,
+        };
+        self.store_credential(
+            peer_did.clone(),
+            ResumptionCredential {
+                peer_did,
+                issued_at: now_secs,
+                credential_bytes: vec![],
+            },
+        );
+        session
     }
 
     // ── Native-only Noise handshake, resumption, and key rotation ─────────────
@@ -341,7 +369,7 @@ impl SessionManager {
             remote_did: peer_did,
             last_rotated_secs: now_secs,
             rotation_interval_secs: self.rotation_interval_secs,
-            transport,
+            transport: Some(transport),
         })
     }
 
@@ -353,8 +381,15 @@ impl SessionManager {
         session: &mut NoiseSession,
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        session.transport.rekey_outgoing();
-        session.transport.rekey_incoming();
+        let transport = session
+            .transport
+            .as_mut()
+            .ok_or_else(|| TirBaseError::NoiseHandshakeFailed {
+                peer_did: session.remote_did.clone(),
+                reason: "rotate_keys called on session without transport state".to_string(),
+            })?;
+        transport.rekey_outgoing();
+        transport.rekey_incoming();
         session.last_rotated_secs = now_secs;
         Ok(())
     }
@@ -564,6 +599,8 @@ mod tests {
         let mut cipher = vec![0u8; 65535];
         let n = session
             .transport
+            .as_mut()
+            .expect("session must have transport state for test")
             .write_message(b"ping", &mut cipher)
             .expect("write after rekey must succeed");
         assert!(n > 0);

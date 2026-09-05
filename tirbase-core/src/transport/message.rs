@@ -5,7 +5,7 @@
 //! correct subsystem without additional heuristics.
 
 use crate::auth::RevocationDelta;
-use crate::crdt::delta::Delta;
+use crate::crdt::delta::{Did, Delta};
 use crate::durability::receipt::DurabilityReceipt;
 use crate::migration::migration_delta::{MigrationDelta, MigrationRevocationDelta};
 use crate::transport::fragment::DeltaFragment;
