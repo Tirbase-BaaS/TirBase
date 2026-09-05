@@ -118,6 +118,16 @@ impl AnchorAttestedLocation {
         }
     }
 
+    /// Read the current Lamport epoch (for stale-epoch replay checks — Req 15.3).
+    ///
+    /// `pub(crate)`: test/introspection access so Subphase 7.6 can assert the
+    /// epoch advanced during a simulated partition.  Not exported as external
+    /// API surface — the beacon token signature verification is the production
+    /// consumer of this value.
+    pub(crate) fn current_epoch(&self) -> u64 {
+        self.current_epoch
+    }
+
     /// Look up a beacon's public key by its DID.
     ///
     /// Returns `None` if the beacon DID is not in the registry.
@@ -353,8 +363,7 @@ mod tests {
             vec![make_registry_entry("did:key:z6MkBeacon4", public)],
             0,
         );
-        let mut token =
-            make_signed_beacon_token("did:key:z6MkBeacon4", &secret, 1, "sector-C");
+        let mut token = make_signed_beacon_token("did:key:z6MkBeacon4", &secret, 1, "sector-C");
         // Tamper with signature.
         if let Some(b) = token.beacon_signature.0.first_mut() {
             *b ^= 0xFF;
@@ -441,5 +450,135 @@ mod tests {
         assert_eq!(anchor.current_epoch, 5);
         anchor.advance_epoch(10);
         assert_eq!(anchor.current_epoch, 10);
+    }
+
+    // ── Subphase 7.6: stale-epoch rejection under simulated skew ──────────────
+    //
+    // A beacon issues location tokens carrying a Lamport epoch.  During a long
+    // network partition the beacon keeps advancing its epoch (it is still
+    // alive in the quorum), but an isolated device retains only a token from
+    // before the partition.  The token's epoch is now *stale relative to the
+    // advanced current_epoch*.  On rejoin, the stale token must be rejected as
+    // a replay (Req 15.3) — not at a static epoch value, but after the epoch
+    // *advanced during the simulated partition*.
+    //
+    // This is the Subphase 7.6 acceptance criterion #2 test: "anchor-beacon
+    // stale-epoch rejection works correctly under simulated skew."
+    //
+    // Production path exercised:
+    //   `AnchorAttestedLocation::verify_beacon_token` (anchor.rs:147)
+    //     → stale-epoch check: `token.epoch < self.current_epoch` (anchor.rs:149)
+    //   Production caller: `DurabilitySubsystem::receive_receipt`
+    //     → `peer_has_valid_token` (anchor.rs:226) (durability/mod.rs:344-347).
+    //
+    // The existing `verify_stale_epoch_token_is_rejected_as_replay` test covers
+    // stale rejection at *static* epoch values (created with token.epoch=5,
+    // current_epoch=10).  This test simulates the partition: the token is
+    // initially valid, THEN the epoch advances, THEN the token is rejected.
+
+    #[test]
+    fn stale_epoch_rejected_after_beacon_advances_during_partition() {
+        let (b_secret, b_public) = generate_keypair().expect("beacon keygen");
+        let beacon_did = derive_did(&b_public);
+
+        // Anchor starts at epoch 0 — the beacon's epoch before the partition.
+        // The device holds a token at epoch 3 (issued before the partition).
+        let mut anchor = AnchorAttestedLocation::new(
+            vec![BeaconRegistryEntry {
+                beacon_did: beacon_did.clone(),
+                public_key: b_public,
+            }],
+            0,
+        );
+
+        // Phase 1: before partition, the epoch-3 token is valid.
+        let pre_partition_token = make_signed_beacon_token(&beacon_did, &b_secret, 3, "sector-7G");
+        assert!(
+            anchor.verify_beacon_token(&pre_partition_token).is_ok(),
+            "token at epoch 3 must be valid when current_epoch is 0 (3 >= 0)"
+        );
+
+        // Phase 2: simulated long partition — the beacon advances its epoch.
+        // During the partition, the beacon keeps operating and its epoch moves
+        // forward from 0 → 10.  The isolated device cannot receive the new
+        // tokens, so its cached epoch-3 token is now 7 epochs stale.
+        anchor.advance_epoch(10);
+        assert_eq!(
+            anchor.current_epoch, 10,
+            "beacon epoch must advance to 10 during the simulated partition"
+        );
+
+        // Phase 3: rejoin — the stale token (epoch 3) must be rejected.
+        // The stale-epoch check at anchor.rs:149 (`token.epoch < current_epoch`)
+        // fires: 3 < 10 → StaleEpoch replay rejection (Req 15.3).
+        let result = anchor.verify_beacon_token(&pre_partition_token);
+        assert!(
+            result.is_err(),
+            "stale beacon token (epoch 3) must be rejected after the epoch \
+             advanced to 10 during the simulated partition — anchor.rs:149"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("stale") || err.contains("replay"),
+            "stale-epoch rejection must be reported as a replay/stale error, got: {err}"
+        );
+
+        // Phase 4: a fresh token at the current epoch (10) verifies normally.
+        // The stale-epoch rejection must not poison future valid tokens.
+        let fresh_token = make_signed_beacon_token(&beacon_did, &b_secret, 10, "sector-7G");
+        assert!(
+            anchor.verify_beacon_token(&fresh_token).is_ok(),
+            "fresh token at epoch 10 must verify after rejoin"
+        );
+
+        // Phase 5: the stale token is permanently stale — it must still be
+        // rejected even after a fresh token is accepted.  The check is purely
+        // `token.epoch < current_epoch`, which is token-state-driven.
+        let still_stale = anchor.verify_beacon_token(&pre_partition_token);
+        assert!(
+            still_stale.is_err(),
+            "the pre-partition stale token must remain rejected even after a fresh token is accepted"
+        );
+    }
+
+    /// Companion: verify `peer_has_valid_token` (the production gate used by
+    /// `DurabilitySubsystem::receive_receipt` at durability/mod.rs:344-347)
+    /// also rejects stale-epoch tokens under simulated skew — not just
+    /// `verify_beacon_token`.  This closes the production-caller coverage gap:
+    /// `receive_receipt` delegates to `peer_has_valid_token`, so the stale-epoch
+    /// rejection must propagate through that path too.
+    #[test]
+    fn peer_has_valid_token_rejects_stale_epoch_under_simulated_skew() {
+        let (b_secret, b_public) = generate_keypair().expect("beacon keygen");
+        let beacon_did = derive_did(&b_public);
+
+        let mut anchor = AnchorAttestedLocation::new(
+            vec![BeaconRegistryEntry {
+                beacon_did: beacon_did.clone(),
+                public_key: b_public,
+            }],
+            0,
+        );
+        assert_eq!(anchor.mode(), AnchorMode::BeaconAttested);
+
+        // Epoch-0 token is valid at the start.
+        let stale_token = make_signed_beacon_token(&beacon_did, &b_secret, 0, "sector-A");
+        assert!(
+            anchor.peer_has_valid_token(&stale_token),
+            "token must be valid in peer_has_valid_token before the epoch advances"
+        );
+
+        // Beacon advances its epoch during the simulated partition.
+        anchor.advance_epoch(5);
+        assert_eq!(anchor.current_epoch, 5);
+
+        // After the epoch advance, the stale epoch-0 token is rejected — the
+        // production `peer_has_valid_token` gate (anchor.rs:226) must return
+        // false, which is the exact path `receive_receipt` checks.
+        assert!(
+            !anchor.peer_has_valid_token(&stale_token),
+            "peer_has_valid_token must reject the stale-epoch token after the \
+             beacon's epoch advances during a simulated partition (Req 15.3)"
+        );
     }
 }

@@ -316,6 +316,28 @@ impl CrdtEngine {
         self.revoked_dids.insert(did.clone());
     }
 
+    /// Force the engine's Lamport clock to `value` — test-only simulation of
+    /// clock skew.
+    ///
+    /// In production the Lamport clock only advances through `produce_delta`
+    /// (local writes) and `apply` (incoming Deltas — `max(local, incoming) + 1`).
+    /// There is no natural path that jumps the clock forward to an arbitrary
+    /// value, but a long network partition lets each device's clock diverge
+    /// arbitrarily from every other device's.  The merge path's
+    /// `max(local, incoming) + 1` reconciliation is correct *regardless* of the
+    /// absolute skew, but nothing in the existing test harness could exercise
+    /// significant skew — the audit (Report 5, Scenario 10) explicitly noted
+    /// "no clock-skew harness."  This setter lets integration tests inject the
+    /// skew a partition would have produced.
+    ///
+    /// `pub(crate)`: only reachable from in-crate test code; not exported on
+    /// either build target.  Gated on `#[cfg(test)]` so it can never be called
+    /// in a non-test build.
+    #[cfg(test)]
+    pub(crate) fn set_lamport_for_test(&mut self, value: u64) {
+        self.lamport = value;
+    }
+
     /// Emit a structured rejection failure record for an inbound Delta the
     /// merge gate is about to discard (Subphase 6.2 — Req 7.4/7.5).
     ///

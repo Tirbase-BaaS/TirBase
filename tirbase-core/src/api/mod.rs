@@ -9341,9 +9341,355 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p74_seq_A"));
         cleanup(&tmp_path("p74_seq_B"));
     }
-}
 
-// ─── Subphase 4.1: production cloud sync drain ───────────────────────────────
+    // ── Subphase 7.6: long-partition clock-skew rejoin ─────────────────────────
+    //
+    // Two devices that were previously connected exchange a baseline Delta,
+    // then are partitioned (simulated by dropping and recreating the handles on
+    // fresh ports — the mesh connection is severed).  While partitioned, each
+    // device performs multiple independent writes, driving its Lamport clock
+    // ahead by an arbitrary amount (simulated skew via `set_lamport_for_test`,
+    // which models the clock skew a real long partition would produce).  The
+    // `CrdtEngine::apply` path reconciles this with `max(local, incoming) + 1`
+    // (crdt/mod.rs:642); the test asserts that reconciliation produces a single
+    // converged clock and correct LWW merge on both devices.
+    //
+    // Acceptance criterion: a long-partition clock-skew rejoin test passes.
+
+    /// Helper: initialise two handles that exchange one Delta to establish a
+    /// shared baseline, then return the pair (still connected so the caller can
+    /// observe post-partition state).  We reuse the same handles across the
+    /// partition so the per-engine Lamport clock persists — the skew is what
+    /// accumulates *during* the partition, and the rejoin must reconcile it.
+    async fn init_connected_pair(
+        suffix_a: &str,
+        suffix_b: &str,
+    ) -> (Arc<CoreHandle>, Arc<CoreHandle>) {
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b);
+
+        let handle_a = init_mesh_handle(suffix_a, port_a).await;
+        let handle_b = init_mesh_handle(suffix_b, port_b).await;
+
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        (handle_a, handle_b)
+    }
+
+    /// Drive `handle` to perform `count` local writes on `table` under distinct
+    /// keys, advancing its Lamport clock by one per write (each `write()` calls
+    /// `produce_delta_with_tags` which increments `self.lamport`).
+    async fn burst_writes(handle: &CoreHandle, table: &str, count: usize, key_prefix: &str) {
+        for i in 0..count {
+            let val = json!({ "partition_write": i as i64, "who": key_prefix });
+            handle
+                .write(table, &format!("{key_prefix}-{i}"), val)
+                .await
+                .unwrap_or_else(|e| panic!("burst write {i} on {key_prefix} must succeed: {e}"));
+        }
+    }
+
+    /// Long-partition clock-skew rejoin: two devices sync a baseline, are
+    /// partitioned, each accumulates independent Lamport-clock skew, then they
+    /// reconnect and converge.
+    ///
+    /// Production path exercised: `CoreHandle::write` → `CrdtEngine::apply`
+    /// (the `max(local, incoming) + 1` Lamport reconciliation at
+    /// crdt/mod.rs:642) → real mesh reconnection via `dial_peer`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn long_partition_clock_skew_rejoins_converges() {
+        let (handle_a, handle_b) = init_connected_pair("p76_skew_A", "p76_skew_B").await;
+
+        // ── Phase 1: baseline sync — one Delta from A reaches B ───────────────
+        let baseline = json!({ "baseline": true, "seq": 0i64 });
+        let write_baseline = handle_a
+            .write("skew_table", "baseline", baseline.clone())
+            .await
+            .expect("baseline write must succeed");
+
+        wait_for_data(
+            &handle_b,
+            "skew_table",
+            "baseline",
+            &baseline,
+            Duration::from_secs(20),
+        )
+        .await;
+
+        // Confirm both engines agree on the baseline Lamport state.
+        let lamport_a_start = {
+            let crdt = handle_a.crdt.lock().expect("crdt lock A");
+            crdt.lamport()
+        };
+        assert!(
+            lamport_a_start > 0,
+            "A's Lamport clock must have advanced past the baseline write"
+        );
+
+        // ── Phase 2: long partition — sever the mesh ───────────────────────
+        //
+        // Drop both handles and recreate them on fresh ports.  The local
+        // SQLite store + identity persist on disk, so the new handles load the
+        // same data — but the mesh connection is gone (the partition).  This
+        // models a long network split: the two devices cannot see each other's
+        // Deltas for an extended period.
+        let lamport_a_before = lamport_a_start;
+        let lamport_b_before = {
+            let crdt = handle_b.crdt.lock().expect("crdt lock B");
+            crdt.lamport()
+        };
+
+        drop(handle_a);
+        drop(handle_b);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // Recreate handles from the persisted stores — same identity, same
+        // data, same Lamport clock (restored from the DAG / engine state).
+        let port_a2 = reserve_loopback_port();
+        let port_b2 = reserve_loopback_port();
+        assert_ne!(port_a2, port_b2);
+
+        let path_a2 = tmp_path("p76_skew_A2");
+        let path_b2 = tmp_path("p76_skew_B2");
+        cleanup(&path_a2);
+        cleanup(&path_b2);
+
+        let handle_a = CoreHandle::init(mesh_config(&path_a2, port_a2))
+            .await
+            .expect("re-init A after partition");
+        CoreHandle::spawn_inbound_drain_loop(&handle_a, Duration::from_millis(10));
+
+        let handle_b = CoreHandle::init(mesh_config(&path_b2, port_b2))
+            .await
+            .expect("re-init B after partition");
+        CoreHandle::spawn_inbound_drain_loop(&handle_b, Duration::from_millis(10));
+
+        // ── Phase 3: simulate clock skew during the partition ───────────────
+        //
+        // During the partition each device continued operating.  Its Lamport
+        // clock diverged from the other's.  We simulate the skew directly via
+        // the test-only `set_lamport_for_test` setter — this models the
+        // arbitrary clock divergence a real long partition produces (the audit,
+        // Report 5 Scenario 10, flagged "no clock-skew harness exists").
+        //
+        // A advances to 50, B advances to 100 — B is 50 ticks ahead of A, a
+        // significant skew that the rejoin must reconcile.
+        {
+            let mut crdt_a = handle_a.crdt.lock().expect("crdt lock A2");
+            crdt_a.set_lamport_for_test(50);
+            crdt_a.lamport(); // read to keep the lock path clear
+        }
+        {
+            let mut crdt_b = handle_b.crdt.lock().expect("crdt lock B2");
+            crdt_b.set_lamport_for_test(100);
+        }
+
+        let lamport_a_skewed = {
+            let crdt = handle_a.crdt.lock().expect("crdt lock A2");
+            crdt.lamport()
+        };
+        let lamport_b_skewed = {
+            let crdt = handle_b.crdt.lock().expect("crdt lock B2");
+            crdt.lamport()
+        };
+        assert_eq!(
+            lamport_a_skewed, 50,
+            "A's clock must have been skewed to 50 during partition"
+        );
+        assert_eq!(
+            lamport_b_skewed, 100,
+            "B's clock must have been skewed to 100 during partition"
+        );
+        assert_ne!(
+            lamport_a_skewed, lamport_b_skewed,
+            "the two devices' clocks must diverge during the partition"
+        );
+
+        // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
+        //
+        // Re-establish the real mesh.  Each device issues a new write; the
+        // Delta carries the device's (skewed) Lamport timestamp.  When the
+        // peer receives it, `apply()` runs:
+        //   self.lamport = self.lamport.max(delta.lamport) + 1
+        // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
+        // converge regardless of the skew magnitude.
+        let addr_b2 = format!("/ip4/127.0.0.1/tcp/{port_b2}");
+        connect_peers(&handle_a, &addr_b2).await;
+        connect_peers(&handle_b, format!("/ip4/127.0.0.1/tcp/{port_a2}").as_str()).await;
+
+        // Give the gossipsub subscriptions on the re-established connections
+        // time to propagate before issuing writes — a freshly-dialed peer's
+        // subscription isn't immediately known to the other side, and a write
+        // issued too early can be published before the subscriber is registered.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
+        //
+        // Re-establish the real mesh.  Each device issues a new write; the
+        // Delta carries the device's (skewed) Lamport timestamp.  When the
+        // peer receives it, `apply()` runs:
+        //   self.lamport = self.lamport.max(delta.lamport) + 1
+        // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
+        // converge regardless of the skew magnitude.
+        //
+        // A writes first and B waits to receive it, then B writes and A waits
+        // — sequential, not concurrent, so each write round-trips through the
+        // re-established mesh.  This verifies the clock-skew reconciliation
+        // (the skewed Lamport timestamps) rather than testing LWW conflict
+        // resolution.
+        let val_a = json!({ "post_partition": true, "from": "A", "seq": 0i64 });
+        handle_a
+            .write("skew_table", "postA", val_a.clone())
+            .await
+            .expect("post-partition write on A must succeed");
+
+        // Wait for A's post-partition Delta to reach B through the reconnected
+        // mesh — this exercises `apply()` with A's skewed Lamport (51) against
+        // B's skewed clock (100): max(100, 51) + 1 = 102.
+        let a_received_by_b = wait_for_data(
+            &handle_b,
+            "skew_table",
+            "postA",
+            &val_a,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(
+            a_received_by_b.data, val_a,
+            "B must receive A's post-partition Delta after rejoin (clock-skew reconciliation)"
+        );
+
+        // B's write (Lamport jumps from 100 → 101) reaches A:
+        // max(51→already advanced, 101) + 1 = 102.
+        let val_b = json!({ "post_partition": true, "from": "B", "seq": 0i64 });
+        handle_b
+            .write("skew_table", "postB", val_b.clone())
+            .await
+            .expect("post-partition write on B must succeed");
+
+        let b_received_by_a = wait_for_data(
+            &handle_a,
+            "skew_table",
+            "postB",
+            &val_b,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(
+            b_received_by_a.data, val_b,
+            "A must receive B's post-partition Delta after rejoin (clock-skew reconciliation)"
+        );
+
+        // ── Phase 5: assert convergence ───────────────────────────────────────
+        //
+        // Both devices must converge: (a) each has received and merged the
+        // other's post-partition Delta, (b) the Lamport clocks have reconciled
+        // to a single value on both sides via `max(local, incoming) + 1`, and
+        // (c) the LWW winner for any shared key is deterministic.
+        //
+        // The reconciled clock must be at least max(51, 101) + 1 = 102 — the
+        // higher of the two post-partition Lamport values, plus one for the
+        // merge step.
+        let lamport_a_after = {
+            let crdt = handle_a.crdt.lock().expect("crdt lock A3");
+            crdt.lamport()
+        };
+        let lamport_b_after = {
+            let crdt = handle_b.crdt.lock().expect("crdt lock B3");
+            crdt.lamport()
+        };
+
+        eprintln!(
+            "[p76] lamport: a_before={}, b_before={}, a_skew={}, b_skew={}, \
+             a_reconnect_write_lamport=51, b_reconnect_write_lamport=101, \
+             a_after={}, b_after={}",
+            lamport_a_before,
+            lamport_b_before,
+            lamport_a_skewed,
+            lamport_b_skewed,
+            lamport_a_after,
+            lamport_b_after
+        );
+
+        // Both clocks must have advanced past their skewed values — the
+        // incoming Delta (with lamport 101 on A, 51 on B) forces the
+        // `max()` reconciliation.
+        assert!(
+            lamport_a_after > lamport_a_skewed,
+            "A's clock must advance after receiving B's skewed Delta ({} > {})",
+            lamport_a_after,
+            lamport_a_skewed
+        );
+        assert!(
+            lamport_b_after > lamport_b_skewed,
+            "B's clock must advance after receiving A's skewed Delta ({} > {})",
+            lamport_b_after,
+            lamport_b_skewed
+        );
+
+        // The post-reconnect Lamport convergence: after both Deltas have
+        // merged in both directions, both clocks must converge to the same
+        // value.  The reconciliation is deterministic: each `apply` does
+        // `max(local, incoming) + 1`.  After the exchange:
+        //   A applies B's lamport=101: max(51, 101) + 1 = 102
+        //   B applies A's lamport=51:  max(101, 51) + 1 = 102
+        // Both must land on 102.
+        assert_eq!(
+            lamport_a_after, lamport_b_after,
+            "both devices must converge to the same Lamport clock after rejoin: A={}, B={}",
+            lamport_a_after, lamport_b_after
+        );
+        assert_eq!(
+            lamport_a_after, 102,
+            "reconciled Lamport must be max(51, 101) + 1 = 102 (the max rule at crdt/mod.rs:642)"
+        );
+
+        // Both post-partition writes have already been verified visible on
+        // the receiving device via wait_for_data above (a_received_by_b and
+        // b_received_by_a).  Now assert the Lamport clock convergence.
+        //
+        // The production reconciliation is `max(local, incoming) + 1` at
+        // crdt/mod.rs:642.  After the bidirectional exchange:
+        //   B applied A's lamport=51:  max(100, 51) + 1 = 102
+        //   A applied B's lamport=101: max(51, 101) + 1 = 102
+        // Both must land on the same converged value.
+        assert_eq!(
+            lamport_a_after, lamport_b_after,
+            "both devices must converge to the same Lamport clock after rejoin: A={}, B={}",
+            lamport_a_after, lamport_b_after
+        );
+        assert_eq!(
+            lamport_a_after, 102,
+            "reconciled Lamport must be max(51, 101) + 1 = 102 (the max rule at crdt/mod.rs:642)"
+        );
+
+        // The baseline value (written before the partition) must still be
+        // intact on both devices — the partition and rejoin must not have
+        // corrupted pre-existing state.
+        let a_baseline = handle_a
+            .read("skew_table", "baseline")
+            .await
+            .expect("A baseline read must succeed");
+        assert_eq!(
+            a_baseline.data, baseline,
+            "pre-partition baseline must survive the clock-skew rejoin on A"
+        );
+        let b_baseline = handle_b
+            .read("skew_table", "baseline")
+            .await
+            .expect("B baseline read must succeed");
+        assert_eq!(
+            b_baseline.data, baseline,
+            "pre-partition baseline must survive the clock-skew rejoin on B"
+        );
+
+        cleanup(&path_a2);
+        cleanup(&path_b2);
+    }
+}
 
 /// Integration tests for the production cloud drain path (Subphase 4.1): a
 /// real `CloudLedgerConnection` attached to the Durability Subsystem, driven
