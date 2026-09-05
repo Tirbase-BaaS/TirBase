@@ -38,7 +38,8 @@ wasm    = [
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
 [dependencies]
-# CRDT engine — Automerge 3.0 semantics
+# CRDT engine — `automerge` v0.5.x Rust crate, which implements the
+# Automerge 3.0 document format with Hexane columnar storage.
 automerge        = { version = "0.5.10", default-features = false }
 
 # Ed25519 identity (DIDs, signing, verification)

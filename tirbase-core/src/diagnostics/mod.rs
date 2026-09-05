@@ -39,7 +39,8 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
         code: "UNVERIFIED_RETENTION",
         message: "A device isolated from all nodes carrying a Revocation_Delta retains \
                   Trust_Level UNVERIFIED and continues to merge Deltas until its \
-                  Biscuit_Token Epoch expires.".to_string(),
+                  Biscuit_Token Epoch expires."
+            .to_string(),
     });
 
     // Req 21.4 — LoRa/satellite duty-cycle limitation
@@ -56,7 +57,8 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
         severity: DiagnosticSeverity::Info,
         code: "TREE_TOPOLOGY",
         message: "Multi-hop packet routing uses tree topology. Hub-and-spoke routing via a \
-                  static local relay is not implemented in v1.".to_string(),
+                  static local relay is not implemented in v1."
+            .to_string(),
     });
 
     // Req 21.3 — spatial diversity tag spoofing (only when Anchor_Attested_Location is disabled)
@@ -66,7 +68,8 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             code: "TAG_SPOOF_RISK",
             message: "Spatial_Diversity quorum protects against honest device failure and data \
                       loss but does not protect against a fully compromised device that falsifies \
-                      its own squad or tunnel_sector tag.".to_string(),
+                      its own squad or tunnel_sector tag."
+                .to_string(),
         });
     }
 
@@ -76,7 +79,8 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             severity: DiagnosticSeverity::Warning,
             code: "UNILATERAL_EXILE",
             message: "A single Manager_DID can unilaterally exile any device without requiring \
-                      a second approval (M=1, N=1 revocation configuration).".to_string(),
+                      a second approval (M=1, N=1 revocation configuration)."
+                .to_string(),
         });
     }
 
@@ -97,6 +101,19 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             ),
         });
     }
+
+    // Req 21.7 — CCE ICO state is in-memory only; not persisted across restarts
+    entries.push(DiagnosticEntry {
+        severity: DiagnosticSeverity::Info,
+        code: "CCE_INMEMORY_ONLY",
+        message: "The Causal Contamination Engine's Incident Context Objects (open \
+                  incidents, composite incidents, and the contaminated-rows fast-lookup \
+                  index) are held in-memory only and are not persisted across process \
+                  restarts. The durable append-only Delta tag log survives, but ICOs \
+                  must be rebuilt by re-running the taint walk from persisted tags on \
+                  restart. Full ICO persistence is deferred to a post-v1 task."
+            .to_string(),
+    });
 
     entries
 }
@@ -135,7 +152,10 @@ mod tests {
     fn unverified_retention_is_info() {
         let config = base_config();
         let entries = emit_startup_diagnostics(&config);
-        let entry = entries.iter().find(|e| e.code == "UNVERIFIED_RETENTION").unwrap();
+        let entry = entries
+            .iter()
+            .find(|e| e.code == "UNVERIFIED_RETENTION")
+            .unwrap();
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
@@ -208,7 +228,10 @@ mod tests {
             },
         };
         let entries = emit_startup_diagnostics(&config);
-        let entry = entries.iter().find(|e| e.code == "UNILATERAL_EXILE").unwrap();
+        let entry = entries
+            .iter()
+            .find(|e| e.code == "UNILATERAL_EXILE")
+            .unwrap();
         assert_eq!(entry.severity, DiagnosticSeverity::Warning);
     }
 
@@ -279,7 +302,10 @@ mod tests {
     fn lora_duty_cycle_is_info() {
         let config = base_config();
         let entries = emit_startup_diagnostics(&config);
-        let entry = entries.iter().find(|e| e.code == "LORA_DUTY_CYCLE").unwrap();
+        let entry = entries
+            .iter()
+            .find(|e| e.code == "LORA_DUTY_CYCLE")
+            .unwrap();
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
@@ -371,10 +397,10 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Warning);
     }
 
-    // ── Composite: all-triggering config emits all 6 codes ───────────────────
+    // ── Composite: all-triggering config emits all unconditional + conditional codes
 
     #[test]
-    fn all_six_diagnostics_emitted_when_all_conditions_met() {
+    fn all_diagnostics_emitted_when_all_conditions_met() {
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -394,6 +420,7 @@ mod tests {
             "TAG_SPOOF_RISK",
             "UNILATERAL_EXILE",
             "EXTENDED_TTL",
+            "CCE_INMEMORY_ONLY",
         ] {
             assert!(
                 has_code(&entries, code),
@@ -403,13 +430,37 @@ mod tests {
         }
     }
 
-    // ── Baseline: default config emits exactly the 3 unconditional codes ─────
+    // ── CCE_INMEMORY_ONLY is always emitted (Req 21.7)
+
+    #[test]
+    fn cce_inmemory_only_always_present() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        assert!(
+            has_code(&entries, "CCE_INMEMORY_ONLY"),
+            "CCE_INMEMORY_ONLY should be emitted on every init"
+        );
+    }
+
+    #[test]
+    fn cce_inmemory_only_is_info() {
+        let config = base_config();
+        let entries = emit_startup_diagnostics(&config);
+        let entry = entries
+            .iter()
+            .find(|e| e.code == "CCE_INMEMORY_ONLY")
+            .unwrap();
+        assert_eq!(entry.severity, DiagnosticSeverity::Info);
+    }
+
+    // ── Baseline: default config emits exactly the unconditional codes ─────
 
     #[test]
     fn default_config_emits_only_unconditional_diagnostics() {
         // DeploymentConfig::default() has anchor_attested_location=false,
         // revocation_m=0, revocation_n=0, biscuit_ttl_secs=0 —
         // so TAG_SPOOF_RISK fires but UNILATERAL_EXILE and EXTENDED_TTL do not.
+        // CCE_INMEMORY_ONLY is unconditional (always emitted, Req 21.7).
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -422,11 +473,12 @@ mod tests {
             },
         };
         let entries = emit_startup_diagnostics(&config);
-        // Must be present
+        // Must be present (unconditional)
         assert!(has_code(&entries, "UNVERIFIED_RETENTION"));
         assert!(has_code(&entries, "LORA_DUTY_CYCLE"));
         assert!(has_code(&entries, "TREE_TOPOLOGY"));
-        // Must be absent
+        assert!(has_code(&entries, "CCE_INMEMORY_ONLY"));
+        // Must be absent (conditional)
         assert!(!has_code(&entries, "TAG_SPOOF_RISK"));
         assert!(!has_code(&entries, "UNILATERAL_EXILE"));
         assert!(!has_code(&entries, "EXTENDED_TTL"));

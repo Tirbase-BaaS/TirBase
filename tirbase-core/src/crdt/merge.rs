@@ -22,7 +22,6 @@
 //! tiebreaking predicates for LWW scalar and RGA sequence conflicts. They are
 //! tested independently of the full engine.
 
-
 use crate::crdt::delta::Delta;
 use crate::crdt::CrdtEngine;
 use crate::errors::TirBaseError;
@@ -63,7 +62,8 @@ pub enum QuarantineReason {
 ///
 /// ## Implementation
 ///
-/// The Automerge 0.5.x binary format is parsed by loading the bytes with
+/// The Automerge 3.0 binary format (as implemented by the `automerge` v0.5.x
+/// Rust crate) is parsed by loading the bytes with
 /// `AutoCommit::load()` and iterating the decoded changes. Each
 /// `ExpandedChange` op carries an `insert` flag that is `true` for sequence
 /// insertions (list / text positions) and `false` for map-key set ops.
@@ -203,7 +203,10 @@ mod tests {
     #[test]
     fn lww_equal_lamport_greater_actor_wins() {
         assert!(merge_lww(5, b"b", 5, b"a"), "greater actor must win on tie");
-        assert!(!merge_lww(5, b"a", 5, b"b"), "lesser actor must lose on tie");
+        assert!(
+            !merge_lww(5, b"a", 5, b"b"),
+            "lesser actor must lose on tie"
+        );
     }
 
     #[test]
@@ -241,8 +244,11 @@ mod tests {
         ops.sort_by(|x, y| y.0.cmp(&x.0).then_with(|| y.1.cmp(&x.1)));
 
         let values: Vec<&str> = ops.iter().map(|(_, _, v)| *v).collect();
-        assert_eq!(values, vec!["C", "B", "A"],
-            "RGA order must be (lamport DESC, actor DESC)");
+        assert_eq!(
+            values,
+            vec!["C", "B", "A"],
+            "RGA order must be (lamport DESC, actor DESC)"
+        );
     }
 }
 
@@ -261,9 +267,15 @@ mod routing_tests {
         compute_schema_identifier_hash(&[("users", &[("id", "TEXT"), ("name", "TEXT")])])
     }
 
-    fn make_engine(secret: [u8; 32], public: [u8; 32], did: String, schema: [u8; 32]) -> CrdtEngine {
+    fn make_engine(
+        secret: [u8; 32],
+        public: [u8; 32],
+        did: String,
+        schema: [u8; 32],
+    ) -> CrdtEngine {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory DB");
-        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
+        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .expect("create schema");
         let conn = Arc::new(Mutex::new(conn));
         CrdtEngine::new(secret, public, did, schema, conn)
     }
@@ -327,7 +339,9 @@ mod routing_tests {
         let outcome = apply_incoming_delta(&mut engine, &delta).unwrap();
         assert_eq!(
             outcome,
-            MergeOutcome::Quarantined { reason: QuarantineReason::UnknownSchemaHash },
+            MergeOutcome::Quarantined {
+                reason: QuarantineReason::UnknownSchemaHash
+            },
             "unknown schema hash must quarantine: {outcome:?}"
         );
     }
@@ -397,12 +411,12 @@ mod routing_tests {
         let schema = test_schema();
 
         let mut engine_via_routing = make_engine(secret_a, public_a, did_a.clone(), schema);
-        let mut engine_via_apply   = make_engine(secret_a, public_a, did_a, schema);
+        let mut engine_via_apply = make_engine(secret_a, public_a, did_a, schema);
 
         let delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![]);
 
         let outcome_routing = apply_incoming_delta(&mut engine_via_routing, &delta).unwrap();
-        let outcome_apply   = engine_via_apply.apply(&delta).unwrap();
+        let outcome_apply = engine_via_apply.apply(&delta).unwrap();
 
         assert_eq!(
             outcome_routing, outcome_apply,
@@ -415,7 +429,7 @@ mod routing_tests {
     /// A Delta carrying a real scalar map-key write must classify as LWW (`Some(false)`).
     #[test]
     fn is_rga_operation_scalar_write_returns_false() {
-        use automerge::{AutoCommit, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit};
 
         // Produce real Automerge bytes for a scalar integer write on ROOT["score"].
         let mut doc = AutoCommit::new();
@@ -433,11 +447,13 @@ mod routing_tests {
     /// A Delta carrying a real list insertion must classify as RGA (`Some(true)`).
     #[test]
     fn is_rga_operation_list_insert_returns_true() {
-        use automerge::{AutoCommit, ObjType, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
         // Produce real Automerge bytes for a list insertion.
         let mut doc = AutoCommit::new();
-        let list = doc.put_object(automerge::ROOT, "items", ObjType::List).unwrap();
+        let list = doc
+            .put_object(automerge::ROOT, "items", ObjType::List)
+            .unwrap();
         doc.insert(&list, 0, "hello").unwrap();
         let bytes = doc.save();
 
@@ -452,11 +468,13 @@ mod routing_tests {
     /// A Delta carrying a real text insertion must classify as RGA (`Some(true)`).
     #[test]
     fn is_rga_operation_text_insert_returns_true() {
-        use automerge::{AutoCommit, ObjType, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
         // Produce real Automerge bytes for a text insertion.
         let mut doc = AutoCommit::new();
-        let text = doc.put_object(automerge::ROOT, "body", ObjType::Text).unwrap();
+        let text = doc
+            .put_object(automerge::ROOT, "body", ObjType::Text)
+            .unwrap();
         doc.insert(&text, 0, "H").unwrap();
         let bytes = doc.save();
 
@@ -470,11 +488,7 @@ mod routing_tests {
     /// Empty bytes must return `None` (safe default).
     #[test]
     fn is_rga_operation_empty_bytes_returns_none() {
-        assert_eq!(
-            is_rga_operation(&[]),
-            None,
-            "empty bytes must return None"
-        );
+        assert_eq!(is_rga_operation(&[]), None, "empty bytes must return None");
     }
 
     /// Garbage bytes that cannot be parsed must return `None`.
@@ -492,10 +506,11 @@ mod routing_tests {
     /// with `insert=false`.
     #[test]
     fn is_rga_operation_put_object_only_returns_false() {
-        use automerge::{AutoCommit, ObjType, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
         let mut doc = AutoCommit::new();
-        doc.put_object(automerge::ROOT, "items", ObjType::List).unwrap();
+        doc.put_object(automerge::ROOT, "items", ObjType::List)
+            .unwrap();
         // No insertions into the list — only the map-key set for "items".
         let bytes = doc.save();
 
@@ -510,11 +525,13 @@ mod routing_tests {
     /// (conservative: any sequence insertion triggers the RGA path).
     #[test]
     fn is_rga_operation_mixed_ops_returns_true() {
-        use automerge::{AutoCommit, ObjType, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
         let mut doc = AutoCommit::new();
         doc.put(automerge::ROOT, "name", "Alice").unwrap();
-        let list = doc.put_object(automerge::ROOT, "items", ObjType::List).unwrap();
+        let list = doc
+            .put_object(automerge::ROOT, "items", ObjType::List)
+            .unwrap();
         doc.insert(&list, 0, "x").unwrap();
         let bytes = doc.save();
 
@@ -529,7 +546,7 @@ mod routing_tests {
     /// the LWW path (classification logged as "LWW scalar") and return Merged.
     #[test]
     fn scalar_delta_routes_via_lww_in_apply_incoming() {
-        use automerge::{AutoCommit, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit};
 
         let (secret_a, public_a) = generate_keypair().unwrap();
         let did_a = derive_did_from_public_key(&public_a);
@@ -558,7 +575,7 @@ mod routing_tests {
     /// the RGA path (classification logged as "RGA sequence") and return Merged.
     #[test]
     fn list_insert_delta_routes_via_rga_in_apply_incoming() {
-        use automerge::{AutoCommit, ObjType, transaction::Transactable};
+        use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
         let (secret_a, public_a) = generate_keypair().unwrap();
         let did_a = derive_did_from_public_key(&public_a);
@@ -569,7 +586,9 @@ mod routing_tests {
 
         // Produce real list Automerge bytes.
         let mut doc = AutoCommit::new();
-        let list = doc.put_object(automerge::ROOT, "items", ObjType::List).unwrap();
+        let list = doc
+            .put_object(automerge::ROOT, "items", ObjType::List)
+            .unwrap();
         doc.insert(&list, 0, "elem1").unwrap();
         let bytes = doc.save();
 

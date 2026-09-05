@@ -12,9 +12,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::errors::TirBaseError;
-use types::{
-    ConnectionStatus, DurabilityTier, MeshStatus, QueryResult, TrustLevel, WriteResult,
-};
+use types::{ConnectionStatus, DurabilityTier, MeshStatus, QueryResult, TrustLevel, WriteResult};
 
 // ─── Subsystem imports ────────────────────────────────────────────────────────
 
@@ -313,9 +311,9 @@ pub struct CoreHandle {
     /// Wrapped in `Arc<tokio::sync::Mutex<..>>` so `CoreHandle` remains
     /// `Sync` while the production inbound drain loop spawned by [`CoreHandle::init`]
     /// holds its own `Arc` clone of the receiver (Subphase 1.3).
-    inbound_rx: Arc<tokio::sync::Mutex<
-        tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>,
-    >>,
+    inbound_rx: Arc<
+        tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>>,
+    >,
 
     /// Sender end of the explicit-dial channel (native only).
     ///
@@ -338,13 +336,11 @@ impl CoreHandle {
     /// draining `inbound_rx` for the lifetime of the instance.
     pub async fn init(config: InitConfig) -> Result<Arc<Self>, TirBaseError> {
         // ── Diagnostics channel ───────────────────────────────────────────────
-        let (diag_tx, _diag_rx) =
-            tokio::sync::broadcast::channel::<DiagnosticEntry>(64);
+        let (diag_tx, _diag_rx) = tokio::sync::broadcast::channel::<DiagnosticEntry>(64);
 
         // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
-        let (rejection_records_tx, _rejection_records_rx) = tokio::sync::broadcast::channel::<
-            crate::crdt::failure::DeltaRejectionRecord,
-        >(64);
+        let (rejection_records_tx, _rejection_records_rx) =
+            tokio::sync::broadcast::channel::<crate::crdt::failure::DeltaRejectionRecord>(64);
 
         // ── Identity ──────────────────────────────────────────────────────────
         let identity_path = format!("{}.identity.json", config.storage_path);
@@ -363,10 +359,17 @@ impl CoreHandle {
         // ── Capability Manager ────────────────────────────────────────────────
         // Root CA keys come from deployment config; an empty vec is the explicit
         // unconfigured state (verification fails until keys are registered).
+        //
+        // The `EXTENDED_TTL` diagnostic (Req 21.6) has already fired above by
+        // `emit_startup_diagnostics` when `biscuit_ttl_secs > 24h`; we mirror
+        // that decision here as the runtime accepted-risk flag that authorises
+        // `biscuit::create_token` to mint extended-window tokens (Req 8.7).
+        let extended_ttl_accepted_risk = config.deployment.biscuit_ttl_secs > 86400;
         let capability = CapabilityManager::new(
             config.deployment.root_ca_keys.clone(),
             config.deployment.revocation_m,
             config.deployment.revocation_n,
+            extended_ttl_accepted_risk,
         );
         if let Some(warning) = capability.check_1_of_1_warning() {
             // Emit as an informal diagnostic — ignore send errors (no subscribers yet).
@@ -445,16 +448,14 @@ impl CoreHandle {
         // ── WASM CCE and RevocationSubsystem ──────────────────────────────────
         #[cfg(not(feature = "native"))]
         let cce = Arc::new(Mutex::new(
-            crate::contamination::CausalContaminationEngine::new()
+            crate::contamination::CausalContaminationEngine::new(),
         ));
 
         #[cfg(not(feature = "native"))]
-        let revocation = Arc::new(Mutex::new(
-            crate::auth::RevocationSubsystem::new(
-                config.deployment.revocation_m.max(1),
-                config.deployment.revocation_n.max(1),
-            )
-        ));
+        let revocation = Arc::new(Mutex::new(crate::auth::RevocationSubsystem::new(
+            config.deployment.revocation_m.max(1),
+            config.deployment.revocation_n.max(1),
+        )));
 
         // ── Migration Engine ──────────────────────────────────────────────────
         //
@@ -515,17 +516,14 @@ impl CoreHandle {
                         ),
                     });
                 }
-                let mut crdt = crdt.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
+                let mut crdt = crdt
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                         reason: format!("crdt mutex poisoned during schema registration: {e}"),
-                    }
-                })?;
+                    })?;
                 crdt.set_current_schema(current_hash);
                 for (idx, schema) in schema_definitions.into_iter().enumerate() {
-                    crdt.register_schema_definition(
-                        migration_version_path.versions[idx],
-                        schema,
-                    )?;
+                    crdt.register_schema_definition(migration_version_path.versions[idx], schema)?;
                 }
             }
         }
@@ -541,13 +539,13 @@ impl CoreHandle {
         // channel and never re-enters the engine.
         {
             let tx = rejection_records_tx.clone();
-            let mut crdt_guard = crdt.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let mut crdt_guard = crdt
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!(
                         "crdt mutex poisoned while registering rejection listener: {e}"
                     ),
-                }
-            })?;
+                })?;
             crdt_guard.set_rejection_listener(Box::new(move |record| {
                 let _ = tx.send(record.clone());
             }));
@@ -626,10 +624,12 @@ impl CoreHandle {
                 max_single_sector_fraction,
             },
             if config.deployment.anchor_attested_location {
-                Some(crate::durability::anchor::AnchorAttestedLocation::from_beacon_public_keys(
-                    &config.deployment.beacon_public_keys,
-                    0,
-                ))
+                Some(
+                    crate::durability::anchor::AnchorAttestedLocation::from_beacon_public_keys(
+                        &config.deployment.beacon_public_keys,
+                        0,
+                    ),
+                )
             } else {
                 None
             },
@@ -720,9 +720,8 @@ impl CoreHandle {
         // The receiver is wrapped in `Arc<tokio::sync::Mutex<..>>` so it can be
         // shared between this handle (manual `process_inbound_messages()` drains)
         // and the production inbound drain loop spawned below (Subphase 1.3).
-        let (inbound_tx, inbound_rx) = tokio::sync::mpsc::channel::<
-            crate::transport::message::GossipMessage,
-        >(1024);
+        let (inbound_tx, inbound_rx) =
+            tokio::sync::mpsc::channel::<crate::transport::message::GossipMessage>(1024);
         let inbound_rx = Arc::new(tokio::sync::Mutex::new(inbound_rx));
 
         // ── Native: take the Swarm and spawn the polling task ─────────────────
@@ -754,14 +753,15 @@ impl CoreHandle {
             // forwards target multiaddrs here; the Swarm polling task owns the
             // receiver and performs the actual `swarm.dial`.  `None` when no
             // polling task can be spawned (transport failed to start).
-            let (dial_tx, mut dial_rx) =
-                tokio::sync::mpsc::channel::<libp2p::Multiaddr>(64);
+            let (dial_tx, mut dial_rx) = tokio::sync::mpsc::channel::<libp2p::Multiaddr>(64);
 
             let (swarm_opt, gossip_topic) = {
                 let mut transport_guard =
-                    transport.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("transport mutex poisoned: {e}"),
-                    })?;
+                    transport
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("transport mutex poisoned: {e}"),
+                        })?;
                 let topic = transport_guard.gossip_topic.clone();
                 let swarm = transport_guard.take_swarm(outbound_tx);
                 (swarm, topic)
@@ -1051,11 +1051,12 @@ impl CoreHandle {
     /// own DID and invokes [`CapabilityManager::apply_revocation`]; from then
     /// on this gate returns `AuthorisationFailed` for every local I/O.
     fn ensure_local_trust_allows_io(&self) -> Result<(), TirBaseError> {
-        let cap = self.capability.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let cap = self
+            .capability
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("capability mutex poisoned: {e}"),
-            }
-        })?;
+            })?;
         if cap.trust_level() == TrustLevel::Revoked {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "device is REVOKED".to_string(),
@@ -1090,19 +1091,17 @@ impl CoreHandle {
 
         let id = uuid::Uuid::now_v7();
         let payload = receipt_signing_payload(state_hash, &id);
-        let issuer_signature = match crate::identity::keypair::sign(
-            &self.identity.signing_key_bytes(),
-            &payload,
-        ) {
-            Ok(sig) => sig,
-            Err(e) => {
-                eprintln!(
-                    "[durability] receipt signing failed for delta {}: {e}",
-                    hex::encode(state_hash)
-                );
-                return;
-            }
-        };
+        let issuer_signature =
+            match crate::identity::keypair::sign(&self.identity.signing_key_bytes(), &payload) {
+                Ok(sig) => sig,
+                Err(e) => {
+                    eprintln!(
+                        "[durability] receipt signing failed for delta {}: {e}",
+                        hex::encode(state_hash)
+                    );
+                    return;
+                }
+            };
 
         let receipt = DurabilityReceipt {
             id,
@@ -1176,8 +1175,14 @@ impl CoreHandle {
         // project the inbound Delta directly to the SQL store (Req 4.3, 3.3).
         let automerge_bytes = {
             let mut meta = serde_json::Map::new();
-            meta.insert("_tirbase_table".to_string(), serde_json::Value::String(table.to_string()));
-            meta.insert("_tirbase_key".to_string(), serde_json::Value::String(key.to_string()));
+            meta.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String(table.to_string()),
+            );
+            meta.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String(key.to_string()),
+            );
             // Merge application data fields (if data is an object) or store under "_data".
             if let Some(obj) = data.as_object() {
                 for (k, v) in obj {
@@ -1213,10 +1218,9 @@ impl CoreHandle {
             .map(|cce| cce.active_incident_for_row(table, key))
             .unwrap_or(None);
         let human_reaction_tag = if local_projection_contaminated || quarantine_active {
-            active_incident_id
-                .map(|incident_id| crate::crdt::delta::DeltaTag::ContaminatedByHumanReaction {
-                    incident_id,
-                })
+            active_incident_id.map(|incident_id| {
+                crate::crdt::delta::DeltaTag::ContaminatedByHumanReaction { incident_id }
+            })
         } else {
             None
         };
@@ -1279,16 +1283,20 @@ impl CoreHandle {
             _ => unreachable!("only the human-reaction tag is produced here"),
         }) {
             let hr_delta_id = delta.id;
-            let _ = self.cce.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("cce mutex poisoned in human-reaction wiring: {e}"),
-            }).map(|mut cce| {
-                cce.tag_contamination_root(
-                    hr_delta_id,
-                    crate::contamination::incident::TaintSource::HumanReaction {
-                        triggered_by_incident_id: hr_incident_id,
-                    },
-                )
-            });
+            let _ = self
+                .cce
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("cce mutex poisoned in human-reaction wiring: {e}"),
+                })
+                .map(|mut cce| {
+                    cce.tag_contamination_root(
+                        hr_delta_id,
+                        crate::contamination::incident::TaintSource::HumanReaction {
+                            triggered_by_incident_id: hr_incident_id,
+                        },
+                    )
+                });
         }
 
         // 5. Register with durability subsystem (adds to cloud outbound queue).
@@ -1300,7 +1308,7 @@ impl CoreHandle {
             })?
             .register_delta(
                 delta.id,
-                delta.id,              // state_hash = delta.id for v1
+                delta.id, // state_hash = delta.id for v1
                 delta_bytes.clone(),
                 delta.causal_parents.clone(),
                 HashMap::new(),
@@ -1386,30 +1394,32 @@ impl CoreHandle {
 
         #[cfg(feature = "native")]
         let data = {
-            let store = self.store.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let store = self
+                .store
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("store mutex poisoned: {e}"),
-                }
-            })?;
-            store.read(table, key)?.ok_or_else(|| {
-                TirBaseError::LocalStoreWriteFailed {
+                })?;
+            store
+                .read(table, key)?
+                .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("key '{key}' not found in table '{table}'"),
-                }
-            })?
+                })?
         };
 
         #[cfg(not(feature = "native"))]
         let data = {
-            let store = self.store.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let store = self
+                .store
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("store mutex poisoned: {e}"),
-                }
-            })?;
-            store.read(table, key)?.ok_or_else(|| {
-                TirBaseError::LocalStoreWriteFailed {
+                })?;
+            store
+                .read(table, key)?
+                .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("key '{key}' not found in table '{table}'"),
-                }
-            })?
+                })?
         };
 
         let unverified_warning = self
@@ -1442,21 +1452,23 @@ impl CoreHandle {
 
         #[cfg(feature = "native")]
         let rows = {
-            let store = self.store.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let store = self
+                .store
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("store mutex poisoned: {e}"),
-                }
-            })?;
+                })?;
             store.query(table, filter.as_ref())?
         };
 
         #[cfg(not(feature = "native"))]
         let rows = {
-            let store = self.store.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let store = self
+                .store
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("store mutex poisoned: {e}"),
-                }
-            })?;
+                })?;
             store.query(table, filter.as_ref())?
         };
 
@@ -1518,9 +1530,7 @@ impl CoreHandle {
     ///
     /// Returns a new receiver that will receive all future diagnostic entries
     /// sent to this handle's channel.
-    pub fn subscribe_diagnostics(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<DiagnosticEntry> {
+    pub fn subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<DiagnosticEntry> {
         self.diagnostics_channel.subscribe()
     }
 
@@ -1565,11 +1575,12 @@ impl CoreHandle {
     /// `core_activate_saturate_mode`) accepts tokens signed by this key.
     /// Registering a duplicate key is a no-op.
     pub fn register_root_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
-        let mut capability = self.capability.lock().map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("capability mutex poisoned: {e}"),
-            }
-        })?;
+        let mut capability =
+            self.capability
+                .lock()
+                .map_err(|e| TirBaseError::AuthorisationFailed {
+                    reason: format!("capability mutex poisoned: {e}"),
+                })?;
         capability.register_root_ca_key(key);
         Ok(())
     }
@@ -1584,11 +1595,12 @@ impl CoreHandle {
     /// Production callers: native host applications and the
     /// `core_register_migration_ca_key` WASM export (Subphase 5.1).
     pub fn register_migration_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
-        let mut migration = self.migration.lock().map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("migration mutex poisoned: {e}"),
-            }
-        })?;
+        let mut migration =
+            self.migration
+                .lock()
+                .map_err(|e| TirBaseError::AuthorisationFailed {
+                    reason: format!("migration mutex poisoned: {e}"),
+                })?;
         migration.register_ca_public_key(key);
         Ok(())
     }
@@ -1670,11 +1682,12 @@ impl CoreHandle {
         // 3. Accumulate this signature locally — identical to processing an
         //    inbound partial delta from a peer.
         let status = {
-            let mut rev = revocation_arc.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("revocation mutex poisoned: {e}"),
-                }
-            })?;
+            let mut rev =
+                revocation_arc
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("revocation mutex poisoned: {e}"),
+                    })?;
             rev.process_incoming_delta(
                 &partial,
                 &mut |applied_did, complete_delta| {
@@ -1789,11 +1802,12 @@ impl CoreHandle {
         &self,
         device_did: &str,
     ) -> Result<Option<crate::auth::DeviceRevocationStatus>, TirBaseError> {
-        let rev = self.revocation.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let rev = self
+            .revocation
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("revocation mutex poisoned: {e}"),
-            }
-        })?;
+            })?;
         Ok(rev.device_status(device_did).cloned())
     }
 
@@ -1821,10 +1835,7 @@ impl CoreHandle {
     /// `SignatureVerificationFailed`.  The state machine re-verifies the token
     /// authoritatively inside the transport — this pre-check only sharpens the
     /// error the caller sees.
-    fn verify_disaster_alert_token(
-        &self,
-        biscuit_token: &[u8],
-    ) -> Result<i64, TirBaseError> {
+    fn verify_disaster_alert_token(&self, biscuit_token: &[u8]) -> Result<i64, TirBaseError> {
         if biscuit_token.is_empty() {
             return Err(TirBaseError::SignatureVerificationFailed {
                 reason: "biscuit token is absent or empty".to_string(),
@@ -1836,8 +1847,7 @@ impl CoreHandle {
         let root_ca_key = self.root_ca_public_key();
         if root_ca_key.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
-                reason: "no root CA public key registered; cannot verify Biscuit token"
-                    .to_string(),
+                reason: "no root CA public key registered; cannot verify Biscuit token".to_string(),
             });
         }
 
@@ -1988,11 +1998,12 @@ impl CoreHandle {
         match msg {
             GossipMessage::InboundDelta(delta) => {
                 let outcome = {
-                    let mut crdt = self.crdt.lock().map_err(|e| {
-                        TirBaseError::LocalStoreWriteFailed {
-                            reason: format!("crdt mutex: {e}"),
-                        }
-                    })?;
+                    let mut crdt =
+                        self.crdt
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex: {e}"),
+                            })?;
                     crate::crdt::merge::apply_incoming_delta(&mut crdt, &delta)?
                 };
                 match outcome {
@@ -2015,9 +2026,12 @@ impl CoreHandle {
                         //  3. If no table/key can be determined, skip projection (conservative
                         //     fallback — data is in the CRDT doc but not in SQL projection yet).
                         if !delta.automerge_bytes.is_empty() {
-                            if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes) {
+                            if let Ok(json_val) =
+                                serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes)
+                            {
                                 if let Some(obj) = json_val.as_object() {
-                                    let table_name = obj.get("_tirbase_table").and_then(|v| v.as_str());
+                                    let table_name =
+                                        obj.get("_tirbase_table").and_then(|v| v.as_str());
                                     let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
 
                                     if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
@@ -2028,10 +2042,13 @@ impl CoreHandle {
                                                 if k == "_data" {
                                                     // Scalar/non-object data stored under _data.
                                                     // Write as-is under the original key.
-                                                    let _ = self.store
+                                                    let _ = self
+                                                        .store
                                                         .lock()
-                                                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                                            reason: format!("store mutex: {e}"),
+                                                        .map_err(|e| {
+                                                            TirBaseError::LocalStoreWriteFailed {
+                                                                reason: format!("store mutex: {e}"),
+                                                            }
                                                         })?
                                                         .write(tbl, rkey, v);
                                                     eprintln!(
@@ -2047,7 +2064,8 @@ impl CoreHandle {
                                         }
                                         if !app_data.is_empty() {
                                             let app_val = serde_json::Value::Object(app_data);
-                                            let _ = self.store
+                                            let _ = self
+                                                .store
                                                 .lock()
                                                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                                                     reason: format!("store mutex: {e}"),
@@ -2072,8 +2090,10 @@ impl CoreHandle {
                                 // NOTE: The CrdtEngine's Automerge doc is cross-table;
                                 // project all tables found in automerge_docs.
                                 let tables_result = {
-                                    let store = self.store.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                        reason: format!("store mutex: {e}"),
+                                    let store = self.store.lock().map_err(|e| {
+                                        TirBaseError::LocalStoreWriteFailed {
+                                            reason: format!("store mutex: {e}"),
+                                        }
                                     })?;
                                     // Query automerge_docs to find known tables.
                                     // Ignore error — fall back to no projection.
@@ -2081,11 +2101,15 @@ impl CoreHandle {
                                 };
 
                                 if !tables_result.is_empty() {
-                                    let crdt = self.crdt.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                        reason: format!("crdt mutex: {e}"),
+                                    let crdt = self.crdt.lock().map_err(|e| {
+                                        TirBaseError::LocalStoreWriteFailed {
+                                            reason: format!("crdt mutex: {e}"),
+                                        }
                                     })?;
                                     for tbl in &tables_result {
-                                        if let Err(e) = crdt.project_table_to_store(tbl, &self.store) {
+                                        if let Err(e) =
+                                            crdt.project_table_to_store(tbl, &self.store)
+                                        {
                                             eprintln!(
                                                 "[inbound] project_table_to_store({tbl}) failed: {e}"
                                             );
@@ -2205,11 +2229,12 @@ impl CoreHandle {
                 let cce_clone = self.cce.clone();
                 let transport_clone = self.transport.clone();
 
-                let mut rev = self.revocation.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("revocation mutex: {e}"),
-                    }
-                })?;
+                let mut rev =
+                    self.revocation
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("revocation mutex: {e}"),
+                        })?;
 
                 let result = rev.process_incoming_delta(
                     &rev_delta,
@@ -2328,11 +2353,12 @@ impl CoreHandle {
             }
             GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
                 let target_migration_id = mig_rev.target_migration_id;
-                let mut mig = self.migration.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("migration mutex: {e}"),
-                    }
-                })?;
+                let mut mig =
+                    self.migration
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("migration mutex: {e}"),
+                        })?;
                 // Ok(true) ⇒ the revocation halted a transform that was
                 // executing — the engine only cleared the in-progress marker;
                 // actually stopping the sandbox is the epoch interrupt below.
@@ -2358,11 +2384,12 @@ impl CoreHandle {
                 // root marker; `resolve_affected_rows` conservatively marks
                 // every projection row (same policy as DeviceRevocation).
                 {
-                    let cce_result = self.cce.lock().map_err(|e| {
-                        TirBaseError::LocalStoreWriteFailed {
-                            reason: format!("cce mutex poisoned in BadMigration tagging: {e}"),
-                        }
-                    });
+                    let cce_result =
+                        self.cce
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("cce mutex poisoned in BadMigration tagging: {e}"),
+                            });
                     if let Ok(mut cce) = cce_result {
                         let _ = cce.tag_contamination_root(
                             target_migration_id,
@@ -2407,7 +2434,11 @@ impl CoreHandle {
     /// inbound drain loop (`process_inbound_messages` → `receive_inbound`)
     /// for every `GossipMessage::InboundMigrationDelta`.
     #[cfg(feature = "native")]
-    fn dispatch_inbound_migration(&self, mig_delta: crate::migration::migration_delta::MigrationDelta, sender_did: String) {
+    fn dispatch_inbound_migration(
+        &self,
+        mig_delta: crate::migration::migration_delta::MigrationDelta,
+        sender_did: String,
+    ) {
         use crate::migration::wasm_sandbox::MigrationResult;
 
         let migration = self.migration.clone();
@@ -2458,20 +2489,21 @@ impl CoreHandle {
 
             // ── 2. Run the sandbox OFF the engine lock, registered in the ──
             // execution registry so a revocation can epoch-interrupt it.
-            let outcome: Result<MigrationResult, TirBaseError> = tokio::task::spawn_blocking(move || {
-                execute_migration_with_registry(
-                    &transform_bytes,
-                    migration_id,
-                    timeout_secs,
-                    &store,
-                    &runs,
-                )
-            })
-            .await
-            .map_err(|e| TirBaseError::DeltaMalformed {
-                reason: format!("migration background task failed: {e}"),
-            })
-            .and_then(|r| r);
+            let outcome: Result<MigrationResult, TirBaseError> =
+                tokio::task::spawn_blocking(move || {
+                    execute_migration_with_registry(
+                        &transform_bytes,
+                        migration_id,
+                        timeout_secs,
+                        &store,
+                        &runs,
+                    )
+                })
+                .await
+                .map_err(|e| TirBaseError::DeltaMalformed {
+                    reason: format!("migration background task failed: {e}"),
+                })
+                .and_then(|r| r);
 
             // ── 3. Finish under the engine lock: the commit gate re-checks ──
             // revocation, so a transform that was interrupted (or a revocation
@@ -2488,8 +2520,7 @@ impl CoreHandle {
                     }
                 };
                 let source_schema_hash = mig.current_schema_hash();
-                let normalized =
-                    mig.finish_migration(&migration_id, &target_schema_hash, outcome);
+                let normalized = mig.finish_migration(&migration_id, &target_schema_hash, outcome);
                 (normalized, source_schema_hash)
             };
 
@@ -2572,10 +2603,7 @@ impl CoreHandle {
     /// `process_inbound_messages` manually and then assert post-migration
     /// state.  Returns `false` when `timeout` elapsed first.
     #[cfg(feature = "native")]
-    pub(crate) async fn await_migration_quiescence(
-        &self,
-        timeout: std::time::Duration,
-    ) -> bool {
+    pub(crate) async fn await_migration_quiescence(&self, timeout: std::time::Duration) -> bool {
         use std::sync::atomic::Ordering;
         let deadline = tokio::time::Instant::now() + timeout;
         loop {
@@ -2642,11 +2670,12 @@ impl CoreHandle {
                 // both WASM-produced JSON envelopes AND native-produced binary Automerge
                 // changesets (Req 1.4 cross-build state convergence).
                 let outcome = {
-                    let mut crdt = self.crdt.lock().map_err(|e| {
-                        TirBaseError::LocalStoreWriteFailed {
-                            reason: format!("crdt mutex poisoned in receive_inbound_wasm: {e}"),
-                        }
-                    })?;
+                    let mut crdt =
+                        self.crdt
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex poisoned in receive_inbound_wasm: {e}"),
+                            })?;
                     apply_incoming_delta(&mut crdt, &delta)?
                 };
 
@@ -2678,13 +2707,14 @@ impl CoreHandle {
                         //      CrdtEngine's merged Automerge doc using doc_map_range_root().
                         //      The doc state is now correct after CrdtEngine::apply().
                         if !delta.automerge_bytes.is_empty() {
-                            if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes) {
+                            if let Ok(json_val) =
+                                serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes)
+                            {
                                 // JSON envelope path (WASM-produced or TirBase format).
                                 if let Some(obj) = json_val.as_object() {
-                                    let table_name = obj.get("_tirbase_table")
-                                        .and_then(|v| v.as_str());
-                                    let row_key = obj.get("_tirbase_key")
-                                        .and_then(|v| v.as_str());
+                                    let table_name =
+                                        obj.get("_tirbase_table").and_then(|v| v.as_str());
+                                    let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
 
                                     if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
                                         // Reconstruct application data (strip TirBase metadata keys).
@@ -2694,10 +2724,11 @@ impl CoreHandle {
                                             if k == "_data" {
                                                 // Scalar/non-object data stored under _data.
                                                 {
-                                                    let mut store = self.store
-                                                        .lock()
-                                                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                                            reason: format!("store mutex: {e}"),
+                                                    let mut store =
+                                                        self.store.lock().map_err(|e| {
+                                                            TirBaseError::LocalStoreWriteFailed {
+                                                                reason: format!("store mutex: {e}"),
+                                                            }
                                                         })?;
                                                     let _ = store.write(tbl, rkey, v).await;
                                                 }
@@ -2718,11 +2749,11 @@ impl CoreHandle {
                                         if !has_data_key && !app_data.is_empty() {
                                             let app_val = serde_json::Value::Object(app_data);
                                             {
-                                                let mut store = self.store
-                                                    .lock()
-                                                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                                let mut store = self.store.lock().map_err(|e| {
+                                                    TirBaseError::LocalStoreWriteFailed {
                                                         reason: format!("store mutex: {e}"),
-                                                    })?;
+                                                    }
+                                                })?;
                                                 let _ = store.write(tbl, rkey, &app_val).await;
                                             }
                                             // Record the delta→row mapping for CCE.
@@ -2890,20 +2921,19 @@ impl CoreHandle {
 
             GossipMessage::InboundRevocationDelta(rev_delta) => {
                 let cce_clone = self.cce.clone();
-                let mut rev = self.revocation.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("revocation mutex poisoned: {e}"),
-                    }
-                })?;
+                let mut rev =
+                    self.revocation
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("revocation mutex poisoned: {e}"),
+                        })?;
 
                 match rev.process_incoming_delta(
                     &rev_delta,
                     &mut |target_did, _complete_delta| {
                         // No Swarm gossip rebroadcast on WASM — the JS transport
                         // layer handles peer messaging (Req 9.2 is best-effort on WASM).
-                        eprintln!(
-                            "[wasm-inbound] RevocationDelta threshold met for {target_did}"
-                        );
+                        eprintln!("[wasm-inbound] RevocationDelta threshold met for {target_did}");
                     },
                     &mut |target_did, delta_ids| {
                         // Req 10.1 parity with the native inbound arm: CCE-tag
@@ -2969,7 +2999,10 @@ impl CoreHandle {
                             );
                         }
                     }
-                    Ok(crate::auth::RevocationStatus::Pending { collected, required }) => {
+                    Ok(crate::auth::RevocationStatus::Pending {
+                        collected,
+                        required,
+                    }) => {
                         eprintln!(
                             "[wasm-inbound] RevocationDelta pending {collected}/{required} sigs for {}",
                             rev_delta.target_did
@@ -2984,11 +3017,12 @@ impl CoreHandle {
 
             GossipMessage::InboundMigrationDelta(mig_delta) => {
                 let sender_did = mig_delta.author_did.clone();
-                let mut mig = self.migration.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("migration mutex poisoned: {e}"),
-                    }
-                })?;
+                let mut mig =
+                    self.migration
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("migration mutex poisoned: {e}"),
+                        })?;
                 // The schema the device is on before the migration — the
                 // corruption-window key whose Side-Car entries a corrected
                 // migration must replay (Req 19.3).
@@ -3050,11 +3084,12 @@ impl CoreHandle {
 
             GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
                 let target_migration_id = mig_rev.target_migration_id;
-                let mut mig = self.migration.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("migration mutex poisoned: {e}"),
-                    }
-                })?;
+                let mut mig =
+                    self.migration
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("migration mutex poisoned: {e}"),
+                        })?;
                 match mig.receive_revocation_delta(mig_rev) {
                     Ok(_halted) => {
                         // The WASM build is single-threaded: no transform can
@@ -3070,13 +3105,14 @@ impl CoreHandle {
                         // projection rows CONTAMINATED (same trigger as the
                         // native arm).
                         {
-                            let cce_result = self.cce.lock().map_err(|e| {
-                                TirBaseError::LocalStoreWriteFailed {
-                                    reason: format!(
+                            let cce_result =
+                                self.cce
+                                    .lock()
+                                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                        reason: format!(
                                         "cce mutex poisoned in BadMigration tagging (WASM): {e}"
                                     ),
-                                }
-                            });
+                                    });
                             if let Ok(mut cce) = cce_result {
                                 let _ = cce.tag_contamination_root(
                                     target_migration_id,
@@ -3212,9 +3248,9 @@ impl CoreHandle {
                         // keep scheduling everything at HIGH priority for even
                         // one extra epoch.
                         transport.tick_saturate(now_secs());
-                        match transport.tick_scheduler(
-                            crate::transport::DEFAULT_LINK_CAPACITY_BYTES,
-                        ) {
+                        match transport
+                            .tick_scheduler(crate::transport::DEFAULT_LINK_CAPACITY_BYTES)
+                        {
                             Ok(0) => {}
                             Ok(n) => {
                                 eprintln!(
@@ -3268,25 +3304,25 @@ impl CoreHandle {
     /// separate method so the integration test can exercise a full cycle
     /// deterministically as well as through the spawned loop.
     #[cfg(feature = "native")]
-    pub(crate) fn run_cloud_sync_cycle(
-        &self,
-    ) -> Result<CloudSyncResult, TirBaseError> {
-        let mut durability = self.durability.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
-                reason: format!("durability mutex poisoned: {e}"),
-            }
-        })?;
+    pub(crate) fn run_cloud_sync_cycle(&self) -> Result<CloudSyncResult, TirBaseError> {
+        let mut durability =
+            self.durability
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("durability mutex poisoned: {e}"),
+                })?;
 
         // Nothing pending — skip the cycle (no ledger lock, no log noise).
         if durability.cloud_queue_depth() == 0 {
             return Ok(CloudSyncResult::default());
         }
 
-        let mut ledger = self.cloud_ledger.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
-                reason: format!("cloud ledger mutex poisoned: {e}"),
-            }
-        })?;
+        let mut ledger =
+            self.cloud_ledger
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("cloud ledger mutex poisoned: {e}"),
+                })?;
         let mut conn = CloudLedgerConnection::new(&mut ledger);
 
         let result = cloud_sync_loop(
@@ -3335,8 +3371,7 @@ impl CoreHandle {
                 ticker.tick().await;
                 match handle.run_cloud_sync_cycle() {
                     Ok(result) => {
-                        let processed =
-                            result.acknowledged + result.rejected + result.deferred;
+                        let processed = result.acknowledged + result.rejected + result.deferred;
                         if processed > 0 {
                             eprintln!(
                                 "[cloud-sync-loop] cycle: {} acked, {} rejected, {} deferred",
@@ -3416,11 +3451,12 @@ impl CoreHandle {
         &self,
         msg: crate::transport::message::GossipMessage,
     ) -> Result<(), TirBaseError> {
-        self.inbound_tx.send(msg).await.map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        self.inbound_tx
+            .send(msg)
+            .await
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("inbound_tx send failed: {e}"),
-            }
-        })
+            })
     }
 
     /// Dial a peer by multiaddr (native only).
@@ -3437,18 +3473,18 @@ impl CoreHandle {
     /// definition of done for Phase 0.3(a)/(b).  The SDK-facing mesh-connect
     /// operation (Phase 4 cloud sync) is the stated production consumer.
     #[cfg(feature = "native")]
-    pub(crate) async fn dial_peer(
-        &self,
-        addr: libp2p::Multiaddr,
-    ) -> Result<(), TirBaseError> {
-        let tx = self.dial_tx.as_ref().ok_or_else(|| {
-            TirBaseError::MeshUnavailable {
+    pub(crate) async fn dial_peer(&self, addr: libp2p::Multiaddr) -> Result<(), TirBaseError> {
+        let tx = self
+            .dial_tx
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
                 reason: "transport not started (no Swarm polling task)".to_string(),
-            }
-        })?;
-        tx.send(addr).await.map_err(|e| TirBaseError::MeshUnavailable {
-            reason: format!("dial channel closed: {e}"),
-        })
+            })?;
+        tx.send(addr)
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("dial channel closed: {e}"),
+            })
     }
 }
 
@@ -3479,6 +3515,15 @@ pub struct DeploymentConfig {
     pub revocation_n: usize,
     /// Biscuit token TTL in seconds (1h–24h; or extended with accepted-risk doc).
     pub biscuit_ttl_secs: u64,
+    /// Whether the deployment has explicitly accepted the >24h TTL risk.
+    ///
+    /// This flag is the runtime mirror of the `EXTENDED_TTL` diagnostic
+    /// (Req 21.6): when `biscuit_ttl_secs` exceeds 24 hours at init time,
+    /// the diagnostic fires and this flag is set to `true`, authorising
+    /// `biscuit::create_token` to mint tokens with TTLs up to
+    /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`] (Req 8.7 "accepted
+    /// risk" escape path).  Without this flag, any TTL > 24h is rejected.
+    pub extended_ttl_accepted_risk: bool,
     /// Root CA Ed25519 public keys trusted for offline Biscuit token verification.
     ///
     /// Empty (the default) is the explicit *unconfigured* state: no Biscuit
@@ -3577,6 +3622,7 @@ impl Default for DeploymentConfig {
             revocation_m: 0,
             revocation_n: 0,
             biscuit_ttl_secs: 0,
+            extended_ttl_accepted_risk: false,
             root_ca_keys: vec![],
             migration_ca_public_key: None,
             schema_version_path: vec![],
@@ -3609,6 +3655,7 @@ mod tests {
                 revocation_m: 2,
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -3664,9 +3711,7 @@ mod tests {
         let path = tmp_path("write_read");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let data = json!({"hello": "world", "count": 42});
         handle
@@ -3689,15 +3734,10 @@ mod tests {
         let path = tmp_path("read_missing");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let result = handle.read("test_table", "nonexistent").await;
-        assert!(
-            result.is_err(),
-            "reading a missing key must return Err"
-        );
+        assert!(result.is_err(), "reading a missing key must return Err");
 
         cleanup(&path);
     }
@@ -3709,9 +3749,7 @@ mod tests {
         let path = tmp_path("trust_unverified");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         assert_eq!(
             handle.trust_level(),
@@ -3762,13 +3800,20 @@ mod tests {
         let path = tmp_path("query_all");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        handle.write("items", "item-1", json!({"v": 1})).await.expect("write 1");
-        handle.write("items", "item-2", json!({"v": 2})).await.expect("write 2");
-        handle.write("items", "item-3", json!({"v": 3})).await.expect("write 3");
+        handle
+            .write("items", "item-1", json!({"v": 1}))
+            .await
+            .expect("write 1");
+        handle
+            .write("items", "item-2", json!({"v": 2}))
+            .await
+            .expect("write 2");
+        handle
+            .write("items", "item-3", json!({"v": 3}))
+            .await
+            .expect("write 3");
 
         let rows = handle.query("items", None).await.expect("query");
         assert_eq!(rows.len(), 3, "query should return all 3 rows");
@@ -3783,9 +3828,7 @@ mod tests {
         let path = tmp_path("mesh_status");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let status = handle.mesh_status();
         assert_eq!(
@@ -3805,9 +3848,7 @@ mod tests {
         let path = tmp_path("revoked_write");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Force REVOKED state via CapabilityManager.
         handle
@@ -3856,6 +3897,7 @@ mod tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -3922,10 +3964,7 @@ mod tests {
 
         // Read must be blocked by the gate.
         let read = handle.read("t", "k1").await;
-        assert!(
-            read.is_err(),
-            "REVOKED device must not be allowed to read"
-        );
+        assert!(read.is_err(), "REVOKED device must not be allowed to read");
         assert!(
             read.unwrap_err().to_string().contains("REVOKED"),
             "read error must mention REVOKED"
@@ -3960,6 +3999,7 @@ mod tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4042,15 +4082,15 @@ mod tests {
         let path = tmp_path("rev_init_blank");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let blank_token = handle
             .initiate_revocation("did:key:z6MkX-target", "  ")
             .expect_err("blank manager_token must be rejected");
         assert!(
-            blank_token.to_string().contains("manager_token must not be blank"),
+            blank_token
+                .to_string()
+                .contains("manager_token must not be blank"),
             "unexpected error: {blank_token}"
         );
 
@@ -4058,7 +4098,9 @@ mod tests {
             .initiate_revocation("", "manager-token")
             .expect_err("blank target_did must be rejected");
         assert!(
-            blank_target.to_string().contains("target_did must not be blank"),
+            blank_target
+                .to_string()
+                .contains("target_did must not be blank"),
             "unexpected error: {blank_target}"
         );
 
@@ -4078,6 +4120,7 @@ mod tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4163,6 +4206,7 @@ mod tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4200,7 +4244,10 @@ mod tests {
         );
 
         let write = handle.write("t", "k2", json!({ "v": 2 })).await;
-        assert!(write.is_err(), "REVOKED device must not be allowed to write");
+        assert!(
+            write.is_err(),
+            "REVOKED device must not be allowed to write"
+        );
         assert!(
             write.unwrap_err().to_string().contains("REVOKED"),
             "write error must mention REVOKED"
@@ -4230,6 +4277,7 @@ mod tests {
                 revocation_m: 2,
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4335,9 +4383,7 @@ mod tests {
         let path = tmp_path("rev_dev_status_unknown");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let unknown = crate::identity::IdentityManager::init_in_memory()
             .unwrap()
@@ -4370,6 +4416,7 @@ mod tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4431,6 +4478,7 @@ mod tests {
                 revocation_m: 2,
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -4490,9 +4538,7 @@ mod tests {
         let path = tmp_path("durability_tier");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let result = handle
             .write("t", "k", json!({"v": 42}))
@@ -4522,9 +4568,7 @@ mod tests {
         let path = tmp_path("outbound_publish");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let result = handle
             .write("sensors", "s1", json!({"v": 42}))
@@ -4535,12 +4579,7 @@ mod tests {
         // poll until the prepared payload reaches the publish point.
         let mut attempts = 0;
         let published = loop {
-            let published = handle
-                .transport
-                .lock()
-                .unwrap()
-                .outbound_published
-                .clone();
+            let published = handle.transport.lock().unwrap().outbound_published.clone();
             if !published.is_empty() {
                 break published;
             }
@@ -4564,14 +4603,11 @@ mod tests {
         // (Subphase 1.5 — the receiving poll task dispatches on the variant),
         // the recorded payload is `GossipMessage::InboundDelta(delta)` rather
         // than the bare serialised Delta.
-        let wire: crate::transport::message::GossipMessage =
-            serde_json::from_slice(&published[0])
-                .expect("published payload must deserialise as a GossipMessage");
+        let wire: crate::transport::message::GossipMessage = serde_json::from_slice(&published[0])
+            .expect("published payload must deserialise as a GossipMessage");
         let decoded = match wire {
             crate::transport::message::GossipMessage::InboundDelta(d) => d,
-            other => panic!(
-                "published payload must be InboundDelta framing, got: {other:?}"
-            ),
+            other => panic!("published payload must be InboundDelta framing, got: {other:?}"),
         };
         assert_eq!(
             decoded.id, result.delta_id,
@@ -4591,9 +4627,7 @@ mod tests {
         let path = tmp_path("human_reaction_tag");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Write an initial value so the key/table exists.
         handle
@@ -4623,9 +4657,7 @@ mod tests {
 
         // Write again to the same key — with the live lookup path active (not hardcoded
         // false), the write must still complete without error.
-        let result = handle
-            .write("sensors", "temp-1", json!({"v": 200}))
-            .await;
+        let result = handle.write("sensors", "temp-1", json!({"v": 200})).await;
         assert!(
             result.is_ok(),
             "write must succeed even when CCE has been touched: {:?}",
@@ -4642,9 +4674,7 @@ mod tests {
         let path = tmp_path("human_reaction_clean");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Write to a clean table with no incidents.
         let result = handle
@@ -4665,9 +4695,7 @@ mod tests {
         let path = tmp_path("write_ctx_live");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Perform multiple writes — each one should lock cce and migration without
         // deadlock or panic regardless of whether contamination state is clean.
@@ -4695,9 +4723,7 @@ mod tests {
         let path = tmp_path("t44_test_a");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Step 1: write an initial row so the table and key exist in the store.
         let first_write = handle
@@ -4721,19 +4747,26 @@ mod tests {
                 schema_hash: [0u8; 32],
                 compacted: false,
                 author_did: "did:key:z6MkTest".to_string(),
-            }).expect("insert DagNode for first delta");
+            })
+            .expect("insert DagNode for first delta");
 
             cce.tag_contamination_root(
                 first_delta_id,
                 TaintSource::DeviceRevocation {
                     revocation_delta_id: first_delta_id,
                 },
-            ).expect("tag_contamination_root")
+            )
+            .expect("tag_contamination_root")
         };
 
         // Confirm the first delta is in the ICO.
-        let ico_before = handle.cce.lock().unwrap()
-            .get_incident(ico_id).unwrap().unwrap();
+        let ico_before = handle
+            .cce
+            .lock()
+            .unwrap()
+            .get_incident(ico_id)
+            .unwrap()
+            .unwrap();
         assert!(
             ico_before.contaminated_deltas.contains(&first_delta_id),
             "first delta must be in ICO before second write"
@@ -4750,7 +4783,11 @@ mod tests {
 
         // Confirm is_row_contaminated returns true.
         assert!(
-            handle.cce.lock().unwrap().is_row_contaminated("events", "evt-1"),
+            handle
+                .cce
+                .lock()
+                .unwrap()
+                .is_row_contaminated("events", "evt-1"),
             "row must appear contaminated before second write"
         );
 
@@ -4764,12 +4801,11 @@ mod tests {
         // CoreHandle::write() calls on_write_commit → returns Some((id, incident_id))
         // → calls cce.tag_contamination_root(TaintSource::HumanReaction) → BFS walk
         // from second_delta_id → new ICO or composite ICO containing second_delta_id.
-        let all_open_icos = handle.cce.lock().unwrap()
-            .open_incidents().unwrap();
+        let all_open_icos = handle.cce.lock().unwrap().open_incidents().unwrap();
 
-        let found = all_open_icos.iter().any(|ico| {
-            ico.contaminated_deltas.contains(&second_delta_id)
-        });
+        let found = all_open_icos
+            .iter()
+            .any(|ico| ico.contaminated_deltas.contains(&second_delta_id));
 
         assert!(
             found,
@@ -4790,9 +4826,7 @@ mod tests {
         let path = tmp_path("t44_test_b");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Write to a table/key that has never been contaminated.
         let _result = handle
@@ -4808,7 +4842,10 @@ mod tests {
         );
 
         // The CCE's contaminated_rows must not contain this key.
-        let is_contaminated = handle.cce.lock().unwrap()
+        let is_contaminated = handle
+            .cce
+            .lock()
+            .unwrap()
             .is_row_contaminated("clean_sensors", "reading-42");
         assert!(
             !is_contaminated,
@@ -4826,16 +4863,14 @@ mod tests {
     #[tokio::test]
     async fn task44_test_c_write_after_resolution_no_human_reaction_tag() {
         use crate::contamination::incident::TaintSource;
+        use crate::contamination::resolution::now_micros;
         use crate::crdt::dag::DagNode;
         use crate::identity::{keypair, IdentityManager};
-        use crate::contamination::resolution::now_micros;
 
         let path = tmp_path("t44_test_c");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Step 1: write an initial row.
         let first_write = handle
@@ -4856,14 +4891,16 @@ mod tests {
                 schema_hash: [0u8; 32],
                 compacted: false,
                 author_did: "did:key:z6MkTest".to_string(),
-            }).expect("insert DagNode");
+            })
+            .expect("insert DagNode");
 
             cce.tag_contamination_root(
                 first_delta_id,
                 TaintSource::DeviceRevocation {
                     revocation_delta_id: first_delta_id,
                 },
-            ).expect("tag_contamination_root")
+            )
+            .expect("tag_contamination_root")
         };
 
         // Set contaminated_rows so is_row_contaminated returns true.
@@ -4874,7 +4911,11 @@ mod tests {
 
         // Confirm the row is contaminated before resolution.
         assert!(
-            handle.cce.lock().unwrap().is_row_contaminated("telemetry", "node-7"),
+            handle
+                .cce
+                .lock()
+                .unwrap()
+                .is_row_contaminated("telemetry", "node-7"),
             "row must be contaminated before verify_data"
         );
 
@@ -4885,13 +4926,20 @@ mod tests {
         let sig = keypair::sign(&mgr_secret, &first_delta_id).expect("sign");
         let expiry = now_micros() + 3_600_000_000; // +1h
 
-        handle.cce.lock().unwrap()
+        handle
+            .cce
+            .lock()
+            .unwrap()
             .verify_data(first_delta_id, mgr_did, sig, expiry)
             .expect("verify_data must succeed");
 
         // Step 4: after resolution, contaminated_rows must be pruned.
         assert!(
-            !handle.cce.lock().unwrap().is_row_contaminated("telemetry", "node-7"),
+            !handle
+                .cce
+                .lock()
+                .unwrap()
+                .is_row_contaminated("telemetry", "node-7"),
             "row must NOT be contaminated after verify_data resolves all roots"
         );
 
@@ -5114,8 +5162,7 @@ mod tests {
         use sha2::{Digest, Sha256};
 
         let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
-        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes)
-            .expect("ca sign");
+        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes).expect("ca sign");
 
         MigrationDelta {
             id: transform_sha256, // id = SHA-256(transform_bytes)
@@ -5152,12 +5199,8 @@ mod tests {
         .await
         .expect("init with migration CA key + version path");
 
-        let delta = make_ca_signed_migration_delta(
-            &ca_secret,
-            source,
-            target,
-            trivial_wasm_bytes(),
-        );
+        let delta =
+            make_ca_signed_migration_delta(&ca_secret, source, target, trivial_wasm_bytes());
 
         // The engine `CoreHandle::init` constructed must accept the valid
         // migration: the CA signature verifies against the config-registered
@@ -5194,19 +5237,18 @@ mod tests {
         // Default config: migration_ca_public_key = None, schema_version_path = [].
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        let delta = make_ca_signed_migration_delta(
-            &ca_secret,
-            source,
-            target,
-            trivial_wasm_bytes(),
-        );
+        let delta =
+            make_ca_signed_migration_delta(&ca_secret, source, target, trivial_wasm_bytes());
         let result = handle
             .migration
             .lock()
             .unwrap()
             .receive_migration_delta(delta, "did:key:z6MkMigSender");
         assert!(
-            matches!(result, Err(TirBaseError::MigrationCaSignatureInvalid { .. })),
+            matches!(
+                result,
+                Err(TirBaseError::MigrationCaSignatureInvalid { .. })
+            ),
             "unconfigured migration CA must keep rejecting at the CA gate: {result:?}"
         );
 
@@ -5227,12 +5269,8 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        let delta = make_ca_signed_migration_delta(
-            &ca_secret,
-            source,
-            target,
-            trivial_wasm_bytes(),
-        );
+        let delta =
+            make_ca_signed_migration_delta(&ca_secret, source, target, trivial_wasm_bytes());
 
         // Before registration: the zero key must reject at the CA gate (this
         // also blacklists the sender).
@@ -5242,7 +5280,10 @@ mod tests {
             .unwrap()
             .receive_migration_delta(delta.clone(), "did:key:z6MkMigSender");
         assert!(
-            matches!(before, Err(TirBaseError::MigrationCaSignatureInvalid { .. })),
+            matches!(
+                before,
+                Err(TirBaseError::MigrationCaSignatureInvalid { .. })
+            ),
             "before registration the CA gate must reject: {before:?}"
         );
 
@@ -5282,23 +5323,14 @@ mod tests {
         let v2 = [0x11u8; 32];
         let v3 = [0x12u8; 32];
 
-        let handle = CoreHandle::init(make_migration_config(
-            &path,
-            ca_public,
-            vec![v1, v2, v3],
-        ))
-        .await
-        .expect("init with migration CA key + version path");
+        let handle = CoreHandle::init(make_migration_config(&path, ca_public, vec![v1, v2, v3]))
+            .await
+            .expect("init with migration CA key + version path");
 
         let sender = "did:key:z6MkMigSender";
 
         // Deliver migration v1 → v2 through the production inbound pipeline.
-        let delta_a = make_ca_signed_migration_delta(
-            &ca_secret,
-            v1,
-            v2,
-            trivial_wasm_bytes(),
-        );
+        let delta_a = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
         handle
             .inject_inbound(GossipMessage::InboundMigrationDelta(delta_a))
             .await
@@ -5326,12 +5358,7 @@ mod tests {
         // The engine's local schema hash advanced to v2 — the next step v2 → v3
         // must now be a valid migration (it would fail the source-hash check had
         // migration A not actually applied).
-        let delta_b = make_ca_signed_migration_delta(
-            &ca_secret,
-            v2,
-            v3,
-            trivial_wasm_bytes(),
-        );
+        let delta_b = make_ca_signed_migration_delta(&ca_secret, v2, v3, trivial_wasm_bytes());
         let result = mig.receive_migration_delta(delta_b, sender);
         assert!(
             matches!(
@@ -5426,8 +5453,8 @@ mod tests {
         }
 
         // ── 2. Revoke it while it is mid-flight (Req 18.5/18.6) ─────────────
-        use crate::crdt::derive_did_from_public_key;
         use crate::crdt::delta::Ed25519Signature;
+        use crate::crdt::derive_did_from_public_key;
         use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
         let (mgr_secret, mgr_public) =
             crate::identity::keypair::generate_keypair().expect("manager keygen");
@@ -5490,12 +5517,8 @@ mod tests {
         );
 
         // ── 4. A later attempt to apply the revoked migration is rejected ────
-        let delta_again = make_ca_signed_migration_delta(
-            &ca_secret,
-            v1,
-            v2,
-            infinite_loop_wasm_bytes(),
-        );
+        let delta_again =
+            make_ca_signed_migration_delta(&ca_secret, v1, v2, infinite_loop_wasm_bytes());
         let result = handle
             .migration
             .lock()
@@ -5543,8 +5566,8 @@ mod tests {
         // ── 1. An arbitrary hash the device never saw is revoked ────────────
         // (correctly signed by a manager — the gate must be the unknown hash,
         // not a signature failure).
-        use crate::crdt::derive_did_from_public_key;
         use crate::crdt::delta::Ed25519Signature;
+        use crate::crdt::derive_did_from_public_key;
         use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
         let arbitrary: [u8; 32] = [0xEEu8; 32];
         let (mgr_secret, mgr_public) =
@@ -5607,7 +5630,8 @@ mod tests {
             );
         }
 
-        let mgr_sig_known = crate::identity::keypair::sign(&mgr_secret, &migration_id).expect("sign");
+        let mgr_sig_known =
+            crate::identity::keypair::sign(&mgr_secret, &migration_id).expect("sign");
         let known_revocation = MigrationRevocationDelta {
             target_migration_id: migration_id,
             signatures: vec![ManagerSignature {
@@ -5724,7 +5748,8 @@ mod tests {
         }
 
         // ── 3. Managers revoke the corrupted migration. ─────────────────────
-        let (mgr_secret, mgr_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let (mgr_secret, mgr_public) =
+            crate::identity::keypair::generate_keypair().expect("keygen");
         let mgr_did = derive_did_from_public_key(&mgr_public);
         let mgr_sig = crate::identity::keypair::sign(&mgr_secret, &bad_migration_id).expect("sign");
         let revocation = MigrationRevocationDelta {
@@ -5812,9 +5837,9 @@ mod tests {
                 .open_incidents()
                 .expect("open incidents");
             assert!(
-                all_open.iter().any(|ico| {
-                    ico.contaminated_deltas.contains(&write_update.delta_id)
-                }),
+                all_open
+                    .iter()
+                    .any(|ico| { ico.contaminated_deltas.contains(&write_update.delta_id) }),
                 "a write to a CONTAMINATED row during the corrupted window must \
                  join an active ICO via ContaminatedByHumanReaction (Req 19.5)"
             );
@@ -5826,8 +5851,7 @@ mod tests {
         // success path.  The corrected transform is byte-distinct from the
         // revoked one, so its migration ID differs and passes the revocation
         // gate.
-        let fixed_delta =
-            make_ca_signed_migration_delta(&ca_secret, t, u, trivial_wasm_bytes_v2());
+        let fixed_delta = make_ca_signed_migration_delta(&ca_secret, t, u, trivial_wasm_bytes_v2());
         handle
             .inject_inbound(GossipMessage::InboundMigrationDelta(fixed_delta))
             .await
@@ -5898,7 +5922,9 @@ mod tests {
         {
             let mig = handle.migration.lock().unwrap();
             assert_eq!(
-                mig.sidecar_entries(&bad_migration_id).expect("entries").len(),
+                mig.sidecar_entries(&bad_migration_id)
+                    .expect("entries")
+                    .len(),
                 2,
                 "writes after the corrected migration must not be Side-Car captured"
             );
@@ -6095,10 +6121,8 @@ mod tests {
         // Spawn the production tick loop with a short interval (production
         // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
         // use 1 hour so deterministic tests can drive the identical loop).
-        let _loop = CoreHandle::spawn_scheduler_tick_loop(
-            &handle,
-            std::time::Duration::from_millis(10),
-        );
+        let _loop =
+            CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
         // Do NOT call tick() / tick_saturate() manually — the background loop
         // must perform the auto-demotion.  Poll until the state machine drops
@@ -6199,10 +6223,8 @@ mod tests {
         // Spawn the production tick loop with a short interval (production
         // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
         // use 1 hour so deterministic tests can drive the identical loop).
-        let _loop = CoreHandle::spawn_scheduler_tick_loop(
-            &handle,
-            std::time::Duration::from_millis(10),
-        );
+        let _loop =
+            CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
         // NO renewal, NO backdating, NO manual tick() / tick_saturate() — the
         // background loop must demote the lease once the wall clock crosses
@@ -6314,6 +6336,7 @@ mod inbound_tests {
                 revocation_m: 2,
                 revocation_n: 3,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -6376,9 +6399,7 @@ mod inbound_tests {
         let path = tmp_path("inbound_merge");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Build a peer identity with a valid did:key DID.
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
@@ -6413,9 +6434,7 @@ mod inbound_tests {
         let path = tmp_path("inbound_quarantine");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
@@ -6486,9 +6505,7 @@ mod inbound_tests {
         let path = tmp_path("p62_sig_rejection_record");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Subscribe *before* injecting: broadcast only delivers to receivers
         // that existed at send time.
@@ -6523,7 +6540,10 @@ mod inbound_tests {
             crate::crdt::failure::DeltaRejectionCode::SignatureVerificationFailed,
             "tampered delta must emit the Req 7.4 signature-failure code"
         );
-        assert_eq!(record.author_did, peer_did, "record must carry the sender DID");
+        assert_eq!(
+            record.author_did, peer_did,
+            "record must carry the sender DID"
+        );
         assert_eq!(record.delta_id, delta_id);
         assert!(!record.reason.is_empty());
         let now = crate::api::now_micros();
@@ -6536,7 +6556,11 @@ mod inbound_tests {
         // engine Lamport clock never advanced and nothing was quarantined.
         {
             let engine = handle.crdt.lock().expect("crdt lock");
-            assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+            assert_eq!(
+                engine.lamport(),
+                0,
+                "rejected delta must not advance Lamport"
+            );
         }
         let migration = handle.migration.lock().expect("migration lock");
         assert!(
@@ -6556,9 +6580,7 @@ mod inbound_tests {
         let path = tmp_path("p62_did_resolution_record");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let mut rx = handle.subscribe_rejection_records();
 
@@ -6601,7 +6623,11 @@ mod inbound_tests {
 
         // Discarded without merging: Lamport never advanced.
         let engine = handle.crdt.lock().expect("crdt lock");
-        assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+        assert_eq!(
+            engine.lamport(),
+            0,
+            "rejected delta must not advance Lamport"
+        );
         drop(engine);
 
         cleanup(&path);
@@ -6619,8 +6645,7 @@ mod inbound_tests {
 
     /// Three users-table schema versions for the gate tests: v1 {id,name};
     /// v2 {id,name,email} (additive); v3 {id} (breaking — `name` removed).
-    fn gate_schema_fixture(
-    ) -> (
+    fn gate_schema_fixture() -> (
         crate::schema::Schema,
         crate::schema::Schema,
         crate::schema::Schema,
@@ -6647,7 +6672,10 @@ mod inbound_tests {
             version: "1.0.0".to_string(),
         };
 
-        let v1 = schema(vec![field("id", FieldType::Text), field("name", FieldType::Text)]);
+        let v1 = schema(vec![
+            field("id", FieldType::Text),
+            field("name", FieldType::Text),
+        ]);
         let v2 = schema(vec![
             field("id", FieldType::Text),
             field("name", FieldType::Text),
@@ -6699,7 +6727,9 @@ mod inbound_tests {
         config.deployment.schema_version_path = vec![h1, h2, h3];
         config.deployment.schema_definitions = vec![v1, v2, v3];
 
-        let handle = CoreHandle::init(config).await.expect("init with schema defs");
+        let handle = CoreHandle::init(config)
+            .await
+            .expect("init with schema defs");
 
         // The CRDT engine's current schema is the first path version, so its
         // merge gate can diff against a real definition instead of the zero
@@ -6720,11 +6750,21 @@ mod inbound_tests {
         let d_add = make_signed_delta(&peer_secret, &peer_did, h2, 1);
         let add_id = d_add.id;
         assert_eq!(deliver_delta(&handle, d_add).await, 1);
-        assert_eq!(quarantine_count(&handle), 0, "additive delta must not quarantine");
+        assert_eq!(
+            quarantine_count(&handle),
+            0,
+            "additive delta must not quarantine"
+        );
         {
             let crdt = handle.crdt.lock().unwrap();
-            assert!(crdt.known_schema_hashes().contains(&h2), "h2 must be adopted");
-            assert!(crdt.dag_node(&add_id).unwrap().is_some(), "additive delta must land in the DAG");
+            assert!(
+                crdt.known_schema_hashes().contains(&h2),
+                "h2 must be adopted"
+            );
+            assert!(
+                crdt.dag_node(&add_id).unwrap().is_some(),
+                "additive delta must land in the DAG"
+            );
         }
 
         // A second h2 delta still merges (now through the known-hash path).
@@ -6739,8 +6779,14 @@ mod inbound_tests {
         assert_eq!(deliver_delta(&handle, d_break).await, 1);
         {
             let migration = handle.migration.lock().unwrap();
-            let entries = migration.quarantined_entries().expect("quarantined_entries");
-            assert_eq!(entries.len(), 1, "exactly the breaking delta must be quarantined");
+            let entries = migration
+                .quarantined_entries()
+                .expect("quarantined_entries");
+            assert_eq!(
+                entries.len(),
+                1,
+                "exactly the breaking delta must be quarantined"
+            );
             assert_eq!(
                 entries[0].reason,
                 crate::migration::quarantine::QuarantineReason::BreakingSchemaChange,
@@ -6748,7 +6794,10 @@ mod inbound_tests {
             );
             assert_eq!(entries[0].schema_hash, Some(h3));
             assert_eq!(entries[0].sender_did, peer_did);
-            assert_eq!(entries[0].raw_bytes, break_raw, "raw bytes must be stored byte-for-byte");
+            assert_eq!(
+                entries[0].raw_bytes, break_raw,
+                "raw bytes must be stored byte-for-byte"
+            );
         }
         {
             let crdt = handle.crdt.lock().unwrap();
@@ -6764,7 +6813,9 @@ mod inbound_tests {
         assert_eq!(deliver_delta(&handle, d_unknown).await, 1);
         {
             let migration = handle.migration.lock().unwrap();
-            let entries = migration.quarantined_entries().expect("quarantined_entries");
+            let entries = migration
+                .quarantined_entries()
+                .expect("quarantined_entries");
             assert_eq!(entries.len(), 2);
             assert_eq!(
                 entries[1].reason,
@@ -6802,10 +6853,7 @@ mod inbound_tests {
             Err(e) => e,
         };
         assert!(
-            matches!(
-                err,
-                TirBaseError::SchemaRegistrationFailed { .. }
-            ),
+            matches!(err, TirBaseError::SchemaRegistrationFailed { .. }),
             "expected SchemaRegistrationFailed: {err:?}"
         );
 
@@ -6908,8 +6956,13 @@ mod inbound_tests {
             "CRDT current schema must follow the migration engine"
         );
         assert!(crdt.known_schema_hashes().contains(&h2));
-        let produced = crdt.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
-        assert_eq!(produced.schema_hash, h2, "produced deltas must stamp the migrated schema");
+        let produced = crdt
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
+        assert_eq!(
+            produced.schema_hash, h2,
+            "produced deltas must stamp the migrated schema"
+        );
 
         cleanup(&path);
     }
@@ -6921,9 +6974,7 @@ mod inbound_tests {
         let path = tmp_path("inbound_drain");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
@@ -6970,19 +7021,15 @@ mod inbound_tests {
         let path = tmp_path("inbound_drain_loop");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Spawn the production drain loop with a short interval so the test
         // completes quickly.  (In production builds `CoreHandle::init` does
         // exactly this with `INBOUND_DRAIN_INTERVAL_MS`; in test builds init
         // uses a 1-hour interval so the count-based tests above stay
         // deterministic.)
-        let _loop = CoreHandle::spawn_inbound_drain_loop(
-            &handle,
-            std::time::Duration::from_millis(10),
-        );
+        let _loop =
+            CoreHandle::spawn_inbound_drain_loop(&handle, std::time::Duration::from_millis(10));
 
         // Build a signed InboundDelta whose automerge_bytes embeds the
         // _tirbase_table / _tirbase_key envelope plus data fields, exactly as
@@ -7072,19 +7119,15 @@ mod inbound_tests {
         let path = tmp_path("scheduler_tick_loop");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Spawn the production scheduler tick loop with a short interval so
         // the test completes quickly.  (In production builds `CoreHandle::init`
         // does exactly this with `SCHEDULER_TICK_INTERVAL_MS`; in test builds
         // init uses a 1-hour interval so queue-state unit tests stay
         // deterministic.)
-        let _loop = CoreHandle::spawn_scheduler_tick_loop(
-            &handle,
-            std::time::Duration::from_millis(10),
-        );
+        let _loop =
+            CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
         // Enqueue a HIGH-priority Delta exactly like the production enqueue
         // callbacks do (RevocationDelta threshold → `enqueue_outbound`, Req 9.2).
@@ -7118,12 +7161,7 @@ mod inbound_tests {
         // the outbound publish point (the Swarm polling task records it there).
         let mut attempts = 0u32;
         let published = loop {
-            let published = handle
-                .transport
-                .lock()
-                .unwrap()
-                .outbound_published
-                .clone();
+            let published = handle.transport.lock().unwrap().outbound_published.clone();
             if !published.is_empty() {
                 break published;
             }
@@ -7165,9 +7203,7 @@ mod inbound_tests {
         let path = tmp_path("inbound_rejected");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Delta with empty signature — should be Rejected (not a pipeline error).
         let delta = crate::crdt::delta::Delta {
@@ -7260,8 +7296,7 @@ mod inbound_tests {
 
         // Confirm the delta ID is non-zero (the write produced a real delta).
         assert_ne!(
-            write_result.delta_id,
-            [0u8; 32],
+            write_result.delta_id, [0u8; 32],
             "write must produce a non-zero delta ID"
         );
 
@@ -7277,8 +7312,14 @@ mod inbound_tests {
             // Build the JSON envelope that receive_inbound() expects:
             //   { "_tirbase_table": "sensors", "_tirbase_key": "reading-1", <data fields> }
             let mut envelope = serde_json::Map::new();
-            envelope.insert("_tirbase_table".to_string(), serde_json::Value::String("sensors".to_string()));
-            envelope.insert("_tirbase_key".to_string(), serde_json::Value::String("reading-1".to_string()));
+            envelope.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String("sensors".to_string()),
+            );
+            envelope.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String("reading-1".to_string()),
+            );
             // Flatten data fields directly into the envelope (matching CoreHandle::write() behaviour).
             if let Some(data_obj) = written_data.as_object() {
                 for (k, v) in data_obj {
@@ -7364,6 +7405,7 @@ mod inbound_tests {
                 revocation_m: 2,
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -7464,6 +7506,7 @@ mod inbound_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -7508,7 +7551,9 @@ mod inbound_tests {
 
         // ── Step A: Process on handle_a — marks target REVOKED + enqueues rebroadcast.
         handle_a
-            .inject_inbound(GossipMessage::InboundRevocationDelta(complete_delta.clone()))
+            .inject_inbound(GossipMessage::InboundRevocationDelta(
+                complete_delta.clone(),
+            ))
             .await
             .expect("inject into A");
 
@@ -7576,6 +7621,7 @@ mod inbound_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -7733,12 +7779,12 @@ mod inbound_tests {
 mod convergence_tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+    use crate::crdt::merge::MergeOutcome;
     use crate::crdt::{derive_did_from_public_key, CrdtEngine};
     use crate::identity::keypair::{generate_keypair, sign as ek_sign};
     use crate::schema::hash::compute_schema_identifier_hash;
-    use crate::crdt::merge::MergeOutcome;
-    use std::sync::{Arc, Mutex};
     use std::env;
+    use std::sync::{Arc, Mutex};
 
     fn tmp_path(suffix: &str) -> String {
         let mut p = env::temp_dir();
@@ -7749,7 +7795,8 @@ mod convergence_tests {
     fn open_conn(path: &str) -> Arc<Mutex<rusqlite::Connection>> {
         let conn = rusqlite::Connection::open(path)
             .unwrap_or_else(|_| rusqlite::Connection::open_in_memory().unwrap());
-        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).unwrap();
+        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .unwrap();
         Arc::new(Mutex::new(conn))
     }
 
@@ -7764,7 +7811,8 @@ mod convergence_tests {
         schema: [u8; 32],
     ) -> CrdtEngine {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).unwrap();
+        conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .unwrap();
         let conn = Arc::new(Mutex::new(conn));
         CrdtEngine::new(secret, public, did, schema, conn)
     }
@@ -7942,6 +7990,7 @@ mod convergence_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -7974,8 +8023,14 @@ mod convergence_tests {
 
         let delta = {
             let mut envelope = serde_json::Map::new();
-            envelope.insert("_tirbase_table".to_string(), serde_json::Value::String("sensors".to_string()));
-            envelope.insert("_tirbase_key".to_string(), serde_json::Value::String("p-1".to_string()));
+            envelope.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String("sensors".to_string()),
+            );
+            envelope.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String("p-1".to_string()),
+            );
             if let Some(obj) = written_data.as_object() {
                 for (k, v) in obj {
                     envelope.insert(k.clone(), v.clone());
@@ -8003,7 +8058,9 @@ mod convergence_tests {
 
         // Inject Delta into handle_b and process it.
         handle_b
-            .inject_inbound(crate::transport::message::GossipMessage::InboundDelta(delta))
+            .inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
+                delta,
+            ))
             .await
             .expect("inject_inbound must not fail");
 
@@ -8091,6 +8148,7 @@ mod real_mesh_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -8128,8 +8186,7 @@ mod real_mesh_tests {
     /// (the Swarm polling task's `ConnectionEstablished` arm populates the
     /// peer table, so `mesh_status()` reports it).
     async fn connect_peers(from: &Arc<CoreHandle>, target_addr: &str) {
-        let addr: libp2p::Multiaddr =
-            target_addr.parse().expect("valid multiaddr");
+        let addr: libp2p::Multiaddr = target_addr.parse().expect("valid multiaddr");
         from.dial_peer(addr).await.expect("dial_peer must succeed");
 
         let mut attempts = 0u32;
@@ -8204,12 +8261,22 @@ mod real_mesh_tests {
             .write("mesh", "row-a", written.clone())
             .await
             .expect("write on A must succeed");
-        assert_ne!(write_result.delta_id, [0u8; 32], "A must produce a real Delta");
+        assert_ne!(
+            write_result.delta_id, [0u8; 32],
+            "A must produce a real Delta"
+        );
 
         // Assert the Delta arrived on B through the wire: signature-verified
         // (else Rejected — nothing would be stored), merged, projected — i.e.
         // readable via B's normal read() path.
-        let observed = wait_for_data(&handle_b, "mesh", "row-a", &written, Duration::from_secs(20)).await;
+        let observed = wait_for_data(
+            &handle_b,
+            "mesh",
+            "row-a",
+            &written,
+            Duration::from_secs(20),
+        )
+        .await;
         assert_eq!(
             observed.data, written,
             "data read on device B must exactly match what was written on device A"
@@ -8241,7 +8308,11 @@ mod real_mesh_tests {
 
         // B's engine starts with a zero Lamport clock and an empty DAG.
         let author_did_a = handle_a.identity.did().to_string();
-        assert_eq!(handle_b.crdt.lock().unwrap().lamport(), 0, "B must start clean");
+        assert_eq!(
+            handle_b.crdt.lock().unwrap().lamport(),
+            0,
+            "B must start clean"
+        );
 
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
         connect_peers(&handle_a, &addr_b).await;
@@ -8254,8 +8325,18 @@ mod real_mesh_tests {
             .await
             .expect("first write on A");
 
-        let observed_1 = wait_for_data(&handle_b, "roundtrip", "k1", &written_1, Duration::from_secs(20)).await;
-        assert_eq!(observed_1.data, written_1, "round trip 1 data must match on B");
+        let observed_1 = wait_for_data(
+            &handle_b,
+            "roundtrip",
+            "k1",
+            &written_1,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(
+            observed_1.data, written_1,
+            "round trip 1 data must match on B"
+        );
 
         // The exact Delta A signed and published must have been merged into B's
         // DAG — signature-verified (author DID resolves from did:key and the
@@ -8294,8 +8375,18 @@ mod real_mesh_tests {
             "the second write must produce a distinct Delta"
         );
 
-        let observed_2 = wait_for_data(&handle_b, "roundtrip", "k1", &written_2, Duration::from_secs(20)).await;
-        assert_eq!(observed_2.data, written_2, "round trip 2 data must match on B");
+        let observed_2 = wait_for_data(
+            &handle_b,
+            "roundtrip",
+            "k1",
+            &written_2,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(
+            observed_2.data, written_2,
+            "round trip 2 data must match on B"
+        );
 
         // Both Deltas must be present in B's DAG (converged state), each signed
         // by A.
@@ -8308,7 +8399,13 @@ mod real_mesh_tests {
             .expect("second Delta must be merged into B's DAG");
         assert_eq!(node_2.author_did, author_did_a);
         assert!(
-            handle_b.crdt.lock().unwrap().dag_node(&write_1.delta_id).unwrap().is_some(),
+            handle_b
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&write_1.delta_id)
+                .unwrap()
+                .is_some(),
             "first Delta must still be in B's DAG after the second merge"
         );
 
@@ -8347,9 +8444,9 @@ mod real_mesh_tests {
         loop {
             if let Ok(transport) = handle.transport.lock() {
                 for payload in &transport.outbound_published {
-                    if let Some(crate::transport::message::GossipMessage::InboundDurabilityReceipt(
-                        receipt,
-                    )) = crate::transport::message::GossipMessage::from_bytes(payload)
+                    if let Some(
+                        crate::transport::message::GossipMessage::InboundDurabilityReceipt(receipt),
+                    ) = crate::transport::message::GossipMessage::from_bytes(payload)
                     {
                         if &receipt.state_hash == delta_id {
                             return receipt;
@@ -8426,7 +8523,14 @@ mod real_mesh_tests {
 
         // 1. B genuinely receives and merges the Delta (Phase 1) — only then
         //    can B attest holding the state.
-        let _ = wait_for_data(&handle_b, "durable", "row-1", &written, Duration::from_secs(20)).await;
+        let _ = wait_for_data(
+            &handle_b,
+            "durable",
+            "row-1",
+            &written,
+            Duration::from_secs(20),
+        )
+        .await;
 
         // 2. B must have issued a genuine receipt and published it to the
         //    mesh.  Capture it at B's outbound publish point.
@@ -8435,7 +8539,10 @@ mod real_mesh_tests {
         // 3. The receipt is genuine, not manufactured: it is signed over the
         //    canonical payload by B's real identity key (state_hash =
         //    delta.id, issuer = B's DID) and verifies against B's public key.
-        assert_eq!(receipt.state_hash, delta_id, "receipt must attest THIS delta");
+        assert_eq!(
+            receipt.state_hash, delta_id,
+            "receipt must attest THIS delta"
+        );
         assert_eq!(
             receipt.issuer_did,
             handle_b.identity.did(),
@@ -8510,6 +8617,7 @@ mod cloud_sync_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -8579,9 +8687,7 @@ mod cloud_sync_tests {
         let path = tmp_path("cycle");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Three writes through the production path — each registers a Delta in
         // the Durability Subsystem's cloud outbound queue (Req 16.3).
@@ -8650,9 +8756,7 @@ mod cloud_sync_tests {
         let path = tmp_path("loop");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Spawn the production cloud sync loop with a short interval so the
         // test completes quickly.  (In production builds `CoreHandle::init`
@@ -8665,7 +8769,11 @@ mod cloud_sync_tests {
         let mut delta_ids = Vec::new();
         for i in 0..3 {
             let wr = handle
-                .write("cloud", &format!("row-{i}"), json!({ "seq": i, "msg": "background drain" }))
+                .write(
+                    "cloud",
+                    &format!("row-{i}"),
+                    json!({ "seq": i, "msg": "background drain" }),
+                )
                 .await
                 .expect("write");
             delta_ids.push(wr.delta_id);
@@ -8712,6 +8820,7 @@ mod tier2_ack_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -8786,9 +8895,7 @@ mod tier2_ack_tests {
         let path = tmp_path("ack");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Subscribe before the ack so the transition is observed.
         let mut durability_events = handle.subscribe_durability_events();
@@ -8848,9 +8955,7 @@ mod tier2_ack_tests {
         let path = tmp_path("loop");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path))
-            .await
-            .expect("init");
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         // Subscribe before any ack.
         let mut durability_events = handle.subscribe_durability_events();
@@ -8902,7 +9007,11 @@ mod tier2_ack_tests {
 
     // ── Subphase 4.3: Anchor-Attested Location wiring ────────────────────────
 
-    fn make_config_with_anchor(path: &str, enabled: bool, beacon_public_keys: Vec<[u8; 32]>) -> InitConfig {
+    fn make_config_with_anchor(
+        path: &str,
+        enabled: bool,
+        beacon_public_keys: Vec<[u8; 32]>,
+    ) -> InitConfig {
         InitConfig {
             storage_path: path.to_string(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -8910,6 +9019,7 @@ mod tier2_ack_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -8937,13 +9047,9 @@ mod tier2_ack_tests {
 
         let (_beacon_secret, beacon_public) =
             crate::identity::keypair::generate_keypair().expect("beacon keypair");
-        let handle = CoreHandle::init(make_config_with_anchor(
-            &path,
-            true,
-            vec![beacon_public],
-        ))
-        .await
-        .expect("CoreHandle::init");
+        let handle = CoreHandle::init(make_config_with_anchor(&path, true, vec![beacon_public]))
+            .await
+            .expect("CoreHandle::init");
 
         let dur = handle.durability.lock().unwrap();
         let anchor = dur.anchor().expect(
@@ -9004,8 +9110,8 @@ mod tier2_ack_tests {
 #[cfg(all(test, feature = "native"))]
 mod diversity_config_tests {
     use super::*;
-    use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
     use crate::durability::quorum::QuorumConfig;
+    use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
     use crate::identity::keypair::{generate_keypair, sign};
     use std::env;
     use std::sync::Arc;
@@ -9018,6 +9124,7 @@ mod diversity_config_tests {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
                 schema_version_path: vec![],
@@ -9122,7 +9229,8 @@ mod diversity_config_tests {
 
         let mut dur = handle.durability.lock().unwrap();
         assert_eq!(
-            dur.quorum_config().max_single_sector_fraction, 1.0,
+            dur.quorum_config().max_single_sector_fraction,
+            1.0,
             "deployment-configured cap must reach the quorum tracker"
         );
         assert_eq!(dur.quorum_config().k, 3);
@@ -9209,11 +9317,13 @@ mod diversity_config_tests {
         );
         let mut dur = handle_a.durability.lock().unwrap();
         assert_eq!(
-            dur.quorum_config().spatial_diversity_min, 0,
+            dur.quorum_config().spatial_diversity_min,
+            0,
             "the unconfigured 0 marker must be carried through to the tracker"
         );
         assert_eq!(
-            dur.quorum_config().max_single_sector_fraction, 1.0,
+            dur.quorum_config().max_single_sector_fraction,
+            1.0,
             "the Req 14.3 default rule operates alongside the configured cap"
         );
 
@@ -9222,8 +9332,13 @@ mod diversity_config_tests {
         let (secrets_a, peers_a) = make_peers(3);
         dur.register_delta(delta_id_a, state_hash_a, vec![], vec![], peers_a)
             .expect("register_delta");
-        let outcomes_a =
-            push_receipts(&mut dur, delta_id_a, state_hash_a, &secrets_a, &["sector-x"; 3]);
+        let outcomes_a = push_receipts(
+            &mut dur,
+            delta_id_a,
+            state_hash_a,
+            &secrets_a,
+            &["sector-x"; 3],
+        );
         assert_eq!(
             outcomes_a[2], true,
             "default rule must not demand more diversity than exists (cap 1.0)"
@@ -9250,13 +9365,21 @@ mod diversity_config_tests {
         let (secrets_b, peers_b) = make_peers(3);
         dur.register_delta(delta_id_b, state_hash_b, vec![], vec![], peers_b)
             .expect("register_delta");
-        let outcomes_b =
-            push_receipts(&mut dur, delta_id_b, state_hash_b, &secrets_b, &["sector-x"; 3]);
+        let outcomes_b = push_receipts(
+            &mut dur,
+            delta_id_b,
+            state_hash_b,
+            &secrets_b,
+            &["sector-x"; 3],
+        );
         assert_eq!(
             outcomes_b[2], false,
             "the Req 14.3 fraction cap must still bind under the unconfigured marker"
         );
-        assert_eq!(dur.durability_tier(&delta_id_b), DurabilityTier::Uncommitted);
+        assert_eq!(
+            dur.durability_tier(&delta_id_b),
+            DurabilityTier::Uncommitted
+        );
         drop(dur);
         cleanup(&path_b);
     }
@@ -9276,7 +9399,8 @@ mod diversity_config_tests {
             );
             let dur = handle.durability.lock().unwrap();
             assert_eq!(
-                dur.quorum_config().max_single_sector_fraction, 0.7,
+                dur.quorum_config().max_single_sector_fraction,
+                0.7,
                 "invalid cap {invalid} must fall back to the 0.7 default"
             );
             drop(dur);

@@ -154,9 +154,9 @@ assert_impl_all!(contamination::incident::AuditOperation:  Clone, Copy, PartialE
 mod wasm_exports {
     use super::*;
     #[allow(unused_imports)]
-    use wasm_bindgen::prelude::*;
-    #[allow(unused_imports)]
     use js_sys;
+    #[allow(unused_imports)]
+    use wasm_bindgen::prelude::*;
 
     thread_local! {
         // `Arc` because `api::CoreHandle::init` now returns a shared handle:
@@ -208,7 +208,9 @@ mod wasm_exports {
         let bytes = hex::decode(hex_str)
             .map_err(|e| to_js_err(format!("{label}: invalid hex \"{hex_str}\": {e}")))?;
         bytes.try_into().map_err(|_| {
-            to_js_err(format!("{label}: \"{hex_str}\" must be 32 bytes (64 hex chars)"))
+            to_js_err(format!(
+                "{label}: \"{hex_str}\" must be 32 bytes (64 hex chars)"
+            ))
         })
     }
 
@@ -262,6 +264,10 @@ mod wasm_exports {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
+                // WASM export surface hardcodes the default 1h TTL, which is
+                // within the 1h–24h default range, so no accepted-risk override
+                // is granted here.
+                extended_ttl_accepted_risk: false,
                 root_ca_keys,
                 migration_ca_public_key,
                 schema_version_path,
@@ -297,7 +303,8 @@ mod wasm_exports {
         let key = decode_root_ca_key_hex(&root_ca_key_hex)?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle.register_root_ca_key(key).map_err(to_js_err)
         })
@@ -314,7 +321,8 @@ mod wasm_exports {
         let key = decode_32byte_hex("migration_ca_key", &migration_ca_key_hex)?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle.register_migration_ca_key(key).map_err(to_js_err)
         })
@@ -327,16 +335,15 @@ mod wasm_exports {
     /// `data` must be a JSON-serialisable JavaScript value.  Returns a
     /// `WriteResult` object: `{ deltaId: string, durabilityTier: string }`.
     #[wasm_bindgen]
-    pub async fn core_write(
-        table: String,
-        key: String,
-        data: JsValue,
-    ) -> Result<JsValue, JsValue> {
+    pub async fn core_write(table: String, key: String, data: JsValue) -> Result<JsValue, JsValue> {
         let data_json = js_to_json(&data)?;
         let ptr = core_ptr()?;
         // SAFETY: WASM is single-threaded; no concurrent mutation.
         let handle = unsafe { &*ptr };
-        let write_result = handle.write(&table, &key, data_json).await.map_err(to_js_err)?;
+        let write_result = handle
+            .write(&table, &key, data_json)
+            .await
+            .map_err(to_js_err)?;
         json_to_js(&serde_json::json!({
             "deltaId": hex::encode(write_result.delta_id),
             "durabilityTier": format!("{:?}", write_result.durability_tier),
@@ -364,12 +371,11 @@ mod wasm_exports {
     /// Query rows from a table with an optional JS filter object.
     #[wasm_bindgen]
     pub async fn core_query(table: String, filter: JsValue) -> Result<JsValue, JsValue> {
-        let filter_json: Option<serde_json::Value> =
-            if filter.is_null() || filter.is_undefined() {
-                None
-            } else {
-                Some(js_to_json(&filter)?)
-            };
+        let filter_json: Option<serde_json::Value> = if filter.is_null() || filter.is_undefined() {
+            None
+        } else {
+            Some(js_to_json(&filter)?)
+        };
 
         let ptr = core_ptr()?;
         let handle = unsafe { &*ptr };
@@ -377,12 +383,14 @@ mod wasm_exports {
 
         let json_arr: Vec<serde_json::Value> = results
             .iter()
-            .map(|r| serde_json::json!({
-                "table": r.table,
-                "key": r.key,
-                "data": r.data,
-                "contaminated": r.contaminated,
-            }))
+            .map(|r| {
+                serde_json::json!({
+                    "table": r.table,
+                    "key": r.key,
+                    "data": r.data,
+                    "contaminated": r.contaminated,
+                })
+            })
             .collect();
 
         json_to_js(&serde_json::Value::Array(json_arr))
@@ -448,7 +456,8 @@ mod wasm_exports {
         }
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
                 .initiate_revocation(&target_did, &manager_token)
@@ -469,14 +478,19 @@ mod wasm_exports {
     pub async fn core_revocation_status(target_did: String) -> Result<JsValue, JsValue> {
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            let rev = handle.revocation.lock()
+            let rev = handle
+                .revocation
+                .lock()
                 .map_err(|e| to_js_err(format!("revocation lock: {e}")))?;
             let m = rev.threshold_m();
             let (collected, status_str) = match rev.store_status(&target_did) {
                 Some(crate::auth::RevocationStatus::Applied) => (m, "APPLIED"),
-                Some(crate::auth::RevocationStatus::Pending { collected, .. }) => (collected, "PENDING"),
+                Some(crate::auth::RevocationStatus::Pending { collected, .. }) => {
+                    (collected, "PENDING")
+                }
                 None => (0, "PENDING"),
             };
             drop(rev);
@@ -515,17 +529,20 @@ mod wasm_exports {
             .map_err(|_| to_js_err("root_delta_id must be 32 bytes (64 hex chars)"))?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             let manager_did = handle.identity.did().to_string();
             let signing_key = handle.identity.signing_key_bytes();
             // Sign root_id as the payload for the CCE verify_data auth check.
-            let manager_sig = crate::identity::keypair::sign(&signing_key, &root_id)
-                .map_err(to_js_err)?;
+            let manager_sig =
+                crate::identity::keypair::sign(&signing_key, &root_id).map_err(to_js_err)?;
             // Use a far-future expiry — full Biscuit verification is native-only for v1;
             // the non-empty token check above is the WASM gate.
             let far_future = i64::MAX / 2;
-            let mut cce = handle.cce.lock()
+            let mut cce = handle
+                .cce
+                .lock()
                 .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
             cce.verify_data(root_id, manager_did, manager_sig, far_future)
                 .map_err(to_js_err)
@@ -545,14 +562,17 @@ mod wasm_exports {
             .map_err(|e| to_js_err(format!("invalid incident_id UUID: {e}")))?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             let manager_did = handle.identity.did().to_string();
             let signing_key = handle.identity.signing_key_bytes();
-            let manager_sig = crate::identity::keypair::sign(&signing_key, uuid.as_bytes())
-                .map_err(to_js_err)?;
+            let manager_sig =
+                crate::identity::keypair::sign(&signing_key, uuid.as_bytes()).map_err(to_js_err)?;
             let far_future = i64::MAX / 2;
-            let mut cce = handle.cce.lock()
+            let mut cce = handle
+                .cce
+                .lock()
                 .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
             cce.admin_close(uuid, manager_did, manager_sig, far_future)
                 .map_err(to_js_err)
@@ -570,15 +590,16 @@ mod wasm_exports {
     /// reconciled into Saturate Mode.  Any verification failure leaves the
     /// current mode untouched (Req 13.7).
     #[wasm_bindgen]
-    pub async fn core_activate_saturate_mode(
-        biscuit_token_hex: String,
-    ) -> Result<(), JsValue> {
+    pub async fn core_activate_saturate_mode(biscuit_token_hex: String) -> Result<(), JsValue> {
         let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            handle.activate_saturate_mode(&token_bytes).map_err(to_js_err)
+            handle
+                .activate_saturate_mode(&token_bytes)
+                .map_err(to_js_err)
         })
     }
 
@@ -593,13 +614,12 @@ mod wasm_exports {
     /// scheduler stays in Saturate Mode.  A failed heartbeat leaves the mode
     /// untouched (Req 13.7).
     #[wasm_bindgen]
-    pub async fn core_renew_saturate_mode(
-        biscuit_token_hex: String,
-    ) -> Result<(), JsValue> {
+    pub async fn core_renew_saturate_mode(biscuit_token_hex: String) -> Result<(), JsValue> {
         let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle.renew_saturate_mode(&token_bytes).map_err(to_js_err)
         })
@@ -623,17 +643,20 @@ mod wasm_exports {
         co_manager_signatures: JsValue,
     ) -> Result<(), JsValue> {
         // Canonical termination message (the bytes the Managers signed).
-        let message = hex::decode(&termination_message_hex)
-            .map_err(|_| to_js_err(
+        let message = hex::decode(&termination_message_hex).map_err(|_| {
+            to_js_err(
                 crate::errors::TirBaseError::AuthorisationFailed {
                     reason: "termination_message_hex: invalid hex encoding".to_string(),
-                }.to_string()
-            ))?;
+                }
+                .to_string(),
+            )
+        })?;
         if message.is_empty() {
             return Err(to_js_err(
                 crate::errors::TirBaseError::AuthorisationFailed {
                     reason: "termination message must not be empty".to_string(),
-                }.to_string()
+                }
+                .to_string(),
             ));
         }
 
@@ -645,18 +668,21 @@ mod wasm_exports {
         })?;
         let mut co_signatures: Vec<(String, Vec<u8>)> = Vec::new();
         for entry in entries {
-            let did = entry.get("did").and_then(|v| v.as_str()).ok_or_else(|| {
-                to_js_err("each co-signature must carry a string \"did\" field")
-            })?;
-            let signature_hex = entry.get("signatureHex").and_then(|v| v.as_str()).ok_or_else(|| {
-                to_js_err("each co-signature must carry a string \"signatureHex\" field")
-            })?;
-            let sig_bytes = hex::decode(signature_hex).map_err(|_| {
-                to_js_err("co-signature signatureHex: invalid hex encoding")
-            })?;
+            let did = entry
+                .get("did")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| to_js_err("each co-signature must carry a string \"did\" field"))?;
+            let signature_hex = entry
+                .get("signatureHex")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    to_js_err("each co-signature must carry a string \"signatureHex\" field")
+                })?;
+            let sig_bytes = hex::decode(signature_hex)
+                .map_err(|_| to_js_err("co-signature signatureHex: invalid hex encoding"))?;
             if sig_bytes.len() != 64 {
                 return Err(to_js_err(
-                    "co-signature signatureHex must decode to 64 bytes (128 hex chars)"
+                    "co-signature signatureHex must decode to 64 bytes (128 hex chars)",
                 ));
             }
             co_signatures.push((did.to_string(), sig_bytes));
@@ -664,7 +690,8 @@ mod wasm_exports {
 
         CORE.with(|c| {
             let borrow = c.borrow();
-            let handle = borrow.as_ref()
+            let handle = borrow
+                .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
                 .terminate_saturate_mode(&message, co_signatures)
@@ -729,12 +756,13 @@ mod wasm_exports {
     ///
     /// ## Relationship to native builds
     ///
-    /// Native builds use a libp2p Swarm spawned at `init()` time.
+    /// On native builds, a libp2p Swarm is spawned at `init()` time, and
     /// `CoreHandle::init` also spawns a background task (Subphase 1.3) that
     /// calls `process_inbound_messages()` on a 50 ms interval, so Gossipsub
-    /// messages are drained automatically in production.  (Unit tests drive
-    /// `process_inbound_messages()` manually, so the claim holds for
-    /// production builds.)
+    /// messages are drained automatically — no application-level call is
+    /// needed.  (Under `#[cfg(test)]` the interval is set to one hour so the
+    /// loop does not race count-based unit tests; the same loop is exercised
+    /// by the Subphase 1.3 integration test with a short interval.)
     /// WASM builds have no Swarm; this function is the explicit equivalent
     /// entry point for the inbound pipeline (Req 5, Req 1.4).
     #[wasm_bindgen]

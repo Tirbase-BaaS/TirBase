@@ -32,6 +32,12 @@ pub struct CapabilityManager {
     revocation_m: usize,
     /// N threshold for revocation (total managers in the set).
     revocation_n: usize,
+    /// Whether the deployment has explicitly accepted the >24h TTL risk
+    /// (Req 8.7 "accepted risk" escape path).  Set when `biscuit_ttl_secs`
+    /// exceeds 24h at init, which triggers the EXTENDED_TTL diagnostic (Req 21.6).
+    /// Stored here so that `create_token` can be called via `CapabilityManager`
+    /// without re-reading the config.
+    extended_ttl_accepted_risk: bool,
     /// Optional timestamp of the last revocation delta applied.
     last_revocation_ts: Option<i64>,
 }
@@ -40,13 +46,23 @@ impl CapabilityManager {
     /// Initialise the Capability Manager with the given deployment CA keys and M-of-N config.
     ///
     /// The initial trust level starts as `Unverified` until a valid Biscuit token is presented.
-    pub fn new(root_ca_keys: Vec<[u8; 32]>, revocation_m: usize, revocation_n: usize) -> Self {
+    /// `extended_ttl_accepted_risk` should be `true` when the deployment has
+    /// explicitly opted into >24h Biscuit TTLs (via the EXTENDED_TTL diagnostic
+    /// at init — Req 21.6), allowing `create_token` to mint extended-window
+    /// tokens (Req 8.7).
+    pub fn new(
+        root_ca_keys: Vec<[u8; 32]>,
+        revocation_m: usize,
+        revocation_n: usize,
+        extended_ttl_accepted_risk: bool,
+    ) -> Self {
         Self {
             trust_state: TrustLevelStateMachine::new(TrustLevel::Unverified),
             root_ca_registry: RootCaRegistry::new(root_ca_keys),
             pending_revocations: PendingRevocationStore::default(),
             revocation_m,
             revocation_n,
+            extended_ttl_accepted_risk,
             last_revocation_ts: None,
         }
     }
@@ -83,9 +99,11 @@ impl CapabilityManager {
             }
         }
 
-        Err(last_err.unwrap_or_else(|| TirBaseError::AuthorisationFailed {
-            reason: "no registered root CA keys".to_string(),
-        }))
+        Err(
+            last_err.unwrap_or_else(|| TirBaseError::AuthorisationFailed {
+                reason: "no registered root CA keys".to_string(),
+            }),
+        )
     }
 
     /// Mark the token as expired and transition to UNVERIFIED (Req 8.4).
@@ -138,6 +156,40 @@ impl CapabilityManager {
         self.root_ca_registry.primary_key().copied()
     }
 
+    /// Whether the deployment has explicitly accepted the >24h TTL risk (Req 8.7).
+    ///
+    /// Set when `biscuit_ttl_secs` exceeds 24h at init (which triggers the
+    /// `EXTENDED_TTL` diagnostic, Req 21.6).  When `true`, `create_token` can
+    /// mint tokens with TTLs beyond the default 24h cap (up to
+    /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`]).
+    pub fn extended_ttl_accepted_risk(&self) -> bool {
+        self.extended_ttl_accepted_risk
+    }
+
+    /// Mint a Biscuit token using the deployment's configured TTL and accepted-risk
+    /// flag (Req 8.7).  The token is signed by the deployment's root CA private key.
+    ///
+    /// The `ttl_secs` parameter overrides the configured `biscuit_ttl_secs` when
+    /// provided; otherwise the configured value is used.  The `extended_ttl_accepted_risk`
+    /// flag is passed through to `biscuit::create_token` so that tokens with TTL
+    /// > 24h are only created when the deployment has explicitly opted in.
+    pub fn mint_token(
+        &self,
+        did: &str,
+        role: &str,
+        root_ca_private_key: &[u8],
+        ttl_secs: Option<u64>,
+    ) -> Result<Vec<u8>, TirBaseError> {
+        let effective_ttl = ttl_secs.unwrap_or(crate::api::types::DEFAULT_BISCUIT_TTL_SECS);
+        biscuit::create_token(
+            did,
+            role,
+            effective_ttl,
+            root_ca_private_key,
+            self.extended_ttl_accepted_risk,
+        )
+    }
+
     /// Register an additional root CA public key at runtime.
     ///
     /// The key takes effect immediately for subsequent [`Self::verify_token`] calls
@@ -160,7 +212,7 @@ mod tests {
     use super::*;
 
     fn make_manager(m: usize, n: usize) -> CapabilityManager {
-        CapabilityManager::new(vec![], m, n)
+        CapabilityManager::new(vec![], m, n, false)
     }
 
     #[test]
@@ -182,7 +234,8 @@ mod tests {
         let mut mgr = make_manager(2, 3);
         assert_eq!(mgr.trust_level(), TrustLevel::Unverified);
 
-        mgr.apply_revocation().expect("apply_revocation should succeed");
+        mgr.apply_revocation()
+            .expect("apply_revocation should succeed");
         assert_eq!(
             mgr.trust_level(),
             TrustLevel::Revoked,
@@ -196,7 +249,10 @@ mod tests {
         mgr.apply_revocation().unwrap();
 
         let result = mgr.verify_token(b"fake-token", 0);
-        assert!(result.is_err(), "revoked device should not be able to verify tokens");
+        assert!(
+            result.is_err(),
+            "revoked device should not be able to verify tokens"
+        );
         let err = result.unwrap_err().to_string();
         assert!(
             err.contains("REVOKED"),
@@ -212,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_on_token_expired_transitions_to_unverified_from_verified() {
-        let mut mgr = CapabilityManager::new(vec![], 2, 3);
+        let mut mgr = CapabilityManager::new(vec![], 2, 3, false);
         // Manually set to verified via trust_state
         mgr.trust_state.on_valid_token();
         assert_eq!(mgr.trust_level(), TrustLevel::Verified);
@@ -257,16 +313,12 @@ mod tests {
             .try_into()
             .expect("public key should be 32 bytes");
 
-        let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3);
+        let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
 
         // Create a valid token
-        let token_bytes = biscuit::create_token(
-            "did:key:z6MkTest",
-            "admin",
-            3600,
-            &private_bytes,
-        )
-        .expect("create_token should succeed");
+        let token_bytes =
+            biscuit::create_token("did:key:z6MkTest", "admin", 3600, &private_bytes, false)
+                .expect("create_token should succeed");
 
         use std::time::{SystemTime, UNIX_EPOCH};
         let now_secs = SystemTime::now()
@@ -274,7 +326,9 @@ mod tests {
             .unwrap()
             .as_secs() as i64;
 
-        let level = mgr.verify_token(&token_bytes, now_secs).expect("verify_token should succeed");
+        let level = mgr
+            .verify_token(&token_bytes, now_secs)
+            .expect("verify_token should succeed");
         assert_eq!(level, TrustLevel::Verified);
     }
 }

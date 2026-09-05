@@ -7,6 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Default Biscuit token TTL in seconds (1 hour — the spec minimum, Req 8.7).
+/// Used when `DeploymentConfig.biscuit_ttl_secs` is 0 (unconfigured).
+pub const DEFAULT_BISCUIT_TTL_SECS: u64 = 3600;
+
 // ─── Trust Level ─────────────────────────────────────────────────────────────
 
 /// The trust state of a device's identity (Req 8.2, 2.4).
