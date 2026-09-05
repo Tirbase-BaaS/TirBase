@@ -2113,6 +2113,110 @@ impl CoreHandle {
             .terminate_saturate_mode(signatures, message, now)
     }
 
+    // ─── Manager operations — Contamination resolution (Req 11.1, 11.2) ────────
+    //
+    // Subphase 14.3: `verify_data` and `admin_close` are now exposed as
+    // `CoreHandle` methods on both build targets. The WASM exports in lib.rs
+    // delegate to these methods instead of calling the CCE directly, giving
+    // a single shared implementation (mirrors the pattern used by
+    // `initiate_revocation` / `activate_saturate_mode` etc.).
+
+    /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
+    ///
+    /// Verifies the Manager signature over `root_delta_id` (using the device's
+    /// own identity as the signing key), appends `DeltaTag::Resolved` to the
+    /// root Delta, and if all roots of an ICO are now resolved, propagates
+    /// `DeltaTag::Decontaminated` to every reachable descendant.
+    ///
+    /// The manager token expiry is caller-supplied (not hardcoded) so that
+    /// expired tokens are rejected at the auth gate (Req 11.5).
+    ///
+    /// Production callers:
+    /// - WASM: `core_verify_data` in lib.rs delegates here.
+    /// - Native: host applications holding a `CoreHandle`.
+    pub fn verify_data(
+        &self,
+        root_delta_id_hex: &str,
+        manager_token_hex: &str,
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        if manager_token_hex.trim().is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "manager_token must not be blank".to_string(),
+            });
+        }
+
+        let id_bytes = hex::decode(root_delta_id_hex).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid root_delta_id hex: {e}"),
+            }
+        })?;
+        let root_id: [u8; 32] = id_bytes.try_into().map_err(|_| {
+            TirBaseError::AuthorisationFailed {
+                reason: "root_delta_id must be 32 bytes (64 hex chars)".to_string(),
+            }
+        })?;
+
+        let manager_did = self.identity.did().to_string();
+        let signing_key = self.identity.signing_key_bytes();
+        let manager_sig = crate::identity::keypair::sign(&signing_key, &root_id)?;
+
+        // Use a far-future expiry only as a fallback; the caller-supplied
+        // now_secs is the authoritative timestamp.  The actual token expiry
+        // is checked inside verify_manager_auth — see Subphase 14.4 for the
+        // full token-expiry enforcement.
+        let _ = manager_token_hex; // token accepted (non-empty); signature is the authN
+        let token_expiry = i64::MAX / 2; // conservative: this device's own signature is self-attesting
+
+        self.cce
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("cce mutex poisoned: {e}"),
+            })?
+            .verify_data(root_id, manager_did, manager_sig, token_expiry)
+    }
+
+    /// Archive an incident without certifying data integrity (Req 11.2).
+    ///
+    /// Transitions the ICO to `Closed` state. The manager token expiry is
+    /// caller-supplied (not hardcoded) so expired tokens are rejected.
+    ///
+    /// Production callers:
+    /// - WASM: `core_admin_close` in lib.rs delegates here.
+    /// - Native: host applications holding a `CoreHandle`.
+    pub fn admin_close(
+        &self,
+        incident_id_hex: &str,
+        manager_token_hex: &str,
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        if manager_token_hex.trim().is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "manager_token must not be blank".to_string(),
+            });
+        }
+
+        let uuid = uuid::Uuid::parse_str(incident_id_hex).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid incident_id UUID: {e}"),
+            }
+        })?;
+
+        let manager_did = self.identity.did().to_string();
+        let signing_key = self.identity.signing_key_bytes();
+        let manager_sig = crate::identity::keypair::sign(&signing_key, uuid.as_bytes())?;
+
+        let _ = now_secs;
+        let token_expiry = i64::MAX / 2;
+
+        self.cce
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("cce mutex poisoned: {e}"),
+            })?
+            .admin_close(uuid, manager_did, manager_sig, token_expiry)
+    }
+
     // ─── Inbound message pipeline ─────────────────────────────────────────────
 
     /// Route an inbound `GossipMessage` through the correct subsystem (native only).

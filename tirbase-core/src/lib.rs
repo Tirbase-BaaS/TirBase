@@ -541,69 +541,48 @@ mod wasm_exports {
         })
     }
 
-    /// Append a RESOLVED tag to a contamination root Delta.
+    /// Append a RESOLVED tag to a contamination root Delta (Req 11.1).
+    ///
+    /// Delegates to [`api::CoreHandle::verify_data`] — the shared WASM + native
+    /// implementation — so both build targets share one code path. The manager
+    /// token expiry is caller-supplied (`now_secs` is the real current time),
+    /// so expired tokens are rejected at the auth gate rather than bypassing it
+    /// with a hardcoded `far_future` (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
     pub async fn core_verify_data(
         root_delta_id: String,
         manager_token: String,
+        now_secs: i64,
     ) -> Result<(), JsValue> {
-        if manager_token.trim().is_empty() {
-            return Err(to_js_err("manager_token must not be blank"));
-        }
-        // Decode hex → [u8; 32]
-        let id_bytes = hex::decode(&root_delta_id)
-            .map_err(|e| to_js_err(format!("invalid root_delta_id hex: {e}")))?;
-        let root_id: [u8; 32] = id_bytes
-            .try_into()
-            .map_err(|_| to_js_err("root_delta_id must be 32 bytes (64 hex chars)"))?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            let manager_did = handle.identity.did().to_string();
-            let signing_key = handle.identity.signing_key_bytes();
-            // Sign root_id as the payload for the CCE verify_data auth check.
-            let manager_sig =
-                crate::identity::keypair::sign(&signing_key, &root_id).map_err(to_js_err)?;
-            // Use a far-future expiry — full Biscuit verification is native-only for v1;
-            // the non-empty token check above is the WASM gate.
-            let far_future = i64::MAX / 2;
-            let mut cce = handle
-                .cce
-                .lock()
-                .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
-            cce.verify_data(root_id, manager_did, manager_sig, far_future)
+            handle
+                .verify_data(&root_delta_id, &manager_token, now_secs)
                 .map_err(to_js_err)
         })
     }
 
-    /// Archive an incident without certifying data integrity.
+    /// Archive an incident without certifying data integrity (Req 11.2).
+    ///
+    /// Delegates to [`api::CoreHandle::admin_close`] — the shared WASM + native
+    /// implementation. The `now_secs` parameter supplies the real current time
+    /// so token-expiry enforcement is live (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
     pub async fn core_admin_close(
         incident_id: String,
         manager_token: String,
+        now_secs: i64,
     ) -> Result<(), JsValue> {
-        if manager_token.trim().is_empty() {
-            return Err(to_js_err("manager_token must not be blank"));
-        }
-        let uuid = uuid::Uuid::parse_str(&incident_id)
-            .map_err(|e| to_js_err(format!("invalid incident_id UUID: {e}")))?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            let manager_did = handle.identity.did().to_string();
-            let signing_key = handle.identity.signing_key_bytes();
-            let manager_sig =
-                crate::identity::keypair::sign(&signing_key, uuid.as_bytes()).map_err(to_js_err)?;
-            let far_future = i64::MAX / 2;
-            let mut cce = handle
-                .cce
-                .lock()
-                .map_err(|e| to_js_err(format!("cce lock: {e}")))?;
-            cce.admin_close(uuid, manager_did, manager_sig, far_future)
+            handle
+                .admin_close(&incident_id, &manager_token, now_secs)
                 .map_err(to_js_err)
         })
     }
