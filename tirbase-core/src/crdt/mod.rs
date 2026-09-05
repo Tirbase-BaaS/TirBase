@@ -31,6 +31,30 @@ use schema_hash::SchemaIdentifierHash;
 #[cfg(feature = "native")]
 use dag::{ChangesetDag, DagNode};
 
+/// Serializable subset of [`CrdtEngine`] state that is identical across native
+/// and WASM targets — used by the cross-build convergence test.
+///
+/// The native-only `dag` field is intentionally excluded: WASM has no SQLite
+/// DAG, so including it would make byte-for-byte comparison impossible.  Every
+/// other field is present on both targets and has the same semantics.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct ConvergentState {
+    /// Raw Automerge document bytes after all operations.
+    pub automerge_bytes: Vec<u8>,
+    /// Final Lamport clock value.
+    pub lamport: u64,
+    /// Hash of the device's current schema at the end of the sequence.
+    pub known_schema_hash: SchemaIdentifierHash,
+    /// Set of all schema hashes the engine accepted during the sequence.
+    pub known_schemas: Vec<SchemaIdentifierHash>,
+    /// DID of the local device.
+    pub author_did: Did,
+    /// DIDs that were revoked during the sequence.
+    pub revoked_dids: Vec<Did>,
+    /// Structured rejection records emitted during the sequence.
+    pub rejection_records: Vec<DeltaRejectionRecord>,
+}
+
 // ─── DID resolution helpers ──────────────────────────────────────────────────
 
 /// Decode a `did:key:z6Mk…` DID to its 32-byte Ed25519 public key.
@@ -421,6 +445,58 @@ impl CrdtEngine {
     /// Current Lamport clock value.
     pub fn lamport(&self) -> u64 {
         self.lamport
+    }
+
+    // ─── test-only field accessors ────────────────────────────────────────────
+    //
+    // `src/tests/convergence_tests.rs` is a sibling submodule and cannot
+    // access `pub(crate)` struct fields.  These accessors exist only under
+    // `#[cfg(test)]` so they never appear in release builds or the public API.
+
+    #[cfg(test)]
+    pub(crate) fn test_author_did(&self) -> &Did {
+        &self.author_did
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_known_schema_hash(&self) -> SchemaIdentifierHash {
+        self.known_schema_hash
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_secret_key(&self) -> &[u8; 32] {
+        &self.secret_key
+    }
+
+    /// Serialise the subset of engine state that is identical across native and
+    /// WASM builds, for use by the cross-build convergence test.
+    ///
+    /// The native-only `dag` field is excluded: the WASM engine has no SQLite
+    /// DAG, so its serialised bytes would differ structurally.  All remaining
+    /// fields are present on both targets and carry identical semantics, so
+    /// `serde_json::to_vec` of the returned struct is byte-stable across the
+    /// two build targets when the same delta sequence is applied.
+    #[cfg(test)]
+    pub(crate) fn convergent_state(&mut self) -> ConvergentState {
+        let mut known_schemas: Vec<SchemaIdentifierHash> =
+            self.known_schemas.iter().copied().collect();
+        known_schemas.sort();
+
+        let mut revoked_dids: Vec<Did> = self.revoked_dids.iter().cloned().collect();
+        revoked_dids.sort();
+
+        let rejection_records: Vec<DeltaRejectionRecord> =
+            self.rejection_records.iter().cloned().collect();
+
+        ConvergentState {
+            automerge_bytes: self.doc.save(),
+            lamport: self.lamport,
+            known_schema_hash: self.known_schema_hash,
+            known_schemas,
+            author_did: self.author_did.clone(),
+            revoked_dids,
+            rejection_records,
+        }
     }
 
     /// Look up a persisted DagNode by Delta ID (native only).

@@ -46,7 +46,7 @@ jobs:
           cargo check ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
 
   test:
-    name: cargo test (native)
+    name: cargo test (native) + WASM parity check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,5 +63,11 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: cargo test
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: cargo test (native) — includes parity + convergence tests
         run: cargo test --features native
+
+      - name: cargo check (WASM target) — fails CI on WASM compile error
+        run: cargo check --no-default-features --features wasm --target wasm32-unknown-unknown

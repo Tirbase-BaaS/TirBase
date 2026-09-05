@@ -304,6 +304,22 @@ impl ChangesetDag {
         Ok(result)
     }
 
+    /// Number of nodes currently stored in the DAG.
+    ///
+    /// Used by the convergence test to assert that the native DAG persists
+    /// at least as many nodes as the WASM in-memory equivalent.
+    pub fn len(&self) -> Result<usize, TirBaseError> {
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM dag_nodes;", [], |row| row.get(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG COUNT query failed: {e}"),
+            })?;
+        Ok(count as usize)
+    }
+
     /// Topological sort of the entire DAG (Kahn's algorithm, causal order).
     ///
     /// Returns Delta IDs in causal order: all parents before their children.
@@ -511,6 +527,11 @@ impl ChangesetDag {
             nodes: std::collections::HashMap::new(),
             children_map: std::collections::HashMap::new(),
         }
+    }
+
+    /// Number of nodes currently stored in the DAG.
+    pub fn len(&self) -> Result<usize, TirBaseError> {
+        Ok(self.nodes.len())
     }
 
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {

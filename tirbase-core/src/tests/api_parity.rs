@@ -237,3 +237,107 @@ fn sdk_production_callers_have_wasm_exports() {
         );
     }
 }
+
+/// Canonical list of every `pub` method on `CoreHandle` (api/mod.rs) that does
+/// **not** have a `#[wasm_bindgen]` export in `lib.rs`, together with the
+/// documented reason for its absence.
+///
+/// This is the maintained list of intentional exclusions.  When a new method
+/// is added to `CoreHandle`, it must either:
+/// - appear in `EXPORT_TO_METHOD` (which adds a WASM export), or
+/// - appear here with a reason.
+///
+/// If a method is added to `CoreHandle` and is absent from both lists, this
+/// test fails, forcing the developer to make the export decision explicit.
+const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
+    // Native-only diagnostics channel — `tokio::sync::broadcast::Receiver`
+    // cannot be passed across the WASM boundary; diagnostics are delivered to
+    // the SDK via `core_poll_events` (WasmEvent stream) instead.
+    ("subscribe_diagnostics", "native-only tokio broadcast channel"),
+
+    // Synchronous getter for the root CA public key bytes — the SDK retrieves
+    // this via `core_register_root_ca_key_with_token` (which accepts the key
+    // material) and stores it in JS memory; a separate getter is unnecessary.
+    ("root_ca_public_key", "synchronous key getter; key material stored in JS by register call"),
+
+    // Native-only inbound path — `receive_inbound` (the non-wasm arm at
+    // api/mod.rs:2234) is the Swarm-polling-task caller on native; the WASM
+    // equivalent is `receive_inbound_wasm` (which is exported as
+    // `core_receive_peer_message`).
+    ("receive_inbound", "native-only Swarm polling caller; WASM equivalent is receive_inbound_wasm"),
+
+    // Internal dispatch — `process_inbound_messages` drains the native inbound
+    // channel and is not a public WASM boundary method.
+    ("process_inbound_messages", "internal native inbound drain loop, not a WASM boundary method"),
+
+    // `receive_inbound_wasm` is the WASM-internal implementation of the inbound
+    // path; it is called by `core_receive_peer_message` and is not itself
+    // exported — exporting it would create a duplicate entry in the WASM
+    // surface.
+    ("receive_inbound_wasm", "WASM-internal inbound impl, called by core_receive_peer_message"),
+
+    // Native-only durability event subscription — returns a
+    // `tokio::sync::broadcast::Receiver` which has no WASM equivalent;
+    // durability events on WASM are delivered through `core_poll_events`.
+    ("subscribe_durability_events", "native-only tokio broadcast channel; WASM uses core_poll_events"),
+
+    // Native-only test injection path — `inject_inbound` is used by native
+    // integration tests to simulate inbound gossip messages; it is not part of
+    // the SDK surface.
+    ("inject_inbound", "native-only test injection path, not part of SDK surface"),
+];
+
+/// All `pub` method names on `CoreHandle` (the complete set that must be
+/// accounted for in `EXPORT_TO_METHOD` or `UNEXPORTED_COREHANDLE_METHODS`).
+const ALL_COREHANDLE_PUBLIC_METHODS: &[&str] = &[
+    "init",
+    "write",
+    "read",
+    "query",
+    "trust_level",
+    "mesh_status",
+    "subscribe_diagnostics",
+    "root_ca_public_key",
+    "register_root_ca_key",
+    "register_migration_ca_key",
+    "initiate_revocation",
+    "device_revocation_status",
+    "activate_saturate_mode",
+    "renew_saturate_mode",
+    "terminate_saturate_mode",
+    "verify_data",
+    "admin_close",
+    "receive_inbound",
+    "receive_inbound_wasm",
+    "process_inbound_messages",
+    "subscribe_durability_events",
+    "inject_inbound",
+];
+
+#[test]
+fn all_corehandle_public_methods_are_accounted_for() {
+    let exported: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(_, m)| *m).collect();
+    let unexported_reasons: BTreeSet<&str> =
+        UNEXPORTED_COREHANDLE_METHODS.iter().map(|(m, _)| *m).collect();
+
+    for method in ALL_COREHANDLE_PUBLIC_METHODS {
+        let is_exported = exported.contains(method);
+        let is_documented = unexported_reasons.contains(method);
+
+        assert!(
+            is_exported || is_documented,
+            "CoreHandle::'{method}' is pub but has no WASM export and no documented \
+             exclusion reason — add it to EXPORT_TO_METHOD or UNEXPORTED_COREHANDLE_METHODS"
+        );
+    }
+
+    // Every entry in UNEXPORTED_COREHANDLE_METHODS must correspond to a real
+    // method on CoreHandle (prevents stale entries from accumulating).
+    for (method, _reason) in UNEXPORTED_COREHANDLE_METHODS {
+        assert!(
+            ALL_COREHANDLE_PUBLIC_METHODS.contains(method),
+            "UNEXPORTED_COREHANDLE_METHODS references '{method}' which is not a \
+             pub method on CoreHandle — remove the stale entry"
+        );
+    }
+}

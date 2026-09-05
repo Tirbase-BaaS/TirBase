@@ -32,7 +32,7 @@ use crate::crdt::delta::{DeltaId, Did};
 /// Discriminates the Req 7.4 signature-verification failure record from the
 /// distinct Req 7.5 unresolvable-DID failure record (and from the other
 /// rejection causes the gate enforces ahead of signature verification).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum DeltaRejectionCode {
     /// The author DID is in the engine's REVOKED set — the Req 8.6
     /// revocation gate (a revocation-gate rejection, not a crypto failure).
@@ -70,7 +70,7 @@ impl DeltaRejectionCode {
 /// the record — not a log string — is the thing that is emitted, and every
 /// record carries the sender DID (`author_did`) and a UTC timestamp
 /// (`occurred_at_utc`) per Req 7.4/7.5.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct DeltaRejectionRecord {
     /// Why the Delta was rejected; discriminates the distinct Req 7.5
     /// unresolvable-DID record from the Req 7.4 signature-verification record.
