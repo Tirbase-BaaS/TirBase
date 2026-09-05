@@ -225,6 +225,11 @@ impl PeerDiscovery {
     pub fn is_direct_neighbor(&self, peer_did: &Did) -> bool {
         self.peers.contains_key(peer_did)
     }
+
+    /// Return the `PeerTransport` for a known peer, if present.
+    pub fn peer_transport(&self, peer_did: &Did) -> Option<&PeerTransport> {
+        self.peers.get(peer_did).map(|state| &state.peer.transport)
+    }
 }
 
 // ─── mDNS event adapter (native only) ────────────────────────────────────────

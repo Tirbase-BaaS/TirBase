@@ -13,6 +13,7 @@ pub mod priority;
 pub mod saturate;
 pub mod scheduler;
 pub mod session;
+pub mod ble;
 
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Delta, Did, PriorityClass};
@@ -76,6 +77,8 @@ pub struct TransportConfig {
     /// runtime tests) or a longer one.  Clamped to `>= 1` at construction so a
     /// misconfigured zero never opens an already-expired lease.
     pub saturate_lease_duration_secs: i64,
+    /// Enable BLE transport bridge (native-only).
+    pub mesh_ble_enabled: bool,
 }
 
 impl Default for TransportConfig {
@@ -91,6 +94,7 @@ impl Default for TransportConfig {
             saturate_termination_threshold_m: 1,
             root_ca_public_key: vec![],
             saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
+            mesh_ble_enabled: false,
         }
     }
 }
@@ -215,6 +219,24 @@ pub struct MeshTransport {
     #[cfg(feature = "native")]
     pub(crate) outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
 
+    /// Native-only BLE transport: outbound channel for BLE-bound payloads.
+    /// The BLE I/O task (spawned in `start` when `mesh_ble_enabled` is true)
+    /// drains this receiver and writes chunks to the peer's GATT characteristic.
+    #[cfg(feature = "native")]
+    pub(crate) ble_outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
+
+    /// Native-only BLE transport: inbound channel for reassembled BLE Deltas.
+    /// The BLE I/O task pushes completed Deltas here; `poll_ble_inbound` drains
+    /// this receiver and dispatches each message through `process_wire_message`.
+    #[cfg(feature = "native")]
+    pub(crate) ble_inbound_tx: Option<tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>>,
+    #[cfg(feature = "native")]
+    pub(crate) ble_inbound_rx: Option<tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>>,
+
+    /// Test-only: last inbound message received over BLE.
+    #[cfg(all(feature = "native", test))]
+    pub(crate) last_ble_inbound: Option<crate::transport::message::GossipMessage>,
+
     /// Test-only: payloads that reached the outbound publish point (recorded
     /// by the Swarm polling task immediately before `gossipsub.publish`).
     #[cfg(all(feature = "native", test))]
@@ -271,9 +293,18 @@ impl MeshTransport {
             swarm: None,
             #[cfg(feature = "native")]
             outbound_tx: None,
+            #[cfg(feature = "native")]
+            ble_outbound_tx: None,
+            #[cfg(feature = "native")]
+            ble_inbound_tx: None,
+            #[cfg(feature = "native")]
+            ble_inbound_rx: None,
             #[cfg(all(feature = "native", test))]
             outbound_published: Vec::new(),
+            #[cfg(all(feature = "native", test))]
+            last_ble_inbound: None,
         }
+    }
     }
 
     // ── Peer lifecycle ────────────────────────────────────────────────────────
@@ -655,6 +686,99 @@ impl MeshTransport {
 
         self.swarm = Some(swarm);
 
+        // ── BLE transport initialisation ─────────────────────────────────────────
+        //
+        // When `mesh_ble_enabled` is true, initialise the BLE adapter, create
+        // the BLE I/O channels, and spawn a background task that handles
+        // advertising/scanning, chunked writes, and notification receive.
+        #[cfg(feature = "native")]
+        if config.mesh_ble_enabled {
+            use crate::transport::ble::{self, BleAdapter};
+
+            let (ble_outbound_tx, ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+            let (ble_inbound_tx, ble_inbound_rx) =
+                tokio::sync::mpsc::channel::<crate::transport::message::GossipMessage>(32);
+
+            self.ble_outbound_tx = Some(ble_outbound_tx);
+            self.ble_inbound_tx = Some(ble_inbound_tx);
+            self.ble_inbound_rx = Some(ble_inbound_rx);
+
+            let local_did = self.local_did.clone();
+            let peer_did = self.local_did.clone(); // self-peer for adapter init
+
+            tokio::spawn(async move {
+                let mut adapter = match BleAdapter::new(local_did.clone(), peer_did).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        eprintln!("[transport] BLE adapter init failed: {e}");
+                        return;
+                    }
+                };
+
+                // Start advertising the TirBase service (peripheral role).
+                if let Err(e) = adapter.start_advertising().await {
+                    eprintln!("[transport] BLE advertising failed: {e}");
+                }
+
+                // Start scanning for TirBase peers (central role).
+                if let Err(e) = adapter.scan_and_connect(30).await {
+                    eprintln!("[transport] BLE scan/connect failed: {e}");
+                }
+
+                // Subscribe to notifications on the TirBase characteristic.
+                let mut notification_rx = match adapter.subscribe_notifications().await {
+                    Ok(rx) => rx,
+                    Err(e) => {
+                        eprintln!("[transport] BLE subscribe failed: {e}");
+                        return;
+                    }
+                };
+
+                let mut reassembly = ReassemblyBuffer::default();
+                let mut pending_chunks: std::collections::HashMap<[u8; 32], Vec<Vec<u8>>> =
+                    std::collections::HashMap::new();
+
+                loop {
+                    tokio::select! {
+                        Some(data) = ble_outbound_rx.recv() => {
+                            let chunks = ble::fragment_for_ble(
+                                crate::crdt::delta::DeltaId::new().0,
+                                &data,
+                            );
+                            if let Err(e) = adapter.send_chunks(&chunks).await {
+                                eprintln!("[transport] BLE send failed: {e}");
+                            }
+                        }
+                        Some(chunk) = notification_rx.recv() => {
+                            if chunk.len() < ble::BLE_CHUNK_HEADER_SIZE {
+                                continue;
+                            }
+                            let delta_id = {
+                                let mut id = [0u8; 32];
+                                id.copy_from_slice(&chunk[0..32]);
+                                id
+                            };
+                            pending_chunks.entry(delta_id).or_default().push(chunk);
+
+                            if let Some(chunks) = pending_chunks.remove(&delta_id) {
+                                match ble::reassemble_ble_chunks(chunks, &format!("ble-{}", hex::encode(delta_id))) {
+                                    Ok(reassembled) => {
+                                        if let Ok(msg) = serde_json::from_slice::<crate::transport::message::GossipMessage>(&reassembled) {
+                                            let _ = ble_inbound_tx.send(msg).await;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[transport] BLE reassembly failed: {e}");
+                                    }
+                                }
+                            }
+                        }
+                        else => break,
+                    }
+                }
+            });
+        }
+
         // Subscribe to the shared TirBase Gossipsub topic (Req 5.1).
         if let Some(ref mut swarm) = self.swarm {
             use libp2p::gossipsub::IdentTopic;
@@ -744,6 +868,39 @@ impl MeshTransport {
     /// authoritative while the device is offline (Req 3.3).
     #[cfg(feature = "native")]
     pub fn send_delta(&mut self, peer_did: &Did, delta: &Delta) -> Result<(), TirBaseError> {
+        // ── BLE bridge path ─────────────────────────────────────────────────────
+        //
+        // If the destination peer is reachable via a BLE routing bridge, bypass
+        // the libp2p Gossipsub outbound channel and send the framed Delta over
+        // the dedicated BLE outbound channel instead.  The BLE I/O task drains
+        // this channel and writes the serialised chunks to the peer's GATT
+        // characteristic.
+        let is_ble_peer = self
+            .discovery
+            .peer_transport(peer_did)
+            .map(|t| matches!(t, PeerTransport::BleBridge { .. }))
+            .unwrap_or(false);
+
+        if is_ble_peer {
+            let messages = self.prepare_outbound(delta)?;
+            let ble_tx = self
+                .ble_outbound_tx
+                .as_ref()
+                .ok_or_else(|| TirBaseError::MeshUnavailable {
+                    reason: "BLE transport not initialised (outbound channel missing)"
+                        .to_string(),
+                })?;
+            for msg in messages {
+                let wire_payload = msg.to_bytes();
+                ble_tx
+                    .try_send(wire_payload)
+                    .map_err(|e| TirBaseError::MeshUnavailable {
+                        reason: format!("BLE outbound channel unavailable: {e}"),
+                    })?;
+            }
+            return Ok(());
+        }
+
         // Req 5.5: if the destination is not a direct neighbor, route through
         // a relay peer.
         if !self.discovery.is_direct_neighbor(peer_did) {
@@ -1002,6 +1159,7 @@ mod tests {
                 saturate_termination_threshold_m: 1,
                 root_ca_public_key: vec![],
                 saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
+                mesh_ble_enabled: false,
             },
         )
     }
@@ -1029,6 +1187,7 @@ mod tests {
                 saturate_termination_threshold_m: termination_threshold_m,
                 root_ca_public_key,
                 saturate_lease_duration_secs: SATURATE_LEASE_DURATION_SECS,
+                mesh_ble_enabled: false,
             },
         )
     }
