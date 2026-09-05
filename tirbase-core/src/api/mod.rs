@@ -8599,6 +8599,92 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p03b_B"));
     }
 
+    // ── Subphase 8.3: final-state identity after bidirectional merge ────────────
+    //
+    // Two real Swarm-backed CoreHandles on loopback.  Each device writes through
+    // the production `CoreHandle::write` path; Deltas travel over the mesh and
+    // are merged by the production inbound pipeline (`receive_inbound` →
+    // `apply_incoming_delta` → `CrdtEngine::apply`).  After a full round trip
+    // (A→B and B→A) every key written by either engine must be readable on both
+    // engines with identical data.
+    //
+    // Production caller: `CoreHandle::write` → `CrdtEngine::apply`
+    //   (crdt/mod.rs:664).
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn bidirectional_write_round_trip_asserts_final_state_identity() {
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        let handle_a = init_mesh_handle("p83_a", port_a).await;
+        let handle_b = init_mesh_handle("p83_b", port_b).await;
+
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Round trip 1: A writes, B merges.
+        let from_a = json!({ "device": "A", "seq": 1, "msg": "hello from A" });
+        let wr_a = handle_a
+            .write("identity_test", "from_a", from_a.clone())
+            .await
+            .expect("write on A must succeed");
+
+        let observed_a_on_b = wait_for_data(
+            &handle_b,
+            "identity_test",
+            "from_a",
+            &from_a,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(observed_a_on_b.data, from_a, "B must read A's data after round trip 1");
+
+        // Round trip 2: B writes, A merges.
+        let from_b = json!({ "device": "B", "seq": 1, "msg": "hello from B" });
+        let wr_b = handle_b
+            .write("identity_test", "from_b", from_b.clone())
+            .await
+            .expect("write on B must succeed");
+
+        let observed_b_on_a = wait_for_data(
+            &handle_a,
+            "identity_test",
+            "from_b",
+            &from_b,
+            Duration::from_secs(20),
+        )
+        .await;
+        assert_eq!(observed_b_on_a.data, from_b, "A must read B's data after round trip 2");
+
+        // Final-state identity: every key written by either engine must match on
+        // both engines.
+        assert_eq!(
+            handle_a.read("identity_test", "from_a").await.unwrap().data,
+            from_a,
+            "A must still hold its own write"
+        );
+        assert_eq!(
+            handle_a.read("identity_test", "from_b").await.unwrap().data,
+            from_b,
+            "A must hold B's write after bidirectional merge"
+        );
+        assert_eq!(
+            handle_b.read("identity_test", "from_a").await.unwrap().data,
+            from_a,
+            "B must hold A's write after bidirectional merge"
+        );
+        assert_eq!(
+            handle_b.read("identity_test", "from_b").await.unwrap().data,
+            from_b,
+            "B must still hold its own write"
+        );
+
+        cleanup(&tmp_path("p83_a"));
+        cleanup(&tmp_path("p83_b"));
+    }
+
     // ── Subphase 4.5: Tier-1 durability via genuine receipt exchange ─────────
     //
     // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
