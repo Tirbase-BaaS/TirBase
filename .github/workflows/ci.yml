@@ -46,7 +46,7 @@ jobs:
           cargo check ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
 
   test:
-    name: cargo test (native) + WASM parity check
+    name: cargo test (native) + WASM parity check + SDK tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,8 +60,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
 
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
@@ -71,3 +75,11 @@ jobs:
 
       - name: cargo check (WASM target) — fails CI on WASM compile error
         run: cargo check --no-default-features --features wasm --target wasm32-unknown-unknown
+
+      - name: Build WASM for SDK tests
+        working-directory: tirbase-sdk
+        run: npm run build:wasm
+
+      - name: Run SDK tests against real WASM
+        working-directory: tirbase-sdk
+        run: npm test

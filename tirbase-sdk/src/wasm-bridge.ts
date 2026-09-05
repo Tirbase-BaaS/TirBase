@@ -19,6 +19,11 @@ import type {
   TrustLevel,
   WriteResult,
 } from './types';
+import { dirname, resolve } from 'path';
+
+// Resolve the directory of this file for locating the WASM artefacts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _dirname = dirname((<any>module).filename || '.');
 
 // ─── WasmCore interface ───────────────────────────────────────────────────────
 
@@ -113,24 +118,16 @@ export interface WasmCore {
  * @throws {Error} If the WASM module cannot be fetched or instantiated.
  */
 export async function loadWasmCore(wasmUrl?: string): Promise<WasmCore> {
-  // The actual wasm-pack artefact path.  A real build places it at
-  // `wasm/tirbase_core.js` (note: wasm-pack uses underscores).
-  const jsPath = wasmUrl ?? './wasm/tirbase_core.js';
+  const defaultJsPath = resolve(_dirname, '../wasm/tirbase_core.js');
+  const jsPath = wasmUrl ?? defaultJsPath;
 
   try {
-    // Dynamic import — works in Node (≥ 22 with ESM or via CJS require) and
-    // modern bundlers (Webpack/Vite/Rollup).
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const wasmModule = await import(/* webpackIgnore: true */ jsPath);
 
-    // wasm-pack generates a default-exported init() that returns the module
-    // after loading the .wasm binary.
     if (typeof wasmModule.default === 'function') {
       await wasmModule.default();
     }
 
-    // The wasm-bindgen glue exposes the Rust struct methods on the module
-    // namespace.  Wrap them in the WasmCore interface shape.
     return buildBridgeFromWasmModule(wasmModule);
   } catch (err) {
     throw new Error(

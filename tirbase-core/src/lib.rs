@@ -832,4 +832,44 @@ mod wasm_exports {
         let json = serde_json::to_string(&events).unwrap_or_else(|_| "[]".to_string());
         js_sys::JSON::parse(&json).unwrap_or(JsValue::NULL)
     }
+
+    /// Compute the `SchemaIdentifierHash` for a TirBase schema definition document.
+    ///
+    /// Parses `schema_src` and returns the deterministic SHA-256 hash of the
+    /// parsed schema structure as a hex string.  Used by SDK integration tests
+    /// to verify the hash is computed from the parsed object, not raw string input.
+    #[wasm_bindgen]
+    pub fn core_schema_identifier_hash(schema_src: String) -> Result<String, JsValue> {
+        let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
+            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+        })?;
+        let hash = schema.identifier_hash();
+        Ok(hex::encode(hash))
+    }
+
+    /// Pretty-print a TirBase schema definition document.
+    ///
+    /// Parses `schema_src` and returns the canonical printed representation.
+    /// Used by SDK integration tests to verify `parse(print(schema))` round-trips.
+    #[wasm_bindgen]
+    pub fn core_schema_print(schema_src: String) -> Result<String, JsValue> {
+        let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
+            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+        })?;
+        Ok(crate::schema::printer::print(&schema))
+    }
+
+    /// Parse a TirBase schema definition document and return the structured
+    /// schema as a JSON object.
+    ///
+    /// Used by SDK integration tests to verify the printer output is accepted
+    /// by the parser without errors.
+    #[wasm_bindgen]
+    pub fn core_schema_parse(schema_src: String) -> Result<JsValue, JsValue> {
+        let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
+            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+        })?;
+        let json = serde_json::to_string(&schema).map_err(to_js_err)?;
+        js_sys::JSON::parse(&json).map_err(|e| e)
+    }
 }

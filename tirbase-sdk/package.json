@@ -12,6 +12,7 @@
     "build:wasm": "wasm-pack build ../tirbase-core --no-default-features --features wasm --target web --out-dir ../tirbase-sdk/wasm",
     "build:ts": "tsc --project tsconfig.json",
     "build": "npm run build:wasm && npm run build:ts",
+    "pretest": "npm run build:wasm",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit"

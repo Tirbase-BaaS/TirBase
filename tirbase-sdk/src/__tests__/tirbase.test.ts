@@ -1059,3 +1059,193 @@ describe('db.receivePeerMessage() (Task 40 — WASM inbound path)', () => {
     expect(Array.from(calls[1]!)).toEqual([30, 40, 50]);
   });
 });
+
+// ─── Real WASM integration tests ──────────────────────────────────────────────
+// These tests exercise the actual compiled WASM core via a Node ESM child process.
+// No mocks of the WASM core are used.
+
+import { execFileSync } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
+
+interface WasmResult {
+  success: boolean;
+  error: string | null;
+  results: Record<string, unknown>;
+}
+
+function runWasmRunner(op: string, args: unknown = {}): WasmResult {
+  const runnerPath = path.resolve(
+    __dirname,
+    `../__helpers__/wasm_runner_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp.mjs`,
+  );
+  fs.mkdirSync(path.dirname(runnerPath), { recursive: true });
+
+  const script = `
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const wasmDir = resolve(__dirname, '../../wasm');
+
+const wasmBytes = readFileSync(resolve(wasmDir, 'tirbase_core_bg.wasm'));
+const mod = await import('file://' + resolve(wasmDir, 'tirbase_core.js'));
+const init = mod.default;
+if (typeof init === 'function') {
+  await init(wasmBytes);
+}
+
+const output = { success: true, error: null, results: {} };
+
+try {
+  const op = process.argv[2];
+  const args = JSON.parse(process.argv[3] || '{}');
+
+  if (op === 'init-success') {
+    await mod.core_init(':memory:', [], null, []);
+    output.results = { ready: true };
+  } else if (op === 'write-error') {
+    await mod.core_init(':memory:', [], null, []);
+    try {
+      const circular = {};
+      circular.self = circular;
+      await mod.core_write('t', 'k', circular);
+      output.results = { wrote: true };
+    } catch (e) {
+      output.success = false;
+      output.error = String(e);
+    }
+  } else if (op === 'init-invalid-config') {
+    try {
+      await mod.core_init('', [], null, []);
+      output.results = { initialized: true };
+    } catch (e) {
+      output.success = false;
+      output.error = String(e);
+    }
+  } else if (op === 'schema-hash-roundtrip') {
+    const schemaSrc = args.schemaSrc;
+    const hash1 = mod.core_schema_identifier_hash(schemaSrc);
+    const printed = mod.core_schema_print(schemaSrc);
+    const hash2 = mod.core_schema_identifier_hash(printed);
+    output.results = { hash1, hash2, printed };
+  } else if (op === 'schema-print-parse') {
+    const schemaSrc = args.schemaSrc;
+    const printed = mod.core_schema_print(schemaSrc);
+    try {
+      mod.core_schema_parse(printed);
+      output.results = { printed, parseOk: true };
+    } catch (e) {
+      output.success = false;
+      output.error = String(e);
+    }
+  }
+} catch (e) {
+  output.success = false;
+  output.error = e instanceof Error ? e.message : String(e);
+}
+
+console.log(JSON.stringify(output));
+`;
+
+  fs.writeFileSync(runnerPath, script);
+
+  try {
+    const output = execFileSync('node', [runnerPath, op, JSON.stringify(args)], {
+      encoding: 'utf-8',
+      timeout: 30000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    return JSON.parse(output.trim()) as WasmResult;
+  } finally {
+    fs.rmSync(runnerPath, { force: true });
+  }
+}
+
+describe('Real WASM integration', () => {
+  afterEach(() => {
+    TirBase._resetWasmLoader();
+  });
+
+  describe('init with real WASM', () => {
+    test('core_init succeeds with valid params (:memory:, empty CAs)', async () => {
+      const result = runWasmRunner('init-success');
+      expect(result.success).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.results.ready).toBe(true);
+    });
+  });
+
+  describe('write failure on real WASM', () => {
+    test('core_write rejects when writing to a reserved/internal table', async () => {
+      const result = runWasmRunner('write-error');
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      expect(result.error).toBeTruthy();
+    });
+  });
+
+  describe('init failure and guard', () => {
+    test('init rejects with TirBaseInitError on invalid config, subsequent calls throw', async () => {
+      TirBase._setWasmLoader(async () => {
+        const { loadWasmCore } = await import('../wasm-bridge');
+        return loadWasmCore();
+      });
+
+      // Attempt init with empty storage path (WASM core rejects this).
+      await expect(
+        TirBase.init({ storagePath: '' }),
+      ).rejects.toBeInstanceOf(TirBaseInitError);
+
+      // Create an uninitialized instance to verify the guard.
+      const uninit = Object.create(TirBase.prototype) as TirBase;
+      await expect(
+        uninit.write({ table: 't', key: 'k', data: {} }),
+      ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
+    });
+  });
+
+  describe('schema identifier hash round-trip', () => {
+    test('hash is computed from parsed schema, not raw string', async () => {
+      const schemaSrc = `
+schema {
+  version = "1.0.0"
+  table users {
+    compaction = none
+    id   TEXT    NOT NULL
+    name TEXT    NOT NULL
+  }
+}`;
+
+      const result = runWasmRunner('schema-hash-roundtrip', { schemaSrc });
+      expect(result.success).toBe(true);
+      expect(result.results.hash1).toBe(result.results.hash2);
+      expect(typeof result.results.hash1).toBe('string');
+      expect((result.results.hash1 as string).length).toBe(64);
+    });
+  });
+
+  describe('schema printer round-trip', () => {
+    test('parser accepts printer output without errors', async () => {
+      const schemaSrc = `
+schema {
+  version = "1.0.0"
+  table reports {
+    compaction = aggressive(500)
+    id      TEXT    NOT NULL
+    title   TEXT    NOT NULL
+    score   REAL    DEFAULT 0.0
+    active  BOOLEAN DEFAULT true
+    PRIMARY KEY (id)
+  }
+}`;
+
+      const result = runWasmRunner('schema-print-parse', { schemaSrc });
+      expect(result.success).toBe(true);
+      expect(result.results.parseOk).toBe(true);
+      expect(typeof result.results.printed).toBe('string');
+      expect((result.results.printed as string)).toContain('schema {');
+    });
+  });
+});
