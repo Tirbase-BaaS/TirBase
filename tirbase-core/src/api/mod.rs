@@ -3147,7 +3147,7 @@ impl CoreHandle {
                                 // _tirbase_key metadata plus the winning LWW
                                 // value.  Read those back and write to the
                                 // correct table/row (Req 4.3, 3.3).
-                                let proj_result: Result<(), TirBaseError> = (|| {
+                                let proj_result: Result<(), TirBaseError> = async {
                                     let crdt = self.crdt.lock().map_err(|e| {
                                         TirBaseError::LocalStoreWriteFailed {
                                             reason: format!("crdt mutex: {e}"),
@@ -3193,8 +3193,7 @@ impl CoreHandle {
                                         );
                                     }
                                     Ok(())
-                                })(
-                                );
+                                }.await;
                                 if let Err(e) = proj_result {
                                     eprintln!("[wasm-inbound] binary projection failed: {e}");
                                 }
@@ -3513,6 +3512,38 @@ impl CoreHandle {
                     Err(e) => {
                         eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
                     }
+                }
+                Ok(())
+            }
+
+            GossipMessage::RelayDelta { target_did, delta } => {
+                if target_did == self.identity.did() {
+                    eprintln!(
+                        "[wasm-inbound] RelayDelta for local device {} — processing as InboundDelta",
+                        target_did
+                    );
+                    let outcome = {
+                        let mut crdt = self.crdt.lock().map_err(|e| {
+                            TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex poisoned in receive_inbound_wasm: {e}"),
+                            }
+                        })?;
+                        apply_incoming_delta(&mut crdt, &delta)?
+                    };
+                    match outcome {
+                            MergeOutcome::Merged { .. } => {
+                            if let Ok(mut rev) = self.revocation.lock() {
+                                rev.record_authored_delta(delta.author_did.clone(), delta.id);
+                            }
+                        }
+                        MergeOutcome::Quarantined { .. } => {}
+                        MergeOutcome::Rejected { .. } => {}
+                    }
+                } else {
+                    eprintln!(
+                        "[wasm-inbound] RelayDelta for non-local target {} — no relay path on WASM, discarding",
+                        target_did
+                    );
                 }
                 Ok(())
             }

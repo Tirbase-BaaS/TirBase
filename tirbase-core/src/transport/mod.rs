@@ -331,6 +331,7 @@ impl MeshTransport {
     /// When `remote_static_pubkey` is empty, registers the already-established
     /// session via `SessionManager::register_session` (production libp2p path,
     /// where the transport has already completed the Noise exchange).
+    #[cfg(feature = "native")]
     pub fn initiate_session(
         &mut self,
         peer_did: Did,
