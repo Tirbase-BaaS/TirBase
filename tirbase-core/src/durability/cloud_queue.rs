@@ -128,6 +128,34 @@ impl CloudOutboundQueue {
         }
     }
 
+    /// Mark a Delta as compacted from the hot read path (Req 14.8).
+    ///
+    /// Clears `delta_bytes` so the sync loop will invoke the refetch callback
+    /// before re-sending.  Sets `compacted = true` so `pending_entries` and the
+    /// sync loop know the bytes must be re-fetched from a receipt-holding peer.
+    ///
+    /// Called by `CoreHandle::write` after a successful `compact_table` run.
+    pub fn mark_compacted(&mut self, delta_id: &DeltaId) {
+        for entry in self.queue.iter_mut() {
+            if &entry.delta_id == delta_id {
+                entry.compacted = true;
+                entry.delta_bytes = None;
+                break;
+            }
+        }
+    }
+
+    /// Collect the IDs of all pending (non-Tier-2) queue entries that have been
+    /// compacted and therefore need re-fetching before cloud sync (Req 14.8,
+    /// 16.8).  The caller passes these to the refetch callback.
+    pub fn compacted_entry_ids(&self) -> Vec<DeltaId> {
+        self.queue
+            .iter()
+            .filter(|e| !e.tier2_durable && e.compacted)
+            .map(|e| e.delta_id)
+            .collect()
+    }
+
     /// Add a receipt holder DID to an existing queue entry.
     pub fn add_receipt_holder(&mut self, delta_id: &DeltaId, holder_did: Did) {
         for entry in self.queue.iter_mut() {

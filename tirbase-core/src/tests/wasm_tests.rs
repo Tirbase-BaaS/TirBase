@@ -119,6 +119,7 @@ fn test_dag_insert_and_children() {
         lamport: 1,
         schema_hash: [0u8; 32],
         compacted: false,
+        delta_bytes: None,
         author_did: "did:key:z6MkTest".to_string(),
     })
     .expect("insert parent");
@@ -131,6 +132,7 @@ fn test_dag_insert_and_children() {
         lamport: 2,
         schema_hash: [0u8; 32],
         compacted: false,
+        delta_bytes: None,
         author_did: "did:key:z6MkTest".to_string(),
     })
     .expect("insert child");
@@ -157,6 +159,7 @@ fn test_dag_bfs_descendants() {
         lamport,
         schema_hash: [0u8; 32],
         compacted: false,
+        delta_bytes: None,
         author_did: "did:key:z6MkTest".to_string(),
     };
 

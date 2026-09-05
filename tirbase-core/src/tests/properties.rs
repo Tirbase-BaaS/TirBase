@@ -902,6 +902,7 @@ fn insert_dag_node_direct(
         lamport,
         schema_hash: [0u8; 32],
         compacted: false,
+        delta_bytes: None,
         author_did: "did:key:z6MkTest".to_string(),
     }).expect("insert DagNode");
 }
@@ -1526,6 +1527,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
+            std::collections::HashMap::new(),
         );
 
         let result_valid = engine_valid.receive_migration_delta(good_delta.clone(), "did:key:sender");
@@ -1562,6 +1564,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
+            std::collections::HashMap::new(),
         );
         let result_invalid = engine_invalid.receive_migration_delta(bad_delta, "did:key:tamper");
         prop_assert!(
@@ -1891,6 +1894,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
+            std::collections::HashMap::new(),
         );
 
         // Req 18.7: a revocation is only accepted for a *known,
@@ -1979,6 +1983,7 @@ proptest! {
                     lamport: (i + 1) as u64,
                     schema_hash: TEST_SCHEMA_HASH,
                     compacted: false,
+                    delta_bytes: None,
                     author_did: "did:key:prop22test".to_string(),
                 }).expect("insert DagNode for prop22");
             }

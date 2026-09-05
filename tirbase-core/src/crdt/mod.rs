@@ -257,6 +257,26 @@ impl CrdtEngine {
         self.known_schemas.insert(hash);
     }
 
+    /// Look up the compaction policy for `table` from the current schema
+    /// definition.  Returns `CompactionPolicy::None` when no schema definition
+    /// is registered for the current hash or the table is not found — this keeps
+    /// the write path non-fatal for deployments that run without a configured
+    /// schema (default-schema-hash path).
+    ///
+    /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
+    #[cfg(feature = "native")]
+    pub(crate) fn compaction_policy_for(&self, table: &str) -> crate::store::compaction::CompactionPolicy {
+        use crate::store::compaction::CompactionPolicy;
+        if let Some(schema) = self.schema_definitions.get(&self.known_schema_hash) {
+            for tdef in &schema.tables {
+                if tdef.name == table {
+                    return tdef.compaction_policy.clone();
+                }
+            }
+        }
+        CompactionPolicy::None
+    }
+
     /// Classify an inbound Delta's schema hash at the field level (Subphase 5.3).
     ///
     /// Pure read: never mutates engine state, so a Delta that later fails
@@ -412,6 +432,23 @@ impl CrdtEngine {
     #[cfg(feature = "native")]
     pub(crate) fn dag_node(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
         self.dag.get(delta_id)
+    }
+
+    /// Access the Changeset DAG (native builds only).
+    #[cfg(feature = "native")]
+    pub(crate) fn dag(&self) -> &crate::crdt::dag::ChangesetDag {
+        &self.dag
+    }
+
+    /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG,
+    /// for re-fetch after compaction (Req 14.8, 16.8).
+    ///
+    /// Production caller: `CoreHandle::run_cloud_sync_cycle` — its refetch
+    /// callback delegates here to resolve compacted entries whose bytes were
+    /// pruned from the cloud outbound queue.
+    #[cfg(feature = "native")]
+    pub(crate) fn refetch_delta_bytes(&self, delta_id: &DeltaId) -> Result<Option<Vec<u8>>, TirBaseError> {
+        self.dag.delta_bytes(delta_id)
     }
 
     /// Produce a Delta for a local write that has already been committed to the
@@ -725,15 +762,19 @@ impl CrdtEngine {
             // Obtain the Automerge actor ID as bytes for the DagNode.
             let actor_id = self.doc.get_actor().to_bytes().to_vec();
 
+            // Serialise the full Delta for re-fetch after compaction (Req 14.8).
+            let delta_bytes = serde_json::to_vec(delta).ok();
+
             let node = DagNode {
                 delta_id: delta.id,
                 payload: delta.automerge_bytes.clone(),
+                delta_bytes,
                 parent_ids: delta.causal_parents.clone(),
                 actor_id,
                 lamport: delta.lamport,
                 schema_hash: delta.schema_hash,
-                compacted: false,
-                author_did: delta.author_did.clone(),
+                 compacted: false,
+                 author_did: delta.author_did.clone(),
             };
             self.dag.insert(node)?;
         }
@@ -967,6 +1008,38 @@ impl CrdtEngine {
         // Save the doc state — the saved bytes ARE the Automerge changeset.
         // (AutoCommit::save() returns Vec<u8> directly, infallible.)
         Ok(self.doc.save())
+    }
+
+    /// Check the compaction threshold for this engine's Automerge doc and, if
+    /// exceeded, run `compact_table` to fold the doc into a compact snapshot and
+    /// mark superseded DAG nodes as `compacted = 1` (Req 3.4, 3.5).
+    ///
+    /// Returns `true` when compaction was actually performed (threshold exceeded
+    /// and `compact_table` ran), `false` otherwise.  Compaction failure is
+    /// non-fatal: the function logs internally and returns `Ok(())` so the
+    /// calling write is never lost.
+    ///
+    /// Production caller: `CoreHandle::write` → `CrdtEngine::maybe_compact`.
+    #[cfg(feature = "native")]
+    pub(crate) fn maybe_compact(
+        &mut self,
+        table: &str,
+        policy: &crate::store::compaction::CompactionPolicy,
+    ) -> Result<bool, TirBaseError> {
+        use crate::store::compaction::{compact_table, should_compact};
+
+        let change_count = self.doc.get_changes(&[]).len() as u64;
+        if should_compact(policy, change_count) {
+            let conn = self.dag.conn().lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("DAG mutex poisoned during compaction: {e}"),
+                }
+            })?;
+            let _ = compact_table(&*conn, table, &mut self.doc);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Read back the current value of `key` from the engine's Automerge doc.
@@ -1974,6 +2047,7 @@ mod tests {
             lamport: 1,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk1".to_string(),
         })
         .unwrap();
@@ -1986,6 +2060,7 @@ mod tests {
             lamport: 2,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk1".to_string(),
         })
         .unwrap();
@@ -1998,6 +2073,7 @@ mod tests {
             lamport: 3,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk1".to_string(),
         })
         .unwrap();
@@ -2032,6 +2108,7 @@ mod tests {
             lamport: 1,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk2".to_string(),
         })
         .unwrap();
@@ -2044,6 +2121,7 @@ mod tests {
             lamport: 2,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk2".to_string(),
         })
         .unwrap();
@@ -2056,6 +2134,7 @@ mod tests {
             lamport: 3,
             schema_hash: test_schema_hash(),
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6Mk2".to_string(),
         })
         .unwrap();

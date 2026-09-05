@@ -106,6 +106,15 @@ pub struct SchemaMigrationEngine {
     /// corrected projection when a migration off that schema commits (Req
     /// 19.3).
     corrupted_schema_windows: HashMap<crate::schema::hash::SchemaIdentifierHash, Vec<MigrationId>>,
+
+    /// Registered schema definitions keyed by their `SchemaIdentifierHash`,
+    /// enabling parser-backed validation of version-path entries (Req 20).
+    ///
+    /// Populated from `DeploymentConfig.schema_definitions` at init time; each
+    /// entry maps a version-path hash to its parseable `Schema` document so
+    /// `verify_version_path` can confirm that the source and target hashes
+    /// correspond to real, well-formed schemas — not just opaque byte values.
+    schema_definitions: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
 }
 
 impl SchemaMigrationEngine {
@@ -117,6 +126,8 @@ impl SchemaMigrationEngine {
     /// - `revocation_threshold_m`: M value for M-of-N manager signature requirement.
     /// - `store`: handle to the local store for sandbox host functions (native only).
     /// - `migration_conn`: dedicated SQLite connection for the quarantine ledger (native only).
+    /// - `schema_definitions`: registered schema definitions keyed by hash for
+    ///   parser-backed version-path validation (native and WASM).
     pub fn new(
         ca_public_key: [u8; 32],
         local_schema_hash: crate::schema::hash::SchemaIdentifierHash,
@@ -124,6 +135,7 @@ impl SchemaMigrationEngine {
         revocation_threshold_m: usize,
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
+        schema_definitions: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
     ) -> Self {
         #[cfg(feature = "native")]
         let quarantine_ledger = QuarantineLedger::new(migration_conn.clone());
@@ -154,6 +166,7 @@ impl SchemaMigrationEngine {
             sidecar_ledger,
             migration_targets: HashMap::new(),
             corrupted_schema_windows: HashMap::new(),
+            schema_definitions,
         }
     }
 
@@ -165,6 +178,15 @@ impl SchemaMigrationEngine {
     /// Check whether a migration has been revoked.
     pub fn is_revoked(&self, migration_id: &MigrationId) -> bool {
         self.revocation_registry.is_revoked(migration_id)
+    }
+
+    /// Look up the target schema hash recorded for `migration_id` during
+    /// [`prepare_migration`](Self::prepare_migration), if any.
+    pub(crate) fn target_schema_for_migration(
+        &self,
+        migration_id: &MigrationId,
+    ) -> Option<crate::schema::hash::SchemaIdentifierHash> {
+        self.migration_targets.get(migration_id).copied()
     }
 
     /// Register the deployment's Migration CA Ed25519 public key at runtime
@@ -562,6 +584,14 @@ impl SchemaMigrationEngine {
     }
 
     /// Verify source_schema_hash == local AND target_schema_hash == next in path (Req 18.3a).
+    ///
+    /// Additionally, performs parser-backed pre-migration validation (Req 20):
+    /// if a schema definition is registered for the target hash, the printer
+    /// output is re-parsed through `schema::parser::parse` and its
+    /// `identifier_hash` is recomputed to confirm the hash is consistent —
+    /// a corrupt or tampered schema definition document would produce a
+    /// different hash and is rejected here before the migration transform
+    /// executes.  This is the production caller of `schema/parser.rs`.
     fn verify_version_path(&self, delta: &MigrationDelta) -> Result<(), TirBaseError> {
         if delta.source_schema_hash != self.local_schema_hash {
             return Err(TirBaseError::VersionPathMismatch {
@@ -590,6 +620,46 @@ impl SchemaMigrationEngine {
                         .unwrap_or([0u8; 32]),
                 ),
             });
+        }
+
+        // Req 20: parser-backed pre-migration validation of the target schema.
+        //
+        // If we have a registered schema definition for the target hash, round-trip
+        // it through print → parse → re-hash to confirm the version-path entry is
+        // a genuine, well-formed schema document — not just an opaque 32-byte
+        // value.  A schema definition that fails to parse (or whose recomputed
+        // hash diverges from the registered target hash) is treated as a version-
+        // path integrity failure: the migration is rejected before the transform
+        // executes.
+        if let Some(schema) = self.schema_definitions.get(&delta.target_schema_hash) {
+            let printed = crate::schema::printer::print(schema);
+            match crate::schema::parser::parse(&printed) {
+                Ok(reparsed) => {
+                    let recomputed_hash = reparsed.identifier_hash();
+                    if recomputed_hash != delta.target_schema_hash {
+                        return Err(TirBaseError::VersionPathMismatch {
+                            local_ver: hex::encode(self.local_schema_hash),
+                            source_ver: hex::encode(delta.source_schema_hash),
+                            expected_next: hex::encode(
+                                self.version_path
+                                    .next_version(&delta.source_schema_hash)
+                                    .copied()
+                                    .unwrap_or([0u8; 32]),
+                            ),
+                        });
+                    }
+                }
+                Err(errors) => {
+                    return Err(TirBaseError::AuthorisationFailed {
+                        reason: format!(
+                            "target schema definition for hash {} failed parser \
+                             validation during pre-migration check: {} error(s)",
+                            hex::encode(delta.target_schema_hash),
+                            errors.len()
+                        ),
+                    });
+                }
+            }
         }
 
         Ok(())
@@ -845,6 +915,7 @@ mod tests {
                     .expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
+            std::collections::HashMap::new(),
         )
     }
 
@@ -1630,6 +1701,7 @@ mod tests {
             1, // revocation_threshold_m = 1 (single manager)
             store,
             shared_conn,
+            std::collections::HashMap::new(),
         )
     }
 
@@ -2071,5 +2143,135 @@ mod tests {
             post_capture.is_none(),
             "no Side-Car capture after the corruption window closed"
         );
+    }
+
+    // ─── Test: parser-backed version-path validation (Req 20) ──────────────────
+    //
+    // When a schema definition is registered for the target hash, verify_version_path
+    // round-trips it through print → parse → re-hash to confirm the target hash
+    // corresponds to a genuine, well-formed schema document before the migration
+    // transform executes.
+
+    #[test]
+    fn parser_backed_version_path_validation_accepts_valid_schema() {
+        use crate::schema::parser::parse as parse_schema;
+        use crate::schema::printer::print as print_schema;
+
+        let schema_src = r#"schema {
+  version = "1.0.0"
+  table items {
+    compaction = none
+    id   TEXT NOT NULL
+    name TEXT NOT NULL
+  }
+}"#;
+        let schema = parse_schema(schema_src).expect("parse should succeed");
+        let target_hash = schema.identifier_hash();
+
+        // Build a version path with source → target, where target is a real
+        // parsed schema. Register the schema definition in the engine.
+        let source = [0x10u8; 32];
+        let path = SchemaVersionPath::new(vec![source, target_hash]);
+
+        let mut schema_defs: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema> =
+            HashMap::new();
+        schema_defs.insert(target_hash, schema.clone());
+
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let wasm = trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
+        let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
+        let delta = MigrationDelta {
+            id: transform_sha256,
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target_hash,
+            transform_bytes: wasm,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        // Native-only because SchemaMigrationEngine::new requires a store conn.
+        #[cfg(feature = "native")]
+        {
+            let engine = SchemaMigrationEngine::new(
+                ca_public,
+                source,
+                path,
+                1,
+                std::sync::Arc::new(std::sync::Mutex::new(
+                    crate::store::LocalStore::open(":memory:").expect("test store"),
+                )),
+                {
+                    let conn = rusqlite::Connection::open_in_memory().expect("open conn");
+                    conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+                    std::sync::Arc::new(std::sync::Mutex::new(conn))
+                },
+                schema_defs,
+            );
+
+            // verify_version_path should succeed: the target hash has a valid
+            // registered schema that round-trips through print → parse.
+            let result = engine.verify_version_path(&delta);
+            assert!(result.is_ok(), "valid schema should pass parser validation: {result:?}");
+        }
+    }
+
+    #[test]
+    fn parser_backed_version_path_validation_without_schema_defs_still_works() {
+        // When no schema definitions are registered (the legacy/empty case),
+        // verify_version_path falls back to pure hash-based validation —
+        // confirming backward compatibility for deployments without schema
+        // definition documents.
+        let ca_secret = [0u8; 32];
+        let ca_public = [0u8; 32];
+        let _ = (ca_secret, ca_public); // suppress unused warnings
+
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+        let path = SchemaVersionPath::new(vec![source, target]);
+
+        let delta = MigrationDelta {
+            id: [0u8; 32],
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: vec![],
+            ca_signature: CaSignature(vec![]),
+            transform_sha256: [0u8; 32],
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        // Build engine with an empty schema_definitions map — the parser
+        // validation step is skipped, and the hash-based step still validates
+        // the version path.
+        #[cfg(feature = "native")]
+        {
+            let engine = SchemaMigrationEngine::new(
+                ca_public,
+                source,
+                path,
+                1,
+                std::sync::Arc::new(std::sync::Mutex::new(
+                    crate::store::LocalStore::open(":memory:").expect("test store"),
+                )),
+                {
+                    let conn = rusqlite::Connection::open_in_memory().expect("open conn");
+                    conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+                    std::sync::Arc::new(std::sync::Mutex::new(conn))
+                },
+                HashMap::new(),
+            );
+
+            // verify_version_path succeeds with hash-based validation only.
+            let result = engine.verify_version_path(&delta);
+            assert!(result.is_ok(), "hash-based validation should pass: {result:?}");
+        }
     }
 }

@@ -671,6 +671,7 @@ mod tests {
             lamport: 1,
             schema_hash: [0xAAu8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkParent".to_string(),
         };
         dag.insert(parent_node).expect("insert parent");
@@ -683,6 +684,7 @@ mod tests {
             lamport: 2,
             schema_hash: [0xAAu8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkChild".to_string(),
         };
         dag.insert(child_node).expect("insert child");
@@ -715,6 +717,7 @@ mod tests {
             lamport,
             schema_hash: [0u8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkTest".to_string(),
         };
 
@@ -762,6 +765,7 @@ mod tests {
             lamport,
             schema_hash: [0u8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkTest".to_string(),
         };
 

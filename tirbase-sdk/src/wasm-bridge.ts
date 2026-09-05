@@ -146,7 +146,7 @@ export async function loadWasmCore(wasmUrl?: string): Promise<WasmCore> {
  * `WasmCore` interface.  The WASM module exports free functions whose
  * names match the #[wasm_bindgen] exports in lib.rs.
  */
-function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
+export function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCore {
   function required(name: string): (...args: unknown[]) => unknown {
     if (typeof mod[name] !== 'function') {
       throw new Error(

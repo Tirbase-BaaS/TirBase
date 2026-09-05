@@ -86,6 +86,12 @@ pub enum DeltaTag {
     ContaminatedByHumanReaction {
         incident_id: uuid::Uuid,
     },
+    /// This Delta (or one of its causal ancestors) was authored under a
+    /// schema produced by a migration that was later revoked as corrupted
+    /// (Req 19.1).
+    ContaminatedByCorruptedMigration {
+        migration_id: [u8; 32],
+    },
     /// Side-Car replay completed with zero conflicts for this migration (Req 19.6).
     ReplayComplete {
         migration_id: [u8; 32],

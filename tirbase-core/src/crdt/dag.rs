@@ -78,6 +78,9 @@ pub struct DagNode {
     /// zstd-compressed serialised Delta (native); uncompressed on WASM.
     /// Use [`compress_payload`] / [`decompress_payload`] to encode/decode.
     pub payload: Vec<u8>,
+    /// Full serialised Delta bytes (JSON), stored for re-fetch after compaction
+    /// (Req 14.8, 16.8).  `None` when the caller did not supply refetch bytes.
+    pub delta_bytes: Option<Vec<u8>>,
     /// Inline copy of causal_parents for fast graph traversal.
     pub parent_ids: Vec<DeltaId>,
     /// Automerge actor ID (for LWW tiebreaking).
@@ -113,6 +116,12 @@ impl ChangesetDag {
         ChangesetDag { conn }
     }
 
+    /// Borrow the underlying SQLite connection (production caller: compaction
+    /// via [`crate::store::compaction::compact_table`], Req 3.4).
+    pub(crate) fn conn(&self) -> &std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
+        &self.conn
+    }
+
     /// Insert a new node and its parent edges into the DAG.
     ///
     /// The `tags_json` column stores an empty JSON array initially.
@@ -137,11 +146,12 @@ impl ChangesetDag {
 
         let insert_result = conn.execute(
             "INSERT OR IGNORE INTO dag_nodes \
-             (id, payload, lamport, schema_hash, compacted, author_did, tags_json) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);",
+             (id, payload, delta_bytes, lamport, schema_hash, compacted, author_did, tags_json) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);",
             rusqlite::params![
                 id_bytes,
                 compressed,
+                node.delta_bytes.as_deref(),
                 node.lamport as i64,
                 schema_hash_bytes,
                 if node.compacted { 1i64 } else { 0i64 },
@@ -223,6 +233,39 @@ impl ChangesetDag {
             })
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("Query dag_edges parents failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|bytes| bytes.try_into().ok())
+            .collect();
+
+        Ok(ids)
+    }
+
+    /// Return all Delta IDs whose stored `schema_hash` matches `schema_hash`.
+    ///
+    /// Used by the migration revocation path (Req 19.1) to find every Delta
+    /// authored under a now-corrupted schema so they can be tagged
+    /// `ContaminatedByCorruptedMigration`.
+    pub fn nodes_by_schema_hash(
+        &self,
+        schema_hash: &SchemaIdentifierHash,
+    ) -> Result<Vec<DeltaId>, TirBaseError> {
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        let mut stmt = conn
+            .prepare("SELECT id FROM dag_nodes WHERE schema_hash = ?1;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare nodes_by_schema_hash failed: {e}"),
+            })?;
+
+        let ids: Vec<DeltaId> = stmt
+            .query_map(rusqlite::params![schema_hash.as_ref()], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query nodes_by_schema_hash failed: {e}"),
             })?
             .filter_map(|r| r.ok())
             .filter_map(|bytes| bytes.try_into().ok())
@@ -359,23 +402,24 @@ impl ChangesetDag {
         })?;
 
         let result = conn.query_row(
-            "SELECT id, payload, lamport, schema_hash, compacted, author_did \
+            "SELECT id, payload, delta_bytes, lamport, schema_hash, compacted, author_did \
              FROM dag_nodes WHERE id = ?1;",
             rusqlite::params![delta_id.as_ref()],
             |row| {
                 Ok((
                     row.get::<_, Vec<u8>>(0)?,
                     row.get::<_, Vec<u8>>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, Vec<u8>>(3)?,
-                    row.get::<_, i64>(4)?,
-                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<Vec<u8>>>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, Vec<u8>>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, String>(6)?,
                 ))
             },
         );
 
         match result {
-            Ok((id_bytes, payload_bytes, lamport, schema_bytes, compacted, author_did)) => {
+            Ok((id_bytes, payload_bytes, delta_bytes, lamport, schema_bytes, compacted, author_did)) => {
                 let delta_id_arr: DeltaId = id_bytes
                     .try_into()
                     .map_err(|_| TirBaseError::LocalStoreWriteFailed {
@@ -397,6 +441,7 @@ impl ChangesetDag {
                 Ok(Some(DagNode {
                     delta_id: delta_id_arr,
                     payload: decompressed,
+                    delta_bytes,
                     parent_ids,
                     actor_id: vec![],
                     lamport: lamport as u64,
@@ -427,6 +472,32 @@ impl ChangesetDag {
         })?;
 
         Ok(())
+    }
+
+    /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG
+    /// (Req 14.8, 16.8).  This is the production refetch source for compacted
+    /// entries whose bytes were pruned from the cloud outbound queue.
+    ///
+    /// Returns `Ok(Some(bytes))` when the DAG row exists and carries
+    /// `delta_bytes`; `Ok(None)` when the row is absent or `delta_bytes` is NULL.
+    pub fn delta_bytes(&self, delta_id: &DeltaId) -> Result<Option<Vec<u8>>, TirBaseError> {
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned during refetch: {e}"),
+        })?;
+
+        let result = conn.query_row(
+            "SELECT delta_bytes FROM dag_nodes WHERE id = ?1;",
+            rusqlite::params![delta_id.as_ref()],
+            |row| row.get::<_, Option<Vec<u8>>>(0),
+        );
+
+        match result {
+            Ok(bytes) => Ok(bytes),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SELECT delta_bytes for refetch failed: {e}"),
+            }),
+        }
     }
 }
 
@@ -470,6 +541,18 @@ impl ChangesetDag {
             .get(child_id)
             .map(|n| n.parent_ids.clone())
             .unwrap_or_default())
+    }
+
+    pub fn nodes_by_schema_hash(
+        &self,
+        schema_hash: &SchemaIdentifierHash,
+    ) -> Result<Vec<DeltaId>, TirBaseError> {
+        Ok(self
+            .nodes
+            .values()
+            .filter(|n| n.schema_hash == *schema_hash)
+            .map(|n| n.delta_id)
+            .collect())
     }
 
     pub fn bfs_descendants(
@@ -568,6 +651,7 @@ mod tests {
             lamport: 17,
             schema_hash: [0xCCu8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkDag".to_string(),
         };
 

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS automerge_docs (
 CREATE TABLE IF NOT EXISTS dag_nodes (
     id          BLOB PRIMARY KEY,
     payload     BLOB NOT NULL,
+    delta_bytes BLOB,
     lamport     INTEGER NOT NULL,
     schema_hash BLOB NOT NULL,
     compacted   INTEGER NOT NULL DEFAULT 0,

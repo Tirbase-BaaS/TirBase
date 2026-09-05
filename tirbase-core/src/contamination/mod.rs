@@ -781,6 +781,7 @@ mod tests {
             lamport: 1,
             schema_hash: [0u8; 32],
             compacted: false,
+            delta_bytes: None,
             author_did: "did:key:z6MkTest".to_string(),
         })
         .expect("insert DagNode");

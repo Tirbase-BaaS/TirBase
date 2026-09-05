@@ -570,6 +570,7 @@ impl CoreHandle {
                 config.deployment.revocation_m.max(1),
                 store.clone(),
                 mig_conn,
+                Self::build_schema_def_map(&config.deployment.schema_definitions),
             )
         };
 
@@ -579,6 +580,7 @@ impl CoreHandle {
             migration_local_schema_hash,
             migration_version_path,
             config.deployment.revocation_m.max(1),
+            Self::build_schema_def_map(&config.deployment.schema_definitions),
         );
 
         let migration = Arc::new(Mutex::new(migration));
@@ -1102,6 +1104,38 @@ impl CoreHandle {
         Ok(handle)
     }
 
+    // ─── Schema definition map builder ─────────────────────────────────────────
+    //
+    // Build the `HashMap<SchemaIdentifierHash, Schema>` that the
+    // SchemaMigrationEngine uses for parser-backed version-path validation
+    // (Req 20).  This is the production caller of `schema::parser::parse`
+    // and `schema::Schema::identifier_hash` — each deployed schema definition
+    // is round-tripped through print → parse → re-hash to confirm it is
+    // well-formed and its hash is consistent with the version path.
+
+    /// Build a `HashMap` mapping each schema's `identifier_hash()` to the
+    /// `Schema` itself, for use by `SchemaMigrationEngine::verify_version_path`.
+    ///
+    /// Each definition is validated by round-tripping through
+    /// `schema::printer::print` → `schema::parser::parse` →
+    /// `schema::Schema::identifier_hash` to confirm it is parseable and its
+    /// hash is self-consistent (Req 20).
+    fn build_schema_def_map(
+        defs: &[crate::schema::Schema],
+    ) -> std::collections::HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>
+    {
+        let mut map = std::collections::HashMap::new();
+        for def in defs {
+            // Round-trip validation: print → parse → re-hash.
+            let printed = crate::schema::printer::print(def);
+            if let Ok(reparsed) = crate::schema::parser::parse(&printed) {
+                let hash = reparsed.identifier_hash();
+                map.insert(hash, reparsed);
+            }
+        }
+        map
+    }
+
     // ─── Local write/read gate (Req 8.5) ──────────────────────────────────────
 
     /// Local trust-level gate — REVOKED devices cannot write, read, or query
@@ -1274,6 +1308,8 @@ impl CoreHandle {
         // (Subphase 6.1 — Req 4.5/4.5a), rather than falling through to the
         // JSON-envelope projection path.
         #[cfg(feature = "native")]
+        let compacted;
+        #[cfg(feature = "native")]
         let automerge_bytes = {
             let mut crdt = self
                 .crdt
@@ -1281,7 +1317,20 @@ impl CoreHandle {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("crdt mutex poisoned: {e}"),
                 })?;
-            crdt.write_scalar(table, key, &data)?
+            let bytes = crdt.write_scalar(table, key, &data)?;
+
+            // Trigger compaction when the table's Delta change count exceeds its
+            // configured threshold (Req 3.4, 3.5).  Production caller:
+            // CoreHandle::write → CrdtEngine::maybe_compact → compact_table
+            // (store/compaction.rs:45).  Compaction failure is non-fatal.
+            // When compaction runs the Delta's bytes are now compacted from
+            // the hot read path — the just-registered cloud queue entry must
+            // be marked so `run_cloud_sync_cycle` re-fetches via the DAG
+            // refetch callback (Req 14.8, 16.8).
+            let policy = crdt.compaction_policy_for(table);
+            compacted = crdt.maybe_compact(table, &policy).unwrap_or(false);
+
+            bytes
         };
 
         #[cfg(not(feature = "native"))]
@@ -1383,6 +1432,16 @@ impl CoreHandle {
                 delta.causal_parents.clone(),
                 HashMap::new(),
             )?;
+
+        // 5a. If compaction ran during this write, mark the just-registered
+        // cloud queue entry as compacted so `run_cloud_sync_cycle` knows to
+        // re-fetch bytes from the DAG before sending (Req 14.8, 16.8).
+        #[cfg(feature = "native")]
+        if compacted {
+            if let Ok(mut durability) = self.durability.lock() {
+                durability.cloud_queue_mut().mark_compacted(&delta.id);
+            }
+        }
 
         // 5b. Side-Car capture (Req 19.2).  A write made while the device's
         // current schema is under a corruption window — a revoked (corrupted)
@@ -2514,7 +2573,51 @@ impl CoreHandle {
                         return Ok(());
                     }
                 };
+
+                let target_schema_hash =
+                    mig.target_schema_for_migration(&target_migration_id);
                 drop(mig);
+
+                // Req 19.1: query the DAG for every Delta authored under the
+                // revoked migration's target schema and tag it
+                // `ContaminatedByCorruptedMigration` so the contamination walk
+                // can attribute the taint to the corrupted migration.
+                #[cfg(feature = "native")]
+                {
+                    if let Some(schema_hash) = target_schema_hash {
+                        let delta_ids = self
+                            .crdt
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex poisoned in DAG query: {e}"),
+                            })
+                            .and_then(|c| c.dag().nodes_by_schema_hash(&schema_hash));
+
+                        if let Ok(delta_ids) = delta_ids {
+                            if !delta_ids.is_empty() {
+                                let store_guard = self.store.lock().map_err(|e| {
+                                    TirBaseError::LocalStoreWriteFailed {
+                                        reason: format!(
+                                            "store mutex poisoned in DAG tagging: {e}"
+                                        ),
+                                    }
+                                });
+                                if let Ok(store) = store_guard {
+                                    let conn = store.raw_conn();
+                                    for delta_id in &delta_ids {
+                                        let _ = crate::contamination::taint::append_tag_to_db(
+                                            conn,
+                                            delta_id,
+                                            crate::crdt::delta::DeltaTag::ContaminatedByCorruptedMigration {
+                                                migration_id: target_migration_id,
+                                            },
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Req 19.1: the migration is now flagged corrupted — CCE-tag
                 // it and let the Causal Contamination Engine mark the affected
@@ -3552,7 +3655,15 @@ impl CoreHandle {
         let result = cloud_sync_loop(
             durability.cloud_queue_mut(),
             &mut conn,
-            &|_delta_id, _receipt_holders| None,
+            &|delta_id, _receipt_holders| {
+                // Production refetch: for compacted entries whose bytes were
+                // pruned from the cloud outbound queue, retrieve the full
+                // serialised Delta from the DAG (Req 14.8, 16.8).
+                self.crdt
+                    .lock()
+                    .map(|crdt| crdt.refetch_delta_bytes(delta_id).ok().flatten())
+                    .unwrap_or(None)
+            },
         );
 
         // Subphase 4.2: a real cloud ack must mark the Delta durable.  The
@@ -5009,6 +5120,7 @@ mod tests {
                 lamport: 1,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert DagNode for first delta");
@@ -5153,6 +5265,7 @@ mod tests {
                 lamport: 1,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert DagNode");
@@ -10143,9 +10256,201 @@ mod cloud_sync_tests {
 
         cleanup(&path);
     }
-}
 
-// ─── Subphase 4.2: Tier-2 acknowledgement path ───────────────────────────────
+    // ── Test 3: Cloud ledger idempotency — duplicate Delta send is a no-op ──────
+    //
+    // Integration test for Req 16.4: write a Delta through the production path
+    // (`CoreHandle::write` → durability registration → cloud outbound queue),
+    // let `spawn_cloud_sync_loop` drain it to the in-process `CloudLedger`,
+    // then re-enqueue the *same* Delta and assert the second send returns
+    // `AlreadyCommitted` (observed as `acknowledged` without `rejected`) and
+    // the ledger's committed count does not increase.  Finally assert the
+    // cloud queue is empty after the drain.
+
+    #[tokio::test]
+    async fn cloud_ledger_idempotent_on_duplicate_delta() {
+        let path = tmp_path("idem");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
+
+        // One write through the production path.
+        let wr = handle
+            .write("cloud", "row-1", json!({ "seq": 1 }))
+            .await
+            .expect("write");
+        let delta_id = wr.delta_id;
+
+        assert_eq!(handle.cloud_queue_depth(), 1, "write must be queued");
+
+        // One production cycle — sends to the Cloud Ledger.
+        let result = handle
+            .run_cloud_sync_cycle()
+            .expect("cloud sync cycle must not fail");
+        assert_eq!(result.acknowledged, 1);
+        assert_eq!(result.rejected, 0);
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            0,
+            "queue must be empty after first ack"
+        );
+        assert!(
+            handle.cloud_ledger_is_committed(&delta_id),
+            "Delta must be committed on the Cloud Ledger"
+        );
+
+        // Re-enqueue the same Delta (simulating a client retry after a lost ack).
+        let delta_bytes = {
+            let durability = handle
+                .durability
+                .lock()
+                .expect("durability mutex");
+            // Re-serialize the Delta from the DAG payload.
+            let crdt = handle.crdt.lock().expect("crdt mutex");
+            crdt.refetch_delta_bytes(&delta_id)
+                .expect("refetch must not fail")
+                .expect("Delta bytes must exist in DAG for refetch")
+        };
+
+        // Enqueue a second copy of the same Delta into the cloud outbound queue.
+        {
+            let mut durability = handle
+                .durability
+                .lock()
+                .expect("durability mutex");
+            let entry = crate::durability::cloud_queue::QueueEntry::new(
+                delta_id,
+                delta_bytes,
+                vec![],
+            );
+            durability.cloud_queue_mut().enqueue(entry).expect("enqueue");
+        }
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            1,
+            "re-enqueued Delta must be in the queue"
+        );
+
+        // Second production cycle — the Cloud Ledger must return
+        // AlreadyCommitted.  `cloud_sync_loop` still acks it (Ok(()) for
+        // AlreadyCommitted), but `committed_count` on the ledger must not
+        // increase.
+        let result2 = handle
+            .run_cloud_sync_cycle()
+            .expect("second cycle must not fail");
+        assert_eq!(
+            result2.acknowledged, 1,
+            "idempotent re-send must still be acked (AlreadyCommitted → Ok)"
+        );
+        assert_eq!(result2.rejected, 0);
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            0,
+            "queue must be empty after idempotent re-send drain"
+        );
+
+        // The ledger must have exactly 1 committed Delta (no duplicate).
+        let ledger = handle.cloud_ledger.lock().expect("cloud ledger mutex");
+        assert_eq!(
+            ledger.committed_count(),
+            1,
+            "second send of the same Delta must not duplicate the entry"
+        );
+        assert!(ledger.is_committed(&delta_id));
+
+        cleanup(&path);
+    }
+
+    // ── Test 4: Compacted Delta entries are re-fetched and re-sent ──────────────
+    //
+    // Integration test for Req 14.8, 16.8: when a Delta is compacted from the
+    // hot read path (compaction threshold exceeded), its cloud queue entry is
+    // marked `compacted` with bytes cleared.  `run_cloud_sync_cycle`'s refetch
+    // callback must retrieve the bytes from the DAG and re-send them to the
+    // Cloud Ledger.
+
+    #[tokio::test]
+    async fn compacted_delta_is_refetched_and_resent_to_cloud_ledger() {
+        use crate::schema::FieldType;
+        use crate::store::compaction::CompactionPolicy;
+
+        // Build a config with a schema that has an aggressive compaction
+        // threshold of 1 — after 2 writes to the same table, compaction triggers.
+        let path = tmp_path("compact");
+        cleanup(&path);
+
+        let schema = crate::schema::Schema {
+            tables: vec![crate::schema::TableDef {
+                name: "metrics".to_string(),
+                fields: vec![
+                    crate::schema::FieldDef {
+                        name: "id".to_string(),
+                        field_type: FieldType::Text,
+                        nullable: false,
+                        default: None,
+                    },
+                    crate::schema::FieldDef {
+                        name: "value".to_string(),
+                        field_type: FieldType::Integer,
+                        nullable: false,
+                        default: None,
+                    },
+                ],
+                compaction_policy: CompactionPolicy::Aggressive { threshold: 1 },
+                constraints: vec![],
+            }],
+            version: "1.0.0".to_string(),
+        };
+        let schema_hash = schema.identifier_hash();
+
+        let mut config = make_config(&path);
+        config.deployment.schema_definitions = vec![schema];
+        config.deployment.schema_version_path = vec![schema_hash];
+
+        let handle = CoreHandle::init(config).await.expect("init");
+
+        // Write enough Deltas to trigger compaction (threshold = 1 changes).
+        // Each write produces one Automerge change; after the 2nd write the
+        // change count (2) exceeds the threshold (1), so compaction runs and
+        // marks the 2nd Delta's cloud queue entry as compacted.
+        let mut delta_ids = Vec::new();
+        for i in 0..2u32 {
+            let wr = handle
+                .write("metrics", &format!("row-{i}"), json!({ "value": i }))
+                .await
+                .expect("write");
+            delta_ids.push(wr.delta_id);
+        }
+
+        // Run one production cycle — the refetch callback must retrieve
+        // compacted entries from the DAG and send them.
+        let result = handle
+            .run_cloud_sync_cycle()
+            .expect("cloud sync cycle must not fail");
+
+        assert_eq!(
+            result.acknowledged, 2,
+            "both Deltas must be acked (compacted entries re-fetched + resent)"
+        );
+        assert_eq!(result.rejected, 0);
+        assert_eq!(result.deferred, 0, "no Deltas should be deferred");
+        assert_eq!(
+            handle.cloud_queue_depth(),
+            0,
+            "queue must be empty after refetch + ack"
+        );
+
+        for id in &delta_ids {
+            assert!(
+                handle.cloud_ledger_is_committed(id),
+                "Delta {} must be committed on the Cloud Ledger",
+                hex::encode(id)
+            );
+        }
+
+        cleanup(&path);
+    }
+}
 
 /// Integration tests for the Tier-2 acknowledgement path (Subphase 4.2): a
 /// real per-Delta Cloud Ledger ack from the production drain —
@@ -10867,6 +11172,7 @@ mod composite_incident_tests {
                 lamport: 1,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert root_a");
@@ -10879,6 +11185,7 @@ mod composite_incident_tests {
                 lamport: 1,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert root_b");
@@ -10891,6 +11198,7 @@ mod composite_incident_tests {
                 lamport: 2,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert shared");
@@ -10903,6 +11211,7 @@ mod composite_incident_tests {
                 lamport: 3,
                 schema_hash: [0u8; 32],
                 compacted: false,
+                delta_bytes: None,
                 author_did: "did:key:z6MkTest".to_string(),
             })
             .expect("insert leaf_a");

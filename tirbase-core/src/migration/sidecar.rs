@@ -614,6 +614,7 @@ mod tests {
             lamport,
             schema_hash,
             compacted: false,
+            delta_bytes: None,
             author_did: did,
         })
         .expect("insert DagNode");
