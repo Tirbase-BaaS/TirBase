@@ -2539,6 +2539,86 @@ mod tests {
         );
     }
 
+    /// Two-engine RGA bidirectional merge: higher Lamport wins.
+    ///
+    /// Each engine creates its own list and inserts concurrently at index 0.
+    /// Deltas are cross-applied in both directions; the merged list must place
+    /// the element with the higher Lamport first (Req 4.5).
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_rga_two_engine_bidirectional_merge_lamport_wins() {
+        let (secret_a, public_a, did_a) = make_identity();
+        let (secret_b, public_b, did_b) = make_identity();
+        let schema = test_schema_hash();
+        let base = base_list_bytes("items");
+
+        let bytes_a = list_insert_full_bytes(&base, &public_a, "items", "A");
+        let bytes_b = list_insert_full_bytes(&base, &public_b, "items", "B");
+
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        let delta_b = make_signed_delta(&secret_b, did_b.clone(), schema, 50, bytes_b);
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a, schema);
+        let mut engine_b = make_engine(secret_b, public_b, did_b, schema);
+
+        engine_a.apply(&delta_a).unwrap();
+        engine_b.apply(&delta_b).unwrap();
+
+        engine_a.apply(&delta_b).unwrap();
+        engine_b.apply(&delta_a).unwrap();
+
+        assert_eq!(
+            engine_root_list(&engine_a, "items"),
+            vec!["B".to_string(), "A".to_string()],
+            "higher Lamport must come first after definitive-zone bidirectional merge"
+        );
+    }
+
+    /// Two-engine RGA bidirectional merge: actor-ID tiebreak when Lamports are equal.
+    ///
+    /// Concurrent insertions at the same index with identical Lamports resolve
+    /// by actor public-key bytes DESC (Req 4.5a).  Both engines cross-merge
+    /// and must converge on the same ordering.
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_rga_two_engine_bidirectional_merge_actor_id_tiebreak() {
+        let (secret_a, public_a, did_a, secret_b, public_b, did_b) = loop {
+            let (sa, pa, da) = make_identity();
+            let (sb, pb, db) = make_identity();
+            if pb > pa {
+                break (sa, pa, da, sb, pb, db);
+            }
+        };
+        let schema = test_schema_hash();
+        let base = base_list_bytes("items");
+
+        let bytes_a = list_insert_full_bytes(&base, &public_a, "items", "A");
+        let bytes_b = list_insert_full_bytes(&base, &public_b, "items", "B");
+
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        let delta_b = make_signed_delta(&secret_b, did_b.clone(), schema, 1, bytes_b);
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a, schema);
+        let mut engine_b = make_engine(secret_b, public_b, did_b, schema);
+
+        engine_a.apply(&delta_a).unwrap();
+        engine_b.apply(&delta_b).unwrap();
+
+        engine_a.apply(&delta_b).unwrap();
+        engine_b.apply(&delta_a).unwrap();
+
+        assert_eq!(
+            engine_root_list(&engine_a, "items"),
+            vec!["B".to_string(), "A".to_string()],
+            "actor-ID tiebreak must order higher public-key bytes first"
+        );
+        assert_eq!(
+            engine_root_list(&engine_b, "items"),
+            vec!["B".to_string(), "A".to_string()],
+            "convergence: engine_b must match engine_a after bidirectional merge"
+        );
+    }
+
     /// Two-engine LWW divergence override: engine_a receives a higher-lamport
     /// delta from engine_b, but Automerge's actor tiebreak would keep the local
     /// value. The verification block must override to the Lamport-rule winner.
