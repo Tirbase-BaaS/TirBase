@@ -1614,20 +1614,30 @@ impl CoreHandle {
             .unwrap_or_default()
     }
 
-    /// Register an additional root CA public key at runtime (Req 8.1).
+    /// Register an additional root CA public key at runtime, and optionally
+    /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
     ///
-    /// Takes effect immediately: subsequent Biscuit token verification (e.g.
-    /// `core_activate_saturate_mode`) accepts tokens signed by this key.
-    /// Registering a duplicate key is a no-op.
-    pub fn register_root_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
+    /// When `token_bytes` is `Some((token, now_secs))`, the token is verified
+    /// immediately after registration.  A valid token transitions the device's
+    /// `TrustLevel` to `Verified`; an invalid or expired token returns an error
+    /// and leaves the trust level unchanged.
+    ///
+    /// Returns the current `TrustLevel` after the operation.
+    ///
+    /// Production caller: `CoreHandle::register_root_ca_key` → `CapabilityManager::verify_token`
+    /// → `TrustLevelStateMachine::on_valid_token` (Req 8.3).
+    pub fn register_root_ca_key(
+        &self,
+        key: [u8; 32],
+        token_bytes: Option<(&[u8], i64)>,
+    ) -> Result<TrustLevel, TirBaseError> {
         let mut capability =
             self.capability
                 .lock()
                 .map_err(|e| TirBaseError::AuthorisationFailed {
                     reason: format!("capability mutex poisoned: {e}"),
                 })?;
-        capability.register_root_ca_key(key);
-        Ok(())
+        capability.register_root_ca_key(key, token_bytes)
     }
 
     /// Register the deployment's Migration CA public key at runtime (Req 18.2).
@@ -5235,7 +5245,7 @@ mod tests {
 
         // Register the CA key at runtime.
         handle
-            .register_root_ca_key(ca_public)
+            .register_root_ca_key(ca_public, None)
             .expect("register_root_ca_key must succeed");
         assert_eq!(handle.root_ca_public_key(), ca_public.to_vec());
 
@@ -5249,6 +5259,78 @@ mod tests {
             )
             .expect("verification must not error after registration"),
             "runtime-registered CA key must verify a valid disaster-alert token"
+        );
+
+        cleanup(&path);
+    }
+
+    // ── Subphase 9.1: TrustLevel VERIFIED transition via Biscuit verification ──
+    //
+    // Wires `CapabilityManager::verify_token` into the production
+    // `CoreHandle::register_root_ca_key` path so that presenting a valid Biscuit
+    // token at registration time transitions `TrustLevel` from `Unverified` to
+    // `Verified`.  `ensure_local_trust_allows_io` already returns `Ok(())` for
+    // non-REVOKED states, so the only missing piece was the trust-level
+    // transition itself.
+
+    /// Full chain: init (Unverified) → register CA key with valid token →
+    /// TrustLevel becomes Verified → write succeeds without `unverified_warning`.
+    #[tokio::test]
+    async fn register_root_ca_key_with_token_transitions_trust_to_verified() {
+        let path = tmp_path("p91_trust_transition");
+        cleanup(&path);
+
+        let (ca_private, ca_public) = make_ca_keypair();
+
+        // Step 1: init without a CA key — device starts Unverified.
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init without keys");
+        assert_eq!(
+            handle.trust_level(),
+            TrustLevel::Unverified,
+            "device must start Unverified when no CA key is configured"
+        );
+
+        // Step 2: create a valid Biscuit token signed by the CA.
+        let token_bytes = crate::auth::biscuit::create_token(
+            "did:key:z6MkTest",
+            "admin",
+            3600,
+            &ca_private,
+            false,
+        )
+        .expect("create_token should succeed");
+
+        let now = now_secs();
+
+        // Step 3: register the CA key AND present the token in one call.
+        // This is the production caller chain:
+        //   CoreHandle::register_root_ca_key
+        //   → CapabilityManager::verify_token
+        //   → TrustLevelStateMachine::on_valid_token
+        let level = handle
+            .register_root_ca_key(ca_public, Some((&token_bytes, now)))
+            .expect("register_root_ca_key with token must succeed");
+        assert_eq!(
+            level,
+            TrustLevel::Verified,
+            "trust level must be Verified after successful token verification"
+        );
+        assert_eq!(
+            handle.trust_level(),
+            TrustLevel::Verified,
+            "handle.trust_level() must report Verified"
+        );
+
+        // Step 4: write succeeds and carries no unverified_warning.
+        let result = handle
+            .write("test_table", "test_key", json!({"value": 1}))
+            .await
+            .expect("write must succeed after verification");
+        assert!(
+            result.unverified_warning.is_none(),
+            "write must not carry unverified_warning after TrustLevel is Verified"
         );
 
         cleanup(&path);

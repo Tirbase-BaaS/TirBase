@@ -190,12 +190,26 @@ impl CapabilityManager {
         )
     }
 
-    /// Register an additional root CA public key at runtime.
+    /// Register an additional root CA public key at runtime, and optionally
+    /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
+    ///
+    /// When `token_bytes` is `Some`, the token is verified immediately after
+    /// the key is registered, transitioning `TrustLevel` to `Verified` if valid.
+    /// Returns the current trust level after the operation.
     ///
     /// The key takes effect immediately for subsequent [`Self::verify_token`] calls
     /// and is exposed via [`Self::root_ca_primary_key`] if it is the only/primary key.
-    pub(crate) fn register_root_ca_key(&mut self, key: [u8; 32]) {
+    pub(crate) fn register_root_ca_key(
+        &mut self,
+        key: [u8; 32],
+        token_bytes: Option<(&[u8], i64)>,
+    ) -> Result<TrustLevel, TirBaseError> {
         self.root_ca_registry.register(key);
+        if let Some((token, now_secs)) = token_bytes {
+            self.verify_token(token, now_secs)
+        } else {
+            Ok(self.trust_level())
+        }
     }
 }
 

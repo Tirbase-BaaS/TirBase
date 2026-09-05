@@ -307,7 +307,35 @@ mod wasm_exports {
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            handle.register_root_ca_key(key).map_err(to_js_err)
+            handle.register_root_ca_key(key, None).map(|_| ()).map_err(to_js_err)
+        })
+    }
+
+    /// Register an additional root CA public key at runtime and verify a Biscuit
+    /// token against it (Req 8.1, 8.3).
+    ///
+    /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex chars).
+    /// `biscuit_token_hex` — hex-encoded Biscuit token to verify immediately.
+    /// `now_secs` — current Unix timestamp in seconds for expiry checking.
+    ///
+    /// On success the device's `TrustLevel` transitions to `Verified`.
+    #[wasm_bindgen]
+    pub fn core_register_root_ca_key_with_token(
+        root_ca_key_hex: String,
+        biscuit_token_hex: String,
+        now_secs: i64,
+    ) -> Result<(), JsValue> {
+        let key = decode_root_ca_key_hex(&root_ca_key_hex)?;
+        let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow
+                .as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle
+                .register_root_ca_key(key, Some((&token_bytes, now_secs)))
+                .map(|_| ())
+                .map_err(to_js_err)
         })
     }
 
