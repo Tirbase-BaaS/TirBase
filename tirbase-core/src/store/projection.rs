@@ -43,21 +43,17 @@ pub fn project_table(
                 Value::Scalar(scalar) => {
                     use automerge::ScalarValue;
                     match scalar.as_ref() {
-                        ScalarValue::Str(s)       => serde_json::Value::String(s.to_string()),
-                        ScalarValue::Int(n)       => serde_json::Value::Number((*n).into()),
-                        ScalarValue::Uint(n)      => serde_json::Value::Number((*n).into()),
-                        ScalarValue::F64(f)       => serde_json::json!(f),
-                        ScalarValue::Boolean(b)   => serde_json::Value::Bool(*b),
-                        ScalarValue::Null         => serde_json::Value::Null,
-                        ScalarValue::Bytes(b)     => {
-                            serde_json::Value::String(hex::encode(b))
-                        }
-                        ScalarValue::Counter(c)   => {
+                        ScalarValue::Str(s) => serde_json::Value::String(s.to_string()),
+                        ScalarValue::Int(n) => serde_json::Value::Number((*n).into()),
+                        ScalarValue::Uint(n) => serde_json::Value::Number((*n).into()),
+                        ScalarValue::F64(f) => serde_json::json!(f),
+                        ScalarValue::Boolean(b) => serde_json::Value::Bool(*b),
+                        ScalarValue::Null => serde_json::Value::Null,
+                        ScalarValue::Bytes(b) => serde_json::Value::String(hex::encode(b)),
+                        ScalarValue::Counter(c) => {
                             serde_json::Value::Number(i64::from(c.clone()).into())
                         }
-                        ScalarValue::Timestamp(t) => {
-                            serde_json::Value::Number((*t).into())
-                        }
+                        ScalarValue::Timestamp(t) => serde_json::Value::Number((*t).into()),
                         ScalarValue::Unknown { type_code, bytes } => {
                             serde_json::json!({
                                 "type_code": type_code,
@@ -123,14 +119,10 @@ pub fn mark_row_contaminated(
             reason: format!("CREATE TABLE {proj_table} failed: {e}"),
         })?;
 
-    let update_sql = format!(
-        "UPDATE \"{proj_table}\" SET contaminated = 1 WHERE key = ?1"
-    );
+    let update_sql = format!("UPDATE \"{proj_table}\" SET contaminated = 1 WHERE key = ?1");
     conn.execute(&update_sql, rusqlite::params![row_key])
         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!(
-                "mark_row_contaminated on {proj_table} key={row_key} failed: {e}"
-            ),
+            reason: format!("mark_row_contaminated on {proj_table} key={row_key} failed: {e}"),
         })?;
 
     Ok(())
@@ -148,14 +140,10 @@ pub fn clear_row_contamination(
 ) -> Result<(), TirBaseError> {
     let proj_table = format!("proj_{table}");
 
-    let update_sql = format!(
-        "UPDATE \"{proj_table}\" SET contaminated = 0 WHERE key = ?1"
-    );
+    let update_sql = format!("UPDATE \"{proj_table}\" SET contaminated = 0 WHERE key = ?1");
     conn.execute(&update_sql, rusqlite::params![row_key])
         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!(
-                "clear_row_contamination on {proj_table} key={row_key} failed: {e}"
-            ),
+            reason: format!("clear_row_contamination on {proj_table} key={row_key} failed: {e}"),
         })?;
 
     Ok(())
@@ -205,11 +193,7 @@ thread_local! {
 /// Calling this multiple times with the same `(delta_id, table, row_key)` is
 /// idempotent — duplicates are deduplicated before storage.
 #[cfg(not(feature = "native"))]
-pub fn record_delta_row(
-    delta_id: &crate::crdt::delta::DeltaId,
-    table: &str,
-    row_key: &str,
-) {
+pub fn record_delta_row(delta_id: &crate::crdt::delta::DeltaId, table: &str, row_key: &str) {
     WASM_DELTA_INDEX.with(|idx| {
         let mut map = idx.borrow_mut();
         let entry = map.entry(*delta_id).or_default();
@@ -225,12 +209,20 @@ pub fn record_delta_row(
 ///
 /// Returns an empty vec if `delta_id` has no recorded rows.
 #[cfg(not(feature = "native"))]
-pub fn rows_by_delta_id(
-    delta_id: &crate::crdt::delta::DeltaId,
-) -> Vec<(String, String)> {
-    WASM_DELTA_INDEX.with(|idx| {
-        idx.borrow().get(delta_id).cloned().unwrap_or_default()
-    })
+pub fn rows_by_delta_id(delta_id: &crate::crdt::delta::DeltaId) -> Vec<(String, String)> {
+    WASM_DELTA_INDEX.with(|idx| idx.borrow().get(delta_id).cloned().unwrap_or_default())
+}
+
+/// Native stub: on the native build, `record_delta_row` is a no-op because the
+/// CCE resolves affected rows from the SQLite-backed DAG via
+/// `resolve_affected_rows` (which queries `dag_nodes` + `proj_*` tables), not
+/// from an in-memory index. The function is called from the inbound projection
+/// path for cross-build API parity with the WASM build.
+#[cfg(feature = "native")]
+pub fn record_delta_row(_delta_id: &crate::crdt::delta::DeltaId, _table: &str, _row_key: &str) {
+    // Native CCE resolves affected rows from the DAG directly — no delta-row
+    // index needed. This stub satisfies the call sites in the shared inbound
+    // projection path.
 }
 
 #[cfg(all(test, feature = "native"))]
@@ -334,7 +326,10 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_exists, 1, "proj_new_table must be created by mark_row_contaminated");
+        assert_eq!(
+            table_exists, 1,
+            "proj_new_table must be created by mark_row_contaminated"
+        );
     }
 
     // ─── Test 5: mark then clear round-trip ──────────────────────────────────
@@ -446,8 +441,8 @@ mod wasm_tests {
         record_delta_row(&delta_a, "users", "user-1");
         record_delta_row(&delta_b, "users", "user-1");
 
-        let result = resolve_affected_rows(&[delta_a, delta_b], delta_a)
-            .expect("resolve must succeed");
+        let result =
+            resolve_affected_rows(&[delta_a, delta_b], delta_a).expect("resolve must succeed");
 
         assert_eq!(
             result.len(),
@@ -475,15 +470,18 @@ mod wasm_tests {
         record_delta_row(&delta_x, "products", "prod-2");
         record_delta_row(&delta_y, "shipments", "ship-1");
 
-        let result = resolve_affected_rows(&[delta_x, delta_y], delta_x)
-            .expect("resolve must succeed");
+        let result =
+            resolve_affected_rows(&[delta_x, delta_y], delta_x).expect("resolve must succeed");
 
-        assert_eq!(result.len(), 3, "three distinct (table, row_key) pairs expected");
+        assert_eq!(
+            result.len(),
+            3,
+            "three distinct (table, row_key) pairs expected"
+        );
 
         // All three rows must appear.
-        let contains = |table: &str, key: &str| {
-            result.iter().any(|r| r.table == table && r.row_key == key)
-        };
+        let contains =
+            |table: &str, key: &str| result.iter().any(|r| r.table == table && r.row_key == key);
         assert!(contains("products", "prod-1"), "prod-1 missing");
         assert!(contains("products", "prod-2"), "prod-2 missing");
         assert!(contains("shipments", "ship-1"), "ship-1 missing");
@@ -512,9 +510,12 @@ mod wasm_tests {
     fn test_resolve_affected_rows_empty_delta_list() {
         clear_delta_index();
 
-        let result = resolve_affected_rows(&[], [0x00u8; 32])
-            .expect("resolve with empty list must succeed");
+        let result =
+            resolve_affected_rows(&[], [0x00u8; 32]).expect("resolve with empty list must succeed");
 
-        assert!(result.is_empty(), "empty delta list must produce no AffectedRows");
+        assert!(
+            result.is_empty(),
+            "empty delta list must produce no AffectedRows"
+        );
     }
 }

@@ -330,12 +330,7 @@ impl CrdtEngine {
     /// failure (Req 7.5), and signature-verification failure (Req 7.4) — so
     /// a rejected Delta always leaves a structured record behind and never
     /// merges any data.
-    fn record_rejection(
-        &mut self,
-        code: DeltaRejectionCode,
-        delta: &Delta,
-        reason: String,
-    ) {
+    fn record_rejection(&mut self, code: DeltaRejectionCode, delta: &Delta, reason: String) {
         let record = DeltaRejectionRecord {
             code,
             author_did: delta.author_did.clone(),
@@ -393,10 +388,7 @@ impl CrdtEngine {
     /// Delta ID its author produced — actually landed in this engine's DAG
     /// after a merge.
     #[cfg(feature = "native")]
-    pub(crate) fn dag_node(
-        &self,
-        delta_id: &DeltaId,
-    ) -> Result<Option<DagNode>, TirBaseError> {
+    pub(crate) fn dag_node(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
         self.dag.get(delta_id)
     }
 
@@ -617,11 +609,11 @@ impl CrdtEngine {
         //    envelope) skip the merge and verification entirely.
         if let Some(mut their_doc) = self.load_incoming_doc(&delta.automerge_bytes)? {
             let snapshot = verify::capture_conflicts(&self.doc, &their_doc);
-            self.doc.merge(&mut their_doc).map_err(|e| {
-                TirBaseError::DeltaMalformed {
+            self.doc
+                .merge(&mut their_doc)
+                .map_err(|e| TirBaseError::DeltaMalformed {
                     reason: format!("automerge merge failed: {e}"),
-                }
-            })?;
+                })?;
 
             if !snapshot.lww.is_empty() || !snapshot.rga.is_empty() {
                 let local_actor: Vec<u8> = self.doc.get_actor().to_bytes().to_vec();
@@ -629,7 +621,7 @@ impl CrdtEngine {
                     &mut self.doc,
                     &snapshot,
                     delta.lamport,
-                    &public_key, // verified incoming DID public-key bytes
+                    &public_key,  // verified incoming DID public-key bytes
                     self.lamport, // pre-advance (step 5)
                     &local_actor,
                 );
@@ -661,10 +653,7 @@ impl CrdtEngine {
 
     /// Resolve the causal parent list. If the caller supplies an explicit list
     /// (non-empty), use it. Otherwise derive the current DAG tips on native.
-    fn resolve_causal_parents(
-        &self,
-        explicit: Vec<DeltaId>,
-    ) -> Result<Vec<DeltaId>, TirBaseError> {
+    fn resolve_causal_parents(&self, explicit: Vec<DeltaId>) -> Result<Vec<DeltaId>, TirBaseError> {
         if !explicit.is_empty() {
             return Ok(explicit);
         }
@@ -737,7 +726,10 @@ impl CrdtEngine {
     /// are not valid Automerge format (e.g. JSON metadata from the TirBase
     /// write path), the load is skipped without error — the projection path in
     /// `CoreHandle::receive_inbound()` handles the JSON case separately.
-    fn load_incoming_doc(&self, bytes: &[u8]) -> Result<Option<automerge::AutoCommit>, TirBaseError> {
+    fn load_incoming_doc(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Option<automerge::AutoCommit>, TirBaseError> {
         if bytes.is_empty() {
             // Empty byte slice — nothing to merge (e.g. test stubs).
             return Ok(None);
@@ -764,8 +756,8 @@ impl CrdtEngine {
     /// Used by the WASM inbound pipeline to materialise a merged Delta's state
     /// into the in-memory `LocalStore` without requiring SQLite (Req 4.3, 1.4).
     pub fn doc_map_range_root(&self) -> Vec<(String, serde_json::Value)> {
-        use automerge::{ReadDoc, Value, ROOT};
         use automerge::ScalarValue;
+        use automerge::{ReadDoc, Value, ROOT};
 
         self.doc
             .map_range(ROOT, ..)
@@ -809,12 +801,14 @@ impl CrdtEngine {
         table: &str,
         store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
     ) -> Result<(), TirBaseError> {
-        use automerge::{ReadDoc, Value, ROOT};
         use automerge::ScalarValue;
+        use automerge::{ReadDoc, Value, ROOT};
 
-        let mut store_guard = store.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("store mutex poisoned in project_table_to_store: {e}"),
-        })?;
+        let mut store_guard = store
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("store mutex poisoned in project_table_to_store: {e}"),
+            })?;
 
         // Walk ROOT-level keys in the Automerge doc.
         let items: Vec<(String, serde_json::Value)> = self.doc
@@ -848,6 +842,138 @@ impl CrdtEngine {
         }
 
         Ok(())
+    }
+
+    /// Apply a local scalar write to the engine's Automerge document and return
+    /// the saved document bytes.
+    ///
+    /// This is the production entry point for the write path: `CoreHandle::write`
+    /// calls `LocalStore::write` (SQL) and then this method (Automerge doc), then
+    /// signs the returned bytes into a Delta. The bytes carry real Automerge
+    /// format so that a peer receiving this Delta through `CrdtEngine::apply`
+    /// exercises the full Automerge merge + LWW/RGA read-back verification
+    /// (Subphase 6.1 — Req 4.5/4.5a), rather than the JSON-envelope fallback.
+    ///
+    /// The `table` name is embedded via a `_tirbase_table` ROOT key and `key`
+    /// via `_tirbase_key`, so the receiving peer's projection path can recover
+    /// the destination table/row from the merged Automerge doc.
+    ///
+    /// Production caller: `api/mod.rs::CoreHandle::write` (the write path).
+    pub fn write_scalar(
+        &mut self,
+        table: &str,
+        key: &str,
+        value: &serde_json::Value,
+    ) -> Result<Vec<u8>, TirBaseError> {
+        use automerge::transaction::Transactable;
+
+        // NOTE: Lamport clock is incremented by produce_delta_with_tags (the
+        // caller), not here — incrementing here would double-count.
+
+        // Embed routing metadata so the inbound projection path can recover
+        // the table/row from the merged doc.
+        self.doc
+            .put(automerge::ROOT, "_tirbase_table", table)
+            .map_err(|e| TirBaseError::DeltaMalformed {
+                reason: format!("automerge put _tirbase_table failed: {e}"),
+            })?;
+        self.doc
+            .put(automerge::ROOT, "_tirbase_key", key)
+            .map_err(|e| TirBaseError::DeltaMalformed {
+                reason: format!("automerge put _tirbase_key failed: {e}"),
+            })?;
+
+        // Write the application value under the user's key.
+        // We store the full JSON value so that concurrent writes to the same
+        // key produce a real LWW conflict on that ROOT key.
+        match value {
+            serde_json::Value::String(s) => {
+                self.doc
+                    .put(automerge::ROOT, key, s.as_str())
+                    .map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("automerge put {key} (string) failed: {e}"),
+                    })?;
+            }
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    self.doc.put(automerge::ROOT, key, i).map_err(|e| {
+                        TirBaseError::DeltaMalformed {
+                            reason: format!("automerge put {key} (int) failed: {e}"),
+                        }
+                    })?;
+                } else if let Some(f) = n.as_f64() {
+                    self.doc.put(automerge::ROOT, key, f).map_err(|e| {
+                        TirBaseError::DeltaMalformed {
+                            reason: format!("automerge put {key} (f64) failed: {e}"),
+                        }
+                    })?;
+                } else if let Some(u) = n.as_u64() {
+                    self.doc.put(automerge::ROOT, key, u).map_err(|e| {
+                        TirBaseError::DeltaMalformed {
+                            reason: format!("automerge put {key} (uint) failed: {e}"),
+                        }
+                    })?;
+                }
+            }
+            serde_json::Value::Bool(b) => {
+                self.doc.put(automerge::ROOT, key, *b).map_err(|e| {
+                    TirBaseError::DeltaMalformed {
+                        reason: format!("automerge put {key} (bool) failed: {e}"),
+                    }
+                })?;
+            }
+            serde_json::Value::Null => {
+                self.doc.put(automerge::ROOT, key, ()).map_err(|e| {
+                    TirBaseError::DeltaMalformed {
+                        reason: format!("automerge put {key} (null) failed: {e}"),
+                    }
+                })?;
+            }
+            serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+                let json_str =
+                    serde_json::to_string(value).map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("serialise composite value failed: {e}"),
+                    })?;
+                self.doc
+                    .put(automerge::ROOT, key, json_str.as_str())
+                    .map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("automerge put {key} (json-str) failed: {e}"),
+                    })?;
+            }
+        }
+
+        // Save the doc state — the saved bytes ARE the Automerge changeset.
+        // (AutoCommit::save() returns Vec<u8> directly, infallible.)
+        Ok(self.doc.save())
+    }
+
+    /// Read back the current value of `key` from the engine's Automerge doc.
+    ///
+    /// Used by integration tests (and the production read path on WASM) to
+    /// assert the *actual* merged value, not just the Lamport-comparison rule
+    /// (Subphase 7.1 — Req 4.5).  Returns `None` if the key is absent.
+    pub fn read_scalar(&self, key: &str) -> Option<serde_json::Value> {
+        use automerge::{ReadDoc, Value};
+
+        self.doc
+            .get(automerge::ROOT, key)
+            .ok()
+            .flatten()
+            .and_then(|(val, _exid)| match &val {
+                Value::Scalar(sv) => {
+                    use automerge::ScalarValue;
+                    match sv.as_ref() {
+                        ScalarValue::Str(s) => Some(serde_json::Value::String(s.to_string())),
+                        ScalarValue::Int(n) => Some(serde_json::json!(n)),
+                        ScalarValue::Uint(n) => Some(serde_json::json!(n)),
+                        ScalarValue::F64(f) => Some(serde_json::json!(f)),
+                        ScalarValue::Boolean(b) => Some(serde_json::Value::Bool(*b)),
+                        ScalarValue::Null => Some(serde_json::Value::Null),
+                        _ => None,
+                    }
+                }
+                Value::Object(_) => None,
+            })
     }
 }
 
@@ -1011,9 +1137,13 @@ mod tests {
         let mut engine = make_engine(secret, public, did, schema);
 
         assert_eq!(engine.lamport(), 0);
-        engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
         assert_eq!(engine.lamport(), 1);
-        engine.produce_delta(vec![], PriorityClass::High, vec![]).unwrap();
+        engine
+            .produce_delta(vec![], PriorityClass::High, vec![])
+            .unwrap();
         assert_eq!(engine.lamport(), 2);
     }
 
@@ -1056,7 +1186,9 @@ mod tests {
         let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
         let mut engine = make_engine(secret, public, did, schema);
-        let delta = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        let delta = engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
         assert_eq!(delta.schema_hash, schema);
     }
 
@@ -1092,8 +1224,14 @@ mod tests {
     /// Three schema versions for the gate tests: v1 users{id,name};
     /// v2 users{id,name,email} (additive — new field); v3 users{id}
     /// (breaking — removes `name`).  Returns (v1, v2, v3, h1, h2, h3).
-    fn gate_schema_fixture(
-    ) -> (Schema, Schema, Schema, SchemaIdentifierHash, SchemaIdentifierHash, SchemaIdentifierHash) {
+    fn gate_schema_fixture() -> (
+        Schema,
+        Schema,
+        Schema,
+        SchemaIdentifierHash,
+        SchemaIdentifierHash,
+        SchemaIdentifierHash,
+    ) {
         use crate::schema::{FieldDef, FieldType, TableDef};
         use crate::store::compaction::CompactionPolicy;
 
@@ -1126,10 +1264,7 @@ mod tests {
                 field("email", FieldType::Text),
             ],
         )]);
-        let v3 = schema(vec![table(
-            "users",
-            vec![field("id", FieldType::Text)],
-        )]);
+        let v3 = schema(vec![table("users", vec![field("id", FieldType::Text)])]);
 
         let h1 = v1.identifier_hash();
         let h2 = v2.identifier_hash();
@@ -1293,7 +1428,9 @@ mod tests {
         assert_eq!(engine.current_schema_hash(), h2);
 
         // Locally produced Deltas now carry h2.
-        let produced = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        let produced = engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
         assert_eq!(produced.schema_hash, h2);
 
         // Inbound Deltas stamped h2 take the known-hash path without needing
@@ -1425,7 +1562,11 @@ mod tests {
         );
 
         // Req 7.4 — the Delta is discarded without merging any data.
-        assert_eq!(engine.lamport(), 0, "rejected delta must not advance Lamport");
+        assert_eq!(
+            engine.lamport(),
+            0,
+            "rejected delta must not advance Lamport"
+        );
     }
 
     #[test]
@@ -1752,10 +1893,7 @@ mod tests {
 
         // Sort in RGA priority order: (lamport DESC, actor DESC).
         let mut sorted_ops = ops.clone();
-        sorted_ops.sort_by(|a, b| {
-            b.1.cmp(&a.1)
-                .then_with(|| b.0.cmp(a.0))
-        });
+        sorted_ops.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(a.0)));
 
         // Verify all values are present.
         let values: Vec<&str> = sorted_ops.iter().map(|(_, _, v)| *v).collect();
@@ -1780,7 +1918,9 @@ mod tests {
         let schema = test_schema_hash();
         let mut engine = make_engine(secret, public, did, schema);
 
-        let delta = engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        let delta = engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
 
         // The DagNode for this delta must be retrievable.
         let node = engine.dag.get(&delta.id).unwrap();
@@ -1813,7 +1953,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk1".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         dag.insert(DagNode {
             delta_id: child_id,
@@ -1824,7 +1965,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk1".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         dag.insert(DagNode {
             delta_id: grandchild_id,
@@ -1835,7 +1977,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk1".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         let descendants = dag.bfs_descendants(&root_id).unwrap();
         assert!(descendants.contains(&root_id));
@@ -1868,7 +2011,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk2".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         dag.insert(DagNode {
             delta_id: id_b,
@@ -1879,7 +2023,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk2".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         dag.insert(DagNode {
             delta_id: id_c,
@@ -1890,7 +2035,8 @@ mod tests {
             schema_hash: test_schema_hash(),
             compacted: false,
             author_did: "did:key:z6Mk2".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         let sorted = dag.topological_sort().unwrap();
 
@@ -1912,14 +2058,18 @@ mod tests {
         let schema = test_schema_hash();
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
-        engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap(); // lamport=1
+        engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap(); // lamport=1
 
         // Apply an incoming delta with lamport=5; engine should jump to 6.
         let delta = make_signed_delta(&secret_b, did_b, schema, 5, vec![]);
         engine.apply(&delta).unwrap();
         assert_eq!(engine.lamport(), 6, "lamport must be max(1, 5) + 1 = 6");
 
-        engine.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap(); // lamport=7
+        engine
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap(); // lamport=7
         assert_eq!(engine.lamport(), 7);
     }
 
@@ -1942,12 +2092,12 @@ mod tests {
         let schema = test_schema_hash();
 
         // Determine which public key is lexicographically greater.
-        let (winner_pk, winner_did, winner_secret, loser_did, loser_secret) =
-            if public_b > public_a {
-                (public_b, did_b.clone(), secret_b, did_a.clone(), secret_a)
-            } else {
-                (public_a, did_a.clone(), secret_a, did_b.clone(), secret_b)
-            };
+        let (winner_pk, winner_did, winner_secret, loser_did, loser_secret) = if public_b > public_a
+        {
+            (public_b, did_b.clone(), secret_b, did_a.clone(), secret_a)
+        } else {
+            (public_a, did_a.clone(), secret_a, did_b.clone(), secret_b)
+        };
 
         let loser_pk: [u8; 32] = if winner_pk == public_b {
             public_a
@@ -1959,12 +2109,8 @@ mod tests {
         let same_lamport = 5u64;
 
         // lww_incoming_wins: winner arriving as "incoming", loser as "current".
-        let incoming_wins = lww_incoming_wins(
-            same_lamport,
-            &winner_pk[..],
-            same_lamport,
-            &loser_pk[..],
-        );
+        let incoming_wins =
+            lww_incoming_wins(same_lamport, &winner_pk[..], same_lamport, &loser_pk[..]);
         assert!(
             incoming_wins,
             "lww_incoming_wins must return true when incoming actor ID > current actor ID \
@@ -1972,12 +2118,8 @@ mod tests {
         );
 
         // The reverse: loser as incoming, winner as current → should NOT win.
-        let loser_incoming_wins = lww_incoming_wins(
-            same_lamport,
-            &loser_pk[..],
-            same_lamport,
-            &winner_pk[..],
-        );
+        let loser_incoming_wins =
+            lww_incoming_wins(same_lamport, &loser_pk[..], same_lamport, &winner_pk[..]);
         assert!(
             !loser_incoming_wins,
             "lww_incoming_wins must return false when incoming actor ID < current actor ID \
@@ -2045,8 +2187,12 @@ mod tests {
         let mut engine_b = make_engine(secret_b, public_b, did_b.clone(), schema);
 
         // Both engines produce a delta at lamport=1.
-        let delta_a = engine_a.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
-        let delta_b = engine_b.produce_delta(vec![], PriorityClass::Low, vec![]).unwrap();
+        let delta_a = engine_a
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
+        let delta_b = engine_b
+            .produce_delta(vec![], PriorityClass::Low, vec![])
+            .unwrap();
 
         // Engine A applies B's delta — should succeed and log the tiebreak.
         let outcome = engine_a.apply(&delta_b).unwrap();
@@ -2164,8 +2310,9 @@ mod tests {
     /// a full save (base + insertion) for the local engine's pre-load.
     fn list_insert_full_bytes(base: &[u8], actor: &[u8; 32], key: &str, value: &str) -> Vec<u8> {
         use automerge::{transaction::Transactable, AutoCommit, ObjType, ReadDoc, ROOT};
-        let mut doc =
-            AutoCommit::load(base).unwrap().with_actor(automerge::ActorId::from(actor));
+        let mut doc = AutoCommit::load(base)
+            .unwrap()
+            .with_actor(automerge::ActorId::from(actor));
         let list = match doc.get(ROOT, key).unwrap() {
             Some((automerge::Value::Object(ObjType::List), id)) => id,
             _ => panic!("base doc has no list '{key}'"),
@@ -2176,10 +2323,16 @@ mod tests {
 
     /// Fork `base` with the given actor and insert `value` at index 0; returns
     /// only the incremental insertion change (like a real peer's Delta).
-    fn list_insert_incremental_bytes(base: &[u8], actor: &[u8; 32], key: &str, value: &str) -> Vec<u8> {
+    fn list_insert_incremental_bytes(
+        base: &[u8],
+        actor: &[u8; 32],
+        key: &str,
+        value: &str,
+    ) -> Vec<u8> {
         use automerge::{transaction::Transactable, AutoCommit, ObjType, ReadDoc, ROOT};
-        let mut doc =
-            AutoCommit::load(base).unwrap().with_actor(automerge::ActorId::from(actor));
+        let mut doc = AutoCommit::load(base)
+            .unwrap()
+            .with_actor(automerge::ActorId::from(actor));
         let list = match doc.get(ROOT, key).unwrap() {
             Some((automerge::Value::Object(ObjType::List), id)) => id,
             _ => panic!("base doc has no list '{key}'"),
