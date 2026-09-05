@@ -515,22 +515,30 @@ proptest! {
 
         // Verify the LWW winner prediction is consistent.
         // The engine with the higher Lamport (or greater actor ID on tie) should win.
-        // We verify the predicate is consistent (not that we can read the merged doc value —
-        // the doc field is private; the Automerge merge correctness is guaranteed by the library).
+        // We verify the predicate is consistent and read back the actual merged
+        // doc values to confirm the peer's delta was applied correctly.
         let a_wins_over_b = lww_incoming_wins(lam_a, &pk_a[..], lam_b, &pk_b[..]);
         let b_wins_over_a = lww_incoming_wins(lam_b, &pk_b[..], lam_a, &pk_a[..]);
 
         if pk_a != pk_b {
-            // When the two actors are distinct, exactly one must win (or neither if truly equal).
             if lam_a != lam_b {
-                // Different lamport: exactly one wins.
                 prop_assert_ne!(
                     a_wins_over_b, b_wins_over_a,
                     "with different lamport, exactly one of A or B must win the LWW tiebreak"
                 );
             }
-            // Equal lamport with distinct actors: one wins based on key ordering.
         }
+
+        prop_assert_eq!(
+            engine_a.read_scalar("score"),
+            Some(serde_json::json!(val_b)),
+            "engine_a must hold peer B's value after merge"
+        );
+        prop_assert_eq!(
+            engine_b.read_scalar("score"),
+            Some(serde_json::json!(val_a)),
+            "engine_b must hold peer A's value after merge"
+        );
     }
 }
 

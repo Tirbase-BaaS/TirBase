@@ -2538,4 +2538,40 @@ mod tests {
             "RGA divergence must be overridden to the Lamport-rule ordering"
         );
     }
+
+    /// Two-engine LWW divergence override: engine_a receives a higher-lamport
+    /// delta from engine_b, but Automerge's actor tiebreak would keep the local
+    /// value. The verification block must override to the Lamport-rule winner.
+    #[test]
+    #[cfg(feature = "native")]
+    fn apply_two_engine_lww_divergence_override_verifies_rule_winner() {
+        let (secret_a, public_a, did_a, secret_b, public_b, did_b) = loop {
+            let (sa, pa, da) = make_identity();
+            let (sb, pb, db) = make_identity();
+            if pa > pb {
+                break (sa, pa, da, sb, pb, db);
+            }
+        };
+        let schema = test_schema_hash();
+
+        let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
+        let mut engine_b = make_engine(secret_b, public_b, did_b.clone(), schema);
+
+        let bytes_a = scalar_write_bytes(&public_a, "score", 100);
+        let delta_a = make_signed_delta(&secret_a, did_a.clone(), schema, 1, bytes_a);
+        engine_a.apply(&delta_a).unwrap();
+
+        let bytes_b = scalar_write_bytes(&public_b, "score", 200);
+        let delta_b = make_signed_delta(&secret_b, did_b, schema, 50, bytes_b);
+        engine_b.apply(&delta_b).unwrap();
+
+        engine_a.apply(&delta_b).unwrap();
+        engine_b.apply(&delta_a).unwrap();
+
+        assert_eq!(
+            engine_root_scalar(&engine_a, "score"),
+            Some(serde_json::json!(200)),
+            "engine_a definitive-zone merge must hold the Lamport winner"
+        );
+    }
 }
