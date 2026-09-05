@@ -17,13 +17,14 @@ pub mod taint;
 
 use std::collections::HashMap;
 
-use crate::crdt::delta::{Did, DeltaId, DeltaTag, Ed25519Signature};
+use crate::crdt::delta::{DeltaId, DeltaTag, Did, Ed25519Signature};
 use crate::errors::TirBaseError;
 use incident::{
     AuditEntry, AuditOperation, CompositeIncidentInstance, IncidentContextObject, IncidentId,
     IncidentState, TaintSource,
 };
 use resolution::now_micros;
+use resolution::DecompositionResult;
 
 // ─── CausalContaminationEngine ────────────────────────────────────────────────
 
@@ -108,11 +109,12 @@ impl CausalContaminationEngine {
         let descendants = taint::walk_dag_descendants(&self.dag, &root_delta_id)?;
 
         // Obtain a connection lock for tag writes.
-        let conn_guard = self.conn.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let conn_guard = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("CCE mutex poisoned: {e}"),
-            }
-        })?;
+            })?;
 
         // Append Contaminated tag to every reachable Delta.
         for delta_id in &descendants {
@@ -129,11 +131,12 @@ impl CausalContaminationEngine {
 
         // Resolve affected projection rows and mark them contaminated (Req 10.7).
         let affected_rows = {
-            let conn_guard2 = self.conn.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("CCE mutex poisoned: {e}"),
-                }
-            })?;
+            let conn_guard2 =
+                self.conn
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("CCE mutex poisoned: {e}"),
+                    })?;
             let rows = taint::resolve_affected_rows(&conn_guard2, &descendants, root_delta_id)?;
             for row in &rows {
                 let _ = crate::store::projection::mark_row_contaminated(
@@ -226,13 +229,14 @@ impl CausalContaminationEngine {
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
     ) -> Result<(), TirBaseError> {
-        let conn_guard = self.conn.lock().map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let conn_guard = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("CCE mutex poisoned: {e}"),
-            }
-        })?;
+            })?;
 
-        resolution::verify_data(
+        let decomposition = resolution::verify_data(
             root_delta_id,
             manager_did,
             manager_sig,
@@ -246,6 +250,22 @@ impl CausalContaminationEngine {
         // Drop the connection guard before taking a mutable borrow of self.
         drop(conn_guard);
 
+        // Req 10.6 — repopulate contaminated_rows for surviving sub-chains.
+        //
+        // When a composite incident is decomposed (one root resolved, the other
+        // still unresolved), the surviving sub-chain is re-registered as a
+        // fresh OPEN ICO with its own affected_rows.  Any row that was
+        // previously mapped to the composite ID must be re-pointed to the new
+        // ICO so `is_row_contaminated()` continues to return `true` via the
+        // unresolved lineage (acceptance criteria: "affected rows remain
+        // CONTAMINATED via the unresolved lineage").
+        for (new_ico_id, affected_rows) in &decomposition.new_icos {
+            for row in affected_rows {
+                self.contaminated_rows
+                    .insert((row.table.clone(), row.row_key.clone()), *new_ico_id);
+            }
+        }
+
         // After resolution, prune contaminated_rows entries for any row that now
         // has no active OPEN incident referencing it.  This keeps is_row_contaminated()
         // returning false after all roots are resolved (Req 19.5 / Test C).
@@ -256,9 +276,12 @@ impl CausalContaminationEngine {
         // contamination_roots set now carries a `Resolved` tag — i.e. the incident
         // has been fully verified even if not yet admin-closed.
         {
-            let conn_guard2 = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("CCE mutex poisoned during prune: {e}"),
-            })?;
+            let conn_guard2 =
+                self.conn
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("CCE mutex poisoned during prune: {e}"),
+                    })?;
             self.contaminated_rows.retain(|_key, incident_id| {
                 // Check regular ICO.
                 if let Some(ico) = self.incidents.get(incident_id) {
@@ -267,8 +290,9 @@ impl CausalContaminationEngine {
                     }
                     // Keep entry only if at least one contamination root is NOT yet resolved.
                     return ico.contamination_roots.iter().any(|root_id| {
-                        let tags = crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
-                            .unwrap_or_default();
+                        let tags =
+                            crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
+                                .unwrap_or_default();
                         !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
                     });
                 }
@@ -278,8 +302,9 @@ impl CausalContaminationEngine {
                         return false;
                     }
                     return comp.contamination_roots.iter().any(|root_id| {
-                        let tags = crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
-                            .unwrap_or_default();
+                        let tags =
+                            crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
+                                .unwrap_or_default();
                         !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
                     });
                 }
@@ -312,7 +337,10 @@ impl CausalContaminationEngine {
     // ─── Read accessors ───────────────────────────────────────────────────────
 
     /// Retrieve an Incident Context Object by ID.
-    pub fn get_incident(&self, id: IncidentId) -> Result<Option<IncidentContextObject>, TirBaseError> {
+    pub fn get_incident(
+        &self,
+        id: IncidentId,
+    ) -> Result<Option<IncidentContextObject>, TirBaseError> {
         Ok(self.incidents.get(&id).cloned())
     }
 
@@ -329,13 +357,16 @@ impl CausalContaminationEngine {
     /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
     /// contaminated by an active incident (Req 19.5).
     pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
-        self.contaminated_rows.contains_key(&(table.to_string(), row_key.to_string()))
+        self.contaminated_rows
+            .contains_key(&(table.to_string(), row_key.to_string()))
     }
 
     /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
     /// if the row is contaminated, or `None` otherwise (Req 19.5).
     pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
-        self.contaminated_rows.get(&(table.to_string(), row_key.to_string())).copied()
+        self.contaminated_rows
+            .get(&(table.to_string(), row_key.to_string()))
+            .copied()
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
@@ -364,18 +395,61 @@ impl CausalContaminationEngine {
     /// Used by integration tests to set up causal ancestry without going through
     /// the full write pipeline.
     #[cfg(test)]
-    pub fn test_insert_dag_node(&mut self, node: crate::crdt::dag::DagNode) -> Result<(), TirBaseError> {
-        self.dag.insert(node).map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("test_insert_dag_node: {e}"),
-        })
+    pub fn test_insert_dag_node(
+        &mut self,
+        node: crate::crdt::dag::DagNode,
+    ) -> Result<(), TirBaseError> {
+        self.dag
+            .insert(node)
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("test_insert_dag_node: {e}"),
+            })
     }
 
     /// Manually set the `contaminated_rows` entry for a `(table, row_key)` pair.
     /// Used by integration tests to simulate projection-layer contamination without
     /// requiring a full `tag_contamination_root` walk over live store rows.
     #[cfg(test)]
-    pub fn test_set_contaminated_row(&mut self, table: &str, row_key: &str, incident_id: IncidentId) {
-        self.contaminated_rows.insert((table.to_string(), row_key.to_string()), incident_id);
+    pub fn test_set_contaminated_row(
+        &mut self,
+        table: &str,
+        row_key: &str,
+        incident_id: IncidentId,
+    ) {
+        self.contaminated_rows
+            .insert((table.to_string(), row_key.to_string()), incident_id);
+    }
+
+    /// Clone the shared SQLite connection handle for direct tag reads in integration
+    /// tests.  Used by tests that need to verify `DeltaTag` entries on `dag_nodes`
+    /// without going through the public CCE API.
+    #[cfg(test)]
+    pub fn test_get_conn(&self) -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
+        self.conn.clone()
+    }
+
+    /// Retrieve a snapshot of a `CompositeIncidentInstance` by ID.
+    #[cfg(test)]
+    pub fn test_get_composite_incident(&self, id: IncidentId) -> Option<CompositeIncidentInstance> {
+        self.composite_incidents.get(&id).cloned()
+    }
+
+    /// Check whether an incident ID refers to a composite incident.
+    #[cfg(test)]
+    pub fn test_is_composite(&self, id: IncidentId) -> bool {
+        self.composite_incidents.contains_key(&id)
+    }
+
+    /// Find OPEN incidents whose `contamination_roots` contain the given root.
+    #[cfg(test)]
+    pub fn test_open_incidents_for_root(&self, root: DeltaId) -> Vec<IncidentContextObject> {
+        self.incidents
+            .values()
+            .filter(|ico| {
+                ico.state == IncidentState::Open && ico.contamination_roots.contains(&root)
+            })
+            .cloned()
+            .collect()
     }
 }
 
@@ -466,9 +540,11 @@ impl CausalContaminationEngine {
             // Push IncidentCreated for the composite ICO.
             #[cfg(feature = "wasm")]
             {
-                let composite_json = serde_json::to_value(&composite)
-                    .unwrap_or(serde_json::Value::Null);
-                crate::push_wasm_event(crate::WasmEvent::IncidentCreated { ico: composite_json });
+                let composite_json =
+                    serde_json::to_value(&composite).unwrap_or(serde_json::Value::Null);
+                crate::push_wasm_event(crate::WasmEvent::IncidentCreated {
+                    ico: composite_json,
+                });
             }
             self.composite_incidents.insert(composite_id, composite);
             // Populate contaminated_rows index for the composite ICO (WASM).
@@ -572,7 +648,9 @@ impl CausalContaminationEngine {
                 // All roots resolved → IncidentClosed event.
                 #[cfg(feature = "wasm")]
                 {
-                    let ico_json = self.incidents.get(ico_id)
+                    let ico_json = self
+                        .incidents
+                        .get(ico_id)
                         .and_then(|i| serde_json::to_value(i).ok())
                         .unwrap_or(serde_json::Value::Null);
                     crate::push_wasm_event(crate::WasmEvent::IncidentClosed { ico: ico_json });
@@ -581,7 +659,9 @@ impl CausalContaminationEngine {
                 // Partial resolution → IncidentUpdated event.
                 #[cfg(feature = "wasm")]
                 {
-                    let ico_json = self.incidents.get(ico_id)
+                    let ico_json = self
+                        .incidents
+                        .get(ico_id)
                         .and_then(|i| serde_json::to_value(i).ok())
                         .unwrap_or(serde_json::Value::Null);
                     crate::push_wasm_event(crate::WasmEvent::IncidentUpdated { ico: ico_json });
@@ -622,7 +702,9 @@ impl CausalContaminationEngine {
         // Push IncidentClosed event after successful close (WASM path).
         #[cfg(feature = "wasm")]
         {
-            let ico_json = self.incidents.get(&incident_id)
+            let ico_json = self
+                .incidents
+                .get(&incident_id)
                 .and_then(|i| serde_json::to_value(i).ok())
                 .unwrap_or(serde_json::Value::Null);
             crate::push_wasm_event(crate::WasmEvent::IncidentClosed { ico: ico_json });
@@ -630,7 +712,10 @@ impl CausalContaminationEngine {
         Ok(())
     }
 
-    pub fn get_incident(&self, id: IncidentId) -> Result<Option<IncidentContextObject>, TirBaseError> {
+    pub fn get_incident(
+        &self,
+        id: IncidentId,
+    ) -> Result<Option<IncidentContextObject>, TirBaseError> {
         Ok(self.incidents.get(&id).cloned())
     }
 
@@ -646,13 +731,16 @@ impl CausalContaminationEngine {
     /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
     /// contaminated by an active incident (Req 19.5).
     pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
-        self.contaminated_rows.contains_key(&(table.to_string(), row_key.to_string()))
+        self.contaminated_rows
+            .contains_key(&(table.to_string(), row_key.to_string()))
     }
 
     /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
     /// if the row is contaminated, or `None` otherwise (Req 19.5).
     pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
-        self.contaminated_rows.get(&(table.to_string(), row_key.to_string())).copied()
+        self.contaminated_rows
+            .get(&(table.to_string(), row_key.to_string()))
+            .copied()
     }
 }
 
@@ -684,11 +772,7 @@ mod tests {
     }
 
     /// Insert a minimal DagNode into the DAG.
-    fn insert_node(
-        dag: &mut ChangesetDag,
-        id: [u8; 32],
-        parents: Vec<[u8; 32]>,
-    ) {
+    fn insert_node(dag: &mut ChangesetDag, id: [u8; 32], parents: Vec<[u8; 32]>) {
         dag.insert(DagNode {
             delta_id: id,
             payload: vec![],
@@ -821,12 +905,14 @@ mod tests {
         let tags = taint::read_tags_from_db(&lock, &shared).expect("read tags shared");
         // Must still have the Contaminated tag.
         assert!(
-            tags.iter().any(|t| matches!(t, DeltaTag::Contaminated { .. })),
+            tags.iter()
+                .any(|t| matches!(t, DeltaTag::Contaminated { .. })),
             "shared must still carry Contaminated tag even after root_a resolved"
         );
         // Decontaminated should now be present for ICO_A (single-root ICO is now fully resolved).
         assert!(
-            tags.iter().any(|t| matches!(t, DeltaTag::Decontaminated { .. })),
+            tags.iter()
+                .any(|t| matches!(t, DeltaTag::Decontaminated { .. })),
             "shared must have Decontaminated tag after ICO_A (single root) is resolved"
         );
         drop(lock);
@@ -841,7 +927,9 @@ mod tests {
         let lock = conn.lock().unwrap();
         let tags_root_b = taint::read_tags_from_db(&lock, &root_b).expect("read tags root_b");
         assert!(
-            tags_root_b.iter().any(|t| matches!(t, DeltaTag::Resolved { .. })),
+            tags_root_b
+                .iter()
+                .any(|t| matches!(t, DeltaTag::Resolved { .. })),
             "root_b must have Resolved tag"
         );
     }
@@ -871,9 +959,7 @@ mod tests {
         let source_a = TaintSource::DeviceRevocation {
             revocation_delta_id: a1,
         };
-        let result_a_id = cce
-            .tag_contamination_root(a1, source_a)
-            .expect("tag a1");
+        let result_a_id = cce.tag_contamination_root(a1, source_a).expect("tag a1");
 
         // ICO_A covers {a1, a2, b2}.
         let ico_a = cce.incidents.get(&result_a_id).cloned();
@@ -881,9 +967,7 @@ mod tests {
         let source_b = TaintSource::BadMigration {
             migration_id: [0x0Bu8; 32],
         };
-        let result_b_id = cce
-            .tag_contamination_root(b1, source_b)
-            .expect("tag b1");
+        let result_b_id = cce.tag_contamination_root(b1, source_b).expect("tag b1");
 
         // If b1's descendants include b2 which is already in ICO_A → composite formed.
         // result_b_id should be the composite ID.
@@ -944,7 +1028,12 @@ mod tests {
         let sig2 = sign(&mgr_secret, ico_id.as_bytes());
         let result = cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry);
         assert!(
-            matches!(result, Err(TirBaseError::InvalidIncidentState { got: IncidentState::Closed })),
+            matches!(
+                result,
+                Err(TirBaseError::InvalidIncidentState {
+                    got: IncidentState::Closed
+                })
+            ),
             "second admin_close must return InvalidIncidentState(Closed), got: {result:?}"
         );
     }
@@ -1130,13 +1219,17 @@ mod tests {
         let ico_a = cce
             .tag_contamination_root(
                 root_a,
-                TaintSource::DeviceRevocation { revocation_delta_id: root_a },
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: root_a,
+                },
             )
             .unwrap();
         let ico_b = cce
             .tag_contamination_root(
                 root_b,
-                TaintSource::DeviceRevocation { revocation_delta_id: root_b },
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: root_b,
+                },
             )
             .unwrap();
 
@@ -1174,7 +1267,9 @@ mod tests {
         }
 
         // Tag contamination root — should mark all projection rows contaminated.
-        let source = TaintSource::DeviceRevocation { revocation_delta_id: root_id };
+        let source = TaintSource::DeviceRevocation {
+            revocation_delta_id: root_id,
+        };
         let ico_id = cce
             .tag_contamination_root(root_id, source)
             .expect("tag_contamination_root");

@@ -10169,3 +10169,387 @@ mod diversity_config_tests {
         }
     }
 }
+
+// ── Subphase 7.5: Composite-incident scenario test ───────────────────────
+//
+// Production caller: `CoreHandle::init` → `CausalContaminationEngine::new`
+// (tirbase-core/src/api/mod.rs:415) → `CausalContaminationEngine::tag_contamination_root`,
+// `CausalContaminationEngine::verify_data`, `is_row_contaminated` (tirbase-core/src/contamination/mod.rs).
+//
+
+#[cfg(all(test, feature = "native"))]
+mod composite_incident_tests {
+    use super::*;
+    use crate::contamination::incident::{IncidentState, TaintSource};
+    use crate::contamination::resolution::now_micros;
+    use crate::crdt::dag::DagNode;
+    use crate::crdt::delta::DeltaTag;
+    use crate::identity::{keypair, IdentityManager};
+    use serde_json::json;
+    use std::env;
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = env::temp_dir();
+        p.push(format!("tirbase_citc_test_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    fn make_config(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 3,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
+            },
+        }
+    }
+
+    /// Validates Req 10.5 / 10.6 / 11.1 — composite-incident scenario.
+    ///
+    /// Two overlapping contamination chains share a common descendant Delta in
+    /// the Changeset DAG.  Only one root is resolved via `verify_data`.
+    /// The affected rows must remain CONTAMINATED through the unresolved
+    /// lineage (the decomposed sub-chain whose root is still unresolved).
+    ///
+    /// Driven end-to-end through the production `CoreHandle::init` construction
+    /// and the real `CausalContaminationEngine` public methods
+    /// (`tag_contamination_root`, `verify_data`, `is_row_contaminated`).
+    #[tokio::test]
+    async fn subphase_7_5_composite_incident_resolve_one_root_rows_stay_contaminated() {
+        // ── DAG topology ─────────────────────────────────────────────────────
+        //
+        //   root_a ──→ shared ──→ leaf_a
+        //   root_b ─────────────────┬──→ shared
+        //
+        // Both chains reach `shared` and `leaf_a`, creating a DAG overlap.
+        // When root_b is tagged (after root_a), the CCE detects the shared
+        // descendant and merges both ICOs into a CompositeIncidentInstance.
+
+        let root_a: [u8; 32] = [0xAA; 32];
+        let root_b: [u8; 32] = [0xBB; 32];
+        let shared: [u8; 32] = [0xCC; 32];
+        let leaf_a: [u8; 32] = [0xDD; 32];
+
+        let path = tmp_path("subphase_7_5");
+        cleanup(&path);
+
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
+
+        // Insert DAG nodes with the proper parent edges so BFS walks reach
+        // the shared descendant from both roots.
+        {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.test_insert_dag_node(DagNode {
+                delta_id: root_a,
+                payload: vec![],
+                parent_ids: vec![],
+                actor_id: b"actor-a".to_vec(),
+                lamport: 1,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            })
+            .expect("insert root_a");
+
+            cce.test_insert_dag_node(DagNode {
+                delta_id: root_b,
+                payload: vec![],
+                parent_ids: vec![],
+                actor_id: b"actor-b".to_vec(),
+                lamport: 1,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            })
+            .expect("insert root_b");
+
+            cce.test_insert_dag_node(DagNode {
+                delta_id: shared,
+                payload: vec![],
+                parent_ids: vec![root_a, root_b],
+                actor_id: b"actor-shared".to_vec(),
+                lamport: 2,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            })
+            .expect("insert shared");
+
+            cce.test_insert_dag_node(DagNode {
+                delta_id: leaf_a,
+                payload: vec![],
+                parent_ids: vec![shared],
+                actor_id: b"actor-leaf".to_vec(),
+                lamport: 3,
+                schema_hash: [0u8; 32],
+                compacted: false,
+                author_did: "did:key:z6MkTest".to_string(),
+            })
+            .expect("insert leaf_a");
+        }
+
+        // Insert projection rows so resolve_affected_rows discovers them.
+        {
+            let cce = handle.cce.lock().unwrap();
+            let conn_arc = cce.test_get_conn();
+            let conn = conn_arc.lock().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS proj_reports \
+                 (key TEXT PRIMARY KEY, data_json TEXT NOT NULL, \
+                  contaminated INTEGER NOT NULL DEFAULT 0); \
+                 INSERT OR IGNORE INTO proj_reports (key, data_json) \
+                 VALUES ('row-1', '\"data-a\"'); \
+                 INSERT OR IGNORE INTO proj_reports (key, data_json) \
+                 VALUES ('row-2', '\"data-b\"');",
+            )
+            .expect("setup proj_reports");
+        }
+
+        // ── Tag root_a → creates ICO_A ──────────────────────────────────────
+        let ico_a_id = {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.tag_contamination_root(
+                root_a,
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: root_a,
+                },
+            )
+            .expect("tag root_a should succeed")
+        };
+        assert!(
+            !handle.cce.lock().unwrap().test_is_composite(ico_a_id),
+            "ico_a_id should be a regular ICO, not a composite after first tag"
+        );
+
+        // ── Tag root_b → overlap detected → composite formed ────────────────
+        // ICO_A's descendants are {root_a, shared, leaf_a}.
+        // ICO_B's descendants are {root_b, shared, leaf_a}.
+        // Overlap on shared & leaf_a → composite_merge.
+        let composite_id = {
+            let mut cce = handle.cce.lock().unwrap();
+            cce.tag_contamination_root(
+                root_b,
+                TaintSource::DeviceRevocation {
+                    revocation_delta_id: root_b,
+                },
+            )
+            .expect("tag root_b should succeed")
+        };
+
+        // Verify a composite was formed.
+        {
+            let cce = handle.cce.lock().unwrap();
+            let comp = cce
+                .test_get_composite_incident(composite_id)
+                .expect("composite incident must be registered after overlap");
+            assert!(
+                comp.contaminated_deltas.contains(&root_a),
+                "composite must contain root_a in contaminated_deltas"
+            );
+            assert!(
+                comp.contaminated_deltas.contains(&root_b),
+                "composite must contain root_b in contaminated_deltas"
+            );
+            assert!(
+                comp.contaminated_deltas.contains(&shared),
+                "composite must contain shared in contaminated_deltas"
+            );
+            assert!(
+                comp.contaminated_deltas.contains(&leaf_a),
+                "composite must contain leaf_a in contaminated_deltas"
+            );
+            assert_eq!(
+                comp.state,
+                IncidentState::Open,
+                "composite must be Open before resolution"
+            );
+
+            // The two source ICOs must be SupersededBy the composite.
+            let ico_a = cce
+                .get_incident(ico_a_id)
+                .unwrap()
+                .expect("ICO_A must exist (SupersededBy)");
+            assert!(
+                matches!(ico_a.state, IncidentState::SupersededBy(_)),
+                "ICO_A must be SupersededBy composite, got {:?}",
+                ico_a.state
+            );
+        }
+
+        // Verify rows are contaminated (via the composite ID in the index).
+        {
+            let cce = handle.cce.lock().unwrap();
+            let active_inc = cce.active_incident_for_row("reports", "row-1");
+            assert_eq!(
+                active_inc,
+                Some(composite_id),
+                "row-1 must be mapped to the composite incident"
+            );
+            assert!(
+                cce.is_row_contaminated("reports", "row-1"),
+                "row-1 must be CONTAMINATED after composite formation"
+            );
+            assert!(
+                cce.is_row_contaminated("reports", "row-2"),
+                "row-2 must be CONTAMINATED after composite formation"
+            );
+        }
+
+        // ── Resolve only root_a ───────────────────────────────────────────────
+        // The production verify_data path: manager auth + Resolved tag +
+        // composite decomposition.
+        let mgr = IdentityManager::init_in_memory().expect("manager identity");
+        let mgr_did = mgr.did().to_string();
+        let mgr_secret = mgr.signing_key_bytes();
+        let sig = keypair::sign(&mgr_secret, &root_a).expect("sign");
+        let expiry = now_micros() + 3_600_000_000; // +1h
+
+        handle
+            .cce
+            .lock()
+            .unwrap()
+            .verify_data(root_a, mgr_did.clone(), sig, expiry)
+            .expect("verify_data root_a must succeed");
+
+        // ── Assertions after resolving one root ─────────────────────────────
+
+        // 1. The composite must be Decomposed (one root resolved, one not).
+        {
+            let cce = handle.cce.lock().unwrap();
+            let comp = cce
+                .test_get_composite_incident(composite_id)
+                .expect("composite must still exist after decomposition");
+            assert_eq!(
+                comp.state,
+                IncidentState::Decomposed,
+                "composite must be Decomposed after resolving one root"
+            );
+
+            // 2. A new OPEN ICO must exist for the unresolved root_b.
+            let new_icos = cce.test_open_incidents_for_root(root_b);
+            assert_eq!(
+                new_icos.len(),
+                1,
+                "exactly one new OPEN ICO for unresolved root_b must exist"
+            );
+            let decomposed_ico = &new_icos[0];
+            assert!(
+                decomposed_ico.contaminated_deltas.contains(&shared),
+                "decomposed ICO must contain shared in contaminated_deltas"
+            );
+            assert!(
+                decomposed_ico.contaminated_deltas.contains(&leaf_a),
+                "decomposed ICO must contain leaf_a in contaminated_deltas"
+            );
+            assert!(
+                !decomposed_ico.affected_rows.is_empty(),
+                "decomposed ICO must have resolved affected_rows (not empty)"
+            );
+            assert!(
+                decomposed_ico
+                    .affected_rows
+                    .iter()
+                    .any(|r| r.table == "reports" && r.row_key == "row-1"),
+                "decomposed ICO must list row-1 in affected_rows"
+            );
+        }
+
+        // 3. Affected rows must remain CONTAMINATED via the unresolved lineage.
+        {
+            let cce = handle.cce.lock().unwrap();
+            assert!(
+                cce.is_row_contaminated("reports", "row-1"),
+                "row-1 must remain CONTAMINATED after resolving only root_a \
+                 (unresolved root_b lineage must keep it tainted)"
+            );
+            assert!(
+                cce.is_row_contaminated("reports", "row-2"),
+                "row-2 must remain CONTAMINATED after resolving only root_a"
+            );
+
+            // The active incident for the row must now be the decomposed ICO
+            // (pointing to the unresolved root's chain), not the Decomposed composite.
+            let active = cce.active_incident_for_row("reports", "row-1");
+            assert!(
+                active.is_some(),
+                "row-1 must still have an active incident_id"
+            );
+            let active_id = active.unwrap();
+            let active_ico = cce
+                .get_incident(active_id)
+                .unwrap()
+                .expect("active ICO for row-1 must exist");
+            assert!(
+                active_ico.contamination_roots.contains(&root_b),
+                "row-1's active incident must be the decomposed ICO for root_b"
+            );
+            assert_eq!(
+                active_ico.state,
+                IncidentState::Open,
+                "the unresolved sub-chain ICO must be Open"
+            );
+        }
+
+        // 4. The shared Delta must still carry its Contaminated tag (only a
+        //    Decontaminated tag for the resolved ICO_A, not for root_b's chain).
+        {
+            let cce = handle.cce.lock().unwrap();
+            let conn_arc = cce.test_get_conn();
+            let conn = conn_arc.lock().unwrap();
+            let tags = crate::contamination::taint::read_tags_from_db(&*conn, &shared).unwrap();
+            assert!(
+                tags.iter()
+                    .any(|t| matches!(t, DeltaTag::Contaminated { .. })),
+                "shared must still carry a Contaminated tag (unresolved lineage)"
+            );
+        }
+
+        // 5. End-to-end: a write to the still-contaminated row must trigger
+        //    human-reaction auto-tagging (the production write path calls
+        //    is_row_contaminated, which must return true).
+        let write_result = handle
+            .write("reports", "row-1", json!({"updated": true}))
+            .await
+            .expect("write on still-contaminated row must succeed");
+
+        // The new delta must be registered in an active ICO (HumanReaction taint).
+        {
+            let cce = handle.cce.lock().unwrap();
+            let all_open = cce.open_incidents().unwrap();
+            let found = all_open
+                .iter()
+                .any(|ico| ico.contaminated_deltas.contains(&write_result.delta_id));
+            assert!(
+                found,
+                "human-reaction delta {:?} must be in an open ICO; \
+                 open ICOs: {:?}",
+                write_result.delta_id,
+                all_open.iter().map(|i| i.id).collect::<Vec<_>>()
+            );
+        }
+
+        cleanup(&path);
+    }
+}

@@ -52,11 +52,10 @@ pub(crate) fn append_tag_to_db(
     let mut tags: Vec<DeltaTag> = serde_json::from_str(&existing_json).unwrap_or_default();
     tags.push(tag);
 
-    let new_json = serde_json::to_string(&tags).map_err(|e| {
-        TirBaseError::LocalStoreWriteFailed {
+    let new_json =
+        serde_json::to_string(&tags).map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("tags_json serialise failed: {e}"),
-        }
-    })?;
+        })?;
 
     conn.execute(
         "UPDATE dag_nodes SET tags_json = ?1 WHERE id = ?2",
@@ -108,10 +107,7 @@ pub(crate) fn append_tag(
 }
 
 #[cfg(not(feature = "native"))]
-pub(crate) fn append_tag(
-    delta_id: &DeltaId,
-    tag: DeltaTag,
-) -> Result<(), TirBaseError> {
+pub(crate) fn append_tag(delta_id: &DeltaId, tag: DeltaTag) -> Result<(), TirBaseError> {
     WASM_TAG_STORE.with(|store| {
         store.borrow_mut().entry(*delta_id).or_default().push(tag);
     });
@@ -144,6 +140,61 @@ pub(crate) fn walk_dag_descendants(
     root_delta_id: &DeltaId,
 ) -> Result<Vec<DeltaId>, TirBaseError> {
     dag.bfs_descendants(root_delta_id)
+}
+
+/// BFS walk from `root_delta_id` following forward child edges in the DAG,
+/// using a raw `rusqlite::Connection` instead of `ChangesetDag`.
+///
+/// This is needed because `ChangesetDag::bfs_descendants` internally locks the
+/// shared `Arc<Mutex<Connection>>`, which deadlocks when the connection is
+/// already locked by the caller (e.g. inside `verify_data` where the CCE holds
+/// `conn_guard` across the `resolution::verify_data` call).  This variant
+/// queries `dag_edges` directly on the already-locked connection, avoiding the
+/// re-entrant lock.
+#[cfg(feature = "native")]
+pub(crate) fn bfs_descendants_raw(
+    conn: &rusqlite::Connection,
+    root_delta_id: &DeltaId,
+) -> Result<Vec<DeltaId>, TirBaseError> {
+    use std::collections::{HashSet, VecDeque};
+
+    let mut visited: HashSet<DeltaId> = HashSet::new();
+    let mut queue: VecDeque<DeltaId> = VecDeque::new();
+    let mut result: Vec<DeltaId> = Vec::new();
+
+    queue.push_back(*root_delta_id);
+
+    while let Some(current) = queue.pop_front() {
+        if !visited.insert(current) {
+            continue;
+        }
+        result.push(current);
+
+        // Query children of `current` from the dag_edges table.
+        let mut stmt = conn
+            .prepare("SELECT child_id FROM dag_edges WHERE parent_id = ?1")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("prepare bfs children query failed: {e}"),
+            })?;
+        let children: Vec<DeltaId> = stmt
+            .query_map(rusqlite::params![current.as_ref()], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("query bfs children failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|b| b.try_into().ok())
+            .collect();
+
+        for child in children {
+            if !visited.contains(&child) {
+                queue.push_back(child);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 // ─── Affected row resolver ────────────────────────────────────────────────────
@@ -193,9 +244,11 @@ pub(crate) fn resolve_affected_rows(
     for proj_table in &proj_tables {
         let logical_table = proj_table.strip_prefix("proj_").unwrap_or(proj_table);
         let sql = format!("SELECT key FROM \"{proj_table}\"");
-        let mut stmt = conn.prepare(&sql).map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SELECT key from {proj_table} failed: {e}"),
-        })?;
+        let mut stmt = conn
+            .prepare(&sql)
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SELECT key from {proj_table} failed: {e}"),
+            })?;
         let keys: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(0))
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {

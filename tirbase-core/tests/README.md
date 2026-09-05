@@ -334,9 +334,9 @@ The test asserts:
 
 ### Item 1 — Native Test Suite
 
-**Status:** VERIFIED (605 tests, 0 failures)
+**Status:** VERIFIED (606 tests, 0 failures)
 
-`cargo test --features native` passes all 605 tests including all 22 property
+`cargo test --features native` passes all 606 tests including all 22 property
 tests and all CoreHandle integration tests (Subphase 4.1 added the two
 `api::cloud_sync_tests` production cloud-sync drain tests; Subphase 4.2 added
 the two `api::tier2_ack_tests` Tier-2 acknowledgement tests and the
@@ -1194,3 +1194,45 @@ Item 22).  The remaining deficits
 deficits — e.g. live mesh transport of RevocationDeltas, MigrationDeltas, and
 cloud sync over a real network — are deferred to the post-v1 integration test
 suite in `durability/integration_tests.rs`.
+
+---
+
+### Item 23 — Composite-Incident Decomposition on Partial Root Resolution (Subphase 7.5)
+
+**Status:** VERIFIED
+
+`api::composite_incident_tests::subphase_7_5_composite_incident_resolve_one_root_rows_stay_contaminated`
+drives the full production path end-to-end through `CoreHandle::init` →
+`CausalContaminationEngine` public methods (`tag_contamination_root`,
+`verify_data`, `is_row_contaminated`):
+
+1. Two overlapping contamination chains (root_a → shared → leaf_a, root_b → shared → leaf_a)
+   are tagged via `tag_contamination_root`, producing a `CompositeIncidentInstance`
+   via the overlap-detection path in `CausalContaminationEngine::tag_contamination_root`
+   (contamination/mod.rs).
+2. Only `root_a` is resolved via `verify_data` (manager-auth-gated, `DeltaTag::Resolved` appended).
+3. `decompose_composites_if_needed` (resolution.rs) detects the surviving unresolved root,
+   marks the composite `Decomposed`, creates a fresh OPEN `IncidentContextObject` for
+   `root_b`, resolves its `affected_rows` via `taint::resolve_affected_rows`, and re-marks
+   those rows CONTAMINATED in the projection store via `mark_row_contaminated`.
+4. A concurrent deadlock was fixed: `decompose_composites_if_needed` previously called
+   `dag.bfs_descendants()` (which re-locks the shared `Arc<Mutex<Connection>>`) while the
+   caller (`verify_data`) already held `conn_guard`. The fix introduces
+   `taint::bfs_descendants_raw(conn, root_id)` which queries `dag_edges` directly on the
+   already-locked connection, avoiding the re-entrant lock.
+5. After resolution, `is_row_contaminated("reports", "row-1")` returns `true` (rows remain
+   CONTAMINATED via the unresolved root_b lineage), and the active incident for row-1 is
+   the new decomposed ICO (Open, root_b), not the Decomposed composite.
+6. A production `CoreHandle::write` call on the still-contaminated row triggers
+   `is_row_contaminated` (which returns true), causing the write delta to be auto-tagged
+   with `DeltaTag::ContaminatedByHumanReaction` and registered in an active OPEN ICO
+   (production caller: `CoreHandle::write` at api/mod.rs:1219–1223).
+
+**Production callers verified:**
+- `CoreHandle::write` (api/mod.rs:1219–1223) calls `cce.is_row_contaminated` and
+  `is_row_contaminated` + `active_incident_for_row` for human-reaction auto-tagging.
+- `CoreHandle::receive_inbound` (api/mod.rs:~2378, ~3095) calls `cce.tag_contamination_root`
+  when inbound deltas carry `RevokedDelta` tags.
+- `CoreHandle::verify_data` (api/mod.rs:~) exposes the manager-auth-gated resolution path;
+  the native method delegates to `CausalContaminationEngine::verify_data`
+  (contamination/mod.rs:225) → `resolution::verify_data` (resolution.rs:76).

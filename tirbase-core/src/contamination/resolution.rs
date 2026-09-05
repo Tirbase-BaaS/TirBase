@@ -9,7 +9,7 @@ use crate::contamination::incident::{
     AuditEntry, AuditOperation, CompositeIncidentInstance, IncidentContextObject, IncidentId,
     IncidentState,
 };
-use crate::crdt::delta::{Did, DeltaId, DeltaTag, Ed25519Signature};
+use crate::crdt::delta::{DeltaId, DeltaTag, Did, Ed25519Signature};
 use crate::errors::TirBaseError;
 
 // ─── Timestamp helper ────────────────────────────────────────────────────────
@@ -82,9 +82,14 @@ pub fn verify_data(
     dag: &crate::crdt::dag::ChangesetDag,
     incidents: &mut HashMap<IncidentId, IncidentContextObject>,
     composite_incidents: &mut HashMap<IncidentId, CompositeIncidentInstance>,
-) -> Result<(), TirBaseError> {
+) -> Result<DecompositionResult, TirBaseError> {
     // 1. Auth.
-    verify_manager_auth(&manager_did, &manager_sig, &root_delta_id, manager_token_expiry)?;
+    verify_manager_auth(
+        &manager_did,
+        &manager_sig,
+        &root_delta_id,
+        manager_token_expiry,
+    )?;
 
     // 2. Append Resolved tag to the root Delta.
     let at = now_micros();
@@ -120,9 +125,10 @@ pub fn verify_data(
         ico.updated_at = at;
 
         // Check if all roots are now resolved.
-        let all_resolved = ico.contamination_roots.iter().all(|root_id| {
-            has_resolved_tag(conn, root_id)
-        });
+        let all_resolved = ico
+            .contamination_roots
+            .iter()
+            .all(|root_id| has_resolved_tag(conn, root_id));
 
         if all_resolved {
             // Propagate Decontaminated to every reachable descendant.
@@ -150,7 +156,11 @@ pub fn verify_data(
     }
 
     // 4. Decompose any composite incidents that include this root.
-    decompose_composites_if_needed(
+    //    The returned DecompositionResult carries the new ICOs' affected_rows
+    //    so the caller (CausalContaminationEngine::verify_data) can repopulate
+    //    its `contaminated_rows` O(1) index for the surviving sub-chains
+    //    (Req 10.6 — affected rows remain CONTAMINATED via the unresolved lineage).
+    let decomposition = decompose_composites_if_needed(
         root_delta_id,
         conn,
         dag,
@@ -159,7 +169,7 @@ pub fn verify_data(
         at,
     )?;
 
-    Ok(())
+    Ok(decomposition)
 }
 
 /// Return `true` if the given Delta has at least one `DeltaTag::Resolved` entry in `dag_nodes`.
@@ -169,17 +179,44 @@ fn has_resolved_tag(conn: &rusqlite::Connection, delta_id: &DeltaId) -> bool {
     tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
 }
 
+/// Result of decomposing a composite incident.
+///
+/// Records the new ICOs created for surviving unresolved sub-chains, along
+/// with their resolved `affected_rows`, so the caller can repopulate the
+/// `contaminated_rows` O(1) index.
+#[derive(Debug, Default)]
+pub struct DecompositionResult {
+    /// (new_ico_id, affected_rows) pairs for each re-registered unresolved root.
+    pub new_icos: Vec<(IncidentId, Vec<crate::contamination::incident::AffectedRow>)>,
+}
+
 /// Attempt to decompose composite incidents whose composite chains now have all
 /// roots resolved for one sub-chain but not the other (Req 10.6 / 11.1).
+///
+/// For each surviving unresolved root, a fresh `IncidentContextObject` is
+/// created with `affected_rows` resolved from the projection layer (not left
+/// empty), and those rows are re-marked CONTAMINATED in the projection store
+/// so that `is_row_contaminated` continues to return `true` for rows still
+/// reachable through the unresolved lineage (Req 10.6).
+///
+/// Returns a [`DecompositionResult`] listing the new ICOs and their affected
+/// rows so the caller can repopulate its `contaminated_rows` index.
+///
+/// Note: the BFS walk uses `bfs_descendants_raw` (direct SQL on the connection)
+/// rather than `dag.bfs_descendants` because the caller holds `conn_guard`
+/// across this call — `dag.bfs_descendants` would deadlock by re-locking the
+/// same `Arc<Mutex<Connection>>`.
 #[cfg(feature = "native")]
 fn decompose_composites_if_needed(
     resolved_root: DeltaId,
     conn: &rusqlite::Connection,
-    dag: &crate::crdt::dag::ChangesetDag,
+    _dag: &crate::crdt::dag::ChangesetDag,
     incidents: &mut HashMap<IncidentId, IncidentContextObject>,
     composite_incidents: &mut HashMap<IncidentId, CompositeIncidentInstance>,
     at: i64,
-) -> Result<(), TirBaseError> {
+) -> Result<DecompositionResult, TirBaseError> {
+    let mut result = DecompositionResult::default();
+
     // Find composites that contain this root.
     let composite_ids: Vec<IncidentId> = composite_incidents
         .values()
@@ -208,31 +245,46 @@ fn decompose_composites_if_needed(
             // Re-register each unresolved root as a new independent ICO.
             for root_id in &unresolved_roots {
                 let new_ico_id = uuid::Uuid::now_v7();
-                // BFS walk from this root to find its descendants.
-                let descendants = dag.bfs_descendants(root_id).unwrap_or_else(|_| vec![*root_id]);
+                // BFS walk from this root to find its descendants — use the
+                // raw connection (already locked) to avoid deadlocking the
+                // shared Mutex<Connection> that ChangesetDag would re-lock.
+                let descendants = crate::contamination::taint::bfs_descendants_raw(conn, root_id)
+                    .unwrap_or_else(|_| vec![*root_id]);
                 let contaminated_deltas = descendants.iter().copied().collect();
+
+                // Resolve affected projection rows for the surviving sub-chain
+                // and re-mark them CONTAMINATED so the unresolved lineage
+                // keeps its rows tainted (Req 10.6, acceptance criteria:
+                // "affected rows remain CONTAMINATED via the unresolved lineage").
+                let affected_rows = crate::contamination::taint::resolve_affected_rows(
+                    conn,
+                    &descendants,
+                    *root_id,
+                )?;
+                for row in &affected_rows {
+                    let _ = crate::store::projection::mark_row_contaminated(
+                        conn,
+                        &row.table,
+                        &row.row_key,
+                    );
+                }
 
                 let new_ico = IncidentContextObject {
                     id: new_ico_id,
                     state: IncidentState::Open,
-                    taint_source: composite
-                        .contamination_roots
-                        .first()
-                        .map(|_| crate::contamination::incident::TaintSource::DeviceRevocation {
-                            revocation_delta_id: *root_id,
-                        })
-                        .unwrap_or(crate::contamination::incident::TaintSource::DeviceRevocation {
-                            revocation_delta_id: *root_id,
-                        }),
+                    taint_source: crate::contamination::incident::TaintSource::DeviceRevocation {
+                        revocation_delta_id: *root_id,
+                    },
                     contamination_roots: vec![*root_id],
                     contaminated_deltas,
-                    affected_rows: vec![],
+                    affected_rows: affected_rows.clone(),
                     composite_of: None,
                     created_at: at,
                     updated_at: at,
                     audit_log: vec![],
                 };
                 incidents.insert(new_ico_id, new_ico);
+                result.new_icos.push((new_ico_id, affected_rows));
             }
         } else {
             // All roots resolved — mark composite as decomposed.
@@ -240,7 +292,7 @@ fn decompose_composites_if_needed(
         }
     }
 
-    Ok(())
+    Ok(result)
 }
 
 // ─── admin_close ─────────────────────────────────────────────────────────────
@@ -268,11 +320,12 @@ pub fn admin_close(
     )?;
 
     // 2. Load ICO.
-    let ico = incidents
-        .get_mut(&incident_id)
-        .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("incident {incident_id} not found"),
-        })?;
+    let ico =
+        incidents
+            .get_mut(&incident_id)
+            .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("incident {incident_id} not found"),
+            })?;
 
     // 3. Guard — must be Open.
     if ico.state != IncidentState::Open {
@@ -304,11 +357,12 @@ pub(crate) fn append_audit_entry(
     entry: AuditEntry,
     incidents: &mut HashMap<IncidentId, IncidentContextObject>,
 ) -> Result<(), TirBaseError> {
-    let ico = incidents
-        .get_mut(incident_id)
-        .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("incident {incident_id} not found for audit"),
-        })?;
+    let ico =
+        incidents
+            .get_mut(incident_id)
+            .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("incident {incident_id} not found for audit"),
+            })?;
     ico.audit_log.push(entry);
     Ok(())
 }
