@@ -216,6 +216,9 @@ pub struct MeshTransport {
     #[cfg(all(feature = "native", test))]
     pub(crate) outbound_published: Vec<Vec<u8>>,
 
+    /// Active Noise_IK sessions keyed by remote DID (Req 6.1).
+    pub(crate) active_sessions: std::collections::HashMap<Did, crate::transport::session::NoiseSession>,
+
     /// Saturate_Mode state machine (Req 13): owns the lease lifecycle
     /// (activate / renew / M-of-N terminate / expiry tick) and verifies
     /// Manager DISASTER_ALERT Biscuit tokens offline.  Instantiated here in
@@ -257,6 +260,7 @@ impl MeshTransport {
             config,
             gossip_topic: "tirbase/v1".to_string(),
             scheduler: DrrScheduler::new(DEFAULT_LINK_CAPACITY_BYTES),
+            active_sessions: std::collections::HashMap::new(),
             saturate,
             #[cfg(feature = "native")]
             swarm: None,
@@ -289,6 +293,53 @@ impl MeshTransport {
     /// Remove a peer from the active list immediately.
     pub fn remove_peer(&mut self, peer_did: &Did) {
         self.discovery.remove_peer(peer_did);
+    }
+
+    /// Dial a peer via a BLE routing bridge (Req 5.3).
+    ///
+    /// Records the target peer as reachable through the given BLE bridge.
+    /// The BLE transport itself is out of scope for v1; this method ensures
+    /// the `BleBridge` transport variant is populated and the peer is active.
+    pub fn dial_ble_bridge(
+        &mut self,
+        target_did: Did,
+        bridge_did: Did,
+        now_us: i64,
+    ) -> Result<(), TirBaseError> {
+        self.on_peer_discovered(
+            DiscoveredPeer {
+                did: target_did.clone(),
+                transport: PeerTransport::BleBridge { bridge_did },
+                hop_count: 1,
+            },
+            now_us,
+        )?;
+        eprintln!("[transport] BLE bridge: dialing {target_did} via bridge {bridge_did}");
+        Ok(())
+    }
+
+    /// Initiate a Noise_IK session with a peer after a libp2p connection is
+    /// established (Req 6.1).
+    ///
+    /// Returns the established `NoiseSession` on success, or an error if the
+    /// handshake fails (backoff, revoked, etc.).
+    pub fn initiate_session(
+        &mut self,
+        peer_did: Did,
+        peer_trust_level: TrustLevel,
+        local_static_privkey: &[u8],
+        remote_static_pubkey: &[u8],
+        now_secs: i64,
+    ) -> Result<crate::transport::session::NoiseSession, TirBaseError> {
+        let session = self.session_manager.initiate(
+            peer_did.clone(),
+            peer_trust_level,
+            local_static_privkey,
+            remote_static_pubkey,
+            now_secs,
+        )?;
+        self.active_sessions.insert(peer_did.clone(), session.clone());
+        Ok(session)
     }
 
     /// Advance the peer-timeout clock: removes peers not seen within
@@ -679,6 +730,33 @@ impl MeshTransport {
     /// authoritative while the device is offline (Req 3.3).
     #[cfg(feature = "native")]
     pub fn send_delta(&mut self, peer_did: &Did, delta: &Delta) -> Result<(), TirBaseError> {
+        // Req 5.5: if the destination is not a direct neighbor, route through
+        // a relay peer.
+        if !self.discovery.is_direct_neighbor(peer_did) {
+            if let Some(relay_did) = self.discovery.find_relay_peer(peer_did) {
+                eprintln!(
+                    "[transport] relay: {peer_did} is not a direct neighbor; \
+                     routing delta through relay peer {relay_did}"
+                );
+                let relay_msg = crate::transport::message::GossipMessage::RelayDelta {
+                    target_did: peer_did.clone(),
+                    delta: delta.clone(),
+                };
+                let wire_payload = relay_msg.to_bytes();
+                let tx = self
+                    .outbound_tx
+                    .as_ref()
+                    .ok_or_else(|| TirBaseError::MeshUnavailable {
+                        reason: "transport not started (no outbound channel installed)".to_string(),
+                    })?;
+                tx.try_send(wire_payload)
+                    .map_err(|e| TirBaseError::MeshUnavailable {
+                        reason: format!("outbound publish channel unavailable: {e}"),
+                    })?;
+                return Ok(());
+            }
+        }
+
         // Compute framed messages before borrowing the channel.
         let messages = self.prepare_outbound(delta)?;
 

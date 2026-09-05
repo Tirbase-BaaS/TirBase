@@ -203,6 +203,28 @@ impl PeerDiscovery {
     pub fn retry_queue_len(&self) -> usize {
         self.retry_queue.len()
     }
+
+    /// Find a relay peer for the given destination DID.
+    ///
+    /// Returns the relay peer's DID if a peer with `PeerTransport::MultiHopRelay`
+    /// is in the active list; otherwise `None`.
+    pub fn find_relay_peer(&self, destination_did: &Did) -> Option<Did> {
+        self.peers
+            .values()
+            .find(|state| {
+                state.active
+                    && matches!(
+                        state.peer.transport,
+                        PeerTransport::MultiHopRelay { .. }
+                    )
+            })
+            .map(|state| state.peer.did.clone())
+    }
+
+    /// Return `true` if the given DID is a direct neighbor (active peer).
+    pub fn is_direct_neighbor(&self, peer_did: &Did) -> bool {
+        self.peers.contains_key(peer_did)
+    }
 }
 
 // ─── mDNS event adapter (native only) ────────────────────────────────────────

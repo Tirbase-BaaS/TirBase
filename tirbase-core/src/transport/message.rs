@@ -33,6 +33,17 @@ pub enum GossipMessage {
     InboundMigrationDelta(MigrationDelta),
     /// A migration-revocation Delta from a peer (Req 18.5).
     InboundMigrationRevocationDelta(MigrationRevocationDelta),
+    /// A Delta routed through a multi-hop relay peer (Req 5.5).
+    ///
+    /// Emitted by `MeshTransport::send_delta` when the destination is not a
+    /// direct neighbor and a relay peer is available.  Relay peers intercept
+    /// this variant and re-publish the wrapped Delta toward the destination.
+    RelayDelta {
+        /// The intended recipient of the wrapped Delta.
+        target_did: Did,
+        /// The Delta payload to forward.
+        delta: Delta,
+    },
 }
 
 impl GossipMessage {

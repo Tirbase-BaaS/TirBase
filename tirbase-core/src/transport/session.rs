@@ -133,9 +133,7 @@ impl SessionManager {
             .max(MIN_ROTATION_INTERVAL_SECS)
             .min(MAX_ROTATION_INTERVAL_SECS);
         Self {
-            resumption_cache: LruCache::new(
-                NonZeroUsize::new(MAX_RESUMPTION_CACHE).unwrap(),
-            ),
+            resumption_cache: LruCache::new(NonZeroUsize::new(MAX_RESUMPTION_CACHE).unwrap()),
             failure_records: Vec::new(),
             rotation_interval_secs: interval,
             local_did,
@@ -513,13 +511,7 @@ mod tests {
         let mut sm = SessionManager::new("did:key:local".to_string(), 3_600);
         let peer = "did:key:backoff-peer".to_string();
         sm.record_failure(peer.clone(), "earlier failure".to_string(), 1_000);
-        let result = sm.initiate(
-            peer,
-            TrustLevel::Verified,
-            &[0u8; 32],
-            &[0u8; 32],
-            1_020,
-        );
+        let result = sm.initiate(peer, TrustLevel::Verified, &[0u8; 32], &[0u8; 32], 1_020);
         assert!(
             matches!(result, Err(TirBaseError::NoiseHandshakeFailed { .. })),
             "expected NoiseHandshakeFailed during backoff"
@@ -570,7 +562,9 @@ mod tests {
 
         // Verify the transport is still functional after rekeying
         let mut cipher = vec![0u8; 65535];
-        let n = session.transport.write_message(b"ping", &mut cipher)
+        let n = session
+            .transport
+            .write_message(b"ping", &mut cipher)
             .expect("write after rekey must succeed");
         assert!(n > 0);
     }
@@ -590,13 +584,16 @@ mod tests {
             .unwrap();
 
         let mut initiator = Builder::new("Noise_IK_25519_AESGCM_SHA256".parse().unwrap())
-            .local_private_key(&initiator_kp.private).unwrap()
-            .remote_public_key(&responder_kp.public).unwrap()
+            .local_private_key(&initiator_kp.private)
+            .unwrap()
+            .remote_public_key(&responder_kp.public)
+            .unwrap()
             .build_initiator()
             .unwrap();
 
         let mut responder = Builder::new("Noise_IK_25519_AESGCM_SHA256".parse().unwrap())
-            .local_private_key(&responder_kp.private).unwrap()
+            .local_private_key(&responder_kp.private)
+            .unwrap()
             .build_responder()
             .unwrap();
 
@@ -619,7 +616,9 @@ mod tests {
 
         // After rekeying: initiator can still encrypt, responder can decrypt
         let mut ciphertext = vec![0u8; 65535];
-        let n = i_transport.write_message(b"hello after rekey", &mut ciphertext).unwrap();
+        let n = i_transport
+            .write_message(b"hello after rekey", &mut ciphertext)
+            .unwrap();
         let mut plaintext = vec![0u8; 65535];
         // Note: after rekey, nonces are out of sync between the two sides in a
         // stateless test like this (both rekeyed independently). The important
