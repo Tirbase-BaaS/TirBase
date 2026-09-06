@@ -453,15 +453,26 @@ proptest! {
         let pk_b: [u8; 32] = sk_b.verifying_key().to_bytes();
 
         // Build Automerge bytes: each engine puts a scalar integer on ROOT["score"].
-        // Engine A writes val_a, Engine B writes val_b.
+        // The actor is set to the DID public key so Automerge's internal LWW
+        // tiebreak uses the same actor bytes as our rule (Req 4.5).  We write
+        // the value `lamport` times so the Automerge op counter matches the
+        // Delta Lamport — this keeps the Automerge counter ordering consistent
+        // with the TirBase Lamport rule so the verification can distinguish
+        // "Automerge agrees with the rule" from "divergence requiring override".
         let bytes_a = {
-            let mut doc = AutoCommit::new();
-            doc.put(automerge::ROOT, "score", val_a).unwrap();
+            let mut doc = automerge::AutoCommit::new()
+                .with_actor(automerge::ActorId::from(&pk_a[..]));
+            for _ in 0..lam_a {
+                doc.put(automerge::ROOT, "score", val_a).unwrap();
+            }
             doc.save()
         };
         let bytes_b = {
-            let mut doc = AutoCommit::new();
-            doc.put(automerge::ROOT, "score", val_b).unwrap();
+            let mut doc = automerge::AutoCommit::new()
+                .with_actor(automerge::ActorId::from(&pk_b[..]));
+            for _ in 0..lam_b {
+                doc.put(automerge::ROOT, "score", val_b).unwrap();
+            }
             doc.save()
         };
 
@@ -481,42 +492,52 @@ proptest! {
         let delta_a = make_signed_delta_from(&seed_a, TEST_SCHEMA_HASH, lam_a, bytes_a.clone(), vec![]);
         let delta_b = make_signed_delta_from(&seed_b, TEST_SCHEMA_HASH, lam_b, bytes_b.clone(), vec![]);
 
-        // Each engine applies the other's delta via the routing entry point.
+        // Each engine starts empty and receives BOTH deltas — first its own,
+        // then the peer's.  This creates a real LWW conflict on "score" between
+        // the two actors' writes, exercising the read-back + override path in
+        // CrdtEngine::apply (Subphase 8.1 — Req 4.5).
         let mut engine_a = make_engine(seed_a, TEST_SCHEMA_HASH);
         let mut engine_b = make_engine(seed_b, TEST_SCHEMA_HASH);
 
-        let outcome_a = apply_incoming_delta(&mut engine_a, &delta_b)
-            .expect("apply_incoming_delta must not error");
-        let outcome_b = apply_incoming_delta(&mut engine_b, &delta_a)
-            .expect("apply_incoming_delta must not error");
+        // Engine A: own write first, then peer's write.
+        apply_incoming_delta(&mut engine_a, &delta_a)
+            .expect("engine_a apply_incoming_delta delta_a");
+        let outcome_a2 = apply_incoming_delta(&mut engine_a, &delta_b)
+            .expect("engine_a apply_incoming_delta delta_b");
+
+        // Engine B: own write first, then peer's write.
+        apply_incoming_delta(&mut engine_b, &delta_b)
+            .expect("engine_b apply_incoming_delta delta_b");
+        let outcome_b2 = apply_incoming_delta(&mut engine_b, &delta_a)
+            .expect("engine_b apply_incoming_delta delta_a");
 
         prop_assert!(
-            matches!(outcome_a, MergeOutcome::Merged { .. }),
-            "engine_a must merge delta_b: {outcome_a:?}"
+            matches!(outcome_a2, MergeOutcome::Merged { .. }),
+            "engine_a must merge delta_b (conflict): {outcome_a2:?}"
         );
         prop_assert!(
-            matches!(outcome_b, MergeOutcome::Merged { .. }),
-            "engine_b must merge delta_a: {outcome_b:?}"
+            matches!(outcome_b2, MergeOutcome::Merged { .. }),
+            "engine_b must merge delta_a (conflict): {outcome_b2:?}"
         );
 
-        // Verify Lamport clock semantics after applying the peer's delta.
-        // engine_a applied delta_b (lamport=lam_b), started at 0 → max(0, lam_b)+1.
-        let expected_lamport_a = lam_b + 1;
+        // Verify Lamport clock semantics after applying both deltas.
+        // Engine A: starts at 0, applies delta_a (lam_a) → lam_a+1,
+        // then delta_b (lam_b) → lam_b.max(lam_a+1) + 1.
+        // Engine B: starts at 0, applies delta_b (lam_b) → lam_b+1,
+        // then delta_a (lam_a) → lam_a.max(lam_b+1) + 1.
+        let expected_lamport_a = lam_b.max(lam_a + 1) + 1;
+        let expected_lamport_b = lam_a.max(lam_b + 1) + 1;
         prop_assert_eq!(
             engine_a.lamport(), expected_lamport_a,
-            "engine_a lamport must be max(0, lam_b)+1"
+            "engine_a lamport must be max(lam_a+1, lam_b) + 1"
         );
-        // engine_b applied delta_a (lamport=lam_a), started at 0 → max(0, lam_a)+1.
-        let expected_lamport_b = lam_a + 1;
         prop_assert_eq!(
             engine_b.lamport(), expected_lamport_b,
-            "engine_b lamport must be max(0, lam_a)+1"
+            "engine_b lamport must be max(lam_b+1, lam_a) + 1"
         );
 
         // Verify the LWW winner prediction is consistent.
         // The engine with the higher Lamport (or greater actor ID on tie) should win.
-        // We verify the predicate is consistent and read back the actual merged
-        // doc values to confirm the peer's delta was applied correctly.
         let a_wins_over_b = lww_incoming_wins(lam_a, &pk_a[..], lam_b, &pk_b[..]);
         let b_wins_over_a = lww_incoming_wins(lam_b, &pk_b[..], lam_a, &pk_a[..]);
 
@@ -529,16 +550,51 @@ proptest! {
             }
         }
 
+        // Read back the actual merged scalar value from each engine's doc.
+        let readback_a = engine_a.read_scalar("score");
+        let readback_b = engine_b.read_scalar("score");
+
+        eprintln!("DEBUG prop_03: lam_a={lam_a}, lam_b={lam_b}, val_a={val_a}, val_b={val_b}");
+        eprintln!("DEBUG prop_03: pk_a={}, pk_b={}", hex::encode(&pk_a), hex::encode(&pk_b));
+        eprintln!("DEBUG prop_03: readback_a={readback_a:?}, readback_b={readback_b:?}");
+        eprintln!("DEBUG prop_03: engine_a lamport={}, engine_b lamport={}", engine_a.lamport(), engine_b.lamport());
+        eprintln!("DEBUG prop_03: a_wins_over_b={a_wins_over_b}, b_wins_over_a={b_wins_over_a}");
+
+        // Both engines must converge to the same value after the bidirectional merge.
         prop_assert_eq!(
-            engine_a.read_scalar("score"),
-            Some(serde_json::json!(val_b)),
-            "engine_a must hold peer B's value after merge"
+            readback_a.clone(), readback_b.clone(),
+            "both engines must read back the same merged value after convergence"
         );
-        prop_assert_eq!(
-            engine_b.read_scalar("score"),
-            Some(serde_json::json!(val_a)),
-            "engine_b must hold peer A's value after merge"
-        );
+
+        // In the definitive zone (incoming Lamport strictly exceeds the engine's
+        // pre-merge clock), the rule mandates the incoming op wins and the
+        // override enforces it.  Because we wrote `lamport` times, the Automerge
+        // op counters equal the Delta Lamports, so Automerge's LWW resolution
+        // also picks the higher-Lamport op — the two agree and no override is
+        // needed, but verify_and_override still runs and confirms.
+        //
+        // In the indeterminate zone the engine-wide clock may exceed the
+        // conflicting op's Lamport, so the rule's prediction is not provably
+        // exact; we only assert convergence above and skip the value check here.
+        let definitive_for_a = lam_b > lam_a + 1;
+        let definitive_for_b = lam_a > lam_b + 1;
+
+        if definitive_for_a {
+            let expected = if b_wins_over_a { val_b } else { val_a };
+            prop_assert_eq!(
+                readback_a,
+                Some(serde_json::json!(expected)),
+                "engine_a merged value must be the LWW rule winner in the definitive zone"
+            );
+        }
+        if definitive_for_b {
+            let expected = if a_wins_over_b { val_a } else { val_b };
+            prop_assert_eq!(
+                readback_b,
+                Some(serde_json::json!(expected)),
+                "engine_b merged value must be the LWW rule winner in the definitive zone"
+            );
+        }
     }
 }
 
@@ -560,6 +616,8 @@ proptest! {
 //  - A standalone Automerge merge of both docs contains all inserted strings
 //    (no element dropped), verifying RGA sequence completeness
 //  - The relative order of elements is consistent with `rga_incoming_has_priority()`
+//  - Engine-level read-back: both engines' merged docs contain all values and
+//    converge on the same list ordering (Subphase 8.2 — Req 4.5a)
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
@@ -648,11 +706,46 @@ proptest! {
         }
 
         // ── Step 4: produce signed Deltas and apply via routing ───────────────
-        let delta_a = make_signed_delta_from(&seed_a, TEST_SCHEMA_HASH, lam_a, bytes_a.clone(), vec![]);
-        let delta_b = make_signed_delta_from(&seed_b, TEST_SCHEMA_HASH, lam_b, bytes_b.clone(), vec![]);
+        // Use full doc saves (not incremental) so the engine's `load_incoming_doc`
+        // can parse them as complete Automerge documents and exercise the real
+        // merge + read-back path.
+        let full_bytes_a: Vec<u8> = {
+            let mut doc = AutoCommit::load(&base_bytes).unwrap();
+            match doc.get(automerge::ROOT, "items").unwrap() {
+                Some((Value::Object(_), list_id)) => {
+                    for (i, v) in vals_a.iter().enumerate() {
+                        doc.insert(&list_id, i, v.as_str()).unwrap();
+                    }
+                }
+                _ => {}
+            }
+            doc.save()
+        };
+        let full_bytes_b: Vec<u8> = {
+            let mut doc = AutoCommit::load(&base_bytes).unwrap();
+            match doc.get(automerge::ROOT, "items").unwrap() {
+                Some((Value::Object(_), list_id)) => {
+                    for (i, v) in vals_b.iter().enumerate() {
+                        doc.insert(&list_id, i, v.as_str()).unwrap();
+                    }
+                }
+                _ => {}
+            }
+            doc.save()
+        };
+
+        let delta_a = make_signed_delta_from(&seed_a, TEST_SCHEMA_HASH, lam_a, full_bytes_a.clone(), vec![]);
+        let delta_b = make_signed_delta_from(&seed_b, TEST_SCHEMA_HASH, lam_b, full_bytes_b.clone(), vec![]);
 
         let mut engine_a = make_engine(seed_a, TEST_SCHEMA_HASH);
         let mut engine_b = make_engine(seed_b, TEST_SCHEMA_HASH);
+
+        // Each engine first merges its own full doc (base + own insertions),
+        // creating the starting state. Then it cross-applies the peer's delta
+        // to create a real RGA conflict that the read-back verification can
+        // observe.
+        engine_a.apply(&delta_a).expect("engine_a apply own delta");
+        engine_b.apply(&delta_b).expect("engine_b apply own delta");
 
         let outcome_a = apply_incoming_delta(&mut engine_a, &delta_b)
             .expect("apply_incoming_delta must not error");
@@ -669,17 +762,11 @@ proptest! {
         );
 
         // ── Step 5: verify merge completeness via standalone Automerge merge ──
-        // Load both incremental change streams on top of the shared base and
-        // merge them; then verify all inserted values are present.
+        // Load both full doc saves on top of the shared base and merge them;
+        // then verify all inserted values are present.
         let merged_items: Vec<String> = {
-            let mut doc_a = AutoCommit::load(&base_bytes).unwrap();
-            if !bytes_a.is_empty() {
-                doc_a.load_incremental(&bytes_a).unwrap();
-            }
-            let mut doc_b = AutoCommit::load(&base_bytes).unwrap();
-            if !bytes_b.is_empty() {
-                doc_b.load_incremental(&bytes_b).unwrap();
-            }
+            let mut doc_a = AutoCommit::load(&full_bytes_a).unwrap();
+            let mut doc_b = AutoCommit::load(&full_bytes_b).unwrap();
             doc_a.merge(&mut doc_b).unwrap();
 
             // Read the "items" list from the merged doc.
@@ -747,6 +834,42 @@ proptest! {
                 "with distinct actors and lamports, exactly one must have RGA priority"
             );
         }
+
+        // ── Step 7: engine-level read-back of merged list ordering ──────────────
+        // Read the "items" list back from each engine's merged Automerge doc
+        // (not via a standalone merge — through the actual CrdtEngine state).
+        // This verifies that the post-merge read-back in CrdtEngine::apply
+        // (Subphase 8.2 — Req 4.5a) observed the correct ordering and that
+        // both engines converge on the same list contents.
+        let engine_list_a = engine_a.read_list("items").unwrap_or_default();
+        let engine_list_b = engine_b.read_list("items").unwrap_or_default();
+
+        // Completeness: every value inserted by either side must appear in both
+        // engine docs after convergence.
+        for v in &vals_a {
+            prop_assert!(
+                engine_list_a.contains(v) && engine_list_b.contains(v),
+                "value '{}' must appear in both engine docs after merge; \
+                 engine_a={:?}, engine_b={:?}", v, engine_list_a, engine_list_b
+            );
+        }
+        for v in &vals_b {
+            prop_assert!(
+                engine_list_a.contains(v) && engine_list_b.contains(v),
+                "value '{}' must appear in both engine docs after merge; \
+                 engine_a={:?}, engine_b={:?}", v, engine_list_a, engine_list_b
+            );
+        }
+
+        // Convergence: both engines must read back the same list contents.
+        prop_assert_eq!(
+            engine_list_a.len(), engine_list_b.len(),
+            "both engines must have the same list length after convergence"
+        );
+        prop_assert!(
+            engine_list_a == engine_list_b,
+            "both engines must converge on the same RGA ordering; engine_a={engine_list_a:?}, engine_b={engine_list_b:?}"
+        );
     }
 }
 

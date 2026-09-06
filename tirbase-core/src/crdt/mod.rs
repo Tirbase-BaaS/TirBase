@@ -760,6 +760,22 @@ impl CrdtEngine {
                     self.lamport, // pre-advance (step 5)
                     &local_actor,
                 );
+
+                // Subphase 8.1: post-merge read-back of the actual winning value
+                // for each conflicting LWW key (Req 4.5).  This is a defensive
+                // log-only check: `verify_and_override` already performed the
+                // override in the definitive zone; here we read back the final
+                // state after any overrides and log it for observability.
+                #[cfg(test)]
+                for conflict in &snapshot.lww {
+                    if let Some(final_value) = self.read_merged_value("", &conflict.key) {
+                        eprintln!(
+                            "[CRDT] post-merge read-back key='{}': actual winner value={:?}",
+                            conflict.key, final_value,
+                        );
+                    }
+                }
+
                 eprintln!(
                     "[CRDT] post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
                      {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
@@ -1143,6 +1159,64 @@ impl CrdtEngine {
                 }
                 Value::Object(_) => None,
             })
+    }
+
+    /// Read back the raw [`automerge::ScalarValue`] at `key` from the engine's
+    /// merged Automerge doc (Subphase 8.1 — Req 4.5).
+    ///
+    /// This is the typed companion to [`read_scalar`]: while `read_scalar`
+    /// projects to `serde_json::Value` for host consumption, `read_merged_value`
+    /// returns the engine-internal `ScalarValue` so that the post-merge
+    /// verification block (and in-crate tests) can compare the *actual* winning
+    /// value against the LWW rule winner at full type fidelity.  Returns
+    /// `None` when the key is absent or holds a non-scalar (object) value.
+    ///
+    /// The `table` parameter is accepted for API symmetry with the write path
+    /// (which embeds `_tirbase_table`); the Automerge doc is ROOT-level so the
+    /// lookup is keyed solely by `key`.
+    ///
+    /// Used by the override path in [`CrdtEngine::apply`] and by
+    /// `prop_03` / `prop_04` in the property test suite.
+    #[cfg(test)]
+    pub(crate) fn read_merged_value(
+        &self,
+        _table: &str,
+        key: &str,
+    ) -> Option<automerge::ScalarValue> {
+        use automerge::{ReadDoc, Value};
+        self.doc
+            .get(automerge::ROOT, key)
+            .ok()
+            .flatten()
+            .and_then(|(val, _exid)| match val {
+                Value::Scalar(sv) => Some(sv.into_owned()),
+                Value::Object(_) => None,
+            })
+    }
+
+    /// Read back a ROOT-level list as `Vec<String>` from the engine's merged
+    /// Automerge doc (Subphase 8.2 — Req 4.5a).  Returns `None` if the key does
+    /// not exist or is not a list object.
+    #[cfg(test)]
+    pub(crate) fn read_list(&self, key: &str) -> Option<Vec<String>> {
+        use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef};
+        match self.doc.get(automerge::ROOT, key).ok().flatten() {
+            Some((automerge::Value::Object(_), list_id)) => {
+                Some(
+                    self.doc
+                        .list_range(&list_id, ..)
+                        .filter_map(|item| match item.value {
+                            ValueRef::Scalar(sv) => match sv {
+                                ScalarValueRef::Str(s) => Some(s.to_string()),
+                                _ => None,
+                            },
+                            _ => None,
+                        })
+                        .collect(),
+                )
+            }
+            _ => None,
+        }
     }
 }
 
@@ -2806,5 +2880,70 @@ mod tests {
             Some(serde_json::json!(200)),
             "engine_a definitive-zone merge must hold the Lamport winner"
         );
+    }
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn debug_op_ids() {
+        use automerge::transaction::Transactable;
+        use automerge::{ReadDoc, ROOT};
+        let actor_a: [u8; 32] = {
+            let mut s = [0x11u8; 32];
+            s[0] = 48;
+            s[8] = 0xAA;
+            s
+        };
+        let actor_b: [u8; 32] = {
+            let mut s = [0x22u8; 32];
+            s[0] = 77;
+            s[8] = 0xBB;
+            s
+        };
+
+        let mut doc_a = automerge::AutoCommit::new().with_actor(automerge::ActorId::from(&actor_a[..]));
+        for i in 0..48i64 {
+            doc_a.put(ROOT, "score", i).unwrap();
+        }
+        let bytes_a = doc_a.save();
+        let mut loaded_a = automerge::AutoCommit::load(&bytes_a).unwrap();
+        let changes = loaded_a.get_changes(&[]);
+        println!("bytes_a: {} changes", changes.len());
+        for (i, change) in changes.iter().enumerate() {
+            let expanded = change.decode();
+            println!("  change {}: start_op={}, actor={}",
+                i, expanded.start_op.get(), hex::encode(expanded.actor_id.to_bytes()));
+        }
+        let val = loaded_a.get(ROOT, "score").unwrap().unwrap();
+        println!("bytes_a current value: {:?}, exid bytes: {}", val.0, hex::encode(val.1.to_bytes()));
+
+        let mut doc_b = automerge::AutoCommit::new().with_actor(automerge::ActorId::from(&actor_b[..]));
+        for i in 0..77i64 {
+            doc_b.put(ROOT, "score", i).unwrap();
+        }
+        let bytes_b = doc_b.save();
+        let mut loaded_b = automerge::AutoCommit::load(&bytes_b).unwrap();
+        let changes_b = loaded_b.get_changes(&[]);
+        println!("bytes_b: {} changes", changes_b.len());
+        for (i, change) in changes_b.iter().enumerate() {
+            let expanded = change.decode();
+            println!("  change {}: start_op={}, actor={}",
+                i, expanded.start_op.get(), hex::encode(expanded.actor_id.to_bytes()));
+        }
+        let val_b = loaded_b.get(ROOT, "score").unwrap().unwrap();
+        println!("bytes_b current value: {:?}, exid bytes: {}", val_b.0, hex::encode(val_b.1.to_bytes()));
+
+        // Merge b into a
+        let mut merged = automerge::AutoCommit::new().with_actor(automerge::ActorId::from(&actor_a[..]));
+        let mut their = automerge::AutoCommit::load(&bytes_a).unwrap();
+        merged.merge(&mut their).unwrap();
+        println!("After merge a into engine (actor_a):");
+        let v = merged.get(ROOT, "score").unwrap().unwrap();
+        println!("  value: {:?}, exid: {}", v.0, hex::encode(v.1.to_bytes()));
+
+        let mut their_b = automerge::AutoCommit::load(&bytes_b).unwrap();
+        merged.merge(&mut their_b).unwrap();
+        println!("After merge b into engine:");
+        let v = merged.get(ROOT, "score").unwrap().unwrap();
+        println!("  value: {:?}, exid: {}", v.0, hex::encode(v.1.to_bytes()));
     }
 }

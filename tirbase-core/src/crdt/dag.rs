@@ -274,6 +274,39 @@ impl ChangesetDag {
         Ok(ids)
     }
 
+    /// Return all Delta IDs whose stored `author_did` matches `author_did`.
+    ///
+    /// Used during contamination revocation (Req 10.1) to find every Delta
+    /// authored by a now-revoked device so they can be tagged
+    /// `Contaminated` and quarantined from future merges.
+    pub fn nodes_by_author(
+        &self,
+        author_did: &Did,
+    ) -> Result<Vec<DeltaId>, TirBaseError> {
+        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DAG mutex poisoned: {e}"),
+        })?;
+
+        let mut stmt = conn
+            .prepare("SELECT id FROM dag_nodes WHERE author_did = ?1;")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare nodes_by_author failed: {e}"),
+            })?;
+
+        let ids: Vec<DeltaId> = stmt
+            .query_map(rusqlite::params![author_did], |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query nodes_by_author failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(|bytes| bytes.try_into().ok())
+            .collect();
+
+        Ok(ids)
+    }
+
     /// BFS walk from `root_id` following child edges (forward reachability).
     ///
     /// Returns all reachable Delta IDs including `root_id` itself.

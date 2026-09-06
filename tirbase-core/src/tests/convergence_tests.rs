@@ -183,6 +183,120 @@ mod native_convergence {
         // structural divergence.  Removing the dag from native, or adding one
         // to WASM, will cause this assertion to fail and surface the change.
     }
+
+    /// Final-state identity (Req 4.7): two engines each write a distinct
+    /// value to the same key concurrently, exchange Deltas bidirectionally,
+    /// then both must read back the *same* winning value (the LWW rule winner)
+    /// for every key written — not just Lamport convergence, but value
+    /// convergence.
+    ///
+    /// This is the post-merge read-back verification of Property 3: after both
+    /// engines have bidirectionally exchanged their Deltas, the actual merged
+    /// scalar value read back from each engine's Automerge doc must be
+    /// identical.
+    #[test]
+    fn bidirectional_merge_final_state_identity() {
+        use crate::crdt::delta::Delta;
+        use crate::crdt::lww_incoming_wins;
+        use std::sync::{Arc, Mutex};
+
+        // Two distinct deterministic keypairs so the two engines have
+        // different actor IDs and Lamport-tie resolution is exercised.
+        let seed_a: [u8; 32] = [
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+        ];
+        let seed_b: [u8; 32] = [
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        ];
+
+        let sk_a = ed25519_dalek::SigningKey::from_bytes(&seed_a);
+        let pk_a: [u8; 32] = sk_a.verifying_key().to_bytes();
+        let sk_b = ed25519_dalek::SigningKey::from_bytes(&seed_b);
+        let pk_b: [u8; 32] = sk_b.verifying_key().to_bytes();
+
+        let did_a = crate::crdt::derive_did_from_public_key(&pk_a);
+        let did_b = crate::crdt::derive_did_from_public_key(&pk_b);
+        let schema = make_schema_hash();
+
+        // Two engines with distinct actor IDs.
+        let conn_a = rusqlite::Connection::open_in_memory().expect("in-memory A");
+        conn_a.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("schema A");
+        let conn_a = Arc::new(Mutex::new(conn_a));
+        let conn_b = rusqlite::Connection::open_in_memory().expect("in-memory B");
+        conn_b.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("schema B");
+        let conn_b = Arc::new(Mutex::new(conn_b));
+
+        let mut engine_a = CrdtEngine::new(seed_a, pk_a, did_a.clone(), schema, conn_a);
+        let mut engine_b = CrdtEngine::new(seed_b, pk_b, did_b.clone(), schema, conn_b);
+
+        // Each engine writes a distinct value to the same key "final_key".
+        let val_a = 100_i64;
+        let val_b = 200_i64;
+
+        let bytes_a = engine_a
+            .write_scalar("devices", "final_key", &serde_json::json!(val_a))
+            .expect("write A");
+        let delta_a = engine_a
+            .produce_delta(bytes_a, crate::crdt::delta::PriorityClass::Low, vec![])
+            .expect("produce delta A");
+
+        let bytes_b = engine_b
+            .write_scalar("devices", "final_key", &serde_json::json!(val_b))
+            .expect("write B");
+        let delta_b = engine_b
+            .produce_delta(bytes_b, crate::crdt::delta::PriorityClass::Low, vec![])
+            .expect("produce delta B");
+
+        // Bidirectional exchange: A applies B's delta, B applies A's delta.
+        let outcome_ab = engine_a.apply(&delta_b).expect("A apply B");
+        let outcome_ba = engine_b.apply(&delta_a).expect("B apply A");
+
+        assert!(
+            matches!(outcome_ab, crate::crdt::merge::MergeOutcome::Merged { .. }),
+            "A must merge B's delta: {outcome_ab:?}"
+        );
+        assert!(
+            matches!(outcome_ba, crate::crdt::merge::MergeOutcome::Merged { .. }),
+            "B must merge A's delta: {outcome_ba:?}"
+        );
+
+        // Determine the LWW rule winner: higher Lamport wins; on tie, greater
+        // actor (public key bytes) wins.
+        let lamport_a = delta_a.lamport;
+        let lamport_b = delta_b.lamport;
+        let a_wins = lww_incoming_wins(lamport_a, &pk_a[..], lamport_b, &pk_b[..]);
+        let expected_winner = if a_wins { val_a } else { val_b };
+
+        // Read back the actual merged value from each engine's doc.
+        let readback_a = engine_a.read_scalar("final_key");
+        let readback_b = engine_b.read_scalar("final_key");
+
+        // Final-state identity: both engines must hold the same winning value.
+        assert_eq!(
+            readback_a, readback_b,
+            "final-state identity violated: engine_a={readback_a:?}, engine_b={readback_b:?}"
+        );
+        assert_eq!(
+            readback_a,
+            Some(serde_json::json!(expected_winner)),
+            "merged value must be the LWW rule winner (val_a={val_a} lamport_a={lamport_a}, \
+             val_b={val_b} lamport_b={lamport_b})"
+        );
+
+        // Also verify convergence of the DAG: both engines must have the same
+        // number of DagNodes (each should have 2: its own + the peer's).
+        assert_eq!(
+            engine_a.dag().len().unwrap(),
+            engine_b.dag().len().unwrap(),
+            "DAG node count must converge after bidirectional exchange"
+        );
+    }
 }
 
 // ─── WASM convergence ────────────────────────────────────────────────────────
