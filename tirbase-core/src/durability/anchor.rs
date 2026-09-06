@@ -15,6 +15,8 @@ use crate::durability::receipt::BeaconToken;
 use crate::errors::TirBaseError;
 use crate::identity::did::derive_did;
 use crate::identity::keypair;
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Entry in the beacon public-key registry.
 #[derive(Debug, Clone)]
@@ -61,6 +63,11 @@ pub struct AnchorAttestedLocation {
     pub mode: AnchorMode,
     /// Append-only log of Transport Degradation Events (Req 15.4).
     degradation_log: Vec<TransportDegradationEvent>,
+    /// Last-observed timestamp (seconds since UNIX_EPOCH) for each beacon
+    /// public key, updated on every successfully verified beacon token (Req 15.4).
+    /// `check_signal_loss` compares `now_secs - last_seen` against the configured
+    /// threshold to decide whether a beacon has gone silent.
+    beacon_last_seen: HashMap<[u8; 32], i64>,
 }
 
 /// A permanent high-priority Transport Degradation Event written on beacon signal loss
@@ -83,6 +90,7 @@ impl AnchorAttestedLocation {
             current_epoch: initial_epoch,
             mode: AnchorMode::BeaconAttested,
             degradation_log: Vec::new(),
+            beacon_last_seen: HashMap::new(),
         }
     }
 
@@ -144,7 +152,16 @@ impl AnchorAttestedLocation {
     /// 1. Beacon DID is in the registered set → `UnknownBeacon` error if not (Req 15.1).
     /// 2. Token epoch is not stale (`epoch >= current_epoch`) → rejected as replay if stale (Req 15.3).
     /// 3. Beacon signature over `beacon_token_signing_payload(epoch, location_claim)` is valid.
-    pub fn verify_beacon_token(&self, token: &BeaconToken) -> Result<(), TirBaseError> {
+    ///
+    /// On success, updates `beacon_last_seen` for this beacon's public key with
+    /// the current wall-clock timestamp (`now_secs`), so that
+    /// [`AnchorAttestedLocation::check_signal_loss`] can later determine whether
+    /// the beacon has gone silent beyond the configured threshold (Req 15.4).
+    pub fn verify_beacon_token(
+        &mut self,
+        token: &BeaconToken,
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
         // Check 1: beacon public key in registry.
         let public_key = self.find_beacon_key(&token.beacon_did).ok_or_else(|| {
             TirBaseError::SignatureVerificationFailed {
@@ -176,6 +193,9 @@ impl AnchorAttestedLocation {
                 ),
             }
         })?;
+
+        // Valid token: record that this beacon was seen at `now_secs` (Req 15.4).
+        self.beacon_last_seen.insert(public_key, now_secs);
 
         Ok(())
     }
@@ -215,6 +235,52 @@ impl AnchorAttestedLocation {
         Ok(())
     }
 
+    /// Return the list of beacon public keys that have not been seen within
+    /// `threshold_secs` of `now_secs` (Req 15.4).
+    ///
+    /// A beacon is considered "lost" when:
+    /// - It was registered (present in `beacon_last_seen` with a timestamp), AND
+    /// - `now_secs - last_seen_secs > threshold_secs`.
+    ///
+    /// Beacons that have never been seen (no entry in `beacon_last_seen`) are
+    /// also reported as lost — they have never attested since startup.
+    /// Returns an empty `Vec` when the anchor is already in `SquadTagFallback`
+    /// mode (signal loss has already been declared and handled).
+    pub fn check_signal_loss(&self, now_secs: i64, threshold_secs: u64) -> Vec<[u8; 32]> {
+        if self.mode == AnchorMode::SquadTagFallback {
+            return Vec::new();
+        }
+
+        let threshold = threshold_secs as i64;
+        let mut lost = Vec::new();
+
+        for entry in &self.beacon_registry {
+            let last_seen = self
+                .beacon_last_seen
+                .get(&entry.public_key)
+                .copied()
+                .unwrap_or(i64::MIN);
+            if now_secs.saturating_sub(last_seen) > threshold {
+                lost.push(entry.public_key);
+            }
+        }
+
+        lost
+    }
+
+    /// Resolve a beacon public key to its registered DID.
+    ///
+    /// `pub(crate)`: used by the production beacon-monitoring loop in
+    /// `CoreHandle::init` to build `affected_peer_dids` for
+    /// [`AnchorAttestedLocation::on_beacon_signal_lost`] from the public keys
+    /// returned by [`check_signal_loss`](Self::check_signal_loss).
+    pub(crate) fn beacon_did_for_key(&self, public_key: &[u8; 32]) -> Option<&Did> {
+        self.beacon_registry
+            .iter()
+            .find(|e| e.public_key == *public_key)
+            .map(|e| &e.beacon_did)
+    }
+
     /// Read the append-only degradation event log.
     pub fn degradation_log(&self) -> &[TransportDegradationEvent] {
         &self.degradation_log
@@ -223,11 +289,14 @@ impl AnchorAttestedLocation {
     /// Whether a peer's token is valid for the current epoch and should be counted
     /// toward spatial diversity. Returns `false` if verification fails or if the
     /// subsystem is in SquadTagFallback mode (Req 15.2, 15.4).
-    pub fn peer_has_valid_token(&self, token: &BeaconToken) -> bool {
+    ///
+    /// `now_secs` is the current wall-clock time (seconds since UNIX_EPOCH),
+    /// used to update `beacon_last_seen` on a successful verification.
+    pub fn peer_has_valid_token(&mut self, token: &BeaconToken, now_secs: i64) -> bool {
         if self.mode == AnchorMode::SquadTagFallback {
             return false;
         }
-        self.verify_beacon_token(token).is_ok()
+        self.verify_beacon_token(token, now_secs).is_ok()
     }
 
     /// Current operating mode.
@@ -304,18 +373,18 @@ mod tests {
     #[test]
     fn verify_valid_beacon_token_passes() {
         let (secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon1", public)],
             0,
         );
         let token = make_signed_beacon_token("did:key:z6MkBeacon1", &secret, 5, "sector-7G");
-        assert!(anchor.verify_beacon_token(&token).is_ok());
+        assert!(anchor.verify_beacon_token(&token, 100).is_ok());
     }
 
     #[test]
     fn verify_unknown_beacon_did_fails() {
         let (_secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon1", public)],
             0,
         );
@@ -327,39 +396,39 @@ mod tests {
             location_claim: "somewhere".to_string(),
             issued_at: 0,
         };
-        let result = anchor.verify_beacon_token(&token);
+        let result = anchor.verify_beacon_token(&token, 100);
         assert!(result.is_err(), "unknown beacon DID must be rejected");
     }
 
     #[test]
     fn verify_stale_epoch_token_is_rejected_as_replay() {
         let (secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon2", public)],
             10, // current epoch is 10
         );
         // Token has epoch 5 — stale.
         let token = make_signed_beacon_token("did:key:z6MkBeacon2", &secret, 5, "sector-A");
-        let result = anchor.verify_beacon_token(&token);
+        let result = anchor.verify_beacon_token(&token, 100);
         assert!(result.is_err(), "stale epoch must be rejected as replay");
     }
 
     #[test]
     fn verify_current_epoch_token_passes() {
         let (secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon3", public)],
             10,
         );
         // Token has epoch == current_epoch (10).
         let token = make_signed_beacon_token("did:key:z6MkBeacon3", &secret, 10, "sector-B");
-        assert!(anchor.verify_beacon_token(&token).is_ok());
+        assert!(anchor.verify_beacon_token(&token, 100).is_ok());
     }
 
     #[test]
     fn verify_tampered_beacon_signature_fails() {
         let (secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon4", public)],
             0,
         );
@@ -368,7 +437,7 @@ mod tests {
         if let Some(b) = token.beacon_signature.0.first_mut() {
             *b ^= 0xFF;
         }
-        let result = anchor.verify_beacon_token(&token);
+        let result = anchor.verify_beacon_token(&token, 100);
         assert!(result.is_err(), "tampered signature must be rejected");
     }
 
@@ -418,12 +487,12 @@ mod tests {
     #[test]
     fn peer_has_valid_token_true_when_beacon_verified() {
         let (secret, public) = generate_keypair().unwrap();
-        let anchor = AnchorAttestedLocation::new(
+        let mut anchor = AnchorAttestedLocation::new(
             vec![make_registry_entry("did:key:z6MkBeacon6", public)],
             0,
         );
         let token = make_signed_beacon_token("did:key:z6MkBeacon6", &secret, 0, "sector-X");
-        assert!(anchor.peer_has_valid_token(&token));
+        assert!(anchor.peer_has_valid_token(&token, 100));
     }
 
     #[test]
@@ -438,7 +507,7 @@ mod tests {
 
         let token = make_signed_beacon_token("did:key:z6MkBeacon7", &secret, 0, "sector-Y");
         // Even with a valid token, fallback mode returns false.
-        assert!(!anchor.peer_has_valid_token(&token));
+        assert!(!anchor.peer_has_valid_token(&token, 100));
     }
 
     // ── advance_epoch ────────────────────────────────────────────────────────
@@ -494,7 +563,7 @@ mod tests {
         // Phase 1: before partition, the epoch-3 token is valid.
         let pre_partition_token = make_signed_beacon_token(&beacon_did, &b_secret, 3, "sector-7G");
         assert!(
-            anchor.verify_beacon_token(&pre_partition_token).is_ok(),
+            anchor.verify_beacon_token(&pre_partition_token, 100).is_ok(),
             "token at epoch 3 must be valid when current_epoch is 0 (3 >= 0)"
         );
 
@@ -511,7 +580,7 @@ mod tests {
         // Phase 3: rejoin — the stale token (epoch 3) must be rejected.
         // The stale-epoch check at anchor.rs:149 (`token.epoch < current_epoch`)
         // fires: 3 < 10 → StaleEpoch replay rejection (Req 15.3).
-        let result = anchor.verify_beacon_token(&pre_partition_token);
+        let result = anchor.verify_beacon_token(&pre_partition_token, 100);
         assert!(
             result.is_err(),
             "stale beacon token (epoch 3) must be rejected after the epoch \
@@ -527,14 +596,14 @@ mod tests {
         // The stale-epoch rejection must not poison future valid tokens.
         let fresh_token = make_signed_beacon_token(&beacon_did, &b_secret, 10, "sector-7G");
         assert!(
-            anchor.verify_beacon_token(&fresh_token).is_ok(),
+            anchor.verify_beacon_token(&fresh_token, 100).is_ok(),
             "fresh token at epoch 10 must verify after rejoin"
         );
 
         // Phase 5: the stale token is permanently stale — it must still be
         // rejected even after a fresh token is accepted.  The check is purely
         // `token.epoch < current_epoch`, which is token-state-driven.
-        let still_stale = anchor.verify_beacon_token(&pre_partition_token);
+        let still_stale = anchor.verify_beacon_token(&pre_partition_token, 100);
         assert!(
             still_stale.is_err(),
             "the pre-partition stale token must remain rejected even after a fresh token is accepted"
@@ -564,7 +633,7 @@ mod tests {
         // Epoch-0 token is valid at the start.
         let stale_token = make_signed_beacon_token(&beacon_did, &b_secret, 0, "sector-A");
         assert!(
-            anchor.peer_has_valid_token(&stale_token),
+            anchor.peer_has_valid_token(&stale_token, 100),
             "token must be valid in peer_has_valid_token before the epoch advances"
         );
 
@@ -576,7 +645,7 @@ mod tests {
         // production `peer_has_valid_token` gate (anchor.rs:226) must return
         // false, which is the exact path `receive_receipt` checks.
         assert!(
-            !anchor.peer_has_valid_token(&stale_token),
+            !anchor.peer_has_valid_token(&stale_token, 100),
             "peer_has_valid_token must reject the stale-epoch token after the \
              beacon's epoch advances during a simulated partition (Req 15.3)"
         );

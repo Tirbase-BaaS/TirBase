@@ -76,7 +76,7 @@ fn now_micros() -> i64 {
 
 /// Current wall-clock time in UTC seconds (Saturate_Mode lease bookkeeping,
 /// Req 13.3–13.5).
-fn now_secs() -> i64 {
+pub(crate) fn now_secs() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -164,6 +164,23 @@ const CLOUD_SYNC_INTERVAL_MS: u64 = 1000;
 /// interval.
 #[cfg(all(feature = "native", test))]
 const CLOUD_SYNC_INTERVAL_MS: u64 = 3_600_000;
+
+/// Production cadence (seconds) of the beacon signal-loss monitoring loop
+/// spawned by `CoreHandle::init` (Subphase 4.3 / Req 15.4): every 60 seconds
+/// the task locks the anchor verifier, calls `check_signal_loss`, and — when
+/// one or more beacons have been silent beyond
+/// `DeploymentConfig.beacon_signal_loss_threshold_secs` — invokes
+/// `on_beacon_signal_lost` to permanently revert the anchor to
+/// `SquadTagFallback` mode.
+#[cfg(all(feature = "native", not(test)))]
+const BEACON_MONITOR_INTERVAL_SECS: u64 = 60;
+
+/// Test-build cadence (seconds) of the beacon signal-loss monitoring loop
+/// spawned by `CoreHandle::init`: 1 hour, i.e. effectively inert.  The
+/// signal-loss integration test drives the identical loop via
+/// `CoreHandle::spawn_beacon_monitor_loop` with a short interval.
+#[cfg(all(feature = "native", test))]
+const BEACON_MONITOR_INTERVAL_SECS: u64 = 3_600;
 
 // ─── Durability tier change event (native) ───────────────────────────────────
 
@@ -1103,6 +1120,39 @@ impl CoreHandle {
                 &handle,
                 std::time::Duration::from_millis(CLOUD_SYNC_INTERVAL_MS),
             );
+        }
+
+        // ── Production beacon signal-loss monitoring loop (Subphase 4.3 / Req 15.4) ──
+        //
+        // Spawn a background task that every `BEACON_MONITOR_INTERVAL_SECS`
+        // seconds locks the Durability Subsystem's anchor verifier, queries
+        // `check_signal_loss` with the deployment-configured threshold
+        // (`DeploymentConfig.beacon_signal_loss_threshold_secs`, default 300s),
+        // and — when one or more beacons have been silent beyond that threshold
+        // — invokes `on_beacon_signal_lost` to write a permanent Transport
+        // Degradation Event and transitively revert the anchor to
+        // `SquadTagFallback` mode so receipts are once again counted by their
+        // declared squad tags (Req 15.4, 15.5).
+        //
+        // The loop only spawns when the anchor is actually enabled — a
+        // deployment that left `anchor_attested_location` disabled has no
+        // anchor verifier to monitor.
+        #[cfg(feature = "native")]
+        {
+            let beacon_threshold_secs =
+                config.deployment.beacon_signal_loss_threshold_secs;
+            if handle
+                .durability
+                .lock()
+                .map(|d| d.anchor().is_some())
+                .unwrap_or(false)
+            {
+                CoreHandle::spawn_beacon_monitor_loop(
+                    &handle,
+                    std::time::Duration::from_secs(BEACON_MONITOR_INTERVAL_SECS),
+                    beacon_threshold_secs,
+                );
+            }
         }
 
         Ok(handle)
@@ -3896,6 +3946,78 @@ impl CoreHandle {
         })
     }
 
+    /// Spawn the production beacon signal-loss monitoring loop for this handle.
+    ///
+    /// Every `interval` (seconds), the background task locks the Durability
+    /// Subsystem, calls
+    /// [`AnchorAttestedLocation::check_signal_loss`](crate::durability::anchor::AnchorAttestedLocation::check_signal_loss)
+    /// with the configured `threshold_secs`, and — when one or more registered
+    /// beacons have been silent beyond the threshold — invokes
+    /// [`AnchorAttestedLocation::on_beacon_signal_lost`](crate::durability::anchor::AnchorAttestedLocation::on_beacon_signal_lost)
+    /// to write a permanent Transport Degradation Event and transitively revert
+    /// the anchor to `SquadTagFallback` mode (Req 15.4, 15.5).
+    ///
+    /// After the first signal-loss event the anchor mode is `SquadTagFallback`
+    /// permanently for the lifetime of the instance — `check_signal_loss`
+    /// short-circuits on that mode (returns an empty `Vec`), so the loop does
+    /// no further work but does not error.
+    ///
+    /// Production caller: [`CoreHandle::init`] spawns this loop before
+    /// returning, gated on the anchor being enabled (Subphase 4.3).  It is
+    /// `pub(crate)` so the signal-loss integration test can drive the
+    /// *identical* loop with a short interval.
+    ///
+    /// Returns the `JoinHandle` so callers can observe or abort the task.
+    #[cfg(feature = "native")]
+    pub(crate) fn spawn_beacon_monitor_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+        threshold_secs: u64,
+    ) -> tokio::task::JoinHandle<()> {
+                let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                let now = now_secs();
+                if let Ok(mut dur) = handle.durability.lock() {
+                    if let Some(anchor) = dur.anchor_mut() {
+                        let lost_beacons =
+                            anchor.check_signal_loss(now, threshold_secs);
+                        if !lost_beacons.is_empty() {
+                            // Build affected peer DIDs from the lost beacon DIDs.
+                            use crate::crdt::delta::Did;
+                            let affected_dids: Vec<Did> = lost_beacons
+                                .iter()
+                                .filter_map(|pk| {
+                                    anchor
+                                        .beacon_did_for_key(pk)
+                                        .map(|did| did.clone())
+                                })
+                                .collect();
+                            if let Err(e) =
+                                anchor.on_beacon_signal_lost(now, affected_dids)
+                            {
+                                eprintln!(
+                                    "[beacon-monitor-loop] on_beacon_signal_lost failed: {e}"
+                                );
+                            } else {
+                                eprintln!(
+                                    "[beacon-monitor-loop] beacon signal loss declared for {} beacon(s) at now_secs={}",
+                                    lost_beacons.len(),
+                                    now
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    eprintln!("[beacon-monitor-loop] durability mutex poisoned");
+                }
+            }
+        })
+    }
+
     /// Current cloud outbound queue depth (Subphase 4.1 observability).
     ///
     /// Mirrors [`DurabilitySubsystem::cloud_queue_depth`] for the
@@ -4143,6 +4265,15 @@ pub struct DeploymentConfig {
     /// MTUs (LoRa, Iridium — design §Architecture) set this to their
     /// transport's MTU so large Deltas are split and reassembled cleanly.
     pub mesh_mtu: usize,
+    /// Beacon signal-loss threshold in seconds (Req 15.4).
+    ///
+    /// The duration a beacon must be unreachable (no valid beacon token
+    /// observed in any attested receipt) before signal loss is declared and
+    /// the anchor transitively reverts to `SquadTagFallback` mode.  Defaults
+    /// to 300 (5 minutes) — a deployment can shorten it for faster fail-open
+    /// on beacon outage or lengthen it to ride out transient network
+    /// partitions without degrading spatial diversity.
+    pub beacon_signal_loss_threshold_secs: u64,
 }
 
 impl Default for DeploymentConfig {
@@ -4174,6 +4305,7 @@ impl Default for DeploymentConfig {
             quorum_n: 0,
             saturate_lease_duration_secs: crate::transport::saturate::SATURATE_LEASE_DURATION_SECS,
             mesh_mtu: 0,
+            beacon_signal_loss_threshold_secs: 300,
         }
     }
 }
@@ -4208,6 +4340,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -4451,6 +4584,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -4554,6 +4688,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -4676,6 +4811,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -4763,6 +4899,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -4835,6 +4972,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -4975,6 +5113,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -5038,6 +5177,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -6972,6 +7112,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -8051,6 +8192,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -8153,6 +8295,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         };
         // Handle B: same M/N so it also accepts the same 1-of-1 delta.
@@ -8269,6 +8412,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         })
         .await
@@ -8639,6 +8783,7 @@ mod convergence_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         };
 
@@ -8798,6 +8943,7 @@ mod real_mesh_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -10273,6 +10419,7 @@ mod cloud_sync_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -10669,6 +10816,7 @@ mod tier2_ack_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -10869,6 +11017,7 @@ mod tier2_ack_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -10924,6 +11073,174 @@ mod tier2_ack_tests {
 
         cleanup(&path);
     }
+
+    /// Subphase 4.3 / Req 15.4: the production beacon signal-loss monitoring loop
+    /// spawned by `CoreHandle::init` must detect when a beacon has been silent
+    /// beyond the configured threshold, call `on_beacon_signal_lost` from
+    /// production code (not the test), and transitively revert the anchor to
+    /// `SquadTagFallback` mode — after which receipts without beacon tokens
+    /// are accepted by their declared squad tags.
+    ///
+    /// This test drives the *identical* `spawn_beacon_monitor_loop` the
+    /// production `init` path uses, with a short interval and a 1-second
+    /// threshold, so the silence is detected within a few loop ticks instead
+    /// of waiting 5 minutes.
+    #[tokio::test]
+    async fn beacon_monitor_loop_detects_signal_loss_and_reverts_mode() {
+        let path = tmp_path("beacon_loss");
+        cleanup(&path);
+
+        let (_beacon_secret, beacon_public) =
+            crate::identity::keypair::generate_keypair().expect("beacon keypair");
+
+        // Threshold of 1 second so the test doesn't wait 300s.
+        let mut config = make_config_with_anchor(&path, true, vec![beacon_public]);
+        config.deployment.beacon_signal_loss_threshold_secs = 1;
+
+        let handle = Arc::new(
+            CoreHandle::init(config)
+                .await
+                .expect("CoreHandle::init"),
+        );
+
+        // Anchor must start in BeaconAttested mode.
+        {
+            let dur = handle.durability.lock().unwrap();
+            let anchor = dur.anchor().expect("anchor must be installed");
+            assert_eq!(
+                anchor.mode(),
+                crate::durability::anchor::AnchorMode::BeaconAttested,
+                "anchor must start in BeaconAttested mode"
+            );
+            assert!(
+                anchor.degradation_log().is_empty(),
+                "no degradation events before signal loss"
+            );
+        }
+
+        // Spawn the production monitoring loop with a short interval so the
+        // signal-loss check fires quickly.  The beacon never attests any
+        // receipt, so `beacon_last_seen` stays empty — `check_signal_loss`
+        // reports the beacon as lost immediately (never-seen → last_seen = i64::MIN).
+        // We still need to wait past the threshold for the timestamp check:
+        // `now_secs - i64::MIN` overflows but is saturating-subtracted.
+        // Actually, since `beacon_last_seen` is empty and we use
+        // `unwrap_or(i64::MIN)`, `now_secs - i64::MIN` saturates to
+        // `i64::MAX`, which exceeds any threshold.  So the beacon is detected
+        // as lost on the very first tick.
+        let _monitor = CoreHandle::spawn_beacon_monitor_loop(
+            &handle,
+            std::time::Duration::from_millis(10),
+            1,
+        );
+
+        // Poll until the anchor reverts to SquadTagFallback.
+        let mut attempts = 0u32;
+        loop {
+            {
+                let dur = handle.durability.lock().unwrap();
+                let anchor = dur.anchor().expect("anchor must still be installed");
+                if anchor.mode()
+                    == crate::durability::anchor::AnchorMode::SquadTagFallback
+                {
+                    break;
+                }
+            }
+            attempts += 1;
+            assert!(
+                attempts < 200,
+                "beacon monitor loop never detected signal loss (attempt {})",
+                attempts
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        // Verify the anchor has reverted and a degradation event was logged.
+        {
+            let dur = handle.durability.lock().unwrap();
+            let anchor = dur.anchor().expect("anchor must still be installed");
+            assert_eq!(
+                anchor.mode(),
+                crate::durability::anchor::AnchorMode::SquadTagFallback,
+                "anchor must be in SquadTagFallback after signal loss"
+            );
+            assert_eq!(
+                anchor.degradation_log().len(),
+                1,
+                "exactly one TransportDegradationEvent must be logged"
+            );
+            assert!(
+                !anchor.degradation_log()[0].affected_peer_dids.is_empty()
+                    || anchor.degradation_log()[0]
+                        .reason
+                        .contains("Beacon signal lost"),
+                "degradation event must reference the signal loss"
+            );
+        }
+
+        // After reversion, a receipt without a beacon token must be accepted
+        // via squad-tag fallback (Req 15.4).
+        {
+            use crate::durability::anchor::{AnchorMode, BeaconRegistryEntry};
+            use crate::durability::quorum::QuorumConfig;
+            use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
+            use crate::identity::keypair::{generate_keypair, sign};
+            use std::collections::HashMap;
+
+            let (s1, p1) = generate_keypair().expect("peer1 keypair");
+            let (s2, p2) = generate_keypair().expect("peer2 keypair");
+            let delta_id = [0xAA; 32];
+            let state_hash = [0xBB; 32];
+
+            let mut peers = HashMap::new();
+            peers.insert("did:key:peer1".to_string(), p1);
+            peers.insert("did:key:peer2".to_string(), p2);
+
+            let quorum_cfg = QuorumConfig {
+                k: 2,
+                n: 5,
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 1.0,
+            };
+
+            let mut dur = handle.durability.lock().unwrap();
+            dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
+                .expect("register_delta");
+
+            // Receipt without a beacon token — in SquadTagFallback mode this
+            // must be accepted and counted by declared squad tag.
+            let make_receipt = |secret: &[u8; 32], did: &str, tag: &str| {
+                let id = uuid::Uuid::now_v7();
+                let payload = receipt_signing_payload(&state_hash, &id);
+                let sig = sign(secret, &payload).expect("sign receipt");
+                DurabilityReceipt {
+                    id,
+                    state_hash,
+                    issuer_did: did.to_string(),
+                    issuer_signature: sig,
+                    spatial_tag: Some(tag.to_string()),
+                    beacon_token: None,
+                    issued_at: 0,
+                }
+            };
+
+            let r1 = make_receipt(&s1, "did:key:peer1", "sq-a");
+            assert!(!dur.receive_receipt(r1, &delta_id).unwrap());
+
+            let r2 = make_receipt(&s2, "did:key:peer2", "sq-b");
+            let tier1 = dur.receive_receipt(r2, &delta_id).unwrap();
+            assert!(
+                tier1,
+                "squad-tag fallback must reach Tier-1 without beacon tokens (Req 15.4)"
+            );
+            assert_eq!(
+                dur.durability_tier(&delta_id),
+                crate::api::DurabilityTier::Tier1,
+            );
+        }
+
+        cleanup(&path);
+    }
 }
 
 // ─── Subphase 4.4: Req 14.3 default diversity rule + configurable cap ────────
@@ -10975,6 +11292,7 @@ mod diversity_config_tests {
                 quorum_n: quorum_k + 2,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }
@@ -11300,6 +11618,7 @@ mod composite_incident_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         }
     }

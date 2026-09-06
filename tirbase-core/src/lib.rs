@@ -285,6 +285,7 @@ mod wasm_exports {
                 // the WASM export surface does not expose lease-duration tuning.
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
             },
         };
         let handle = api::CoreHandle::init(config).await.map_err(to_js_err)?;

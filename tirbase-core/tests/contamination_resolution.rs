@@ -527,12 +527,12 @@ fn test_beacon_signal_loss_permanent_reversion() {
 
     // A valid token should verify.
     anchor
-        .verify_beacon_token(&token)
+        .verify_beacon_token(&token, now_secs())
         .expect("valid beacon token must verify");
 
     // peer_has_valid_token must return true in BeaconAttested mode.
     assert!(
-        anchor.peer_has_valid_token(&token),
+        anchor.peer_has_valid_token(&token, now_secs()),
         "peer_has_valid_token must return true with a valid token in BeaconAttested mode"
     );
 
@@ -559,7 +559,7 @@ fn test_beacon_signal_loss_permanent_reversion() {
     // After reversion, peer_has_valid_token must return false for ALL tokens
     // (spatial diversity falls back to squad tags entirely).
     assert!(
-        !anchor.peer_has_valid_token(&token),
+        !anchor.peer_has_valid_token(&token, now_secs()),
         "peer_has_valid_token must return false after signal loss (SquadTagFallback)"
     );
 

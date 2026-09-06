@@ -159,6 +159,17 @@ impl DurabilitySubsystem {
         self.anchor.as_ref()
     }
 
+    /// Mutable access to the anchor verifier (production monitoring loop — Req 15.4).
+    ///
+    /// `pub(crate)`: the beacon signal-loss monitoring loop in
+    /// `CoreHandle::init` locks the `DurabilitySubsystem` and calls
+    /// [`AnchorAttestedLocation::check_signal_loss`] /
+    /// [`AnchorAttestedLocation::on_beacon_signal_lost`] on the anchor — no
+    /// external API surface needed.
+    pub(crate) fn anchor_mut(&mut self) -> Option<&mut AnchorAttestedLocation> {
+        self.anchor.as_mut()
+    }
+
     /// The quorum configuration this subsystem applies to every Delta set
     /// (as resolved from `DeploymentConfig` by `CoreHandle::init`).
     ///
@@ -327,6 +338,7 @@ impl DurabilitySubsystem {
         // issuer DID and reason (Req 14.6 pattern).  After beacon signal loss
         // (SquadTagFallback — Req 15.4) or when the feature is disabled, the
         // historical squad-tag accounting applies unchanged.
+        let now_secs = crate::api::now_secs();
         let diversity_tag: Option<String> =
             match self.anchor.as_ref().map(AnchorAttestedLocation::mode) {
                 Some(AnchorMode::BeaconAttested) => {
@@ -342,9 +354,9 @@ impl DurabilitySubsystem {
                         TirBaseError::SignatureVerificationFailed { reason }
                     })?;
                     self.anchor
-                        .as_ref()
+                        .as_mut()
                         .expect("anchor present in BeaconAttested branch")
-                        .verify_beacon_token(token)
+                        .verify_beacon_token(token, now_secs)
                         .map_err(|e| {
                             let reason = format!(
                                 "beacon token from peer {} rejected: {e} (delta {})",
