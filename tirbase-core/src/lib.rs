@@ -566,7 +566,7 @@ mod wasm_exports {
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
-                .verify_contamination(&root_delta_id, &token_bytes, now_secs)
+                .verify_contamination(root_delta_id, &token_bytes, now_secs)
                 .map_err(to_js_err)
         })
     }

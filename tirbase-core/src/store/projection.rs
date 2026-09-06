@@ -20,7 +20,7 @@ pub fn project_table(
     table_name: &str,
     doc: &automerge::AutoCommit,
 ) -> Result<(), TirBaseError> {
-    use automerge::{ReadDoc, Value, ROOT};
+    use automerge::{ReadDoc, ScalarValueRef, ValueRef, ROOT};
 
     let proj_table = format!("proj_{table_name}");
 
@@ -38,23 +38,20 @@ pub fn project_table(
     let items: Vec<(String, String)> = doc
         .map_range(ROOT, ..)
         .filter_map(|item| {
-            // Convert the automerge Value to a JSON string.
-            let json_val = match &item.value {
-                Value::Scalar(scalar) => {
-                    use automerge::ScalarValue;
-                    match scalar.as_ref() {
-                        ScalarValue::Str(s) => serde_json::Value::String(s.to_string()),
-                        ScalarValue::Int(n) => serde_json::Value::Number((*n).into()),
-                        ScalarValue::Uint(n) => serde_json::Value::Number((*n).into()),
-                        ScalarValue::F64(f) => serde_json::json!(f),
-                        ScalarValue::Boolean(b) => serde_json::Value::Bool(*b),
-                        ScalarValue::Null => serde_json::Value::Null,
-                        ScalarValue::Bytes(b) => serde_json::Value::String(hex::encode(b)),
-                        ScalarValue::Counter(c) => {
-                            serde_json::Value::Number(i64::from(c.clone()).into())
-                        }
-                        ScalarValue::Timestamp(t) => serde_json::Value::Number((*t).into()),
-                        ScalarValue::Unknown { type_code, bytes } => {
+            // Convert the automerge ValueRef to a JSON string.
+            let json_val = match item.value {
+                ValueRef::Scalar(sv) => {
+                    match sv {
+                        ScalarValueRef::Str(s)       => serde_json::Value::String(s.to_string()),
+                        ScalarValueRef::Int(n)       => serde_json::json!(n),
+                        ScalarValueRef::Uint(n)      => serde_json::json!(n),
+                        ScalarValueRef::F64(f)       => serde_json::json!(f),
+                        ScalarValueRef::Boolean(b)   => serde_json::Value::Bool(b),
+                        ScalarValueRef::Null         => serde_json::Value::Null,
+                        ScalarValueRef::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
+                        ScalarValueRef::Counter(c)   => serde_json::json!(c),
+                        ScalarValueRef::Timestamp(t) => serde_json::json!(t),
+                        ScalarValueRef::Unknown { type_code, bytes } => {
                             serde_json::json!({
                                 "type_code": type_code,
                                 "bytes": hex::encode(bytes)
@@ -62,7 +59,7 @@ pub fn project_table(
                         }
                     }
                 }
-                Value::Object(_) => {
+                ValueRef::Object(_) => {
                     // Composite objects are not projected to flat rows.
                     // Nested structures are flattened to Null in v1; full nested
                     // projection support is deferred to a post-v1 task.

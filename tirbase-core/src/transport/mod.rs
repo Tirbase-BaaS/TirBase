@@ -13,6 +13,7 @@ pub mod priority;
 pub mod saturate;
 pub mod scheduler;
 pub mod session;
+#[cfg(feature = "native")]
 pub mod ble;
 
 use crate::api::types::TrustLevel;

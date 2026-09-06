@@ -120,10 +120,11 @@ fn capture_lww(local: &AutoCommit, incoming: &AutoCommit) -> Vec<LwwConflict> {
 fn root_scalars(doc: &AutoCommit) -> HashMap<String, (ObjId, automerge::ScalarValue)> {
     doc.map_range(ROOT, ..)
         .filter_map(|item| match item.value {
-            automerge::Value::Scalar(sv) => {
-                Some((item.key.to_string(), (item.id, sv.into_owned())))
+            automerge::ValueRef::Scalar(ref sv) => {
+                let legacy: automerge::ScalarValue = automerge::ScalarValue::from(sv);
+                Some((item.key.to_string(), (item.id(), legacy)))
             }
-            automerge::Value::Object(_) => None,
+            automerge::ValueRef::Object(_) => None,
         })
         .collect()
 }
@@ -269,14 +270,15 @@ pub(crate) fn verify_and_override(
     // matched to their position in the merged sequence.
     let mut index_maps: Vec<(String, ObjId, HashMap<(u64, Vec<u8>), usize>)> = Vec::new();
     for item in doc.map_range(ROOT, ..) {
-        if let automerge::Value::Object(ObjType::List) = item.value {
+        if let automerge::ValueRef::Object(ObjType::List) = item.value {
+            let item_id = item.id();
             let mut map = HashMap::new();
-            for (i, li) in doc.list_range(&item.id, ..).enumerate() {
-                if let Some(parts) = exid_parts(&li.id) {
+            for (i, li) in doc.list_range(&item_id, ..).enumerate() {
+                if let Some(parts) = exid_parts(&li.id()) {
                     map.insert(parts, i);
                 }
             }
-            index_maps.push((item.key.to_string(), item.id, map));
+            index_maps.push((item.key.to_string(), item_id, map));
         }
     }
 
@@ -413,7 +415,7 @@ mod tests {
         // actor) the change decoder computes for its single op.
         let items: Vec<_> = doc.map_range(ROOT, ..).collect();
         assert_eq!(items.len(), 1);
-        let parts = exid_parts(&items[0].id).expect("parse element ID");
+        let parts = exid_parts(&items[0].id()).expect("parse element ID");
 
         let mut doc = doc;
         let changes = doc.get_changes(&[]);

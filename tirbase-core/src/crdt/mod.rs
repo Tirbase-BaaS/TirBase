@@ -895,30 +895,29 @@ impl CrdtEngine {
     /// Used by the WASM inbound pipeline to materialise a merged Delta's state
     /// into the in-memory `LocalStore` without requiring SQLite (Req 4.3, 1.4).
     pub fn doc_map_range_root(&self) -> Vec<(String, serde_json::Value)> {
-        use automerge::ScalarValue;
-        use automerge::{ReadDoc, Value, ROOT};
+        use automerge::{ReadDoc, ScalarValueRef, ValueRef};
 
         self.doc
-            .map_range(ROOT, ..)
+            .map_range(automerge::ROOT, ..)
             .filter_map(|item| {
-                let json_val = match &item.value {
-                    Value::Scalar(scalar) => {
-                        match scalar.as_ref() {
-                            ScalarValue::Str(s)       => serde_json::Value::String(s.to_string()),
-                            ScalarValue::Int(n)       => serde_json::json!(n),
-                            ScalarValue::Uint(n)      => serde_json::json!(n),
-                            ScalarValue::F64(f)       => serde_json::json!(f),
-                            ScalarValue::Boolean(b)   => serde_json::Value::Bool(*b),
-                            ScalarValue::Null         => serde_json::Value::Null,
-                            ScalarValue::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
-                            ScalarValue::Counter(c)   => serde_json::json!(i64::from(c.clone())),
-                            ScalarValue::Timestamp(t) => serde_json::json!(t),
-                            ScalarValue::Unknown { type_code, bytes } => {
+                let json_val = match item.value {
+                    ValueRef::Scalar(sv) => {
+                        match sv {
+                            ScalarValueRef::Str(s)       => serde_json::Value::String(s.to_string()),
+                            ScalarValueRef::Int(n)       => serde_json::json!(n),
+                            ScalarValueRef::Uint(n)      => serde_json::json!(n),
+                            ScalarValueRef::F64(f)       => serde_json::json!(f),
+                            ScalarValueRef::Boolean(b)   => serde_json::Value::Bool(b),
+                            ScalarValueRef::Null         => serde_json::Value::Null,
+                            ScalarValueRef::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
+                            ScalarValueRef::Counter(c)   => serde_json::json!(c),
+                            ScalarValueRef::Timestamp(t) => serde_json::json!(t),
+                            ScalarValueRef::Unknown { type_code, bytes } => {
                                 serde_json::json!({ "type_code": type_code, "bytes": hex::encode(bytes) })
                             }
                         }
                     }
-                    Value::Object(_) => return None,
+                    ValueRef::Object(_) => return None,
                 };
                 Some((item.key.to_string(), json_val))
             })
@@ -940,8 +939,7 @@ impl CrdtEngine {
         table: &str,
         store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
     ) -> Result<(), TirBaseError> {
-        use automerge::ScalarValue;
-        use automerge::{ReadDoc, Value, ROOT};
+        use automerge::{ReadDoc, ScalarValueRef, ValueRef};
 
         let mut store_guard = store
             .lock()
@@ -951,26 +949,26 @@ impl CrdtEngine {
 
         // Walk ROOT-level keys in the Automerge doc.
         let items: Vec<(String, serde_json::Value)> = self.doc
-            .map_range(ROOT, ..)
+            .map_range(automerge::ROOT, ..)
             .filter_map(|item| {
-                let json_val = match &item.value {
-                    Value::Scalar(scalar) => {
-                        match scalar.as_ref() {
-                            ScalarValue::Str(s)       => serde_json::Value::String(s.to_string()),
-                            ScalarValue::Int(n)       => serde_json::json!(n),
-                            ScalarValue::Uint(n)      => serde_json::json!(n),
-                            ScalarValue::F64(f)       => serde_json::json!(f),
-                            ScalarValue::Boolean(b)   => serde_json::Value::Bool(*b),
-                            ScalarValue::Null         => serde_json::Value::Null,
-                            ScalarValue::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
-                            ScalarValue::Counter(c)   => serde_json::json!(i64::from(c.clone())),
-                            ScalarValue::Timestamp(t) => serde_json::json!(t),
-                            ScalarValue::Unknown { type_code, bytes } => {
+                let json_val = match item.value {
+                    ValueRef::Scalar(sv) => {
+                        match sv {
+                            ScalarValueRef::Str(s)       => serde_json::Value::String(s.to_string()),
+                            ScalarValueRef::Int(n)       => serde_json::json!(n),
+                            ScalarValueRef::Uint(n)      => serde_json::json!(n),
+                            ScalarValueRef::F64(f)       => serde_json::json!(f),
+                            ScalarValueRef::Boolean(b)   => serde_json::Value::Bool(b),
+                            ScalarValueRef::Null         => serde_json::Value::Null,
+                            ScalarValueRef::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
+                            ScalarValueRef::Counter(c)   => serde_json::json!(c),
+                            ScalarValueRef::Timestamp(t) => serde_json::json!(t),
+                            ScalarValueRef::Unknown { type_code, bytes } => {
                                 serde_json::json!({ "type_code": type_code, "bytes": hex::encode(bytes) })
                             }
                         }
                     }
-                    Value::Object(_) => serde_json::Value::Null,
+                    ValueRef::Object(_) => serde_json::Value::Null,
                 };
                 Some((item.key.to_string(), json_val))
             })
@@ -2457,15 +2455,15 @@ mod tests {
 
     /// Read a ROOT-level list back from the engine's merged doc (in-module test
     /// access to the private `doc`).
-    fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
-        use automerge::{ObjType, ReadDoc, ScalarValue, Value, ROOT};
+     fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
+        use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef, ROOT};
         match engine.doc.get(ROOT, key).unwrap() {
-            Some((Value::Object(ObjType::List), list_id)) => engine
+            Some((automerge::Value::Object(ObjType::List), list_id)) => engine
                 .doc
                 .list_range(&list_id, ..)
                 .filter_map(|item| match item.value {
-                    Value::Scalar(sv) => match sv.as_ref() {
-                        ScalarValue::Str(s) => Some(s.to_string()),
+                    ValueRef::Scalar(sv) => match sv {
+                        ScalarValueRef::Str(s) => Some(s.to_string()),
                         _ => None,
                     },
                     _ => None,
