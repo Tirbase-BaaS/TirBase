@@ -50,6 +50,15 @@ export interface WasmCore {
   /** Returns the current MeshStatus object. */
   meshStatus(): MeshStatus;
 
+  /**
+   * Present a hex-encoded Biscuit token for TrustLevel verification (Req 8.3, 8.4, 8.8).
+   *
+   * Delegates to `core_present_token` in the Rust WASM module.
+   * Returns the resulting TrustLevel string.
+   * Throws if no root CA keys are registered (AuthorisationFailed).
+   */
+  core_present_token(token: string): Promise<TrustLevel>;
+
   // ── Manager operations ────────────────────────────────────────────────────
 
   /** Gossip a partial RevocationDelta for the target DID. */
@@ -175,10 +184,16 @@ export function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCor
           f: unknown,
         ) => Promise<unknown[]>
       )(table, filter),
-    trustLevel: () =>
-      (required('core_trust_level') as () => TrustLevel)(),
-    meshStatus: () =>
-      (required('core_mesh_status') as () => MeshStatus)(),
+     trustLevel: () =>
+       (required('core_trust_level') as () => TrustLevel)(),
+     meshStatus: () =>
+       (required('core_mesh_status') as () => MeshStatus)(),
+     core_present_token: (token) =>
+       (
+         required('core_present_token') as (
+           t: string,
+         ) => Promise<TrustLevel>
+       )(token),
     initiateRevocation: (targetDid, managerToken) =>
       (
         required('core_initiate_revocation') as (
@@ -278,12 +293,16 @@ export class MockWasmCore implements WasmCore {
       { table, key: 'key-0', data: {}, contaminated: false },
     ];
 
-  trustLevelImpl: () => TrustLevel = () => 'VERIFIED';
+   trustLevelImpl: () => TrustLevel = () => 'VERIFIED';
 
   meshStatusImpl: () => MeshStatus = () => ({
     status: 'connected',
     peerCount: 0,
   });
+
+  /** Stub for `core_present_token`. Override in tests to simulate token verification results. */
+  corePresentTokenImpl: (token: string) => Promise<TrustLevel> =
+    async (_token: string) => 'VERIFIED';
 
   initiateRevocationImpl: (
     targetDid: string,
@@ -350,6 +369,10 @@ export class MockWasmCore implements WasmCore {
 
   meshStatus(): MeshStatus {
     return this.meshStatusImpl();
+  }
+
+  core_present_token(token: string): Promise<TrustLevel> {
+    return this.corePresentTokenImpl(token);
   }
 
   initiateRevocation(targetDid: string, managerToken: string): Promise<void> {

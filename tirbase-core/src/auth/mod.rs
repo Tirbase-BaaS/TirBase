@@ -38,6 +38,11 @@ pub struct CapabilityManager {
     /// Stored here so that `create_token` can be called via `CapabilityManager`
     /// without re-reading the config.
     extended_ttl_accepted_risk: bool,
+    /// When the device's current Biscuit token expires.
+    /// Set by `present_token` when the token verifies successfully; used by the
+    /// token-expiry monitor loop (Req 8.4) to determine whether to transition
+    /// Verified → Unverified.
+    current_token_expires_at: Option<i64>,
     /// Optional timestamp of the last revocation delta applied.
     last_revocation_ts: Option<i64>,
 }
@@ -63,6 +68,7 @@ impl CapabilityManager {
             revocation_m,
             revocation_n,
             extended_ttl_accepted_risk,
+            current_token_expires_at: None,
             last_revocation_ts: None,
         }
     }
@@ -111,9 +117,76 @@ impl CapabilityManager {
         self.trust_state.on_token_expired(now_micros);
     }
 
+    /// Present a Biscuit token for verification and update TrustLevel accordingly
+    /// (Req 8.3, 8.4, 8.8).
+    ///
+    /// - On success (token valid and not expired): transitions to `Verified` and
+    ///   returns `Verified`.
+    /// - On expiry (signature valid but `check_expiration_date` failed): calls
+    ///   `on_token_expired(now_micros)` to transition to `Unverified` and returns
+    ///   `Unverified` with a warning (Req 8.4).
+    /// - On any other failure (signature mismatch, parse error, etc.): returns
+    ///   `Unverified` without a state transition — the device remains at its
+    ///   current level but the operation is permitted with an UNVERIFIED warning
+    ///   (Req 8.8).
+    /// - If `root_ca_keys` is empty: returns `AuthorisationFailed` immediately
+    ///   (no keys registered, cannot verify).
+    pub fn present_token(
+        &mut self,
+        token_bytes: &[u8],
+        now_secs: i64,
+    ) -> Result<TrustLevel, TirBaseError> {
+        if self.root_ca_registry.keys().is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "no registered root CA keys; cannot verify Biscuit token".to_string(),
+            });
+        }
+
+        let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.keys().to_vec();
+        let mut last_err: Option<TirBaseError> = None;
+
+        for ca_key in &ca_keys {
+            match biscuit::verify_token_distinguish_expiry(token_bytes, ca_key, now_secs) {
+                Ok(claims) => {
+                    self.trust_state.on_valid_token();
+                    // Store the token's real expiration time for the monitor loop (Req 8.4).
+                    self.current_token_expires_at = Some(claims.expires_at);
+                    return Ok(self.trust_state.level());
+                }
+                Err(biscuit::TokenVerifyError::TokenExpired) => {
+                    let now_micros = current_timestamp_micros();
+                    self.trust_state.on_token_expired(now_micros);
+                    eprintln!(
+                        "[present_token] token expired; transitioning to UNVERIFIED (now_micros={})",
+                        now_micros
+                    );
+                    return Ok(TrustLevel::Unverified);
+                }
+                Err(biscuit::TokenVerifyError::OtherFailure(e)) => {
+                    last_err = Some(e);
+                }
+            }
+        }
+
+        let err = last_err.unwrap_or_else(|| TirBaseError::AuthorisationFailed {
+            reason: "token verification failed for all registered root CA keys".to_string(),
+        });
+        eprintln!(
+            "[present_token] token verification failed (non-expiry): {err} — returning UNVERIFIED without transition (Req 8.8)"
+        );
+        Ok(TrustLevel::Unverified)
+    }
+
     /// Return the current TrustLevel of the local device (Req 2.4, 8.2).
     pub fn trust_level(&self) -> TrustLevel {
         self.trust_state.level()
+    }
+
+    /// Return the expiration time (in seconds since epoch) of the currently
+    /// presented token, if any. Used by the token-expiry monitor loop to
+    /// determine whether to transition Verified → Unverified (Req 8.4).
+    pub fn current_token_expires_at(&self) -> Option<i64> {
+        self.current_token_expires_at
     }
 
     /// Apply the REVOKED trust level from a validated Revocation_Delta (Req 8.5, 9.4).
@@ -344,5 +417,118 @@ mod tests {
             .verify_token(&token_bytes, now_secs)
             .expect("verify_token should succeed");
         assert_eq!(level, TrustLevel::Verified);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn test_present_token_valid_returns_verified() {
+        use biscuit_auth::KeyPair;
+
+        let kp = KeyPair::new();
+        let private_bytes = kp.private().to_bytes().to_vec();
+        let public_bytes: [u8; 32] = kp
+            .public()
+            .to_bytes()
+            .try_into()
+            .expect("public key should be 32 bytes");
+
+        let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
+
+        let token_bytes =
+            biscuit::create_token("did:key:z6MkTest", "admin", 3600, &private_bytes, false)
+                .expect("create_token should succeed");
+
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let level = mgr
+            .present_token(&token_bytes, now_secs)
+            .expect("present_token should succeed");
+        assert_eq!(level, TrustLevel::Verified);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn test_present_token_expired_returns_unverified() {
+        use biscuit_auth::KeyPair;
+
+        let kp = KeyPair::new();
+        let private_bytes = kp.private().to_bytes().to_vec();
+        let public_bytes: [u8; 32] = kp
+            .public()
+            .to_bytes()
+            .try_into()
+            .expect("public key should be 32 bytes");
+
+        let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
+
+        // Create a token with 1h TTL, then present it far in the future.
+        let token_bytes =
+            biscuit::create_token("did:key:z6MkTest", "admin", 3600, &private_bytes, false)
+                .expect("create_token should succeed");
+
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let expired_secs = now_secs + 25 * 3600; // 25 hours in the future
+        let level = mgr
+            .present_token(&token_bytes, expired_secs)
+            .expect("present_token of expired token should return Ok(Unverified)");
+        assert_eq!(
+            level, TrustLevel::Unverified,
+            "expired token should transition to UNVERIFIED"
+        );
+
+        // Verify unverified_warning is present (Req 8.4)
+        let warning = mgr.unverified_warning();
+        assert!(
+            warning.is_some(),
+            "should produce warning when UNVERIFIED after expiry"
+        );
+    }
+
+    #[test]
+    fn test_present_token_no_root_ca_keys_returns_error() {
+        let mut mgr = CapabilityManager::new(vec![], 2, 3, false);
+        let result = mgr.present_token(b"fake-token", 0);
+        assert!(
+            result.is_err(),
+            "present_token with no root CA keys should error"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("root CA"),
+            "error should mention root CA: {err}"
+        );
+    }
+
+    #[test]
+    fn test_present_token_invalid_token_returns_unverified_without_transition() {
+        let kp = biscuit_auth::KeyPair::new();
+        let public_bytes: [u8; 32] = kp
+            .public()
+            .to_bytes()
+            .try_into()
+            .expect("public key should be 32 bytes");
+
+        let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
+
+        // A completely bogus token — should fail signature verification.
+        let result = mgr.present_token(b"not-a-real-token", 0);
+        assert!(
+            result.is_ok(),
+            "present_token should return Ok(Unverified) for invalid token (Req 8.8)"
+        );
+        assert_eq!(
+            result.unwrap(),
+            TrustLevel::Unverified,
+            "invalid token should produce UNVERIFIED (not an error)"
+        );
     }
 }

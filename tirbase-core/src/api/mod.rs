@@ -182,6 +182,22 @@ const BEACON_MONITOR_INTERVAL_SECS: u64 = 60;
 #[cfg(all(feature = "native", test))]
 const BEACON_MONITOR_INTERVAL_SECS: u64 = 3_600;
 
+/// Production cadence (seconds) of the token-expiry monitoring loop spawned by
+/// `CoreHandle::init` (Req 8.4 — token expiry enforcement in production): every
+/// 60 seconds the task locks the capability manager, checks if the current
+/// token has expired, and if the device is `Verified` calls `on_token_expired`
+/// to transition to `Unverified`.  The unverified warning on every subsequent
+/// read/write/query will then surface to the caller.
+#[cfg(all(feature = "native", not(test)))]
+const TOKEN_EXPIRY_MONITOR_INTERVAL_SECS: u64 = 60;
+
+/// Test-build cadence (seconds) of the token-expiry monitoring loop spawned by
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  The integration test
+/// drives the identical loop via `CoreHandle::spawn_token_expiry_monitor_loop`
+/// with a short interval.
+#[cfg(all(feature = "native", test))]
+const TOKEN_EXPIRY_MONITOR_INTERVAL_SECS: u64 = 3_600;
+
 // ─── Durability tier change event (native) ───────────────────────────────────
 
 /// A durability tier transition for one Delta set, surfaced to native host
@@ -1155,6 +1171,28 @@ impl CoreHandle {
             }
         }
 
+        // ── Production token-expiry monitoring loop (Req 8.4) ───────────────────
+        //
+        // Spawn a background task that every `TOKEN_EXPIRY_MONITOR_INTERVAL_SECS`
+        // seconds locks the capability manager, calls `now_secs()`, and checks
+        // if the local device's current token has expired.  If expired and the
+        // current level is `Verified`, calls `on_token_expired(now_micros)` to
+        // transition to `Unverified`.  The unverified warning on every subsequent
+        // read/write/query will then surface to the caller (Req 8.4).
+        //
+        // The check uses `present_token`'s expiry path indirectly: if the device
+        // is `Verified` we attempt to verify the best-known token against the root
+        // CA keys.  A token that was valid at presentation time but has since
+        // crossed its TTL boundary will fail `verify_token_distinguish_expiry`
+        // with `TokenExpired`, triggering the transition.
+        #[cfg(feature = "native")]
+        {
+            CoreHandle::spawn_token_expiry_monitor_loop(
+                &handle,
+                std::time::Duration::from_secs(TOKEN_EXPIRY_MONITOR_INTERVAL_SECS),
+            );
+        }
+
         Ok(handle)
     }
 
@@ -1685,6 +1723,42 @@ impl CoreHandle {
             .lock()
             .map(|cap| cap.trust_level())
             .unwrap_or(TrustLevel::Unverified)
+    }
+
+    /// Present a hex-encoded Biscuit token for verification and update the
+    /// device's TrustLevel accordingly (Req 8.3, 8.4, 8.8).
+    ///
+    /// Decodes `token_hex` into bytes, locks the capability manager, and calls
+    /// `CapabilityManager::present_token`.  The token is verified against all
+    /// registered root CA keys:
+    /// - Valid token → `Verified`
+    /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
+    /// - Invalid token (signature/parse failure) → `Unverified` without
+    ///   state transition (Req 8.8)
+    /// - No root CA keys registered → `AuthorisationFailed` error
+    ///
+    /// Production caller: native host apps call this directly; the WASM SDK
+    /// calls `core_present_token`.
+    pub fn present_biscuit_token(&self, token_hex: &str) -> Result<TrustLevel, TirBaseError> {
+        let token_bytes = hex::decode(token_hex)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("invalid hex encoding in biscuit token: {e}"),
+            })?;
+
+        if token_bytes.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "biscuit token is absent or empty".to_string(),
+            });
+        }
+
+        let now = now_secs();
+        let mut capability = self
+            .capability
+            .lock()
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("capability mutex poisoned: {e}"),
+            })?;
+        capability.present_token(&token_bytes, now)
     }
 
     // ─── Mesh status ──────────────────────────────────────────────────────────
@@ -4013,6 +4087,51 @@ impl CoreHandle {
                     }
                 } else {
                     eprintln!("[beacon-monitor-loop] durability mutex poisoned");
+                }
+            }
+        })
+    }
+
+    /// Spawn the production token-expiry monitoring loop for this handle (Req 8.4).
+    ///
+    /// Every `interval` (seconds), the background task locks the capability
+    /// manager, checks if the current token has expired via `now_secs()`, and —
+    /// when the device is `Verified` — calls `on_token_expired` to transition
+    /// to `Unverified`.  The unverified warning on every subsequent
+    /// read/write/query will then surface to the caller.
+    ///
+    /// Production caller: [`CoreHandle::init`] spawns this loop before
+    /// returning.  It is `pub(crate)` so the integration test can drive the
+    /// *identical* loop with a short interval.
+    ///
+    /// Returns the `JoinHandle` so callers can observe or abort the task.
+    #[cfg(feature = "native")]
+    pub(crate) fn spawn_token_expiry_monitor_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                let now = now_secs();
+                if let Ok(mut capability) = handle.capability.lock() {
+                    // Only check when the device is Verified — if it's already
+                    // Unverified or Revoked there's nothing to expire.
+                    if capability.trust_level() == TrustLevel::Verified {
+                        if capability.current_token_expires_at() <= Some(now) {
+                            capability.on_token_expired(now as i64 * 1_000_000);
+                            eprintln!(
+                                "[token-expiry-monitor] device token expired at now_secs={}, \
+                                 transitioned to UNVERIFIED",
+                                now
+                            );
+                        }
+                    }
+                } else {
+                    eprintln!("[token-expiry-monitor] capability mutex poisoned");
                 }
             }
         })

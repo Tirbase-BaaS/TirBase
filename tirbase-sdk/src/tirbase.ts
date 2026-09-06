@@ -273,6 +273,34 @@ export class TirBase {
     return this._meshStatus;
   }
 
+  /**
+   * Present a Biscuit token for TrustLevel verification (Req 8.3, 8.4, 8.8).
+   *
+   * `token` — hex-encoded Biscuit token bytes.
+   *
+   * Delegates to `core_present_token` in the Rust WASM module.
+   *
+   * - Valid token → transitions to `Verified`
+   * - Expired token → transitions to `Unverified` (via `on_token_expired`, Req 8.4)
+   * - Invalid token (non-expiry failure) → `Unverified` *without* state
+   *   transition (Req 8.8)
+   * - No root CA keys registered → throws an error
+   *
+   * Returns the resulting `TrustLevel`.
+   */
+  async presentToken(token: string): Promise<TrustLevel> {
+    this._assertInitialized();
+
+    const levelStr = await this._wasm.core_present_token(token);
+    const level = levelStr as TrustLevel;
+
+    if (level !== this._trustLevel) {
+      this._applyTrustLevelChange(level);
+    }
+
+    return level;
+  }
+
   // ── Event emitter wrappers ────────────────────────────────────────────────
 
   /**

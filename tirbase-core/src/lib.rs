@@ -439,6 +439,47 @@ mod wasm_exports {
         })
     }
 
+    /// Present a hex-encoded Biscuit token for verification (Req 8.3, 8.4, 8.8).
+    ///
+    /// `token_hex` — hex-encoded Biscuit token bytes.
+    ///
+    /// Delegates to
+    /// [`CoreHandle::present_biscuit_token`](crate::api::CoreHandle::present_biscuit_token),
+    /// which in turn calls
+    /// [`CapabilityManager::present_token`] → [`biscuit::verify_token_distinguish_expiry`].
+    ///
+    /// Returns the resulting `TrustLevel` as a string (`"VERIFIED"`,
+    /// `"UNVERIFIED"`, `"REVOKED"`).  Returns `Result<js_sys::JsString, JsValue>`
+    /// so that an `AuthorisationFailed` error (e.g. no root CA keys registered)
+    /// is surfaced as a JS exception rather than silently resolving to
+    /// `"UNVERIFIED"`.
+    ///
+    /// - Valid token → `Verified`
+    /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
+    /// - Invalid token (non-expiry failure) → `Unverified` without state
+    ///   transition (Req 8.8)
+    /// - No root CA keys → JS exception
+    #[wasm_bindgen]
+    pub fn core_present_token(token_hex: String) -> Result<js_sys::JsString, JsValue> {
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow
+                .as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            handle
+                .present_biscuit_token(&token_hex)
+                .map(|level| {
+                    let s = match level {
+                        api::types::TrustLevel::Verified => "VERIFIED",
+                        api::types::TrustLevel::Unverified => "UNVERIFIED",
+                        api::types::TrustLevel::Revoked => "REVOKED",
+                    };
+                    js_sys::JsString::from(s)
+                })
+                .map_err(to_js_err)
+        })
+    }
+
     // ── Mesh status ───────────────────────────────────────────────────────────
 
     /// Returns the current `MeshStatus` as a JS object.

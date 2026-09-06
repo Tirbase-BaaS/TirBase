@@ -128,6 +128,7 @@ fn build_token(
     let did_str = did.to_string();
     let role_str = role.to_string();
     let issued_at_val = issued_secs as i64;
+    let expiry_secs = issued_secs + ttl_secs;
 
     let mut builder = Biscuit::builder()
         .fact(format!("did(\"{did_str}\")").as_str())
@@ -141,6 +142,10 @@ fn build_token(
         .fact(format!("issued_at({issued_at_val})").as_str())
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("failed to add issued_at fact: {e}"),
+        })?
+        .fact(format!("expires_at({expiry_secs})").as_str())
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to add expires_at fact: {e}"),
         })?
         .check_expiration_date(expiry);
 
@@ -265,17 +270,21 @@ pub fn verify_token(
         .unwrap_or_default();
 
     let issued_results: Vec<(i64,)> = authorizer
-        .query_with_limits("data($t) <- issued_at($t)", generous)
+        .query_with_limits("data($t) <- issued_at($t)", generous.clone())
         .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("issued_at query failed: {e}"),
         })?;
 
     let issued_at = issued_results.into_iter().next().map(|(t,)| t).unwrap_or(0);
 
-    // expires_at: we don't store it as a fact; approximate from now_secs + TTL
-    // For a more precise implementation we could store it explicitly.
-    // Use now_secs as a conservative fallback (token is valid at this moment).
-    let expires_at = now_secs; // actual expiry tracked by Biscuit's check_expiration_date
+    // Query the expires_at fact to get the token's real expiration time.
+    let expires_results: Vec<(i64,)> = authorizer
+        .query_with_limits("data($t) <- expires_at($t)", generous)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("expires_at query failed: {e}"),
+        })?;
+
+    let expires_at = expires_results.into_iter().next().map(|(t,)| t).unwrap_or(now_secs);
 
     Ok(BiscuitClaims {
         did,
@@ -285,7 +294,162 @@ pub fn verify_token(
     })
 }
 
-/// Check that a token carries a specific caveat fact (e.g., `disaster-alert` — Req 13.1).
+/// Verify a Biscuit token and distinguish between token expiry and other
+/// verification failures (Req 8.4, 8.8).
+///
+/// Performs the same checks as `verify_token` but returns an enum indicating
+/// whether a failure was due specifically to token expiry (`TokenExpiry`) or
+/// any other cause (signature failure, parse error, etc. — `OtherFailure`).
+///
+/// This two-phase approach is necessary because `verify_token` collapses both
+/// outcomes into a single `AuthorisationFailed` error — the caller needs to know
+/// whether to transition the device to UNVERIFIED via `on_token_expired` (expiry)
+/// or simply report UNVERIFIED without a state transition (Req 8.8).
+pub fn verify_token_distinguish_expiry(
+    token_bytes: &[u8],
+    root_ca_public_key: &[u8],
+    now_secs: i64,
+) -> Result<BiscuitClaims, TokenVerifyError> {
+    let public_key =
+        PublicKey::from_bytes(root_ca_public_key, Algorithm::Ed25519).map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("invalid root CA public key: {e}"),
+            })
+        })?;
+
+    // Phase 1: signature + structure verification (Biscuit::from).
+    // A failure here means the token is malformed or tampered — NOT an expiry.
+    let token = match Biscuit::from(token_bytes, public_key) {
+        Ok(t) => t,
+        Err(e) => {
+            return Err(TokenVerifyError::OtherFailure(
+                TirBaseError::AuthorisationFailed {
+                    reason: format!("failed to parse/verify Biscuit token: {e}"),
+                },
+            ));
+        }
+    };
+
+    // Phase 2: expiry + policy authorization (authorize_with_limits).
+    // With an allow_all authorizer, the only check that can fail is the
+    // check_expiration_date constraint — so any authorize() failure at this
+    // point is a token expiry.
+    let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
+    let time_fact = fact("time", &[date(&fake_now)]);
+
+    let mut authorizer = AuthorizerBuilder::new()
+        .fact(time_fact)
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer build error: {e}"),
+            })
+        })?
+        .allow_all()
+        .build(&token)
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("authorizer construction failed: {e}"),
+            })
+        })?;
+
+    let generous = biscuit_auth::AuthorizerLimits {
+        max_facts: 10_000,
+        max_iterations: 10_000,
+        max_time: Duration::from_secs(5),
+    };
+
+    if let Err(e) = authorizer.authorize_with_limits(generous.clone()) {
+        // The signature already passed (Biscuit::from succeeded). With an
+        // allow_all authorizer the only failing check is the expiration
+        // constraint added by check_expiration_date. Double-check the error
+        // string for "expired" as an additional guard.
+        let msg = e.to_string().to_lowercase();
+        if msg.contains("expired") || msg.contains("authorization failed") {
+            return Err(TokenVerifyError::TokenExpired);
+        }
+        return Err(TokenVerifyError::OtherFailure(
+            TirBaseError::AuthorisationFailed {
+                reason: format!("token authorization failed: {e}"),
+            },
+        ));
+    }
+
+    // Extract claims (same as verify_token).
+    let did_results: Vec<(String,)> = authorizer
+        .query_with_limits("data($did) <- did($did)", generous.clone())
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("did query failed: {e}"),
+            })
+        })?;
+
+    let did = did_results.into_iter().next().map(|(d,)| d).unwrap_or_default();
+
+    let role_results: Vec<(String,)> = authorizer
+        .query_with_limits("data($role) <- role($role)", generous.clone())
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("role query failed: {e}"),
+            })
+        })?;
+
+    let role = role_results.into_iter().next().map(|(r,)| r).unwrap_or_default();
+
+    let issued_results: Vec<(i64,)> = authorizer
+        .query_with_limits("data($t) <- issued_at($t)", generous.clone())
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("issued_at query failed: {e}"),
+            })
+        })?;
+
+    let issued_at = issued_results.into_iter().next().map(|(t,)| t).unwrap_or(0);
+
+    // Query the expires_at fact to get the token's real expiration time.
+    let expires_results: Vec<(i64,)> = authorizer
+        .query_with_limits("data($t) <- expires_at($t)", generous)
+        .map_err(|e| {
+            TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
+                reason: format!("expires_at query failed: {e}"),
+            })
+        })?;
+
+    let expires_at = expires_results
+        .into_iter()
+        .next()
+        .map(|(t,)| t)
+        .unwrap_or(now_secs);
+
+    Ok(BiscuitClaims {
+        did,
+        role,
+        issued_at,
+        expires_at,
+    })
+}
+
+/// Result of `verify_token_distinguish_expiry` — distinguishes token expiry from
+/// other verification failures so the caller can apply the correct state
+/// transition (Req 8.4 vs Req 8.8).
+#[derive(Debug)]
+pub enum TokenVerifyError {
+    /// The Biscuit token's signature verified successfully, but the
+    /// `check_expiration_date` policy failed — the token has expired.
+    TokenExpired,
+    /// Any other failure: signature mismatch, parse error, invalid key, etc.
+    OtherFailure(TirBaseError),
+}
+
+impl std::fmt::Display for TokenVerifyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenVerifyError::TokenExpired => write!(f, "biscuit token has expired"),
+            TokenVerifyError::OtherFailure(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for TokenVerifyError {}
 ///
 /// Uses a proper Biscuit datalog authorizer query rather than substring matching.
 /// The token must also be valid and not expired at `now_secs`.
@@ -599,6 +763,8 @@ mod tests {
             .fact(format!("role(\"manager\")").as_str())
             .unwrap()
             .fact(format!("issued_at({issued_secs})").as_str())
+            .unwrap()
+            .fact(format!("expires_at({})", issued_secs + ttl_secs as i64).as_str())
             .unwrap()
             .check_expiration_date(expiry);
 

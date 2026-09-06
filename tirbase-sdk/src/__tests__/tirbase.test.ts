@@ -8,7 +8,11 @@
 
 import { TirBase } from '../tirbase';
 import { MockWasmCore } from '../wasm-bridge';
-import type { IncidentContextObject, TrustLevel } from '../types';
+import type {
+  IncidentContextObject,
+  TrustLevel,
+  TrustLevelChangedEvent,
+} from '../types';
 import { TirBaseInitError, TirBaseNotInitializedError } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -314,6 +318,69 @@ describe('db.trustLevel (Req 2.4)', () => {
     const db = await TirBase.init(DEFAULT_CONFIG);
     db._applyTrustLevelChange('REVOKED');
     expect(db.trustLevel).toBe('REVOKED');
+  });
+});
+
+// ─── Test: presentToken (Req 8.3, 8.4, 8.8) ────────────────────────────────────
+
+describe('db.presentToken() (Req 8.3, 8.4, 8.8)', () => {
+  test('returns VERIFIED for a valid token', async () => {
+    const mock = installMock();
+    mock.corePresentTokenImpl = async () => 'VERIFIED';
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const level = await db.presentToken('valid-token-hex');
+    expect(level).toBe('VERIFIED');
+    expect(db.trustLevel).toBe('VERIFIED');
+  });
+
+  test('returns UNVERIFIED for an expired token (token-expiry path, Req 8.4)', async () => {
+    const mock = installMock();
+    mock.corePresentTokenImpl = async () => 'UNVERIFIED';
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    expect(db.trustLevel).toBe('VERIFIED');
+
+    const level = await db.presentToken('expired-token-hex');
+    expect(level).toBe('UNVERIFIED');
+    expect(db.trustLevel).toBe('UNVERIFIED');
+  });
+
+  test('returns UNVERIFIED for an invalid token without throwing (Req 8.8)', async () => {
+    const mock = installMock();
+    mock.corePresentTokenImpl = async () => 'UNVERIFIED';
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+
+    const level = await db.presentToken('bogus-token-hex');
+    expect(level).toBe('UNVERIFIED');
+  });
+
+  test('throws when core returns an error (e.g. no root CA keys)', async () => {
+    const mock = installMock();
+    mock.corePresentTokenImpl = async () => {
+      throw new Error('AuthorisationFailed: no registered root CA keys');
+    };
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    await expect(db.presentToken('any-token')).rejects.toThrow(
+      'AuthorisationFailed',
+    );
+  });
+
+  test('emits trust-level-changed event when level changes', async () => {
+    const mock = installMock();
+    mock.corePresentTokenImpl = async () => 'UNVERIFIED';
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    const events: TrustLevelChangedEvent[] = [];
+    db.on('trust-level-changed', (e) => events.push(e as TrustLevelChangedEvent));
+
+    await db.presentToken('expired-token-hex');
+
+    expect(events).toHaveLength(1);
+    expect(events[0].previousLevel).toBe('VERIFIED');
+    expect(events[0].newLevel).toBe('UNVERIFIED');
   });
 });
 
