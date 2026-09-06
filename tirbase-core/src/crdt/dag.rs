@@ -304,6 +304,17 @@ impl ChangesetDag {
         Ok(result)
     }
 
+    /// Return all descendant Delta IDs of `delta_id` in the current DAG.
+    ///
+    /// This is a BFS walk over `dag_edges` following child edges forward
+    /// from `delta_id`.  The root itself is included in the result.
+    /// Used during late-arrival taint decontamination (the root may have
+    /// been tagged before some descendants existed in the DAG; this method
+    /// queries the *live* DAG to find descendants that arrived after tag-time).
+    pub fn descendants_of(&self, delta_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        self.bfs_descendants(delta_id)
+    }
+
     /// Number of nodes currently stored in the DAG.
     ///
     /// Used by the convergence test to assert that the native DAG persists
@@ -562,6 +573,12 @@ impl ChangesetDag {
             .get(child_id)
             .map(|n| n.parent_ids.clone())
             .unwrap_or_default())
+    }
+
+    /// Return all descendant Delta IDs of `delta_id` in the current DAG.
+    /// WASM variant — delegates to the in-memory `bfs_descendants`.
+    pub fn descendants_of(&self, delta_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        self.bfs_descendants(delta_id)
     }
 
     pub fn nodes_by_schema_hash(

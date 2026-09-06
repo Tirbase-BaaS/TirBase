@@ -70,7 +70,14 @@ pub(crate) fn verify_manager_auth(
 ///    a. Append an `AuditEntry` to the ICO.
 ///    b. If ALL roots in that ICO now carry a `Resolved` tag → BFS walk and append
 ///       `DeltaTag::Decontaminated` to every reachable descendant.
-/// 4. Decompose composite incidents that contain this root if surviving sub-chains
+/// 4. Late-arrival decontamination walk (Req 10.3 gap fix):
+///    a. For each resolved root, query the live DAG for descendants not present
+///       in the original `contaminated_deltas` snapshot and append
+///       `DeltaTag::Decontaminated` to each.
+///    b. For each unresolved root in an active ICO, query the live DAG for
+///       descendants not in the snapshot, append `DeltaTag::Contaminated`, and
+///       add them to the ICO's `contaminated_deltas`.
+/// 5. Decompose composite incidents that contain this root if surviving sub-chains
 ///    still have unresolved roots.
 #[cfg(feature = "native")]
 pub fn verify_data(
@@ -155,7 +162,133 @@ pub fn verify_data(
         }
     }
 
-    // 4. Decompose any composite incidents that include this root.
+    // ─── Step 4: Late-arrival decontamination walk (Req 10.3 gap fix) ─────────
+    //
+    // Deltas that descended from a contamination root *after* the initial
+    // `tag_contamination_root` snapshot was taken are not in the ICO's
+    // `contaminated_deltas` snapshot.  We now query the live DAG to find
+    // those late-arriving descendants and tag them:
+    //
+    //   • Roots that are now fully resolved → late descendants receive
+    //     DeltaTag::Decontaminated.
+    //   • Roots that remain unresolved → late descendants receive
+    //     DeltaTag::Contaminated and are added to the active ICO's
+    //     contaminated_deltas.
+    //
+    // We process both regular ICOs and composite incidents that reference
+    // `root_delta_id` in their contamination_roots.
+
+    // Collect composite incident IDs that reference this root.
+    let composite_ico_ids: Vec<IncidentId> = composite_incidents
+        .values()
+        .filter(|c| {
+            c.state == IncidentState::Open
+                && c.contamination_roots.contains(&root_delta_id)
+        })
+        .map(|c| c.id)
+        .collect();
+
+    for ico_id in &ico_ids {
+        let ico = match incidents.get_mut(ico_id) {
+            Some(i) => i,
+            None => continue,
+        };
+
+        let all_resolved = ico
+            .contamination_roots
+            .iter()
+            .all(|root_id| has_resolved_tag(conn, root_id));
+
+        // For a fully resolved ICO, late descendants of the root should be
+        // decontaminated.
+        if all_resolved {
+            for root_id in &ico.contamination_roots {
+                if has_resolved_tag(conn, root_id) {
+                    let late = crate::contamination::taint::walk_late_arrival_descendants(
+                        root_id,
+                        dag,
+                        &ico.contaminated_deltas,
+                        true,
+                        conn,
+                        *ico_id,
+                    )?;
+                    // Add late arrivals to the ICO's contaminated_deltas so
+                    // they are tracked (they will already carry Decontaminated
+                    // tags from the walk above).
+                    for delta_id in &late {
+                        ico.contaminated_deltas.insert(*delta_id);
+                    }
+                }
+            }
+        } else {
+            // For an unresolved ICO, late descendants of unresolved roots
+            // should receive Contaminated tags and join contaminated_deltas.
+            for root_id in &ico.contamination_roots {
+                if !has_resolved_tag(conn, root_id) {
+                    let late = crate::contamination::taint::walk_late_arrival_descendants(
+                        root_id,
+                        dag,
+                        &ico.contaminated_deltas,
+                        false,
+                        conn,
+                        *ico_id,
+                    )?;
+                    for delta_id in &late {
+                        ico.contaminated_deltas.insert(*delta_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Process composite incidents referencing this root.
+    for comp_id in &composite_ico_ids {
+        let comp = match composite_incidents.get_mut(comp_id) {
+            Some(c) => c,
+            None => continue,
+        };
+
+        let all_resolved = comp
+            .contamination_roots
+            .iter()
+            .all(|root_id| has_resolved_tag(conn, root_id));
+
+        if all_resolved {
+            for root_id in &comp.contamination_roots {
+                if has_resolved_tag(conn, root_id) {
+                    let late = crate::contamination::taint::walk_late_arrival_descendants(
+                        root_id,
+                        dag,
+                        &comp.contaminated_deltas,
+                        true,
+                        conn,
+                        *comp_id,
+                    )?;
+                    for delta_id in &late {
+                        comp.contaminated_deltas.insert(*delta_id);
+                    }
+                }
+            }
+        } else {
+            for root_id in &comp.contamination_roots {
+                if !has_resolved_tag(conn, root_id) {
+                    let late = crate::contamination::taint::walk_late_arrival_descendants(
+                        root_id,
+                        dag,
+                        &comp.contaminated_deltas,
+                        false,
+                        conn,
+                        *comp_id,
+                    )?;
+                    for delta_id in &late {
+                        comp.contaminated_deltas.insert(*delta_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Decompose any composite incidents that include this root.
     //    The returned DecompositionResult carries the new ICOs' affected_rows
     //    so the caller (CausalContaminationEngine::verify_data) can repopulate
     //    its `contaminated_rows` O(1) index for the surviving sub-chains

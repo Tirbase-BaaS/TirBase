@@ -197,7 +197,129 @@ pub(crate) fn bfs_descendants_raw(
     Ok(result)
 }
 
-// ─── Affected row resolver ────────────────────────────────────────────────────
+// ─── Late-arrival walk helper ────────────────────────────────────────────────────
+
+/// Late-arrival taint walk (Req 10.3 gap fix).
+///
+/// When a contamination root is resolved (or remains unresolved) via `verify_data`,
+/// Deltas that descended from the root **after** the initial `tag_contamination_root`
+/// snapshot was taken are neither contaminated nor decontaminated during the
+/// snapshot-based walk.  This function performs a second live walk against the
+/// current DAG to find those late-arriving descendants.
+///
+/// * `root_delta_id`  — the resolved (or still-unresolved) contamination root.
+/// * `dag`            — the live `ChangesetDag` (used only for its schema; the
+///   actual BFS uses `conn` directly to avoid re-entrant locking — see note on
+///   `decompose_composites_if_needed`).
+/// * `snapshot_deltas` — the `contaminated_deltas` snapshot captured at tag-time.
+///   Descendants already present in this set are skipped (they already carry
+///   their tags from the initial walk).
+/// * `resolved`       — if `true`, late arrivals receive `DeltaTag::Decontaminated`;
+///   if `false`, late arrivals receive `DeltaTag::Contaminated`.
+/// * `conn`           — SQLite connection for tag writes and live DAG queries.
+/// * `incident_id`    — the ICO these deltas belong to.
+///
+/// Returns the subset of descendants that were actually tagged by this call
+/// (i.e. those not already in `snapshot_deltas`).
+#[cfg(feature = "native")]
+pub(crate) fn walk_late_arrival_descendants(
+    root_delta_id: &DeltaId,
+    _dag: &crate::crdt::dag::ChangesetDag,
+    snapshot_deltas: &std::collections::BTreeSet<DeltaId>,
+    resolved: bool,
+    conn: &rusqlite::Connection,
+    incident_id: IncidentId,
+) -> Result<Vec<DeltaId>, TirBaseError> {
+    use std::collections::HashSet;
+
+    // 1. Query the live DAG for all descendants of the root using the raw
+    //    connection (avoids re-entrant Mutex lock — see decompose_composites_if_needed).
+    let live_descendants = bfs_descendants_raw(conn, root_delta_id)?;
+
+    // 2. Determine which descendants are late arrivals (not in the snapshot).
+    let snapshot_set: HashSet<DeltaId> = snapshot_deltas.iter().copied().collect();
+    let late_arrivals: Vec<DeltaId> = live_descendants
+        .iter()
+        .copied()
+        .filter(|d| !snapshot_set.contains(d))
+        .collect();
+
+    // 3. Tag each late arrival.
+    let at = crate::contamination::resolution::now_micros();
+    for delta_id in &late_arrivals {
+        if resolved {
+            let _ = append_tag(
+                conn,
+                delta_id,
+                DeltaTag::Decontaminated {
+                    incident_id,
+                    resolved_at: at,
+                },
+            );
+        } else {
+            let _ = append_tag(
+                conn,
+                delta_id,
+                DeltaTag::Contaminated {
+                    root_id: *root_delta_id,
+                    incident_id,
+                },
+            );
+        }
+    }
+
+    Ok(late_arrivals)
+}
+
+/// WASM-compatible late-arrival taint walk.
+///
+/// Same logic as the native `walk_late_arrival_descendants` but uses the
+/// thread-local tag store (`append_tag` / `read_tags_from_mem`) instead of
+/// SQLite.  The `dag` is the in-memory WASM `ChangesetDag`.
+#[cfg(not(feature = "native"))]
+pub(crate) fn walk_late_arrival_descendants(
+    root_delta_id: &DeltaId,
+    dag: &crate::crdt::dag::ChangesetDag,
+    snapshot_deltas: &std::collections::BTreeSet<DeltaId>,
+    resolved: bool,
+    incident_id: IncidentId,
+) -> Result<Vec<DeltaId>, TirBaseError> {
+    use std::collections::HashSet;
+
+    let live_descendants = dag.descendants_of(root_delta_id)?;
+
+    let snapshot_set: HashSet<DeltaId> = snapshot_deltas.iter().copied().collect();
+    let late_arrivals: Vec<DeltaId> = live_descendants
+        .iter()
+        .copied()
+        .filter(|d| !snapshot_set.contains(d))
+        .collect();
+
+    let at = crate::contamination::resolution::now_micros();
+    for delta_id in &late_arrivals {
+        if resolved {
+            let _ = append_tag(
+                delta_id,
+                DeltaTag::Decontaminated {
+                    incident_id,
+                    resolved_at: at,
+                },
+            );
+        } else {
+            let _ = append_tag(
+                delta_id,
+                DeltaTag::Contaminated {
+                    root_id: *root_delta_id,
+                    incident_id,
+                },
+            );
+        }
+    }
+
+    Ok(late_arrivals)
+}
+
+// ─── Affected row resolver ────────────────────────────────────────
 
 /// Resolve all projection rows that should be marked contaminated for a given set
 /// of contaminated Delta IDs.

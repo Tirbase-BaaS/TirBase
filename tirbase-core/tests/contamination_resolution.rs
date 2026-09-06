@@ -554,3 +554,163 @@ fn test_beacon_signal_loss_permanent_reversion() {
         "degradation event reason must mention beacon signal loss"
     );
 }
+
+// ─── Test 6: Late-arriving descendant of resolved root receives Decontaminated ─
+
+/// Scenario: A contamination root is tagged and an ICO is created.  Then a
+/// late-arriving Delta is inserted as a descendant of the root *after* the
+/// initial `tag_contamination_root` snapshot.  When `verify_data` resolves the
+/// root, the late-arrival walk must discover the new descendant via the live DAG
+/// and append `DeltaTag::Decontaminated` to it.
+///
+/// Acceptance:
+/// - The late-arriving Delta must carry `DeltaTag::Decontaminated` after
+///   `verify_data` resolves the root.
+#[test]
+fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
+    let (mut cce, conn) = open_cce();
+    let mut dag = dag_from_conn(&conn);
+
+    let root_id: DeltaId = [0x11u8; 32];
+    let early_child: DeltaId = [0x12u8; 32];
+    let late_child: DeltaId = [0x13u8; 32];
+
+    // Build: root → early_child (both present before tagging).
+    insert_node(&mut dag, root_id, vec![]);
+    insert_node(&mut dag, early_child, vec![root_id]);
+
+    // Tag the root — snapshot covers {root_id, early_child}.
+    let ico_id = cce
+        .tag_contamination_root(
+            root_id,
+            TaintSource::DeviceRevocation {
+                revocation_delta_id: root_id,
+            },
+        )
+        .expect("tag_contamination_root should succeed");
+
+    // Confirm early_child was tagged with Contaminated.
+    {
+        let lock = conn.lock().unwrap();
+        let tags = read_tags(&lock, &early_child);
+        assert!(
+            tags.iter().any(|t| matches!(
+                t,
+                DeltaTag::Contaminated { incident_id, .. } if *incident_id == ico_id
+            )),
+            "early_child must carry a Contaminated tag from the initial BFS walk"
+        );
+    }
+
+    // Now simulate the late-arriving descendant: insert it into the DAG
+    // AFTER the root was tagged.
+    insert_node(&mut dag, late_child, vec![root_id]);
+
+    // Resolve the root via verify_data.
+    let (mgr_did, mgr_secret) = make_manager();
+    let expiry = now_micros() + 3_600_000_000;
+    let sig = sign_payload(&mgr_secret, &root_id);
+    cce.verify_data(root_id, mgr_did, sig, expiry)
+        .expect("verify_data should succeed");
+
+    // The late-arriving descendant must now have a Decontaminated tag.
+    let lock = conn.lock().unwrap();
+    let tags = read_tags(&lock, &late_child);
+    assert!(
+        tags.iter().any(|t| matches!(
+            t,
+            DeltaTag::Decontaminated { incident_id, .. } if *incident_id == ico_id
+        )),
+        "late-arriving descendant of resolved root must carry DeltaTag::Decontaminated: {tags:?}"
+    );
+
+    // early_child should also still have Decontaminated (from the snapshot walk).
+    let early_tags = read_tags(&lock, &early_child);
+    assert!(
+        early_tags.iter().any(|t| matches!(
+            t,
+            DeltaTag::Decontaminated { incident_id, .. } if *incident_id == ico_id
+        )),
+        "early_child must carry DeltaTag::Decontaminated after root resolution"
+    );
+}
+
+// ─── Test 7: Late-arriving descendant of unresolved root receives Contaminated ─
+
+/// Scenario: Two contamination roots (root_a, root_b) share a descendant `shared`,
+/// forming a composite incident.  After the composite is created, a late-arriving
+/// Delta is inserted as a descendant of root_b (the root that will remain
+/// unresolved).  When root_a is resolved via `verify_data`, the late-arrival walk
+/// must find the late descendant of the *unresolved* root_b and tag it
+/// `DeltaTag::Contaminated`.
+///
+/// Acceptance:
+/// - The late-arriving Delta must carry `DeltaTag::Contaminated` after
+///   `verify_data` resolves root_a (because root_b is still unresolved).
+#[test]
+fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
+    let (mut cce, conn) = open_cce();
+    let mut dag = dag_from_conn(&conn);
+
+    let root_a: DeltaId = [0x21u8; 32];
+    let root_b: DeltaId = [0x22u8; 32];
+    let shared: DeltaId = [0x23u8; 32]; // descendant of both roots
+    let late_child: DeltaId = [0x24u8; 32]; // late descendant of root_b only
+
+    // Build the diamond: root_a → shared, root_b → shared.
+    insert_node(&mut dag, root_a, vec![]);
+    insert_node(&mut dag, root_b, vec![]);
+    insert_node(&mut dag, shared, vec![root_a, root_b]);
+
+    // Tag root_a → ICO_A covers {root_a, shared}.
+    let ico_a_id = cce
+        .tag_contamination_root(
+            root_a,
+            TaintSource::DeviceRevocation {
+                revocation_delta_id: root_a,
+            },
+        )
+        .expect("tag root_a");
+
+    // Tag root_b → composite forms (shared is reachable from both roots).
+    let composite_id = cce
+        .tag_contamination_root(
+            root_b,
+            TaintSource::DeviceRevocation {
+                revocation_delta_id: root_b,
+            },
+        )
+        .expect("tag root_b");
+
+    // The second tag should have produced a composite incident.
+    // Composite ICOs live in `composite_incidents`, not `incidents`, so
+    // `get_incident` (which queries `incidents` only) should return None.
+    assert!(
+        cce.get_incident(composite_id).expect("get incident").is_none(),
+        "composite incident should not be found via get_incident (it lives in composite_incidents)"
+    );
+
+    // Now simulate the late-arriving descendant: insert it as a child of root_b
+    // AFTER both roots were tagged and the composite was formed.
+    insert_node(&mut dag, late_child, vec![root_b]);
+
+    // Resolve root_a via verify_data — root_b remains unresolved.
+    let (mgr_did, mgr_secret) = make_manager();
+    let expiry = now_micros() + 3_600_000_000;
+    let sig_a = sign_payload(&mgr_secret, &root_a);
+    cce.verify_data(root_a, mgr_did, sig_a, expiry)
+        .expect("verify_data root_a should succeed");
+
+    // The late-arriving descendant of the unresolved root_b must now have a
+    // Contaminated tag from the late-arrival walk.
+    let lock = conn.lock().unwrap();
+    let tags = read_tags(&lock, &late_child);
+    assert!(
+        tags.iter().any(|t| matches!(
+            t,
+            DeltaTag::Contaminated { incident_id, .. }
+                if *incident_id == composite_id || *incident_id == ico_a_id
+        )),
+        "late-arriving descendant of unresolved root must carry DeltaTag::Contaminated: {tags:?}"
+    );
+}
