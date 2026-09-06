@@ -371,23 +371,28 @@ impl SideCarLedger {
     }
 }
 
-// ─── WASM stub ─────────────────────────────────────────────────────────────
+// ─── WASM implementation — IndexedDB-backed (Req 19.2/19.3, Subphase 6.3) ─────
+//
+// The WASM methods are `async` because IndexedDB transactions must be awaited.
+// Entries are serialised to JSON and stored in the `sidecar_ledger` object
+// store keyed by the entry's hex `id`.
 
 #[cfg(not(feature = "native"))]
 pub struct SideCarLedger {
-    entries: Vec<SideCarEntry>,
+    db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
 }
 
 #[cfg(not(feature = "native"))]
 impl SideCarLedger {
-    pub fn new() -> Self {
-        Self { entries: Vec::new() }
+    /// Create a new SideCarLedger backed by the given `IdbStore`.
+    pub(crate) fn new(db: std::rc::Rc<crate::store::indexed_db::IdbStore>) -> Self {
+        Self { db }
     }
 
     /// Record a write operation in the Side-Car Ledger (Req 19.2).
     ///
     /// The `id` is SHA-256(delta_bytes || recorded_ts_le8) for uniqueness.
-    pub fn record(
+    pub async fn record(
         &mut self,
         migration_id: MigrationId,
         table_name: String,
@@ -401,17 +406,22 @@ impl SideCarLedger {
         hasher.update(&recorded_ts.to_le_bytes());
         let id: DeltaId = hasher.finalize().into();
 
-        // INSERT OR IGNORE semantics.
-        if !self.entries.iter().any(|e| e.id == id) {
-            self.entries.push(SideCarEntry {
-                id,
-                migration_id,
-                table_name,
-                delta_bytes,
-                recorded_ts,
-                replay_status: ReplayStatus::Pending,
-            });
+        // Check if the entry already exists (INSERT OR IGNORE semantics).
+        let all = self.db.scan_sidecar_entries_for_migration(migration_id).await?;
+        if all.iter().any(|e| e.id == id) {
+            return Ok(id);
         }
+
+        let entry = SideCarEntry {
+            id,
+            migration_id,
+            table_name,
+            delta_bytes,
+            recorded_ts,
+            replay_status: ReplayStatus::Pending,
+        };
+
+        self.db.put_sidecar_entry(&entry).await?;
         Ok(id)
     }
 
@@ -423,7 +433,7 @@ impl SideCarLedger {
     ///
     /// Returns a `ReplaySummary`; appends `DeltaTag::ReplayComplete` to every
     /// successfully-replayed Delta only when `conflicts == 0` (Req 19.6).
-    pub fn replay_sidecar(
+    pub async fn replay_sidecar(
         &mut self,
         migration_id: MigrationId,
         _corrected_schema_hash: SchemaIdentifierHash,
@@ -431,19 +441,12 @@ impl SideCarLedger {
     ) -> Result<ReplaySummary, TirBaseError> {
         use crate::contamination::taint::append_tag;
 
-        // Sort entries by recorded_ts ASC.
-        let mut entries: Vec<SideCarEntry> = self
-            .entries
-            .iter()
-            .filter(|e| e.migration_id == migration_id)
-            .cloned()
-            .collect();
-        entries.sort_by_key(|e| e.recorded_ts);
+        // 1. Load all entries for this migration ordered by recorded_ts ASC.
+        let entries = self.load_entries_ordered(migration_id).await?;
 
         let total_entries = entries.len();
         let mut replayed = 0usize;
         let mut conflicts = 0usize;
-        // Track delta IDs of successfully-replayed entries for tag appending.
         let mut replayed_delta_ids: Vec<DeltaId> = Vec::new();
 
         for entry in &entries {
@@ -451,9 +454,12 @@ impl SideCarLedger {
                 Ok(d) => d,
                 Err(e) => {
                     conflicts += 1;
-                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                    self.update_entry_status(&entry.id, &serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("deserialise error: {e}"),
-                    });
+                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("conflict status serialisation failed: {e}"),
+                    })?)
+                        .await?;
                     continue;
                 }
             };
@@ -464,36 +470,49 @@ impl SideCarLedger {
                 Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
                     replayed += 1;
                     replayed_delta_ids.push(delta_id);
-                    self.update_entry_status(&entry.id, ReplayStatus::Replayed);
+                    self.update_entry_status(&entry.id, &serde_json::to_string(&ReplayStatus::Replayed)
+                        .unwrap_or_else(|_| "REPLAYED".to_string()))
+                        .await?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
                     conflicts += 1;
-                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                    let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("quarantined during replay: {reason:?}"),
-                    });
+                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("conflict status serialisation failed: {e}"),
+                    })?;
+                    self.update_entry_status(&entry.id, &status_json).await?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Rejected { reason }) => {
                     conflicts += 1;
-                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                    let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("rejected during replay: {reason}"),
-                    });
+                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("conflict status serialisation failed: {e}"),
+                    })?;
+                    self.update_entry_status(&entry.id, &status_json).await?;
                 }
                 Err(e) => {
                     conflicts += 1;
-                    self.update_entry_status(&entry.id, ReplayStatus::Conflict {
+                    let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("engine error: {e}"),
-                    });
+                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("conflict status serialisation failed: {e}"),
+                    })?;
+                    self.update_entry_status(&entry.id, &status_json).await?;
                 }
             }
         }
 
         let complete = conflicts == 0 && total_entries > 0;
-        if complete {
-            // Update status for all entries for this migration.
-            for entry in self.entries.iter_mut() {
-                if entry.migration_id == migration_id {
-                    entry.replay_status = ReplayStatus::Complete;
-                }
+        if complete && total_entries > 0 {
+            // Update all entries for this migration to COMPLETE via IndexedDB.
+            let complete_json = serde_json::to_string(&ReplayStatus::Complete)
+                .map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("COMPLETE status serialisation failed: {e}"),
+                })?;
+            for entry in &entries {
+                self.update_entry_status(&entry.id, &complete_json).await?;
             }
 
             // Append DeltaTag::ReplayComplete to the WASM in-memory tag store
@@ -522,29 +541,25 @@ impl SideCarLedger {
     /// Load every Side-Car entry for `migration_id` in recorded-timestamp
     /// order (Req 19.3) — the replay pass and the corruption-recovery
     /// integration test both read through this.
-    pub(crate) fn load_entries_ordered(
+    pub(crate) async fn load_entries_ordered(
         &self,
         migration_id: MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
-        let mut entries: Vec<SideCarEntry> = self
-            .entries
-            .iter()
-            .filter(|e| e.migration_id == migration_id)
-            .cloned()
-            .collect();
-        entries.sort_by_key(|e| e.recorded_ts);
-        Ok(entries)
+        self.db.scan_sidecar_entries_for_migration(migration_id).await
     }
 
-    fn update_entry_status(&mut self, id: &DeltaId, status: ReplayStatus) {
-        if let Some(entry) = self.entries.iter_mut().find(|e| e.id == *id) {
-            entry.replay_status = status;
-        }
+    async fn update_entry_status(
+        &mut self,
+        id: &DeltaId,
+        status_json: &str,
+    ) -> Result<(), TirBaseError> {
+        self.db.update_sidecar_status(id, status_json).await
     }
 
     /// Count entries for a migration (used by tests).
-    pub fn count_for_migration(&self, migration_id: MigrationId) -> Result<usize, TirBaseError> {
-        Ok(self.entries.iter().filter(|e| e.migration_id == migration_id).count())
+    pub(crate) async fn count_for_migration(&self, migration_id: MigrationId) -> Result<usize, TirBaseError> {
+        let entries = self.db.scan_sidecar_entries_for_migration(migration_id).await?;
+        Ok(entries.len())
     }
 }
 

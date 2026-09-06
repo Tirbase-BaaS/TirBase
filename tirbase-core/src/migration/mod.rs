@@ -135,23 +135,23 @@ impl SchemaMigrationEngine {
         revocation_threshold_m: usize,
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
+        #[cfg(not(feature = "native"))]
+        db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
         schema_definitions: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
     ) -> Self {
         #[cfg(feature = "native")]
         let quarantine_ledger = QuarantineLedger::new(migration_conn.clone());
 
         #[cfg(not(feature = "native"))]
-        let quarantine_ledger = QuarantineLedger::new();
+        let quarantine_ledger = QuarantineLedger::new(db.clone());
 
         // The Side-Car Ledger shares the migration's dedicated connection
-        // (native) or uses the in-memory stub (WASM).  Both the quarantine
-        // and side-car ledgers live on the same per-migration connection so
-        // they are created by `CREATE_SCHEMA_SQL` at store open.
+        // (native) or uses the IndexedDB-backed store (WASM).
         #[cfg(feature = "native")]
         let sidecar_ledger = SideCarLedger::new(migration_conn);
 
         #[cfg(not(feature = "native"))]
-        let sidecar_ledger = SideCarLedger::new();
+        let sidecar_ledger = SideCarLedger::new(db);
 
         Self {
             ca_public_key,
@@ -223,7 +223,8 @@ impl SchemaMigrationEngine {
     ///
     /// Used by `CoreHandle::write()` to determine whether to auto-tag writes as
     /// `ContaminatedByHumanReaction` (Req 19.5).
-    pub fn is_schema_quarantined(&self, table: &str) -> bool {
+    /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
+    pub(crate) fn is_schema_quarantined(&self, table: &str) -> bool {
         #[cfg(feature = "native")]
         {
             // Query all quarantined entries and check if any match our local schema
@@ -237,14 +238,28 @@ impl SchemaMigrationEngine {
         }
         #[cfg(not(feature = "native"))]
         {
-            // WASM: use the in-memory get_by_schema_hash.
-            match self
-                .quarantine_ledger
-                .get_by_schema_hash(&self.local_schema_hash)
-            {
-                Ok(entries) => entries.iter().any(|e| e.migration_id.is_none()),
-                Err(_) => false,
-            }
+            // WASM: `is_schema_quarantined` is async on WASM because the
+            // quarantine ledger reads from IndexedDB.  The sync wrapper
+            // returns `false` optimistically — the real async version is
+            // `is_schema_quarantined_async` and is called from `CoreHandle::write`.
+            let _ = table;
+            false
+        }
+    }
+
+    /// Async version of `is_schema_quarantined` for WASM builds (Req 19.5).
+    ///
+    /// On native this is never used — the sync `is_schema_quarantined` calls
+    /// SQLite directly.
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn is_schema_quarantined_async(&self, _table: &str) -> bool {
+        // Query all quarantined entries from IndexedDB and check if any
+        // match our local schema hash without having been released.
+        match self.quarantine_ledger.get_all().await {
+            Ok(entries) => entries.iter().any(|e| {
+                e.schema_hash == Some(self.local_schema_hash) && e.migration_id.is_none()
+            }),
+            Err(_) => false,
         }
     }
 
@@ -676,6 +691,7 @@ impl SchemaMigrationEngine {
     /// is stored byte-for-byte in the quarantine ledger without modification (Req 17.5).
     ///
     /// Returns the quarantine entry ID (SHA-256 of `raw_bytes`).
+    #[cfg(feature = "native")]
     pub fn quarantine_incoming(
         &mut self,
         sender_did: &str,
@@ -693,13 +709,41 @@ impl SchemaMigrationEngine {
         )
     }
 
+    /// WASM async version — awaits IndexedDB write.
+    #[cfg(not(feature = "native"))]
+    pub async fn quarantine_incoming(
+        &mut self,
+        sender_did: &str,
+        raw_bytes: Vec<u8>,
+        schema_hash: Option<crate::schema::hash::SchemaIdentifierHash>,
+        reason: QuarantineReason,
+        received_at: i64,
+    ) -> Result<[u8; 32], TirBaseError> {
+        self.quarantine_ledger
+            .quarantine(
+                sender_did.to_string(),
+                raw_bytes,
+                schema_hash,
+                reason,
+                received_at,
+            )
+            .await
+    }
+
     /// Return all entries currently held in the quarantine ledger.
     ///
     /// Used by the inbound integration tests to assert that a quarantined
     /// Delta's raw bytes were persisted byte-for-byte (Subphase 5.2); also the
     /// inspection entry point for quarantine replay tooling (Req 17.4–17.6).
+    #[cfg(feature = "native")]
     pub(crate) fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         self.quarantine_ledger.get_all()
+    }
+
+    /// WASM async version — awaits IndexedDB scan.
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
+        self.quarantine_ledger.get_all().await
     }
 }
 
@@ -726,6 +770,7 @@ impl SchemaMigrationEngine {
     /// schema (nothing to capture); `Ok(Some(entry_id))` when the write was
     /// preserved.  The caller (the production write path) treats capture as
     /// best-effort: a capture failure must not fail the write itself.
+    #[cfg(feature = "native")]
     pub(crate) fn record_corrupted_window_write(
         &mut self,
         table: &str,
@@ -744,6 +789,28 @@ impl SchemaMigrationEngine {
         Ok(Some(entry_id))
     }
 
+    /// WASM async version — awaits IndexedDB write for Side-Car capture (Req 19.2).
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn record_corrupted_window_write(
+        &mut self,
+        table: &str,
+        delta_bytes: Vec<u8>,
+        recorded_ts: i64,
+    ) -> Result<Option<DeltaId>, TirBaseError> {
+        let Some(migration_id) = self.active_corruption_migration() else {
+            return Ok(None);
+        };
+        let entry_id = self.sidecar_ledger
+            .record(
+                migration_id,
+                table.to_string(),
+                delta_bytes,
+                recorded_ts,
+            )
+            .await?;
+        Ok(Some(entry_id))
+    }
+
     /// Replay every Side-Car entry captured while `pre_migration_schema` was
     /// under a corruption window against the corrected projection (Req 19.3).
     ///
@@ -753,6 +820,7 @@ impl SchemaMigrationEngine {
     /// order; replay conflicts are flagged, never aborting the pass or the
     /// already-committed migration (Req 19.4).  The corruption window is
     /// closed once replayed — the device has left the corrupted schema.
+    #[cfg(feature = "native")]
     pub(crate) fn replay_corrupted_windows(
         &mut self,
         pre_migration_schema: &crate::schema::hash::SchemaIdentifierHash,
@@ -793,14 +861,65 @@ impl SchemaMigrationEngine {
         Ok(())
     }
 
+    /// WASM async version — awaits IndexedDB scans during replay (Req 19.3).
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn replay_corrupted_windows(
+        &mut self,
+        pre_migration_schema: &crate::schema::hash::SchemaIdentifierHash,
+        corrected_schema_hash: crate::schema::hash::SchemaIdentifierHash,
+        engine: &mut crate::crdt::CrdtEngine,
+    ) -> Result<(), TirBaseError> {
+        let Some(migration_ids) = self.corrupted_schema_windows.remove(pre_migration_schema) else {
+            return Ok(());
+        };
+
+        for migration_id in &migration_ids {
+            match self
+                .sidecar_ledger
+                .replay_sidecar(*migration_id, corrected_schema_hash, engine)
+                .await
+            {
+                Ok(summary) => {
+                    eprintln!(
+                        "[migration] Side-Car replay for corrupted migration {:?}: \
+                         {}/{} entries replayed, {} conflicts, complete={} (Req 19.3)",
+                        migration_id,
+                        summary.replayed,
+                        summary.total_entries,
+                        summary.conflicts,
+                        summary.complete,
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
+                        migration_id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// All Side-Car entries scoped to `migration_id`, in recorded-timestamp
     /// order — the replay-order view used by the corruption-recovery
     /// integration test to assert capture and replay status transitions.
+    #[cfg(feature = "native")]
     pub(crate) fn sidecar_entries(
         &self,
         migration_id: &MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
         self.sidecar_ledger.load_entries_ordered(*migration_id)
+    }
+
+    /// WASM async version — awaits IndexedDB scan.
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn sidecar_entries(
+        &self,
+        migration_id: &MigrationId,
+    ) -> Result<Vec<SideCarEntry>, TirBaseError> {
+        self.sidecar_ledger.load_entries_ordered(*migration_id).await
     }
 }
 

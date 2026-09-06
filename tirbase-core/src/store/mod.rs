@@ -45,7 +45,7 @@ pub struct LocalStore {
     /// path keeps a pure in-memory `HashMap` with no IndexedDB backing (tests
     /// / throwaway stores).
     #[cfg(not(feature = "native"))]
-    db: Option<IdbStore>,
+    db: Option<std::rc::Rc<IdbStore>>,
     /// In-memory fallback for the `":memory:"` ephemeral store (WASM only).
     /// When `db` is `None`, reads and writes go through this map directly.
     #[cfg(not(feature = "native"))]
@@ -405,7 +405,7 @@ impl LocalStore {
                 db: None,
             });
         }
-        let db = IdbStore::open(path, "kv").await?;
+        let db = std::rc::Rc::new(IdbStore::open(path).await?);
         let tables = db.load_all().await?;
         Ok(LocalStore {
             tables,
@@ -472,6 +472,19 @@ impl LocalStore {
             .collect();
 
         Ok(results)
+    }
+
+    /// Borrow the underlying `IdbStore`, if this store is IndexedDB-backed
+    /// (i.e. not `":memory:"`).  Returns `None` for ephemeral stores.
+    pub(crate) fn idb_store(&self) -> Option<&std::rc::Rc<IdbStore>> {
+        self.db.as_ref()
+    }
+
+    /// Clone the `Rc<IdbStore>` handle so it can be shared with the migration
+    /// engine and CRDT compaction subsystem (WASM only).  Returns `None` for
+    /// ephemeral `":memory:"` stores.
+    pub(crate) fn idb_store_rc(&self) -> Option<std::rc::Rc<IdbStore>> {
+        self.db.as_ref().cloned()
     }
 }
 

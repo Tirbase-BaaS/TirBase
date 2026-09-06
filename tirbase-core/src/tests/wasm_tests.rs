@@ -177,10 +177,14 @@ fn test_dag_bfs_descendants() {
 // ─── QuarantineLedger ─────────────────────────────────────────────────────────
 
 #[wasm_bindgen_test]
-fn test_quarantine_stores_and_retrieves() {
+async fn test_quarantine_stores_and_retrieves() {
     use crate::migration::quarantine::{QuarantineLedger, QuarantineReason};
+    use crate::store::indexed_db::IdbStore;
 
-    let mut ledger = QuarantineLedger::new();
+    let db = std::rc::Rc::new(
+        IdbStore::open("test_quarantine").await.expect("open idb"),
+    );
+    let mut ledger = QuarantineLedger::new(db);
     let raw = b"raw-delta-bytes".to_vec();
     let schema_hash = [0xAAu8; 32];
 
@@ -192,29 +196,88 @@ fn test_quarantine_stores_and_retrieves() {
             QuarantineReason::UnknownSchemaHash,
             1_720_000_000,
         )
+        .await
         .expect("quarantine");
 
-    let entries = ledger.get_by_schema_hash(&schema_hash).expect("get");
+    let entries = ledger.get_by_schema_hash(&schema_hash).await.expect("get");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].id, id);
     assert_eq!(entries[0].raw_bytes, raw);
+
+    // Verify persistence: re-open the same IndexedDB DB and read back.
+    let db2 = std::rc::Rc::new(
+        IdbStore::open("test_quarantine").await.expect("re-open idb"),
+    );
+    let ledger2 = QuarantineLedger::new(db2);
+    let all = ledger2.get_all().await.expect("get_all after reload");
+    assert_eq!(all.len(), 1, "quarantine entry must survive IndexedDB reload");
+    assert_eq!(all[0].raw_bytes, raw, "raw_bytes must be byte-for-byte");
 }
 
 // ─── SideCarLedger ────────────────────────────────────────────────────────────
 
 #[wasm_bindgen_test]
-fn test_sidecar_record_and_order() {
+async fn test_sidecar_record_and_order() {
     use crate::migration::sidecar::SideCarLedger;
+    use crate::store::indexed_db::IdbStore;
 
-    let mut ledger = SideCarLedger::new();
+    let db = std::rc::Rc::new(
+        IdbStore::open("test_sidecar_order").await.expect("open idb"),
+    );
+    let mut ledger = SideCarLedger::new(db);
     let migration_id = [0x01u8; 32];
 
-    ledger.record(migration_id, "t".to_string(), b"c3".to_vec(), 300).unwrap();
-    ledger.record(migration_id, "t".to_string(), b"c1".to_vec(), 100).unwrap();
-    ledger.record(migration_id, "t".to_string(), b"c2".to_vec(), 200).unwrap();
+    ledger.record(migration_id, "t".to_string(), b"c3".to_vec(), 300).await.unwrap();
+    ledger.record(migration_id, "t".to_string(), b"c1".to_vec(), 100).await.unwrap();
+    ledger.record(migration_id, "t".to_string(), b"c2".to_vec(), 200).await.unwrap();
 
-    let count = ledger.count_for_migration(migration_id).unwrap();
-    assert_eq!(count, 3);
+    let entries = ledger.load_entries_ordered(migration_id).await.unwrap();
+    assert_eq!(entries.len(), 3);
+    assert_eq!(entries[0].recorded_ts, 100);
+    assert_eq!(entries[1].recorded_ts, 200);
+    assert_eq!(entries[2].recorded_ts, 300);
+
+    // Verify persistence: re-open the same IndexedDB DB and read back.
+    let db2 = std::rc::Rc::new(
+        IdbStore::open("test_sidecar_order").await.expect("re-open idb"),
+    );
+    let ledger2 = SideCarLedger::new(db2);
+    let reloaded = ledger2.load_entries_ordered(migration_id).await.unwrap();
+    assert_eq!(reloaded.len(), 3, "sidecar entries must survive IndexedDB reload");
+}
+
+// ─── Compaction snapshot persistence (Req 3.4/3.5, WASM) ──────────────────────
+
+#[wasm_bindgen_test]
+async fn test_compaction_snapshot_persisted_to_indexeddb() {
+    use crate::store::compaction::{compact_table_idb, CompactionPolicy};
+    use crate::store::indexed_db::IdbStore;
+    use automerge::ReadDoc;
+
+    let db = std::rc::Rc::new(
+        IdbStore::open("test_compaction").await.expect("open idb"),
+    );
+
+    let mut doc = automerge::AutoCommit::default();
+    doc.put("table", "key1", "value1").unwrap();
+    doc.put("table", "key2", "value2").unwrap();
+
+    let policy = CompactionPolicy::Aggressive { threshold: 1 };
+
+    // Write enough changes to exceed the threshold.
+    if compact_table_idb(&db, "items", &mut doc).await.is_ok() {
+        // Snapshot should now be persisted.
+        let snapshot = db.get_compaction_snapshot("items").await.expect("get snapshot");
+        assert!(snapshot.is_some(), "compaction snapshot must be persisted to IndexedDB");
+    }
+
+    // Verify persistence across reload.
+    let db2 = std::rc::Rc::new(
+        IdbStore::open("test_compaction").await.expect("re-open idb"),
+    );
+    let snapshot2 = db2.get_compaction_snapshot("items").await.expect("re-get snapshot");
+    assert!(snapshot2.is_some(), "compaction snapshot must survive IndexedDB reload");
+    assert!(!snapshot2.unwrap().snapshot_bytes.is_empty(), "snapshot bytes must be non-empty");
 }
 
 // ─── Projection store ─────────────────────────────────────────────────────────

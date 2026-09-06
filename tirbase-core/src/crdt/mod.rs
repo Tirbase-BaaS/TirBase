@@ -31,6 +31,9 @@ use schema_hash::SchemaIdentifierHash;
 #[cfg(feature = "native")]
 use dag::{ChangesetDag, DagNode};
 
+#[cfg(not(feature = "native"))]
+use crate::store::indexed_db::IdbStore;
+
 /// Serializable subset of [`CrdtEngine`] state that is identical across native
 /// and WASM targets — used by the cross-build convergence test.
 ///
@@ -288,7 +291,6 @@ impl CrdtEngine {
     /// schema (default-schema-hash path).
     ///
     /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
-    #[cfg(feature = "native")]
     pub(crate) fn compaction_policy_for(&self, table: &str) -> crate::store::compaction::CompactionPolicy {
         use crate::store::compaction::CompactionPolicy;
         if let Some(schema) = self.schema_definitions.get(&self.known_schema_hash) {
@@ -1125,7 +1127,35 @@ impl CrdtEngine {
                     reason: format!("DAG mutex poisoned during compaction: {e}"),
                 }
             })?;
-            let _ = compact_table(&*conn, table, &mut self.doc);
+             let _ = compact_table(&*conn, table, &mut self.doc);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// WASM-backed compaction check and run (Req 3.4, 3.5).
+    ///
+    /// On the WASM build the `CrdtEngine` has no SQLite `ChangesetDag`, so
+    /// compaction writes the compacted Automerge doc snapshot to the
+    /// `compaction_snapshots` IndexedDB object store via
+    /// [`compact_table_idb`](crate::store::compaction).  Returns `true` when
+    /// compaction was actually performed, `false` otherwise.
+    ///
+    /// Production caller: `CoreHandle::write` → `CrdtEngine::maybe_compact`.
+    #[cfg(not(feature = "native"))]
+    pub(crate) async fn maybe_compact(
+        &mut self,
+        table: &str,
+        policy: &crate::store::compaction::CompactionPolicy,
+        db: &IdbStore,
+    ) -> Result<bool, TirBaseError> {
+        use crate::store::compaction::{compact_table_idb, should_compact_idb};
+        use automerge::ReadDoc;
+
+        let change_count = self.doc.get_changes(&[]).len() as u64;
+        if should_compact_idb(policy, change_count) {
+            let _ = compact_table_idb(db, table, &mut self.doc).await;
             Ok(true)
         } else {
             Ok(false)

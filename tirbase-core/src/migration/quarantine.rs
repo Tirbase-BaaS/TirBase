@@ -294,23 +294,30 @@ impl QuarantineLedger {
     }
 }
 
-// ─── WASM stub ─────────────────────────────────────────────────────────────
+// ─── WASM implementation — IndexedDB-backed (Req 17.5, Subphase 6.3) ──────────
 
+/// IndexedDB-backed quarantine ledger for WASM builds.
+///
+/// Unlike the native SQLite variant, the WASM methods are `async` because
+/// IndexedDB transactions must be awaited.  Entries are serialised to JSON
+/// and stored in the `quarantine_ledger` object store, keyed by the entry's
+/// `id` hex string.
 #[cfg(not(feature = "native"))]
 pub struct QuarantineLedger {
-    entries: Vec<QuarantineEntry>,
+    db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
 }
 
 #[cfg(not(feature = "native"))]
 impl QuarantineLedger {
-    pub fn new() -> Self {
-        Self { entries: Vec::new() }
+    /// Create a new QuarantineLedger backed by the given `IdbStore`.
+    pub(crate) fn new(db: std::rc::Rc<crate::store::indexed_db::IdbStore>) -> Self {
+        Self { db }
     }
 
     /// Store a raw incoming Delta without modification (Req 17.5).
     ///
     /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
-    pub fn quarantine(
+    pub async fn quarantine(
         &mut self,
         sender_did: Did,
         raw_bytes: Vec<u8>,
@@ -319,54 +326,61 @@ impl QuarantineLedger {
         received_at: i64,
     ) -> Result<DeltaId, TirBaseError> {
         use sha2::{Digest, Sha256};
+
         let id: DeltaId = Sha256::digest(&raw_bytes).into();
 
-        // Deduplicate by id (INSERT OR IGNORE semantics).
-        if !self.entries.iter().any(|e| e.id == id) {
-            self.entries.push(QuarantineEntry {
-                id,
-                sender_did,
-                raw_bytes,
-                schema_hash,
-                reason,
-                received_at,
-                migration_id: None,
-            });
-        }
+        let entry = QuarantineEntry {
+            id,
+            sender_did,
+            raw_bytes,
+            schema_hash,
+            reason,
+            received_at,
+            migration_id: None,
+        };
+
+        self.db.put_quarantine_entry(&entry).await?;
         Ok(id)
     }
 
-    pub fn get_by_schema_hash(
+    pub async fn get_by_schema_hash(
         &self,
         hash: &SchemaIdentifierHash,
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        Ok(self
-            .entries
-            .iter()
+        let all = self.db.scan_quarantine_entries().await?;
+        Ok(all.into_iter()
             .filter(|e| e.schema_hash.as_ref() == Some(hash))
-            .cloned()
             .collect())
     }
 
-    pub fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        Ok(self.entries.clone())
+    pub async fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
+        self.db.scan_quarantine_entries().await
     }
 
-    pub fn release_for_migration(
+    pub async fn release_for_migration(
         &mut self,
         schema_hash: &SchemaIdentifierHash,
         migration_id: [u8; 32],
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        for entry in self.entries.iter_mut() {
-            if entry.schema_hash.as_ref() == Some(schema_hash) {
-                entry.migration_id = Some(migration_id);
-            }
+        let matching: Vec<QuarantineEntry> = {
+            let all = self.db.scan_quarantine_entries().await?;
+            all.into_iter()
+                .filter(|e| e.schema_hash.as_ref() == Some(schema_hash))
+                .collect()
+        };
+
+        for entry in &matching {
+            self.db
+                .update_quarantine_migration_id(&entry.id[..], Some(migration_id))
+                .await?;
         }
-        self.get_by_schema_hash(schema_hash)
+
+        Ok(matching)
     }
 
-    pub fn count(&self) -> Result<usize, TirBaseError> {
-        Ok(self.entries.len())
+    pub async fn count(&self) -> Result<usize, TirBaseError> {
+        let all = self.db.scan_quarantine_entries().await?;
+        Ok(all.len())
     }
 }
 

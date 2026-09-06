@@ -471,9 +471,10 @@ impl CoreHandle {
         // to — previously the WASM store ignored the path and opened a
         // throwaway HashMap that lost all data on reload.
         #[cfg(not(feature = "native"))]
-        let store = {
+        let (store, store_db_rc) = {
             let store = LocalStore::open(&config.storage_path).await?;
-            Arc::new(Mutex::new(store))
+            let store_db_rc = store.idb_store_rc().expect("idb store must exist for non-:memory: path");
+            (Arc::new(Mutex::new(store)), store_db_rc)
         };
 
         // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
@@ -635,6 +636,7 @@ impl CoreHandle {
             migration_local_schema_hash,
             migration_version_path,
             config.deployment.revocation_m.max(1),
+            store_db_rc.clone(),
             Self::build_schema_def_map(&config.deployment.schema_definitions),
         );
 
@@ -1394,11 +1396,24 @@ impl CoreHandle {
             .lock()
             .map(|cce| cce.is_row_contaminated(table, key))
             .unwrap_or(false);
+        #[cfg(feature = "native")]
         let quarantine_active = self
             .migration
             .lock()
             .map(|mig| mig.is_schema_quarantined(table))
             .unwrap_or(false);
+        #[cfg(not(feature = "native"))]
+        let quarantine_active = {
+            let mig = self.migration.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("migration mutex poisoned in quarantine check: {e}"),
+                }
+            });
+            match mig {
+                Ok(mig) => mig.is_schema_quarantined_async(table).await,
+                Err(_) => false,
+            }
+        };
         let active_incident_id = self
             .cce
             .lock()
@@ -1423,6 +1438,8 @@ impl CoreHandle {
         // JSON-envelope projection path.
         #[cfg(feature = "native")]
         let compacted;
+        #[cfg(not(feature = "native"))]
+        let compacted: bool;
         #[cfg(feature = "native")]
         let automerge_bytes = {
             let mut crdt = self
@@ -1448,14 +1465,29 @@ impl CoreHandle {
         };
 
         #[cfg(not(feature = "native"))]
-        let automerge_bytes = {
+        let (automerge_bytes, compacted) = {
             let mut crdt = self
                 .crdt
                 .lock()
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("crdt mutex poisoned: {e}"),
                 })?;
-            crdt.write_scalar(table, key, &data)?
+            let bytes = crdt.write_scalar(table, key, &data)?;
+
+            let policy = crdt.compaction_policy_for(table);
+            let store_guard = self.store.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("store mutex poisoned in compaction: {e}"),
+                }
+            })?;
+            let comp_res = if let Some(idb) = store_guard.idb_store() {
+                crdt.maybe_compact(table, &policy, &**idb).await
+            } else {
+                Ok(false)
+            };
+            let compacted = comp_res.unwrap_or(false);
+
+            (bytes, compacted)
         };
 
         #[cfg(feature = "native")]
@@ -1550,7 +1582,6 @@ impl CoreHandle {
         // 5a. If compaction ran during this write, mark the just-registered
         // cloud queue entry as compacted so `run_cloud_sync_cycle` knows to
         // re-fetch bytes from the DAG before sending (Req 14.8, 16.8).
-        #[cfg(feature = "native")]
         if compacted {
             if let Ok(mut durability) = self.durability.lock() {
                 durability.cloud_queue_mut().mark_compacted(&delta.id);
@@ -1565,6 +1596,7 @@ impl CoreHandle {
         // silently losing it.  Best-effort by design: the local store write
         // and durability registration above are already committed, and a
         // capture failure must not fail the user's write.
+        #[cfg(feature = "native")]
         match self
             .migration
             .lock()
@@ -1588,6 +1620,37 @@ impl CoreHandle {
             }
             Err(e) => {
                 eprintln!("[write] Side-Car capture failed (best-effort): {e}");
+            }
+        }
+
+        #[cfg(not(feature = "native"))]
+        {
+            let capture_result = {
+                let mig = self.migration.lock().map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("migration mutex poisoned in side-car capture: {e}"),
+                    }
+                });
+                match mig {
+                    Ok(mut mig) => {
+                        mig.record_corrupted_window_write(table, delta_bytes, delta.created_at).await
+                    }
+                    Err(e) => Err(e),
+                }
+            };
+            match capture_result {
+                Ok(Some(entry_id)) => {
+                    eprintln!(
+                        "[write] Side-Car capture: delta {} recorded for corrupted-schema \
+                         replay (entry {})",
+                        hex::encode(delta.id),
+                        hex::encode(entry_id)
+                    );
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    eprintln!("[write] Side-Car capture failed (best-effort): {e}");
+                }
             }
         }
 
@@ -3391,19 +3454,20 @@ impl CoreHandle {
                             );
                             delta.automerge_bytes.clone()
                         });
-                        match self
-                            .migration
-                            .lock()
-                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                reason: format!("migration mutex poisoned in receive_inbound_wasm: {e}"),
-                            })?
-                            .quarantine_incoming(
+                        match {
+                            let mut mig = self.migration.lock().map_err(|e| {
+                                TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("migration mutex poisoned in receive_inbound_wasm: {e}"),
+                                }
+                            })?;
+                            mig.quarantine_incoming(
                                 &delta.author_did,
                                 raw_bytes,
                                 Some(delta.schema_hash),
                                 reason.clone().into(),
                                 now_micros(),
-                            ) {
+                            ).await
+                        } {
                             Ok(entry_id) => eprintln!(
                                 "[wasm-inbound] delta {} quarantined ({reason:?}) from {} → stored in quarantine ledger as {}",
                                 hex::encode(delta.id),
@@ -3627,7 +3691,7 @@ impl CoreHandle {
                                     &source_schema_hash,
                                     new_current,
                                     &mut crdt,
-                                );
+                                ).await;
                             }
 
                             eprintln!(
