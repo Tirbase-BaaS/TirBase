@@ -232,6 +232,104 @@ impl PeerDiscovery {
     }
 }
 
+// ─── BLE discovery adapter (native-only) ──────────────────────────────────────
+
+#[cfg(feature = "native")]
+pub mod ble_adapter {
+    use super::*;
+    use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter};
+    use btleplug::platform::{Adapter, Manager};
+    use std::time::Duration;
+    use tokio::time::timeout;
+
+    pub const TIRBASE_BLE_SERVICE_UUID: uuid::Uuid =
+        uuid::Uuid::from_u128(0x0000beef_0000_1000_8000_00805f9b34fb);
+
+    /// Scan for BLE peripherals advertising the TirBase service UUID and
+    /// return `(did, bridge_did)` pairs for each discovered device.
+    pub async fn scan_ble_peers(
+        scan_timeout_secs: u64,
+    ) -> Result<Vec<(Did, Did)>, TirBaseError> {
+        let manager = Manager::new()
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("BLE manager init failed: {e}"),
+            })?;
+        let adapters = manager
+            .adapters()
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("BLE adapter enumeration failed: {e}"),
+            })?;
+        let adapter = adapters
+            .into_iter()
+            .next()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
+                reason: "no BLE adapter found".to_string(),
+            })?;
+
+        adapter
+            .start_scan(ScanFilter::default())
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("BLE scan start failed: {e}"),
+            })?;
+
+        let result = timeout(Duration::from_secs(scan_timeout_secs), async {
+            let mut found = Vec::new();
+            loop {
+                let peripherals = adapter.peripherals().await.map_err(|e| {
+                    TirBaseError::MeshUnavailable {
+                        reason: format!("BLE peripherals enumeration failed: {e}"),
+                    }
+                })?;
+
+                for p in peripherals {
+                    let props = p.properties().await.map_err(|e| {
+                        TirBaseError::MeshUnavailable {
+                            reason: format!("BLE peripheral properties failed: {e}"),
+                        }
+                    })?;
+
+                    if let Some(props) = props {
+                    if props
+                        .services
+                        .iter()
+                        .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
+                        {
+                            let peer_did = format!(
+                                "did:key:ble-{}",
+                                props.address
+                            );
+                            let bridge_did = peer_did.clone();
+                            found.push((peer_did, bridge_did));
+                        }
+                    }
+                }
+
+                if !found.is_empty() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+            Ok(found)
+        })
+        .await;
+
+        adapter
+            .stop_scan()
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("BLE scan stop failed: {e}"),
+            })?;
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => Ok(Vec::new()),
+        }
+    }
+}
+
 // ─── mDNS event adapter (native only) ────────────────────────────────────────
 
 /// Adapter that translates libp2p mDNS events into `PeerDiscovery` calls.

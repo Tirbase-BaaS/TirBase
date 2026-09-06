@@ -305,7 +305,8 @@ impl MeshTransport {
             last_ble_inbound: None,
         }
     }
-    }
+
+    // ── Peer lifecycle ────────────────────────────────────────────────────────
 
     // ── Peer lifecycle ────────────────────────────────────────────────────────
 
@@ -692,15 +693,15 @@ impl MeshTransport {
         // the BLE I/O channels, and spawn a background task that handles
         // advertising/scanning, chunked writes, and notification receive.
         #[cfg(feature = "native")]
-        if config.mesh_ble_enabled {
+        if self.config.mesh_ble_enabled {
             use crate::transport::ble::{self, BleAdapter};
 
-            let (ble_outbound_tx, ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+            let (ble_outbound_tx, mut ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
             let (ble_inbound_tx, ble_inbound_rx) =
                 tokio::sync::mpsc::channel::<crate::transport::message::GossipMessage>(32);
 
             self.ble_outbound_tx = Some(ble_outbound_tx);
-            self.ble_inbound_tx = Some(ble_inbound_tx);
+            self.ble_inbound_tx = Some(ble_inbound_tx.clone());
             self.ble_inbound_rx = Some(ble_inbound_rx);
 
             let local_did = self.local_did.clone();
@@ -714,11 +715,6 @@ impl MeshTransport {
                         return;
                     }
                 };
-
-                // Start advertising the TirBase service (peripheral role).
-                if let Err(e) = adapter.start_advertising().await {
-                    eprintln!("[transport] BLE advertising failed: {e}");
-                }
 
                 // Start scanning for TirBase peers (central role).
                 if let Err(e) = adapter.scan_and_connect(30).await {
@@ -734,17 +730,18 @@ impl MeshTransport {
                     }
                 };
 
-                let mut reassembly = ReassemblyBuffer::default();
+                let reassembly = ReassemblyBuffer::default();
                 let mut pending_chunks: std::collections::HashMap<[u8; 32], Vec<Vec<u8>>> =
                     std::collections::HashMap::new();
 
                 loop {
                     tokio::select! {
                         Some(data) = ble_outbound_rx.recv() => {
-                            let chunks = ble::fragment_for_ble(
-                                crate::crdt::delta::DeltaId::new().0,
-                                &data,
-                            );
+                            let mut delta_id = [0u8; 32];
+                            if data.len() >= 32 {
+                                delta_id.copy_from_slice(&data[0..32]);
+                            }
+                            let chunks = ble::fragment_for_ble(delta_id, &data);
                             if let Err(e) = adapter.send_chunks(&chunks).await {
                                 eprintln!("[transport] BLE send failed: {e}");
                             }
@@ -1122,6 +1119,56 @@ impl MeshTransport {
             }
         }
         Ok(forwarded)
+    }
+
+    /// Receive inbound Deltas from any transport (BLE, WASM inbound, etc.)
+    /// and dispatch them through `process_wire_message`.
+    ///
+    /// For BLE: the BLE I/O task pushes reassembled `GossipMessage` values
+    /// onto `ble_inbound_rx`; this method drains them and runs the same
+    /// fragment-reassembly → dispatch pipeline as the native Gossipsub path.
+    #[cfg(feature = "native")]
+    pub(crate) fn poll_ble_inbound(&mut self) {
+        use crate::transport::message::GossipMessage;
+
+        let Some(mut rx) = self.ble_inbound_rx.take() else { return };
+
+        loop {
+            let msg = match rx.try_recv() {
+                Ok(msg) => msg,
+                Err(_) => break,
+            };
+            let processed = self.process_wire_message(msg);
+            if let Some(dispatch_msg) = processed {
+                #[cfg(test)]
+                {
+                    self.last_ble_inbound = Some(dispatch_msg.clone());
+                }
+            }
+        }
+
+        self.ble_inbound_rx = Some(rx);
+    }
+
+    /// Receive a raw inbound Delta payload from the BLE transport, deserialise
+    /// it into a `GossipMessage`, and run it through the normal inbound
+    /// fragment-reassembly → dispatch pipeline.
+    #[cfg(feature = "native")]
+    pub(crate) fn receive_delta(&mut self, bytes: &[u8]) -> Result<(), TirBaseError> {
+        use crate::transport::message::GossipMessage;
+
+        let msg = GossipMessage::from_bytes(bytes).ok_or_else(|| TirBaseError::MeshUnavailable {
+            reason: "receive_delta: bytes could not be deserialised as GossipMessage".to_string(),
+        })?;
+
+        let processed = self.process_wire_message(msg);
+        if let Some(dispatch_msg) = processed {
+            #[cfg(test)]
+            {
+                self.last_ble_inbound = Some(dispatch_msg.clone());
+            }
+        }
+        Ok(())
     }
 
     /// Record a payload at the outbound publish point (test-only).
@@ -1839,5 +1886,89 @@ mod tests {
         })
         .await
         .expect("the mDNS-discovered peer was never dialed into a real connection within 15s");
+    }
+
+    // ── BLE transport bridge ────────────────────────────────────────────────
+    //
+    // Integration tests for the BLE transport path.  These tests exercise the
+    // channel-based BLE plumbing without requiring actual BLE hardware: the
+    // BLE I/O task is bypassed and messages are injected/observed directly on
+    // the `ble_outbound_tx` / `ble_inbound_rx` channels.
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn ble_send_delta_routes_to_ble_outbound_channel() {
+        use crate::transport::message::GossipMessage;
+
+        let mut t = make_transport();
+        t.config.mesh_ble_enabled = true;
+
+        let (ble_outbound_tx, mut ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+        let (ble_inbound_tx, ble_inbound_rx) =
+            tokio::sync::mpsc::channel::<GossipMessage>(32);
+
+        t.ble_outbound_tx = Some(ble_outbound_tx);
+        t.ble_inbound_tx = Some(ble_inbound_tx);
+        t.ble_inbound_rx = Some(ble_inbound_rx);
+
+        t.on_peer_discovered(
+            DiscoveredPeer {
+                did: "did:key:ble-peer".to_string(),
+                transport: PeerTransport::BleBridge {
+                    bridge_did: "did:key:ble-bridge".to_string(),
+                },
+                hop_count: 1,
+            },
+            1_000,
+        )
+        .unwrap();
+
+        let delta = sample_delta();
+        t.send_delta(&"did:key:ble-peer".to_string(), &delta)
+            .expect("send_delta must succeed for BLE peer");
+
+        let payload = ble_outbound_rx
+            .blocking_recv()
+            .expect("BLE outbound channel must carry the framed Delta");
+
+        let wire: GossipMessage =
+            serde_json::from_slice(&payload).expect("payload must be a GossipMessage");
+        match wire {
+            GossipMessage::InboundDelta(d) => {
+                assert_eq!(d.id, delta.id);
+            }
+            other => panic!("expected InboundDelta over BLE, got: {other:?}"),
+        }
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn ble_receive_delta_dispatches_through_process_wire_message() {
+        use crate::transport::message::GossipMessage;
+
+        let mut t = make_transport();
+        t.config.mesh_ble_enabled = true;
+
+        let (ble_outbound_tx, _ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
+        let (ble_inbound_tx, ble_inbound_rx) =
+            tokio::sync::mpsc::channel::<GossipMessage>(32);
+
+        t.ble_outbound_tx = Some(ble_outbound_tx);
+        t.ble_inbound_tx = Some(ble_inbound_tx);
+        t.ble_inbound_rx = Some(ble_inbound_rx);
+
+        let delta = sample_delta();
+        let msg = GossipMessage::InboundDelta(delta.clone());
+        let bytes = msg.to_bytes();
+
+        t.receive_delta(&bytes).expect("receive_delta must succeed");
+
+        let processed = t.last_ble_inbound.take().expect("BLE inbound must be recorded");
+        match processed {
+            GossipMessage::InboundDelta(d) => {
+                assert_eq!(d.id, delta.id);
+            }
+            other => panic!("expected InboundDelta after receive_delta, got: {other:?}"),
+        }
     }
 }

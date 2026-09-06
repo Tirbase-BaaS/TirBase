@@ -9,20 +9,21 @@
 
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
-use crate::transport::fragment::{fragment, DeltaFragment, ReassemblyBuffer};
+use crate::transport::fragment::{reassemble, DeltaFragment, ReassemblyBuffer};
 
-use btleplug::api::{Central, Characteristic, Peripheral, ScanFilter, WriteType};
+use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral as PlatformPeripheral};
 use std::time::Duration;
 use tokio::time::timeout;
+use libp2p::futures::StreamExt;
 
 // ─── TirBase BLE service/characteristic UUIDs ─────────────────────────────────
 
-pub const TIRBASE_BLE_SERVICE_UUID: btleplug::api::UUID =
-    btleplug::api::UUID::parse("0000beef-0000-1000-8000-00805f9b34fb").unwrap();
+pub const TIRBASE_BLE_SERVICE_UUID: uuid::Uuid =
+    uuid::Uuid::from_u128(0x0000beef_0000_1000_8000_00805f9b34fb);
 
-pub const TIRBASE_BLE_CHAR_UUID: btleplug::api::UUID =
-    btleplug::api::UUID::parse("0000cafe-0000-1000-8000-00805f9b34fb").unwrap();
+pub const TIRBASE_BLE_CHAR_UUID: uuid::Uuid =
+    uuid::Uuid::from_u128(0x0000cafe_0000_1000_8000_00805f9b34fb);
 
 // ─── BLE chunk framing ────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ pub struct BleAdapter {
     pub connected: bool,
     pub local_did: Did,
     pub peer_did: Did,
-    pub char_handle: Option<Characteristic>,
+    pub char_handle: Option<btleplug::api::Characteristic>,
 }
 
 impl BleAdapter {
@@ -163,46 +164,10 @@ impl BleAdapter {
         })
     }
 
-    /// Start advertising the TirBase BLE service (peripheral role).
-    pub async fn start_advertising(&mut self) -> Result<(), TirBaseError> {
-        use btleplug::api::{Advertisement, AdvertisementType};
-
-        let advertisement = Advertisement {
-            advertisement_type: AdvertisementType::Peripheral,
-            service_uuids: vec![TIRBASE_BLE_SERVICE_UUID],
-            local_name: Some(format!("TirBase-{}", &self.local_did[..8])),
-            manufacturer_data: std::collections::HashMap::new(),
-            service_data: std::collections::HashMap::new(),
-            tx_power_level: None,
-            discoverable: true,
-            scannable: true,
-        };
-
-        self.adapter
-            .start_advertising(advertisement)
-            .await
-            .map_err(|e| TirBaseError::MeshUnavailable {
-                reason: format!("BLE advertising failed: {e}"),
-            })?;
-        Ok(())
-    }
-
-    /// Stop advertising.
-    pub async fn stop_advertising(&mut self) -> Result<(), TirBaseError> {
-        self.adapter
-            .stop_advertising()
-            .await
-            .map_err(|e| TirBaseError::MeshUnavailable {
-                reason: format!("BLE stop advertising failed: {e}"),
-            })
-    }
-
     /// Scan for the TirBase BLE service and connect to the first matching peripheral (central role).
     pub async fn scan_and_connect(&mut self, scan_timeout_secs: u64) -> Result<(), TirBaseError> {
-        use btleplug::api::Peripheral as PeripheralApi;
-
         self.adapter
-            .start_scan(ScanFilter::new())
+            .start_scan(ScanFilter::default())
             .await
             .map_err(|e| TirBaseError::MeshUnavailable {
                 reason: format!("BLE scan start failed: {e}"),
@@ -223,37 +188,39 @@ impl BleAdapter {
                         }
                     })?;
 
+                    if let Some(props) = props {
                     if props
                         .services
                         .iter()
-                        .any(|s| s.uuid == TIRBASE_BLE_SERVICE_UUID)
-                    {
-                        p.connect()
-                            .await
-                            .map_err(|e| TirBaseError::MeshUnavailable {
-                                reason: format!("BLE connect failed: {e}"),
-                            })?;
+                        .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
+                        {
+                            p.connect()
+                                .await
+                                .map_err(|e| TirBaseError::MeshUnavailable {
+                                    reason: format!("BLE connect failed: {e}"),
+                                })?;
 
-                        p.discover_services()
-                            .await
-                            .map_err(|e| TirBaseError::MeshUnavailable {
-                                reason: format!("BLE discover services failed: {e}"),
-                            })?;
+                            p.discover_services()
+                                .await
+                                .map_err(|e| TirBaseError::MeshUnavailable {
+                                    reason: format!("BLE discover services failed: {e}"),
+                                })?;
 
-                        let services = p.services();
-                        let chr = services
-                            .iter()
-                            .flat_map(|s| &s.characteristics)
-                            .find(|c| c.uuid == TIRBASE_BLE_CHAR_UUID)
-                            .cloned()
-                            .ok_or_else(|| TirBaseError::MeshUnavailable {
-                                reason: "BLE characteristic not found".to_string(),
-                            })?;
+                            let services = p.services();
+                            let chr = services
+                                .iter()
+                                .flat_map(|s| &s.characteristics)
+                                .find(|c| c.uuid == TIRBASE_BLE_CHAR_UUID)
+                                .cloned()
+                                .ok_or_else(|| TirBaseError::MeshUnavailable {
+                                    reason: "BLE characteristic not found".to_string(),
+                                })?;
 
-                        self.peripheral = Some(p);
-                        self.connected = true;
-                        self.char_handle = Some(chr);
-                        return Ok(());
+                            self.peripheral = Some(p);
+                            self.connected = true;
+                            self.char_handle = Some(chr);
+                            return Ok(());
+                        }
                     }
                 }
 
@@ -276,8 +243,6 @@ impl BleAdapter {
 
     /// Send a list of BLE chunks to the connected peer.
     pub async fn send_chunks(&mut self, chunks: &[Vec<u8>]) -> Result<(), TirBaseError> {
-        use btleplug::api::Peripheral as PeripheralApi;
-
         let chr = self
             .char_handle
             .as_ref()
@@ -308,8 +273,6 @@ impl BleAdapter {
     pub async fn subscribe_notifications(
         &mut self,
     ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>, TirBaseError> {
-        use btleplug::api::Peripheral as PeripheralApi;
-
         let chr = self
             .char_handle
             .as_ref()
@@ -334,17 +297,23 @@ impl BleAdapter {
         let (tx, rx) = tokio::sync::mpsc::channel(32);
 
         let peripheral = self.peripheral.take().unwrap();
+        let peripheral_clone = peripheral.clone();
         let chr_clone = chr.clone();
 
         tokio::spawn(async move {
-            let mut events = match peripheral.events().await {
+            let mut notifications = match peripheral_clone.notifications().await {
                 Ok(stream) => stream,
                 Err(_) => return,
             };
 
-            while let Some(event) = events.next().await {
-                if let btleplug::api::PeripheralEvent::Notification { value, .. } = event {
-                    let _ = tx.send(value).await;
+            loop {
+                match notifications.next().await {
+                    Some(notification) => {
+                        if notification.uuid == chr_clone.uuid {
+                            let _ = tx.send(notification.value).await;
+                        }
+                    }
+                    None => break,
                 }
             }
         });
@@ -356,7 +325,6 @@ impl BleAdapter {
     /// Disconnect from the peer.
     pub async fn disconnect(&mut self) -> Result<(), TirBaseError> {
         if let Some(peripheral) = &self.peripheral {
-            use btleplug::api::Peripheral as PeripheralApi;
             peripheral
                 .disconnect()
                 .await
