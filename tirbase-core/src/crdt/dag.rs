@@ -593,6 +593,26 @@ impl ChangesetDag {
             .collect())
     }
 
+    /// Return all Delta IDs in the DAG authored by `author_did` (WASM build).
+    ///
+    /// This is the in-memory analogue of the native SQL query
+    /// `SELECT id FROM dag_nodes WHERE author_did = ?`.  The WASM
+    /// `RevocationSubsystem` uses its own per-author `authored_deltas` index
+    /// for the CCE trigger path (fed by `record_authored_delta`), but this
+    /// method is provided for parity and for any caller that needs to
+    /// query the DAG directly (Req 10.1 WASM parity).
+    pub fn nodes_by_author(
+        &self,
+        author_did: &Did,
+    ) -> Result<Vec<DeltaId>, TirBaseError> {
+        Ok(self
+            .nodes
+            .values()
+            .filter(|n| n.author_did == *author_did)
+            .map(|n| n.delta_id)
+            .collect())
+    }
+
     pub fn bfs_descendants(
         &self,
         root_id: &DeltaId,

@@ -1375,6 +1375,14 @@ mod tests {
 #[cfg(all(test, not(feature = "native")))]
 mod non_native_tests {
     use super::*;
+    use crate::identity::IdentityManager;
+
+    /// Make a Manager identity (DID + Ed25519 signing key) for WASM tests.
+    fn make_manager() -> (String, [u8; 32]) {
+        let mgr = IdentityManager::init_in_memory().unwrap();
+        let sk = mgr.signing_key_bytes();
+        (mgr.did().to_string(), sk)
+    }
 
     #[test]
     fn test_1_of_1_warning_pure() {
@@ -1386,5 +1394,115 @@ mod non_native_tests {
     fn test_no_warning_2_of_3_pure() {
         let warning = PendingRevocationStore::check_1_of_1_warning(2, 3);
         assert!(warning.is_none());
+    }
+
+    // ─── WASM CCE trigger parity test (Req 10.1, Subphase 6.3) ───────────────────
+
+    /// Validates the WASM revocation-taint path passes the ACTUAL authored Delta
+    /// IDs to `on_cce_trigger` — not an empty Vec (audit Section 4, finding 5).
+    ///
+    /// Flow:
+    /// 1. Device A authors a Delta (recorded via `record_authored_delta`, the
+    ///    WASM analogue of the native DAG `query_deltas_by_author`).
+    /// 2. Device B (a Manager) issues a 1-of-1 RevocationDelta targeting Device A.
+    /// 3. `process_incoming_delta` applies the revocation and invokes
+    ///    `on_cce_trigger` with Device A's authored Delta ID.
+    /// 4. The captured `delta_ids` must be non-empty and contain the recorded ID.
+    #[test]
+    fn test_wasm_cce_trigger_receives_authored_delta_ids() {
+        let device_a_did = "did:key:z6MkDeviceA".to_string();
+        let authored_delta_id: DeltaId = [0x42u8; 32];
+
+        let mut sys = RevocationSubsystem::new(1, 1);
+
+        // Simulate Device A authoring a Delta — the WASM write path calls
+        // `record_authored_delta` (api/mod.rs Subphase 6.3).
+        sys.record_authored_delta(device_a_did.clone(), authored_delta_id);
+
+        // Manager produces a 1-of-1 partial RevocationDelta targeting Device A.
+        let (mgr_did, mgr_sk) = make_manager();
+        let rev_delta = sys
+            .produce_partial_delta(device_a_did.clone(), mgr_did.clone(), &mgr_sk)
+            .expect("produce_partial_delta should succeed");
+
+        // Capture the delta IDs that the CCE trigger receives.
+        let mut captured_ids: Vec<DeltaId> = Vec::new();
+        let mut captured_did: Option<String> = None;
+
+        let status = sys
+            .process_incoming_delta(
+                &rev_delta,
+                &mut |_target, _d| {},
+                &mut |_did, ids| {
+                    captured_did = Some(_did.to_string());
+                    captured_ids = ids;
+                },
+            )
+            .expect("process_incoming_delta should succeed at 1-of-1");
+
+        assert_eq!(
+            status,
+            RevocationStatus::Applied,
+            "1-of-1 revocation should be Applied"
+        );
+
+        // The CCE trigger must have been called — not skipped with an empty list.
+        assert_eq!(
+            captured_did.as_deref(),
+            Some(device_a_did.as_str()),
+            "CCE trigger must target the revoked DID"
+        );
+
+        assert_eq!(
+            captured_ids.len(),
+            1,
+            "CCE trigger must receive exactly 1 authored Delta ID (not an empty Vec)"
+        );
+        assert_eq!(
+            captured_ids[0], authored_delta_id,
+            "CCE trigger must receive the actual authored Delta ID"
+        );
+
+        // Device A must be marked REVOKED.
+        let dev_st = sys
+            .device_status(&device_a_did)
+            .expect("Device A must have a device_status entry");
+        assert_eq!(
+            dev_st.last_known_trust_level,
+            crate::api::types::TrustLevel::Revoked
+        );
+    }
+
+    /// Regression test: after a `record_authored_delta` call, the authored Delta
+    /// ID is present in the revocation subsystem's authored set — i.e. the WASM
+    /// write path correctly populates the per-author index that feeds the CCE
+    /// trigger (Req 10.1 parity with the native DAG `query_deltas_by_author`).
+    #[test]
+    fn test_wasm_record_authored_delta_populates_authored_set() {
+        let device_did = "did:key:z6MkIndexedDevice".to_string();
+        let delta_id_a: DeltaId = [0x10u8; 32];
+        let delta_id_b: DeltaId = [0x20u8; 32];
+
+        let mut sys = RevocationSubsystem::new(1, 1);
+
+        // Simulate two WASM writes by Device A.
+        sys.record_authored_delta(device_did.clone(), delta_id_a);
+        sys.record_authored_delta(device_did.clone(), delta_id_b);
+
+        let authored = sys.authored_delta_ids(&device_did);
+        assert_eq!(
+            authored.len(),
+            2,
+            "authored_delta_ids must return both recorded IDs"
+        );
+        assert!(authored.contains(&delta_id_a));
+        assert!(authored.contains(&delta_id_b));
+
+        // A different device's authored set must be empty.
+        let other_authored = sys.authored_delta_ids(&"did:key:z6MkOtherDevice".to_string());
+        assert!(
+            other_authored.is_empty(),
+            "authored_delta_ids for an unknown DID must be empty"
+        );
     }
 }
