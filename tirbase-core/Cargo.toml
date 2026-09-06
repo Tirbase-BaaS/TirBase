@@ -37,6 +37,7 @@ native  = [
     "dep:zstd",
     "dep:libp2p",
     "dep:snow",
+    "dep:curve25519-dalek",
     "dep:biscuit-auth",
     "dep:rand",
     "dep:btleplug",
@@ -125,6 +126,9 @@ btleplug      = { version = "0.11", optional = true, features = ["serde"] }
 
 # Noise protocol session cryptography
 snow         = { version = "0.10.0", optional = true, features = ["default-resolver"] }
+
+# Curve25519 group ops (Ed25519→X25519 public-key conversion for Noise_IK key exchange)
+curve25519-dalek = { version = "5.0", optional = true }
 
 # Random number generation
 rand         = { version = "0.8.5", optional = true }

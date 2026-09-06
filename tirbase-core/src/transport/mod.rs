@@ -18,6 +18,7 @@ pub mod ble;
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Delta, Did, PriorityClass};
 use crate::errors::TirBaseError;
+use crate::identity::did::resolve_did;
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, PeerTransport, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
@@ -25,6 +26,8 @@ use crate::transport::{
     scheduler::{DrrScheduler, QueuedDelta},
     session::SessionManager,
 };
+#[cfg(feature = "native")]
+use crate::transport::session::{ed25519_privkey_to_x25519, ed25519_pubkey_to_x25519};
 
 fn current_timestamp_micros() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -358,11 +361,21 @@ impl MeshTransport {
     /// Initiate a Noise_IK session with a peer after a libp2p connection is
     /// established (Req 6.1).
     ///
-    /// When `remote_static_pubkey` is provided, performs a full Noise_IK
-    /// handshake via `SessionManager::initiate` (test / direct-connect path).
-    /// When `remote_static_pubkey` is empty, registers the already-established
-    /// session via `SessionManager::register_session` (production libp2p path,
-    /// where the transport has already completed the Noise exchange).
+    /// When `remote_static_pubkey` is non-empty (direct-connect path), performs
+    /// a full Noise_IK handshake via `SessionManager::initiate` with the
+    /// peer's static public key as-is (already in X25519 form).
+    ///
+    /// When `remote_static_pubkey` is empty (production libp2p path), attempts
+    /// to resolve the peer's static public key from their DID (`did:key:` →
+    /// Ed25519 → X25519 Montgomery conversion) and calls `SessionManager::initiate`
+    /// with the converted key.  The libp2p transport has already performed
+    /// its own Noise XX transport encryption; this application-layer Noise IK
+    /// handshake establishes the session credentials for the CRDT mesh layer.
+    ///
+    /// If the peer's DID cannot be resolved (e.g. a libp2p PeerId-based
+    /// pseudo-DID that is not a valid `did:key:`), falls back to
+    /// `SessionManager::register_session` so the `register_session` path is
+    /// preserved for backward compatibility.
     #[cfg(feature = "native")]
     pub fn initiate_session(
         &mut self,
@@ -372,20 +385,80 @@ impl MeshTransport {
         remote_static_pubkey: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
+        // Convert the Ed25519 private key seed to the X25519 scalar used by
+        // Noise_IK_25519.  `local_static_privkey` is always the Ed25519 signing
+        // seed (from `IdentityManager::signing_key_bytes()`); `snow`'s builder
+        // applies clamping internally via `mul_base_clamped`.
+        let x25519_local_privkey = ed25519_privkey_to_x25519(local_static_privkey)?;
+
         let session = if remote_static_pubkey.is_empty() {
-            self.session_manager
-                .register_session(peer_did.clone(), now_secs)
+            // Production libp2p path: resolve the peer's Ed25519 public key from
+            // their DID, convert to X25519 Montgomery form for Noise_IK_25519,
+            // and perform the full application-layer handshake (Req 6.1).
+            //
+            // If the DID cannot be resolved (e.g. the caller passed a libp2p
+            // PeerId-derived pseudo-DID), fall back to register_session — the
+            // libp2p transport has already completed its own Noise handshake
+            // and we only need rotation tracking + resumption cache sync.
+            match resolve_did(&peer_did) {
+                Ok(ed25519_pk) => {
+                    match ed25519_pubkey_to_x25519(&ed25519_pk) {
+                        Ok(x25519_pk) => self.session_manager.initiate(
+                            peer_did.clone(),
+                            peer_trust_level,
+                            &x25519_local_privkey,
+                            &x25519_pk,
+                            now_secs,
+                        )?,
+                        Err(e) => {
+                            eprintln!(
+                                "[transport] initiate_session: X25519 conversion \
+                                 failed for peer '{}' ({e}); falling back to register_session",
+                                peer_did
+                            );
+                            self.session_manager.register_session(peer_did.clone(), now_secs)
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[transport] initiate_session: DID '{}' not resolvable \
+                         for Noise IK handshake ({e}); falling back to register_session",
+                        peer_did
+                    );
+                    self.session_manager.register_session(peer_did.clone(), now_secs)
+                }
+            }
         } else {
             self.session_manager.initiate(
                 peer_did.clone(),
                 peer_trust_level,
-                local_static_privkey,
+                &x25519_local_privkey,
                 remote_static_pubkey,
                 now_secs,
             )?
         };
         self.active_sessions.insert(peer_did.clone(), session);
         Ok(())
+    }
+
+    /// Register an already-established Noise session (backward-compatible path).
+    ///
+    /// Use this when the application layer already holds a live
+    /// `snow::TransportState` (e.g. obtained via an out-of-band handshake)
+    /// and merely needs to register it in `active_sessions` so that rotation
+    /// tracking and the resumption cache stay in sync with connectivity.
+    /// For the full Noise IK handshake path, use [`MeshTransport::initiate_session`].
+    #[cfg(all(feature = "native", test))]
+    pub fn register_established_session(
+        &mut self,
+        peer_did: Did,
+        now_secs: i64,
+    ) {
+        let session = self
+            .session_manager
+            .register_session(peer_did.clone(), now_secs);
+        self.active_sessions.insert(peer_did, session);
     }
 
     /// Advance the peer-timeout clock: removes peers not seen within
@@ -540,6 +613,25 @@ impl MeshTransport {
     pub(crate) fn tick_saturate(&mut self, now_secs: i64) {
         self.saturate.tick(now_secs);
         self.reconcile_scheduler_saturate_mode();
+    }
+
+    /// Advance the Noise session key-rotation clock: for every active session
+    /// in `active_sessions`, if `rotation_due(now_secs)` is true, call
+    /// `SessionManager::rotate_keys` and update the session (Req 6.4).
+    ///
+    /// Best-effort per session: a rotation failure for one session is logged
+    /// and does not prevent rotation of the remaining sessions.
+    #[cfg(feature = "native")]
+    pub(crate) fn tick_key_rotation(&mut self, now_secs: i64) {
+        for (peer_did, session) in self.active_sessions.iter_mut() {
+            if session.rotation_due(now_secs) {
+                if let Err(e) = self.session_manager.rotate_keys(session, now_secs) {
+                    eprintln!(
+                        "[transport] key rotation failed for peer {peer_did}: {e}"
+                    );
+                }
+            }
+        }
     }
 
     // ── Scheduler interface ───────────────────────────────────────────────────

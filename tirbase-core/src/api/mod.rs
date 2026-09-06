@@ -864,22 +864,26 @@ impl CoreHandle {
                                                 now_micros(),
                                             );
 
-                                            // Req 6.1: register the established libp2p
-                                            // session in the application-layer session
-                                            // manager so rotation tracking and the
-                                            // resumption cache stay in sync with actual
-                                            // connectivity.  The libp2p transport has
-                                            // already performed the Noise handshake;
-                                            // we record the session without re-doing
-                                            // the exchange.
+                                            // Req 6.1: initiate a Noise_IK session
+                                            // with the peer now that the libp2p
+                                            // transport connection is established.
+                                            // `initiate_session` resolves the peer's
+                                            // static public key from their DID and
+                                            // performs the application-layer Noise IK
+                                            // handshake; if the DID cannot be resolved
+                                            // it falls back to register_session.
                                             let local_key = t.local_static_privkey;
-                                            let _ = t.initiate_session(
+                                            if let Err(e) = t.initiate_session(
                                                 did,
                                                 crate::api::types::TrustLevel::Verified,
                                                 &local_key,
                                                 &[],
                                                 now_secs(),
-                                            );
+                                            ) {
+                                                eprintln!(
+                                                    "[transport-loop] initiate_session failed: {e}"
+                                                );
+                                            }
                                         }
                                     }
                                     SwarmEvent::Behaviour(
@@ -3701,18 +3705,26 @@ impl CoreHandle {
                                 }
                             }
 
-                            // Subphase 3.3: advance the Saturate_Mode state
-                        // machine's clock every epoch.  A lease that expired
-                        // without renewal demotes the state machine — and the
-                        // transport reconciles the DRR scheduler mirror — even
-                        // when no Manager event ever arrives again.  This runs
-                        // BEFORE the DRR epoch so a just-expired lease cannot
-                        // keep scheduling everything at HIGH priority for even
-                        // one extra epoch.
-                        transport.tick_saturate(now_secs());
-                        match transport
-                            .tick_scheduler(crate::transport::DEFAULT_LINK_CAPACITY_BYTES)
-                        {
+                         // Subphase 3.3: advance the Saturate_Mode state
+                         // machine's clock every epoch.  A lease that expired
+                         // without renewal demotes the state machine — and the
+                         // transport reconciles the DRR scheduler mirror — even
+                         // when no Manager event ever arrives again.  This runs
+                         // BEFORE the DRR epoch so a just-expired lease cannot
+                         // keep scheduling everything at HIGH priority for even
+                         // one extra epoch.
+                         transport.tick_saturate(now_secs());
+
+                         // Req 6.4: rotate Noise_IK session keys whose interval
+                         // has elapsed.  Iterates `active_sessions` and calls
+                         // `SessionManager::rotate_keys` for each due session;
+                         // failures are logged per-session without aborting the
+                         // epoch.
+                         transport.tick_key_rotation(now_secs());
+
+                         match transport
+                             .tick_scheduler(crate::transport::DEFAULT_LINK_CAPACITY_BYTES)
+                         {
                             Ok(0) => {}
                             Ok(n) => {
                                 eprintln!(

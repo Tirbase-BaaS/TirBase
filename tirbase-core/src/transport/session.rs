@@ -14,6 +14,78 @@ use crate::errors::TirBaseError;
 use lru::LruCache;
 use std::num::NonZeroUsize;
 
+/// Convert an Ed25519 public key (as resolved from a `did:key:` DID) to the
+/// X25519 (Montgomery) public key form expected by `Noise_IK_25519` in `snow`.
+///
+/// Noise_IK_25519 uses X25519 keys for Diffie-Hellman; TirBase DIDs encode
+/// Ed25519 keys.  The Ed25519 signing seed (returned by
+/// `SigningKey::to_bytes()` / `IdentityManager::signing_key_bytes()`) is NOT
+/// the raw X25519 scalar — it must be expanded via SHA-512 and the lower 32
+/// bytes taken as the scalar (see [`ed25519_privkey_to_x25519`]).  The
+/// **public** key, however, is stored in Edwards (compressed-y) form and must
+/// be converted to Montgomery u-coordinate form for `remote_public_key`.
+///
+/// This conversion is performed via `ed25519_dalek::VerifyingKey::to_montgomery`
+/// (backed by `curve25519-dalek`), which is the standard birkhoff-to-montgomery
+/// map used across the Noise ecosystem.
+#[cfg(feature = "native")]
+pub(crate) fn ed25519_pubkey_to_x25519(ed25519_pubkey: &[u8]) -> Result<Vec<u8>, TirBaseError> {
+    use ed25519_dalek::VerifyingKey;
+
+    if ed25519_pubkey.len() != 32 {
+        return Err(TirBaseError::DidResolutionFailed {
+            did: String::new(),
+            reason: format!(
+                "expected 32-byte Ed25519 public key for X25519 conversion, got {} bytes",
+                ed25519_pubkey.len()
+            ),
+        });
+    }
+
+    let mut key_bytes = [0u8; 32];
+    key_bytes.copy_from_slice(ed25519_pubkey);
+
+    let verifying_key = VerifyingKey::from_bytes(&key_bytes).map_err(|e| {
+        TirBaseError::DidResolutionFailed {
+            did: String::new(),
+            reason: format!("Ed25519 public key parse error during X25519 conversion: {e}"),
+        }
+    })?;
+
+    let montgomery = verifying_key.to_montgomery();
+    Ok(montgomery.to_bytes().to_vec())
+}
+
+/// Convert an Ed25519 private key seed (32 bytes, as stored in
+/// `MeshTransport::local_static_privkey`) to the X25519 private key scalar
+/// (32 bytes) expected by `snow::Builder::local_private_key` for
+/// `Noise_IK_25519`.
+///
+/// The Ed25519 seed is expanded via SHA-512 and the lower 32 bytes are taken
+/// as the X25519 scalar — this is the same derivation the Ed25519 signing
+/// algorithm performs internally.  `snow`'s default resolver applies clamping
+/// via `mul_base_clamped` / `mul_clamped`, so the raw (unclamped) scalar bytes
+/// are passed through.
+#[cfg(feature = "native")]
+pub(crate) fn ed25519_privkey_to_x25519(ed25519_privkey: &[u8]) -> Result<Vec<u8>, TirBaseError> {
+    use ed25519_dalek::SigningKey;
+
+    if ed25519_privkey.len() != 32 {
+        return Err(TirBaseError::NoiseHandshakeFailed {
+            peer_did: String::new(),
+            reason: format!(
+                "expected 32-byte Ed25519 private key seed for X25519 conversion, got {} bytes",
+                ed25519_privkey.len()
+            ),
+        });
+    }
+
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(ed25519_privkey);
+    let signing_key = SigningKey::from_bytes(&seed);
+    Ok(signing_key.to_scalar_bytes().to_vec())
+}
+
 /// Maximum number of 0-RTT resumption credentials cached (Req 6.2).
 pub const MAX_RESUMPTION_CACHE: usize = 1024;
 
@@ -277,7 +349,7 @@ impl SessionManager {
     ///
     /// On any failure: records the backoff (Req 6.6) and returns an error.
     #[cfg(feature = "native")]
-    pub(crate) fn full_ik_handshake(
+    pub fn full_ik_handshake(
         &mut self,
         peer_did: Did,
         local_static_privkey: &[u8],
@@ -661,5 +733,187 @@ mod tests {
         // stateless test like this (both rekeyed independently). The important
         // invariant tested here is that rekey_outgoing/incoming don't panic.
         assert!(n > 0, "encrypted message length must be positive");
+    }
+
+    /// Integration test: two devices establish an IK session via DID resolution,
+    /// rotate keys, and verify state (Req 6.1, 6.4 — production wiring).
+    ///
+    /// Validates the production wiring path end-to-end:
+    /// 1. Two Ed25519 keypairs are generated and DIDs derived.
+    /// 2. The responder's DID is resolved back to its Ed25519 public key,
+    ///    confirming the DID round-trip (resolve_did ↔ derive_did).
+    /// 3. The Ed25519 public key is converted to X25519 Montgomery form and
+    ///    the Ed25519 private key seed is converted to the X25519 scalar.
+    /// 4. `SessionManager::full_ik_handshake` completes the full Noise_IK
+    ///    exchange (message 1 → message 2 → transport mode) with a live
+    ///    `snow::TransportState` stored in the returned `NoiseSession`.
+    /// 5. `rotate_keys` rekeys both CipherStates in-place; the transport
+    ///    remains functional.
+    /// 6. `tick_key_rotation` on a `MeshTransport` drives rotation for
+    ///    sessions whose interval has elapsed.
+    #[cfg(feature = "native")]
+    #[test]
+    fn two_devices_ik_session_establishment_rotate_and_verify() {
+        use crate::identity::did::{derive_did, resolve_did};
+        use ed25519_dalek::SigningKey;
+
+        // ── Device A (initiator) ──────────────────────────────────────────────
+        let init_sk = SigningKey::from_bytes(&[0xAB; 32]);
+        let init_pk = init_sk.verifying_key().to_bytes();
+        let init_did = derive_did(&init_pk);
+
+        // ── Device B (responder) ───────────────────────────────────────────────
+        let resp_sk = SigningKey::from_bytes(&[0xCD; 32]);
+        let resp_pk = resp_sk.verifying_key().to_bytes();
+        let resp_did = derive_did(&resp_pk);
+
+        // Verify DID round-trip: resolving the DID must give back the same
+        // Ed25519 public key we derived from.
+        let resolved = resolve_did(&resp_did).expect("resolve_did must succeed for derived DID");
+        assert_eq!(
+            resolved, resp_pk,
+            "resolved DID public key must match the original"
+        );
+
+        // Convert the responder's Ed25519 public key to X25519 for Noise_IK.
+        let x25519_resp_pk = ed25519_pubkey_to_x25519(&resolved)
+            .expect("Ed25519→X25519 pubkey conversion must succeed for a valid DID");
+
+        // Convert the Ed25519 private key seeds to X25519 scalars for `snow`.
+        let x25519_init_privkey = ed25519_privkey_to_x25519(&init_sk.to_bytes())
+            .expect("initiator Ed25519→X25519 privkey conversion must succeed");
+        let x25519_resp_privkey = ed25519_privkey_to_x25519(&resp_sk.to_bytes())
+            .expect("responder Ed25519→X25519 privkey conversion must succeed");
+
+        // ── Establish IK session via full_ik_handshake ────────────────────────
+        // This mirrors what SessionManager::initiate calls internally, but
+        // supplies the responder's private key so the handshake completes
+        // in-process (test path).  In production, the responder's private key
+        // is not available locally; the handshake messages are exchanged over
+        // the libp2p transport stream.
+        let mut sm = SessionManager::new(init_did.clone(), 300);
+        let mut session = sm
+            .full_ik_handshake(
+                resp_did.clone(),
+                &x25519_init_privkey,
+                &x25519_resp_pk,
+                Some(&x25519_resp_privkey), // in-process responder (test path)
+                1_000,
+            )
+            .expect("full IK handshake must succeed with resolved DID key");
+
+        // Session carries live transport state.
+        assert_eq!(session.remote_did, resp_did);
+        assert!(
+            session.transport.is_some(),
+            "session must have live snow::TransportState"
+        );
+        assert!(!session.rotation_due(1_299));
+        assert!(session.rotation_due(1_300));
+
+        // Credential cached for 0-RTT resumption.
+        assert!(sm.has_valid_credential(&resp_did, 1_000));
+
+        // ── Key rotation (Req 6.4) ──────────────────────────────────────────────
+        sm.rotate_keys(&mut session, 1_300)
+            .expect("rotate_keys must succeed after rotation interval");
+        assert_eq!(session.last_rotated_secs, 1_300);
+
+        // Transport still functional after rekey.
+        let mut cipher = vec![0u8; 65535];
+        let n = session
+            .transport
+            .as_mut()
+            .expect("session must still have transport state after rotation")
+            .write_message(b"post-rotation ping", &mut cipher)
+            .expect("write after rekey must succeed");
+        assert!(n > 0, "encrypted message length must be positive after rotation");
+
+        // ── tick_key_rotation via MeshTransport ────────────────────────────────
+        // Build a real MeshTransport with a short rotation interval, perform a
+        // full IK handshake through it, and verify tick_key_rotation drives
+        // rotation when the interval elapses.
+        let mut transport = crate::transport::MeshTransport::new(
+            init_did.clone(),
+            init_sk.to_bytes(), // Ed25519 seed — stored as-is; conversions happen in initiate_session
+            crate::transport::TransportConfig {
+                peer_timeout_secs: 30,
+                retry_interval_secs: 10,
+                max_retry_queue: 5,
+                max_hop_count: 3,
+                mtu: 0,
+                key_rotation_interval_secs: 60, // short interval for testing
+                listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+                saturate_termination_threshold_m: 1,
+                root_ca_public_key: vec![],
+                saturate_lease_duration_secs: 3_600,
+                mesh_ble_enabled: false,
+            },
+        );
+
+        // Perform a full IK handshake through the transport's SessionManager,
+        // producing a session with live snow::TransportState at time 1_000.
+        let session = transport.session_manager.full_ik_handshake(
+            resp_did.clone(),
+            &x25519_init_privkey,
+            &x25519_resp_pk,
+            Some(&x25519_resp_privkey),
+            1_000,
+        ).expect("full IK handshake through transport SessionManager must succeed");
+
+        // The session's rotation_interval_secs comes from the transport's
+        // SessionManager (60s, clamped from key_rotation_interval_secs=60).
+        assert_eq!(
+            session.rotation_interval_secs, 60,
+            "session rotation interval must match the transport config (60s)"
+        );
+
+        transport.active_sessions.insert(resp_did.clone(), session);
+
+        // Before the rotation interval (60s): tick should be a no-op.
+        transport.tick_key_rotation(1_050);
+        let before = transport.active_sessions.get(&resp_did).unwrap();
+        assert_eq!(
+            before.last_rotated_secs, 1_000,
+            "rotation must not occur before the interval elapses"
+        );
+
+        // After the rotation interval (60s): tick should rotate.
+        transport.tick_key_rotation(1_060);
+        let after = transport.active_sessions.get(&resp_did).unwrap();
+        assert!(
+            after.last_rotated_secs >= 1_060,
+            "tick_key_rotation must have updated last_rotated_secs (got {})",
+            after.last_rotated_secs
+        );
+
+        // ── initiate_session fallback (non-resolvable DID → register_session) ─
+        // A libp2p PeerId-derived pseudo-DID is not a valid did:key:, so
+        // resolution fails and the fallback to register_session must run.
+        transport
+            .initiate_session(
+                "did:key:12D3KooWFakePeerId".to_string(),
+                crate::api::types::TrustLevel::Verified,
+                &init_sk.to_bytes(),
+                &[], // empty → triggers DID resolution path
+                1_000,
+            )
+            .expect("initiate_session fallback to register_session must succeed");
+
+        // The pseudo-peer session is registered (transport: None) so rotate_keys
+        // skips it gracefully during tick_key_rotation.
+        let fake_did = "did:key:12D3KooWFakePeerId".to_string();
+        assert!(
+            transport.active_sessions.contains_key(&fake_did),
+            "register_session fallback must store the session"
+        );
+        let fake_session = transport.active_sessions.get(&fake_did).unwrap();
+        assert!(
+            fake_session.transport.is_none(),
+            "register_session path must produce a session without transport state"
+        );
+
+        // tick_key_rotation must not panic on sessions with transport: None.
+        transport.tick_key_rotation(1_120);
     }
 }
