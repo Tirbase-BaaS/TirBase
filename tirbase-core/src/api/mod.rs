@@ -414,6 +414,20 @@ impl CoreHandle {
         }
         let capability = Arc::new(Mutex::new(capability));
 
+        // ── Initial schema hash (Req 17.1, 20.5) ───────────────────────────────
+        //
+        // When the deployment provides registered schema definitions, the device's
+        // initial schema hash is computed from the first (oldest) definition —
+        // not from the zero sentinel DEFAULT_SCHEMA_HASH. This ensures locally
+        // produced Deltas carry a real schema hash (Req 4.6) from the first
+        // write, instead of DEFAULT_SCHEMA_HASH.
+        let initial_schema_hash = config
+            .deployment
+            .schema_definitions
+            .first()
+            .map(|s| s.identifier_hash())
+            .unwrap_or(DEFAULT_SCHEMA_HASH);
+
         // ── Native subsystems (require rusqlite) ──────────────────────────────
         #[cfg(feature = "native")]
         let (store, crdt, cce) = {
@@ -440,7 +454,7 @@ impl CoreHandle {
                 identity.signing_key_bytes(),
                 identity.public_key_bytes(),
                 identity.did().to_string(),
-                DEFAULT_SCHEMA_HASH,
+                initial_schema_hash,
                 conn.clone(),
             );
             let crdt = Arc::new(Mutex::new(crdt));
@@ -464,12 +478,12 @@ impl CoreHandle {
 
         // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
         #[cfg(not(feature = "native"))]
-        let crdt = {
+         let crdt = {
             let crdt = CrdtEngine::new(
                 identity.signing_key_bytes(),
                 identity.public_key_bytes(),
                 identity.did().to_string(),
-                DEFAULT_SCHEMA_HASH,
+                initial_schema_hash,
             );
             Arc::new(Mutex::new(crdt))
         };
@@ -513,13 +527,21 @@ impl CoreHandle {
             .unwrap_or([0u8; 32]);
         let migration_version_path =
             SchemaVersionPath::new(config.deployment.schema_version_path.clone());
-        // The device starts on the oldest registered schema version; without a
-        // configured path it stays on the default (no-schema) hash.
-        let migration_local_schema_hash = migration_version_path
-            .versions
-            .first()
-            .copied()
-            .unwrap_or(DEFAULT_SCHEMA_HASH);
+        // The device starts on the oldest registered schema version. When schema
+        // definitions are provided, the initial hash is computed from the first
+        // definition (above as `initial_schema_hash`) — authoritative and
+        // self-consistent.  When only a version path is configured (no
+        // definitions), the first path entry is used.  With neither, the device
+        // stays on the default zero hash.
+        let migration_local_schema_hash = if !config.deployment.schema_definitions.is_empty() {
+            initial_schema_hash
+        } else {
+            migration_version_path
+                .versions
+                .first()
+                .copied()
+                .unwrap_or(DEFAULT_SCHEMA_HASH)
+        };
 
         // ── CRDT schema-definition registry (Subphase 5.3) ────────────────────
         //
@@ -709,18 +731,18 @@ impl CoreHandle {
         // to the Durability Subsystem's cloud outbound queue via the
         // `CloudConnection` adapter (`CloudLedgerConnection`).  The ledger runs
         // the same `CrdtEngine` semantics as every device (Req 16.1) and is
-        // constructed with this process's own identity + the default schema
-        // hash, so locally-written Deltas (produced by the same identity and
-        // schema in `write()`) verify and merge.  The production cloud sync
-        // loop spawned below drains the queue into it in causal order (Req
-        // 16.3); Subphase 4.2 wires each ack into
-        // `DurabilitySubsystem::on_cloud_ack`, which marks the Delta Tier-2
+        // constructed with this process's own identity + the initial schema
+        // hash (computed from schema_definitions if provided), so locally-written
+        // Deltas (produced by the same identity and schema in `write()`) verify
+        // and merge.  The production cloud sync loop spawned below drains the
+        // queue into it in causal order (Req 16.3); Subphase 4.2 wires each ack
+        // into `DurabilitySubsystem::on_cloud_ack`, which marks the Delta Tier-2
         // durable and notifies the handle's durability event channel.
         #[cfg(feature = "native")]
         let cloud_ledger = Arc::new(Mutex::new(CloudLedger::new_in_memory(
             identity.signing_key_bytes(),
             identity.did().to_string(),
-            DEFAULT_SCHEMA_HASH,
+            initial_schema_hash,
         )?));
 
         // ── Mesh Transport ────────────────────────────────────────────────────

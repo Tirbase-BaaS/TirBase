@@ -1387,6 +1387,14 @@ try {
       output.success = false;
       output.error = String(e);
     }
+  } else if (op === 'schema-full-roundtrip') {
+    const schemaSrc = args.schemaSrc;
+    const parsed = mod.core_schema_parse(schemaSrc);
+    const hash1 = mod.core_schema_identifier_hash(schemaSrc);
+    const printed = mod.core_schema_print(schemaSrc);
+    const hash2 = mod.core_schema_identifier_hash(printed);
+    const reparsed = mod.core_schema_parse(printed);
+    output.results = { hash1, hash2, parsed, printed, reparsed, hashesMatch: hash1 === hash2 };
   }
 } catch (e) {
   output.success = false;
@@ -1494,5 +1502,40 @@ schema {
       expect(typeof result.results.printed).toBe('string');
       expect((result.results.printed as string)).toContain('schema {');
     });
+  });
+});
+
+describe('Schema round-trip determinism', () => {
+  test('parse -> hash -> print -> re-parse -> hash matches', async () => {
+    const schemaSrc = `
+schema {
+  version = "1.0.0"
+  table users {
+    compaction = aggressive(500)
+    id      TEXT    NOT NULL
+    name    TEXT    NOT NULL
+    age     INTEGER
+    active  BOOLEAN DEFAULT true
+    score   REAL    DEFAULT 0.0
+    PRIMARY KEY (id)
+    UNIQUE (name)
+  }
+  table audit_log {
+    compaction = none
+    entry BLOB NOT NULL
+  }
+}`;
+
+    const result = runWasmRunner('schema-full-roundtrip', { schemaSrc });
+    expect(result.success).toBe(true);
+    expect(result.error).toBeNull();
+    expect(result.results.hashesMatch).toBe(true);
+    expect(typeof result.results.hash1).toBe('string');
+    expect(typeof result.results.hash2).toBe('string');
+    expect(result.results.hash1).toBe(result.results.hash2);
+    expect((result.results.hash1 as string).length).toBe(64);
+    expect(typeof result.results.printed).toBe('string');
+    expect((result.results.printed as string)).toContain('schema {');
+    expect(result.results.reparsed).toBeDefined();
   });
 });
