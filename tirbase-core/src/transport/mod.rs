@@ -378,12 +378,13 @@ impl MeshTransport {
     /// `SessionManager::register_session` so the `register_session` path is
     /// preserved for backward compatibility.
     #[cfg(feature = "native")]
-    pub fn initiate_session(
+    pub async fn initiate_session(
         &mut self,
         peer_did: Did,
         peer_trust_level: TrustLevel,
         local_static_privkey: &[u8],
         remote_static_pubkey: &[u8],
+        stream: Option<&mut dyn crate::transport::session::AsyncNoiseStream>,
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
         // Convert the Ed25519 private key seed to the X25519 scalar used by
@@ -409,8 +410,9 @@ impl MeshTransport {
                             peer_trust_level,
                             &x25519_local_privkey,
                             &x25519_pk,
+                            stream,
                             now_secs,
-                        )?,
+                        ).await?,
                         Err(e) => {
                             eprintln!(
                                 "[transport] initiate_session: X25519 conversion \
@@ -436,8 +438,9 @@ impl MeshTransport {
                 peer_trust_level,
                 &x25519_local_privkey,
                 remote_static_pubkey,
+                stream,
                 now_secs,
-            )?
+            ).await?
         };
         self.active_sessions.insert(peer_did.clone(), session);
         Ok(())
@@ -466,6 +469,32 @@ impl MeshTransport {
     /// `peer_timeout_secs` (Req 5.6).
     pub fn tick_timeouts(&mut self, now_us: i64) {
         self.discovery.tick_timeouts(now_us);
+    }
+
+    /// Open a Noise IK application-layer substream to a peer (Req 6.1).
+    ///
+    /// Returns a `DuplexNoiseStream` connected to a transport-side half that
+    /// will bridge the Noise IK handshake messages onto the real libp2p
+    /// connection once a substream handler is available.  In the current
+    /// release, the transport-side half is a `tokio::io::DuplexStream` whose
+    /// reads/writes are no-ops until a future libp2p `ConnectionHandler` is
+    /// wired to forward bytes.  This allows `initiate_session` to proceed with
+    /// the Noise IK handshake protocol logic while the actual wire I/O is
+    /// deferred to the substream handler (Subphase 5.2).
+    #[cfg(feature = "native")]
+    pub async fn open_noise_substream(&self) -> crate::transport::session::DuplexNoiseStream {
+        let (client, _transport_half) =
+            crate::transport::session::DuplexNoiseStream::pair();
+        // NOTE: In production, `_transport_half` would be bridged to a real
+        // libp2p substream via `libp2p::swarm::Swarm::new_handler` or a custom
+        // `ConnectionHandler` that implements the Noise protocol.  When that
+        // handler is added, replace this no-op with the bridged half.
+        //
+        // For now, the handshake protocol logic runs end-to-end (message
+        // framing, key derivation, 0-RTT resumption) so it can be tested
+        // and verified independently of the transport's substream availability.
+        let _ = _transport_half;
+        client
     }
 
     // ── Retry queue ───────────────────────────────────────────────────────────

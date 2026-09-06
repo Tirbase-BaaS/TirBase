@@ -670,6 +670,52 @@ describe('manager operations', () => {
     expect(spy).toHaveBeenCalledWith('uuid-123', 'tok', 1);
   });
 
+  test('verifyData rejects expired manager token (Req 11.5)', async () => {
+    const mock = installMock();
+    const EXPIRED_TOKEN_ERROR = new Error(
+      'manager token verification failed: token expired'
+    );
+    mock.verifyDataImpl = jest.fn().mockRejectedValue(EXPIRED_TOKEN_ERROR);
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    await expect(
+      db.verifyData({
+        contaminationRootDeltaId: 'abc',
+        managerToken: 'expired-token-hex',
+        nowSecs: 999_999,
+      }),
+    ).rejects.toThrow(EXPIRED_TOKEN_ERROR.message);
+
+    expect(mock.verifyDataImpl).toHaveBeenCalledWith(
+      'abc',
+      'expired-token-hex',
+      999_999,
+    );
+  });
+
+  test('adminClose rejects expired manager token (Req 11.5)', async () => {
+    const mock = installMock();
+    const EXPIRED_TOKEN_ERROR = new Error(
+      'manager token verification failed: token expired'
+    );
+    mock.adminCloseImpl = jest.fn().mockRejectedValue(EXPIRED_TOKEN_ERROR);
+
+    const db = await TirBase.init(DEFAULT_CONFIG);
+    await expect(
+      db.adminClose({
+        incidentId: 'uuid-123',
+        managerToken: 'expired-token-hex',
+        nowSecs: 999_999,
+      }),
+    ).rejects.toThrow(EXPIRED_TOKEN_ERROR.message);
+
+    expect(mock.adminCloseImpl).toHaveBeenCalledWith(
+      'uuid-123',
+      'expired-token-hex',
+      999_999,
+    );
+  });
+
   test('activateSaturateMode delegates to WASM', async () => {
     const mock = installMock();
     const spy = jest.fn().mockResolvedValue(undefined);

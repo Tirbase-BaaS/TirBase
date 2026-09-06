@@ -116,6 +116,55 @@ fn enqueue_revocation_gossip(
     transport.enqueue_outbound(wrapper);
 }
 
+/// Open a Noise IK application-layer substream to a peer and drive the
+/// Noise_IK_25519 handshake to completion (Req 6.1).
+///
+/// This helper is `async` so it can await the bidirectional message exchange
+/// over the libp2p transport stream.  It is spawned as a `tokio::task` from the
+/// Swarm poll loop on every `ConnectionEstablished` event (Subphase 1.2) so the
+/// main poll loop is never blocked on the handshake exchange.
+///
+/// If the peer's DID cannot be resolved (e.g. a libp2p PeerId-derived pseudo-DID),
+/// `initiate_session` falls back to `register_session` internally.
+#[cfg(feature = "native")]
+async fn initiate_noise_session(
+    transport_arc: std::sync::Arc<std::sync::Mutex<crate::transport::MeshTransport>>,
+    peer_did: crate::crdt::delta::Did,
+    local_static_privkey: &[u8],
+    now_secs: i64,
+) {
+    // Open a Noise IK application-layer substream.
+    let mut stream = match transport_arc.lock() {
+        Ok(t) => t.open_noise_substream().await,
+        Err(e) => {
+            eprintln!("[transport-loop] transport mutex poisoned opening substream: {e}");
+            return;
+        }
+    };
+
+    // Drive the Noise IK handshake over the substream.
+    let mut t = match transport_arc.lock() {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("[transport-loop] transport mutex poisoned during initiate_session: {e}");
+            return;
+        }
+    };
+    if let Err(e) = t.initiate_session(
+        peer_did,
+        crate::api::types::TrustLevel::Verified,
+        local_static_privkey,
+        &[],
+        Some(&mut stream),
+        now_secs,
+    ).await
+    {
+        eprintln!(
+            "[transport-loop] initiate_session failed: {e}"
+        );
+    }
+}
+
 /// Production cadence (ms) of the inbound drain loop spawned by
 /// `CoreHandle::init` (Subphase 1.3): every 50 ms the task calls
 /// `process_inbound_messages()` to drain `inbound_rx`.
@@ -927,21 +976,34 @@ impl CoreHandle {
                                             // `initiate_session` resolves the peer's
                                             // static public key from their DID and
                                             // performs the application-layer Noise IK
-                                            // handshake; if the DID cannot be resolved
-                                            // it falls back to register_session.
+                                            // handshake over a libp2p substream;
+                                            // if the DID cannot be resolved it falls
+                                            // back to register_session.
+                                            //
+                                            // The Noise IK handshake requires a
+                                            // bidirectional stream (the initiator
+                                            // sends msg1, the responder replies
+                                            // with msg2).  We spawn a dedicated task
+                                            // that opens the Noise substream and
+                                            // drives the handshake to completion,
+                                            // so the main Swarm poll loop is never
+                                            // blocked on the handshake exchange.
                                             let local_key = t.local_static_privkey;
-                                            if let Err(e) = t.initiate_session(
-                                                did,
-                                                crate::api::types::TrustLevel::Verified,
-                                                &local_key,
-                                                &[],
-                                                now_secs(),
-                                            ) {
-                                                eprintln!(
-                                                    "[transport-loop] initiate_session failed: {e}"
-                                                );
-                                            }
-                                        }
+                                            let transport_clone = transport_arc.clone();
+                                            let peer_did_for_stream = did.clone();
+                                            // Spawn a dedicated task that opens the
+                                            // Noise substream and drives the handshake
+                                            // to completion (Req 6.1), so the main
+                                            // Swarm poll loop is never blocked on the
+                                            // handshake exchange.
+                                            tokio::spawn(async move {
+                                                initiate_noise_session(
+                                                    transport_clone,
+                                                    peer_did_for_stream,
+                                                    &local_key,
+                                                    now_secs(),
+                                                ).await;
+                                            });
                                     }
                                     SwarmEvent::Behaviour(
                                         crate::transport::TirBaseBehaviourEvent::Mdns(

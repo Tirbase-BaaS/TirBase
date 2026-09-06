@@ -101,6 +101,74 @@ pub const MIN_RETRY_BACKOFF_SECS: i64 = 30;
 /// 24-hour credential validity in seconds (Req 6.2).
 pub const CREDENTIAL_VALIDITY_SECS: i64 = 24 * 3_600;
 
+// ─── AsyncNoiseStream trait ─────────────────────────────────────────────────────
+
+/// Bidirectional async byte stream for the production Noise IK handshake path.
+///
+/// In production the Noise_IK_25519 handshake messages are exchanged over a real
+/// libp2p connection (substream) or any equivalent async I/O transport.  This
+/// trait abstracts the send/receive half of that exchange so the handshake logic
+/// in `full_ik_handshake` is transport-agnostic.  On WASM builds the trait and
+/// its implementations are not needed (the WASM path uses `register_session`).
+///
+/// The trait is `pub` so that a libp2p `Stream` wrapper (e.g. wrapping a
+/// `libp2p::swim::Stream` or a raw `tokio::io::DuplexStream`) can implement it
+/// in the transport layer.
+#[cfg(feature = "native")]
+pub trait AsyncNoiseStream: Send + Unpin {
+    /// Write a handshake or transport message and flush.
+    async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()>;
+
+    /// Read a handshake or transport message.  The caller provides a buffer;
+    /// this method reads exactly `buf.len()` bytes or returns an error.
+    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<()>;
+}
+
+/// Adapter that wraps a `tokio::io::DuplexStream` half as an
+/// `AsyncNoiseStream`.  Used in tests and by the production call site to
+/// bridge the Noise IK handshake onto whatever transport actually carries
+/// the bytes (a libp2p `Stream` handler, a relay, or a direct TCP connection).
+#[cfg(feature = "native")]
+pub struct DuplexNoiseStream {
+    rx: tokio::io::ReadHalf<tokio::io::DuplexStream>,
+    tx: tokio::io::WriteHalf<tokio::io::DuplexStream>,
+}
+
+#[cfg(feature = "native")]
+impl DuplexNoiseStream {
+    /// Create a paired `(DuplexNoiseStream, DuplexNoiseStream)` connected
+    /// by an in-memory duplex channel.  Each end can read what the other writes.
+    pub fn pair() -> (Self, Self) {
+        let (a, b) = tokio::io::duplex(65536);
+        let (a_rx, a_tx) = tokio::io::split(a);
+        let (b_rx, b_tx) = tokio::io::split(b);
+        (
+            DuplexNoiseStream { rx: a_rx, tx: a_tx },
+            DuplexNoiseStream { rx: b_rx, tx: b_tx },
+        )
+    }
+
+    /// Wrap an existing `tokio::io::DuplexStream` into an `AsyncNoiseStream`.
+    pub fn from_duplex(duplex: tokio::io::DuplexStream) -> Self {
+        let (rx, tx) = tokio::io::split(duplex);
+        DuplexNoiseStream { rx, tx }
+    }
+}
+
+#[cfg(feature = "native")]
+impl AsyncNoiseStream for DuplexNoiseStream {
+    async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()> {
+        use tokio::io::AsyncWriteExt as _;
+        self.tx.write_all(msg).await?;
+        self.tx.flush().await
+    }
+
+    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
+        use tokio::io::AsyncReadExt as _;
+        self.rx.read_exact(buf).await.map(|_| ())
+    }
+}
+
 // ─── ResumptionCredential ─────────────────────────────────────────────────────
 
 /// A resumption credential cached for 0-RTT session setup (Req 6.2–6.3).
@@ -293,14 +361,20 @@ impl SessionManager {
     /// 1. Reject REVOKED peers immediately (Req 6.7).
     /// 2. Reject if still in handshake-failure backoff (Req 6.6).
     /// 3. Evict expired credential if present (Req 6.2–6.3).
-    /// 4. Perform full Noise_IK handshake (production: single-side initiator build).
+    /// 4. Perform full Noise_IK handshake (production: messages exchanged
+    ///    over the supplied `stream`; test: in-process responder).
+    ///
+    /// `stream` is required in production — it must wrap a real libp2p
+    /// substream opened on the established connection.  Pass `None` only
+    /// when also passing `responder_privkey_for_test` (unit-test path).
     #[cfg(feature = "native")]
-    pub fn initiate(
+    pub async fn initiate(
         &mut self,
         peer_did: Did,
         peer_trust_level: TrustLevel,
         local_static_privkey: &[u8],
         remote_static_pubkey: &[u8],
+        stream: Option<&mut dyn AsyncNoiseStream>,
         now_secs: i64,
     ) -> Result<NoiseSession, TirBaseError> {
         // Step 1 — REVOKED check (Req 6.7)
@@ -329,32 +403,45 @@ impl SessionManager {
             }
         }
 
-        // Step 4 — full IK handshake (production path: no in-process responder)
+        // Step 4 — full IK handshake (production: messages exchanged over `stream`;
+        // test: in-process responder when responder_privkey_for_test is Some).
         self.full_ik_handshake(
             peer_did,
             local_static_privkey,
             remote_static_pubkey,
             None,
+            stream,
             now_secs,
         )
+        .await
     }
 
     /// Perform a full Noise_IK_25519_AESGCM_SHA256 handshake.
     ///
-    /// `responder_privkey_for_test`: if `Some`, builds a matching responder
-    /// in-process so the handshake completes locally (unit tests only).  In
-    /// production this is `None` and the handshake messages are exchanged
-    /// over the libp2p transport stream; the `TransportState` is obtained
-    /// after the wire exchange completes.
+    /// # Parameters
+    ///
+    /// - `peer_did` — the remote peer's DID.
+    /// - `local_static_privkey` — the local X25519 private key scalar.
+    /// - `remote_static_pubkey` — the remote X25519 public key.
+    /// - `responder_privkey_for_test`: if `Some`, builds a matching responder
+    ///   in-process so the handshake completes locally (unit tests only).  In
+    ///   production this is `None`.
+    /// - `stream`: optional bidirectional async byte stream for the wire
+    ///   exchange.  **Required** in production (`responder_privkey_for_test ==
+    ///   None`); if absent the production path will error with
+    ///   `NoiseHandshakeFailed`.  When `responder_privkey_for_test` is `Some`
+    ///   the stream is ignored (the exchange happens in-process).
+    /// - `now_secs` — current wall-clock time for credential timestamping.
     ///
     /// On any failure: records the backoff (Req 6.6) and returns an error.
     #[cfg(feature = "native")]
-    pub fn full_ik_handshake(
+    pub async fn full_ik_handshake(
         &mut self,
         peer_did: Did,
         local_static_privkey: &[u8],
         remote_static_pubkey: &[u8],
         responder_privkey_for_test: Option<&[u8]>,
+        stream: Option<&mut dyn AsyncNoiseStream>,
         now_secs: i64,
     ) -> Result<NoiseSession, TirBaseError> {
         use snow::Builder;
@@ -388,7 +475,10 @@ impl SessionManager {
             .map_err(|e| make_err(format!("initiator write_message 1: {e}")))?;
 
         // If a responder private key is provided, complete the full exchange
-        // locally (unit test path).
+        // locally (unit test path).  In production (`None`) the handshake
+        // messages are exchanged over the libp2p transport stream — the
+        // initiator writes message 1, the responder reads it and writes
+        // message 2 back, and the initiator reads message 2 to finalise.
         if let Some(resp_priv) = responder_privkey_for_test {
             let mut responder = Builder::new(
                 "Noise_IK_25519_AESGCM_SHA256"
@@ -414,6 +504,50 @@ impl SessionManager {
             initiator
                 .read_message(&msg2[..n2], &mut _p2)
                 .map_err(|e| make_err(format!("initiator read_message 2: {e}")))?;
+        } else {
+            // Production path: exchange Noise IK handshake messages over the
+            // real libp2p transport stream (Req 6.1).  The stream must be
+            // provided — without it the handshake cannot complete.
+            let stream = stream.ok_or_else(|| {
+                let reason = format!(
+                    "full_ik_handshake requires a stream for the production Noise IK wire exchange"
+                );
+                self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                make_err(reason)
+            })?;
+
+            // Send message 1 to the responder over the wire.
+            stream
+                .write_noise_message(&msg1[..n1])
+                .await
+                .map_err(|e| {
+                    let reason = format!("stream write_message 1: {e}");
+                    self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                    make_err(reason)
+                })?;
+
+            // Read message 2 from the responder (the remote e + payer).
+            let mut msg2 = vec![0u8; 65535];
+            let n2 = loop {
+                let read_buf = &mut msg2;
+                match stream.read_noise_message(read_buf).await {
+                    Ok(()) => break read_buf.len(),
+                    Err(e) => {
+                        let reason = format!("stream read_message 2: {e}");
+                        self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                        return Err(make_err(reason));
+                    }
+                }
+            };
+
+            let mut _p2 = vec![0u8; 65535];
+            initiator
+                .read_message(&msg2[..n2], &mut _p2)
+                .map_err(|e| {
+                    let reason = format!("initiator read_message 2: {e}");
+                    self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                    make_err(reason)
+                })?;
         }
 
         let transport = initiator.into_transport_mode().map_err(|e| {
@@ -596,16 +730,17 @@ mod tests {
     // ── REVOKED peer rejection (native only) ──────────────────────────────────
 
     #[cfg(feature = "native")]
-    #[test]
-    fn revoked_peer_is_rejected_before_handshake() {
+    #[tokio::test]
+    async fn revoked_peer_is_rejected_before_handshake() {
         let mut sm = SessionManager::new("did:key:local".to_string(), 3_600);
         let result = sm.initiate(
             "did:key:revoked-peer".to_string(),
             TrustLevel::Revoked,
             &[0u8; 32],
             &[0u8; 32],
+            None,
             1_000_000,
-        );
+        ).await;
         assert!(
             matches!(result, Err(TirBaseError::PeerRevoked { .. })),
             "expected PeerRevoked"
@@ -613,12 +748,12 @@ mod tests {
     }
 
     #[cfg(feature = "native")]
-    #[test]
-    fn peer_in_backoff_returns_handshake_failed() {
+    #[tokio::test]
+    async fn peer_in_backoff_returns_handshake_failed() {
         let mut sm = SessionManager::new("did:key:local".to_string(), 3_600);
         let peer = "did:key:backoff-peer".to_string();
         sm.record_failure(peer.clone(), "earlier failure".to_string(), 1_000);
-        let result = sm.initiate(peer, TrustLevel::Verified, &[0u8; 32], &[0u8; 32], 1_020);
+        let result = sm.initiate(peer, TrustLevel::Verified, &[0u8; 32], &[0u8; 32], None, 1_020).await;
         assert!(
             matches!(result, Err(TirBaseError::NoiseHandshakeFailed { .. })),
             "expected NoiseHandshakeFailed during backoff"
@@ -628,8 +763,8 @@ mod tests {
     /// Full Noise_IK handshake with properly generated keypairs + in-place key
     /// rotation (Req 6.1, 6.4).
     #[cfg(feature = "native")]
-    #[test]
-    fn full_ik_handshake_and_key_rotation_in_place() {
+    #[tokio::test]
+    async fn full_ik_handshake_and_key_rotation_in_place() {
         use snow::Builder;
 
         // Generate proper X25519 keypairs.
@@ -752,8 +887,8 @@ mod tests {
     /// 6. `tick_key_rotation` on a `MeshTransport` drives rotation for
     ///    sessions whose interval has elapsed.
     #[cfg(feature = "native")]
-    #[test]
-    fn two_devices_ik_session_establishment_rotate_and_verify() {
+    #[tokio::test]
+    async fn two_devices_ik_session_establishment_rotate_and_verify() {
         use crate::identity::did::{derive_did, resolve_did};
         use ed25519_dalek::SigningKey;
 
@@ -798,8 +933,10 @@ mod tests {
                 &x25519_init_privkey,
                 &x25519_resp_pk,
                 Some(&x25519_resp_privkey), // in-process responder (test path)
+                None,                       // no stream needed for in-process handshake
                 1_000,
             )
+            .await
             .expect("full IK handshake must succeed with resolved DID key");
 
         // Session carries live transport state.
@@ -858,8 +995,9 @@ mod tests {
             &x25519_init_privkey,
             &x25519_resp_pk,
             Some(&x25519_resp_privkey),
+            None,
             1_000,
-        ).expect("full IK handshake through transport SessionManager must succeed");
+        ).await.expect("full IK handshake through transport SessionManager must succeed");
 
         // The session's rotation_interval_secs comes from the transport's
         // SessionManager (60s, clamped from key_rotation_interval_secs=60).
@@ -896,8 +1034,10 @@ mod tests {
                 crate::api::types::TrustLevel::Verified,
                 &init_sk.to_bytes(),
                 &[], // empty → triggers DID resolution path
+                None, // non-resolvable DID → falls back to register_session, no stream needed
                 1_000,
             )
+            .await
             .expect("initiate_session fallback to register_session must succeed");
 
         // The pseudo-peer session is registered (transport: None) so rotate_keys
