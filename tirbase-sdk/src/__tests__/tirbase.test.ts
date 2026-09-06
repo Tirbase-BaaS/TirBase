@@ -8,8 +8,11 @@
 
 import { TirBase } from '../tirbase';
 import { MockWasmCore } from '../wasm-bridge';
+import type { WasmCore } from '../wasm-bridge';
 import type {
   IncidentContextObject,
+  MeshStatus,
+  RevocationStatus,
   TrustLevel,
   TrustLevelChangedEvent,
 } from '../types';
@@ -1124,6 +1127,183 @@ describe('db.receivePeerMessage() (Task 40 — WASM inbound path)', () => {
     expect(calls).toHaveLength(2);
     expect(Array.from(calls[0]!)).toEqual([10, 20]);
     expect(Array.from(calls[1]!)).toEqual([30, 40, 50]);
+  });
+});
+
+// ─── WASM LocalStore persistence via IndexedDB (Req 3.1, 17.1, 20.3, 20.4) ─────
+//
+// These tests verify that data written through the WASM core's LocalStore
+// persists across re-initialization with the same storage path (simulating
+// a page reload) — the IndexedDB-backed persistence story.
+//
+// Since MockWasmCore operates in-process without a real IndexedDB, the tests
+// use a shared in-memory mock store that simulates the persistence contract:
+// data written before "page reload" (re-init) is still readable afterward.
+
+/**
+ * A MockWasmCore variant with a shared, persistent in-memory store that
+ * survives re-initialisation — simulating IndexedDB persistence across page
+ * reloads.
+ */
+class PersistentMockWasmCore implements WasmCore {
+  private store: Map<string, unknown> = new Map();
+
+  trustLevel(): TrustLevel {
+    return 'VERIFIED';
+  }
+
+  meshStatus(): MeshStatus {
+    return { status: 'connected', peerCount: 0 };
+  }
+
+  async read(table: string, key: string): Promise<unknown> {
+    const composite = `${table}\u{1f}${key}`;
+    const entry = this.store.get(composite);
+    if (entry === undefined) {
+      return null;
+    }
+    return { table, key, data: entry, contaminated: false };
+  }
+
+  async write(table: string, key: string, data: unknown): Promise<unknown> {
+    const composite = `${table}\u{1f}${key}`;
+    this.store.set(composite, data);
+    return { deltaId: 'a'.repeat(64), durabilityTier: 'UNCOMMITTED' };
+  }
+
+  async query(table: string, _filter: unknown): Promise<unknown[]> {
+    const prefix = `${table}\u{1f}`;
+    const results: unknown[] = [];
+    for (const [composite, data] of this.store.entries()) {
+      if (composite.startsWith(prefix)) {
+        const key = composite.slice(prefix.length);
+        results.push({ table, key, data, contaminated: false });
+      }
+    }
+    return results;
+  }
+
+  core_present_token(_token: string): Promise<TrustLevel> {
+    return Promise.resolve('VERIFIED');
+  }
+
+  initiateRevocation(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  revocationStatus(): Promise<RevocationStatus> {
+    return Promise.resolve({
+      signaturesCollected: 0,
+      signaturesRequired: 2,
+      status: 'PENDING',
+      lastKnownTrustLevel: null,
+      lastRevocationDeltaReceivedAt: null,
+    });
+  }
+
+  verifyData(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  adminClose(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  activateSaturateMode(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  renewSaturateMode(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  terminateSaturateMode(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  pollEvents(): unknown[] {
+    return [];
+  }
+
+  receiveMessage(_rawBytes: Uint8Array): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+describe('WASM LocalStore persistence (Req 3.1, 17.1, 20.3, 20.4)', () => {
+  test('data written before re-init persists across page-reload simulation', async () => {
+    // Simulate a shared IndexedDB backing store that survives page reloads.
+    const persistentStore = new PersistentMockWasmCore();
+
+    // ── Instance A: write a key ──
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbA = await TirBase.init({ storagePath: 'tirbase_store_persist_test' });
+    await dbA.write({
+      table: 'reports',
+      key: 'r-persist-1',
+      data: { status: 'open', score: 42 },
+    });
+
+    // Verify it's readable within the same instance.
+    const readBeforeReload = await dbA.read({
+      table: 'reports',
+      key: 'r-persist-1',
+    });
+    expect(readBeforeReload.data).toEqual({ status: 'open', score: 42 });
+
+    // ── Page reload: re-init with the SAME persistent store (simulating
+    //    IndexedDB surviving a reload) ──
+    TirBase._resetWasmLoader();
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbB = await TirBase.init({ storagePath: 'tirbase_store_persist_test' });
+
+    // The key written before the "reload" must still be present.
+    const readAfterReload = await dbB.read({
+      table: 'reports',
+      key: 'r-persist-1',
+    });
+    expect(readAfterReload.data).toEqual({ status: 'open', score: 42 });
+    expect(readAfterReload.contaminated).toBe(false);
+  });
+
+  test('query returns persisted rows after re-init', async () => {
+    const persistentStore = new PersistentMockWasmCore();
+
+    // Instance A: write multiple rows
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbA = await TirBase.init({ storagePath: 'tirbase_store_query_persist' });
+    await dbA.write({ table: 'tasks', key: 't-1', data: { title: 'task-1' } });
+    await dbA.write({ table: 'tasks', key: 't-2', data: { title: 'task-2' } });
+
+    TirBase._resetWasmLoader();
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbB = await TirBase.init({ storagePath: 'tirbase_store_query_persist' });
+
+    const results = await dbB.query({ table: 'tasks' });
+    expect(results).toHaveLength(2);
+    const keys = results.map((r) => r.key).sort();
+    expect(keys).toEqual(['t-1', 't-2']);
+  });
+
+  test('upsert (write same key twice) persists the latest value', async () => {
+    const persistentStore = new PersistentMockWasmCore();
+
+    // Instance A: write v1
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbA = await TirBase.init({ storagePath: 'tirbase_store_upsert_test' });
+    await dbA.write({ table: 'items', key: 'item-1', data: { v: 1 } });
+
+    // Instance B: overwrite v1 → v2
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbB = await TirBase.init({ storagePath: 'tirbase_store_upsert_test' });
+    await dbB.write({ table: 'items', key: 'item-1', data: { v: 2 } });
+
+    // Instance C: re-read — should see v2
+    TirBase._resetWasmLoader();
+    TirBase._setWasmLoader(async () => persistentStore);
+    const dbC = await TirBase.init({ storagePath: 'tirbase_store_upsert_test' });
+    const result = await dbC.read({ table: 'items', key: 'item-1' });
+    expect(result.data).toEqual({ v: 2 });
   });
 });
 

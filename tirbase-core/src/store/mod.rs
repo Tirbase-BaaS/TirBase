@@ -4,10 +4,10 @@
 //! The store remains fully readable and writable with no connectivity (Req 3.3).
 //!
 //! On the WASM build the store is IndexedDB-backed instead of SQLite-backed
-//! (Subphase 6.3): `write()` persists each row through an awaited IndexedDB
-//! transaction before returning, and `open()` eagerly reloads every row into
-//! an in-memory view, so data survives page reloads instead of living in a
-//! throwaway HashMap.  See [`indexed_db`] for the browser glue.
+//! (Req 3.1, Subphase 6.3): `write()` persists each row through an awaited
+//! IndexedDB transaction before returning, and `open()` eagerly reloads every
+//! row into an in-memory view, so data survives page reloads instead of living
+//! in a throwaway HashMap.  See [`indexed_db`] for the browser glue.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -18,6 +18,9 @@ pub mod sqlite;
 /// IndexedDB persistence layer for the WASM build (Subphase 6.3).
 #[cfg(not(feature = "native"))]
 pub(crate) mod indexed_db;
+
+#[cfg(not(feature = "native"))]
+use indexed_db::IdbStore;
 
 use crate::errors::TirBaseError;
 use serde_json::Value;
@@ -35,17 +38,18 @@ use compaction::{compact_table, should_compact, CompactionPolicy};
 pub struct LocalStore {
     #[cfg(feature = "native")]
     conn: rusqlite::Connection,
-    /// In-memory view of the store on WASM builds (table → key → value).
+    /// IndexedDB-backed persistent store for WASM builds (Req 3.1, Subphase 6.3).
     ///
-    /// Eagerly loaded from IndexedDB at [`LocalStore::open`] and kept as the
-    /// read/query source; every `write()` writes through to IndexedDB first
-    /// (Subphase 6.3 — the WASM persistence story).
+    /// Replaces the previous in-memory `HashMap` — all writes go through
+    /// IndexedDB so data survives page reloads.  The special `":memory:"`
+    /// path keeps a pure in-memory `HashMap` with no IndexedDB backing (tests
+    /// / throwaway stores).
+    #[cfg(not(feature = "native"))]
+    db: Option<IdbStore>,
+    /// In-memory fallback for the `":memory:"` ephemeral store (WASM only).
+    /// When `db` is `None`, reads and writes go through this map directly.
     #[cfg(not(feature = "native"))]
     tables: std::collections::HashMap<String, std::collections::HashMap<String, Value>>,
-    /// IndexedDB database handle for the WASM persistence layer; `None` for
-    /// the ephemeral `":memory:"` store (tests / throwaway use).
-    #[cfg(not(feature = "native"))]
-    db: Option<web_sys::IdbDatabase>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -373,14 +377,14 @@ impl LocalStore {
     }
 }
 
-// ─── WASM implementation — IndexedDB-backed (Subphase 6.3) ───────────────────
+// ─── WASM implementation — IndexedDB-backed (Req 3.1, Subphase 6.3) ──────────
 //
 // The WASM build has no SQLite, so the persistence story is a browser
 // IndexedDB database keyed by the configured storage path.  `open()` opens
-// the database and eagerly loads every row into the in-memory `tables` view;
-// `write()` persists through an awaited IndexedDB transaction (durable before
-// it returns — Req 3.2 parity) and then updates the view; `read()` / `query()`
-// are served synchronously from the view.
+// the database via [`IdbStore`] and eagerly loads every row into the
+// in-memory `tables` view; `write()` persists through an awaited IndexedDB
+// transaction (durable before it returns — Req 3.2 parity) and then updates
+// the view; `read()` / `query()` are served synchronously from the view.
 //
 // The special path `":memory:"` keeps the historical ephemeral behaviour
 // (pure in-memory, no IndexedDB) for tests and throwaway stores.
@@ -401,8 +405,8 @@ impl LocalStore {
                 db: None,
             });
         }
-        let db = indexed_db::open_database(path).await?;
-        let tables = indexed_db::load_all(&db).await?;
+        let db = IdbStore::open(path, "kv").await?;
+        let tables = db.load_all().await?;
         Ok(LocalStore {
             tables,
             db: Some(db),
@@ -422,8 +426,12 @@ impl LocalStore {
         key: &str,
         data: &Value,
     ) -> Result<(), TirBaseError> {
+        let data_json =
+            serde_json::to_string(data).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("JSON serialisation failed: {e}"),
+            })?;
         if let Some(db) = self.db.as_ref() {
-            indexed_db::put_row(db, table, key, data).await?;
+            db.write(table, key, data_json.as_bytes()).await?;
         }
         self.tables
             .entry(table.to_string())

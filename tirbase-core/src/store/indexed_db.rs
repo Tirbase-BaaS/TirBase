@@ -1,41 +1,33 @@
-//! IndexedDB persistence layer for the WASM LocalStore (Subphase 6.3).
+//! IndexedDB persistence layer for the WASM LocalStore (Req 3.1, Subphase 6.3).
 //!
 //! The WASM build has no SQLite, so the LocalStore's durable story is a
 //! browser IndexedDB database — one database per storage path
 //! (`tirbase:{storage_path}`).  Rows are stored as JSON strings in a single
 //! `kv` object store, keyed by the composite string `"{table}\u{1f}{key}"`.
 //!
-//! * [`open_database`] — open (creating on first use) the database for a
+//! [`IdbStore`] wraps an [`idb::Database`] handle and exposes async
+//! `write()` / `read()` / `query()` methods that persist to IndexedDB —
+//! surviving page reloads (Req 3.1: IndexedDB as the WASM analogue of
+//! SQLite-on-every-client-device).
+//!
+//! * [`IdbStore::open`] — open (creating on first use) the database for a
 //!   storage path, creating the `kv` store during the schema-version upgrade;
-//! * [`load_all`] — eager-load every row into an in-memory
-//!   `HashMap<table, HashMap<key, Value>>` at open, so `LocalStore::read` /
-//!   `LocalStore::query` stay synchronous and never touch IndexedDB after
-//!   initialisation;
-//! * [`put_row`] — write one row through to IndexedDB, awaiting the
+//! * [`IdbStore::write`] — write one row through to IndexedDB, awaiting the
 //!   transaction's completion so `LocalStore::write` cannot return success
 //!   before the row is durably stored (Req 3.2 write-before-ack parity on the
 //!   WASM target);
+//! * [`IdbStore::read`] — read a single row by key from IndexedDB;
+//! * [`IdbStore::query`] — scan all rows in a table from IndexedDB;
 //! * [`delete_database`] — drop an entire database (test hygiene / factory
 //!   reset).
-//!
-//! IndexedDB requests are event-based rather than promise-based, so
-//! [`request_to_promise`] / [`transaction_to_promise`] bridge the DOM event
-//! handlers into `js_sys::Promise` values awaited via `JsFuture`.  Handlers
-//! are installed synchronously inside the promise executor — before the next
-//! cursor `continue_()` or request completion can dispatch (IndexedDB events
-//! are always asynchronous), so no event can be missed.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
 use std::collections::HashMap;
 
-use js_sys::Promise;
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{
-    IdbDatabase, IdbRequest, IdbTransaction, IdbTransactionMode,
-};
+use idb::DatabaseEvent;
+use serde_json::Value;
+use wasm_bindgen::JsValue;
 
 use crate::errors::TirBaseError;
 
@@ -43,7 +35,7 @@ use crate::errors::TirBaseError;
 const KV_STORE: &str = "kv";
 
 /// Schema version of the `kv` object store.  Bump when the layout changes;
-/// `IDBFactory::open` fires `onupgradeneeded` only when the version increases.
+/// the `onupgradeneeded` handler fires only when the version increases.
 const DB_VERSION: u32 = 1;
 
 /// Separator between the table name and row key inside the composite IndexedDB
@@ -79,275 +71,411 @@ fn js_error(reason: impl std::fmt::Display) -> TirBaseError {
     }
 }
 
-/// Human-readable description of a DOM error (name + message).
-fn dom_error_description(exception: &web_sys::DomException) -> String {
-    format!("{}: {}", exception.name(), exception.message())
+/// Wrap an `idb::Error` as a `TirBaseError`.
+fn idb_error(e: idb::Error) -> TirBaseError {
+    js_error(format!("{e:?}"))
 }
 
-/// Await an `IDBRequest` through its promise bridge, mapping the JS error to
-/// `TirBaseError` with `what` naming the failing operation.
-async fn await_request(request: &IdbRequest, what: &str) -> Result<JsValue, TirBaseError> {
-    JsFuture::from(request_to_promise(request))
-        .await
-        .map_err(|e| js_error(format!("{what} failed: {e:?}")))
-}
-
-/// Await an `IDBTransaction` through its promise bridge, mapping the JS error
-/// to `TirBaseError` with `what` naming the failing operation.
-async fn await_transaction(tx: &IdbTransaction, what: &str) -> Result<(), TirBaseError> {
-    JsFuture::from(transaction_to_promise(tx))
-        .await
-        .map(|_| ())
-        .map_err(|e| js_error(format!("{what} failed: {e:?}")))
-}
-
-// ─── Event → Promise bridges ─────────────────────────────────────────────────
-
-/// Bridge a DOM `IDBRequest` to a `js_sys::Promise` resolved with the request's
-/// `result` (or rejected with its error).
-fn request_to_promise(request: &IdbRequest) -> Promise {
-    let request = request.clone();
-    Promise::new(&mut |resolve, reject| {
-        let onsuccess = Closure::once({
-            let request = request.clone();
-            let reject = reject.clone();
-            move |_event: web_sys::Event| match request.result() {
-                Ok(result) => {
-                    let _ = resolve.call1(&JsValue::UNDEFINED, &result);
-                }
-                Err(e) => {
-                    let _ = reject.call1(&JsValue::UNDEFINED, &e);
-                }
-            }
-        });
-        request.set_onsuccess(Some(onsuccess.as_ref().unchecked_ref()));
-        std::mem::forget(onsuccess);
-
-        let onerror = Closure::once({
-            let request = request.clone();
-            move |_event: web_sys::Event| {
-                let message = request
-                    .error()
-                    .ok()
-                    .flatten()
-                    .map(|e| dom_error_description(&e))
-                    .unwrap_or_else(|| "IDBRequest failed".to_string());
-                let _ = reject.call1(&JsValue::UNDEFINED, &JsValue::from_str(&message));
-            }
-        });
-        request.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-        std::mem::forget(onerror);
-    })
-}
-
-/// Bridge a DOM `IDBTransaction` to a `js_sys::Promise` resolved on
-/// `oncomplete` and rejected on `onerror` / `onabort`.
-fn transaction_to_promise(tx: &IdbTransaction) -> Promise {
-    let tx = tx.clone();
-    Promise::new(&mut |resolve, reject| {
-        let oncomplete = Closure::once(move |_event: web_sys::Event| {
-            let _ = resolve.call0(&JsValue::UNDEFINED);
-        });
-        tx.set_oncomplete(Some(oncomplete.as_ref().unchecked_ref()));
-        std::mem::forget(oncomplete);
-
-        let onerror = Closure::once({
-            let tx = tx.clone();
-            let reject = reject.clone();
-            move |_event: web_sys::Event| {
-                let message = tx
-                    .error()
-                    .map(|e| dom_error_description(&e))
-                    .unwrap_or_else(|| "IDBTransaction failed".to_string());
-                let _ = reject.call1(&JsValue::UNDEFINED, &JsValue::from_str(&message));
-            }
-        });
-        tx.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-        std::mem::forget(onerror);
-
-        let onabort = Closure::once(move |_event: web_sys::Event| {
-            let _ = reject.call1(
-                &JsValue::UNDEFINED,
-                &JsValue::from_str("IDBTransaction aborted"),
-            );
-        });
-        tx.set_onabort(Some(onabort.as_ref().unchecked_ref()));
-        std::mem::forget(onabort);
-    })
-}
-
-// ─── Database open / load / write ────────────────────────────────────────────
-
-/// Open (creating on first use) the IndexedDB database for `path`.
+/// IndexedDB-backed persistent store for the WASM LocalStore.
 ///
-/// The `kv` object store is created during the first-open schema upgrade.  The
-/// returned handle stays live for the lifetime of the [`LocalStore`](super::LocalStore);
-/// rows are written through it by [`put_row`].
-pub(crate) async fn open_database(path: &str) -> Result<IdbDatabase, TirBaseError> {
-    let window =
-        web_sys::window().ok_or_else(|| js_error("no window available (not a browser?)"))?;
-    let factory = window
-        .indexed_db()
-        .map_err(|e| js_error(format!("window.indexedDB unavailable: {e:?}")))?
-        .ok_or_else(|| js_error("window.indexedDB unavailable (blocked / private mode?)"))?;
+/// Wraps an [`idb::Database`] handle and exposes async `write()`, `read()`,
+/// and `query()` methods that persist to IndexedDB — surviving page reloads
+/// (Req 3.1: IndexedDB as the WASM analogue of SQLite-on-every-client-device).
+pub(crate) struct IdbStore {
+    db_name: String,
+    store_name: String,
+    db: idb::Database,
+}
 
+impl IdbStore {
+    /// Open (or create) the IndexedDB database for `db_name` with an object
+    /// store named `store_name`.
+    ///
+    /// On first open the schema-version upgrade callback creates the object
+    /// store.  The returned handle stays live for the lifetime of the
+    /// [`LocalStore`](super::LocalStore).
+    pub(crate) async fn open(db_name: &str, store_name: &str) -> Result<Self, TirBaseError> {
+        let name = database_name(db_name);
+        let store_name = store_name.to_string();
+
+        let factory = idb::Factory::new().map_err(idb_error)?;
+
+        let mut open_req = factory
+            .open(&name, Some(DB_VERSION))
+            .map_err(idb_error)?;
+
+        let store_name_for_upgrade = store_name.clone();
+        open_req.on_upgrade_needed(move |event| {
+            let database = event.database().expect("on_upgrade_needed: no database");
+            if !database.store_names().contains(&store_name_for_upgrade) {
+                database
+                    .create_object_store(&store_name_for_upgrade, idb::ObjectStoreParams::new())
+                    .expect("create_object_store failed");
+            }
+        });
+
+        let db = open_req
+            .await
+            .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?;
+
+        Ok(IdbStore {
+            db_name: name,
+            store_name,
+            db,
+        })
+    }
+
+    /// Write one row through to IndexedDB, awaiting the transaction's
+    /// completion.
+    ///
+    /// Returns only after the `readwrite` transaction has fully committed, so a
+    /// successful `LocalStore::write` is durable — the WASM store no longer
+    /// acknowledges writes that vanish on reload (Req 3.2 parity).
+    pub(crate) async fn write(
+        &self,
+        table: &str,
+        key: &str,
+        value: &[u8],
+    ) -> Result<(), TirBaseError> {
+        let composite = composite_key(table, key);
+        let value_str = String::from_utf8(value.to_vec()).map_err(|e| {
+            js_error(format!("row value is not valid UTF-8: {e}"))
+        })?;
+
+        let tx = self
+            .db
+            .transaction(&[&self.store_name], idb::TransactionMode::ReadWrite)
+            .map_err(|e| js_error(format!("IDB transaction (readwrite) failed: {e:?}")))?;
+
+        let store = tx
+            .object_store(&self.store_name)
+            .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
+
+        let value_js = JsValue::from_str(&value_str);
+        let composite_js = JsValue::from_str(&composite);
+        store
+            .put(&value_js, Some(&composite_js))
+            .map_err(|e| js_error(format!("put({:?}) failed: {e:?}", composite)))?
+            .await
+            .map_err(|e| js_error(format!("put({:?}) await failed: {e:?}", composite)))?;
+
+        tx.commit()
+            .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
+
+        Ok(())
+    }
+
+    /// Read a single row by table and key from IndexedDB.
+    pub(crate) async fn read(
+        &self,
+        table: &str,
+        key: &str,
+    ) -> Result<Option<Vec<u8>>, TirBaseError> {
+        let composite = composite_key(table, key);
+
+        let tx = self
+            .db
+            .transaction(&[&self.store_name], idb::TransactionMode::ReadOnly)
+            .map_err(|e| js_error(format!("IDB transaction (readonly) failed: {e:?}")))?;
+
+        let store = tx
+            .object_store(&self.store_name)
+            .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
+
+        let result = store
+            .get(JsValue::from_str(&composite))
+            .map_err(|e| js_error(format!("get({:?}) failed: {e:?}", composite)))?
+            .await
+            .map_err(|e| js_error(format!("get({:?}) await failed: {e:?}", composite)))?;
+
+        tx.commit()
+            .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
+
+        match result {
+            Some(value_str) => {
+                let value_str = value_str
+                    .as_string()
+                    .ok_or_else(|| js_error("IndexedDB value is not a string"))?;
+                let value: Value = serde_json::from_str(&value_str).map_err(|e| {
+                    js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                })?;
+                let bytes = serde_json::to_vec(&value).map_err(|e| {
+                    js_error(format!("row {:?}: re-serialisation failed: {e}", composite))
+                })?;
+                Ok(Some(bytes))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Scan all rows in a table from IndexedDB, returning `(key, value)` pairs.
+    pub(crate) async fn query(
+        &self,
+        table: &str,
+    ) -> Result<Vec<(String, Vec<u8>)>, TirBaseError> {
+        let prefix = format!("{table}{KEY_SEP}");
+        let mut results: Vec<(String, Vec<u8>)> = Vec::new();
+
+        let tx = self
+            .db
+            .transaction(&[&self.store_name], idb::TransactionMode::ReadOnly)
+            .map_err(|e| js_error(format!("IDB transaction (readonly) failed: {e:?}")))?;
+
+        let store = tx
+            .object_store(&self.store_name)
+            .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
+
+        // Use a key range to scan only rows whose composite key starts with
+        // the `{table}\u{1f}` prefix.
+        let lower = JsValue::from_str(&format!("{prefix}\u{0000}"));
+        let upper = JsValue::from_str(&format!("{prefix}\u{ffff}"));
+        let range = idb::KeyRange::bound(&lower, &upper, Some(false), Some(false))
+            .map_err(|e| js_error(format!("KeyRange construction failed: {e:?}")))?;
+
+        let query = Some(idb::Query::KeyRange(range));
+        let mut cursor = store
+            .open_cursor(query, Some(idb::CursorDirection::Next))
+            .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
+            .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
+            .into_managed();
+
+        loop {
+            match cursor.value() {
+                Ok(Some(value_js)) => {
+                    let composite = cursor
+                        .primary_key()
+                        .map_err(|e| js_error(format!("cursor key failed: {e:?}")))?
+                        .ok_or_else(|| js_error("cursor key is null"))?
+                        .as_string()
+                        .ok_or_else(|| js_error("cursor key is not a string"))?;
+                    let value_str = value_js
+                        .as_string()
+                        .ok_or_else(|| js_error("cursor value is not a string"))?;
+
+                    let (_, row_key) = split_composite_key(&composite)?;
+                    let value: Value = serde_json::from_str(&value_str)
+                        .map_err(|e| {
+                            js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                        })?;
+                    let bytes = serde_json::to_vec(&value)
+                        .map_err(|e| {
+                            js_error(format!("row {:?}: re-serialisation failed: {e}", composite))
+                        })?;
+
+                    results.push((row_key, bytes));
+
+                    cursor
+                        .next(None)
+                        .await
+                        .map_err(|e| js_error(format!("cursor.next() failed: {e:?}")))?;
+                }
+                Ok(None) => break,
+                Err(e) => return Err(js_error(format!("cursor.value() failed: {e:?}"))),
+            }
+        }
+
+        tx.commit()
+            .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
+
+        Ok(results)
+    }
+
+    /// Eagerly load every row in the store into an in-memory map, keyed by
+    /// `(table, key)`.  Called by `LocalStore::open` so that `read()` and
+    /// `query()` can stay synchronous (serving from the in-memory snapshot,
+    /// the WASM analogue of native SQLite projection tables).
+    pub(crate) async fn load_all(
+        &self,
+    ) -> Result<HashMap<String, HashMap<String, Value>>, TirBaseError> {
+        let mut tables: HashMap<String, HashMap<String, Value>> = HashMap::new();
+
+        let tx = self
+            .db
+            .transaction(&[&self.store_name], idb::TransactionMode::ReadOnly)
+            .map_err(|e| js_error(format!("IDB transaction (readonly) failed: {e:?}")))?;
+
+        let store = tx
+            .object_store(&self.store_name)
+            .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
+
+        let mut cursor = store
+            .open_cursor(None, Some(idb::CursorDirection::Next))
+            .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
+            .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
+            .into_managed();
+
+        loop {
+            match cursor.value() {
+                Ok(Some(value_js)) => {
+                    let composite = cursor
+                        .primary_key()
+                        .map_err(|e| js_error(format!("cursor key failed: {e:?}")))?
+                        .ok_or_else(|| js_error("cursor key is null"))?
+                        .as_string()
+                        .ok_or_else(|| js_error("cursor key is not a string"))?;
+                    let value_str = value_js
+                        .as_string()
+                        .ok_or_else(|| js_error("cursor value is not a string"))?;
+
+                    let value: Value = serde_json::from_str(&value_str)
+                        .map_err(|e| {
+                            js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                        })?;
+
+                    let (table, row_key) = split_composite_key(&composite)?;
+                    tables
+                        .entry(table)
+                        .or_insert_with(HashMap::new)
+                        .insert(row_key, value);
+
+                    cursor
+                        .next(None)
+                        .await
+                        .map_err(|e| js_error(format!("cursor.next() failed: {e:?}")))?;
+                }
+                Ok(None) => break,
+                Err(e) => return Err(js_error(format!("cursor.value() failed: {e:?}"))),
+            }
+        }
+
+        tx.commit()
+            .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+            .await
+            .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
+
+        Ok(tables)
+    }
+}
+
+/// Delete the entire IndexedDB database for `path` (test hygiene / factory
+/// reset).  Deleting a non-existent database still succeeds.
+pub(crate) async fn delete_database(path: &str) -> Result<(), TirBaseError> {
     let name = database_name(path);
-    let request = factory
-        .open_with_u32(&name, DB_VERSION)
-        .map_err(|e| js_error(format!("IDBFactory.open({name}) failed: {e:?}")))?;
-    let request_idb: &IdbRequest = request.unchecked_ref();
+    let factory = idb::Factory::new().map_err(idb_error)?;
 
-    let promise = Promise::new(&mut |resolve, reject| {
-        // Schema setup on first open (version 0 → 1 upgrade).  Fires only when
-        // the database is created (or the version bumped); on every later open
-        // of an existing DB the handler simply never fires.
-        let upgrader = Closure::once({
-            let request_idb = request_idb.clone();
-            let reject = reject.clone();
-            move |_event: web_sys::IdbVersionChangeEvent| {
-                let db: Option<IdbDatabase> = request_idb
-                    .result()
-                    .ok()
-                    .and_then(|r| r.dyn_into::<IdbDatabase>().ok());
-                match db {
-                    Some(db) => {
-                        if !db.object_store_names().contains(KV_STORE) {
-                            if let Err(e) = db.create_object_store(KV_STORE) {
-                                let _ = reject.call1(
-                                    &JsValue::UNDEFINED,
-                                    &JsValue::from_str(&format!(
-                                        "create_object_store({KV_STORE}) failed: {e:?}"
-                                    )),
-                                );
-                            }
-                        }
-                    }
-                    None => {
-                        let _ = reject.call1(
-                            &JsValue::UNDEFINED,
-                            &JsValue::from_str("open upgrade: no database result"),
-                        );
-                    }
-                }
-            }
-        });
-        request.set_onupgradeneeded(Some(upgrader.as_ref().unchecked_ref()));
-        std::mem::forget(upgrader);
-
-        // Success — resolve with the opened database.
-        let onsuccess = Closure::once({
-            let request_idb = request_idb.clone();
-            let reject = reject.clone();
-            move |_event: web_sys::Event| match request_idb.result() {
-                Ok(db_value) => {
-                    let _ = resolve.call1(&JsValue::UNDEFINED, &db_value);
-                }
-                Err(e) => {
-                    let _ = reject.call1(&JsValue::UNDEFINED, &e);
-                }
-            }
-        });
-        request.set_onsuccess(Some(onsuccess.as_ref().unchecked_ref()));
-        std::mem::forget(onsuccess);
-
-        // Error — reject with the request's DOM error.
-        let onerror = Closure::once({
-            let request_idb = request_idb.clone();
-            move |_event: web_sys::Event| {
-                let message = request_idb
-                    .error()
-                    .ok()
-                    .flatten()
-                    .map(|e| dom_error_description(&e))
-                    .unwrap_or_else(|| "IDBOpenDBRequest failed".to_string());
-                let _ = reject.call1(&JsValue::UNDEFINED, &JsValue::from_str(&message));
-            }
-        });
-        request.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-        std::mem::forget(onerror);
-    });
-
-    let db_value = JsFuture::from(promise)
+    factory
+        .delete(&name)
+        .map_err(idb_error)?
         .await
-        .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?;
-    db_value.dyn_into::<IdbDatabase>().map_err(|_| {
-        js_error(format!(
-            "open IndexedDB database {name}: result was not an IDBDatabase"
-        ))
-    })
+        .map_err(|e| js_error(format!("deleteDatabase({name}) failed: {e:?}")))?;
+
+    Ok(())
 }
 
-/// Eager-load every row of the `kv` store into an in-memory
-/// `HashMap<table, HashMap<key, Value>>`.
-///
-/// Iterates a cursor over the whole store once at `open()`; after that,
-/// reads and queries are served from the in-memory map (the WASM analogue of
-/// the native SQLite projection tables).
-pub(crate) async fn load_all(
-    db: &IdbDatabase,
+// ─── Backwards-compatible free functions ─────────────────────────────────────
+//
+// These were the original API used by the first version of the IndexedDB
+// integration (using web-sys directly).  They are retained for any external
+// callers that need a raw `idb::Database` handle or the original free-function
+// signatures, but the preferred path is now [`IdbStore`].
+
+/// Open (creating on first use) the IndexedDB database for `path` and return
+/// the raw `idb::Database` handle by re-opening after the `IdbStore` has
+/// created the schema.
+pub(crate) async fn open_database(path: &str) -> Result<idb::Database, TirBaseError> {
+    // First open via IdbStore so the object store is created on first use.
+    let _store = IdbStore::open(path, KV_STORE).await?;
+    // Re-open to get a standalone handle that the caller owns.
+    let name = database_name(path);
+    let factory = idb::Factory::new().map_err(idb_error)?;
+    let mut open_req = factory
+        .open(&name, Some(DB_VERSION))
+        .map_err(idb_error)?;
+    open_req.on_upgrade_needed(move |event| {
+        let database = event.database().expect("on_upgrade_needed: no database");
+        let store_name = KV_STORE.to_string();
+        if !database.store_names().contains(&store_name) {
+            database
+                .create_object_store(&store_name, idb::ObjectStoreParams::new())
+                .expect("create_object_store failed");
+        }
+    });
+    open_req
+        .await
+        .map_err(|e| js_error(format!("await open_database({name}) failed: {e:?}")))
+}
+
+/// Eager-load every row into an in-memory `HashMap<table, HashMap<key, Value>>`
+/// from a raw `idb::Database` handle.
+pub(crate) async fn load_all_into(
+    db: &idb::Database,
 ) -> Result<HashMap<String, HashMap<String, serde_json::Value>>, TirBaseError> {
+    // Construct a temporary IdbStore wrapping the caller's database handle
+    // purely to reuse load_all's cursor logic.  We can't clone idb::Database,
+    // so we reconstruct the IdbStore struct fields manually — the db field
+    // is not Clone, so we use a different approach: inline the cursor scan.
     let tx = db
-        .transaction_with_str(KV_STORE)
+        .transaction(&[KV_STORE], idb::TransactionMode::ReadOnly)
         .map_err(|e| js_error(format!("IDB transaction (readonly) failed: {e:?}")))?;
+
     let store = tx
         .object_store(KV_STORE)
         .map_err(|e| js_error(format!("object_store({KV_STORE}) failed: {e:?}")))?;
-    let cursor_request = store
-        .open_cursor()
-        .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?;
 
     let mut tables: HashMap<String, HashMap<String, serde_json::Value>> = HashMap::new();
 
+    let mut cursor = store
+        .open_cursor(None, Some(idb::CursorDirection::Next))
+        .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
+        .await
+        .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
+        .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
+        .into_managed();
+
     loop {
-        let result = await_request(&cursor_request, "cursor read").await?;
-        // Each success carries either the next IdbCursorWithValue or null
-        // (iteration complete).
-        if result.is_null() {
-            break;
+        match cursor.value() {
+            Ok(Some(value_js)) => {
+                let composite = cursor
+                    .primary_key()
+                    .map_err(|e| js_error(format!("cursor key failed: {e:?}")))?
+                    .ok_or_else(|| js_error("cursor key is null"))?
+                    .as_string()
+                    .ok_or_else(|| js_error("cursor key is not a string"))?;
+                let value_str = value_js
+                    .as_string()
+                    .ok_or_else(|| js_error("cursor value is not a string"))?;
+
+                let value: serde_json::Value = serde_json::from_str(&value_str).map_err(|e| {
+                    js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                })?;
+
+                let (table, row_key) = split_composite_key(&composite)?;
+                tables
+                    .entry(table)
+                    .or_insert_with(HashMap::new)
+                    .insert(row_key, value);
+
+                cursor
+                    .next(None)
+                    .await
+                    .map_err(|e| js_error(format!("cursor.next() failed: {e:?}")))?;
+            }
+            Ok(None) => break,
+            Err(e) => return Err(js_error(format!("cursor.value() failed: {e:?}"))),
         }
-        let cursor: web_sys::IdbCursorWithValue = result.dyn_into().map_err(|_| {
-            js_error("cursor request resolved to a non-cursor value")
-        })?;
-
-        let key_js = cursor
-            .key()
-            .map_err(|e| js_error(format!("cursor.key() failed: {e:?}")))?;
-        let value_js = cursor
-            .value()
-            .map_err(|e| js_error(format!("cursor.value() failed: {e:?}")))?;
-        let composite = key_js
-            .as_string()
-            .ok_or_else(|| js_error("cursor key is not a string"))?;
-        let value_str = value_js
-            .as_string()
-            .ok_or_else(|| js_error("cursor value is not a string"))?;
-        let value: serde_json::Value = serde_json::from_str(&value_str).map_err(|e| {
-            js_error(format!("row {composite:?}: stored JSON is invalid: {e}"))
-        })?;
-
-        let (table, row_key) = split_composite_key(&composite)?;
-        tables
-            .entry(table)
-            .or_default()
-            .insert(row_key, value);
-
-        cursor
-            .continue_()
-            .map_err(|e| js_error(format!("cursor.continue() failed: {e:?}")))?;
     }
 
-    // The snapshot is fully consistent once the readonly transaction completes.
-    await_transaction(&tx, "readonly transaction").await?;
+    tx.commit()
+        .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+        .await
+        .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
+
     Ok(tables)
 }
 
 /// Write one row through to IndexedDB, awaiting the transaction's completion.
-///
-/// Returns only after the `readwrite` transaction has fully committed, so a
-/// successful `LocalStore::write` is durable — the WASM store no longer
-/// acknowledges writes that vanish on reload.
 pub(crate) async fn put_row(
-    db: &IdbDatabase,
+    db: &idb::Database,
     table: &str,
     key: &str,
     data: &serde_json::Value,
@@ -357,35 +485,25 @@ pub(crate) async fn put_row(
     let composite = composite_key(table, key);
 
     let tx = db
-        .transaction_with_str_and_mode(KV_STORE, IdbTransactionMode::Readwrite)
+        .transaction(&[KV_STORE], idb::TransactionMode::ReadWrite)
         .map_err(|e| js_error(format!("IDB transaction (readwrite) failed: {e:?}")))?;
+
     let store = tx
         .object_store(KV_STORE)
         .map_err(|e| js_error(format!("object_store({KV_STORE}) failed: {e:?}")))?;
-    let request = store
-        .put_with_key(&JsValue::from_str(&value_json), &JsValue::from_str(&composite))
-        .map_err(|e| js_error(format!("put({composite:?}) failed: {e:?}")))?;
 
-    // Await the put request, then the transaction completion (durability).
-    await_request(&request, "put").await?;
-    await_transaction(&tx, "readwrite transaction").await?;
-    Ok(())
-}
+    let value_js = JsValue::from_str(&value_json);
+    let composite_js = JsValue::from_str(&composite);
+    store
+        .put(&value_js, Some(&composite_js))
+        .map_err(|e| js_error(format!("put({:?}) failed: {e:?}", composite)))?
+        .await
+        .map_err(|e| js_error(format!("put({:?}) await failed: {e:?}", composite)))?;
 
-/// Delete the entire IndexedDB database for `path` (test hygiene / factory
-/// reset).  Deleting a non-existent database still succeeds.
-pub(crate) async fn delete_database(path: &str) -> Result<(), TirBaseError> {
-    let window =
-        web_sys::window().ok_or_else(|| js_error("no window available (not a browser?)"))?;
-    let factory = window
-        .indexed_db()
-        .map_err(|e| js_error(format!("window.indexedDB unavailable: {e:?}")))?
-        .ok_or_else(|| js_error("window.indexedDB unavailable (blocked / private mode?)"))?;
+    tx.commit()
+        .map_err(|e| js_error(format!("tx.commit() failed: {e:?}")))?
+        .await
+        .map_err(|e| js_error(format!("tx commit await failed: {e:?}")))?;
 
-    let name = database_name(path);
-    let request = factory
-        .delete_database(&name)
-        .map_err(|e| js_error(format!("IDBFactory.deleteDatabase({name}) failed: {e:?}")))?;
-    await_request(request.unchecked_ref::<IdbRequest>(), &format!("deleteDatabase({name})")).await?;
     Ok(())
 }

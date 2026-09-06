@@ -47,6 +47,7 @@ wasm    = [
     "dep:js-sys",
     "dep:web-sys",
     "dep:wasm-bindgen-futures",
+    "dep:idb",
     "dep:wasmi",
     "dep:biscuit-auth",
     "biscuit-auth?/wasm",
@@ -71,7 +72,8 @@ thiserror        = "2.0.20"
 
 # UUID v7 for IncidentContextObject IDs
 # The "js" feature is required on wasm32-unknown-unknown; harmless on native.
-uuid             = { version = "1.26.0", features = ["v4", "v7", "js"] }
+# The "serde" feature is required for IncidentId serialisation/deserialisation.
+uuid             = { version = "1.26.0", features = ["v4", "v7", "js", "serde"] }
 
 # SHA-256 for DeltaId and SchemaIdentifierHash
 sha2             = "0.11.0"
@@ -158,6 +160,10 @@ web-sys      = { version = "0.3.104", optional = true, features = [
     "DomStringList",
 ] }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+
+# Async IndexedDB wrapper — provides ergonomic promise-based access to the
+# browser's IndexedDB on the WASM build (Req 3.1, Subphase 6.3).
+idb           = { version = "0.6", optional = true }
 
 # Pure-Rust WASM interpreter for WASM-in-WASM sandbox (replaces deferred wasm3 dependency).
 # wasmi 0.38 is the latest stable release that cross-compiles to wasm32-unknown-unknown.
