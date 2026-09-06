@@ -543,46 +543,56 @@ mod wasm_exports {
 
     /// Append a RESOLVED tag to a contamination root Delta (Req 11.1).
     ///
-    /// Delegates to [`api::CoreHandle::verify_data`] — the shared WASM + native
+    /// Delegates to [`api::CoreHandle::verify_contamination`] — the shared WASM + native
     /// implementation — so both build targets share one code path. The manager
-    /// token expiry is caller-supplied (`now_secs` is the real current time),
-    /// so expired tokens are rejected at the auth gate rather than bypassing it
-    /// with a hardcoded `far_future` (Subphase 14.4 — Req 11.5).
+    /// token is verified against the root CA key and its `expires_at` claim is
+    /// enforced against the caller-supplied `now_secs`, so expired tokens are
+    /// rejected at the auth gate rather than bypassing it with a hardcoded
+    /// `far_future` (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
     pub async fn core_verify_data(
-        root_delta_id: String,
-        manager_token: String,
+        root_delta_id_hex: String,
+        manager_token_hex: String,
         now_secs: i64,
     ) -> Result<(), JsValue> {
+        let root_delta_id = decode_32byte_hex("root_delta_id", &root_delta_id_hex)?;
+        let token_bytes = hex::decode(&manager_token_hex).map_err(|e| {
+            to_js_err(format!("manager_token: invalid hex: {e}"))
+        })?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
-                .verify_data(&root_delta_id, &manager_token, now_secs)
+                .verify_contamination(&root_delta_id, &token_bytes, now_secs)
                 .map_err(to_js_err)
         })
     }
 
     /// Archive an incident without certifying data integrity (Req 11.2).
     ///
-    /// Delegates to [`api::CoreHandle::admin_close`] — the shared WASM + native
+    /// Delegates to [`api::CoreHandle::admin_close_ico`] — the shared WASM + native
     /// implementation. The `now_secs` parameter supplies the real current time
     /// so token-expiry enforcement is live (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
-    pub async fn core_admin_close(
-        incident_id: String,
-        manager_token: String,
+    pub async fn core_admin_close_ico(
+        ico_id_hex: String,
+        manager_token_hex: String,
         now_secs: i64,
     ) -> Result<(), JsValue> {
+        let ico_id = uuid::Uuid::parse_str(&ico_id_hex)
+            .map_err(|e| to_js_err(format!("ico_id: invalid UUID: {e}")))?;
+        let token_bytes = hex::decode(&manager_token_hex).map_err(|e| {
+            to_js_err(format!("manager_token: invalid hex: {e}"))
+        })?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
-                .admin_close(&incident_id, &manager_token, now_secs)
+                .admin_close_ico(ico_id, &token_bytes, now_secs)
                 .map_err(to_js_err)
         })
     }

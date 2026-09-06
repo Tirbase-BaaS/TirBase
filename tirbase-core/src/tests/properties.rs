@@ -975,6 +975,7 @@ proptest! {
         use crate::identity::IdentityManager;
         use crate::identity::keypair;
 
+
         let conn = open_test_conn();
 
         // Two root nodes → shared descendant (insert in DAG directly).
@@ -1006,7 +1007,8 @@ proptest! {
         let mgr_secret = mgr.signing_key_bytes();
         let sig_a = keypair::sign(&mgr_secret, &root_a).unwrap();
         let expiry = now_micros() + 3_600_000_000i64;
-        cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry).unwrap();
+        let now_s = now_micros() / 1_000_000;
+        cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s).unwrap();
 
         // After resolving root_a, the shared node from ICO_A should still
         // carry its Contaminated tag (tags are append-only, never removed).

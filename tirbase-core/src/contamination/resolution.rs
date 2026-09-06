@@ -27,7 +27,10 @@ pub(crate) fn now_micros() -> i64 {
 /// Verify a Manager signature and token expiry (Req 11.5).
 ///
 /// Checks:
-/// 1. `token_expiry > now_micros()` — rejects expired tokens.
+/// 1. `now_secs > token_expiry / 1_000_000` — rejects expired tokens.
+///    Both `token_expiry` and `now_secs` are wall-clock; `token_expiry` is in
+///    microseconds and `now_secs` is in seconds, so the comparison converts
+///    `now_secs` to microseconds.
 /// 2. Resolves manager DID to Ed25519 public key via `identity::did::resolve_did`.
 /// 3. Verifies the Ed25519 signature over `payload` using `ed25519_dalek`.
 ///
@@ -37,11 +40,17 @@ pub(crate) fn verify_manager_auth(
     sig: &Ed25519Signature,
     payload: &[u8],
     token_expiry: i64,
+    now_secs: i64,
 ) -> Result<(), TirBaseError> {
-    // 1. Token expiry check.
-    if token_expiry <= now_micros() {
+    // 1. Token expiry check — compare caller-supplied wall-clock (seconds)
+    //    against the token's expiry claim (microseconds). The token is expired
+    //    if the current time has passed the expiry deadline.
+    let now_micros = now_secs * 1_000_000;
+    if token_expiry <= now_micros {
         return Err(TirBaseError::AuthorisationFailed {
-            reason: format!("manager token expired (expiry={token_expiry})"),
+            reason: format!(
+                "manager token expired (expiry={token_expiry}, now_micros={now_micros})"
+            ),
         });
     }
 
@@ -85,6 +94,7 @@ pub fn verify_data(
     manager_did: Did,
     manager_sig: Ed25519Signature,
     manager_token_expiry: i64,
+    now_secs: i64,
     conn: &rusqlite::Connection,
     dag: &crate::crdt::dag::ChangesetDag,
     incidents: &mut HashMap<IncidentId, IncidentContextObject>,
@@ -96,6 +106,7 @@ pub fn verify_data(
         &manager_sig,
         &root_delta_id,
         manager_token_expiry,
+        now_secs,
     )?;
 
     // 2. Append Resolved tag to the root Delta.
@@ -442,6 +453,7 @@ pub fn admin_close(
     manager_did: Did,
     manager_sig: Ed25519Signature,
     manager_token_expiry: i64,
+    now_secs: i64,
     incidents: &mut HashMap<IncidentId, IncidentContextObject>,
 ) -> Result<(), TirBaseError> {
     // 1. Auth — sign payload is the incident_id bytes.
@@ -450,6 +462,7 @@ pub fn admin_close(
         &manager_sig,
         incident_id.as_bytes(),
         manager_token_expiry,
+        now_secs,
     )?;
 
     // 2. Load ICO.

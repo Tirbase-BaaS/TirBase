@@ -2119,7 +2119,7 @@ impl CoreHandle {
 
     // ─── Manager operations — Contamination resolution (Req 11.1, 11.2) ────────
     //
-    // Subphase 14.3: `verify_data` and `admin_close` are now exposed as
+    // Subphase 14.3: `verify_contamination` and `admin_close_ico` are exposed as
     // `CoreHandle` methods on both build targets. The WASM exports in lib.rs
     // delegate to these methods instead of calling the CCE directly, giving
     // a single shared implementation (mirrors the pattern used by
@@ -2127,98 +2127,125 @@ impl CoreHandle {
 
     /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
     ///
-    /// Verifies the Manager signature over `root_delta_id` (using the device's
-    /// own identity as the signing key), appends `DeltaTag::Resolved` to the
-    /// root Delta, and if all roots of an ICO are now resolved, propagates
-    /// `DeltaTag::Decontaminated` to every reachable descendant.
+    /// Verifies the Manager Biscuit token against the root CA key (extracting
+    /// `expires_at` for expiry enforcement — Req 11.5), signs `root_delta_id`
+    /// with the local device's identity key (self-attesting authN), appends
+    /// `DeltaTag::Resolved` to the root Delta, and if all roots of an ICO are
+    /// now resolved, propagates `DeltaTag::Decontaminated` to every reachable
+    /// descendant.
     ///
-    /// The manager token expiry is caller-supplied (not hardcoded) so that
-    /// expired tokens are rejected at the auth gate (Req 11.5).
+    /// The caller-supplied `now_secs` is the authoritative wall-clock time used
+    /// for both Biscuit token expiry verification and `verify_manager_auth`'s
+    /// internal expiry gate — no far-future hardcoded values (Subphase 14.4).
     ///
     /// Production callers:
     /// - WASM: `core_verify_data` in lib.rs delegates here.
     /// - Native: host applications holding a `CoreHandle`.
-    pub fn verify_data(
+    pub fn verify_contamination(
         &self,
-        root_delta_id_hex: &str,
-        manager_token_hex: &str,
+        root_delta_id: [u8; 32],
+        manager_token: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        if manager_token_hex.trim().is_empty() {
+        if manager_token.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "manager_token must not be blank".to_string(),
             });
         }
 
-        let id_bytes = hex::decode(root_delta_id_hex).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("invalid root_delta_id hex: {e}"),
-            }
-        })?;
-        let root_id: [u8; 32] = id_bytes.try_into().map_err(|_| {
-            TirBaseError::AuthorisationFailed {
-                reason: "root_delta_id must be 32 bytes (64 hex chars)".to_string(),
-            }
-        })?;
-
         let manager_did = self.identity.did().to_string();
         let signing_key = self.identity.signing_key_bytes();
-        let manager_sig = crate::identity::keypair::sign(&signing_key, &root_id)?;
+        let manager_sig = crate::identity::keypair::sign(&signing_key, &root_delta_id)?;
 
-        // Use a far-future expiry only as a fallback; the caller-supplied
-        // now_secs is the authoritative timestamp.  The actual token expiry
-        // is checked inside verify_manager_auth — see Subphase 14.4 for the
-        // full token-expiry enforcement.
-        let _ = manager_token_hex; // token accepted (non-empty); signature is the authN
-        let token_expiry = i64::MAX / 2; // conservative: this device's own signature is self-attesting
+        // Verify the Biscuit token against the deployment's root CA key and
+        // extract the token's `expires_at` claim (seconds).
+        let root_ca_key = self.root_ca_public_key();
+        if root_ca_key.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "no root CA public key registered; cannot verify manager token".to_string(),
+            });
+        }
+        let claims = crate::auth::biscuit::verify_token(
+            manager_token,
+            &root_ca_key,
+            now_secs,
+        )
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("manager token verification failed: {e}"),
+        })?;
+
+        // The token's expires_at is in seconds; the CCE expects micros.
+        let token_expiry = claims.expires_at * 1_000_000;
 
         self.cce
             .lock()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("cce mutex poisoned: {e}"),
             })?
-            .verify_data(root_id, manager_did, manager_sig, token_expiry)
+            .verify_data(
+                root_delta_id,
+                manager_did,
+                manager_sig,
+                token_expiry,
+                now_secs,
+            )
     }
 
     /// Archive an incident without certifying data integrity (Req 11.2).
     ///
-    /// Transitions the ICO to `Closed` state. The manager token expiry is
-    /// caller-supplied (not hardcoded) so expired tokens are rejected.
+    /// Verifies the Manager Biscuit token (extracting `expires_at` for expiry
+    /// enforcement — Req 11.5), signs the `ico_id` with the local device's
+    /// identity key, transitions the ICO to `Closed`, and appends an
+    /// `AdminClose` audit entry.
+    ///
+    /// The caller-supplied `now_secs` is the authoritative wall-clock time
+    /// used for both Biscuit token expiry verification and
+    /// `verify_manager_auth`'s internal expiry gate — no far-future hardcoded
+    /// values (Subphase 14.4).
     ///
     /// Production callers:
-    /// - WASM: `core_admin_close` in lib.rs delegates here.
+    /// - WASM: `core_admin_close_ico` in lib.rs delegates here.
     /// - Native: host applications holding a `CoreHandle`.
-    pub fn admin_close(
+    pub fn admin_close_ico(
         &self,
-        incident_id_hex: &str,
-        manager_token_hex: &str,
+        ico_id: uuid::Uuid,
+        manager_token: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        if manager_token_hex.trim().is_empty() {
+        if manager_token.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "manager_token must not be blank".to_string(),
             });
         }
 
-        let uuid = uuid::Uuid::parse_str(incident_id_hex).map_err(|e| {
-            TirBaseError::AuthorisationFailed {
-                reason: format!("invalid incident_id UUID: {e}"),
-            }
-        })?;
-
         let manager_did = self.identity.did().to_string();
         let signing_key = self.identity.signing_key_bytes();
-        let manager_sig = crate::identity::keypair::sign(&signing_key, uuid.as_bytes())?;
+        let manager_sig = crate::identity::keypair::sign(&signing_key, ico_id.as_bytes())?;
 
-        let _ = now_secs;
-        let token_expiry = i64::MAX / 2;
+        // Verify the Biscuit token against the deployment's root CA key.
+        let root_ca_key = self.root_ca_public_key();
+        if root_ca_key.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "no root CA public key registered; cannot verify manager token".to_string(),
+            });
+        }
+        let claims = crate::auth::biscuit::verify_token(
+            manager_token,
+            &root_ca_key,
+            now_secs,
+        )
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("manager token verification failed: {e}"),
+        })?;
+
+        let token_expiry = claims.expires_at * 1_000_000;
 
         self.cce
             .lock()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("cce mutex poisoned: {e}"),
             })?
-            .admin_close(uuid, manager_did, manager_sig, token_expiry)
+            .admin_close(ico_id, manager_did, manager_sig, token_expiry, now_secs)
     }
 
     // ─── Inbound message pipeline ─────────────────────────────────────────────
@@ -5448,12 +5475,13 @@ mod tests {
         let mgr_secret = mgr.signing_key_bytes();
         let sig = keypair::sign(&mgr_secret, &first_delta_id).expect("sign");
         let expiry = now_micros() + 3_600_000_000; // +1h
+        let now_s = now_micros() / 1_000_000;
 
         handle
             .cce
             .lock()
             .unwrap()
-            .verify_data(first_delta_id, mgr_did, sig, expiry)
+            .verify_data(first_delta_id, mgr_did, sig, expiry, now_s)
             .expect("verify_data must succeed");
 
         // Step 4: after resolution, contaminated_rows must be pruned.
@@ -11479,12 +11507,13 @@ mod composite_incident_tests {
         let mgr_secret = mgr.signing_key_bytes();
         let sig = keypair::sign(&mgr_secret, &root_a).expect("sign");
         let expiry = now_micros() + 3_600_000_000; // +1h
+        let now_s = now_micros() / 1_000_000;
 
         handle
             .cce
             .lock()
             .unwrap()
-            .verify_data(root_a, mgr_did.clone(), sig, expiry)
+            .verify_data(root_a, mgr_did.clone(), sig, expiry, now_s)
             .expect("verify_data root_a must succeed");
 
         // ── Assertions after resolving one root ─────────────────────────────

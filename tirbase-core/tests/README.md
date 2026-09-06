@@ -422,7 +422,7 @@ The wasm-bindgen export surface — regenerated into
 consists of 15 required exports:
 `core_init`, `core_read`, `core_write`, `core_query`, `core_trust_level`,
 `core_mesh_status`, `core_initiate_revocation`, `core_revocation_status`,
-`core_verify_data`, `core_admin_close`, `core_activate_saturate_mode`,
+`core_verify_data`, `core_admin_close_ico`, `core_activate_saturate_mode`,
 `core_renew_saturate_mode`, `core_terminate_saturate_mode`,
 `core_receive_peer_message`, `core_poll_events`.
 

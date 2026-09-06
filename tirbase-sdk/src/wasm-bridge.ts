@@ -62,10 +62,11 @@ export interface WasmCore {
   verifyData(
     contaminationRootDeltaId: string,
     managerToken: string,
+    nowSecs: number,
   ): Promise<void>;
 
   /** Archive an incident without certifying data integrity. */
-  adminClose(incidentId: string, managerToken: string): Promise<void>;
+  adminClose(incidentId: string, managerToken: string, nowSecs: number): Promise<void>;
 
   /** Activate Saturate Mode with a DISASTER_ALERT payload. */
   activateSaturateMode(
@@ -191,20 +192,22 @@ export function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCor
           d: string,
         ) => Promise<RevocationStatus>
       )(targetDid),
-    verifyData: (rootDeltaId, managerToken) =>
+    verifyData: (rootDeltaId, managerToken, nowSecs) =>
       (
         required('core_verify_data') as (
           r: string,
           t: string,
+          n: number,
         ) => Promise<void>
-      )(rootDeltaId, managerToken),
-    adminClose: (incidentId, managerToken) =>
+      )(rootDeltaId, managerToken, nowSecs),
+    adminClose: (incidentId, managerToken, nowSecs) =>
       (
-        required('core_admin_close') as (
+        required('core_admin_close_ico') as (
           i: string,
           t: string,
+          n: number,
         ) => Promise<void>
-      )(incidentId, managerToken),
+      )(incidentId, managerToken, nowSecs),
     activateSaturateMode: (biscuitTokenHex) =>
       (
         required('core_activate_saturate_mode') as (
@@ -299,11 +302,13 @@ export class MockWasmCore implements WasmCore {
   verifyDataImpl: (
     rootDeltaId: string,
     managerToken: string,
+    nowSecs: number,
   ) => Promise<void> = async () => undefined;
 
   adminCloseImpl: (
     incidentId: string,
     managerToken: string,
+    nowSecs: number,
   ) => Promise<void> = async () => undefined;
 
   activateSaturateModeImpl: (
@@ -355,12 +360,12 @@ export class MockWasmCore implements WasmCore {
     return this.revocationStatusImpl(targetDid);
   }
 
-  verifyData(rootDeltaId: string, managerToken: string): Promise<void> {
-    return this.verifyDataImpl(rootDeltaId, managerToken);
+  verifyData(rootDeltaId: string, managerToken: string, nowSecs: number): Promise<void> {
+    return this.verifyDataImpl(rootDeltaId, managerToken, nowSecs);
   }
 
-  adminClose(incidentId: string, managerToken: string): Promise<void> {
-    return this.adminCloseImpl(incidentId, managerToken);
+  adminClose(incidentId: string, managerToken: string, nowSecs: number): Promise<void> {
+    return this.adminCloseImpl(incidentId, managerToken, nowSecs);
   }
 
   activateSaturateMode(

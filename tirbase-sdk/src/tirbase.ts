@@ -540,11 +540,13 @@ export class TirBase {
   async verifyData(params: {
     contaminationRootDeltaId: string;
     managerToken: string;
+    nowSecs: number;
   }): Promise<void> {
     this._assertInitialized();
     await this._wasm.verifyData(
       params.contaminationRootDeltaId,
       params.managerToken,
+      params.nowSecs,
     );
   }
 
@@ -554,9 +556,10 @@ export class TirBase {
   async adminClose(params: {
     incidentId: string;
     managerToken: string;
+    nowSecs: number;
   }): Promise<void> {
     this._assertInitialized();
-    await this._wasm.adminClose(params.incidentId, params.managerToken);
+    await this._wasm.adminClose(params.incidentId, params.managerToken, params.nowSecs);
   }
 
   /**

@@ -228,6 +228,7 @@ impl CausalContaminationEngine {
         manager_did: Did,
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
+        now_secs: i64,
     ) -> Result<(), TirBaseError> {
         let conn_guard = self
             .conn
@@ -241,6 +242,7 @@ impl CausalContaminationEngine {
             manager_did,
             manager_sig,
             manager_token_expiry,
+            now_secs,
             &conn_guard,
             &self.dag,
             &mut self.incidents,
@@ -324,12 +326,14 @@ impl CausalContaminationEngine {
         manager_did: Did,
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
+        now_secs: i64,
     ) -> Result<(), TirBaseError> {
         resolution::admin_close(
             incident_id,
             manager_did,
             manager_sig,
             manager_token_expiry,
+            now_secs,
             &mut self.incidents,
         )
     }
@@ -583,6 +587,7 @@ impl CausalContaminationEngine {
         manager_did: Did,
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
+        now_secs: i64,
     ) -> Result<(), TirBaseError> {
         use crate::contamination::incident::{AuditEntry, AuditOperation};
 
@@ -592,6 +597,7 @@ impl CausalContaminationEngine {
             &manager_sig,
             &root_delta_id,
             manager_token_expiry,
+            now_secs,
         )?;
 
         let at = now_micros();
@@ -691,12 +697,14 @@ impl CausalContaminationEngine {
         manager_did: Did,
         manager_sig: Ed25519Signature,
         manager_token_expiry: i64,
+        now_secs: i64,
     ) -> Result<(), TirBaseError> {
         resolution::admin_close(
             incident_id,
             manager_did,
             manager_sig,
             manager_token_expiry,
+            now_secs,
             &mut self.incidents,
         )?;
         // Push IncidentClosed event after successful close (WASM path).
@@ -804,6 +812,16 @@ mod tests {
         now_micros() + 3_600_000_000
     }
 
+    /// Current wall-clock time in seconds (for `now_secs` parameters).
+    fn now_secs() -> i64 {
+        now_micros() / 1_000_000
+    }
+
+    /// A token expiry well in the future (now + 1 hour in seconds).
+    fn future_expiry_secs() -> i64 {
+        now_secs() + 3600
+    }
+
     // ─── Test 1: Single-root taint walk completeness ─────────────────────────
 
     #[test]
@@ -891,10 +909,11 @@ mod tests {
             .expect("tag root_b");
 
         let expiry = future_expiry();
+        let now_s = now_secs();
 
         // Resolve root_a.
         let sig_a = sign(&mgr_secret, &root_a);
-        cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry)
+        cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s)
             .expect("verify_data root_a");
 
         // shared should NOT yet have Decontaminated tag (root_b is still unresolved,
@@ -920,7 +939,7 @@ mod tests {
 
         // Resolve root_b.
         let sig_b = sign(&mgr_secret, &root_b);
-        cce.verify_data(root_b, mgr_did.clone(), sig_b, expiry)
+        cce.verify_data(root_b, mgr_did.clone(), sig_b, expiry, now_s)
             .expect("verify_data root_b");
 
         // After both resolved, the shared node (in ICO_A) stays decontaminated
@@ -1019,15 +1038,16 @@ mod tests {
             .expect("tag root");
 
         let expiry = future_expiry();
+        let now_s = now_secs();
 
         // First close — should succeed.
         let sig1 = sign(&mgr_secret, ico_id.as_bytes());
-        cce.admin_close(ico_id, mgr_did.clone(), sig1, expiry)
+        cce.admin_close(ico_id, mgr_did.clone(), sig1, expiry, now_s)
             .expect("first admin_close should succeed");
 
         // Second close — must return InvalidIncidentState.
         let sig2 = sign(&mgr_secret, ico_id.as_bytes());
-        let result = cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry);
+        let result = cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry, now_s);
         assert!(
             matches!(
                 result,
@@ -1057,6 +1077,7 @@ mod tests {
             .expect("tag root");
 
         let expiry = future_expiry();
+        let now_s = now_secs();
 
         // Audit log starts empty.
         let ico = cce.get_incident(ico_id).unwrap().unwrap();
@@ -1064,7 +1085,7 @@ mod tests {
 
         // verify_data adds one VerifyData entry.
         let sig = sign(&mgr_secret, &root_id);
-        cce.verify_data(root_id, mgr_did.clone(), sig, expiry)
+        cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_s)
             .expect("verify_data");
 
         let ico_after_vd = cce.get_incident(ico_id).unwrap().unwrap();
@@ -1080,7 +1101,7 @@ mod tests {
 
         // admin_close adds one AdminClose entry.
         let sig2 = sign(&mgr_secret, ico_id.as_bytes());
-        cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry)
+        cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry, now_s)
             .expect("admin_close");
 
         let ico_after_ac = cce.get_incident(ico_id).unwrap().unwrap();
@@ -1236,7 +1257,7 @@ mod tests {
 
         // Close ICO_A.
         let sig = sign(&mgr_secret, ico_a.as_bytes());
-        cce.admin_close(ico_a, mgr_did.clone(), sig, future_expiry())
+        cce.admin_close(ico_a, mgr_did.clone(), sig, future_expiry(), now_secs())
             .unwrap();
 
         let open = cce.open_incidents().unwrap();
@@ -1300,7 +1321,7 @@ mod tests {
         // verify_data resolves the single root → should clear the projection flag.
         let expiry = future_expiry();
         let sig = sign(&mgr_secret, &root_id);
-        cce.verify_data(root_id, mgr_did.clone(), sig, expiry)
+        cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_secs())
             .expect("verify_data");
 
         {

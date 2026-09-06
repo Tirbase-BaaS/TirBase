@@ -156,10 +156,10 @@ describe('not-initialized guard (Req 2.6)', () => {
       db.revocationStatus({ targetDid: 'did:key:z6Mk' }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
     await expect(
-      db.verifyData({ contaminationRootDeltaId: 'abc', managerToken: 't' }),
+      db.verifyData({ contaminationRootDeltaId: 'abc', managerToken: 't', nowSecs: 0 }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
     await expect(
-      db.adminClose({ incidentId: 'uuid', managerToken: 't' }),
+      db.adminClose({ incidentId: 'uuid', managerToken: 't', nowSecs: 0 }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
     await expect(
       db.activateSaturateMode({ biscuitTokenHex: 'deadbeef' }),
@@ -584,9 +584,9 @@ describe('manager operations', () => {
     mock.verifyDataImpl = spy;
 
     const db = await TirBase.init(DEFAULT_CONFIG);
-    await db.verifyData({ contaminationRootDeltaId: 'abc', managerToken: 'tok' });
+    await db.verifyData({ contaminationRootDeltaId: 'abc', managerToken: 'tok', nowSecs: 1 });
 
-    expect(spy).toHaveBeenCalledWith('abc', 'tok');
+    expect(spy).toHaveBeenCalledWith('abc', 'tok', 1);
   });
 
   test('adminClose delegates to WASM', async () => {
@@ -595,9 +595,9 @@ describe('manager operations', () => {
     mock.adminCloseImpl = spy;
 
     const db = await TirBase.init(DEFAULT_CONFIG);
-    await db.adminClose({ incidentId: 'uuid-123', managerToken: 'tok' });
+    await db.adminClose({ incidentId: 'uuid-123', managerToken: 'tok', nowSecs: 1 });
 
-    expect(spy).toHaveBeenCalledWith('uuid-123', 'tok');
+    expect(spy).toHaveBeenCalledWith('uuid-123', 'tok', 1);
   });
 
   test('activateSaturateMode delegates to WASM', async () => {

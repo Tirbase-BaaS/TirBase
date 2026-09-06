@@ -1,6 +1,6 @@
 //! Integration tests for Phase 14.1 — Report 5 closing the field-scenario gaps.
 //!
-//! Covers five scenarios:
+//! Covers six scenarios:
 //! 1. Late-arriving descendant taint (Req 10.3) — `tag_contamination_root`
 //!    BFS walk reaches descendants inserted after the initial tag.
 //! 2. Composite decomposition end-to-end (Req 10.6) — full `verify_data` →
@@ -13,6 +13,9 @@
 //! 5. Beacon signal loss production path (Req 15.4) —
 //!    `AnchorAttestedLocation::on_beacon_signal_lost` → permanent
 //!    mode reversion to SquadTagFallback.
+//! 6. Expired manager token rejection (Req 11.5) — `verify_data`/`admin_close`
+//!    reject an expired token before any resolution operation, leaving no
+//!    tags written to `dag_nodes`.
 
 #![cfg(feature = "native")]
 
@@ -39,6 +42,15 @@ fn now_micros() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_micros() as i64
+}
+
+/// Current time in seconds since UNIX_EPOCH.
+fn now_secs() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 /// A unique in-memory SQLite database, wrapped in Arc<Mutex<>> for sharing
@@ -246,8 +258,9 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
     // Resolve root_a — this should decompose the composite and re-register
     // root_b as a fresh OPEN ICO.
     let expiry = now_micros() + 3_600_000_000;
+    let now_s = now_secs();
     let sig_a = sign_payload(&mgr_secret, &root_a);
-    cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry)
+    cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s)
         .expect("verify_data root_a");
 
     // After decomposition, a new OPEN ICO for root_b must exist.
@@ -334,10 +347,11 @@ fn test_verify_data_and_admin_close_audit_trail() {
         .expect("tag root");
 
     let expiry = now_micros() + 3_600_000_000;
+    let now_s = now_secs();
     let sig = sign_payload(&mgr_secret, &root_id);
 
     // verify_data — must succeed and leave auditable traces.
-    cce.verify_data(root_id, mgr_did.clone(), sig, expiry)
+    cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_s)
         .expect("verify_data");
 
     // Check the Resolved tag directly in dag_nodes.tags_json.
@@ -367,7 +381,7 @@ fn test_verify_data_and_admin_close_audit_trail() {
 
     // admin_close — must succeed and transition to Closed.
     let sig_close = sign_payload(&mgr_secret, ico_id.as_bytes());
-    cce.admin_close(ico_id, mgr_did.clone(), sig_close, expiry)
+    cce.admin_close(ico_id, mgr_did.clone(), sig_close, expiry, now_s)
         .expect("admin_close");
 
     let ico_after = cce
@@ -423,12 +437,15 @@ fn test_token_expiry_rejects_expired_manager_token() {
         )
         .expect("tag root");
 
-    let now = now_micros();
+     let now_s = now_secs();
 
     // --- verify_data with expired token ---
-    let expired = now - 1; // 1 microsecond in the past
+    // Token expiry is compared against `now_secs * 1_000_000` inside
+    // `verify_manager_auth`; construct an expiry that is strictly in the
+    // past relative to that computation.
+    let expired = now_s * 1_000_000 - 1; // 1 microsecond before now_secs in micros
     let sig = sign_payload(&mgr_secret, &root_id);
-    let result = cce.verify_data(root_id, mgr_did.clone(), sig, expired);
+    let result = cce.verify_data(root_id, mgr_did.clone(), sig, expired, now_s);
     assert!(
         matches!(
             result,
@@ -439,14 +456,14 @@ fn test_token_expiry_rejects_expired_manager_token() {
     );
 
     // --- verify_data with valid (future) token must not be blocked by expiry ---
-    let valid = now + 3_600_000_000;
+    let valid = now_s * 1_000_000 + 3_600_000_000;
     let sig2 = sign_payload(&mgr_secret, &root_id);
-    cce.verify_data(root_id, mgr_did.clone(), sig2, valid)
+    cce.verify_data(root_id, mgr_did.clone(), sig2, valid, now_s)
         .expect("verify_data with valid token must succeed");
 
     // --- admin_close with expired token ---
     let sig_close_expired = sign_payload(&mgr_secret, ico_id.as_bytes());
-    let result = cce.admin_close(ico_id, mgr_did.clone(), sig_close_expired, expired);
+    let result = cce.admin_close(ico_id, mgr_did.clone(), sig_close_expired, expired, now_s);
     assert!(
         matches!(
             result,
@@ -458,7 +475,7 @@ fn test_token_expiry_rejects_expired_manager_token() {
 
     // --- admin_close with valid token must succeed ---
     let sig_close_valid = sign_payload(&mgr_secret, ico_id.as_bytes());
-    cce.admin_close(ico_id, mgr_did, sig_close_valid, valid)
+    cce.admin_close(ico_id, mgr_did, sig_close_valid, valid, now_s)
         .expect("admin_close with valid token must succeed");
 }
 
@@ -609,8 +626,9 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
     // Resolve the root via verify_data.
     let (mgr_did, mgr_secret) = make_manager();
     let expiry = now_micros() + 3_600_000_000;
+    let now_s = now_secs();
     let sig = sign_payload(&mgr_secret, &root_id);
-    cce.verify_data(root_id, mgr_did, sig, expiry)
+    cce.verify_data(root_id, mgr_did, sig, expiry, now_s)
         .expect("verify_data should succeed");
 
     // The late-arriving descendant must now have a Decontaminated tag.
@@ -697,8 +715,9 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
     // Resolve root_a via verify_data — root_b remains unresolved.
     let (mgr_did, mgr_secret) = make_manager();
     let expiry = now_micros() + 3_600_000_000;
+    let now_s = now_secs();
     let sig_a = sign_payload(&mgr_secret, &root_a);
-    cce.verify_data(root_a, mgr_did, sig_a, expiry)
+    cce.verify_data(root_a, mgr_did, sig_a, expiry, now_s)
         .expect("verify_data root_a should succeed");
 
     // The late-arriving descendant of the unresolved root_b must now have a
@@ -712,5 +731,87 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
                 if *incident_id == composite_id || *incident_id == ico_a_id
         )),
         "late-arriving descendant of unresolved root must carry DeltaTag::Contaminated: {tags:?}"
+    );
+}
+
+// ─── Test: expired manager token is rejected (Req 11.5) ──────────────────────
+
+/// Scenario: `verify_contamination` (via the CCE's `verify_data`) must reject
+/// an expired manager token before performing any resolution operation. The
+/// `manager_token_expiry` is a timestamp in microseconds; when it is more than
+/// 1 microsecond in the past relative to `now_secs`, `verify_manager_auth`
+/// returns `AuthorisationFailed("manager token expired")` and no tags are
+/// written to `dag_nodes`.
+///
+/// Acceptance:
+/// - An expired token → `AuthorisationFailed` with "manager token expired".
+/// - The root Delta's `tags_json` must NOT contain a `DeltaTag::Resolved`
+///   (the resolution operation was short-circuited at the auth gate).
+#[test]
+fn expired_manager_token_is_rejected() {
+    let (mut cce, conn) = open_cce();
+    let mut dag = dag_from_conn(&conn);
+
+    let root_id: DeltaId = [0xC1u8; 32];
+    insert_node(&mut dag, root_id, vec![]);
+
+    let (mgr_did, mgr_secret) = make_manager();
+
+    // Create an ICO by tagging the root.
+    let ico_id = cce
+        .tag_contamination_root(
+            root_id,
+            TaintSource::DeviceRevocation {
+                revocation_delta_id: root_id,
+            },
+        )
+        .expect("tag root");
+
+    // Token expiry is 1 microsecond before now_secs (in micros).
+    // `verify_manager_auth` compares `token_expiry` against `now_secs * 1_000_000`,
+    // so we must construct the expired value relative to `now_secs` to avoid
+    // sub-second truncation causing a false pass.
+    let now_s = now_secs();
+    let expired_micros = now_s * 1_000_000 - 1;
+    let sig = sign_payload(&mgr_secret, &root_id);
+
+    // verify_data must reject the expired token.
+    let result = cce.verify_data(root_id, mgr_did.clone(), sig, expired_micros, now_s);
+    assert!(
+        matches!(
+            result,
+            Err(TirBaseError::AuthorisationFailed { ref reason })
+                if reason.contains("manager token expired")
+        ),
+        "verify_data must reject an expired token: {result:?}"
+    );
+
+    // The root Delta must NOT have a Resolved tag — the operation was
+    // short-circuited at the auth gate before any tag was written.
+    let lock = conn.lock().unwrap();
+    let tags = read_tags(&lock, &root_id);
+    assert!(
+        !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. })),
+        "root must NOT carry a Resolved tag when token is expired: {tags:?}"
+    );
+
+    // admin_close must also reject the expired token.
+    let sig_close = sign_payload(&mgr_secret, ico_id.as_bytes());
+    let result = cce.admin_close(ico_id, mgr_did, sig_close, expired_micros, now_s);
+    assert!(
+        matches!(
+            result,
+            Err(TirBaseError::AuthorisationFailed { ref reason })
+                if reason.contains("manager token expired")
+        ),
+        "admin_close must reject an expired token: {result:?}"
+    );
+
+    // The ICO must still be Open — admin_close was short-circuited.
+    let ico = cce.get_incident(ico_id).expect("get incident").expect("ICO exists");
+    assert_eq!(
+        ico.state,
+        IncidentState::Open,
+        "ICO must remain Open when admin_close is rejected for expired token"
     );
 }
