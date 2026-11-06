@@ -7,10 +7,11 @@
 
 ## Purpose
 
-Gate G1 verifies that the outbound mesh transport (Phase 1) is wired with a
-real production caller and that at least one integration test proves two real
-`CoreHandle` instances communicate over TCP using the real libp2p gossipsub
-transport. No row in this audit carries status ASSUMED.
+Gate G1 verifies that the mesh transport (Phase 1) is wired with real production
+callers and that at least one integration test proves two real `CoreHandle`
+instances communicate over TCP using the real libp2p gossipsub transport. This
+covers both the outbound mesh (G1.1) and the inbound delta-processing pipeline
+(G1.2). No row in this audit carries status ASSUMED.
 
 ## G1.1 — Outbound Mesh: Real libp2p Gossipsub Transport
 
@@ -144,8 +145,105 @@ behind a syntax error (missing closing brace):
 
 ---
 
+## G1.2 — Inbound Delta Processing: apply_incoming_delta Routing
+
+**CLAIM-G1.2:** Inbound mesh messages flow through `apply_incoming_delta` in
+`tirbase-core/src/crdt/merge.rs`; the production caller is in
+`CoreHandle::receive_inbound()`; an integration test proves a delta written on
+node A appears on node B after passing through the full inbound pipeline.
+_(CLAIMS.md does not exist yet; Task 3.1 creates it. The claim text and test
+identifier are recorded here as the CLAIM-G1.2 reference.)_
+
+- **Claim text:** Inbound mesh Deltas are routed through `apply_incoming_delta`
+  (the LWW/RGA routing entry point) before reaching `CrdtEngine::apply`; a
+  Delta written on node A appears on node B over the real libp2p mesh.
+- **Status:** Proven
+- **Integration test identifier:** `tirbase-core::api::real_mesh_tests::two_devices_exchange_delta_over_real_mesh`
+
+### Production Caller
+
+| Item | Value |
+|---|---|
+| Function | `apply_incoming_delta(engine: &mut CrdtEngine, delta: &Delta) -> Result<MergeOutcome, TirBaseError>` |
+| Location | `tirbase-core/src/crdt/merge.rs:120` |
+| Called from | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm, line 2561) |
+| Routing | LWW/RGA classification via `is_rga_operation()`, then delegates to `CrdtEngine::apply()` |
+| Gate sequence | Schema-hash gate → Ed25519 signature validation → Operation-type inspection (LWW/RGA) → `CrdtEngine::apply()` (Automerge merge + DAG + Lamport) |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` (line 2535) |
+
+### Integration Test
+
+| Item | Value |
+|---|---|
+| Test name | `two_devices_exchange_delta_over_real_mesh` |
+| Location | `tirbase-core/src/api/mod.rs:9297` (in `mod real_mesh_tests`, line 9161) |
+| Test type | `#[tokio::test(flavor = "multi_thread", worker_threads = 2)]` |
+| What it proves | A delta written on node A over the real libp2p mesh is received, routed through `apply_incoming_delta`, merged into B's CRDT engine, projected to B's store, and readable via B's `read()` — write on A, read on B |
+| Result | PASS (verified 2025-01-20) |
+
+#### Test flow
+
+1. Reserve two distinct loopback TCP ports (`reserve_loopback_port()`)
+2. Initialize two `CoreHandle` instances via `CoreHandle::init()` — each starts a real libp2p Swarm
+3. Node A dials node B's listen address via `CoreHandle::dial_peer()` (production dial path)
+4. Wait for gossipsub subscription to settle (250ms)
+5. Write a row on A via `CoreHandle::write("mesh", "row-a", ...)` — production write path (store + signed Delta + publish)
+6. The Delta travels the full inbound pipeline on B: `gossipsub.publish()` → B's Swarm → `process_wire_message()` → `inbound_tx` → `process_inbound_messages()` → `receive_inbound()` → `apply_incoming_delta()` → `CrdtEngine::apply()` → store projection
+7. Poll `handle_b.read("mesh", "row-a")` until the data matches (20s timeout)
+8. Assert data on B exactly matches data written on A
+
+No test-only injection helpers are used: the Delta travels through the
+production inbound path (`receive_inbound()` → `apply_incoming_delta()` →
+`CrdtEngine::apply()` → store projection → `read()`).
+
+### Additional Integration Tests (same real mesh)
+
+| Test | Location | What it adds |
+|---|---|---|
+| `write_gossip_receive_merge_round_trip_is_signature_verified_and_projected` | `api/mod.rs:9359` | Verifies B's DAG contains the exact Delta A signed (signature-verified merge via `apply_incoming_delta` → `CrdtEngine::apply`), Lamport clock advances, two sequential round trips chain causally |
+| `bidirectional_write_round_trip_asserts_final_state_identity` | `api/mod.rs:9487` | A→B and B→A round trips through `receive_inbound` → `apply_incoming_delta`; final-state identity (every key matches on both engines) |
+
+### Wiring Mutation Check
+
+**Criterion:** Removing the production caller (`apply_incoming_delta` call in
+`receive_inbound`'s `InboundDelta` arm) must cause at least one integration test
+to fail.
+
+**Analysis:**
+
+If the `apply_incoming_delta(&mut crdt, &delta)?` call at `api/mod.rs:2569` is
+replaced with a no-op that returns `MergeOutcome::Merged { new_lamport: 0 }`
+without calling `CrdtEngine::apply()`:
+
+1. The Delta arrives at B's `receive_inbound()` (the `InboundDelta` arm is
+   reached — the inbound channel and Swarm polling task are intact)
+2. The no-op returns `MergeOutcome::Merged` immediately, so the `Merged` branch
+   executes and the projection code runs
+3. But `CrdtEngine::apply()` was never called, so the Delta's Automerge bytes
+   were never loaded into B's CRDT document — the merged doc has no
+   `_tirbase_table`/`_tirbase_key` for this Delta
+4. The projection log shows: "delta ... has binary automerge bytes but no
+   _tirbase_table/_tirbase_key in merged doc — skipping projection"
+5. B's store never receives the row — `wait_for_data()` polls
+   `handle_b.read("mesh", "row-a")` for 20 seconds and times out
+6. The assertion fails with: "row mesh/row-a never projected the expected data
+   on the receiving device within 20s"
+
+**Failing test:** `two_devices_exchange_delta_over_real_mesh` (and all other
+`real_mesh_tests` that assert peer-received data — none can merge inbound
+Deltas without `apply_incoming_delta` calling `CrdtEngine::apply`)
+
+**Verdict:** VERIFIED-BY-TRACE — removing `apply_incoming_delta` at
+`api/mod.rs:2569` causes `two_devices_exchange_delta_over_real_mesh` to fail
+(timeout: "row mesh/row-a never projected the expected data on the receiving
+device within 20s"). The Delta is received at B but never merged into the CRDT
+engine, so projection finds no data and the read times out.
+
+---
+
 ## Summary Table
 
 | Item | Production Caller | Integration Test | Wiring Mutation | Status |
 |---|---|---|---|---|
 | G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
+| G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
