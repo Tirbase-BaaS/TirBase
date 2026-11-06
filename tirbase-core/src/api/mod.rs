@@ -10641,6 +10641,169 @@ mod real_mesh_tests {
         cleanup(&path_a);
         cleanup(&path_b);
     }
+
+    // ── Task 0.4 / CLAIM-G1.4: revoked-author mesh delta rejection ───────────
+    //
+    // Proves that a revocation delta applied on node A causes subsequent deltas
+    // authored by the revoked DID to be rejected at `apply_incoming_delta`
+    // (which calls `CrdtEngine::apply` — Req PV-1.13).
+    //
+    // **Wiring mutation check**: if the `if self.revoked_dids.contains(&delta.author_did)`
+    // block is removed from `CrdtEngine::apply` (crdt/mod.rs), the revoked
+    // author C's delta will be merged into A's DAG (`dag_node` will return
+    // `Some(...)` instead of `None`) and this test will fail.
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn revoked_author_mesh_delta_rejected_at_apply_incoming_delta() {
+        use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+        use crate::identity::keypair::sign;
+
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        // Step 1: spin up two real Swarm-backed handles.
+        let handle_a = init_mesh_handle("g14_A", port_a).await;
+        let handle_b = init_mesh_handle("g14_B", port_b).await;
+
+        // Step 2: connect the peers.
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+
+        // Step 3: wait for gossipsub subscription exchange.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Step 4: identity C — the device that will be revoked.
+        let c_mgr = crate::identity::IdentityManager::init_in_memory()
+            .expect("init C identity");
+        let c_did: String = c_mgr.did().to_string();
+        let c_sk: [u8; 32] = c_mgr.signing_key_bytes();
+
+        // Step 5: manager identity M — signs the revocation.
+        let m_mgr = crate::identity::IdentityManager::init_in_memory()
+            .expect("init M identity");
+        let m_did: String = m_mgr.did().to_string();
+        let m_sk: [u8; 32] = m_mgr.signing_key_bytes();
+
+        // Step 6: produce a 1-of-1 revocation delta targeting C's DID and
+        // inject it into A's inbound pipeline.
+        let rev_delta = {
+            let rev = handle_a.revocation.lock().unwrap();
+            rev.produce_partial_delta(c_did.clone(), m_did.clone(), &m_sk)
+                .expect("produce partial delta")
+        };
+        handle_a
+            .inject_inbound(
+                crate::transport::message::GossipMessage::InboundRevocationDelta(rev_delta),
+            )
+            .await
+            .expect("inject revocation delta");
+        handle_a
+            .process_inbound_messages()
+            .await
+            .expect("process revocation delta");
+
+        // Step 7: verify C's DID is now revoked in A's engine via the
+        // convergent_state snapshot's public `revoked_dids` field.
+        {
+            let state = handle_a.crdt.lock().unwrap().convergent_state();
+            assert!(
+                state.revoked_dids.contains(&c_did),
+                "C must be marked revoked in A's CRDT engine convergent state"
+            );
+        }
+
+        // Step 8: build a validly-signed data delta authored by C.
+        // With empty schema_definitions the engine uses [0u8; 32] as its
+        // known_schema_hash (computed from an empty string in CrdtEngine::new).
+        let schema_hash = handle_a.crdt.lock().unwrap().current_schema_hash();
+        let mut c_delta = Delta {
+            id: [0u8; 32],
+            author_did: c_did.clone(),
+            signature: Ed25519Signature::default(),
+            schema_hash,
+            automerge_bytes: vec![],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        let canonical = c_delta.canonical_bytes();
+        c_delta.signature = sign(&c_sk, &canonical).expect("sign C's delta");
+        c_delta.id = Delta::compute_id(&canonical);
+        let c_delta_id = c_delta.id;
+
+        // Step 9: inject C's data delta on A.
+        handle_a
+            .inject_inbound(
+                crate::transport::message::GossipMessage::InboundDelta(c_delta),
+            )
+            .await
+            .expect("inject C's data delta");
+        handle_a
+            .process_inbound_messages()
+            .await
+            .expect("process C's data delta");
+
+        // Step 10: give the inbound pipeline a moment to settle, then assert
+        // the negative case — C's delta must NOT appear in A's DAG.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let dag_has_c = handle_a
+            .crdt
+            .lock()
+            .unwrap()
+            .dag_node(&c_delta_id)
+            .expect("dag_node lookup must not return an error")
+            .is_some();
+        assert!(
+            !dag_has_c,
+            "revoked author C's delta must not be in A's DAG — \
+             the revocation gate in CrdtEngine::apply must have rejected it"
+        );
+
+        // Also confirm via the rejection records that the rejection code is
+        // RevokedAuthor (not a signature or schema failure).
+        {
+            use crate::crdt::failure::DeltaRejectionCode;
+            let records: Vec<_> = handle_a
+                .crdt
+                .lock()
+                .unwrap()
+                .rejection_records()
+                .iter()
+                .cloned()
+                .collect();
+            let rev_rejection = records
+                .iter()
+                .find(|r| r.author_did == c_did && r.code == DeltaRejectionCode::RevokedAuthor);
+            assert!(
+                rev_rejection.is_some(),
+                "A's rejection records must contain a RevokedAuthor entry for C's DID; \
+                 got: {:?}",
+                records
+            );
+        }
+
+        // Step 11: positive case — B writes a normal delta that reaches A.
+        let written = serde_json::json!({ "test": "revocation_gate_passes_normal" });
+        handle_b
+            .write("revoc_gate_test", "b_row", written.clone())
+            .await
+            .expect("B write must succeed");
+        let _ = wait_for_data(
+            &handle_a,
+            "revoc_gate_test",
+            "b_row",
+            &written,
+            Duration::from_secs(15),
+        )
+        .await;
+
+        // Step 12: clean up.
+        cleanup(&tmp_path("g14_A"));
+        cleanup(&tmp_path("g14_B"));
+    }
 }
 
 /// Integration tests for the production cloud drain path (Subphase 4.1): a
