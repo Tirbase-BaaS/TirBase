@@ -241,9 +241,177 @@ engine, so projection finds no data and the read times out.
 
 ---
 
+## G1.3 — CA Registration: Root CA Key Wiring
+
+**CLAIM-G1.3:** Root CA public key registration is wired through real
+production callers in the gateway init path; Biscuit tokens fail verification
+before a key is registered and succeed after registration. Two production
+caller paths exist: (1) init-time registration via `DeploymentConfig.root_ca_keys`
+→ `CapabilityManager::new()`, and (2) runtime registration via
+`CoreHandle::register_root_ca_key()` → `CapabilityManager::register_root_ca_key()`.
+Existing tests confirm the fail-before/succeed-after behavior.
+
+### Production Caller
+
+Two production caller paths register root CA public keys for Biscuit token
+verification:
+
+#### Path 1 — Init-time registration (gateway init path)
+
+| Item | Value |
+|---|---|
+| Function | `CapabilityManager::new(root_ca_keys, ...)` |
+| Location | `tirbase-core/src/auth/mod.rs:59` |
+| Called from | `CoreHandle::init()` at `tirbase-core/src/api/mod.rs:419` — the `CapabilityManager::new(...)` call is at `api/mod.rs:450`, passing `config.deployment.root_ca_keys.clone()` (line 452) |
+| Registry construction | `RootCaRegistry::new(root_ca_keys)` at `tirbase-core/src/auth/root_ca.rs:24` |
+| WASM gateway entry | `core_init(root_ca_keys_hex: Vec<String>, ...)` at `tirbase-core/src/lib.rs:242` — decodes hex keys and passes them into `DeploymentConfig.root_ca_keys` (line 271) |
+| Effect | Keys are immediately available for offline Biscuit token verification via `CapabilityManager::root_ca_primary_key()` (`auth/mod.rs:236`) → `RootCaRegistry::primary_key()` (`auth/root_ca.rs:42`) |
+| Unconfigured state | Empty `root_ca_keys` vec (the default in `DeploymentConfig` at `api/mod.rs:4449`) → `root_ca_primary_key()` returns `None` → `CoreHandle::root_ca_public_key()` returns empty `Vec<u8>` (`api/mod.rs:1964`) → Biscuit verification fails (`PublicKey::from_bytes` rejects empty slice) |
+
+#### Path 2 — Runtime registration
+
+| Item | Value |
+|---|---|
+| Function | `CapabilityManager::register_root_ca_key(key, token_bytes)` |
+| Location | `tirbase-core/src/auth/mod.rs:275` |
+| Called from | `CoreHandle::register_root_ca_key()` at `tirbase-core/src/api/mod.rs:1987` |
+| Registry update | `RootCaRegistry::register(key)` at `tirbase-core/src/auth/root_ca.rs:31` (idempotent — duplicates are no-ops) |
+| Token verification (optional) | When `token_bytes` is `Some`, calls `CapabilityManager::verify_token()` (`auth/mod.rs:91`) → `biscuit::verify_token()` → `TrustLevelStateMachine::on_valid_token()` (transitions to `Verified`) |
+| WASM exports | `core_register_root_ca_key(root_ca_key_hex)` at `tirbase-core/src/lib.rs:304`; `core_register_root_ca_key_with_token(root_ca_key_hex, biscuit_token_hex, now_secs)` at `tirbase-core/src/lib.rs:324` |
+| Effect | Newly registered key is immediately exposed via `root_ca_primary_key()` and available for all subsequent `verify_token()` / `verify_and_check_caveat()` calls |
+
+### Integration Tests
+
+Three tests confirm the CA registration wiring. The key test for the
+fail-before/succeed-after requirement is
+`runtime_register_root_ca_key_enables_biscuit_verification`.
+
+#### Test 1 — Runtime registration fail-before / succeed-after (key test)
+
+| Item | Value |
+|---|---|
+| Test name | `runtime_register_root_ca_key_enables_biscuit_verification` |
+| Location | `tirbase-core/src/api/mod.rs:5999` |
+| Test type | `#[tokio::test]` |
+| What it proves | A handle initialised with no keys starts in the explicit unconfigured state (Biscuit verification **fails**), then after `register_root_ca_key()` the same token **succeeds** |
+| Result | PASS (verified 2025-01-20) |
+
+##### Test flow
+
+1. Init a `CoreHandle` with `make_config(&path)` — no CA key configured
+2. Assert `handle.root_ca_public_key().is_empty()` — unconfigured state confirmed
+3. Generate a CA keypair and sign a real disaster-alert Biscuit token
+4. **Before registration:** call `verify_and_check_caveat()` with the empty
+   `root_ca_public_key()` → `PublicKey::from_bytes([])` fails → `Err` returned
+5. Assert `before.is_err()` — "empty registry must reject verification"
+6. Register the CA key at runtime via `handle.register_root_ca_key(ca_public, None)`
+7. Assert `handle.root_ca_public_key() == ca_public.to_vec()` — key is now exposed
+8. **After registration:** call `verify_and_check_caveat()` with the same token
+   and the now-populated `root_ca_public_key()` → `Ok(true)`
+9. Assert verification succeeds — "runtime-registered CA key must verify a valid disaster-alert token"
+
+No mocks are used: the test drives the real production path
+(`CoreHandle::register_root_ca_key()` → `CapabilityManager::register_root_ca_key()`
+→ `RootCaRegistry::register()`) and the real Biscuit verification
+(`biscuit::verify_and_check_caveat()` → `Biscuit::from()` + `AuthorizerBuilder`).
+
+#### Test 2 — Init-time registration
+
+| Item | Value |
+|---|---|
+| Test name | `init_registers_root_ca_keys_and_biscuit_verifies` |
+| Location | `tirbase-core/src/api/mod.rs:5957` |
+| Test type | `#[tokio::test]` |
+| What it proves | `CoreHandle::init()` with a CA key in `DeploymentConfig.root_ca_keys` exposes that key via `root_ca_public_key()` and Biscuit verification succeeds immediately |
+| Result | PASS (verified 2025-01-20) |
+
+##### Test flow
+
+1. Generate a CA keypair; build config via `make_config_with_ca_key(&path, ca_public)` which sets `config.deployment.root_ca_keys = vec![ca_key]`
+2. Init `CoreHandle` — `CapabilityManager::new(config.deployment.root_ca_keys, ...)` registers the key
+3. Assert `handle.root_ca_public_key() == ca_public.to_vec()` — init-time registration exposed
+4. Sign a real disaster-alert Biscuit token with the CA private key
+5. Assert `verify_and_check_caveat()` succeeds with the exposed key
+
+#### Test 3 — Trust level transition to Verified
+
+| Item | Value |
+|---|---|
+| Test name | `register_root_ca_key_with_token_transitions_trust_to_verified` |
+| Location | `tirbase-core/src/api/mod.rs:6063` |
+| Test type | `#[tokio::test]` |
+| What it proves | Registering a CA key with a valid Biscuit token transitions `TrustLevel` from `Unverified` to `Verified`; subsequent writes carry no `unverified_warning` |
+| Result | PASS (verified 2025-01-20) |
+
+##### Test flow
+
+1. Init without a CA key — `TrustLevel::Unverified`
+2. Create a valid Biscuit token signed by the CA
+3. Call `handle.register_root_ca_key(ca_public, Some((&token_bytes, now)))` — the production caller chain: `CoreHandle::register_root_ca_key` → `CapabilityManager::register_root_ca_key` → `RootCaRegistry::register` + `CapabilityManager::verify_token` → `TrustLevelStateMachine::on_valid_token`
+4. Assert returned `TrustLevel::Verified`
+5. Assert `handle.trust_level() == TrustLevel::Verified`
+6. Write succeeds and `result.unverified_warning.is_none()`
+
+### Wiring Mutation Check
+
+**Criterion:** Removing the root CA key registration (either the init-time
+`CapabilityManager::new()` call or the runtime `register_root_ca_key` method)
+must cause at least one test to fail.
+
+**Analysis — Init-time path:**
+
+If `CapabilityManager::new(config.deployment.root_ca_keys.clone(), ...)` at
+`api/mod.rs:450` were replaced with `CapabilityManager::new(vec![], ...)` (keys
+from config discarded):
+
+1. `RootCaRegistry` starts empty — `primary_key()` returns `None`
+2. `CoreHandle::root_ca_public_key()` returns empty `Vec<u8>`
+3. `init_registers_root_ca_keys_and_biscuit_verifies` (line 5957):
+   - `assert_eq!(handle.root_ca_public_key(), ca_public.to_vec())` **fails** —
+     the key was in the config but never registered, so `root_ca_public_key()`
+     returns `vec![]` instead of `ca_public.to_vec()`
+4. All tests that init with `make_config_with_ca_key()` and then assert the key
+   is exposed would fail at the first `root_ca_public_key()` assertion
+
+**Failing test:** `init_registers_root_ca_keys_and_biscuit_verifies`
+
+**Analysis — Runtime path:**
+
+If `CoreHandle::register_root_ca_key()` at `api/mod.rs:1987` were a no-op (the
+`CapabilityManager::register_root_ca_key()` call removed):
+
+1. `RootCaRegistry::register()` is never called — the registry stays empty
+2. `runtime_register_root_ca_key_enables_biscuit_verification` (line 5999):
+   - The "before registration" assertion (`before.is_err()`) still passes — the
+     registry is empty, as expected
+   - `assert_eq!(handle.root_ca_public_key(), ca_public.to_vec())` **fails** —
+     the key was never stored, so `root_ca_public_key()` still returns `vec![]`
+   - The "after registration" verification **fails** —
+     `verify_and_check_caveat()` with an empty key returns `Err`
+3. `register_root_ca_key_with_token_transitions_trust_to_verified` (line 6063):
+   - `register_root_ca_key(ca_public, Some((&token_bytes, now)))` returns
+     `Err("no registered root CA keys")` because `verify_token()` finds an empty
+     registry (the key was never stored)
+   - `.expect("register_root_ca_key with token must succeed")` **panics** — test fails
+
+**Failing tests:** `runtime_register_root_ca_key_enables_biscuit_verification`
+and `register_root_ca_key_with_token_transitions_trust_to_verified`
+
+**Verdict:** VERIFIED-BY-TRACE — removing the init-time
+`CapabilityManager::new(root_ca_keys)` call causes
+`init_registers_root_ca_keys_and_biscuit_verifies` to fail (key in config but
+not exposed). Removing the runtime `register_root_ca_key` call causes
+`runtime_register_root_ca_key_enables_biscuit_verification` to fail (key never
+stored — post-registration assertions fail) and
+`register_root_ca_key_with_token_transitions_trust_to_verified` to fail
+(`verify_token` finds empty registry — "no registered root CA keys" error).
+
+---
+
 ## Summary Table
 
 | Item | Production Caller | Integration Test | Wiring Mutation | Status |
 |---|---|---|---|---|
 | G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
+| G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450` (`CoreHandle::init`, passing `config.deployment.root_ca_keys`); runtime: `auth/mod.rs:275` (`CapabilityManager::register_root_ca_key`), called from `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification` — fail-before/succeed-after), `api/mod.rs:5957` (`init_registers_root_ca_keys_and_biscuit_verifies`), `api/mod.rs:6063` (`register_root_ca_key_with_token_transitions_trust_to_verified`) | Removing init-time `CapabilityManager::new(root_ca_keys)` → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime `register_root_ca_key` → `runtime_register_root_ca_key_enables_biscuit_verification` + `register_root_ca_key_with_token_transitions_trust_to_verified` fail | VERIFIED-BY-TRACE |
