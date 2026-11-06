@@ -88,7 +88,7 @@ static_assertions = "1.1.0"
 lru              = "0.18.3"
 
 # Async runtime
-tokio            = { version = "1.53.1", features = ["rt", "sync", "time", "macros"] }
+tokio            = { version = "1.53.1", features = ["rt", "sync", "time", "macros", "io-util"] }
 
 # Serialisation
 serde            = { version = "1.0.219", features = ["derive"] }

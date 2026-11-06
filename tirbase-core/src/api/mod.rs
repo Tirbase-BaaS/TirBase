@@ -135,7 +135,7 @@ async fn initiate_noise_session(
 ) {
     // Open a Noise IK application-layer substream.
     let mut stream = match transport_arc.lock() {
-        Ok(t) => t.open_noise_substream().await,
+        Ok(t) => t.open_noise_substream(),
         Err(e) => {
             eprintln!("[transport-loop] transport mutex poisoned opening substream: {e}");
             return;
@@ -980,30 +980,29 @@ impl CoreHandle {
                                             // if the DID cannot be resolved it falls
                                             // back to register_session.
                                             //
-                                            // The Noise IK handshake requires a
-                                            // bidirectional stream (the initiator
-                                            // sends msg1, the responder replies
-                                            // with msg2).  We spawn a dedicated task
-                                            // that opens the Noise substream and
-                                            // drives the handshake to completion,
-                                            // so the main Swarm poll loop is never
-                                            // blocked on the handshake exchange.
-                                            let local_key = t.local_static_privkey;
-                                            let transport_clone = transport_arc.clone();
-                                            let peer_did_for_stream = did.clone();
-                                            // Spawn a dedicated task that opens the
-                                            // Noise substream and drives the handshake
-                                            // to completion (Req 6.1), so the main
-                                            // Swarm poll loop is never blocked on the
-                                            // handshake exchange.
-                                            tokio::spawn(async move {
-                                                initiate_noise_session(
-                                                    transport_clone,
-                                                    peer_did_for_stream,
-                                                    &local_key,
-                                                    now_secs(),
-                                                ).await;
-                                            });
+                                            // The full Noise IK handshake requires
+                                            // holding the transport MutexGuard
+                                            // across `.await` (the handshake messages
+                                            // are exchanged over an async stream).
+                                            // `std::sync::MutexGuard` is not `Send`,
+                                            // so we cannot `tokio::spawn` it.
+                                            //
+                                            // Until the Noise IK substream is wired
+                                            // to a real libp2p ConnectionHandler
+                                            // (Subphase 5.2), the substream is a no-op
+                                            // DuplexStream whose transport half is
+                                            // discarded.  We therefore use the
+                                            // `register_session` fallback path —
+                                            // the libp2p transport has already
+                                            // completed its own Noise handshake, and
+                                            // we only need rotation tracking +
+                                            // resumption cache sync.
+                                            let now = now_secs();
+                                            let session = t
+                                                .session_manager
+                                                .register_session(did.clone(), now);
+                                            t.active_sessions.insert(did, session);
+                                        }
                                     }
                                     SwarmEvent::Behaviour(
                                         crate::transport::TirBaseBehaviourEvent::Mdns(

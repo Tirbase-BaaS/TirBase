@@ -115,6 +115,7 @@ pub const CREDENTIAL_VALIDITY_SECS: i64 = 24 * 3_600;
 /// `libp2p::swim::Stream` or a raw `tokio::io::DuplexStream`) can implement it
 /// in the transport layer.
 #[cfg(feature = "native")]
+#[async_trait::async_trait]
 pub trait AsyncNoiseStream: Send + Unpin {
     /// Write a handshake or transport message and flush.
     async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()>;
@@ -156,6 +157,7 @@ impl DuplexNoiseStream {
 }
 
 #[cfg(feature = "native")]
+#[async_trait::async_trait]
 impl AsyncNoiseStream for DuplexNoiseStream {
     async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()> {
         use tokio::io::AsyncWriteExt as _;
@@ -786,8 +788,10 @@ mod tests {
                 &initiator_kp.private,
                 &responder_kp.public,
                 Some(&responder_kp.private), // in-process responder for test
+                None,                        // no stream for in-process test
                 1_000,
             )
+            .await
             .expect("handshake must succeed with valid keypairs");
 
         assert_eq!(session.remote_did, "did:key:responder");

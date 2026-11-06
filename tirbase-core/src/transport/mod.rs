@@ -482,7 +482,7 @@ impl MeshTransport {
     /// the Noise IK handshake protocol logic while the actual wire I/O is
     /// deferred to the substream handler (Subphase 5.2).
     #[cfg(feature = "native")]
-    pub async fn open_noise_substream(&self) -> crate::transport::session::DuplexNoiseStream {
+    pub fn open_noise_substream(&self) -> crate::transport::session::DuplexNoiseStream {
         let (client, _transport_half) =
             crate::transport::session::DuplexNoiseStream::pair();
         // NOTE: In production, `_transport_half` would be bridged to a real
