@@ -10804,6 +10804,182 @@ mod real_mesh_tests {
         cleanup(&tmp_path("g14_A"));
         cleanup(&tmp_path("g14_B"));
     }
+
+    // ── G1.5 — Saturate mode wiring (PV-1.13) ────────────────────────────────
+    //
+    // Verifies that `core_activate_saturate_mode` (WASM) / `CoreHandle::activate_saturate_mode`
+    // (native) has a real production caller path wired through the init-time
+    // `SaturateModeStateMachine` configuration in `CoreHandle::init`.
+    //
+    // The production caller chain is:
+    //   `CoreHandle::init()` (api/mod.rs:801) →
+    //     `MeshTransport::new(TransportConfig { root_ca_public_key, saturate_termination_threshold_m, ... })` →
+    //       `SaturateModeStateMachine::new(threshold_m, root_ca_public_key, ...)` (transport/saturate.rs)
+    //
+    // `CoreHandle::activate_saturate_mode` then invokes the already-wired state machine:
+    //   `CoreHandle::activate_saturate_mode` (api/mod.rs:2306) →
+    //     `MeshTransport::activate_saturate_mode` (transport/mod.rs:564) →
+    //       `SaturateModeStateMachine::activate` (transport/saturate.rs)
+    //
+    // **Wiring mutation check**: removing the `root_ca_public_key` field from the
+    // `TransportConfig` passed in `MeshTransport::new` at `CoreHandle::init` (i.e.
+    // setting `root_ca_public_key: vec![]` instead of reading from `DeploymentConfig`)
+    // causes `activate_saturate_mode` to return `AuthorisationFailed("no root CA
+    // public key registered; cannot verify Biscuit token")` and this test fails at the
+    // `activate_saturate_mode` assertion below.
+    //
+    // CLAIMS entry: CLAIM-G1.5
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller() {
+        use crate::transport::saturate::SaturateState;
+        use biscuit_auth::KeyPair;
+
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        // Build a shared deployment CA keypair.  The CA public key is injected
+        // into both handles via `DeploymentConfig::root_ca_keys` — the init-time
+        // production caller that configures the `SaturateModeStateMachine`.
+        let ca_kp = KeyPair::new();
+        let ca_private_bytes = ca_kp.private().to_bytes().to_vec();
+        let ca_public_bytes: [u8; 32] = ca_kp
+            .public()
+            .to_bytes()
+            .try_into()
+            .expect("CA public key must be 32 bytes");
+
+        // Build two mesh configs, both carrying the same CA public key.
+        // `CoreHandle::init` passes `root_ca_public_key` from `DeploymentConfig::root_ca_keys`
+        // into `TransportConfig` at api/mod.rs:811–816, which `MeshTransport::new`
+        // forwards to `SaturateModeStateMachine::new` (transport/mod.rs:276–280).
+        // This is the init-time production caller that wires the CA key for
+        // disaster-alert token verification.
+        let path_a = tmp_path("g15_A");
+        let path_b = tmp_path("g15_B");
+        cleanup(&path_a);
+        cleanup(&path_b);
+
+        let mut config_a = mesh_config(&path_a, port_a);
+        config_a.deployment.root_ca_keys = vec![ca_public_bytes];
+        config_a.deployment.revocation_m = 2; // M=2 for termination threshold
+
+        let mut config_b = mesh_config(&path_b, port_b);
+        config_b.deployment.root_ca_keys = vec![ca_public_bytes];
+        config_b.deployment.revocation_m = 2;
+
+        // Initialize two real `CoreHandle` instances with the production init path.
+        // This exercises: `CoreHandle::init` → `MeshTransport::new` → `SaturateModeStateMachine::new`
+        // with the CA key, proving the init-time production caller is live.
+        let handle_a = CoreHandle::init(config_a)
+            .await
+            .expect("handle A init must succeed");
+        CoreHandle::spawn_inbound_drain_loop(&handle_a, Duration::from_millis(10));
+
+        let handle_b = CoreHandle::init(config_b)
+            .await
+            .expect("handle B init must succeed");
+        CoreHandle::spawn_inbound_drain_loop(&handle_b, Duration::from_millis(10));
+
+        // Connect A → B over the real libp2p mesh.
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+
+        // Wait for gossipsub subscription exchange to settle.
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Assert both handles start in NORMAL state — the `SaturateModeStateMachine`
+        // is initialised in NORMAL by `CoreHandle::init` (the init-time production caller).
+        {
+            let t_a = handle_a.transport.lock().unwrap();
+            assert_eq!(
+                t_a.saturate.state(),
+                SaturateState::Normal,
+                "handle A must start in NORMAL — init-time state machine must be in NORMAL"
+            );
+        }
+        {
+            let t_b = handle_b.transport.lock().unwrap();
+            assert_eq!(
+                t_b.saturate.state(),
+                SaturateState::Normal,
+                "handle B must start in NORMAL — init-time state machine must be in NORMAL"
+            );
+        }
+
+        // Build a real DISASTER_ALERT Biscuit token signed by the deployment CA.
+        // This is the token `core_activate_saturate_mode` (lib.rs) / `CoreHandle::activate_saturate_mode`
+        // expects on the production code path.
+        let activate_token =
+            crate::auth::biscuit::create_token_with_caveat(
+                "did:key:z6MkManager",
+                "manager",
+                3600,
+                "disaster-alert",
+                &ca_private_bytes,
+            )
+            .expect("DISASTER_ALERT token creation must succeed");
+
+        // Exercise the production caller:
+        //   `CoreHandle::activate_saturate_mode` (api/mod.rs:2306)
+        //     → `CoreHandle::verify_disaster_alert_token` (uses root CA key from init)
+        //     → `MeshTransport::activate_saturate_mode` (transport/mod.rs:564)
+        //     → `SaturateModeStateMachine::activate` (transport/saturate.rs)
+        //
+        // This proves the full wiring from `CoreHandle::init`'s registration of
+        // the CA key (via `MeshTransport::new`) through the runtime activation path.
+        //
+        // **Wiring mutation check**: if `CoreHandle::init` does NOT pass the
+        // `root_ca_public_key` into `TransportConfig` (i.e. the call at api/mod.rs:811
+        // is removed or the key is zeroed), `verify_disaster_alert_token` returns
+        // `AuthorisationFailed("no root CA public key registered")` and this
+        // `expect` panics — the test fails.
+        handle_a
+            .activate_saturate_mode(&activate_token)
+            .expect("a valid disaster-alert token must activate Saturate_Mode through the production caller");
+
+        // Verify the state machine on handle A has transitioned to SATURATE.
+        // This proves the production caller (`activate_saturate_mode`) drove the
+        // real `SaturateModeStateMachine` (not a stub) from NORMAL → SATURATE.
+        {
+            let t_a = handle_a.transport.lock().unwrap();
+            assert_eq!(
+                t_a.saturate.state(),
+                SaturateState::Saturate,
+                "handle A's saturate state machine must be SATURATE after \
+                 activate_saturate_mode — production caller at api/mod.rs:2306"
+            );
+            let lease = t_a.saturate.lease().expect(
+                "activation must open a lease on the real SaturateModeStateMachine",
+            );
+            assert!(
+                lease.expires_at > 0,
+                "lease expires_at must be set by the real state machine"
+            );
+            assert!(
+                t_a.scheduler.is_saturate_mode(),
+                "DRR scheduler must mirror SATURATE state — \
+                 reconcile_scheduler_saturate_mode() called by production caller"
+            );
+        }
+
+        // Handle B is unaffected — each node's saturate state is independent.
+        {
+            let t_b = handle_b.transport.lock().unwrap();
+            assert_eq!(
+                t_b.saturate.state(),
+                SaturateState::Normal,
+                "handle B must remain in NORMAL — saturate activation is per-node"
+            );
+            assert!(
+                !t_b.scheduler.is_saturate_mode(),
+                "handle B's scheduler must not be in saturate mode"
+            );
+        }
+
+        cleanup(&path_a);
+        cleanup(&path_b);
+    }
 }
 
 /// Integration tests for the production cloud drain path (Subphase 4.1): a

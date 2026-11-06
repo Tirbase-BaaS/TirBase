@@ -415,3 +415,114 @@ stored — post-registration assertions fail) and
 | G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450` (`CoreHandle::init`, passing `config.deployment.root_ca_keys`); runtime: `auth/mod.rs:275` (`CapabilityManager::register_root_ca_key`), called from `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification` — fail-before/succeed-after), `api/mod.rs:5957` (`init_registers_root_ca_keys_and_biscuit_verifies`), `api/mod.rs:6063` (`register_root_ca_key_with_token_transitions_trust_to_verified`) | Removing init-time `CapabilityManager::new(root_ca_keys)` → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime `register_root_ca_key` → `runtime_register_root_ca_key_enables_biscuit_verification` + `register_root_ca_key_with_token_transitions_trust_to_verified` fail | VERIFIED-BY-TRACE |
+| G1.5 Saturate mode | `api/mod.rs:811–816` (`root_ca_public_key` passed to `TransportConfig` in `MeshTransport::new`, init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode`, runtime caller) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing `root_ca_public_key` in `TransportConfig` at `api/mod.rs:811` → `SignatureVerificationFailed { reason: "DISASTER_ALERT token verification failed: Authorisation error: invalid root CA public key: invalid key size" }` → test fails at `activate_saturate_mode` assertion | VERIFIED-BY-TRACE |
+
+---
+
+## G1.5 — Saturate Mode Wiring: `core_activate_saturate_mode` Production Caller
+
+**CLAIM-G1.5:** `core_activate_saturate_mode` (the WASM export in `lib.rs`) and its
+native counterpart `CoreHandle::activate_saturate_mode` have a real production caller
+path wired through the init-time `SaturateModeStateMachine` configuration in
+`CoreHandle::init`; removing the root CA key wiring from init causes at least one
+integration test to fail.
+
+### Production Caller
+
+Two production caller levels are recorded:
+
+#### Level 1 — Init-time: CA key wired into the state machine
+
+| Item | Value |
+|---|---|
+| Function | `MeshTransport::new(TransportConfig { root_ca_public_key, saturate_termination_threshold_m, saturate_lease_duration_secs, ... })` |
+| Location | `tirbase-core/src/api/mod.rs:801` |
+| Key wiring | `root_ca_public_key: config.deployment.root_ca_keys.first().map(|k| k.to_vec()).unwrap_or_default()` at `api/mod.rs:811–816` |
+| Threshold wiring | `saturate_termination_threshold_m: config.deployment.revocation_m.max(1)` at `api/mod.rs:810` |
+| Downstream | `SaturateModeStateMachine::new(threshold_m, root_ca_public_key, lease_duration_secs)` in `transport/mod.rs:276–280` |
+| Effect | The `SaturateModeStateMachine` held in `MeshTransport::saturate` is configured with the deployment CA key and M threshold; subsequent calls to `activate_saturate_mode` verify disaster-alert Biscuit tokens against this key |
+
+#### Level 2 — Runtime: activate_saturate_mode production method
+
+| Item | Value |
+|---|---|
+| Function | `CoreHandle::activate_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError>` |
+| Location | `tirbase-core/src/api/mod.rs:2300` |
+| Called from (WASM) | `core_activate_saturate_mode` in `tirbase-core/src/lib.rs:653` |
+| Called from (native) | Host/server code holding an `Arc<CoreHandle>` directly |
+| Downstream | `CoreHandle::verify_disaster_alert_token` (uses `root_ca_public_key()` from the `CapabilityManager` registry) → `MeshTransport::activate_saturate_mode` (transport/mod.rs:563) → `SaturateModeStateMachine::activate` |
+| Effect | State machine transitions NORMAL → SATURATE; DRR scheduler mirrored into Saturate Mode via `reconcile_scheduler_saturate_mode()` |
+
+### Integration Test
+
+| Item | Value |
+|---|---|
+| Test name | `saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller` |
+| Location | `tirbase-core/src/api/mod.rs:10833` (in `mod real_mesh_tests`) |
+| Test type | `#[tokio::test(flavor = "multi_thread", worker_threads = 2)]` |
+| What it proves | Two real `CoreHandle` instances are initialized with a shared deployment CA key; `activate_saturate_mode` is called on handle A with a real disaster-alert Biscuit token; the state machine transitions to SATURATE and the DRR scheduler mirrors it; handle B remains in NORMAL — proving the init-time production caller configures the state machine correctly and the runtime production caller drives it |
+| Result | PASS (verified 2025-07-14) |
+
+#### Test flow
+
+1. Reserve two distinct loopback TCP ports
+2. Generate a deployment CA keypair (Ed25519)
+3. Initialize two `CoreHandle` instances via `CoreHandle::init()` — each with the shared CA public key in `DeploymentConfig::root_ca_keys`; this exercises the init-time production caller (`MeshTransport::new` at `api/mod.rs:801` wiring the CA key into `SaturateModeStateMachine::new`)
+4. Connect handle A → handle B via `connect_peers()` over the real libp2p mesh
+5. Assert both handles start in NORMAL state
+6. Build a real DISASTER_ALERT Biscuit token signed by the deployment CA private key
+7. Call `handle_a.activate_saturate_mode(&activate_token)` — the runtime production caller
+8. Assert handle A's `saturate.state() == SaturateState::Saturate`
+9. Assert handle A's lease `expires_at > 0`
+10. Assert handle A's `scheduler.is_saturate_mode() == true`
+11. Assert handle B remains in NORMAL (per-node independence)
+
+### Wiring Mutation Check
+
+**Criterion:** Removing the `root_ca_public_key` wiring from `MeshTransport::new`
+in `CoreHandle::init` (zeroing the key instead of reading it from `DeploymentConfig`)
+must cause at least one integration test to fail.
+
+**Mutation applied:** At `api/mod.rs:811–816`, replaced:
+```rust
+root_ca_public_key: config
+    .deployment
+    .root_ca_keys
+    .first()
+    .map(|k| k.to_vec())
+    .unwrap_or_default(),
+```
+with:
+```rust
+root_ca_public_key: vec![],
+```
+
+**Result:** Test `saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`
+panicked with:
+
+```
+a valid disaster-alert token must activate Saturate_Mode through the production caller:
+SignatureVerificationFailed { reason: "DISASTER_ALERT token verification failed:
+Authorisation error: invalid root CA public key: invalid key size" }
+```
+
+**Analysis:**
+
+When `root_ca_public_key: vec![]` is passed to `SaturateModeStateMachine::new`,
+the state machine holds a zero-length CA key. The `CoreHandle::verify_disaster_alert_token`
+method at `api/mod.rs:2260` reads the CA key from the `CapabilityManager` registry
+(`self.root_ca_public_key()`), which _is_ populated (the `CapabilityManager` and
+`SaturateModeStateMachine` hold separate copies of the CA key). However, the
+`SaturateModeStateMachine::activate` call in `MeshTransport::activate_saturate_mode`
+verifies the token independently using its own `root_ca_public_key` — and that key
+is `vec![]` because the init-time wiring was removed. The Biscuit `PublicKey::from_bytes`
+call rejects the empty slice with `"invalid root CA public key: invalid key size"`.
+
+**Failing test:** `saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`
+
+**Restore:** Reverted mutation; test passes again (verified 2025-07-14).
+
+**Verdict:** VERIFIED-BY-TRACE — zeroing `root_ca_public_key` at `api/mod.rs:811`
+causes `saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`
+to fail with `SignatureVerificationFailed`. The init-time production caller is
+correctly wired and the integration test detects removal.
