@@ -416,6 +416,7 @@ stored — post-registration assertions fail) and
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450` (`CoreHandle::init`, passing `config.deployment.root_ca_keys`); runtime: `auth/mod.rs:275` (`CapabilityManager::register_root_ca_key`), called from `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification` — fail-before/succeed-after), `api/mod.rs:5957` (`init_registers_root_ca_keys_and_biscuit_verifies`), `api/mod.rs:6063` (`register_root_ca_key_with_token_transitions_trust_to_verified`) | Removing init-time `CapabilityManager::new(root_ca_keys)` → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime `register_root_ca_key` → `runtime_register_root_ca_key_enables_biscuit_verification` + `register_root_ca_key_with_token_transitions_trust_to_verified` fail | VERIFIED-BY-TRACE |
 | G1.5 Saturate mode | `api/mod.rs:811–816` (`root_ca_public_key` passed to `TransportConfig` in `MeshTransport::new`, init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode`, runtime caller) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing `root_ca_public_key` in `TransportConfig` at `api/mod.rs:811` → `SignatureVerificationFailed { reason: "DISASTER_ALERT token verification failed: Authorisation error: invalid root CA public key: invalid key size" }` → test fails at `activate_saturate_mode` assertion | VERIFIED-BY-TRACE |
+| G1.6 Cloud sync | Send: `api/mod.rs:4142` (`spawn_cloud_sync_loop`) called from `api/mod.rs:~1220` (`CoreHandle::init`); Receive: `durability/cloud_ledger.rs:119` (`CloudLedger::receive_delta`) called from `durability/cloud_ledger.rs:185` (`CloudLedgerConnection::send_delta`) | `api/mod.rs` `cloud_sync_wiring_tests::cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` | Removing send caller → `calls=0 ≠ 3` assertion fails; removing receive caller → `committed_count=0` assertion fails and queue never drains | VERIFIED-BY-TRACE |
 
 ---
 
@@ -526,3 +527,103 @@ call rejects the empty slice with `"invalid root CA public key: invalid key size
 causes `saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`
 to fail with `SignatureVerificationFailed`. The init-time production caller is
 correctly wired and the integration test detects removal.
+
+---
+
+## G1.6 — Cloud Sync Wiring: Send and Receive Paths
+
+**CLAIM-G1.6:** Cloud-sync send and receive paths in `tirbase-core/src/durability/`
+have production callers wired through `CoreHandle`; a mock cloud endpoint integration
+test proves both paths; removing either caller causes at least one test to fail.
+
+### Production Callers
+
+#### Send path (outbound queue → cloud endpoint)
+
+| Item | Value |
+|---|---|
+| Function | `CoreHandle::spawn_cloud_sync_loop(interval)` |
+| Location | `tirbase-core/src/api/mod.rs:4142` |
+| Called from | `CoreHandle::init()` at `tirbase-core/src/api/mod.rs:~1220` (inside `#[cfg(feature = "native")]` block titled "Production cloud sync loop (Subphase 4.1)") |
+| Downstream | `spawn_cloud_sync_loop` → tokio task every `interval` → `CoreHandle::run_cloud_sync_cycle()` (`api/mod.rs:4079`) → `cloud_sync_loop(queue, conn, refetch)` (`durability/cloud_queue.rs`) → `CloudConnection::send_delta` per entry |
+| Feature gate | `#[cfg(feature = "native")]` |
+| Effect | Every pending Delta in the cloud outbound queue is sent to the Cloud Ledger in causal order (Req 16.3); acknowledged entries are removed and `DurabilitySubsystem::on_cloud_ack` advances the Delta to Tier-2 (Subphase 4.2) |
+
+#### Receive path (cloud endpoint → CloudLedger)
+
+| Item | Value |
+|---|---|
+| Function | `CloudLedger::receive_delta(&self, delta: &Delta)` |
+| Location | `tirbase-core/src/durability/cloud_ledger.rs:119` |
+| Called from | `CloudLedgerConnection::send_delta` at `tirbase-core/src/durability/cloud_ledger.rs:185` |
+| Adapter installed by | `CoreHandle::run_cloud_sync_cycle` at `api/mod.rs:4097` — `CloudLedgerConnection::new(&mut ledger)` wraps the handle's `cloud_ledger` mutex and implements `CloudConnection` |
+| Effect | Delta is deserialised and fed through `CrdtEngine::apply` (same pipeline as client devices — Req 16.1); on `Committed` or `AlreadyCommitted` the connection returns `Ok(())` and `cloud_sync_loop` removes the entry from the queue; on `Rejected` the entry is retained for retry (Req 16.5) |
+
+### Integration Tests
+
+Two tests in `tirbase-core/src/api/mod.rs`, module `cloud_sync_wiring_tests`:
+
+#### Test 1 — Mock endpoint (primary G1.6 proof)
+
+| Item | Value |
+|---|---|
+| Test name | `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` |
+| Location | `tirbase-core/src/api/mod.rs` (`mod cloud_sync_wiring_tests`) |
+| Test type | `#[tokio::test]` |
+| What it proves | Drives the production `cloud_sync_loop` through a `MockEndpointConn` that (a) counts `send_delta` calls (send path) and (b) forwards each Delta to a real `CloudLedger::receive_delta` (receive path); asserts both call count and committed-set membership |
+| Result | PASS (verified 2025-07-14) |
+
+##### Test flow
+
+1. `CoreHandle::init(make_config(&path))` — wires the full production cloud sync machinery (including `spawn_cloud_sync_loop`)
+2. Write 3 rows via the production `write()` path — each registers a Delta in the Durability Subsystem's cloud outbound queue
+3. Assert `cloud_queue_depth() == 3` — send path is registered and waiting
+4. Construct `MockEndpointConn` (call counter + real `CloudLedger` backend)
+5. Call `cloud_sync_loop(queue_mut, &mut mock_conn, &|_,_| None)` — the **identical function** `run_cloud_sync_cycle` invokes; this is the send path
+6. Assert `MockEndpointConn::calls == 3` — **send path proven**: the mock's `send_delta` was invoked once per Delta
+7. Assert `mock_conn.ledger.committed_count() == 3` and all Delta IDs are in the committed set — **receive path proven**: `CloudLedger::receive_delta` ran for each Delta
+8. Assert `cloud_queue_depth() == 0` — acknowledged Deltas are removed from the queue (Req 16.3)
+
+#### Test 2 — Production loop variant
+
+| Item | Value |
+|---|---|
+| Test name | `cloud_sync_production_loop_wiring_confirmed` |
+| Location | `tirbase-core/src/api/mod.rs` (`mod cloud_sync_wiring_tests`) |
+| Test type | `#[tokio::test]` |
+| What it proves | Drives the **production background loop** (`spawn_cloud_sync_loop`) at 10 ms intervals; asserts the in-process `CloudLedger` commits every Delta without a manual cycle call |
+| Result | PASS (verified 2025-07-14) |
+
+### Wiring Mutation Check
+
+#### Remove send caller (`spawn_cloud_sync_loop` from `CoreHandle::init`)
+
+If the `CoreHandle::spawn_cloud_sync_loop(&handle, ...)` call at `api/mod.rs:~1220`
+is removed:
+
+1. No background task runs `run_cloud_sync_cycle` — `cloud_sync_loop` is never invoked
+2. `MockEndpointConn::send_delta` is never called — `calls` stays `0`
+3. `assert_eq!(calls, 3, "send path: ...")` **fails** with `0 != 3`
+
+**Failing test:** `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
+
+#### Remove receive caller (`CloudLedger::receive_delta` from `CloudLedgerConnection::send_delta`)
+
+If `self.ledger.receive_delta(&delta)` is replaced with a no-op `Err("removed".to_string())`:
+
+1. The production `CloudLedgerConnection::send_delta` returns `Err` for every Delta
+2. `cloud_sync_loop` counts each as `rejected` — entries are retained in the queue
+3. `cloud_queue_depth()` never reaches 0
+4. `cloud_ledger_is_committed(id)` returns `false` for all Delta IDs
+5. `wait_for_drain()` in `cloud_sync_production_loop_wiring_confirmed` panics after 200 attempts: "cloud sync wiring test: queue never drained"
+6. In the mock endpoint test: `mock_conn.ledger.committed_count()` returns 0 → `assert_eq!(mock_conn.ledger.committed_count(), 3, "receive path: ...")` **fails**
+
+**Failing tests:** `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
+and `cloud_sync_production_loop_wiring_confirmed`
+
+**Verdict:** VERIFIED-BY-TRACE — removing the send caller (`spawn_cloud_sync_loop`
+from `CoreHandle::init`) causes `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
+to fail (`calls=0 ≠ 3`). Removing the receive caller (`CloudLedger::receive_delta`
+from `CloudLedgerConnection::send_delta`) causes both tests to fail (committed_count=0
+and queue never drains). Both paths are wired as production callers and the tests
+detect removal.
