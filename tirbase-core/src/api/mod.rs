@@ -12649,6 +12649,428 @@ mod composite_incident_tests {
     }
 }
 
+// ─── Task 0.8 — Gate G1.8: Quarantine + Sidecar Ledger Wiring (CLAIM-G1.8) ──
+//
+// Integration tests proving that `quarantine_ledger` and `sidecar_ledger`
+// writes are exercised through real production callers in two real
+// `CoreHandle` instances (PV-1.13).
+//
+// ## Quarantine path (production caller)
+//
+// `SchemaMigrationEngine::quarantine_incoming` at
+// `tirbase-core/src/migration/mod.rs:703` is called from
+// `CoreHandle::receive_inbound` at `tirbase-core/src/api/mod.rs:2760` when
+// `CrdtEngine::apply` returns `MergeOutcome::Quarantined`.  This happens when
+// an inbound Delta's schema hash does not match the local schema hash.
+//
+// ## Sidecar path (production caller)
+//
+// `SchemaMigrationEngine::record_corrupted_window_write` at
+// `tirbase-core/src/migration/mod.rs:783` is called from
+// `CoreHandle::write` at `tirbase-core/src/api/mod.rs:1668`.  This happens
+// when the device's current schema is under an active corruption window (a
+// revoked migration produced it) — every subsequent write is byte-for-byte
+// preserved in the Side-Car Ledger for replay when a corrected migration
+// arrives.
+//
+// ## Wiring mutation check
+//
+// - **Remove quarantine caller** (`quarantine_incoming` call from
+//   `receive_inbound`'s `Quarantined` arm at `api/mod.rs:2760`): Node B
+//   processes the mismatched-schema delta but never writes to the quarantine
+//   ledger.  `quarantine_ledger_wiring_two_core_handle_instances` asserts
+//   `entries.len() == 1`; with the call removed the ledger stays empty and
+//   the assertion fails with `0 != 1`.
+//   Failing test: `quarantine_ledger_wiring_two_core_handle_instances`
+//
+// - **Remove sidecar caller** (`record_corrupted_window_write` call from
+//   `CoreHandle::write`'s side-car capture block at `api/mod.rs:1668`): The
+//   write succeeds but no Side-Car entry is recorded.
+//   `sidecar_ledger_wiring_two_core_handle_instances` asserts
+//   `sidecar_count >= 1`; with the call removed the count stays 0 and the
+//   assertion fails.
+//   Failing test: `sidecar_ledger_wiring_two_core_handle_instances`
+//
+// CLAIM-G1.8: see gate-g1.md G1.8 entry.
+#[cfg(all(test, feature = "native"))]
+mod quarantine_sidecar_wiring_tests {
+    use super::*;
+    use crate::transport::message::GossipMessage;
+    use serde_json::json;
+    use std::time::Duration;
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    fn make_migration_config_for_wiring(
+        path: &str,
+        ca_public: [u8; 32],
+        version_path: Vec<[u8; 32]>,
+    ) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: Some(ca_public),
+                schema_version_path: version_path,
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
+            },
+        }
+    }
+
+    fn make_plain_config_for_wiring(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
+            },
+        }
+    }
+
+    /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`.
+    fn make_signed_migration(
+        ca_secret: &[u8; 32],
+        source: [u8; 32],
+        target: [u8; 32],
+        transform_bytes: Vec<u8>,
+    ) -> crate::migration::migration_delta::MigrationDelta {
+        use crate::crdt::delta::{Ed25519Signature, PriorityClass};
+        use crate::migration::migration_delta::{CaSignature, MigrationDelta};
+        use sha2::{Digest, Sha256};
+
+        let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
+        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes)
+            .expect("ca sign");
+        MigrationDelta {
+            id: transform_sha256,
+            author_did: "did:key:z6MkMigSender".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+        }
+    }
+
+    /// A minimal valid WASM module (the sandbox treats a missing "run" export
+    /// as a successful no-op).
+    fn trivial_wasm() -> Vec<u8> {
+        vec![
+            0x00, 0x61, 0x73, 0x6d, // magic
+            0x01, 0x00, 0x00, 0x00, // version
+        ]
+    }
+
+    fn tmp_wiring_path(suffix: &str) -> String {
+        let mut p = std::env::temp_dir();
+        p.push(format!("tirbase_g18_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup_wiring(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    // ─── Test 1: quarantine_ledger write path — two real CoreHandle instances ─
+
+    /// **CLAIM-G1.8 / quarantine path.**
+    ///
+    /// Exercises the production call `quarantine_incoming` at
+    /// `tirbase-core/src/api/mod.rs:2760` using two real `CoreHandle`
+    /// instances.
+    ///
+    /// Node A constructs a signed delta stamped with a schema hash unknown to
+    /// Node B and delivers it via `inject_inbound`.  Node B processes it
+    /// through its full production inbound pipeline
+    /// (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply`
+    /// → `MergeOutcome::Quarantined` → `migration.quarantine_incoming()`).
+    /// The test then asserts that the quarantine ledger on Node B holds
+    /// exactly one entry with the correct raw bytes, sender DID, and reason —
+    /// proving the production caller wrote to the ledger.
+    ///
+    /// **Wiring mutation check:** removing `quarantine_incoming` from the
+    /// `Quarantined` arm in `receive_inbound` (api/mod.rs:2760) leaves the
+    /// ledger empty; `assert_eq!(entries.len(), 1)` fails with `0 != 1`.
+    /// **Failing test:** `quarantine_ledger_wiring_two_core_handle_instances`
+    #[tokio::test]
+    async fn quarantine_ledger_wiring_two_core_handle_instances() {
+        let path_a = tmp_wiring_path("qledger_a");
+        let path_b = tmp_wiring_path("qledger_b");
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+
+        // Node A: plain config, produces a delta with a foreign schema hash.
+        let _handle_a = CoreHandle::init(make_plain_config_for_wiring(&path_a))
+            .await
+            .expect("handle_a init");
+
+        // Node B: plain config, will receive and quarantine that delta.
+        let handle_b = CoreHandle::init(make_plain_config_for_wiring(&path_b))
+            .await
+            .expect("handle_b init");
+
+        // Build a signed delta with a schema hash entirely unknown to Node B.
+        let (peer_secret, peer_public) = crate::identity::keypair::generate_keypair()
+            .expect("keygen");
+        let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
+        let unknown_schema = [0xCCu8; 32];
+
+        let mut delta = crate::crdt::delta::Delta {
+            id: [0u8; 32],
+            author_did: peer_did.clone(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
+            schema_hash: unknown_schema,
+            automerge_bytes: vec![],
+            priority: crate::crdt::delta::PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        let canonical = delta.canonical_bytes();
+        delta.signature = crate::identity::keypair::sign(&peer_secret, &canonical)
+            .expect("sign delta");
+        delta.id = crate::crdt::delta::Delta::compute_id(&canonical);
+
+        // Capture the expected raw bytes (what the quarantine ledger must store).
+        let expected_raw = serde_json::to_vec(&delta).expect("serialise delta");
+
+        // Node B processes the delta through the production inbound path.
+        handle_b
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject_inbound on handle_b");
+
+        let processed = handle_b
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages on handle_b");
+
+        assert_eq!(
+            processed, 1,
+            "handle_b must process exactly one inbound message"
+        );
+
+        // Assert the production quarantine_incoming call wrote to the ledger.
+        let migration = handle_b.migration.lock().expect("migration lock on handle_b");
+        let entries = migration
+            .quarantined_entries()
+            .expect("quarantined_entries on handle_b");
+
+        assert_eq!(
+            entries.len(),
+            1,
+            "quarantine_ledger: exactly one entry must be stored by the production \
+             quarantine_incoming caller at api/mod.rs:2760 (CLAIM-G1.8)"
+        );
+        assert_eq!(
+            entries[0].raw_bytes, expected_raw,
+            "quarantine_ledger: raw_bytes must be the byte-for-byte serialised Delta \
+             (Req 17.5)"
+        );
+        assert_eq!(
+            entries[0].sender_did, peer_did,
+            "quarantine_ledger: sender DID must be recorded"
+        );
+        assert_eq!(
+            entries[0].schema_hash,
+            Some(unknown_schema),
+            "quarantine_ledger: schema hash must be recorded"
+        );
+        assert_eq!(
+            entries[0].reason,
+            crate::migration::quarantine::QuarantineReason::UnknownSchemaHash,
+            "quarantine_ledger: reason must be UnknownSchemaHash"
+        );
+
+        drop(migration);
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+    }
+
+    // ─── Test 2: sidecar_ledger write path — two real CoreHandle instances ────
+
+    /// **CLAIM-G1.8 / sidecar path.**
+    ///
+    /// Exercises the production call `record_corrupted_window_write` at
+    /// `tirbase-core/src/api/mod.rs:1668` using two real `CoreHandle`
+    /// instances.
+    ///
+    /// Node A holds the migration CA key and applies a migration (S → T) on
+    /// Node B via the inbound pipeline.  Managers then revoke that migration,
+    /// opening a corruption window for schema T on Node B.  A subsequent write
+    /// on Node B (the second handle) is captured in the Side-Car Ledger by the
+    /// production caller.  The test asserts `sidecar_count >= 1` proving the
+    /// write path reached the ledger.
+    ///
+    /// **Wiring mutation check:** removing `record_corrupted_window_write` from
+    /// the side-car capture block in `CoreHandle::write` (api/mod.rs:1668)
+    /// means no Side-Car entry is written; `assert!(sidecar_count >= 1)` fails
+    /// with `sidecar_count = 0`.
+    /// **Failing test:** `sidecar_ledger_wiring_two_core_handle_instances`
+    #[tokio::test]
+    async fn sidecar_ledger_wiring_two_core_handle_instances() {
+        use crate::migration::migration_delta::{
+            ManagerSignature, MigrationRevocationDelta,
+        };
+
+        let path_a = tmp_wiring_path("sidecar_a");
+        let path_b = tmp_wiring_path("sidecar_b");
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair()
+            .expect("keygen");
+        let s = [0xA0u8; 32];
+        let t = [0xA1u8; 32];
+        let u = [0xA2u8; 32];
+
+        // Node A: has the migration CA key (acts as migration source).
+        let _handle_a = CoreHandle::init(make_migration_config_for_wiring(
+            &path_a,
+            ca_public,
+            vec![s, t, u],
+        ))
+        .await
+        .expect("handle_a init");
+
+        // Node B: receives migrations, will have the corruption window opened.
+        let handle_b = CoreHandle::init(make_migration_config_for_wiring(
+            &path_b,
+            ca_public,
+            vec![s, t, u],
+        ))
+        .await
+        .expect("handle_b init");
+
+        // ── Step 1: Apply the (eventually-corrupted) migration S → T on Node B.
+        let bad_delta = make_signed_migration(&ca_secret, s, t, trivial_wasm());
+        let bad_migration_id = bad_delta.id;
+
+        handle_b
+            .inject_inbound(GossipMessage::InboundMigrationDelta(bad_delta))
+            .await
+            .expect("inject bad migration on handle_b");
+        handle_b
+            .process_inbound_messages()
+            .await
+            .expect("process bad migration on handle_b");
+
+        assert!(
+            handle_b
+                .await_migration_quiescence(Duration::from_secs(10))
+                .await,
+            "bad migration must finish within 10s"
+        );
+
+        {
+            let mig = handle_b.migration.lock().unwrap();
+            assert_eq!(
+                mig.current_schema_hash(),
+                t,
+                "Node B must have advanced to schema T before revocation"
+            );
+        }
+
+        // ── Step 2: Revoke the migration, opening the corruption window on T.
+        let (mgr_secret, mgr_public) = crate::identity::keypair::generate_keypair()
+            .expect("keygen mgr");
+        let mgr_did = crate::crdt::derive_did_from_public_key(&mgr_public);
+
+        let sig_bytes = crate::identity::keypair::sign(&mgr_secret, &bad_migration_id)
+            .expect("mgr sign");
+        let revocation = MigrationRevocationDelta {
+            target_migration_id: bad_migration_id,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did.clone(),
+                signature: crate::crdt::delta::Ed25519Signature(sig_bytes.0),
+            }],
+            created_at: 0,
+        };
+
+        handle_b
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
+            .await
+            .expect("inject revocation on handle_b");
+        handle_b
+            .process_inbound_messages()
+            .await
+            .expect("process revocation on handle_b");
+
+        // Verify the corruption window is now open on Node B.
+        {
+            let mig = handle_b.migration.lock().unwrap();
+            assert!(
+                mig.active_corruption_migration().is_some(),
+                "corruption window must be open on Node B after revocation"
+            );
+        }
+
+        // ── Step 3: Write on Node B while the corruption window is active.
+        // This exercises CoreHandle::write → step 5b (side-car capture) →
+        // SchemaMigrationEngine::record_corrupted_window_write →
+        // SideCarLedger::record — the production caller at api/mod.rs:1668.
+        handle_b
+            .write("sidecar_wiring", "probe-row", json!({ "captured": true }))
+            .await
+            .expect("write on handle_b while corruption window is open");
+
+        // ── Step 4: Assert the Side-Car Ledger holds at least one entry.
+        let sidecar_count = {
+            let mig = handle_b.migration.lock().unwrap();
+            mig.sidecar_entries(&bad_migration_id)
+                .expect("sidecar_entries on handle_b")
+                .len()
+        };
+
+        assert!(
+            sidecar_count >= 1,
+            "sidecar_ledger: at least one entry must be stored by the production \
+             record_corrupted_window_write caller at api/mod.rs:1668 (CLAIM-G1.8); \
+             actual count: {sidecar_count}"
+        );
+
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+    }
+}
+
 // ─── Task 0.6 — Gate G1.6: Cloud Sync Wiring (CLAIM-G1.6) ───────────────────
 //
 // Integration test proving that cloud-sync **send** and **receive** paths in

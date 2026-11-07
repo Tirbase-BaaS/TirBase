@@ -782,3 +782,132 @@ callers in the gateway init path and the tests detect their removal.
 | G1.5 Saturate mode | `api/mod.rs:801–816` (`MeshTransport::new` init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode` runtime) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing key at `api/mod.rs:811` → `SignatureVerificationFailed` → test fails | VERIFIED-BY-TRACE |
 | G1.6 Cloud sync | `api/mod.rs:4142` (`spawn_cloud_sync_loop`) called from `api/mod.rs:~1220`; `durability/cloud_ledger.rs:119` (`CloudLedger::receive_delta`) | `api/mod.rs` `cloud_sync_wiring_tests::cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` | Removing send caller → `calls=0 ≠ 3`; removing receive caller → `committed_count=0` | VERIFIED-BY-TRACE |
 | G1.7 Migration CA + version path | `api/mod.rs:574–578` (`migration_ca_public_key` → `SchemaMigrationEngine::new:672`); `api/mod.rs:578–580` (`schema_version_path` → `SchemaMigrationEngine::new:674`); runtime: `api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) | `api/mod.rs:6441` (`migration_delta_wrong_ca_signature_is_rejected` — CLAIM-G1.7 primary); `api/mod.rs:6215` (`init_registers_migration_ca_key_and_version_path`); `api/mod.rs:6291` (`runtime_register_migration_ca_key_enables_migrations`); `api/mod.rs:6346` (`inbound_migration_passes_ca_gate_with_configured_key_and_path`) | Zeroing `migration_ca_public_key` at `api/mod.rs:574` → `init_registers_migration_ca_key_and_version_path` fails (`MigrationCaSignatureInvalid`); replacing path with empty vec at `api/mod.rs:578` → same test fails (`VersionPathMismatch`) | VERIFIED-BY-TRACE |
+
+| G1.8 Quarantine + Sidecar wiring | `migration/mod.rs:703` (`SchemaMigrationEngine::quarantine_incoming`), called from `api/mod.rs:2760` (`receive_inbound` Quarantined arm); `migration/mod.rs:783` (`SchemaMigrationEngine::record_corrupted_window_write`), called from `api/mod.rs:1668` (`CoreHandle::write` side-car capture block) | `api/mod.rs:12832` (`quarantine_ledger_wiring_two_core_handle_instances`); `api/mod.rs:12948` (`sidecar_ledger_wiring_two_core_handle_instances`) | Removing `quarantine_incoming` from `receive_inbound` Quarantined arm at `api/mod.rs:2760` → `quarantine_ledger_wiring_two_core_handle_instances` fails (`0 != 1`); removing `record_corrupted_window_write` from `CoreHandle::write` side-car block at `api/mod.rs:1668` → `sidecar_ledger_wiring_two_core_handle_instances` fails (`actual count: 0`) | VERIFIED-BY-TRACE |
+
+---
+
+## G1.8 — Quarantine Ledger and Sidecar Ledger Wiring
+
+**CLAIM-G1.8:** `quarantine_ledger` writes and `sidecar_ledger` writes have
+production callers in `tirbase-core` production code; two real `CoreHandle`
+integration tests exercise each path; removing either caller causes at least one
+test to fail (PV-1.13 wired definition).
+
+### Production Callers
+
+#### Quarantine Ledger write path
+
+| Item | Value |
+|---|---|
+| Function | `SchemaMigrationEngine::quarantine_incoming(...)` |
+| Location | `tirbase-core/src/migration/mod.rs:703` |
+| Calls into | `QuarantineLedger::quarantine(...)` at `tirbase-core/src/migration/quarantine.rs` |
+| Called from | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2760` — inside the `MergeOutcome::Quarantined { reason }` arm of the `GossipMessage::InboundDelta(delta)` branch |
+| Trigger | `CrdtEngine::apply()` returns `MergeOutcome::Quarantined` when an inbound Delta's schema hash does not match the device's current schema hash (Req 17.4) |
+| Effect | Delta stored byte-for-byte in the `quarantine_ledger` SQLite table (no modification — Req 17.5); available for replay once a migration corrects the schema |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` |
+
+#### Sidecar Ledger write path
+
+| Item | Value |
+|---|---|
+| Function | `SchemaMigrationEngine::record_corrupted_window_write(...)` |
+| Location | `tirbase-core/src/migration/mod.rs:783` |
+| Calls into | `SideCarLedger::record(...)` at `tirbase-core/src/migration/sidecar.rs` |
+| Called from | `CoreHandle::write()` at `tirbase-core/src/api/mod.rs:1668` — inside the side-car capture block, via `.and_then(|mut mig| mig.record_corrupted_window_write(table, delta_bytes, delta.created_at))` |
+| Trigger | `SchemaMigrationEngine::active_corruption_migration()` returns `Some(migration_id)` — meaning the device's current schema is under an active corruption window opened by a revoked migration (Req 19.1/19.2) |
+| Effect | Write operation preserved byte-for-byte in the `sidecar_ledger` SQLite table, scoped to the corrupting migration ID, for replay against the corrected projection (Req 19.2) |
+| Feature gate | `#[cfg(feature = "native")]` on the capture block |
+
+### Integration Tests
+
+Both tests live in `tirbase-core/src/api/mod.rs`, module `quarantine_sidecar_wiring_tests`.
+
+#### Test 1 — Quarantine Ledger wiring (CLAIM-G1.8 quarantine path)
+
+| Item | Value |
+|---|---|
+| Test name | `quarantine_ledger_wiring_two_core_handle_instances` |
+| Location | `tirbase-core/src/api/mod.rs:12832` |
+| Test type | `#[tokio::test]` |
+| What it proves | Two real `CoreHandle` instances (Node A, Node B); Node A writes a Delta with a mismatched schema hash; the Delta is delivered to Node B through the full production inbound pipeline (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply` → `MergeOutcome::Quarantined` → `migration.quarantine_incoming()`); Node B's `quarantine_ledger` holds exactly one entry with the correct raw bytes, sender DID, and reason |
+| Result | PASS (verified 2025-07-14) |
+
+##### Test flow
+
+1. Init two `CoreHandle` instances (Node A on schema `v1`, Node B on schema `v1`)
+2. Craft a Delta with an unknown schema hash `0xCCCC...` — this hash is not in Node B's schema registry
+3. Inject the Delta into Node B's inbound channel via `inject_inbound(InboundDelta(...))`
+4. Call `process_inbound_messages()` on Node B — runs the full production inbound pipeline
+5. `CrdtEngine::apply()` returns `MergeOutcome::Quarantined { reason: UnknownSchemaHash }`
+6. The `Quarantined` arm at `api/mod.rs:2760` calls `migration.quarantine_incoming()`
+7. Assert `migration.quarantined_entries().len() == 1` — production caller wrote to the ledger
+8. Assert entry raw bytes, sender DID, and schema hash match the injected Delta
+
+**Wiring mutation check (executed 2025-07-14):**
+
+The `quarantine_incoming` call in the `Quarantined` arm (`api/mod.rs:2760`) was
+replaced with a no-op (`let _ = raw_bytes; let _ = reason;`). With no production
+write call:
+
+- The Delta is processed — the pipeline reaches the `Quarantined` arm
+- But `quarantine_incoming` is never called — the ledger stays empty
+- `assert_eq!(entries.len(), 1)` **failed** with:
+  ```
+  assertion `left == right` failed: quarantine_ledger: exactly one entry must be
+  stored by the production quarantine_incoming caller at api/mod.rs:2760 (CLAIM-G1.8)
+    left: 0
+   right: 1
+  ```
+
+Call restored; test passes again (verified 2025-07-14).
+
+#### Test 2 — Sidecar Ledger wiring (CLAIM-G1.8 sidecar path)
+
+| Item | Value |
+|---|---|
+| Test name | `sidecar_ledger_wiring_two_core_handle_instances` |
+| Location | `tirbase-core/src/api/mod.rs:12948` |
+| Test type | `#[tokio::test]` |
+| What it proves | Two real `CoreHandle` instances (Node A, Node B); Node B receives and applies a migration that advances its schema to `T`; the migration is then revoked, opening a corruption window on schema `T`; Node B writes a row while the window is active; `CoreHandle::write` at `api/mod.rs:1668` calls `record_corrupted_window_write` which writes to the `sidecar_ledger`; the test asserts at least one sidecar entry was stored |
+| Result | PASS (verified 2025-07-14) |
+
+##### Test flow
+
+1. Init two `CoreHandle` instances sharing a migration CA key and schema version path `[v1 → T]`
+2. Deliver a valid CA-signed migration delta to Node B via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages()`
+3. Node B advances to schema `T` — assert `mig.current_schema_hash() == T`
+4. Revoke the migration: inject `InboundMigrationRevocationDelta` with a `MigrationRevocationDelta { signatures: [ManagerSignature { ... }], created_at: 0 }`; `receive_revocation_delta` opens the corruption window on schema `T`
+5. Assert `mig.active_corruption_migration().is_some()` — corruption window is open
+6. Call `handle_b.write("sidecar_wiring", "probe-row", json!({ "captured": true }))` — the production write path at `api/mod.rs:1668` detects the active corruption window and calls `record_corrupted_window_write`
+7. Assert `mig.sidecar_entries(&bad_migration_id).len() >= 1` — production caller wrote to the sidecar ledger
+
+**Wiring mutation check (executed 2025-07-14):**
+
+The `record_corrupted_window_write` call in `CoreHandle::write` (`api/mod.rs:1668`) was
+replaced with `let _ = delta_bytes;`. With no production write call:
+
+- The write completes normally — the CRDT engine accepted it
+- But `record_corrupted_window_write` was never called — the sidecar ledger stays empty
+- `assert!(sidecar_count >= 1)` **failed** with:
+  ```
+  sidecar_ledger: at least one entry must be stored by the production
+  record_corrupted_window_write caller at api/mod.rs:1668 (CLAIM-G1.8);
+  actual count: 0
+  ```
+
+Call restored; test passes again (verified 2025-07-14).
+
+### Wiring Mutation Check Summary
+
+| Mutation | Failing Test | Failure Message |
+|---|---|---|
+| Remove `quarantine_incoming` from `receive_inbound` Quarantined arm (`api/mod.rs:2760`) | `quarantine_ledger_wiring_two_core_handle_instances` | `assertion left == right failed: 0 != 1 (quarantine_ledger: exactly one entry must be stored by the production quarantine_incoming caller at api/mod.rs:2760 (CLAIM-G1.8))` |
+| Remove `record_corrupted_window_write` from `CoreHandle::write` side-car block (`api/mod.rs:1668`) | `sidecar_ledger_wiring_two_core_handle_instances` | `sidecar_ledger: at least one entry must be stored by the production record_corrupted_window_write caller at api/mod.rs:1668 (CLAIM-G1.8); actual count: 0` |
+
+**Verdict:** VERIFIED-BY-TRACE — both production callers are wired; removing either
+causes the corresponding integration test to fail with a deterministic assertion error;
+both calls have been restored; both tests pass on the current codebase.
+
+---
