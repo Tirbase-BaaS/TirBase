@@ -1,0 +1,52 @@
+# cargo-audit configuration for TriBase
+# Mirrors the advisory ignore list in deny.toml — these are pre-existing
+# vulnerabilities that existed before the audit gate was wired (2026-11-07).
+# They must be resolved by upgrading the affected crates. Remove entries here
+# as the upstream fixes land.
+#
+# See: https://rustsec.org/advisories/
+
+[advisories]
+
+# crypto-bigint v0.5.5 — timing variability in constant-time operations.
+# Used transitively via biscuit-auth → elliptic-curve. Awaiting biscuit-auth
+# upgrade to elliptic-curve ≥ 0.14 / crypto-bigint ≥ 0.5.6.
+ignore = [
+    "RUSTSEC-2026-0387",
+
+    # hickory-proto v0.25.2 — two DNS parsing issues pulled in by libp2p-mdns.
+    "RUSTSEC-2026-0118",
+    "RUSTSEC-2026-0119",
+
+    # tokio v1.53.1 — AsyncFd constructors violate I/O safety (unsound).
+    # Will be resolved when tokio publishes a patched 1.x release.
+    "RUSTSEC-2026-0386",
+
+    # wasmtime — multiple component-model and JIT vulnerabilities in v48.x.
+    # All require upgrading to the patched wasmtime release when available.
+    "RUSTSEC-2026-0315",
+    "RUSTSEC-2026-0316",
+    "RUSTSEC-2026-0325",
+    "RUSTSEC-2026-0326",
+    "RUSTSEC-2026-0327",
+    "RUSTSEC-2026-0353",
+    "RUSTSEC-2026-0354",
+    "RUSTSEC-2026-0355",
+    "RUSTSEC-2026-0356",
+    "RUSTSEC-2026-0357",
+    "RUSTSEC-2026-0358",
+    "RUSTSEC-2026-0359",
+    "RUSTSEC-2026-0361",
+    "RUSTSEC-2026-0362",
+    "RUSTSEC-2026-0363",
+    "RUSTSEC-2026-0364",
+    "RUSTSEC-2026-0378",
+    "RUSTSEC-2026-0379",
+    "RUSTSEC-2026-0391",
+    "RUSTSEC-2026-0398",
+    "RUSTSEC-2026-0403",
+    "RUSTSEC-2026-0410",
+    "RUSTSEC-2026-0422",
+    "RUSTSEC-2026-0423",
+    "RUSTSEC-2026-0424",
+]

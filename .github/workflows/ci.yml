@@ -25,6 +25,21 @@ jobs:
           command: check
           arguments: --all-features
 
+  cargo-audit:
+    name: cargo-audit (vulnerability advisory check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo-audit (CLAIM-2.3)
+        # Uses the rustsec/audit-check action which downloads a pre-built binary
+        # and fails the job if any unignored vulnerability is found.
+        # Pre-existing advisories acknowledged at gate-wiring time are listed in
+        # audit.toml at the workspace root (mirroring deny.toml's ignore list).
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   layer-isolation:
     name: Dependency layer isolation checks
     runs-on: ubuntu-latest
@@ -70,7 +85,7 @@ jobs:
 
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, layer-isolation]
+    needs: [cargo-deny, cargo-audit, layer-isolation]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -114,7 +129,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, layer-isolation]
+    needs: [cargo-deny, cargo-audit, layer-isolation]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
