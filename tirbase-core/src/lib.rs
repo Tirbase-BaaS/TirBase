@@ -25,6 +25,9 @@
 
 #![deny(clippy::module_inception)]
 #![allow(missing_docs)]
+// Warn on dead private code across this crate. `pub` items are naturally exempt
+// (the Rust dead_code lint does not fire on reachable public items).
+#![warn(dead_code)]
 
 // ─── Compile-time mutual exclusivity guard ────────────────────────────────────
 // Prevents accidentally enabling both features in the same build.
