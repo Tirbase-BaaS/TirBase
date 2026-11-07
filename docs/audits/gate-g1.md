@@ -1,7 +1,7 @@
 # Gate G1 — Master-Completion-Plan Phases 1–5 Audit
 
 **Status:** VERIFIED-BY-TRACE
-**Date:** 2025-01-20
+**Date:** 2025-07-20
 **Spec:** tirbase-master-enhancement
 **Requirements:** PV-1.13
 
@@ -10,8 +10,11 @@
 Gate G1 verifies that the mesh transport (Phase 1) is wired with real production
 callers and that at least one integration test proves two real `CoreHandle`
 instances communicate over TCP using the real libp2p gossipsub transport. This
-covers both the outbound mesh (G1.1) and the inbound delta-processing pipeline
-(G1.2). No row in this audit carries status ASSUMED.
+covers the outbound mesh (G1.1), the inbound delta-processing pipeline (G1.2),
+root CA key registration (G1.3), revoked-author rejection at `apply_incoming_delta`
+(G1.4), saturate mode wiring (G1.5), cloud sync (G1.6), migration CA key and
+version-path wiring (G1.7), quarantine and sidecar ledger wiring (G1.8), and
+migration mid-flight revocation (G1.9). No row in this audit carries status ASSUMED.
 
 ## G1.1 — Outbound Mesh: Real libp2p Gossipsub Transport
 
@@ -408,6 +411,79 @@ stored — post-registration assertions fail) and
 
 ---
 
+## G1.4 — Revoked-Author Rejection: apply_incoming_delta Gate
+
+**CLAIM-G1.4:** A revocation delta applied on a mesh node causes subsequent
+deltas from the revoked DID to be rejected at `apply_incoming_delta`
+(`tirbase-core/src/crdt/merge.rs`); an integration test using two real
+`CoreHandle` instances proves this; removing the revocation check causes at
+least one test to fail.
+
+### Production Caller
+
+| Item | Value |
+|---|---|
+| Function | `CrdtEngine::apply(&mut self, delta: &Delta) -> Result<MergeOutcome, TirBaseError>` |
+| Revocation gate location | `tirbase-core/src/crdt/mod.rs` — inside `CrdtEngine::apply`, the `if self.revoked_dids.contains(&delta.author_did)` check |
+| Called from | `apply_incoming_delta(engine, delta)` at `tirbase-core/src/crdt/merge.rs:120` → `engine.apply(delta)` (the routing entry point delegates to `CrdtEngine::apply` for all paths) |
+| Invoked by | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm) |
+| Revocation registration | `CrdtEngine::mark_did_revoked(did)` called from `CoreHandle::process_inbound_messages()` when a complete `InboundRevocationDelta` meets the M-of-N threshold via `RevocationSubsystem::process_incoming_delta` → `apply_revocation` |
+| Effect | When `delta.author_did` is in `revoked_dids`, `CrdtEngine::apply` returns `MergeOutcome::Rejected { reason: "REVOKED: <did>" }` without storing the Delta in the DAG or projecting it to the store |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` |
+
+### Integration Test
+
+| Item | Value |
+|---|---|
+| Test name | `revoked_author_mesh_delta_rejected_at_apply_incoming_delta` |
+| Location | `tirbase-core/src/api/mod.rs:10745` (in `mod real_mesh_tests`) |
+| Test type | `#[tokio::test(flavor = "multi_thread", worker_threads = 2)]` |
+| What it proves | Two real `CoreHandle` instances (A and B) on loopback TCP; a 1-of-1 revocation delta for author C's DID is injected into A and processed; then a validly-signed data delta authored by C is injected into A — it must not appear in A's DAG and the rejection record must carry `DeltaRejectionCode::RevokedAuthor`; B independently receives a normal delta from B's own identity to prove non-revoked authors still pass |
+| Result | PASS (verified 2025-07-15) |
+
+#### Test flow
+
+1. Reserve two distinct loopback TCP ports; initialize two real `CoreHandle` instances (A, B) via `CoreHandle::init(mesh_config(...))` — each starts a real libp2p Swarm
+2. Connect A → B via `connect_peers()`; wait for gossipsub subscription exchange (250ms)
+3. Generate identity C (the device to be revoked) and identity M (RevocationManager)
+4. Node A's `RevocationSubsystem` produces a 1-of-1 partial revocation delta targeting C's DID, signed by M
+5. Inject the revocation delta into A via `inject_inbound(InboundRevocationDelta(...))` + `process_inbound_messages()` — calls `RevocationSubsystem::process_incoming_delta` → `apply_revocation` → `CrdtEngine::mark_did_revoked(&c_did)`
+6. Assert C's DID appears in `handle_a.crdt.convergent_state().revoked_dids` — revocation registered
+7. Build a validly-signed data delta authored by C (correct signature, valid schema hash, Lamport 1)
+8. Inject C's delta into A via `inject_inbound(InboundDelta(c_delta))` + `process_inbound_messages()`
+9. Assert C's delta ID is NOT in A's DAG (`dag_node(&c_delta_id)` returns `None`)
+10. Assert A's rejection records contain a `DeltaRejectionCode::RevokedAuthor` entry for C's DID
+11. Positive case: B writes a normal delta that reaches A through the real mesh — proves non-revoked authors still pass the gate
+
+### Wiring Mutation Check
+
+**Criterion (PV-1.13):** Removing the `if self.revoked_dids.contains(&delta.author_did)` block
+from `CrdtEngine::apply` must cause `revoked_author_mesh_delta_rejected_at_apply_incoming_delta`
+to fail.
+
+**Analysis:**
+
+If the revocation gate in `CrdtEngine::apply` is removed (the `if revoked_dids.contains(...)` block
+deleted):
+
+1. C's data delta reaches `engine.apply(delta)` without hitting the gate
+2. `CrdtEngine::apply` processes the Delta normally — Automerge merge + DAG insertion
+3. C's `DeltaId` appears in A's DAG — `dag_node(&c_delta_id)` returns `Some(...)`
+4. The rejection records contain no `RevokedAuthor` entry for C's DID
+5. `assert!(!dag_has_c, "revoked author C's delta must not be in A's DAG ...")` **fails** — C's delta was merged despite the revocation
+
+**Failing test:** `revoked_author_mesh_delta_rejected_at_apply_incoming_delta`
+(assertion: `assert!(!dag_has_c, "revoked author C's delta must not be in A's DAG — the revocation gate in CrdtEngine::apply must have rejected it")`)
+
+**Verdict:** VERIFIED-BY-TRACE — the production revocation gate is inside
+`CrdtEngine::apply` in `tirbase-core/src/crdt/mod.rs`, called through the
+`apply_incoming_delta` routing entry point at `crdt/merge.rs:120`; the
+integration test drives two real `CoreHandle` instances through the full
+revocation and rejection scenario; removing the revocation gate causes the
+DAG-membership assertion to fail.
+
+---
+
 ## Summary Table
 
 | Item | Production Caller | Integration Test | Wiring Mutation | Status |
@@ -415,6 +491,7 @@ stored — post-registration assertions fail) and
 | G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450` (`CoreHandle::init`, passing `config.deployment.root_ca_keys`); runtime: `auth/mod.rs:275` (`CapabilityManager::register_root_ca_key`), called from `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification` — fail-before/succeed-after), `api/mod.rs:5957` (`init_registers_root_ca_keys_and_biscuit_verifies`), `api/mod.rs:6063` (`register_root_ca_key_with_token_transitions_trust_to_verified`) | Removing init-time `CapabilityManager::new(root_ca_keys)` → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime `register_root_ca_key` → `runtime_register_root_ca_key_enables_biscuit_verification` + `register_root_ca_key_with_token_transitions_trust_to_verified` fail | VERIFIED-BY-TRACE |
+| G1.4 Revoked-author rejection | `crdt/mod.rs` (`CrdtEngine::apply` revocation gate), called through `crdt/merge.rs:120` (`apply_incoming_delta`) → `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:10745` (`revoked_author_mesh_delta_rejected_at_apply_incoming_delta`) | Removing `if self.revoked_dids.contains(&delta.author_did)` from `CrdtEngine::apply` → C's delta appears in DAG → `assert!(!dag_has_c)` fails | VERIFIED-BY-TRACE |
 | G1.5 Saturate mode | `api/mod.rs:811–816` (`root_ca_public_key` passed to `TransportConfig` in `MeshTransport::new`, init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode`, runtime caller) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing `root_ca_public_key` in `TransportConfig` at `api/mod.rs:811` → `SignatureVerificationFailed { reason: "DISASTER_ALERT token verification failed: Authorisation error: invalid root CA public key: invalid key size" }` → test fails at `activate_saturate_mode` assertion | VERIFIED-BY-TRACE |
 | G1.6 Cloud sync | Send: `api/mod.rs:4142` (`spawn_cloud_sync_loop`) called from `api/mod.rs:~1220` (`CoreHandle::init`); Receive: `durability/cloud_ledger.rs:119` (`CloudLedger::receive_delta`) called from `durability/cloud_ledger.rs:185` (`CloudLedgerConnection::send_delta`) | `api/mod.rs` `cloud_sync_wiring_tests::cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` | Removing send caller → `calls=0 ≠ 3` assertion fails; removing receive caller → `committed_count=0` assertion fails and queue never drains | VERIFIED-BY-TRACE |
 
@@ -779,6 +856,7 @@ callers in the gateway init path and the tests detect their removal.
 | G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450`; runtime: `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification`), `api/mod.rs:5957`, `api/mod.rs:6063` | Removing init-time path → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime path → two tests fail | VERIFIED-BY-TRACE |
+| G1.4 Revoked-author rejection | `crdt/mod.rs` (`CrdtEngine::apply` revocation gate), called through `crdt/merge.rs:120` (`apply_incoming_delta`) → `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:10745` (`revoked_author_mesh_delta_rejected_at_apply_incoming_delta`) | Removing `if self.revoked_dids.contains(&delta.author_did)` from `CrdtEngine::apply` → C's delta appears in DAG → `assert!(!dag_has_c)` fails | VERIFIED-BY-TRACE |
 | G1.5 Saturate mode | `api/mod.rs:801–816` (`MeshTransport::new` init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode` runtime) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing key at `api/mod.rs:811` → `SignatureVerificationFailed` → test fails | VERIFIED-BY-TRACE |
 | G1.6 Cloud sync | `api/mod.rs:4142` (`spawn_cloud_sync_loop`) called from `api/mod.rs:~1220`; `durability/cloud_ledger.rs:119` (`CloudLedger::receive_delta`) | `api/mod.rs` `cloud_sync_wiring_tests::cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` | Removing send caller → `calls=0 ≠ 3`; removing receive caller → `committed_count=0` | VERIFIED-BY-TRACE |
 | G1.7 Migration CA + version path | `api/mod.rs:574–578` (`migration_ca_public_key` → `SchemaMigrationEngine::new:672`); `api/mod.rs:578–580` (`schema_version_path` → `SchemaMigrationEngine::new:674`); runtime: `api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) | `api/mod.rs:6441` (`migration_delta_wrong_ca_signature_is_rejected` — CLAIM-G1.7 primary); `api/mod.rs:6215` (`init_registers_migration_ca_key_and_version_path`); `api/mod.rs:6291` (`runtime_register_migration_ca_key_enables_migrations`); `api/mod.rs:6346` (`inbound_migration_passes_ca_gate_with_configured_key_and_path`) | Zeroing `migration_ca_public_key` at `api/mod.rs:574` → `init_registers_migration_ca_key_and_version_path` fails (`MigrationCaSignatureInvalid`); replacing path with empty vec at `api/mod.rs:578` → same test fails (`VersionPathMismatch`) | VERIFIED-BY-TRACE |
