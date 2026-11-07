@@ -4515,6 +4515,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
+name = "tirbase-admin"
+version = "0.1.0"
+dependencies = [
+ "tirbase-core",
+ "tirbase-guard",
+ "tirbase-types",
+]
+
+[[package]]
 name = "tirbase-core"
 version = "0.1.0"
 dependencies = [
@@ -4544,6 +4553,7 @@ dependencies = [
  "snow 0.10.0",
  "static_assertions",
  "thiserror 2.0.20",
+ "tirbase-types",
  "tokio",
  "uuid",
  "wasm-bindgen",
@@ -4554,6 +4564,57 @@ dependencies = [
  "wat",
  "web-sys",
  "zstd",
+]
+
+[[package]]
+name = "tirbase-demo"
+version = "0.1.0"
+dependencies = [
+ "tirbase-sim",
+ "tirbase-types",
+]
+
+[[package]]
+name = "tirbase-drivers"
+version = "0.1.0"
+dependencies = [
+ "tirbase-types",
+]
+
+[[package]]
+name = "tirbase-gateway"
+version = "0.1.0"
+dependencies = [
+ "tirbase-core",
+ "tirbase-drivers",
+ "tirbase-guard",
+ "tirbase-types",
+]
+
+[[package]]
+name = "tirbase-guard"
+version = "0.1.0"
+dependencies = [
+ "tirbase-core",
+ "tirbase-types",
+]
+
+[[package]]
+name = "tirbase-sim"
+version = "0.1.0"
+dependencies = [
+ "tirbase-core",
+ "tirbase-drivers",
+ "tirbase-guard",
+ "tirbase-types",
+]
+
+[[package]]
+name = "tirbase-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]

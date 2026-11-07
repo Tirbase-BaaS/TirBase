@@ -1,3 +1,20 @@
 [workspace]
-members = ["tirbase-core"]
+members = [
+    "tirbase-types",
+    "tirbase-core",
+    "tirbase-guard",
+    "tirbase-drivers",
+    "tirbase-gateway",
+    "tirbase-admin",
+    "tirbase-sim",
+    "tirbase-demo",
+]
 resolver = "2"
+
+[workspace.dependencies]
+tirbase-types   = { path = "tirbase-types" }
+tirbase-core    = { path = "tirbase-core" }
+tirbase-guard   = { path = "tirbase-guard" }
+tirbase-drivers = { path = "tirbase-drivers" }
+tirbase-gateway = { path = "tirbase-gateway" }
+tirbase-sim     = { path = "tirbase-sim" }

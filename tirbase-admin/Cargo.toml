@@ -1,0 +1,15 @@
+[package]
+name = "tirbase-admin"
+version = "0.1.0"
+edition = "2021"
+description = "TirBase operator CLI for device enrollment, token minting, key rotation, and event inspection"
+license = "MIT"
+
+[[bin]]
+name = "tirbase-admin"
+path = "src/main.rs"
+
+[dependencies]
+tirbase-types = { workspace = true }
+tirbase-core  = { workspace = true }
+tirbase-guard = { workspace = true }

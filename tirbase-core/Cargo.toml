@@ -55,6 +55,7 @@ wasm    = [
 
 # ─── Shared dependencies (both targets) ────────────────────────────────────────
 [dependencies]
+tirbase-types = { workspace = true }
 # CRDT engine — `automerge` v0.11 Rust crate, implementing the Automerge 3.0
 # document format with Hexane columnar storage.
 automerge        = { version = "0.11.0", default-features = false }

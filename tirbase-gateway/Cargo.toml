@@ -1,0 +1,16 @@
+[package]
+name = "tirbase-gateway"
+version = "0.1.0"
+edition = "2021"
+description = "TirBase hardened edge gateway binary"
+license = "MIT"
+
+[[bin]]
+name = "tirbase-gateway"
+path = "src/main.rs"
+
+[dependencies]
+tirbase-types   = { workspace = true }
+tirbase-core    = { workspace = true }
+tirbase-guard   = { workspace = true }
+tirbase-drivers = { workspace = true }

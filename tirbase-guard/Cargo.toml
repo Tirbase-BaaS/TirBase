@@ -1,0 +1,10 @@
+[package]
+name = "tirbase-guard"
+version = "0.1.0"
+edition = "2021"
+description = "Command Guard, envelope enforcement, policy lifecycle, and effects ledger"
+license = "MIT"
+
+[dependencies]
+tirbase-types = { workspace = true }
+tirbase-core  = { workspace = true }

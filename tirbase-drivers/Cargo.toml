@@ -1,0 +1,10 @@
+[package]
+name = "tirbase-drivers"
+version = "0.1.0"
+edition = "2021"
+description = "Device driver framework and driver implementations for TirBase"
+license = "MIT"
+
+[dependencies]
+# STRICT: tirbase-drivers MUST NOT depend on tirbase-guard or tirbase-core (design.md §Dependency edges)
+tirbase-types = { workspace = true }
