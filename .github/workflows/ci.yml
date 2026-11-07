@@ -40,6 +40,72 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  cargo-geiger:
+    name: cargo-geiger (unsafe block gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-geiger-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-geiger
+        # Install only if not already cached from a previous run.
+        # cargo-geiger needs the nightly-compatible syn feature; the stable
+        # toolchain is sufficient for the binary itself.
+        run: |
+          if ! command -v cargo-geiger &>/dev/null; then
+            cargo install cargo-geiger --locked
+          fi
+
+      - name: Run cargo geiger (CLAIM-2.4)
+        # Produce a JSON report for reliable machine parsing.
+        # `--quiet` suppresses progress bars that would pollute the artifact.
+        # `|| true` prevents the step from failing on non-zero exit codes that
+        # cargo-geiger can emit when it encounters crates it cannot fully
+        # instrument (those packages are still counted in the output).
+        run: |
+          cargo geiger --workspace --output-format Json --quiet 2>/dev/null \
+            > geiger-report.json || true
+          echo "Generated geiger-report.json ($(wc -c < geiger-report.json) bytes)"
+
+      - name: Download previous geiger baseline
+        # `continue-on-error: true` means the step is skipped silently on the
+        # very first run when no artifact named `geiger-baseline` exists yet.
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: geiger-baseline
+          path: geiger-baseline/
+
+      - name: Compare unsafe count against baseline (CLAIM-2.4)
+        # Scripts are committed to the repo so the comparison logic is
+        # auditable and does not rely on inline YAML heredocs.
+        run: |
+          bash scripts/check-geiger.sh \
+            geiger-report.json \
+            geiger-baseline/geiger-report.json
+
+      - name: Save new geiger baseline artifact
+        # Only runs if the comparison step passed (no net increase).
+        # This artifact is downloaded by the NEXT run to serve as the baseline.
+        uses: actions/upload-artifact@v4
+        with:
+          name: geiger-baseline
+          path: geiger-report.json
+          # Retain for 90 days — long enough to cover any reasonable PR cadence.
+          retention-days: 90
+
   layer-isolation:
     name: Dependency layer isolation checks
     runs-on: ubuntu-latest
@@ -85,7 +151,7 @@ jobs:
 
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, cargo-audit, layer-isolation]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -129,7 +195,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, cargo-audit, layer-isolation]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
