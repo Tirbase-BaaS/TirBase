@@ -224,9 +224,22 @@ jobs:
         # empty Test Identifier column.  See PV-2.2 and task 3.1.
         run: bash scripts/check-claims.sh CLAIMS.md
 
+  claim-markers:
+    name: "[CLAIM-{id}] marker scan (CLAIM-3.2)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan docs for undeclared Planned claim references (CLAIM-3.2)
+        # scripts/check-claim-markers.sh reads CLAIMS.md to identify all Planned
+        # claims, then scans root-level *.md, docs/**/*.md, and .kiro/specs/**/*.md
+        # for [CLAIM-{id}] markers.  Any marker that references a Planned claim
+        # without a planned qualifier on the same line fails CI.  See PV-2.3.
+        run: bash scripts/check-claim-markers.sh CLAIMS.md
+
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -354,7 +367,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,18 @@
+# Security contact information for TirBase
+# See https://securitytxt.org/ and RFC 9116 for the specification.
+# CLAIM-3.5
+
+Contact: https://github.com/tirbase/TriBase/security/advisories/new
+Contact: mailto:security@tirbase.dev
+
+Expires: 2027-12-01T00:00:00.000Z
+
+Encryption: https://github.com/tirbase/TriBase/security/advisories/new
+
+Policy: https://github.com/tirbase/TriBase/blob/main/SECURITY.md
+
+Preferred-Languages: en
+
+Canonical: https://github.com/tirbase/TriBase/blob/main/.well-known/security.txt
+
+Acknowledgments: https://github.com/tirbase/TriBase/blob/main/SECURITY.md#responsible-disclosure-commitment
