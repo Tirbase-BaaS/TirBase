@@ -4314,6 +4314,359 @@ pub type tirbase_core::errors::TirBaseError::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::errors::TirBaseError where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::errors::TirBaseError where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::errors::TirBaseError::vzip(self) -> V
+pub mod tirbase_core::events
+pub enum tirbase_core::events::ReasonCode
+pub tirbase_core::events::ReasonCode::BatchExceeded
+pub tirbase_core::events::ReasonCode::BootCompleted
+pub tirbase_core::events::ReasonCode::ClockJump
+pub tirbase_core::events::ReasonCode::DeltaQuarantined
+pub tirbase_core::events::ReasonCode::DeltaRouted
+pub tirbase_core::events::ReasonCode::DepCountExceeded
+pub tirbase_core::events::ReasonCode::DidRevoked
+pub tirbase_core::events::ReasonCode::EngineVersionMismatch
+pub tirbase_core::events::ReasonCode::ExpandContractViolation
+pub tirbase_core::events::ReasonCode::FleetPreconditionMissing
+pub tirbase_core::events::ReasonCode::FragmentReassemblyFailed
+pub tirbase_core::events::ReasonCode::FuelExhausted
+pub tirbase_core::events::ReasonCode::HandshakeFailed
+pub tirbase_core::events::ReasonCode::HandshakeSuccess
+pub tirbase_core::events::ReasonCode::HeadCountExceeded
+pub tirbase_core::events::ReasonCode::LockdownFlagFound
+pub tirbase_core::events::ReasonCode::MergeVerified
+pub tirbase_core::events::ReasonCode::MigrationApplied
+pub tirbase_core::events::ReasonCode::MigrationCancelled
+pub tirbase_core::events::ReasonCode::MissingDependency
+pub tirbase_core::events::ReasonCode::MissingDependencyTimeout
+pub tirbase_core::events::ReasonCode::NonAutomergePayload
+pub tirbase_core::events::ReasonCode::NonDeterministicModule
+pub tirbase_core::events::ReasonCode::OpCountExceeded
+pub tirbase_core::events::ReasonCode::Oversize
+pub tirbase_core::events::ReasonCode::PeerConnected
+pub tirbase_core::events::ReasonCode::PeerDisconnected
+pub tirbase_core::events::ReasonCode::PendingQueueOverflow
+pub tirbase_core::events::ReasonCode::PostconditionFailed
+pub tirbase_core::events::ReasonCode::RateExceeded
+pub tirbase_core::events::ReasonCode::RelaySelected
+pub tirbase_core::events::ReasonCode::RevocationLeaseReleased
+pub tirbase_core::events::ReasonCode::RevocationPostExecution
+pub tirbase_core::events::ReasonCode::RevocationSignatureReceived
+pub tirbase_core::events::ReasonCode::RevocationVerificationFailed
+pub tirbase_core::events::ReasonCode::SchemaAdditiveAccepted
+pub tirbase_core::events::ReasonCode::TokenInvalid
+pub tirbase_core::events::ReasonCode::TraversalBudgetExceeded
+impl tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::clone(&self) -> tirbase_core::events::ReasonCode
+impl core::cmp::Eq for tirbase_core::events::ReasonCode
+impl core::cmp::PartialEq for tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::eq(&self, &tirbase_core::events::ReasonCode) -> bool
+impl core::fmt::Debug for tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_core::events::ReasonCode
+impl core::marker::StructuralPartialEq for tirbase_core::events::ReasonCode
+impl core::marker::Freeze for tirbase_core::events::ReasonCode
+impl core::marker::Send for tirbase_core::events::ReasonCode
+impl core::marker::Sync for tirbase_core::events::ReasonCode
+impl core::marker::Unpin for tirbase_core::events::ReasonCode
+impl core::marker::UnsafeUnpin for tirbase_core::events::ReasonCode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::events::ReasonCode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::events::ReasonCode
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::events::ReasonCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::ReasonCode::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::ReasonCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::ReasonCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::ReasonCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::ReasonCode::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::ReasonCode::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::ReasonCode::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::events::ReasonCode where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::events::ReasonCode where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::events::ReasonCode where U: core::convert::From<T>
+pub fn tirbase_core::events::ReasonCode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::events::ReasonCode where U: core::convert::Into<T>
+pub type tirbase_core::events::ReasonCode::Error = core::convert::Infallible
+pub fn tirbase_core::events::ReasonCode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::events::ReasonCode where U: core::convert::TryFrom<T>
+pub type tirbase_core::events::ReasonCode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::events::ReasonCode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::events::ReasonCode where T: core::clone::Clone
+pub type tirbase_core::events::ReasonCode::Owned = T
+pub fn tirbase_core::events::ReasonCode::clone_into(&self, &mut T)
+pub fn tirbase_core::events::ReasonCode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::events::ReasonCode where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::events::ReasonCode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::events::ReasonCode where T: ?core::marker::Sized
+pub fn tirbase_core::events::ReasonCode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::events::ReasonCode where T: ?core::marker::Sized
+pub fn tirbase_core::events::ReasonCode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::events::ReasonCode where T: core::clone::Clone
+pub unsafe fn tirbase_core::events::ReasonCode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::events::ReasonCode
+pub fn tirbase_core::events::ReasonCode::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::events::ReasonCode
+pub type tirbase_core::events::ReasonCode::Init = T
+pub const tirbase_core::events::ReasonCode::ALIGN: usize
+pub unsafe fn tirbase_core::events::ReasonCode::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::events::ReasonCode::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::events::ReasonCode::drop(usize)
+pub unsafe fn tirbase_core::events::ReasonCode::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::events::ReasonCode
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::events::ReasonCode where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::events::ReasonCode
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::events::ReasonCode
+impl<T> typenum::type_operators::Same for tirbase_core::events::ReasonCode
+pub type tirbase_core::events::ReasonCode::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::events::ReasonCode where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::events::ReasonCode where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::events::ReasonCode::vzip(self) -> V
+pub enum tirbase_core::events::SecurityEventCategory
+pub tirbase_core::events::SecurityEventCategory::AntiReplay
+pub tirbase_core::events::SecurityEventCategory::CloudSync
+pub tirbase_core::events::SecurityEventCategory::CommandDecision
+pub tirbase_core::events::SecurityEventCategory::CrdtHardening
+pub tirbase_core::events::SecurityEventCategory::Diagnostic
+pub tirbase_core::events::SecurityEventCategory::Driver
+pub tirbase_core::events::SecurityEventCategory::EffectsLedger
+pub tirbase_core::events::SecurityEventCategory::Enrollment
+pub tirbase_core::events::SecurityEventCategory::MeshTransport
+pub tirbase_core::events::SecurityEventCategory::Migration
+pub tirbase_core::events::SecurityEventCategory::ModeTransition
+pub tirbase_core::events::SecurityEventCategory::MonotonicCounter
+pub tirbase_core::events::SecurityEventCategory::PolicyLifecycle
+pub tirbase_core::events::SecurityEventCategory::Revocation
+pub tirbase_core::events::SecurityEventCategory::SecurityLog
+pub tirbase_core::events::SecurityEventCategory::Startup
+pub tirbase_core::events::SecurityEventCategory::TimeRatchet
+impl tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::clone(&self) -> tirbase_core::events::SecurityEventCategory
+impl core::cmp::Eq for tirbase_core::events::SecurityEventCategory
+impl core::cmp::PartialEq for tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::eq(&self, &tirbase_core::events::SecurityEventCategory) -> bool
+impl core::fmt::Debug for tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_core::events::SecurityEventCategory
+impl core::marker::StructuralPartialEq for tirbase_core::events::SecurityEventCategory
+impl core::marker::Freeze for tirbase_core::events::SecurityEventCategory
+impl core::marker::Send for tirbase_core::events::SecurityEventCategory
+impl core::marker::Sync for tirbase_core::events::SecurityEventCategory
+impl core::marker::Unpin for tirbase_core::events::SecurityEventCategory
+impl core::marker::UnsafeUnpin for tirbase_core::events::SecurityEventCategory
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::events::SecurityEventCategory
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::events::SecurityEventCategory
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::events::SecurityEventCategory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEventCategory::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEventCategory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEventCategory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEventCategory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEventCategory::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::SecurityEventCategory::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::SecurityEventCategory::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::events::SecurityEventCategory where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::events::SecurityEventCategory where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::events::SecurityEventCategory where U: core::convert::From<T>
+pub fn tirbase_core::events::SecurityEventCategory::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::events::SecurityEventCategory where U: core::convert::Into<T>
+pub type tirbase_core::events::SecurityEventCategory::Error = core::convert::Infallible
+pub fn tirbase_core::events::SecurityEventCategory::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::events::SecurityEventCategory where U: core::convert::TryFrom<T>
+pub type tirbase_core::events::SecurityEventCategory::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::events::SecurityEventCategory::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::events::SecurityEventCategory where T: core::clone::Clone
+pub type tirbase_core::events::SecurityEventCategory::Owned = T
+pub fn tirbase_core::events::SecurityEventCategory::clone_into(&self, &mut T)
+pub fn tirbase_core::events::SecurityEventCategory::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::events::SecurityEventCategory where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEventCategory::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::events::SecurityEventCategory where T: ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEventCategory::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::events::SecurityEventCategory where T: ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEventCategory::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::events::SecurityEventCategory where T: core::clone::Clone
+pub unsafe fn tirbase_core::events::SecurityEventCategory::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::events::SecurityEventCategory
+pub fn tirbase_core::events::SecurityEventCategory::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::events::SecurityEventCategory
+pub type tirbase_core::events::SecurityEventCategory::Init = T
+pub const tirbase_core::events::SecurityEventCategory::ALIGN: usize
+pub unsafe fn tirbase_core::events::SecurityEventCategory::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::events::SecurityEventCategory::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::events::SecurityEventCategory::drop(usize)
+pub unsafe fn tirbase_core::events::SecurityEventCategory::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::events::SecurityEventCategory
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::events::SecurityEventCategory where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::events::SecurityEventCategory
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::events::SecurityEventCategory
+impl<T> typenum::type_operators::Same for tirbase_core::events::SecurityEventCategory
+pub type tirbase_core::events::SecurityEventCategory::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::events::SecurityEventCategory where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::events::SecurityEventCategory where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::events::SecurityEventCategory::vzip(self) -> V
+pub enum tirbase_core::events::Severity
+pub tirbase_core::events::Severity::Critical
+pub tirbase_core::events::Severity::High
+pub tirbase_core::events::Severity::Low
+pub tirbase_core::events::Severity::Medium
+impl tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::clone(&self) -> tirbase_core::events::Severity
+impl core::cmp::Eq for tirbase_core::events::Severity
+impl core::cmp::Ord for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::cmp(&self, &tirbase_core::events::Severity) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::eq(&self, &tirbase_core::events::Severity) -> bool
+impl core::cmp::PartialOrd for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::partial_cmp(&self, &tirbase_core::events::Severity) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_core::events::Severity
+impl core::marker::StructuralPartialEq for tirbase_core::events::Severity
+impl core::marker::Freeze for tirbase_core::events::Severity
+impl core::marker::Send for tirbase_core::events::Severity
+impl core::marker::Sync for tirbase_core::events::Severity
+impl core::marker::Unpin for tirbase_core::events::Severity
+impl core::marker::UnsafeUnpin for tirbase_core::events::Severity
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::events::Severity
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::events::Severity
+impl<N> petgraph::graphmap::NodeTrait for tirbase_core::events::Severity where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
+impl<Q, K> equivalent::Comparable<K> for tirbase_core::events::Severity where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::Severity::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::events::Severity where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::Severity::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::Severity where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::Severity where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::Severity where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::Severity::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::Severity::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::Severity::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::events::Severity where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::events::Severity where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::events::Severity where U: core::convert::From<T>
+pub fn tirbase_core::events::Severity::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::events::Severity where U: core::convert::Into<T>
+pub type tirbase_core::events::Severity::Error = core::convert::Infallible
+pub fn tirbase_core::events::Severity::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::events::Severity where U: core::convert::TryFrom<T>
+pub type tirbase_core::events::Severity::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::events::Severity::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::events::Severity where T: core::clone::Clone
+pub type tirbase_core::events::Severity::Owned = T
+pub fn tirbase_core::events::Severity::clone_into(&self, &mut T)
+pub fn tirbase_core::events::Severity::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::events::Severity where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::events::Severity::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::events::Severity where T: ?core::marker::Sized
+pub fn tirbase_core::events::Severity::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::events::Severity where T: ?core::marker::Sized
+pub fn tirbase_core::events::Severity::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::events::Severity where T: core::clone::Clone
+pub unsafe fn tirbase_core::events::Severity::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::events::Severity
+pub fn tirbase_core::events::Severity::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::events::Severity
+pub type tirbase_core::events::Severity::Init = T
+pub const tirbase_core::events::Severity::ALIGN: usize
+pub unsafe fn tirbase_core::events::Severity::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::events::Severity::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::events::Severity::drop(usize)
+pub unsafe fn tirbase_core::events::Severity::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::events::Severity
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::events::Severity where T: ?core::marker::Sized
+impl<T> pest::RuleType for tirbase_core::events::Severity where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
+impl<T> tracing::instrument::Instrument for tirbase_core::events::Severity
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::events::Severity
+impl<T> typenum::type_operators::Same for tirbase_core::events::Severity
+pub type tirbase_core::events::Severity::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::events::Severity where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::events::Severity where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::events::Severity::vzip(self) -> V
+pub struct tirbase_core::events::SecurityEvent
+pub tirbase_core::events::SecurityEvent::actor_did: core::option::Option<alloc::string::String>
+pub tirbase_core::events::SecurityEvent::category: tirbase_core::events::SecurityEventCategory
+pub tirbase_core::events::SecurityEvent::detail: core::option::Option<alloc::string::String>
+pub tirbase_core::events::SecurityEvent::reason_code: tirbase_core::events::ReasonCode
+pub tirbase_core::events::SecurityEvent::severity: tirbase_core::events::Severity
+pub tirbase_core::events::SecurityEvent::target: core::option::Option<alloc::string::String>
+impl tirbase_core::events::SecurityEvent
+pub fn tirbase_core::events::SecurityEvent::new(tirbase_core::events::SecurityEventCategory, tirbase_core::events::Severity, tirbase_core::events::ReasonCode) -> Self
+pub fn tirbase_core::events::SecurityEvent::with_actor(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tirbase_core::events::SecurityEvent::with_detail(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tirbase_core::events::SecurityEvent::with_target(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tirbase_core::events::SecurityEvent
+pub fn tirbase_core::events::SecurityEvent::clone(&self) -> tirbase_core::events::SecurityEvent
+impl core::cmp::Eq for tirbase_core::events::SecurityEvent
+impl core::cmp::PartialEq for tirbase_core::events::SecurityEvent
+pub fn tirbase_core::events::SecurityEvent::eq(&self, &tirbase_core::events::SecurityEvent) -> bool
+impl core::fmt::Debug for tirbase_core::events::SecurityEvent
+pub fn tirbase_core::events::SecurityEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::events::SecurityEvent
+impl core::marker::Freeze for tirbase_core::events::SecurityEvent
+impl core::marker::Send for tirbase_core::events::SecurityEvent
+impl core::marker::Sync for tirbase_core::events::SecurityEvent
+impl core::marker::Unpin for tirbase_core::events::SecurityEvent
+impl core::marker::UnsafeUnpin for tirbase_core::events::SecurityEvent
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::events::SecurityEvent
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::events::SecurityEvent
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::events::SecurityEvent where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEvent::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEvent where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEvent where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::events::SecurityEvent where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEvent::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::SecurityEvent::equivalent(&self, &K) -> bool
+pub fn tirbase_core::events::SecurityEvent::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::events::SecurityEvent where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::events::SecurityEvent where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::events::SecurityEvent where U: core::convert::From<T>
+pub fn tirbase_core::events::SecurityEvent::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::events::SecurityEvent where U: core::convert::Into<T>
+pub type tirbase_core::events::SecurityEvent::Error = core::convert::Infallible
+pub fn tirbase_core::events::SecurityEvent::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::events::SecurityEvent where U: core::convert::TryFrom<T>
+pub type tirbase_core::events::SecurityEvent::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::events::SecurityEvent::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::events::SecurityEvent where T: core::clone::Clone
+pub type tirbase_core::events::SecurityEvent::Owned = T
+pub fn tirbase_core::events::SecurityEvent::clone_into(&self, &mut T)
+pub fn tirbase_core::events::SecurityEvent::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::events::SecurityEvent where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEvent::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::events::SecurityEvent where T: ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEvent::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::events::SecurityEvent where T: ?core::marker::Sized
+pub fn tirbase_core::events::SecurityEvent::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::events::SecurityEvent where T: core::clone::Clone
+pub unsafe fn tirbase_core::events::SecurityEvent::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::events::SecurityEvent
+pub fn tirbase_core::events::SecurityEvent::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::events::SecurityEvent
+pub type tirbase_core::events::SecurityEvent::Init = T
+pub const tirbase_core::events::SecurityEvent::ALIGN: usize
+pub unsafe fn tirbase_core::events::SecurityEvent::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::events::SecurityEvent::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::events::SecurityEvent::drop(usize)
+pub unsafe fn tirbase_core::events::SecurityEvent::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::events::SecurityEvent
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::events::SecurityEvent where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::events::SecurityEvent
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::events::SecurityEvent
+impl<T> typenum::type_operators::Same for tirbase_core::events::SecurityEvent
+pub type tirbase_core::events::SecurityEvent::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::events::SecurityEvent where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::events::SecurityEvent where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::events::SecurityEvent::vzip(self) -> V
+pub fn tirbase_core::events::emit(tirbase_core::events::SecurityEvent)
+pub fn tirbase_core::events::install_security_event_sink(alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>) -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
+pub fn tirbase_core::events::security_event_sink() -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
 pub mod tirbase_core::identity
 pub mod tirbase_core::identity::did
 pub fn tirbase_core::identity::did::derive_did(&[u8; 32]) -> tirbase_core::identity::did::Did
@@ -4323,6 +4676,116 @@ pub fn tirbase_core::identity::did::persist_identity(&tirbase_core::identity::di
 pub fn tirbase_core::identity::did::persist_identity_to(&tirbase_core::identity::did::Did, &[u8], &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::did::resolve_did(&tirbase_core::identity::did::Did) -> core::result::Result<[u8; 32], tirbase_core::errors::TirBaseError>
 pub type tirbase_core::identity::did::Did = alloc::string::String
+pub mod tirbase_core::identity::file_key_provider
+pub struct tirbase_core::identity::file_key_provider::FileKeyProvider
+impl tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::from_seed([u8; 32], alloc::string::String, std::path::PathBuf) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::generate(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::load(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::load_or_generate(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::path(&self) -> &std::path::Path
+impl core::fmt::Debug for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::did(&self) -> &str
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl core::marker::Freeze for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::marker::Send for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::marker::Sync for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::marker::Unpin for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::marker::UnsafeUnpin for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::identity::file_key_provider::FileKeyProvider where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::identity::file_key_provider::FileKeyProvider where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::identity::file_key_provider::FileKeyProvider where U: core::convert::From<T>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::identity::file_key_provider::FileKeyProvider where U: core::convert::Into<T>
+pub type tirbase_core::identity::file_key_provider::FileKeyProvider::Error = core::convert::Infallible
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::identity::file_key_provider::FileKeyProvider where U: core::convert::TryFrom<T>
+pub type tirbase_core::identity::file_key_provider::FileKeyProvider::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_core::identity::file_key_provider::FileKeyProvider where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::identity::file_key_provider::FileKeyProvider where T: ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::identity::file_key_provider::FileKeyProvider where T: ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub type tirbase_core::identity::file_key_provider::FileKeyProvider::Init = T
+pub const tirbase_core::identity::file_key_provider::FileKeyProvider::ALIGN: usize
+pub unsafe fn tirbase_core::identity::file_key_provider::FileKeyProvider::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::identity::file_key_provider::FileKeyProvider::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::identity::file_key_provider::FileKeyProvider::drop(usize)
+pub unsafe fn tirbase_core::identity::file_key_provider::FileKeyProvider::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::identity::file_key_provider::FileKeyProvider where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::identity::file_key_provider::FileKeyProvider
+impl<T> typenum::type_operators::Same for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub type tirbase_core::identity::file_key_provider::FileKeyProvider::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::identity::file_key_provider::FileKeyProvider where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::identity::file_key_provider::FileKeyProvider where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::vzip(self) -> V
+pub struct tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::from_seed([u8; 32]) -> Self
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::generate() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+impl core::fmt::Debug for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::did(&self) -> &str
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl core::marker::Freeze for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::marker::Send for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::marker::Sync for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::marker::Unpin for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::marker::UnsafeUnpin for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where U: core::convert::From<T>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where U: core::convert::Into<T>
+pub type tirbase_core::identity::file_key_provider::InMemoryKeyProvider::Error = core::convert::Infallible
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where U: core::convert::TryFrom<T>
+pub type tirbase_core::identity::file_key_provider::InMemoryKeyProvider::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where T: ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where T: ?core::marker::Sized
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub type tirbase_core::identity::file_key_provider::InMemoryKeyProvider::Init = T
+pub const tirbase_core::identity::file_key_provider::InMemoryKeyProvider::ALIGN: usize
+pub unsafe fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::drop(usize)
+pub unsafe fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+impl<T> typenum::type_operators::Same for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub type tirbase_core::identity::file_key_provider::InMemoryKeyProvider::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::vzip(self) -> V
 pub mod tirbase_core::identity::keypair
 pub fn tirbase_core::identity::keypair::generate_keypair() -> core::result::Result<([u8; 32], [u8; 32]), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::keypair::sign(&[u8; 32], &[u8]) -> core::result::Result<tirbase_core::crdt::delta::Ed25519Signature, tirbase_core::errors::TirBaseError>
@@ -4334,10 +4797,11 @@ pub fn tirbase_core::identity::IdentityManager::did(&self) -> &str
 pub fn tirbase_core::identity::IdentityManager::init() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::init_in_memory() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::init_with_path(core::option::Option<&str>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::key_provider(&self) -> &dyn tirbase_core::traits::KeyProvider
 pub fn tirbase_core::identity::IdentityManager::public_key_bytes(&self) -> [u8; 32]
 pub fn tirbase_core::identity::IdentityManager::sign(&self, &[u8]) -> core::result::Result<[u8; 64], tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::identity::IdentityManager::sign_async(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::sign_delta(&self, &mut tirbase_core::crdt::delta::Delta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::IdentityManager::signing_key_bytes(&self) -> [u8; 32]
 pub fn tirbase_core::identity::IdentityManager::verify_delta(&self, &tirbase_core::crdt::delta::Delta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::verify_delta_signature(&self, &str, &[u8], &[u8; 64]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::identity::IdentityManager
@@ -6160,6 +6624,185 @@ pub type tirbase_core::store::LocalStore::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::store::LocalStore where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::store::LocalStore where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::store::LocalStore::vzip(self) -> V
+pub mod tirbase_core::traits
+pub enum tirbase_core::traits::AssuranceLevel
+pub tirbase_core::traits::AssuranceLevel::Level1
+pub tirbase_core::traits::AssuranceLevel::Level2
+impl tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::clone(&self) -> tirbase_core::traits::AssuranceLevel
+impl core::cmp::Eq for tirbase_core::traits::AssuranceLevel
+impl core::cmp::Ord for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::cmp(&self, &tirbase_core::traits::AssuranceLevel) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::eq(&self, &tirbase_core::traits::AssuranceLevel) -> bool
+impl core::cmp::PartialOrd for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::partial_cmp(&self, &tirbase_core::traits::AssuranceLevel) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_core::traits::AssuranceLevel
+impl core::marker::StructuralPartialEq for tirbase_core::traits::AssuranceLevel
+impl core::marker::Freeze for tirbase_core::traits::AssuranceLevel
+impl core::marker::Send for tirbase_core::traits::AssuranceLevel
+impl core::marker::Sync for tirbase_core::traits::AssuranceLevel
+impl core::marker::Unpin for tirbase_core::traits::AssuranceLevel
+impl core::marker::UnsafeUnpin for tirbase_core::traits::AssuranceLevel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::traits::AssuranceLevel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::traits::AssuranceLevel
+impl<N> petgraph::graphmap::NodeTrait for tirbase_core::traits::AssuranceLevel where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
+impl<Q, K> equivalent::Comparable<K> for tirbase_core::traits::AssuranceLevel where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::traits::AssuranceLevel where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::traits::AssuranceLevel where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::traits::AssuranceLevel where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::traits::AssuranceLevel where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::equivalent(&self, &K) -> bool
+pub fn tirbase_core::traits::AssuranceLevel::equivalent(&self, &K) -> bool
+pub fn tirbase_core::traits::AssuranceLevel::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::traits::AssuranceLevel where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::traits::AssuranceLevel where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::traits::AssuranceLevel where U: core::convert::From<T>
+pub fn tirbase_core::traits::AssuranceLevel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::traits::AssuranceLevel where U: core::convert::Into<T>
+pub type tirbase_core::traits::AssuranceLevel::Error = core::convert::Infallible
+pub fn tirbase_core::traits::AssuranceLevel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::traits::AssuranceLevel where U: core::convert::TryFrom<T>
+pub type tirbase_core::traits::AssuranceLevel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::traits::AssuranceLevel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::traits::AssuranceLevel where T: core::clone::Clone
+pub type tirbase_core::traits::AssuranceLevel::Owned = T
+pub fn tirbase_core::traits::AssuranceLevel::clone_into(&self, &mut T)
+pub fn tirbase_core::traits::AssuranceLevel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::traits::AssuranceLevel where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::traits::AssuranceLevel where T: ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::traits::AssuranceLevel where T: ?core::marker::Sized
+pub fn tirbase_core::traits::AssuranceLevel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::traits::AssuranceLevel where T: core::clone::Clone
+pub unsafe fn tirbase_core::traits::AssuranceLevel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::AssuranceLevel::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::traits::AssuranceLevel
+pub type tirbase_core::traits::AssuranceLevel::Init = T
+pub const tirbase_core::traits::AssuranceLevel::ALIGN: usize
+pub unsafe fn tirbase_core::traits::AssuranceLevel::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::traits::AssuranceLevel::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::traits::AssuranceLevel::drop(usize)
+pub unsafe fn tirbase_core::traits::AssuranceLevel::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::traits::AssuranceLevel
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::traits::AssuranceLevel where T: ?core::marker::Sized
+impl<T> pest::RuleType for tirbase_core::traits::AssuranceLevel where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
+impl<T> tracing::instrument::Instrument for tirbase_core::traits::AssuranceLevel
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::traits::AssuranceLevel
+impl<T> typenum::type_operators::Same for tirbase_core::traits::AssuranceLevel
+pub type tirbase_core::traits::AssuranceLevel::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::traits::AssuranceLevel where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::traits::AssuranceLevel where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::traits::AssuranceLevel::vzip(self) -> V
+pub struct tirbase_core::traits::SystemTimeSource
+impl tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::new() -> Self
+impl core::clone::Clone for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::clone(&self) -> tirbase_core::traits::SystemTimeSource
+impl core::default::Default for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::default() -> tirbase_core::traits::SystemTimeSource
+impl core::fmt::Debug for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_core::traits::SystemTimeSource
+impl tirbase_core::traits::TimeSource for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::boot_id(&self) -> u64
+pub fn tirbase_core::traits::SystemTimeSource::monotonic_now(&self) -> u64
+pub fn tirbase_core::traits::SystemTimeSource::wall_hint(&self) -> core::option::Option<i64>
+impl core::marker::Freeze for tirbase_core::traits::SystemTimeSource
+impl core::marker::Send for tirbase_core::traits::SystemTimeSource
+impl core::marker::Sync for tirbase_core::traits::SystemTimeSource
+impl core::marker::Unpin for tirbase_core::traits::SystemTimeSource
+impl core::marker::UnsafeUnpin for tirbase_core::traits::SystemTimeSource
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::traits::SystemTimeSource
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::traits::SystemTimeSource
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::traits::SystemTimeSource where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::traits::SystemTimeSource where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::traits::SystemTimeSource where U: core::convert::From<T>
+pub fn tirbase_core::traits::SystemTimeSource::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::traits::SystemTimeSource where U: core::convert::Into<T>
+pub type tirbase_core::traits::SystemTimeSource::Error = core::convert::Infallible
+pub fn tirbase_core::traits::SystemTimeSource::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::traits::SystemTimeSource where U: core::convert::TryFrom<T>
+pub type tirbase_core::traits::SystemTimeSource::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::traits::SystemTimeSource::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::traits::SystemTimeSource where T: core::clone::Clone
+pub type tirbase_core::traits::SystemTimeSource::Owned = T
+pub fn tirbase_core::traits::SystemTimeSource::clone_into(&self, &mut T)
+pub fn tirbase_core::traits::SystemTimeSource::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::traits::SystemTimeSource where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::traits::SystemTimeSource::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::traits::SystemTimeSource where T: ?core::marker::Sized
+pub fn tirbase_core::traits::SystemTimeSource::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::traits::SystemTimeSource where T: ?core::marker::Sized
+pub fn tirbase_core::traits::SystemTimeSource::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::traits::SystemTimeSource where T: core::clone::Clone
+pub unsafe fn tirbase_core::traits::SystemTimeSource::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::traits::SystemTimeSource
+pub type tirbase_core::traits::SystemTimeSource::Init = T
+pub const tirbase_core::traits::SystemTimeSource::ALIGN: usize
+pub unsafe fn tirbase_core::traits::SystemTimeSource::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::traits::SystemTimeSource::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::traits::SystemTimeSource::drop(usize)
+pub unsafe fn tirbase_core::traits::SystemTimeSource::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::traits::SystemTimeSource
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::traits::SystemTimeSource where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::traits::SystemTimeSource
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::traits::SystemTimeSource
+impl<T> typenum::type_operators::Same for tirbase_core::traits::SystemTimeSource
+pub type tirbase_core::traits::SystemTimeSource::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::traits::SystemTimeSource where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::traits::SystemTimeSource where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::traits::SystemTimeSource::vzip(self) -> V
+pub trait tirbase_core::traits::KeyProvider: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_core::traits::KeyProvider::did(&self) -> &str
+pub fn tirbase_core::traits::KeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_core::traits::KeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::traits::KeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::traits::KeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::did(&self) -> &str
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::did(&self) -> &str
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait tirbase_core::traits::MonotonicCounterTrait: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_core::traits::MonotonicCounterTrait::assurance_level(&self) -> tirbase_core::traits::AssuranceLevel
+pub fn tirbase_core::traits::MonotonicCounterTrait::increment(&self) -> core::result::Result<u64, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::traits::MonotonicCounterTrait::read(&self) -> core::result::Result<u64, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::traits::MonotonicCounterTrait::set_if_greater(&self, u64) -> core::result::Result<u64, tirbase_core::errors::TirBaseError>
+pub trait tirbase_core::traits::SecurityEventSink: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_core::traits::SecurityEventSink::emit(&self, tirbase_core::events::SecurityEvent)
+pub trait tirbase_core::traits::TimeSource: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_core::traits::TimeSource::boot_id(&self) -> u64
+pub fn tirbase_core::traits::TimeSource::monotonic_now(&self) -> u64
+pub fn tirbase_core::traits::TimeSource::wall_hint(&self) -> core::option::Option<i64>
+impl tirbase_core::traits::TimeSource for tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::boot_id(&self) -> u64
+pub fn tirbase_core::traits::SystemTimeSource::monotonic_now(&self) -> u64
+pub fn tirbase_core::traits::SystemTimeSource::wall_hint(&self) -> core::option::Option<i64>
+pub fn tirbase_core::traits::install_time_source(alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>) -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>>
+pub fn tirbase_core::traits::monotonic_now() -> u64
+pub fn tirbase_core::traits::time_source() -> alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>
+pub fn tirbase_core::traits::wall_hint() -> core::option::Option<i64>
+pub fn tirbase_core::traits::wall_hint_secs() -> core::option::Option<i64>
 pub mod tirbase_core::transport
 pub use tirbase_core::transport::NetworkBehaviour
 pub use tirbase_core::transport::NetworkBehaviour

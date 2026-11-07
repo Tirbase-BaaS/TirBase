@@ -1,10 +1,14 @@
 # Security Event Catalog
 
-> **Status: Stub** — This catalog enumerates the *planned* `SecurityEventCategory` and `ReasonCode`
-> variants based on `design.md` and the PV requirements.  The corresponding Rust types
-> (`SecurityEvent`, `SecurityEventCategory`, `ReasonCode`, `Severity`, `TimeSourceFlag`) have
-> **not yet been implemented** in `tirbase-core/src/events.rs`.  Every row is marked `Planned`
-> until the Rust implementation lands and a test is wired.
+> **Status: Partially implemented** — The typed event plumbing (`SecurityEvent`,
+> `SecurityEventCategory`, `ReasonCode`, `Severity`) now lives in
+> `tirbase-core/src/events.rs`, and every emission site in `crdt/`, `auth/`,
+> `transport/`, and `migration/` emits through `SecurityEventSink` (tasks 5.4 and
+> 5.8).  The `ReasonCode` enum currently defines the variants those paths emit;
+> task 25.1 extends it to the full catalog and adds the hash-chained log
+> (`seq`, `prev_hash`, `best_effort_wall_time`, `TimeSourceFlag`, checkpoints).
+> The **Status** column below tracks the full hash-chained implementation, so
+> most rows remain `Planned` until task 25.1 lands.
 
 ## Purpose
 
@@ -116,7 +120,8 @@ Events emitted by the revocation subsystem (PV-3).
 | DidRevoked | A DID was added to the revocation set | High | Planned | PV-3 |
 | RevocationSignatureReceived | One M-of-N co-signature received for a revocation operation | Low | Planned | PV-3 |
 | RevocationLeaseReleased | Lease held by a now-revoked DID was forcibly released | Medium | Planned | PV-5.8a |
-| RevocationPostExecution | Migration transform author DID was revoked; transform result discarded | High | Planned | PV-8.7 |
+| RevocationPostExecution | Migration transform author DID was revoked; transform result discarded | High | Implemented | PV-8.7 |
+| RevocationVerificationFailed | A revocation signature or revocation delta failed verification | High | Implemented | PV-3 |
 
 ---
 
@@ -197,8 +202,10 @@ Events emitted by the libp2p gossipsub mesh transport layer (PV-1.13).
 | PeerConnected | Mesh peer connected successfully | Low | Planned | PV-1.13 |
 | PeerDisconnected | Mesh peer disconnected | Low | Planned | PV-1.13 |
 | HandshakeSuccess | Noise IK handshake established | Low | Planned | PV-1.13 |
-| HandshakeFailed | Noise IK handshake failed | Medium | Planned | PV-1.13 |
+| HandshakeFailed | Noise IK handshake failed | Medium | Implemented | PV-1.13 |
 | CheckpointGossiped | Latest checkpoint hash gossiped to peer during sync | Low | Planned | PV-7.10 |
+| RelaySelected | Delta routed through a relay peer because the destination is not a direct neighbour | Low | Implemented | PV-1.13 |
+| FragmentReassemblyFailed | Fragment reassembly failed or produced an unparsable payload | Medium | Implemented | PV-6.3 |
 
 ---
 
@@ -221,6 +228,10 @@ Events emitted by the CRDT inbound validation and quarantine system (PV-6).
 | HeadCountExceeded | DAG heads exceed max_concurrent_heads limit | Medium | Planned | PV-6.3 |
 | DepCountExceeded | Change has more than max_deps_per_change dependencies | Medium | Planned | PV-6.3 |
 | TraversalBudgetExceeded | DAG traversal exceeded max_traversal_nodes budget | Medium | Planned | PV-6.3 |
+| DeltaRouted | Inbound delta accepted for merge and routed via the LWW or RGA path | Low | Implemented | PV-6.4 |
+| SchemaAdditiveAccepted | Additive schema change accepted and merged against the local schema | Low | Implemented | PV-6.4 |
+| MergeVerified | Post-merge LWW/RGA read-back verification completed | Medium | Implemented | PV-6.4 |
+| NonAutomergePayload | Payload was not Automerge format; Automerge merge skipped | Low | Implemented | PV-6.4 |
 
 ---
 

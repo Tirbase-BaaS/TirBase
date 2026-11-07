@@ -289,6 +289,35 @@ jobs:
         # in the catalog.  CI fails if any unlisted variant is found.  See PV-7.11.
         run: bash scripts/check-security-event-catalog.sh
 
+  clippy-no-direct-clock:
+    name: clippy — no direct clock calls (CLAIM-5.5, CLAIM-5.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+
+      # clippy.toml bans `std::time::Instant::now`, `std::time::SystemTime::now`
+      # and `tokio::time::Instant::now` workspace-wide (PV-3.12).  Every clock
+      # read must go through `TimeSource`; the only allowed uses are inside the
+      # TimeSource implementation itself, annotated with
+      # `#[allow(clippy::disallowed_methods)]`.  Promoting the lint to an error
+      # makes any regression a hard CI failure (CLAIM-5.6).
+      - name: Clippy with disallowed-methods as error
+        run: cargo clippy --workspace -- -D clippy::disallowed_methods
+
   check:
     name: cargo check (${{ matrix.target }})
     needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog]
