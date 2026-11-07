@@ -10,6 +10,35 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  license-hash-check:
+    name: LICENSE integrity check (CLAIM-3.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify LICENSE SHA-256 against known-good hash in CODEOWNERS (CLAIM-3.6)
+        # Reads the known-good SHA-256 from the `# LICENSE-SHA256: <hex>` comment
+        # line in .github/CODEOWNERS, recomputes the digest of LICENSE, and fails
+        # CI with a clear error message if they differ.  This blocks any pull
+        # request that modifies the LICENSE file without updating the hash.
+        run: |
+          KNOWN=$(grep -m1 'LICENSE-SHA256:' .github/CODEOWNERS | awk '{print $NF}')
+          if [ -z "$KNOWN" ]; then
+            echo "ERROR: Could not find a '# LICENSE-SHA256: <hash>' line in .github/CODEOWNERS."
+            exit 1
+          fi
+          ACTUAL=$(sha256sum LICENSE | awk '{print $1}')
+          if [ "$ACTUAL" != "$KNOWN" ]; then
+            echo "ERROR: LICENSE SHA-256 mismatch — the file may have been modified."
+            echo "  Expected (from CODEOWNERS): $KNOWN"
+            echo "  Computed (from LICENSE):    $ACTUAL"
+            echo ""
+            echo "If the LICENSE change is intentional and has been reviewed, update the"
+            echo "'# LICENSE-SHA256:' line in .github/CODEOWNERS to: $ACTUAL"
+            exit 1
+          fi
+          echo "OK: LICENSE SHA-256 matches the known-good hash in CODEOWNERS ($ACTUAL)."
+
   cargo-deny:
     name: cargo-deny (license / advisory / ban check)
     runs-on: ubuntu-latest
@@ -237,9 +266,32 @@ jobs:
         # without a planned qualifier on the same line fails CI.  See PV-2.3.
         run: bash scripts/check-claim-markers.sh CLAIMS.md
 
+  pv-reference-exists:
+    name: PV requirement reference check (wave 0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all PV references in tasks.md exist in requirements.md
+        run: bash scripts/check-pv-references.sh
+
+  security-event-catalog:
+    name: Security event catalog check (CLAIM-3.9)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check security event catalog completeness (CLAIM-3.9)
+        # scripts/check-security-event-catalog.sh parses docs/security-event-catalog.md
+        # to extract all known (SecurityEventCategory, ReasonCode) pairs, then scans
+        # production Rust source under tirbase-core/src/, tirbase-guard/src/,
+        # tirbase-gateway/src/, tirbase-drivers/src/, and tirbase-admin/src/ for any
+        # SecurityEventCategory::Variant or ReasonCode::Variant references not listed
+        # in the catalog.  CI fails if any unlisted variant is found.  See PV-7.11.
+        run: bash scripts/check-security-event-catalog.sh
+
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -367,7 +419,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,3 +1,4 @@
+#![no_std]
 //! Shared newtypes and value types for TirBase.
 //! This crate is `no_std`-capable; only `serde` is a dependency.
 //! See design.md §4.1 for the full type list.
@@ -6,6 +7,12 @@
 // Warn on dead private code across this crate. `pub` items are naturally exempt
 // (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]
+
+// Bring in heap-allocated types (String, Vec, etc.) without std.
+extern crate alloc;
+
+use alloc::string::String;
+use alloc::vec::Vec;
 
 pub use serde;
 
@@ -44,9 +51,10 @@ pub struct Did(pub String);
 pub struct TargetId(pub String);
 
 /// Device signature — Ed25519 or P-256.
+/// Bytes are serialized as a sequence of u8 values (standard serde).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DeviceSignature {
-    Ed25519(#[serde(with = "serde_bytes")] Vec<u8>),
+    Ed25519(Vec<u8>),
     P256(Vec<u8>),
 }
 

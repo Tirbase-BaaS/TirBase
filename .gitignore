@@ -30,3 +30,6 @@ package-lock.json
 
 # tirbase-sdk/wasm/ — generated WASM artefact (produced by wasm-pack, not committed)
 tirbase-sdk/wasm/
+
+# Kellnr data directory (Docker volume is external, but in case of local binary mode)
+.kellnr/data/

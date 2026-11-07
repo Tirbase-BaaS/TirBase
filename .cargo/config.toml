@@ -1,0 +1,28 @@
+# .cargo/config.toml — workspace-level Cargo configuration
+#
+# Routes all crates.io fetches through the local Kellnr private registry proxy.
+# This gives the team an auditable, cached, and controlled dependency supply chain.
+#
+# Kellnr must be running before any `cargo build/check/test` commands:
+#   docker compose -f .kellnr/docker-compose.yml up -d
+#
+# Kellnr UI: http://localhost:8000  (default credentials: admin / admin)
+# Docs:       https://kellnr.io/documentation
+
+# ── Kellnr registry definition ──────────────────────────────────────────────
+# "kellnr" is the name used by source replacement below.
+# The sparse+ prefix tells Cargo to use the HTTP sparse registry protocol
+# (RFC 3029 / Cargo 1.68+), which is faster than git-based index fetches.
+[registries.kellnr]
+index = "sparse+http://localhost:8000/api/v1/cratesio/"
+
+# ── Source replacement ───────────────────────────────────────────────────────
+# Redirect ALL crates-io fetches through Kellnr.
+# Cargo's source-replacement guarantee: the crate bytes must be identical to
+# crates.io; Kellnr enforces this by computing and verifying checksums on
+# every cached crate before serving it.
+[source.crates-io]
+replace-with = "kellnr"
+
+[source.kellnr]
+registry = "sparse+http://localhost:8000/api/v1/cratesio/"

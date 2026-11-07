@@ -2,9 +2,15 @@
 name = "tirbase-types"
 version = "0.1.0"
 edition = "2021"
-description = "Shared newtypes and value types for TirBase (no_std-capable)"
-license = "MIT"
+description = "no_std-capable core types for TirBase: FixedPointValue, ID newtypes, UnitId, CommandRole, DeviceSignature"
+license = "Apache-2.0"
+publish = false
 
 [dependencies]
-serde       = { version = "1.0", features = ["derive"] }
-serde_bytes = "0.11"
+# `alloc` enables Serialize/Deserialize for String, Vec, Box, etc. in no_std contexts.
+# `derive` enables the #[derive(Serialize, Deserialize)] macros.
+# `std` is intentionally absent — this crate must compile on no_std targets.
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+
+[dev-dependencies]
+serde_json = "1"

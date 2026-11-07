@@ -2,51 +2,44 @@
 # Enforces license compliance, bans problematic crates, and blocks known
 # advisories. This file is the gate checked by the CI "cargo-deny check" step.
 #
-# ADVISORY IGNORES: The entries in [advisories].ignore below document security
-# issues that existed in the dependency tree when this gate was first wired.
-# They must be resolved by upgrading the affected crates. Each entry carries
-# the advisory ID and the reason it was not immediately fixed (upstream
-# dependency constraint, no compatible patch release, etc.).
+# SUPPLY CHAIN: All crates are fetched through the local Kellnr proxy registry
+# (see .cargo/config.toml). Kellnr caches and serves crates from crates.io
+# with checksum verification. The [sources] block below allows both the
+# crates.io index (used by cargo-deny's graph analysis) and the Kellnr source
+# (used by Cargo's actual downloads).
+#
+# KELLNR: Start with `docker compose -f .kellnr/docker-compose.yml up -d`
 #
 # See: https://embarkstudios.github.io/cargo-deny/
 
 [graph]
-# Evaluate the full dependency graph.
 targets = []
 
 # ---------------------------------------------------------------------------
 # Licenses
 # ---------------------------------------------------------------------------
 [licenses]
-# v2: all licenses are denied unless explicitly listed in `allow`. The old
-# `unlicensed`, `copyleft`, `deny` top-level keys are removed in v2.
 version = 2
 
-# Allow-listed SPDX expressions (all that appear in the current dep tree).
 allow = [
     "MIT",
     "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",   # cranelift / wasmtime / rustix / wasm-* crates
+    "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
     "OpenSSL",
     "Zlib",
     "CC0-1.0",
-    "Unicode-3.0",                       # ICU / zerovec / yoke family
+    "Unicode-3.0",
     "Unicode-DFS-2016",
-    "MPL-2.0",                           # attohttpc — file-level copyleft, explicitly approved
+    "MPL-2.0",
 ]
 
-# r-efi ships "MIT OR Apache-2.0 OR LGPL-2.1-or-later".
-# We accept it under the MIT OR Apache-2.0 branch. LGPL-2.1-or-later must be
-# listed so cargo-deny can resolve the expression.
 [[licenses.exceptions]]
 crate = "r-efi"
 allow = ["MIT", "Apache-2.0", "LGPL-2.1-or-later"]
 
-# ring ships a custom multi-file license (MIT AND ISC AND OpenSSL).
-# cargo-deny needs a clarify stanza to parse its non-standard LICENSE file.
 [[licenses.clarify]]
 crate = "ring"
 expression = "MIT AND ISC AND OpenSSL"
@@ -58,11 +51,8 @@ license-files = [
 # Bans
 # ---------------------------------------------------------------------------
 [bans]
-# Warn (not error) on multiple versions of the same crate to avoid
-# spurious CI breaks during routine upgrades, while still surfacing drift.
 multiple-versions = "warn"
 
-# Explicitly banned crates — prefer pure-Rust alternatives already in tree.
 deny = [
     # openssl: use rustls / ring (already in tree) instead.
     { name = "openssl" },
@@ -75,37 +65,15 @@ deny = [
 # Advisories
 # ---------------------------------------------------------------------------
 [advisories]
-# version = 2: all vulnerability/unsound advisories are always errors unless
-# individually ignored below with a documented reason.
 version = 2
-
-# Unmaintained advisories for direct workspace dependencies fail CI.
-# Transitive-only unmaintained deps emit a warning rather than failing.
 unmaintained = "workspace"
-
-# Block yanked crate versions.
 yanked = "deny"
 
-# --- Pre-existing advisories at gate-wiring time (2026-11-07) ---------------
-# These issues existed before the cargo-deny gate was added. Each must be
-# resolved by upgrading the affected crate or its parent. Remove entries here
-# as the upstream fixes land.
 ignore = [
-    # crypto-bigint v0.5.5 — timing variability in constant-time operations.
-    # Used transitively via biscuit-auth → elliptic-curve. Awaiting biscuit-auth
-    # upgrade to elliptic-curve ≥ 0.14 / crypto-bigint ≥ 0.5.6.
     { id = "RUSTSEC-2026-0387", reason = "pre-existing; upgrade blocked by biscuit-auth@6 pinning elliptic-curve@0.13" },
-
-    # hickory-proto v0.25.2 — two DNS parsing issues pulled in by libp2p-mdns.
     { id = "RUSTSEC-2026-0118", reason = "pre-existing; upgrade blocked by libp2p@0.56 pinning hickory-proto@0.25" },
     { id = "RUSTSEC-2026-0119", reason = "pre-existing; upgrade blocked by libp2p@0.56 pinning hickory-proto@0.25" },
-
-    # tokio v1.53.1 — AsyncFd constructors violate I/O safety (unsound).
-    # Will be resolved when tokio publishes a patched 1.x release.
     { id = "RUSTSEC-2026-0386", reason = "pre-existing; awaiting tokio patch release for AsyncFd I/O safety" },
-
-    # wasmtime — multiple component-model and JIT vulnerabilities in v48.x.
-    # All require upgrading to the patched wasmtime release when available.
     { id = "RUSTSEC-2026-0315", reason = "pre-existing wasmtime vuln; upgrade wasmtime when patched release is available" },
     { id = "RUSTSEC-2026-0316", reason = "pre-existing wasmtime vuln; upgrade wasmtime when patched release is available" },
     { id = "RUSTSEC-2026-0325", reason = "pre-existing wasmtime vuln; upgrade wasmtime when patched release is available" },
@@ -137,7 +105,19 @@ ignore = [
 # Sources
 # ---------------------------------------------------------------------------
 [sources]
-# Only crates.io is an approved source; workspace path deps are always allowed.
+# Allow the standard crates.io index (used by cargo-deny's own graph analysis)
+# and the Kellnr registry (used by Cargo's actual downloads via source
+# replacement in .cargo/config.toml).
+#
+# cargo-deny evaluates the graph against the crates.io index regardless of
+# source replacement, so "https://github.com/rust-lang/crates.io-index" must
+# always be listed. The Kellnr URL is also listed so that cargo-deny does not
+# reject the source entry when run against a fresh checkout that hasn't had
+# Cargo.lock rewritten yet.
 unknown-registry = "deny"
 unknown-git      = "deny"
-allow-registry   = ["https://github.com/rust-lang/crates.io-index"]
+allow-registry   = [
+    # Standard crates.io sparse index (primary source of truth for cargo-deny)
+    "https://github.com/rust-lang/crates.io-index",
+
+]

@@ -1,0 +1,38 @@
+# CODEOWNERS — reviewed on every pull request by the listed owners.
+#
+# LICENSE-SHA256: 7f8f48e4266aa8fd3033dfaa4bb7f6e83a60c6e099f82d4959b81de90e67cd8f
+#
+# The SHA-256 hash on the line above is the known-good digest of the LICENSE file.
+# The CI job "license-hash-check" (ci.yml) recomputes the hash on every push/PR
+# and fails the build if it differs, blocking any unreviewed LICENSE modification.
+#
+# Syntax reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: every file requires review from a core maintainer.
+*                               @tirbase-maintainers
+
+# Security-sensitive paths require an additional security-team review.
+SECURITY.md                     @tirbase-maintainers @tirbase-security
+.well-known/security.txt        @tirbase-maintainers @tirbase-security
+LICENSE                         @tirbase-maintainers @tirbase-security
+CLAIMS.md                       @tirbase-maintainers @tirbase-security
+deny.toml                       @tirbase-maintainers @tirbase-security
+audit.toml                      @tirbase-maintainers @tirbase-security
+
+# CI and supply-chain infrastructure requires review from the infra team.
+.github/                        @tirbase-maintainers @tirbase-infra
+scripts/                        @tirbase-maintainers @tirbase-infra
+Cargo.lock                      @tirbase-maintainers @tirbase-infra
+
+# Core library: authentication and CRDT paths.
+tirbase-core/src/auth/          @tirbase-maintainers @tirbase-security
+tirbase-core/src/crdt/          @tirbase-maintainers
+tirbase-core/src/migration/     @tirbase-maintainers
+
+# Guard crate: every change requires security-team sign-off.
+tirbase-guard/                  @tirbase-maintainers @tirbase-security
+
+# Documentation.
+docs/                           @tirbase-maintainers
+CONTRIBUTING.md                 @tirbase-maintainers
+README.md                       @tirbase-maintainers

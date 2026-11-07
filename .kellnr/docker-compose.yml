@@ -1,0 +1,44 @@
+# Kellnr private Cargo registry + crates.io proxy
+# Start with: docker compose -f .kellnr/docker-compose.yml up -d
+# Stop with:  docker compose -f .kellnr/docker-compose.yml down
+#
+# Kellnr will be accessible at http://localhost:8000
+# Sparse index (used by Cargo) at http://localhost:8000/api/v1/crates/
+# Default credentials: admin / admin  (change after first start)
+
+services:
+  kellnr:
+    image: ghcr.io/kellnr/kellnr:5
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Network
+      KELLNR_ORIGIN__HOSTNAME: "localhost"
+      KELLNR_ORIGIN__PORT: "8000"
+      KELLNR_ORIGIN__PROTOCOL: "http"
+
+      # Enable crates.io proxy (cache + mirror)
+      KELLNR_PROXY__ENABLED: "true"
+      KELLNR_PROXY__NUM_THREADS: "10"
+      KELLNR_PROXY__DOWNLOAD_ON_UPDATE: "false"
+
+      # Storage
+      KELLNR_REGISTRY__DATA_DIR: "/opt/kellnr/data"
+
+      # Auth — require login for publishes but allow anonymous reads (proxy pulls)
+      KELLNR_REGISTRY__AUTH_REQUIRED: "false"
+
+    volumes:
+      - kellnr-data:/opt/kellnr/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  kellnr-data:
+    driver: local

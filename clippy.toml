@@ -1,0 +1,10 @@
+# clippy.toml — workspace-wide Clippy configuration
+#
+# "No direct clock call" policy (PV-3.12):
+# All time access MUST go through the TimeSource trait.
+# The concrete SystemTimeSource impl uses #[allow(clippy::disallowed_methods)].
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "Use TimeSource::monotonic_now() instead (PV-3.12)" },
+    { path = "std::time::SystemTime::now", reason = "Use TimeSource::wall_hint() instead (PV-3.12)" },
+    { path = "tokio::time::Instant::now", reason = "Use TimeSource::monotonic_now() instead (PV-3.12)" },
+]
