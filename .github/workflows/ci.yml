@@ -10,8 +10,52 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  layer-isolation:
+    name: Dependency layer isolation checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-layer-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check tirbase-core layer isolation
+        run: |
+          # tirbase-core MUST NOT declare tirbase-guard or tirbase-drivers as dependencies.
+          # Grep the [dependencies] section only (stops at the next section header).
+          MANIFEST="tirbase-core/Cargo.toml"
+          if grep -E '^\s*(tirbase-guard|tirbase-drivers)\s*=' "$MANIFEST"; then
+            echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-drivers)."
+            echo "       tirbase-core must not import tirbase-guard or tirbase-drivers (design.md §Dependency edges)."
+            exit 1
+          fi
+          echo "OK: $MANIFEST contains no forbidden dependency declarations."
+          cargo check -p tirbase-core
+
+      - name: Check tirbase-drivers layer isolation
+        run: |
+          # tirbase-drivers MUST NOT declare tirbase-guard or tirbase-core as dependencies.
+          MANIFEST="tirbase-drivers/Cargo.toml"
+          if grep -E '^\s*(tirbase-guard|tirbase-core)\s*=' "$MANIFEST"; then
+            echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-core)."
+            echo "       tirbase-drivers must not import tirbase-guard or tirbase-core (design.md §Dependency edges)."
+            exit 1
+          fi
+          echo "OK: $MANIFEST contains no forbidden dependency declarations."
+          cargo check -p tirbase-drivers
+
   check:
     name: cargo check (${{ matrix.target }})
+    needs: layer-isolation
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -47,6 +91,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
+    needs: layer-isolation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
