@@ -18,6 +18,9 @@ tirbase-drivers = { workspace = true }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
+# Async trait definitions (KeyProvider::sign_async)
+async-trait = "0.1"
+
 # TOML config parsing
 toml = "0.8"
 
