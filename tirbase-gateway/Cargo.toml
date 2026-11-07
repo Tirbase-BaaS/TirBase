@@ -14,3 +14,35 @@ tirbase-types   = { workspace = true }
 tirbase-core    = { workspace = true }
 tirbase-guard   = { workspace = true }
 tirbase-drivers = { workspace = true }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# TOML config parsing
+toml = "0.8"
+
+# Serialisation / deserialization for GatewayConfig
+serde = { version = "1", features = ["derive"] }
+
+# Error handling in the binary
+anyhow = "1"
+
+# SO_PEERCRED peer-credential access (Linux-only admin socket authentication)
+# Only linked on Linux; listed unconditionally so `cargo check` resolves it on
+# all platforms — the actual unsafe call is #[cfg(target_os = "linux")].
+libc = "0.2"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# HTTP server for health endpoint (PV-30.3 / CLAIM-4.9.3)
+axum = "0.7"
+
+# JSON body serialisation (used by health endpoint)
+serde_json = "1"
+
+[dev-dependencies]
+# HTTP client for health endpoint integration test
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }

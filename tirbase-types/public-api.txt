@@ -1,5 +1,263 @@
 pub mod tirbase_types
 pub use tirbase_types::serde
+pub mod tirbase_types::fixed_point
+pub enum tirbase_types::fixed_point::BoundsCheck
+pub tirbase_types::fixed_point::BoundsCheck::AboveMax
+pub tirbase_types::fixed_point::BoundsCheck::BelowMin
+pub tirbase_types::fixed_point::BoundsCheck::WithinBounds
+impl core::clone::Clone for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::clone(&self) -> tirbase_types::fixed_point::BoundsCheck
+impl core::cmp::Eq for tirbase_types::fixed_point::BoundsCheck
+impl core::cmp::PartialEq for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::eq(&self, &tirbase_types::fixed_point::BoundsCheck) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Freeze for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Send for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Sync for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Unpin for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::BoundsCheck
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::BoundsCheck
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::BoundsCheck
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::BoundsCheck::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::BoundsCheck::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::BoundsCheck::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::BoundsCheck::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::BoundsCheck::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::BoundsCheck where T: core::clone::Clone
+pub type tirbase_types::fixed_point::BoundsCheck::Owned = T
+pub fn tirbase_types::fixed_point::BoundsCheck::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::BoundsCheck::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::BoundsCheck where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::BoundsCheck where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::BoundsCheck where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::BoundsCheck where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::BoundsCheck::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::from(T) -> T
+pub enum tirbase_types::fixed_point::FixedPointError
+pub tirbase_types::fixed_point::FixedPointError::LossyConversion
+pub tirbase_types::fixed_point::FixedPointError::NonFiniteInput
+pub tirbase_types::fixed_point::FixedPointError::OverflowOnConversion
+pub tirbase_types::fixed_point::FixedPointError::UnitMismatch
+impl core::clone::Clone for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::clone(&self) -> tirbase_types::fixed_point::FixedPointError
+impl core::cmp::Eq for tirbase_types::fixed_point::FixedPointError
+impl core::cmp::PartialEq for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::eq(&self, &tirbase_types::fixed_point::FixedPointError) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::FixedPointError
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::FixedPointError
+impl serde_core::ser::Serialize for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Send for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Sync for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Unpin for tirbase_types::fixed_point::FixedPointError
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::FixedPointError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::FixedPointError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::FixedPointError
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::FixedPointError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::FixedPointError::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::FixedPointError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::FixedPointError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::FixedPointError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::FixedPointError where T: core::clone::Clone
+pub type tirbase_types::fixed_point::FixedPointError::Owned = T
+pub fn tirbase_types::fixed_point::FixedPointError::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::FixedPointError::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::FixedPointError where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::FixedPointError where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::FixedPointError where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::FixedPointError where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::FixedPointError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointError where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::fixed_point::FixedPointValue::exponent: i8
+pub tirbase_types::fixed_point::FixedPointValue::mantissa: i64
+pub tirbase_types::fixed_point::FixedPointValue::unit_id: tirbase_types::UnitId
+impl tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::compare_with_bounds(&self, &tirbase_types::fixed_point::FixedPointValue, &tirbase_types::fixed_point::FixedPointValue) -> core::result::Result<tirbase_types::fixed_point::BoundsCheck, tirbase_types::fixed_point::FixedPointError>
+pub fn tirbase_types::fixed_point::FixedPointValue::from_f64(f64, i8, tirbase_types::UnitId) -> core::result::Result<Self, tirbase_types::fixed_point::FixedPointError>
+pub const fn tirbase_types::fixed_point::FixedPointValue::new(i64, i8, tirbase_types::UnitId) -> Self
+pub fn tirbase_types::fixed_point::FixedPointValue::with_canonical_exponent(&self, i8) -> core::result::Result<Self, tirbase_types::fixed_point::FixedPointError>
+impl core::clone::Clone for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::clone(&self) -> tirbase_types::fixed_point::FixedPointValue
+impl core::cmp::Eq for tirbase_types::fixed_point::FixedPointValue
+impl core::cmp::PartialEq for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::eq(&self, &tirbase_types::fixed_point::FixedPointValue) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::FixedPointValue
+impl serde_core::ser::Serialize for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Send for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Sync for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Unpin for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::FixedPointValue
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::FixedPointValue
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::FixedPointValue
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::FixedPointValue::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::FixedPointValue::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::FixedPointValue::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::FixedPointValue::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::FixedPointValue::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::FixedPointValue where T: core::clone::Clone
+pub type tirbase_types::fixed_point::FixedPointValue::Owned = T
+pub fn tirbase_types::fixed_point::FixedPointValue::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::FixedPointValue::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::FixedPointValue where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::FixedPointValue where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::FixedPointValue::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::fixed_point::UnitDescriptor
+pub tirbase_types::fixed_point::UnitDescriptor::dimension: &'static str
+pub tirbase_types::fixed_point::UnitDescriptor::id: tirbase_types::UnitId
+pub tirbase_types::fixed_point::UnitDescriptor::label: &'static str
+impl core::clone::Clone for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::clone(&self) -> tirbase_types::fixed_point::UnitDescriptor
+impl core::cmp::Eq for tirbase_types::fixed_point::UnitDescriptor
+impl core::cmp::PartialEq for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::eq(&self, &tirbase_types::fixed_point::UnitDescriptor) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Freeze for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Send for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Sync for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Unpin for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::UnitDescriptor
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::UnitDescriptor
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::UnitDescriptor
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::UnitDescriptor::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::UnitDescriptor::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::UnitDescriptor::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::UnitDescriptor::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::UnitDescriptor::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::UnitDescriptor where T: core::clone::Clone
+pub type tirbase_types::fixed_point::UnitDescriptor::Owned = T
+pub fn tirbase_types::fixed_point::UnitDescriptor::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::UnitDescriptor::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::UnitDescriptor where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::UnitDescriptor where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::UnitDescriptor where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::UnitDescriptor where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::UnitDescriptor::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::from(T) -> T
+pub const tirbase_types::fixed_point::UNIT_A: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_BAR: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_BOOLEAN: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_DEG_C: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_DESCRIPTORS: &[tirbase_types::fixed_point::UnitDescriptor]
+pub const tirbase_types::fixed_point::UNIT_HZ: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_KPA: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_KW: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_M3H: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_PA: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_PERCENT: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_RPM: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_UNKNOWN: tirbase_types::UnitId
+pub const tirbase_types::fixed_point::UNIT_V: tirbase_types::UnitId
+pub fn tirbase_types::fixed_point::unit_descriptor(tirbase_types::UnitId) -> core::option::Option<&'static tirbase_types::fixed_point::UnitDescriptor>
+pub mod tirbase_types::units
+pub const tirbase_types::units::ALL_UNITS: &[tirbase_types::fixed_point::UnitDescriptor]
+pub const tirbase_types::units::UNIT_A: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_BAR: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_BOOLEAN: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_DEG_C: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_HZ: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_KPA: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_KW: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_M3H: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_PA: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_PERCENT: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_RPM: tirbase_types::fixed_point::UnitDescriptor
+pub const tirbase_types::units::UNIT_V: tirbase_types::fixed_point::UnitDescriptor
+pub enum tirbase_types::BoundsCheck
+pub tirbase_types::BoundsCheck::AboveMax
+pub tirbase_types::BoundsCheck::BelowMin
+pub tirbase_types::BoundsCheck::WithinBounds
+impl core::clone::Clone for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::clone(&self) -> tirbase_types::fixed_point::BoundsCheck
+impl core::cmp::Eq for tirbase_types::fixed_point::BoundsCheck
+impl core::cmp::PartialEq for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::eq(&self, &tirbase_types::fixed_point::BoundsCheck) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Freeze for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Send for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Sync for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::Unpin for tirbase_types::fixed_point::BoundsCheck
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::BoundsCheck
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::BoundsCheck
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::BoundsCheck
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::BoundsCheck::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::BoundsCheck::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::BoundsCheck::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::BoundsCheck where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::BoundsCheck::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::BoundsCheck::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::BoundsCheck where T: core::clone::Clone
+pub type tirbase_types::fixed_point::BoundsCheck::Owned = T
+pub fn tirbase_types::fixed_point::BoundsCheck::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::BoundsCheck::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::BoundsCheck where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::BoundsCheck where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::BoundsCheck where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::BoundsCheck::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::BoundsCheck where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::BoundsCheck::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::BoundsCheck
+pub fn tirbase_types::fixed_point::BoundsCheck::from(T) -> T
 pub enum tirbase_types::CommandRole
 pub tirbase_types::CommandRole::Auditor
 pub tirbase_types::CommandRole::CommandIssuer
@@ -7,6 +265,10 @@ pub tirbase_types::CommandRole::PolicyAuthority
 pub tirbase_types::CommandRole::RevocationManager
 pub tirbase_types::CommandRole::TimeAnchor
 pub tirbase_types::CommandRole::UpdateSigner
+impl tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::as_str(&self) -> &'static str
+pub fn tirbase_types::CommandRole::can_issue_commands(&self) -> bool
+pub fn tirbase_types::CommandRole::from_str(&str) -> core::option::Option<Self>
 impl core::clone::Clone for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::clone(&self) -> tirbase_types::CommandRole
 impl core::cmp::Eq for tirbase_types::CommandRole
@@ -55,6 +317,8 @@ impl<T> serde_core::de::DeserializeOwned for tirbase_types::CommandRole where T:
 pub enum tirbase_types::DeviceKeyType
 pub tirbase_types::DeviceKeyType::Ed25519
 pub tirbase_types::DeviceKeyType::P256
+impl tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::as_str(&self) -> &'static str
 impl core::clone::Clone for tirbase_types::DeviceKeyType
 pub fn tirbase_types::DeviceKeyType::clone(&self) -> tirbase_types::DeviceKeyType
 impl core::cmp::Eq for tirbase_types::DeviceKeyType
@@ -62,6 +326,8 @@ impl core::cmp::PartialEq for tirbase_types::DeviceKeyType
 pub fn tirbase_types::DeviceKeyType::eq(&self, &tirbase_types::DeviceKeyType) -> bool
 impl core::fmt::Debug for tirbase_types::DeviceKeyType
 pub fn tirbase_types::DeviceKeyType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for tirbase_types::DeviceKeyType
 impl core::marker::StructuralPartialEq for tirbase_types::DeviceKeyType
 impl serde_core::ser::Serialize for tirbase_types::DeviceKeyType
@@ -99,8 +365,13 @@ impl<T> core::convert::From<T> for tirbase_types::DeviceKeyType
 pub fn tirbase_types::DeviceKeyType::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::DeviceKeyType where T: for<'de> serde_core::de::Deserialize<'de>
 pub enum tirbase_types::DeviceSignature
-pub tirbase_types::DeviceSignature::Ed25519(alloc::vec::Vec<u8>)
+pub tirbase_types::DeviceSignature::Ed25519([u8; 64])
 pub tirbase_types::DeviceSignature::P256(alloc::vec::Vec<u8>)
+impl tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::as_bytes(&self) -> &[u8]
+pub fn tirbase_types::DeviceSignature::is_empty(&self) -> bool
+pub fn tirbase_types::DeviceSignature::key_type(&self) -> tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceSignature::len(&self) -> usize
 impl core::clone::Clone for tirbase_types::DeviceSignature
 pub fn tirbase_types::DeviceSignature::clone(&self) -> tirbase_types::DeviceSignature
 impl core::cmp::Eq for tirbase_types::DeviceSignature
@@ -110,9 +381,9 @@ impl core::fmt::Debug for tirbase_types::DeviceSignature
 pub fn tirbase_types::DeviceSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_types::DeviceSignature
 impl serde_core::ser::Serialize for tirbase_types::DeviceSignature
-pub fn tirbase_types::DeviceSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub fn tirbase_types::DeviceSignature::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
 impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::DeviceSignature
-pub fn tirbase_types::DeviceSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub fn tirbase_types::DeviceSignature::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 impl core::marker::Freeze for tirbase_types::DeviceSignature
 impl core::marker::Send for tirbase_types::DeviceSignature
 impl core::marker::Sync for tirbase_types::DeviceSignature
@@ -143,7 +414,58 @@ pub unsafe fn tirbase_types::DeviceSignature::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::DeviceSignature
 pub fn tirbase_types::DeviceSignature::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::DeviceSignature where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::FixedPointError
+pub tirbase_types::FixedPointError::LossyConversion
+pub tirbase_types::FixedPointError::NonFiniteInput
+pub tirbase_types::FixedPointError::OverflowOnConversion
+pub tirbase_types::FixedPointError::UnitMismatch
+impl core::clone::Clone for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::clone(&self) -> tirbase_types::fixed_point::FixedPointError
+impl core::cmp::Eq for tirbase_types::fixed_point::FixedPointError
+impl core::cmp::PartialEq for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::eq(&self, &tirbase_types::fixed_point::FixedPointError) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::FixedPointError
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::FixedPointError
+impl serde_core::ser::Serialize for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Send for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Sync for tirbase_types::fixed_point::FixedPointError
+impl core::marker::Unpin for tirbase_types::fixed_point::FixedPointError
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::FixedPointError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::FixedPointError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::FixedPointError
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::FixedPointError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::FixedPointError::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::FixedPointError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::FixedPointError where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::FixedPointError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::FixedPointError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::FixedPointError where T: core::clone::Clone
+pub type tirbase_types::fixed_point::FixedPointError::Owned = T
+pub fn tirbase_types::fixed_point::FixedPointError::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::FixedPointError::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::FixedPointError where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::FixedPointError where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::FixedPointError where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::FixedPointError where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::FixedPointError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointError
+pub fn tirbase_types::fixed_point::FixedPointError::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointError where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_types::Did(pub alloc::string::String)
+impl tirbase_types::Did
+pub fn tirbase_types::Did::as_str(&self) -> &str
+pub fn tirbase_types::Did::new(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tirbase_types::Did
 pub fn tirbase_types::Did::clone(&self) -> tirbase_types::Did
 impl core::cmp::Eq for tirbase_types::Did
@@ -191,53 +513,61 @@ impl<T> serde_core::de::DeserializeOwned for tirbase_types::Did where T: for<'de
 pub struct tirbase_types::FixedPointValue
 pub tirbase_types::FixedPointValue::exponent: i8
 pub tirbase_types::FixedPointValue::mantissa: i64
-pub tirbase_types::FixedPointValue::unit_id: u16
-impl core::clone::Clone for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::clone(&self) -> tirbase_types::FixedPointValue
-impl core::cmp::Eq for tirbase_types::FixedPointValue
-impl core::cmp::PartialEq for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::eq(&self, &tirbase_types::FixedPointValue) -> bool
-impl core::fmt::Debug for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::hash::Hash for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::hash<__H: core::hash::Hasher>(&self, &mut __H)
-impl core::marker::Copy for tirbase_types::FixedPointValue
-impl core::marker::StructuralPartialEq for tirbase_types::FixedPointValue
-impl serde_core::ser::Serialize for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-impl core::marker::Freeze for tirbase_types::FixedPointValue
-impl core::marker::Send for tirbase_types::FixedPointValue
-impl core::marker::Sync for tirbase_types::FixedPointValue
-impl core::marker::Unpin for tirbase_types::FixedPointValue
-impl core::marker::UnsafeUnpin for tirbase_types::FixedPointValue
-impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::FixedPointValue
-impl core::panic::unwind_safe::UnwindSafe for tirbase_types::FixedPointValue
-impl<T, U> core::convert::Into<U> for tirbase_types::FixedPointValue where U: core::convert::From<T>
-pub fn tirbase_types::FixedPointValue::into(self) -> U
-impl<T, U> core::convert::TryFrom<U> for tirbase_types::FixedPointValue where U: core::convert::Into<T>
-pub type tirbase_types::FixedPointValue::Error = core::convert::Infallible
-pub fn tirbase_types::FixedPointValue::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
-impl<T, U> core::convert::TryInto<U> for tirbase_types::FixedPointValue where U: core::convert::TryFrom<T>
-pub type tirbase_types::FixedPointValue::Error = <U as core::convert::TryFrom<T>>::Error
-pub fn tirbase_types::FixedPointValue::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
-impl<T> alloc::borrow::ToOwned for tirbase_types::FixedPointValue where T: core::clone::Clone
-pub type tirbase_types::FixedPointValue::Owned = T
-pub fn tirbase_types::FixedPointValue::clone_into(&self, &mut T)
-pub fn tirbase_types::FixedPointValue::to_owned(&self) -> T
-impl<T> core::any::Any for tirbase_types::FixedPointValue where T: 'static + ?core::marker::Sized
-pub fn tirbase_types::FixedPointValue::type_id(&self) -> core::any::TypeId
-impl<T> core::borrow::Borrow<T> for tirbase_types::FixedPointValue where T: ?core::marker::Sized
-pub fn tirbase_types::FixedPointValue::borrow(&self) -> &T
-impl<T> core::borrow::BorrowMut<T> for tirbase_types::FixedPointValue where T: ?core::marker::Sized
-pub fn tirbase_types::FixedPointValue::borrow_mut(&mut self) -> &mut T
-impl<T> core::clone::CloneToUninit for tirbase_types::FixedPointValue where T: core::clone::Clone
-pub unsafe fn tirbase_types::FixedPointValue::clone_to_uninit(&self, *mut u8)
-impl<T> core::convert::From<T> for tirbase_types::FixedPointValue
-pub fn tirbase_types::FixedPointValue::from(T) -> T
-impl<T> serde_core::de::DeserializeOwned for tirbase_types::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
+pub tirbase_types::FixedPointValue::unit_id: tirbase_types::UnitId
+impl tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::compare_with_bounds(&self, &tirbase_types::fixed_point::FixedPointValue, &tirbase_types::fixed_point::FixedPointValue) -> core::result::Result<tirbase_types::fixed_point::BoundsCheck, tirbase_types::fixed_point::FixedPointError>
+pub fn tirbase_types::fixed_point::FixedPointValue::from_f64(f64, i8, tirbase_types::UnitId) -> core::result::Result<Self, tirbase_types::fixed_point::FixedPointError>
+pub const fn tirbase_types::fixed_point::FixedPointValue::new(i64, i8, tirbase_types::UnitId) -> Self
+pub fn tirbase_types::fixed_point::FixedPointValue::with_canonical_exponent(&self, i8) -> core::result::Result<Self, tirbase_types::fixed_point::FixedPointError>
+impl core::clone::Clone for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::clone(&self) -> tirbase_types::fixed_point::FixedPointValue
+impl core::cmp::Eq for tirbase_types::fixed_point::FixedPointValue
+impl core::cmp::PartialEq for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::eq(&self, &tirbase_types::fixed_point::FixedPointValue) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::FixedPointValue
+impl serde_core::ser::Serialize for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Send for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Sync for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::Unpin for tirbase_types::fixed_point::FixedPointValue
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::FixedPointValue
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::FixedPointValue
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::FixedPointValue
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::FixedPointValue::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::FixedPointValue::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::FixedPointValue::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::FixedPointValue where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::FixedPointValue::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::FixedPointValue::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::FixedPointValue where T: core::clone::Clone
+pub type tirbase_types::fixed_point::FixedPointValue::Owned = T
+pub fn tirbase_types::fixed_point::FixedPointValue::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::FixedPointValue::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::FixedPointValue where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::FixedPointValue::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::FixedPointValue where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::FixedPointValue::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_types::fixed_point::FixedPointValue::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_types::TargetId(pub alloc::string::String)
+impl tirbase_types::TargetId
+pub fn tirbase_types::TargetId::as_str(&self) -> &str
+pub fn tirbase_types::TargetId::new(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tirbase_types::TargetId
 pub fn tirbase_types::TargetId::clone(&self) -> tirbase_types::TargetId
 impl core::cmp::Eq for tirbase_types::TargetId
@@ -282,6 +612,63 @@ pub unsafe fn tirbase_types::TargetId::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::TargetId
 pub fn tirbase_types::TargetId::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::TargetId where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::UnitDescriptor
+pub tirbase_types::UnitDescriptor::dimension: &'static str
+pub tirbase_types::UnitDescriptor::id: tirbase_types::UnitId
+pub tirbase_types::UnitDescriptor::label: &'static str
+impl core::clone::Clone for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::clone(&self) -> tirbase_types::fixed_point::UnitDescriptor
+impl core::cmp::Eq for tirbase_types::fixed_point::UnitDescriptor
+impl core::cmp::PartialEq for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::eq(&self, &tirbase_types::fixed_point::UnitDescriptor) -> bool
+impl core::fmt::Debug for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::StructuralPartialEq for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Freeze for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Send for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Sync for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::Unpin for tirbase_types::fixed_point::UnitDescriptor
+impl core::marker::UnsafeUnpin for tirbase_types::fixed_point::UnitDescriptor
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::fixed_point::UnitDescriptor
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::fixed_point::UnitDescriptor
+impl<T, U> core::convert::Into<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::From<T>
+pub fn tirbase_types::fixed_point::UnitDescriptor::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::Into<T>
+pub type tirbase_types::fixed_point::UnitDescriptor::Error = core::convert::Infallible
+pub fn tirbase_types::fixed_point::UnitDescriptor::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::fixed_point::UnitDescriptor where U: core::convert::TryFrom<T>
+pub type tirbase_types::fixed_point::UnitDescriptor::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::fixed_point::UnitDescriptor::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::fixed_point::UnitDescriptor where T: core::clone::Clone
+pub type tirbase_types::fixed_point::UnitDescriptor::Owned = T
+pub fn tirbase_types::fixed_point::UnitDescriptor::clone_into(&self, &mut T)
+pub fn tirbase_types::fixed_point::UnitDescriptor::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::fixed_point::UnitDescriptor where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::fixed_point::UnitDescriptor where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::fixed_point::UnitDescriptor where T: ?core::marker::Sized
+pub fn tirbase_types::fixed_point::UnitDescriptor::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::UnitDescriptor where T: core::clone::Clone
+pub unsafe fn tirbase_types::fixed_point::UnitDescriptor::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::fixed_point::UnitDescriptor
+pub fn tirbase_types::fixed_point::UnitDescriptor::from(T) -> T
+pub const tirbase_types::UNIT_A: tirbase_types::UnitId
+pub const tirbase_types::UNIT_BAR: tirbase_types::UnitId
+pub const tirbase_types::UNIT_BOOLEAN: tirbase_types::UnitId
+pub const tirbase_types::UNIT_DEG_C: tirbase_types::UnitId
+pub const tirbase_types::UNIT_DESCRIPTORS: &[tirbase_types::fixed_point::UnitDescriptor]
+pub const tirbase_types::UNIT_HZ: tirbase_types::UnitId
+pub const tirbase_types::UNIT_KPA: tirbase_types::UnitId
+pub const tirbase_types::UNIT_KW: tirbase_types::UnitId
+pub const tirbase_types::UNIT_M3H: tirbase_types::UnitId
+pub const tirbase_types::UNIT_PA: tirbase_types::UnitId
+pub const tirbase_types::UNIT_PERCENT: tirbase_types::UnitId
+pub const tirbase_types::UNIT_RPM: tirbase_types::UnitId
+pub const tirbase_types::UNIT_UNKNOWN: tirbase_types::UnitId
+pub const tirbase_types::UNIT_V: tirbase_types::UnitId
+pub fn tirbase_types::unit_descriptor(tirbase_types::UnitId) -> core::option::Option<&'static tirbase_types::fixed_point::UnitDescriptor>
 pub type tirbase_types::DeltaId = [u8; 32]
 pub type tirbase_types::MigrationId = [u8; 32]
 pub type tirbase_types::ProfileId = [u8; 16]
