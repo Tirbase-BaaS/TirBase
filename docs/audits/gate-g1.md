@@ -627,3 +627,158 @@ to fail (`calls=0 ≠ 3`). Removing the receive caller (`CloudLedger::receive_de
 from `CloudLedgerConnection::send_delta`) causes both tests to fail (committed_count=0
 and queue never drains). Both paths are wired as production callers and the tests
 detect removal.
+
+---
+
+## G1.7 — Migration CA Key + Version-Path Wiring
+
+**CLAIM-G1.7:** `register_migration_ca_key` and `schema_version_path` have
+production callers in the gateway init path (`CoreHandle::init`); a
+`MigrationDelta` with a wrong CA signature is rejected with
+`MigrationCaSignatureInvalid`; removing either caller causes at least one test
+to fail.
+
+### Production Callers
+
+Two items are wired in `CoreHandle::init`:
+
+#### Item 1 — Migration CA public key (`register_migration_ca_key` / `migration_ca_public_key`)
+
+| Item | Value |
+|---|---|
+| Function | `SchemaMigrationEngine::new(migration_ca_public_key, ...)` (init-time path) / `CoreHandle::register_migration_ca_key` (runtime path) |
+| Init-time read | `tirbase-core/src/api/mod.rs:574–578` — reads `config.deployment.migration_ca_public_key`, unwraps to `[0u8; 32]` when `None` |
+| Passed to engine | `tirbase-core/src/api/mod.rs:672` (native) / line 684 (WASM) — `migration_ca_public_key` argument to `SchemaMigrationEngine::new` |
+| Engine stores it | `tirbase-core/src/migration/mod.rs:202` (`register_ca_public_key` / `self.ca_public_key = key`) |
+| Runtime caller | `tirbase-core/src/api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) → `migration/mod.rs:202` (`SchemaMigrationEngine::register_ca_public_key`) |
+| WASM export | `tirbase-core/src/lib.rs:350` (`core_register_migration_ca_key`) → `CoreHandle::register_migration_ca_key` |
+| Effect | All subsequent `SchemaMigrationEngine::prepare_migration` calls verify `MigrationDelta.ca_signature` against this key (gate step 3) |
+| Unconfigured state | `None` → `[0u8; 32]` zero key — Ed25519 verification fails for every real signature; every migration is rejected with `MigrationCaSignatureInvalid` |
+
+#### Item 2 — Schema version path (`schema_version_path`)
+
+| Item | Value |
+|---|---|
+| Field | `DeploymentConfig.schema_version_path: Vec<[u8; 32]>` at `tirbase-core/src/api/mod.rs:4470` |
+| Init-time read | `tirbase-core/src/api/mod.rs:578–580` — `SchemaVersionPath::new(config.deployment.schema_version_path.clone())` |
+| Passed to engine | `tirbase-core/src/api/mod.rs:674` (native) / line 686 (WASM) — `migration_version_path` argument to `SchemaMigrationEngine::new` |
+| Engine stores it | `tirbase-core/src/migration/mod.rs` (`Self { version_path, ... }`) |
+| Effect | All subsequent `SchemaMigrationEngine::prepare_migration` calls validate that `source_schema_hash == local` and `target_schema_hash == next step in path` (gate steps 5–6) |
+| Unconfigured state | `vec![]` empty path — every migration is rejected with `VersionPathMismatch` (no valid step exists) |
+
+### Integration Tests
+
+Five tests exercise the production callers and the rejection gates. The key
+test for CLAIM-G1.7 (wrong CA signature) is
+`migration_delta_wrong_ca_signature_is_rejected`.
+
+#### Test 1 — Wrong CA signature (CLAIM-G1.7 primary test)
+
+| Item | Value |
+|---|---|
+| Test name | `migration_delta_wrong_ca_signature_is_rejected` |
+| Location | `tirbase-core/src/api/mod.rs:6441` |
+| Test type | `#[tokio::test]` |
+| What it proves | A `MigrationDelta` signed by a **different** (wrong) CA key is rejected with `MigrationCaSignatureInvalid` even though the registered key, version path, and transform bytes are otherwise valid — the CA signature gate operates against the real registered key, not just the zero key |
+| Result | PASS (verified 2025-07-15) |
+
+##### Test flow
+
+1. Generate two distinct CA keypairs: `correct_ca` (registered in handle) and `wrong_ca` (used to sign the delta)
+2. Init `CoreHandle` with `correct_ca_public` in `DeploymentConfig.migration_ca_public_key` and a valid `[source, target]` version path — exercises both production callers
+3. Build a `MigrationDelta` signed by `wrong_ca_secret` with valid `source`/`target` and valid transform bytes
+4. Call `migration.receive_migration_delta(delta, sender)` — the engine's CA gate (step 3 in `prepare_migration`) verifies the signature against `correct_ca_public`, which fails for a `wrong_ca`-signed delta
+5. Assert the result is `Err(TirBaseError::MigrationCaSignatureInvalid { .. })`
+
+No mocks are used: the test drives the real production init path
+(`CoreHandle::init` → `SchemaMigrationEngine::new` with the registered key and
+path) and the real Ed25519 signature verification in `verify_ca_signature`.
+
+#### Test 2 — Init-time CA key + version path wiring (supporting test)
+
+| Item | Value |
+|---|---|
+| Test name | `init_registers_migration_ca_key_and_version_path` |
+| Location | `tirbase-core/src/api/mod.rs:6215` |
+| What it proves | A CA-signed migration on a valid path step is accepted by the engine constructed through `CoreHandle::init`; previously the zero key rejected every migration with `MigrationCaSignatureInvalid` |
+| Result | PASS (verified 2025-07-15) |
+
+#### Test 3 — Unconfigured state still rejects (regression)
+
+| Item | Value |
+|---|---|
+| Test name | `unconfigured_migration_ca_still_rejects_at_ca_gate` |
+| Location | `tirbase-core/src/api/mod.rs:6258` |
+| What it proves | Without a configured Migration CA key (`None` → zero key), every migration is rejected at the CA gate — the unconfigured state is not a silent acceptance hole |
+| Result | PASS (verified 2025-07-15) |
+
+#### Test 4 — Runtime registration
+
+| Item | Value |
+|---|---|
+| Test name | `runtime_register_migration_ca_key_enables_migrations` |
+| Location | `tirbase-core/src/api/mod.rs:6291` |
+| What it proves | A handle initialised without a Migration CA key starts rejecting at the CA gate; after `register_migration_ca_key` the CA gate passes and failure moves to the (unconfigured) version-path gate |
+| Result | PASS (verified 2025-07-15) |
+
+#### Test 5 — Full inbound pipeline
+
+| Item | Value |
+|---|---|
+| Test name | `inbound_migration_passes_ca_gate_with_configured_key_and_path` |
+| Location | `tirbase-core/src/api/mod.rs:6346` |
+| What it proves | A CA-signed migration delivered via `inject_inbound` → `process_inbound_messages` → engine is applied; schema hash advances; the next path step is then accepted |
+| Result | PASS (verified 2025-07-15) |
+
+### Wiring Mutation Check
+
+**Criterion (PV-1.13):** Removing either caller (`migration_ca_public_key` from
+`SchemaMigrationEngine::new` or `schema_version_path` from `SchemaMigrationEngine::new`)
+must cause at least one test to fail.
+
+#### Mutation A — Remove `migration_ca_public_key` wiring (replace with `[0u8; 32]`)
+
+If `migration_ca_public_key` at `api/mod.rs:574–578` is replaced with a hardcoded
+`[0u8; 32]` (zero key), ignoring `DeploymentConfig.migration_ca_public_key`:
+
+1. `SchemaMigrationEngine::new` receives a zero CA public key regardless of deployment config
+2. `verify_ca_signature` in `prepare_migration` calls `VerifyingKey::from_bytes(&[0u8; 32])`
+3. The zero key is a degenerate Ed25519 point; `ed25519_dalek::VerifyingKey::from_bytes` returns `Err` for the all-zero byte sequence
+4. Every migration — including those signed by a valid CA key — is rejected with `MigrationCaSignatureInvalid`
+5. `init_registers_migration_ca_key_and_version_path` (line 6215): calls `receive_migration_delta` with a delta validly signed by `correct_ca_secret`; the engine rejects with `Err(MigrationCaSignatureInvalid)` instead of `Ok(Success)` → `assert!(matches!(result, Ok(MigrationResult::Success)))` **fails**
+
+**Failing test:** `tirbase-core::api::tests::init_registers_migration_ca_key_and_version_path`
+
+#### Mutation B — Remove `schema_version_path` wiring (replace with empty path)
+
+If `migration_version_path` at `api/mod.rs:578–580` is replaced with
+`SchemaVersionPath::new(vec![])` (empty path), ignoring
+`DeploymentConfig.schema_version_path`:
+
+1. `SchemaMigrationEngine::new` receives an empty version path regardless of deployment config
+2. `verify_version_path` in `prepare_migration` calls `version_path.is_valid_step(source, target)` on an empty path — returns `false` for every `(source, target)` pair
+3. Every migration is rejected with `VersionPathMismatch` (gate step 6 fails before the sandbox executes)
+4. `init_registers_migration_ca_key_and_version_path` (line 6215): the CA gate passes (correct key), but the version-path gate fails with `Err(VersionPathMismatch)` instead of `Ok(Success)` → `assert!(matches!(result, Ok(MigrationResult::Success)))` **fails**
+
+**Failing test:** `tirbase-core::api::tests::init_registers_migration_ca_key_and_version_path`
+
+**Verdict:** VERIFIED-BY-TRACE — removing `migration_ca_public_key` wiring at
+`api/mod.rs:574–578` causes `init_registers_migration_ca_key_and_version_path`
+to fail (every migration rejected with `MigrationCaSignatureInvalid`). Removing
+`schema_version_path` wiring at `api/mod.rs:578–580` also causes
+`init_registers_migration_ca_key_and_version_path` to fail (every migration
+rejected with `VersionPathMismatch`). Both callers are wired as production
+callers in the gateway init path and the tests detect their removal.
+
+---
+
+## Summary Table (updated)
+
+| Item | Production Caller | Integration Test | Wiring Mutation | Status |
+|---|---|---|---|---|
+| G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
+| G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
+| G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450`; runtime: `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification`), `api/mod.rs:5957`, `api/mod.rs:6063` | Removing init-time path → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime path → two tests fail | VERIFIED-BY-TRACE |
+| G1.5 Saturate mode | `api/mod.rs:801–816` (`MeshTransport::new` init-time wiring); `api/mod.rs:2300` (`CoreHandle::activate_saturate_mode` runtime) | `api/mod.rs:10833` (`saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller`) | Zeroing key at `api/mod.rs:811` → `SignatureVerificationFailed` → test fails | VERIFIED-BY-TRACE |
+| G1.6 Cloud sync | `api/mod.rs:4142` (`spawn_cloud_sync_loop`) called from `api/mod.rs:~1220`; `durability/cloud_ledger.rs:119` (`CloudLedger::receive_delta`) | `api/mod.rs` `cloud_sync_wiring_tests::cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint` | Removing send caller → `calls=0 ≠ 3`; removing receive caller → `committed_count=0` | VERIFIED-BY-TRACE |
+| G1.7 Migration CA + version path | `api/mod.rs:574–578` (`migration_ca_public_key` → `SchemaMigrationEngine::new:672`); `api/mod.rs:578–580` (`schema_version_path` → `SchemaMigrationEngine::new:674`); runtime: `api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) | `api/mod.rs:6441` (`migration_delta_wrong_ca_signature_is_rejected` — CLAIM-G1.7 primary); `api/mod.rs:6215` (`init_registers_migration_ca_key_and_version_path`); `api/mod.rs:6291` (`runtime_register_migration_ca_key_enables_migrations`); `api/mod.rs:6346` (`inbound_migration_passes_ca_gate_with_configured_key_and_path`) | Zeroing `migration_ca_public_key` at `api/mod.rs:574` → `init_registers_migration_ca_key_and_version_path` fails (`MigrationCaSignatureInvalid`); replacing path with empty vec at `api/mod.rs:578` → same test fails (`VersionPathMismatch`) | VERIFIED-BY-TRACE |

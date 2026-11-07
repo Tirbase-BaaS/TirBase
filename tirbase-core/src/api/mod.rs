@@ -6401,6 +6401,94 @@ mod tests {
         cleanup(&path);
     }
 
+    // ── CLAIM-G1.7: MigrationDelta with wrong CA signature is rejected ────────
+    //
+    // A MigrationDelta signed by a *different* (wrong) CA key must be rejected
+    // with `MigrationCaSignatureInvalid` even when the registered key, version
+    // path, and transform bytes are all otherwise valid.  This test proves the
+    // CA-signature gate in `SchemaMigrationEngine::prepare_migration` (gate
+    // step 3) operates against the real registered key — not just against a
+    // zero key — and that a wrong-key signature cannot bypass the gate.
+    //
+    // Production callers under test:
+    //   - `migration_ca_public_key`: `CoreHandle::init` at
+    //     `tirbase-core/src/api/mod.rs` ~line 574 reads
+    //     `DeploymentConfig.migration_ca_public_key` and passes it to
+    //     `SchemaMigrationEngine::new` — the "correct" CA key wired here.
+    //   - `schema_version_path`: `CoreHandle::init` at
+    //     `tirbase-core/src/api/mod.rs` ~line 578 reads
+    //     `DeploymentConfig.schema_version_path` and passes it to
+    //     `SchemaMigrationEngine::new` — the version path wired here.
+    //
+    // Wiring mutation evidence: removing either production caller causes
+    // `init_registers_migration_ca_key_and_version_path` to fail (CA gate
+    // rejects every migration with `MigrationCaSignatureInvalid` when the key
+    // reverts to `[0u8; 32]`; the version path gate rejects every migration
+    // with `VersionPathMismatch` when the path reverts to empty).
+    //
+    // PV-1.13: both functions have a production caller in the gateway init path
+    // and this test drives the rejection from a real `CoreHandle::init` entry
+    // point, satisfying the wired definition (production caller + at least one
+    // passing integration test).
+
+    /// A MigrationDelta signed by the **wrong** CA key is rejected at the CA
+    /// gate even when the registered key, transform bytes, and version path are
+    /// all otherwise valid (Req 18.2 — CLAIM-G1.7).
+    ///
+    /// This test explicitly distinguishes the "wrong key" rejection path from
+    /// the "zero key" rejection in `unconfigured_migration_ca_still_rejects_at_ca_gate`.
+    #[tokio::test]
+    async fn migration_delta_wrong_ca_signature_is_rejected() {
+        let path = tmp_path("g1_7_wrong_ca_sig");
+        cleanup(&path);
+
+        // Two distinct CA keypairs: `correct_ca` is registered in the handle;
+        // `wrong_ca` is used to sign the migration delta.
+        let (correct_ca_secret, correct_ca_public) =
+            crate::identity::keypair::generate_keypair().expect("correct keygen");
+        let (wrong_ca_secret, _wrong_ca_public) =
+            crate::identity::keypair::generate_keypair().expect("wrong keygen");
+
+        let source = [0x20u8; 32];
+        let target = [0x21u8; 32];
+
+        // Init with the **correct** CA key and a valid two-version path.
+        let handle = CoreHandle::init(make_migration_config(
+            &path,
+            correct_ca_public,
+            vec![source, target],
+        ))
+        .await
+        .expect("init with correct CA key + version path");
+
+        // Build a delta signed by the **wrong** CA key.  The version path and
+        // transform bytes are valid — only the signature is wrong.
+        let delta = make_ca_signed_migration_delta(
+            &wrong_ca_secret, // ← intentionally wrong key
+            source,
+            target,
+            trivial_wasm_bytes(),
+        );
+
+        let result = handle
+            .migration
+            .lock()
+            .unwrap()
+            .receive_migration_delta(delta, "did:key:z6MkWrongSender");
+
+        assert!(
+            matches!(
+                result,
+                Err(TirBaseError::MigrationCaSignatureInvalid { .. })
+            ),
+            "a MigrationDelta signed by the wrong CA key must be rejected \
+             with MigrationCaSignatureInvalid, not accepted or rejected at a \
+             later gate: {result:?}"
+        );
+
+        cleanup(&path);
+    }
+
     // ── Subphase 5.4: Migration revocation interrupts an in-progress ─────────
     //
     // transform (Req 18.6)
