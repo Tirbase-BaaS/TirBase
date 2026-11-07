@@ -46,10 +46,12 @@ pub mod crdt;
 pub mod diagnostics;
 pub mod durability;
 pub mod errors;
+pub mod events;
 pub mod identity;
 pub mod migration;
 pub mod schema;
 pub mod store;
+pub mod traits;
 pub mod transport;
 
 // ─── Property-based test suite (Task 15) ─────────────────────────────────────

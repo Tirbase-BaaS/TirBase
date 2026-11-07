@@ -36,6 +36,7 @@ use std::collections::HashMap;
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Did, DeltaId, Ed25519Signature};
 use crate::errors::TirBaseError;
+use crate::events::{emit_revocation, ReasonCode, Severity};
 use crate::identity::{did as did_mod, keypair};
 
 // ─── Core data types ──────────────────────────────────────────────────────────
@@ -840,22 +841,20 @@ impl RevocationSubsystem {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /// Returns a wall-clock timestamp in microseconds.
+///
+/// Reads through the injected [`crate::traits::TimeSource`] (PV-3.8, PV-3.12).
 pub fn current_timestamp_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    crate::traits::wall_hint().unwrap_or_default()
 }
 
 /// Log a revocation verification failure (structured record, Req 9.4).
 fn log_revocation_failure(target_did: &str, reason: &str) {
     // In a production build this would write to the structured diagnostic log.
     // For v1 we use eprintln so the record is always visible without a log subscriber.
-    eprintln!(
+    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
         "[RevocationSubsystem] verification failure for target='{}': {}",
         target_did, reason
-    );
+    ));
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

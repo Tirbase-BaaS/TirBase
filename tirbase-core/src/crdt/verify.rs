@@ -28,6 +28,8 @@
 
 use std::collections::HashMap;
 
+use crate::events::{emit_crdt, ReasonCode, Severity};
+
 use automerge::transaction::Transactable;
 use automerge::{AutoCommit, ObjId, ObjType, ReadDoc, ROOT};
 
@@ -214,7 +216,7 @@ pub(crate) fn verify_and_override(
 
         if !definitive {
             report.indeterminate += 1;
-            eprintln!(
+            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
                 "[CRDT] LWW read-back key='{}': actual winner {} | rule (incoming lamport {} vs local {}) \
                  says incoming-wins:{} | zone=indeterminate (engine-wide local lamport is not per-key) — \
                  no override",
@@ -223,30 +225,30 @@ pub(crate) fn verify_and_override(
                 delta_lamport,
                 local_lamport,
                 predicted_incoming_wins,
-            );
+            ));
             continue;
         }
 
         // Definitive zone: the rule mandates the incoming op wins.
         if actual_incoming_won {
-            eprintln!(
+            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
                 "[CRDT] LWW read-back key='{}': actual winner=incoming | rule=incoming — OK",
                 conflict.key
-            );
+            ));
             continue;
         }
         if !actual_local_won {
             // A third concurrent writer won — cannot attribute, never override.
             report.indeterminate += 1;
-            eprintln!(
+            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
                 "[CRDT] LWW read-back key='{}': winner unattributable ({}) — no override",
                 conflict.key, actual
-            );
+            ));
             continue;
         }
 
         report.divergences += 1;
-        eprintln!(
+        emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!(
             "[CRDT] LWW DIVERGENCE key='{}': rule says incoming (lamport {} > local {}) but merged doc \
              kept local op {} — OVERRIDING with incoming value {:?}",
             conflict.key,
@@ -254,12 +256,12 @@ pub(crate) fn verify_and_override(
             local_lamport,
             conflict.local_exid,
             conflict.incoming_value,
-        );
+        ));
         match doc.put(ROOT, conflict.key.as_str(), conflict.incoming_value.clone()) {
             Ok(()) => report.overrides_applied += 1,
             Err(e) => {
                 report.overrides_failed += 1;
-                eprintln!("[CRDT] LWW OVERRIDE FAILED key='{}': {e}", conflict.key);
+                emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!("[CRDT] LWW OVERRIDE FAILED key='{}': {e}", conflict.key));
             }
         }
     }
@@ -308,28 +310,28 @@ pub(crate) fn verify_and_override(
 
         if !definitive {
             report.indeterminate += 1;
-            eprintln!(
+            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
                 "[CRDT] RGA read-back list='{}': actual order incoming-first:{} | rule (incoming lamport {} \
                  vs local {}) says incoming-first:{} | zone=indeterminate — no override",
                 key, actual_incoming_first, delta_lamport, local_lamport, predicted_incoming_first,
-            );
+            ));
             continue;
         }
 
         if actual_incoming_first {
-            eprintln!(
+            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
                 "[CRDT] RGA read-back list='{}': actual order incoming-first | rule=incoming-first — OK",
                 key
-            );
+            ));
             continue;
         }
 
         report.divergences += 1;
-        eprintln!(
+        emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!(
             "[CRDT] RGA DIVERGENCE list='{}': rule says incoming element first (lamport {} > local {}) but \
              merged order has local first — OVERRIDING order",
             key, delta_lamport, local_lamport,
-        );
+        ));
         // Delete both conflicting elements (higher index first so the lower one
         // does not shift) and re-insert them in the rule order at the run
         // start.  The corrective write is local, so every future peer merge
@@ -346,7 +348,7 @@ pub(crate) fn verify_and_override(
             Ok(()) => report.overrides_applied += 1,
             Err(e) => {
                 report.overrides_failed += 1;
-                eprintln!("[CRDT] RGA OVERRIDE FAILED list='{}': {e}", key);
+                emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!("[CRDT] RGA OVERRIDE FAILED list='{}': {e}", key));
             }
         }
     }

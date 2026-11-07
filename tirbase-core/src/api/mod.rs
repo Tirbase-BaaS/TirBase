@@ -66,22 +66,17 @@ impl Drop for ActiveMigrationJobGuard {
 }
 
 /// Current wall-clock time in UTC microseconds (peer-table bookkeeping).
+///
+/// Reads through the injected [`crate::traits::TimeSource`] wall-clock hint
+/// (PV-3.8, PV-3.12); the API layer never calls the system clock directly.
 fn now_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    crate::traits::wall_hint().unwrap_or_default()
 }
 
 /// Current wall-clock time in UTC seconds (Saturate_Mode lease bookkeeping,
 /// Req 13.3–13.5).
 pub(crate) fn now_secs() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64
+    crate::traits::wall_hint_secs().unwrap_or_default()
 }
 
 /// Wrap a `RevocationDelta` in a HIGH-priority outbound Delta and enqueue it on
@@ -3255,7 +3250,10 @@ impl CoreHandle {
     #[cfg(feature = "native")]
     pub(crate) async fn await_migration_quiescence(&self, timeout: std::time::Duration) -> bool {
         use std::sync::atomic::Ordering;
-        let deadline = tokio::time::Instant::now() + timeout;
+        // Deadline is measured on the injected monotonic clock (PV-3.8,
+        // PV-3.12); `tokio::time::Instant` is banned by clippy.toml.
+        let deadline =
+            crate::traits::monotonic_now().saturating_add(timeout.as_micros() as u64);
         loop {
             let active = self.migration_tasks_active.load(Ordering::SeqCst);
             let busy = self
@@ -3266,7 +3264,7 @@ impl CoreHandle {
             if active == 0 && !busy {
                 return true;
             }
-            if tokio::time::Instant::now() >= deadline {
+            if crate::traits::monotonic_now() >= deadline {
                 return false;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -4625,6 +4623,82 @@ mod tests {
         // WAL + SHM side-cars
         let _ = std::fs::remove_file(format!("{path}-wal"));
         let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    // ── CLAIM-5.7: IdentityManager signs through a FileKeyProvider ───────────
+    //
+    // Two real `CoreHandle` instances each load their identity from a
+    // `FileKeyProvider` (the `{storage_path}.identity.json` file written by
+    // `CoreHandle::init`).  Handle A signs a Delta through its KeyProvider and
+    // handle B verifies it via DID resolution, proving the provider is the
+    // signing path and that its public key matches the persisted identity.
+
+    #[tokio::test]
+    async fn file_key_provider_signs_delta_across_two_core_handles() {
+        use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+        use crate::identity::file_key_provider::FileKeyProvider;
+        use crate::schema::hash::compute_schema_identifier_hash;
+        use crate::traits::KeyProvider;
+
+        let path_a = tmp_path("key_provider_5_7_A");
+        let path_b = tmp_path("key_provider_5_7_B");
+        cleanup(&path_a);
+        cleanup(&path_b);
+
+        let handle_a = CoreHandle::init(make_config(&path_a)).await.expect("init A");
+        let handle_b = CoreHandle::init(make_config(&path_b)).await.expect("init B");
+
+        // Both handles persist their identity through a FileKeyProvider.
+        let identity_file_a = format!("{path_a}.identity.json");
+        let identity_file_b = format!("{path_b}.identity.json");
+        assert!(std::path::Path::new(&identity_file_a).exists());
+        assert!(std::path::Path::new(&identity_file_b).exists());
+        let provider_a = FileKeyProvider::load(&identity_file_a).expect("load provider A");
+        let provider_b = FileKeyProvider::load(&identity_file_b).expect("load provider B");
+        assert_eq!(provider_a.did(), handle_a.identity.did());
+        assert_eq!(provider_b.did(), handle_b.identity.did());
+        assert_eq!(
+            provider_a.public_key_bytes(),
+            handle_a.identity.public_key_bytes().to_vec()
+        );
+
+        // Handle A signs a Delta with its KeyProvider-backed identity.
+        let schema_hash =
+            compute_schema_identifier_hash(&[("readings", &[("id", "TEXT"), ("value", "TEXT")])]);
+        let mut delta = Delta {
+            id: [0u8; 32],
+            author_did: String::new(),
+            signature: Ed25519Signature::default(),
+            schema_hash,
+            automerge_bytes: b"provider-signed-delta".to_vec(),
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        handle_a
+            .identity
+            .sign_delta(&mut delta)
+            .expect("sign delta through FileKeyProvider");
+
+        assert_eq!(delta.author_did, handle_a.identity.did());
+        assert_ne!(delta.id, [0u8; 32]);
+
+        // Handle B verifies the signature by resolving A's DID to the public
+        // key held by A's FileKeyProvider.
+        handle_b
+            .identity
+            .verify_delta(&delta)
+            .expect("peer verifies provider-signed delta");
+
+        // A tampered payload no longer verifies — the signature is real.
+        let mut tampered = delta.clone();
+        tampered.automerge_bytes = b"tampered".to_vec();
+        assert!(handle_b.identity.verify_delta(&tampered).is_err());
+
+        cleanup(&path_a);
+        cleanup(&path_b);
     }
 
     // ── 1. Init succeeds with a temp path ─────────────────────────────────────

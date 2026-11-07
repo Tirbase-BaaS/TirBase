@@ -17,6 +17,7 @@
 
 use crate::crdt::delta::{Delta, DeltaId, DeltaTag};
 use crate::errors::TirBaseError;
+use crate::events::{emit_migration, ReasonCode, Severity};
 use crate::migration::migration_delta::MigrationId;
 use crate::schema::hash::SchemaIdentifierHash;
 use serde::{Deserialize, Serialize};
@@ -160,10 +161,10 @@ impl SideCarLedger {
             let delta: Delta = match serde_json::from_slice(&entry.delta_bytes) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!(
+                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!(
                         "[sidecar] Failed to deserialise entry {:?}: {e}",
                         entry.id
-                    );
+                    ));
                     // Treat deserialization failure as a conflict to avoid silent data loss.
                     conflicts += 1;
                     self.update_entry_status(
@@ -190,21 +191,21 @@ impl SideCarLedger {
                     // the corrected schema should have accepted this delta.
                     conflicts += 1;
                     let info = format!("quarantined during replay: {reason:?}");
-                    eprintln!("[sidecar] Entry {:?} quarantined: {}", entry.id, info);
+                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[sidecar] Entry {:?} quarantined: {}", entry.id, info));
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Rejected { reason }) => {
                     // Rejection (bad sig, etc.) — treat as conflict, do NOT abort.
                     conflicts += 1;
                     let info = format!("rejected during replay: {reason}");
-                    eprintln!("[sidecar] Entry {:?} rejected: {}", entry.id, info);
+                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[sidecar] Entry {:?} rejected: {}", entry.id, info));
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
                 Err(e) => {
                     // Engine error — treat as conflict, continue.
                     conflicts += 1;
                     let info = format!("engine error during replay: {e}");
-                    eprintln!("[sidecar] Entry {:?} engine error: {}", entry.id, info);
+                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!("[sidecar] Entry {:?} engine error: {}", entry.id, info));
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
             }
@@ -233,10 +234,10 @@ impl SideCarLedger {
                 // tag store has no record to update, which is acceptable.
                 let tag = DeltaTag::ReplayComplete { migration_id };
                 if let Err(e) = append_tag_to_db(&conn, delta_id, tag) {
-                    eprintln!(
+                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
                         "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
                         delta_id
-                    );
+                    ));
                 }
             }
         }
@@ -520,10 +521,10 @@ impl SideCarLedger {
             for delta_id in &replayed_delta_ids {
                 let tag = DeltaTag::ReplayComplete { migration_id };
                 if let Err(e) = append_tag(delta_id, tag) {
-                    eprintln!(
+                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
                         "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
                         delta_id
-                    );
+                    ));
                 }
             }
         }

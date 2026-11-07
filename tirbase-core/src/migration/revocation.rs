@@ -12,6 +12,7 @@
 
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
+use crate::events::{emit_revocation, ReasonCode, Severity};
 use crate::migration::migration_delta::{MigrationId, MigrationRevocationDelta};
 use std::collections::HashSet;
 
@@ -142,10 +143,10 @@ impl RevokedMigrationRegistry {
         // Arbitrary hashes are rejected rather than accepted.
         if !self.known.contains(&revocation.target_migration_id) {
             let migration_id_hex = hex::encode(revocation.target_migration_id);
-            eprintln!(
+            emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
                 "[revocation] Rejected: target migration hash {migration_id_hex} was \
                  never seen by this device (Req 18.7)"
-            );
+            ));
             return Err(TirBaseError::UnknownMigrationHash {
                 migration_id: migration_id_hex,
             });
@@ -161,10 +162,10 @@ impl RevokedMigrationRegistry {
             let public_key = match resolve_did_key_to_public_key(&ms.manager_did) {
                 Ok(pk) => pk,
                 Err(e) => {
-                    eprintln!(
+                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
                         "[revocation] DID resolution failed for {}: {e}",
                         ms.manager_did
-                    );
+                    ));
                     continue; // skip invalid DIDs — don't count them
                 }
             };
@@ -173,10 +174,10 @@ impl RevokedMigrationRegistry {
             let sig_bytes = match ms.signature.as_bytes() {
                 Some(b) => b,
                 None => {
-                    eprintln!(
+                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
                         "[revocation] Malformed signature from {}: wrong length",
                         ms.manager_did
-                    );
+                    ));
                     continue;
                 }
             };
@@ -185,10 +186,10 @@ impl RevokedMigrationRegistry {
             let verifying_key = match VerifyingKey::from_bytes(&public_key) {
                 Ok(vk) => vk,
                 Err(e) => {
-                    eprintln!(
+                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
                         "[revocation] Invalid public key for {}: {e}",
                         ms.manager_did
-                    );
+                    ));
                     continue;
                 }
             };
@@ -202,10 +203,10 @@ impl RevokedMigrationRegistry {
                     }
                 }
                 Err(e) => {
-                    eprintln!(
+                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
                         "[revocation] Signature verification failed for {}: {e}",
                         ms.manager_did
-                    );
+                    ));
                 }
             }
         }
@@ -228,10 +229,10 @@ impl RevokedMigrationRegistry {
         // timeout — a revoked-but-still-running transform can never overlap a
         // subsequent migration.
         if self.in_progress.contains(&revocation.target_migration_id) {
-            eprintln!(
+            emit_revocation(Severity::High, ReasonCode::RevocationPostExecution, None, format!(
                 "[revocation] Halting in-progress migration {:?}",
                 revocation.target_migration_id
-            );
+            ));
             halted = true;
         }
 
@@ -239,11 +240,7 @@ impl RevokedMigrationRegistry {
         self.revoked.insert(revocation.target_migration_id);
 
         // ── 5: audit log ──────────────────────────────────────────────────────
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let revoked_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_micros() as i64)
-            .unwrap_or(0);
+        let revoked_at = crate::traits::wall_hint().unwrap_or(0);
 
         self.revocation_log.push(RevocationRecord {
             migration_id: revocation.target_migration_id,
@@ -251,10 +248,10 @@ impl RevokedMigrationRegistry {
             revoked_at,
         });
 
-        eprintln!(
+        emit_revocation(Severity::High, ReasonCode::RevocationPostExecution, None, format!(
             "[revocation] Migration {:?} revoked and permanently blocked.",
             revocation.target_migration_id
-        );
+        ));
 
         Ok(halted)
     }

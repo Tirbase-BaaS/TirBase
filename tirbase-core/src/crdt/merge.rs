@@ -25,6 +25,7 @@
 use crate::crdt::delta::Delta;
 use crate::crdt::CrdtEngine;
 use crate::errors::TirBaseError;
+use crate::events::{emit_crdt, ReasonCode, Severity};
 
 /// Merge outcome after applying an incoming Delta.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,11 +131,16 @@ pub fn apply_incoming_delta(
         None => "unknown (defaulting to LWW)",
     };
 
-    eprintln!(
-        "[merge] routing delta {} from {} via {} path",
-        hex::encode(delta.id),
-        delta.author_did,
-        path_name,
+    emit_crdt(
+        Severity::Low,
+        ReasonCode::DeltaRouted,
+        Some(hex::encode(delta.id)),
+        format!(
+            "routing delta {} from {} via {} path",
+            hex::encode(delta.id),
+            delta.author_did,
+            path_name,
+        ),
     );
 
     // Delegate to CrdtEngine::apply() which handles validation + Automerge merge.

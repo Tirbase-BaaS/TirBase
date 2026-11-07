@@ -14,6 +14,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
 use crate::errors::TirBaseError;
+use crate::events::{emit_migration, ReasonCode, Severity};
 use crate::migration::migration_delta::MigrationId;
 
 /// Outcome of a sandbox migration execution.
@@ -566,7 +567,7 @@ fn execute_native(
                     let end = start.saturating_add(len as usize);
                     if end <= data.len() {
                         if let Ok(msg) = std::str::from_utf8(&data[start..end]) {
-                            eprintln!("[migration sandbox] {msg}");
+                            emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!("[migration sandbox] {msg}"));
                         }
                     }
                 }
@@ -771,11 +772,11 @@ fn execute_native(
                         // deadline elapsed or a migration revocation requested
                         // the interrupt (Req 18.6); the engine's revocation
                         // re-check distinguishes the two on commit.
-                        eprintln!(
+                        emit_migration(Severity::Medium, ReasonCode::MigrationCancelled, None, format!(
                             "[migration sandbox] Migration {:?} epoch-interrupted \
                              (timeout {timeout_secs}s or migration revocation)",
                             migration_id
-                        );
+                        ));
                         Ok(MigrationResult::TimedOut { timeout_secs })
                     } else {
                         Ok(MigrationResult::Aborted {

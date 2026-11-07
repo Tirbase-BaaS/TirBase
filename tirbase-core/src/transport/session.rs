@@ -530,15 +530,12 @@ impl SessionManager {
 
             // Read message 2 from the responder (the remote e + payer).
             let mut msg2 = vec![0u8; 65535];
-            let n2 = loop {
-                let read_buf = &mut msg2;
-                match stream.read_noise_message(read_buf).await {
-                    Ok(()) => break read_buf.len(),
-                    Err(e) => {
-                        let reason = format!("stream read_message 2: {e}");
-                        self.record_failure(peer_did.clone(), reason.clone(), now_secs);
-                        return Err(make_err(reason));
-                    }
+            let n2 = match stream.read_noise_message(&mut msg2).await {
+                Ok(()) => msg2.len(),
+                Err(e) => {
+                    let reason = format!("stream read_message 2: {e}");
+                    self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                    return Err(make_err(reason));
                 }
             };
 

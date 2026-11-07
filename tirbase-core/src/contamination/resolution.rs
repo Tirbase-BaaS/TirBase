@@ -14,12 +14,10 @@ use crate::errors::TirBaseError;
 
 // ─── Timestamp helper ────────────────────────────────────────────────────────
 
+/// Reads through the injected [`crate::traits::TimeSource`] wall-clock hint
+/// (PV-3.8, PV-3.12).
 pub(crate) fn now_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    crate::traits::wall_hint().unwrap_or_default()
 }
 
 // ─── Manager auth ────────────────────────────────────────────────────────────

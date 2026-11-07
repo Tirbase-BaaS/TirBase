@@ -79,7 +79,9 @@ pub fn create_token(
         }
     }
 
-    let now = SystemTime::now();
+    // Wall clock comes from the injected TimeSource (PV-3.8, PV-3.12); the
+    // hint is untrusted, which is why token expiry is bounded by TTL too.
+    let now = crate::traits::wall_hint_system_time();
     let issued_secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
     // When the override is active and the TTL exceeds the default 24h cap,
@@ -180,7 +182,7 @@ pub(crate) fn create_token_with_caveat(
     caveat: &str,
     root_ca_private_key: &[u8],
 ) -> Result<Vec<u8>, TirBaseError> {
-    let now = SystemTime::now();
+    let now = crate::traits::wall_hint_system_time();
     let issued_secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     let caveat_fact = format!("caveat(\"{caveat}\")");
     build_token(

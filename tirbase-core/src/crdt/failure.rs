@@ -24,6 +24,7 @@
 //! no-op, so the retained record is the observable.
 
 use crate::crdt::delta::{DeltaId, Did};
+use crate::events::{emit_crdt, ReasonCode, Severity};
 
 // ─── Rejection code ───────────────────────────────────────────────────────────
 
@@ -122,21 +123,19 @@ pub(crate) type DeltaRejectionListener =
 
 // ─── Notification ─────────────────────────────────────────────────────────────
 
-/// Notify the v1 observability channel of a rejection record.
+/// Emit a rejected-Delta record through the security event sink.
 ///
-/// Native builds render the structured record to stderr (the native
-/// diagnostics channel in v1).  WASM builds have no stderr sink — the
-/// retained engine record (and any host listener) is the observable, exactly
-/// as `eprintln!` was a silent no-op on that target before this module.
+/// This replaces the former stderr (`eprintln!`) observability channel on
+/// **both** build targets: native and WASM share the same typed event path, so
+/// a host that installs a [`crate::traits::SecurityEventSink`] sees every
+/// rejection, and a host that does not sees the retained engine record.
 pub(crate) fn notify_delta_rejection(record: &DeltaRejectionRecord) {
-    #[cfg(feature = "native")]
-    {
-        eprintln!("{}", record.render_line());
-    }
-    #[cfg(not(feature = "native"))]
-    {
-        let _ = record;
-    }
+    emit_crdt(
+        Severity::Medium,
+        ReasonCode::DeltaQuarantined,
+        Some(hex::encode(record.delta_id)),
+        record.render_line(),
+    );
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

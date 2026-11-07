@@ -28,7 +28,8 @@ use tirbase_core::crdt::delta::{DeltaId, DeltaTag, Ed25519Signature};
 use tirbase_core::durability::anchor::{AnchorAttestedLocation, AnchorMode, BeaconRegistryEntry};
 use tirbase_core::durability::receipt::BeaconToken;
 use tirbase_core::errors::TirBaseError;
-use tirbase_core::identity::keypair::sign;
+use tirbase_core::identity::did::derive_did;
+use tirbase_core::identity::keypair::{generate_keypair, sign};
 use tirbase_core::identity::IdentityManager;
 use tirbase_core::store::sqlite;
 
@@ -118,10 +119,13 @@ fn beacon_signing_payload(epoch: u64, location_claim: &str) -> Vec<u8> {
 }
 
 /// Build a fresh manager identity and return (manager_did, signing_key_seed).
+///
+/// The test constructs the keypair directly (the `IdentityManager` seed
+/// accessor is crate-internal); the seed is only used to sign the test's
+/// beacons and deltas.
 fn make_manager() -> (String, [u8; 32]) {
-    let mgr = IdentityManager::init_in_memory().unwrap();
-    let secret = mgr.signing_key_bytes();
-    (mgr.did().to_string(), secret)
+    let (secret, public) = generate_keypair().expect("keypair generation");
+    (derive_did(&public), secret)
 }
 
 // ─── Test 1: Late-arriving descendant taint (Req 10.3) ──────────────────────

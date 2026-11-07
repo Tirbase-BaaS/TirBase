@@ -21,6 +21,7 @@ use failure::{
 };
 
 use crate::errors::TirBaseError;
+use crate::events::{emit_crdt, ReasonCode, Severity};
 use crate::identity::keypair;
 use crate::schema::diff::{diff_schemas, SchemaDiff};
 use crate::schema::Schema;
@@ -654,24 +655,33 @@ impl CrdtEngine {
         match self.classify_incoming_schema(&delta.schema_hash) {
             IncomingSchemaClass::Known => {}
             IncomingSchemaClass::Additive { ref diff } => {
-                eprintln!(
-                    "[CRDT] delta {} from {} carries additive schema {} ({}); merging against local schema {}",
-                    hex::encode(delta.id),
-                    delta.author_did,
-                    hex::encode(delta.schema_hash),
-                    diff.summary(),
-                    hex::encode(self.known_schema_hash),
+                emit_crdt(
+                    Severity::Low,
+                    ReasonCode::SchemaAdditiveAccepted,
+                    Some(hex::encode(delta.id)),
+                    format!(
+                        "delta {} from {} carries additive schema {} ({}); merging against local schema {}",
+                        hex::encode(delta.id),
+                        delta.author_did,
+                        hex::encode(delta.schema_hash),
+                        diff.summary(),
+                        hex::encode(self.known_schema_hash),
+                    ),
                 );
                 adopt_additive_hash = true;
             }
             IncomingSchemaClass::Breaking { ref diff } => {
-                eprintln!(
-                    "[CRDT] Quarantined delta {} from {}: breaking schema change ({} vs local {}): {}",
-                    hex::encode(delta.id),
-                    delta.author_did,
-                    hex::encode(delta.schema_hash),
-                    hex::encode(self.known_schema_hash),
-                    diff.summary(),
+                emit_crdt(
+                    Severity::High,
+                    ReasonCode::DeltaQuarantined,
+                    Some(hex::encode(delta.id)),
+                    format!(
+                        "quarantined delta from {}: breaking schema change ({} vs local {}): {}",
+                        delta.author_did,
+                        hex::encode(delta.schema_hash),
+                        hex::encode(self.known_schema_hash),
+                        diff.summary(),
+                    ),
                 );
                 return Ok(MergeOutcome::Quarantined {
                     reason: QuarantineReason::BreakingSchemaChange,
@@ -679,9 +689,11 @@ impl CrdtEngine {
             }
             IncomingSchemaClass::Unknown => {
                 let hash_hex = hex::encode(delta.schema_hash);
-                eprintln!(
-                    "[CRDT] Rejected delta from {}: unknown schema hash {}",
-                    delta.author_did, hash_hex
+                emit_crdt(
+                    Severity::High,
+                    ReasonCode::DeltaQuarantined,
+                    Some(hex::encode(delta.id)),
+                    format!("rejected delta from {}: unknown schema hash {}", delta.author_did, hash_hex),
                 );
                 return Ok(MergeOutcome::Quarantined {
                     reason: QuarantineReason::UnknownSchemaHash,
@@ -771,22 +783,36 @@ impl CrdtEngine {
                 #[cfg(test)]
                 for conflict in &snapshot.lww {
                     if let Some(final_value) = self.read_merged_value("", &conflict.key) {
-                        eprintln!(
-                            "[CRDT] post-merge read-back key='{}': actual winner value={:?}",
-                            conflict.key, final_value,
+                        emit_crdt(
+                            Severity::Low,
+                            ReasonCode::MergeVerified,
+                            Some(conflict.key.clone()),
+                            format!(
+                                "post-merge read-back key='{}': actual winner value={:?}",
+                                conflict.key, final_value,
+                            ),
                         );
                     }
                 }
 
-                eprintln!(
-                    "[CRDT] post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
-                     {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
-                    report.lww_checked,
-                    report.rga_checked,
-                    report.divergences,
-                    report.overrides_applied,
-                    report.overrides_failed,
-                    report.indeterminate,
+                emit_crdt(
+                    if report.divergences == 0 && report.overrides_failed == 0 {
+                        Severity::Low
+                    } else {
+                        Severity::Medium
+                    },
+                    ReasonCode::MergeVerified,
+                    Some(hex::encode(delta.id)),
+                    format!(
+                        "post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
+                         {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
+                        report.lww_checked,
+                        report.rga_checked,
+                        report.divergences,
+                        report.overrides_applied,
+                        report.overrides_failed,
+                        report.indeterminate,
+                    ),
                 );
             }
         }
@@ -898,9 +924,12 @@ impl CrdtEngine {
                 // Non-Automerge bytes (e.g. JSON envelope from TirBase write path).
                 // Skip the Automerge-level merge; the projection path will handle
                 // data extraction from JSON separately.
-                eprintln!(
-                    "[CRDT] automerge_bytes are not valid Automerge format — \
-                     skipping Automerge merge (JSON/metadata path)"
+                emit_crdt(
+                    Severity::Low,
+                    ReasonCode::NonAutomergePayload,
+                    None,
+                    "automerge_bytes are not valid Automerge format — \
+                     skipping Automerge merge (JSON/metadata path)",
                 );
                 Ok(None)
             }
@@ -1304,12 +1333,11 @@ const MAX_REJECTION_RECORDS: usize = 1024;
 // ─── Timestamp helper ────────────────────────────────────────────────────────
 
 /// Current UTC wall-clock time in microseconds since the Unix epoch.
+///
+/// Reads through the injected [`crate::traits::TimeSource`] wall-clock hint
+/// (PV-3.8, PV-3.12) — this module never calls the system clock directly.
 fn current_timestamp_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_micros() as i64)
-        .unwrap_or(0)
+    crate::traits::wall_hint().unwrap_or(0)
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

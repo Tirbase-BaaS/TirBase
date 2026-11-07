@@ -61,10 +61,7 @@ pub fn compact_table(
     );
 
     if let Err(e) = update_result {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let ts = crate::traits::wall_hint_secs().unwrap_or(0);
         eprintln!("[COMPACTION FAIL] table={table_name} ts={ts} error={e}");
         // Restore snapshot — re-load from snapshot bytes so the in-memory doc
         // reflects pre-compaction state.
@@ -84,10 +81,7 @@ pub fn compact_table(
     );
 
     if let Err(e) = mark_result {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let ts = crate::traits::wall_hint_secs().unwrap_or(0);
         eprintln!("[COMPACTION FAIL] table={table_name} ts={ts} error=mark_dag_nodes: {e}");
     }
 
@@ -118,10 +112,7 @@ pub(crate) async fn compact_table_idb(
     use automerge::ReadDoc;
 
     let snapshot_bytes = doc.save();
-    let compacted_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_micros() as i64)
-        .unwrap_or(0);
+    let compacted_at = crate::traits::wall_hint().unwrap_or(0);
 
     let snapshot = super::indexed_db::CompactionSnapshot {
         snapshot_bytes: snapshot_bytes.clone(),
@@ -131,10 +122,7 @@ pub(crate) async fn compact_table_idb(
     let put_result = db.put_compaction_snapshot(table_name, &snapshot).await;
 
     if let Err(e) = put_result {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let ts = crate::traits::wall_hint_secs().unwrap_or(0);
         eprintln!("[COMPACTION FAIL] table={table_name} ts={ts} error={e}");
         return Ok(());
     }

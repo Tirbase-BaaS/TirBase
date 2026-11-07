@@ -16,6 +16,7 @@ pub use revocation::{
 
 use crate::api::types::{TrustLevel, UnverifiedWarning};
 use crate::errors::TirBaseError;
+use crate::events::{emit_auth, ReasonCode, Severity};
 use root_ca::RootCaRegistry;
 use trust::TrustLevelStateMachine;
 
@@ -156,10 +157,10 @@ impl CapabilityManager {
                 Err(biscuit::TokenVerifyError::TokenExpired) => {
                     let now_micros = current_timestamp_micros();
                     self.trust_state.on_token_expired(now_micros);
-                    eprintln!(
+                    emit_auth(Severity::Medium, ReasonCode::TokenInvalid, None, format!(
                         "[present_token] token expired; transitioning to UNVERIFIED (now_micros={})",
                         now_micros
-                    );
+                    ));
                     return Ok(TrustLevel::Unverified);
                 }
                 Err(biscuit::TokenVerifyError::OtherFailure(e)) => {
@@ -171,9 +172,9 @@ impl CapabilityManager {
         let err = last_err.unwrap_or_else(|| TirBaseError::AuthorisationFailed {
             reason: "token verification failed for all registered root CA keys".to_string(),
         });
-        eprintln!(
+        emit_auth(Severity::High, ReasonCode::TokenInvalid, None, format!(
             "[present_token] token verification failed (non-expiry): {err} — returning UNVERIFIED without transition (Req 8.8)"
-        );
+        ));
         Ok(TrustLevel::Unverified)
     }
 
@@ -287,11 +288,7 @@ impl CapabilityManager {
 }
 
 fn current_timestamp_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    crate::traits::wall_hint().unwrap_or_default()
 }
 
 #[cfg(test)]

@@ -1,20 +1,73 @@
-//! IdentityManager — Ed25519 keypair generation, DID derivation, and persistence (Req 7.1).
+//! IdentityManager — device identity backed by a [`KeyProvider`] (Req 7.1, PV-3.6).
+//!
+//! The manager no longer holds a raw `ed25519_dalek::SigningKey`: all signing
+//! goes through the [`KeyProvider`] trait, so the same code path works with a
+//! file-backed key, a TPM-sealed seed, or a PKCS#11 token (task 6.3 / 6.4).
+//!
+//! # Legacy seed bridge
+//!
+//! A few subsystems (the CRDT engine's delta signer, the Noise static key, and
+//! revocation partial-delta production) still take a raw 32-byte Ed25519 seed.
+//! [`IdentityManager::signing_key_bytes`] is crate-internal and exists only to
+//! feed those call sites; it is not part of the [`KeyProvider`] surface and is
+//! scheduled to disappear as those subsystems migrate.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
 pub mod did;
+pub mod file_key_provider;
 pub mod keypair;
+
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tirbase_types::{DeviceKeyType, DeviceSignature};
 
 use crate::crdt::delta::{Delta, Ed25519Signature};
 use crate::errors::TirBaseError;
-use ed25519_dalek::SigningKey;
+use crate::traits::KeyProvider;
 
-/// Manages the local device's Ed25519 identity and DID (Req 7.1).
+use file_key_provider::{FileKeyProvider, InMemoryKeyProvider};
+
+/// The key backing this identity.
+///
+/// An enum (rather than `Arc<dyn KeyProvider>` alone) is used because the
+/// legacy seed bridge needs access to the concrete provider's seed without
+/// adding a private-key accessor to the [`KeyProvider`] trait.
+enum DeviceKey {
+    File(FileKeyProvider),
+    Memory(InMemoryKeyProvider),
+}
+
+impl DeviceKey {
+    fn as_provider(&self) -> &dyn KeyProvider {
+        match self {
+            DeviceKey::File(provider) => provider,
+            DeviceKey::Memory(provider) => provider,
+        }
+    }
+
+    fn secret_seed(&self) -> [u8; 32] {
+        match self {
+            DeviceKey::File(provider) => provider.secret_seed(),
+            DeviceKey::Memory(provider) => provider.secret_seed(),
+        }
+    }
+
+    fn public_key(&self) -> [u8; 32] {
+        match self {
+            DeviceKey::File(provider) => provider.public_key(),
+            DeviceKey::Memory(provider) => provider.public_key(),
+        }
+    }
+}
+
+/// Manages the local device's identity and DID (Req 7.1).
 pub struct IdentityManager {
     /// `did:key:z6Mk…` DID for this device.
     pub did: String,
-    /// Ed25519 signing key (32-byte seed internally).
-    signing_key: SigningKey,
+    /// Key provider used for every signature this device produces (PV-3.6).
+    key: DeviceKey,
     /// Path used for persistence (None = in-memory only).
     identity_path: Option<String>,
 }
@@ -30,44 +83,35 @@ impl IdentityManager {
     /// Initialise with a specific storage path.
     /// Pass `None` for `path` to operate in-memory without persistence.
     pub fn init_with_path(path: Option<&str>) -> Result<Self, TirBaseError> {
-        // Try loading an existing identity first
-        if let Some(p) = path {
-            if let Some((loaded_did, keypair_bytes)) = did::load_identity_from(p)? {
-                if keypair_bytes.len() >= 32 {
-                    let mut seed = [0u8; 32];
-                    seed.copy_from_slice(&keypair_bytes[..32]);
-                    let signing_key = SigningKey::from_bytes(&seed);
-                    return Ok(Self {
-                        did: loaded_did,
-                        signing_key,
-                        identity_path: Some(p.to_string()),
-                    });
-                }
+        match path {
+            Some(path) => {
+                let provider = FileKeyProvider::load_or_generate(path)?;
+                Ok(Self::from_key(DeviceKey::File(provider), Some(path.to_string())))
+            }
+            None => {
+                let provider = InMemoryKeyProvider::generate()?;
+                Ok(Self::from_key(DeviceKey::Memory(provider), None))
             }
         }
-
-        // Generate new keypair
-        let (secret_bytes, public_bytes) = keypair::generate_keypair()?;
-        let derived_did = did::derive_did(&public_bytes);
-        let signing_key = SigningKey::from_bytes(&secret_bytes);
-
-        // Persist if path is given
-        if let Some(p) = path {
-            let mut keypair_bytes = secret_bytes.to_vec();
-            keypair_bytes.extend_from_slice(&public_bytes);
-            did::persist_identity_to(&derived_did, &keypair_bytes, p)?;
-        }
-
-        Ok(Self {
-            did: derived_did,
-            signing_key,
-            identity_path: path.map(|s| s.to_string()),
-        })
     }
 
     /// Initialise an in-memory-only identity (no persistence). Useful for WASM and testing.
     pub fn init_in_memory() -> Result<Self, TirBaseError> {
         Self::init_with_path(None)
+    }
+
+    fn from_key(key: DeviceKey, identity_path: Option<String>) -> Self {
+        let did = key.as_provider().did().to_string();
+        IdentityManager {
+            did,
+            key,
+            identity_path,
+        }
+    }
+
+    /// The [`KeyProvider`] this identity signs through.
+    pub fn key_provider(&self) -> &dyn KeyProvider {
+        self.key.as_provider()
     }
 
     /// Return the DID string for this device.
@@ -77,21 +121,37 @@ impl IdentityManager {
 
     /// Return the 32-byte Ed25519 public key bytes.
     pub fn public_key_bytes(&self) -> [u8; 32] {
-        self.signing_key.verifying_key().to_bytes()
+        self.key.public_key()
     }
 
-    /// Return the 32-byte Ed25519 secret key seed (used for signing in tests).
-    pub fn signing_key_bytes(&self) -> [u8; 32] {
-        self.signing_key.to_bytes()
-    }
-
-    /// Sign a payload with this device's Ed25519 private key (Req 7.2).
+    /// Return the 32-byte Ed25519 secret key seed.
     ///
-    /// Returns the 64-byte signature.
+    /// Crate-internal migration bridge for subsystems that still take a raw
+    /// signing key; new code must call [`IdentityManager::sign`] or
+    /// [`IdentityManager::sign_async`] instead.
+    pub(crate) fn signing_key_bytes(&self) -> [u8; 32] {
+        self.key.secret_seed()
+    }
+
+    /// Sign a payload with this device's key (Req 7.2).
+    ///
+    /// Returns the 64-byte Ed25519 signature.
     pub fn sign(&self, payload: &[u8]) -> Result<[u8; 64], TirBaseError> {
-        use ed25519_dalek::Signer;
-        let sig = self.signing_key.sign(payload);
-        Ok(sig.to_bytes())
+        Self::ed25519_bytes(self.key.as_provider().sign(payload)?)
+    }
+
+    /// Async signing path (hardware-backed providers).
+    pub async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
+        self.key.as_provider().sign_async(payload).await
+    }
+
+    fn ed25519_bytes(signature: DeviceSignature) -> Result<[u8; 64], TirBaseError> {
+        match signature {
+            DeviceSignature::Ed25519(bytes) => Ok(bytes),
+            DeviceSignature::P256(_) => Err(TirBaseError::SignatureVerificationFailed {
+                reason: "expected an Ed25519 signature from the device key".to_string(),
+            }),
+        }
     }
 
     /// Sign a Delta: set `delta.signature`, `delta.author_did`, and `delta.id` (Req 7.2).
@@ -104,7 +164,7 @@ impl IdentityManager {
         // Compute canonical bytes (excludes signature and id)
         let canonical = delta.canonical_bytes();
 
-        // Sign
+        // Sign through the KeyProvider
         let sig_bytes = self.sign(&canonical)?;
         delta.signature = Ed25519Signature::from_bytes(sig_bytes);
 
@@ -269,5 +329,29 @@ mod tests {
             result.is_err(),
             "verification with wrong DID/key should fail"
         );
+    }
+
+    #[test]
+    fn test_identity_manager_signs_through_its_key_provider() {
+        let mgr = IdentityManager::init_in_memory().unwrap();
+        let provider = mgr.key_provider();
+
+        assert_eq!(provider.did(), mgr.did());
+        assert_eq!(provider.public_key_bytes(), mgr.public_key_bytes().to_vec());
+        assert_eq!(provider.key_type(), DeviceKeyType::Ed25519);
+
+        let payload = b"provider-consistency";
+        let direct = provider.sign(payload).expect("provider sign");
+        let manager = mgr.sign(payload).expect("manager sign");
+        assert_eq!(direct, DeviceSignature::Ed25519(manager));
+    }
+
+    #[tokio::test]
+    async fn test_sign_async_matches_sign() {
+        let mgr = IdentityManager::init_in_memory().unwrap();
+        let payload = b"async-signing";
+        let sync = mgr.sign(payload).unwrap();
+        let asynchronous = mgr.sign_async(payload).await.unwrap();
+        assert_eq!(asynchronous, DeviceSignature::Ed25519(sync));
     }
 }

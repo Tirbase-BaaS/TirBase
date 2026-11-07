@@ -19,6 +19,7 @@ pub mod ble;
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Delta, Did, PriorityClass};
 use crate::errors::TirBaseError;
+use crate::events::{emit_transport, ReasonCode, Severity};
 use crate::identity::did::resolve_did;
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, PeerTransport, RetryEntry},
@@ -30,12 +31,12 @@ use crate::transport::{
 #[cfg(feature = "native")]
 use crate::transport::session::{ed25519_privkey_to_x25519, ed25519_pubkey_to_x25519};
 
+/// Current wall-clock time in microseconds since the Unix epoch.
+///
+/// Reads through the injected [`crate::traits::TimeSource`] wall-clock hint
+/// (PV-3.8, PV-3.12); the transport never calls the system clock directly.
 fn current_timestamp_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    crate::traits::wall_hint().unwrap_or_default()
 }
 
 /// Default link capacity (bytes/sec) for the DRR scheduler when no transport
@@ -159,9 +160,9 @@ pub(crate) fn dial_discovered_mdns_peers(
         let dial_addr = match addr.with_p2p(peer_id) {
             Ok(addr) => addr,
             Err(addr) => {
-                eprintln!(
+                emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
                     "[transport] mDNS: skipping {peer_id} — announced address {addr} carries a different peer id"
-                );
+                ));
                 continue;
             }
         };
@@ -172,10 +173,10 @@ pub(crate) fn dial_discovered_mdns_peers(
                 .build(),
         ) {
             Ok(()) => {
-                eprintln!("[transport] mDNS: dialing discovered peer {peer_id}");
+                emit_transport(Severity::Low, ReasonCode::PeerConnected, None, format!("[transport] mDNS: dialing discovered peer {peer_id}"));
             }
             Err(e) => {
-                eprintln!("[transport] mDNS: dial to discovered peer {peer_id} failed: {e}");
+                emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] mDNS: dial to discovered peer {peer_id} failed: {e}"));
             }
         }
     }
@@ -355,7 +356,7 @@ impl MeshTransport {
             },
             now_us,
         )?;
-        eprintln!("[transport] BLE bridge: dialing {target_did} via bridge {bridge_did}");
+        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE bridge: dialing {target_did} via bridge {bridge_did}"));
         Ok(())
     }
 
@@ -414,21 +415,21 @@ impl MeshTransport {
                             now_secs,
                         ).await?,
                         Err(e) => {
-                            eprintln!(
+                            emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
                                 "[transport] initiate_session: X25519 conversion \
                                  failed for peer '{}' ({e}); falling back to register_session",
                                 peer_did
-                            );
+                            ));
                             self.session_manager.register_session(peer_did.clone(), now_secs)
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!(
+                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
                         "[transport] initiate_session: DID '{}' not resolvable \
                          for Noise IK handshake ({e}); falling back to register_session",
                         peer_did
-                    );
+                    ));
                     self.session_manager.register_session(peer_did.clone(), now_secs)
                 }
             }
@@ -656,9 +657,9 @@ impl MeshTransport {
         for (peer_did, session) in self.active_sessions.iter_mut() {
             if session.rotation_due(now_secs) {
                 if let Err(e) = self.session_manager.rotate_keys(session, now_secs) {
-                    eprintln!(
+                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
                         "[transport] key rotation failed for peer {peer_did}: {e}"
-                    );
+                    ));
                 }
             }
         }
@@ -833,21 +834,21 @@ impl MeshTransport {
                 let mut adapter = match BleAdapter::new(local_did.clone(), peer_did).await {
                     Ok(a) => a,
                     Err(e) => {
-                        eprintln!("[transport] BLE adapter init failed: {e}");
+                        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE adapter init failed: {e}"));
                         return;
                     }
                 };
 
                 // Start scanning for TirBase peers (central role).
                 if let Err(e) = adapter.scan_and_connect(30).await {
-                    eprintln!("[transport] BLE scan/connect failed: {e}");
+                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE scan/connect failed: {e}"));
                 }
 
                 // Subscribe to notifications on the TirBase characteristic.
                 let mut notification_rx = match adapter.subscribe_notifications().await {
                     Ok(rx) => rx,
                     Err(e) => {
-                        eprintln!("[transport] BLE subscribe failed: {e}");
+                        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE subscribe failed: {e}"));
                         return;
                     }
                 };
@@ -865,7 +866,7 @@ impl MeshTransport {
                             }
                             let chunks = ble::fragment_for_ble(delta_id, &data);
                             if let Err(e) = adapter.send_chunks(&chunks).await {
-                                eprintln!("[transport] BLE send failed: {e}");
+                                emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE send failed: {e}"));
                             }
                         }
                         Some(chunk) = notification_rx.recv() => {
@@ -887,7 +888,7 @@ impl MeshTransport {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("[transport] BLE reassembly failed: {e}");
+                                        emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!("[transport] BLE reassembly failed: {e}"));
                                     }
                                 }
                             }
@@ -1024,10 +1025,10 @@ impl MeshTransport {
         // a relay peer.
         if !self.discovery.is_direct_neighbor(peer_did) {
             if let Some(relay_did) = self.discovery.find_relay_peer(peer_did) {
-                eprintln!(
+                emit_transport(Severity::Low, ReasonCode::RelaySelected, None, format!(
                     "[transport] relay: {peer_did} is not a direct neighbor; \
                      routing delta through relay peer {relay_did}"
-                );
+                ));
                 let relay_msg = crate::transport::message::GossipMessage::RelayDelta {
                     target_did: peer_did.clone(),
                     delta: delta.clone(),
@@ -1126,10 +1127,10 @@ impl MeshTransport {
                                 // and return None so the message is dropped
                                 // from the inbound pipeline without touching
                                 // the CRDT engine or DAG state.
-                                eprintln!(
+                                emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
                                     "[transport] reassembled Delta failed to parse as Delta: {e} — \
                                      discarding (delta_id was from fragment reassembly)"
-                                );
+                                ));
                                 None
                             }
                         }
@@ -1142,10 +1143,10 @@ impl MeshTransport {
                         // Reassembly failure: missing fragments, inconsistent
                         // totals, oversized allocation, or slot eviction
                         // discarded a partial Delta mid-flight (Req 5.8).
-                        eprintln!(
+                        emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
                             "[transport] fragment reassembly failed: {e} — \
                              partial Delta discarded without corrupting state"
-                        );
+                        ));
                         None
                     }
                 }

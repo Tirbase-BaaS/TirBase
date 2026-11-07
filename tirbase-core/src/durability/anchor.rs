@@ -16,7 +16,6 @@ use crate::errors::TirBaseError;
 use crate::identity::did::derive_did;
 use crate::identity::keypair;
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Entry in the beacon public-key registry.
 #[derive(Debug, Clone)]

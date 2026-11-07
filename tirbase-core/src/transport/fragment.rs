@@ -8,6 +8,7 @@
 
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
+use crate::events::{emit_transport, ReasonCode, Severity};
 use serde::{Deserialize, Serialize};
 
 /// A single fragment of a larger Delta payload.
@@ -162,11 +163,11 @@ impl ReassemblyBuffer {
 
         // Guard 1: reject oversized total_fragments to prevent slot-vector allocation attacks
         if fragment.total_fragments > MAX_FRAGMENTS_PER_DELTA {
-            eprintln!(
+            emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
                 "FragmentReassemblyFailed: sender_did={sender_did}, \
                  expected={} fragments (exceeds MAX_FRAGMENTS_PER_DELTA={})",
                 fragment.total_fragments, MAX_FRAGMENTS_PER_DELTA
-            );
+            ));
             return Err(TirBaseError::FragmentReassemblyFailed {
                 sender_did: sender_did.clone(),
                 expected: fragment.total_fragments,
@@ -191,10 +192,10 @@ impl ReassemblyBuffer {
                 .unwrap(); // safe: pending is non-empty here
 
             self.pending.remove(&evict_key);
-            eprintln!(
+            emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
                 "ReassemblyBuffer eviction: delta_id={} sender_did={sender_did}",
                 hex::encode(evict_key)
-            );
+            ));
         }
 
         // Initialise slot array on first fragment for this delta_id
