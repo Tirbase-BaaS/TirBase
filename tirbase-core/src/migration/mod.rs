@@ -397,6 +397,14 @@ impl SchemaMigrationEngine {
     ) -> Result<MigrationResult, TirBaseError> {
         self.revocation_registry.clear_in_progress(migration_id);
 
+        // CLAIM-G1.9 — mid-flight revocation commit gate (Req 18.6, PV-1.13).
+        // If a MigrationRevocationDelta arrived while the sandbox was executing
+        // (off-lock), `receive_revocation_delta` will have called
+        // `apply_revocation` which marks this id in `revocation_registry`.
+        // This check is the **only** place that can stop a revoked transform's
+        // result from advancing the local schema hash — removing it would allow
+        // a revoked migration to commit, which is the wiring-mutation condition
+        // for CLAIM-G1.9 (see `docs/audits/gate-g1.md`).
         if self.revocation_registry.is_revoked(migration_id) {
             let migration_id_hex = hex::encode(migration_id);
             eprintln!(

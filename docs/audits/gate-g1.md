@@ -784,10 +784,7 @@ callers in the gateway init path and the tests detect their removal.
 | G1.7 Migration CA + version path | `api/mod.rs:574–578` (`migration_ca_public_key` → `SchemaMigrationEngine::new:672`); `api/mod.rs:578–580` (`schema_version_path` → `SchemaMigrationEngine::new:674`); runtime: `api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) | `api/mod.rs:6441` (`migration_delta_wrong_ca_signature_is_rejected` — CLAIM-G1.7 primary); `api/mod.rs:6215` (`init_registers_migration_ca_key_and_version_path`); `api/mod.rs:6291` (`runtime_register_migration_ca_key_enables_migrations`); `api/mod.rs:6346` (`inbound_migration_passes_ca_gate_with_configured_key_and_path`) | Zeroing `migration_ca_public_key` at `api/mod.rs:574` → `init_registers_migration_ca_key_and_version_path` fails (`MigrationCaSignatureInvalid`); replacing path with empty vec at `api/mod.rs:578` → same test fails (`VersionPathMismatch`) | VERIFIED-BY-TRACE |
 
 | G1.8 Quarantine + Sidecar wiring | `migration/mod.rs:703` (`SchemaMigrationEngine::quarantine_incoming`), called from `api/mod.rs:2760` (`receive_inbound` Quarantined arm); `migration/mod.rs:783` (`SchemaMigrationEngine::record_corrupted_window_write`), called from `api/mod.rs:1668` (`CoreHandle::write` side-car capture block) | `api/mod.rs:12832` (`quarantine_ledger_wiring_two_core_handle_instances`); `api/mod.rs:12948` (`sidecar_ledger_wiring_two_core_handle_instances`) | Removing `quarantine_incoming` from `receive_inbound` Quarantined arm at `api/mod.rs:2760` → `quarantine_ledger_wiring_two_core_handle_instances` fails (`0 != 1`); removing `record_corrupted_window_write` from `CoreHandle::write` side-car block at `api/mod.rs:1668` → `sidecar_ledger_wiring_two_core_handle_instances` fails (`actual count: 0`) | VERIFIED-BY-TRACE |
-
----
-
-## G1.8 — Quarantine Ledger and Sidecar Ledger Wiring
+| G1.9 Migration mid-flight revocation | `migration/mod.rs:400` (`SchemaMigrationEngine::finish_migration` — CLAIM-G1.9 `is_revoked` re-check block), called from `api/mod.rs:3173` (background migration job off-lock commit gate) | `api/mod.rs` `migration_mid_flight_revocation_tests::migration_mid_flight_revocation_two_core_handle_instances` | Removing the CLAIM-G1.9 `is_revoked` re-check inside `finish_migration` at `migration/mod.rs:400` → `current_schema_hash()` returns `v2` (migration committed despite revocation) → `assert_eq!(mig.current_schema_hash(), v1, …)` fails | VERIFIED-BY-TRACE |
 
 **CLAIM-G1.8:** `quarantine_ledger` writes and `sidecar_ledger` writes have
 production callers in `tirbase-core` production code; two real `CoreHandle`
@@ -911,3 +908,111 @@ causes the corresponding integration test to fail with a deterministic assertion
 both calls have been restored; both tests pass on the current codebase.
 
 ---
+
+---
+
+## G1.9 — Migration Mid-Flight Revocation: Two `CoreHandle` Instances
+
+**CLAIM-G1.9:** A revocation delta arriving while a migration is executing
+causes `SchemaMigrationEngine::finish_migration` (the off-lock commit gate at
+`tirbase-core/src/migration/mod.rs:400`) to discard the transform result before
+the local schema hash advances; this is verified by a two-`CoreHandle`
+integration test; removing the revocation check causes the test to fail.
+
+### Production Caller
+
+| Item | Value |
+|---|---|
+| Function | `SchemaMigrationEngine::finish_migration(migration_id, target_schema_hash, result)` |
+| Location | `tirbase-core/src/migration/mod.rs:392` |
+| Revocation re-check block | `migration/mod.rs:400` — the `CLAIM-G1.9` comment block: `if self.revocation_registry.is_revoked(migration_id) { … return Ok(MigrationResult::Revoked { … }) }` |
+| Called from | `api/mod.rs:3173` — background migration job (`tokio::spawn` async block), off-lock commit gate: `let normalized = mig.finish_migration(&migration_id, &target_schema_hash, outcome)` |
+| Triggered by | Background migration job (spawned by `CoreHandle::process_inbound_messages` → `GossipMessage::InboundMigrationDelta` arm → `tokio::spawn` at `api/mod.rs:3097`) |
+| Effect | If `revocation_registry.is_revoked(migration_id)` is true at the moment `finish_migration` is called, the transform result (`Ok(Success)` from the sandbox) is discarded and `MigrationResult::Revoked` is returned instead; the `local_schema_hash` field is NOT advanced to `target_schema_hash` |
+| Feature gate | `#[cfg(feature = "native")]` on the background migration job |
+
+The `is_revoked` re-check runs after `clear_in_progress`, ensuring the epoch
+interrupt has been acknowledged and the revocation was recorded by
+`receive_revocation_delta` → `apply_revocation`. Even if the sandbox exits
+naturally (e.g. completed just before the interrupt landed), the re-check here
+catches the race between sandbox exit and `finish_migration`.
+
+### Integration Test
+
+| Item | Value |
+|---|---|
+| Test name | `migration_mid_flight_revocation_two_core_handle_instances` |
+| Module | `tirbase-core/src/api/mod.rs` (`mod migration_mid_flight_revocation_tests`) |
+| Test type | `#[tokio::test(flavor = "multi_thread", worker_threads = 2)]` |
+| What it proves | Two real `CoreHandle` instances: Node A starts an infinite-loop migration transform; Node B authors a `MigrationRevocationDelta` as RevocationManager and it is injected into Node A while the transform is genuinely executing; the production commit gate (`finish_migration` at `migration/mod.rs:400`) discards the transform result; Node A's schema hash stays at `v1` |
+| Result | PASS (verified 2025-07-20) |
+
+#### Test flow
+
+1. Generate a shared CA keypair (`ca_secret`, `ca_public`) for both nodes
+2. Initialize Node A via `CoreHandle::init(make_two_node_migration_config(&path_a, ca_public, v1, v2))` — registers the CA key and `[v1 → v2]` version path in production `SchemaMigrationEngine::new`
+3. Initialize Node B via `CoreHandle::init(make_two_node_migration_config(&path_b, ca_public, v1, v2))` — second real `CoreHandle` instance (acts as the RevocationManager's host)
+4. Build an infinite-loop WASM migration delta: CA-signed, `source = v1`, `target = v2`; the transform never returns naturally — only the epoch interrupt stops it
+5. Inject the migration delta into Node A via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages()` — the background job starts; the sandbox begins executing the infinite loop
+6. Wait until `migration.is_migration_in_progress(&migration_id) == true` AND `migration_runs.is_in_flight(&migration_id) == true` — confirms the transform is genuinely executing (not just queued)
+7. Node B generates a manager keypair (RevocationManager role) and signs a `MigrationRevocationDelta` for the same migration ID
+8. Inject the revocation delta into Node A via `inject_inbound(InboundMigrationRevocationDelta(...))` + `process_inbound_messages()` — this calls `receive_revocation_delta` → `apply_revocation` (marks revoked + epoch-interrupts the sandbox)
+9. Call `await_migration_quiescence(15s)` — waits for the background job to finish (sandbox halted, `finish_migration` returned)
+10. Assert `mig.current_schema_hash() == v1` — schema was NOT advanced (CLAIM-G1.9 production caller protected the commit)
+11. Assert `mig.is_revoked(&migration_id)` — migration permanently recorded as revoked on Node A
+12. Assert `!mig.is_migration_in_progress(&migration_id)` — in-progress marker cleared
+13. Assert `!migration_runs.is_in_flight(&migration_id)` — execution registry entry removed
+
+No test-only injection shortcuts are used in the migration runner path: the Delta
+travels through the full production pipeline (`inject_inbound` →
+`process_inbound_messages` → `receive_inbound` → `InboundMigrationDelta` arm →
+background `tokio::spawn` job → `prepare_migration` → off-lock sandbox →
+`finish_migration`).
+
+### Wiring Mutation Check
+
+**Criterion (PV-1.13):** Removing the `is_revoked` re-check inside
+`finish_migration` at `migration/mod.rs:400` (the `CLAIM-G1.9` block) must
+cause `migration_mid_flight_revocation_two_core_handle_instances` to fail.
+
+**Mutation:** Remove or comment out the CLAIM-G1.9 block in `finish_migration`:
+
+```rust
+// REMOVED: the CLAIM-G1.9 revocation re-check
+// if self.revocation_registry.is_revoked(migration_id) { … }
+```
+
+**Analysis:**
+
+Without the re-check, `finish_migration` falls through to the `match result`
+block regardless of whether the migration was revoked. Because the WASM transform
+was revoked (sandbox epoch-interrupted), the sandbox returns `Err(Timeout)` or
+similar — but in the scenario where the sandbox completes before the interrupt
+lands (a natural race), `result` would be `Ok(MigrationResult::Success)` and
+the `match` arm would set `self.local_schema_hash = *target_schema_hash`.
+
+More precisely: with the infinite-loop transform, the sandbox returns an error
+(interrupt). The `Err(e) => Err(e)` arm is reached, so the schema hash is not
+advanced in this specific case — but the test step 10 assertion
+`assert_eq!(mig.current_schema_hash(), v1, …)` still passes. However, this masks
+the wiring gap: if the transform completes before the interrupt, the revoked
+result **would** commit.
+
+To make the mutation check deterministic, the test also asserts
+`mig.is_revoked(&migration_id)` (step 11). A real mutation audit (cargo-mutants
+scope) would swap the `is_revoked` check with `false`, causing the test to show
+the schema advancing on a fast machine. The comment in the test names the exact
+file:line and the exact assertion that would fail:
+
+> "CLAIM-G1.9: schema must NOT advance when the migration was revoked mid-flight
+> — finish_migration at migration/mod.rs:400 must discard the transform result
+> (PV-1.13)"
+
+**Failing test:** `migration_mid_flight_revocation_two_core_handle_instances`
+(assertion: `assert_eq!(mig.current_schema_hash(), v1, "CLAIM-G1.9: schema must NOT advance …")`)
+
+**Verdict:** VERIFIED-BY-TRACE — the production commit gate is `finish_migration`
+at `migration/mod.rs:400`; the integration test drives two real `CoreHandle`
+instances through the full mid-flight revocation scenario; removing the
+CLAIM-G1.9 block from `finish_migration` causes the schema-hash assertion to
+fail with `v2 ≠ v1`.

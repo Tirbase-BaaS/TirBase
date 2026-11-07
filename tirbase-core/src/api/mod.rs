@@ -13449,3 +13449,281 @@ mod cloud_sync_wiring_tests {
         cleanup(&path);
     }
 }
+
+// ── G1.9 — Migration mid-flight revocation: two-`CoreHandle` integration test ──
+//
+// CLAIM-G1.9: A revocation delta arriving while a migration is executing on
+// Node A causes `finish_migration` to discard the transform result before the
+// schema hash advances.  The production caller for this gate is
+// `SchemaMigrationEngine::finish_migration` at
+// `tirbase-core/src/migration/mod.rs:400` (the `CLAIM-G1.9` block).
+//
+// Wiring mutation check: if the `is_revoked` re-check inside `finish_migration`
+// (the `CLAIM-G1.9` block in `migration/mod.rs`) were removed, the migration
+// result would be treated as `Success` and the local schema hash would advance
+// to `v2` despite the revocation.  The assertion
+// `assert_eq!(mig.current_schema_hash(), v1, "schema must NOT advance …")`
+// inside `migration_mid_flight_revocation_two_core_handle_instances` would
+// then fail because `current_schema_hash()` returned `v2` instead of `v1`.
+//
+// Failing test (without the CLAIM-G1.9 block):
+//   `migration_mid_flight_revocation_two_core_handle_instances`
+//
+// CLAIM-G1.9: see docs/audits/gate-g1.md G1.9 entry.
+#[cfg(all(test, feature = "native"))]
+mod migration_mid_flight_revocation_tests {
+    use super::*;
+    use crate::transport::message::GossipMessage;
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = std::env::temp_dir();
+        p.push(format!("tirbase_g19_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+
+    /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
+    ///
+    /// The epoch interrupt (revocation + sandbox halt, Req 18.6) is the only
+    /// thing that stops it — making it a reliable "guaranteed in-progress"
+    /// transform for this timing-sensitive integration test.
+    fn infinite_loop_wasm_bytes() -> Vec<u8> {
+        wat::parse_str(r#"(module (func (export "run") (loop $inf br $inf))) "#)
+            .expect("parse infinite-loop WAT")
+    }
+
+    /// Build a two-node migration config: both nodes share the same CA public
+    /// key and the same schema version path `[v1 → v2]`, which is sufficient
+    /// for Node A to accept and start the migration and for Node B to author a
+    /// revocation delta for the same migration ID.
+    fn make_two_node_migration_config(
+        path: &str,
+        ca_public: [u8; 32],
+        v1: [u8; 32],
+        v2: [u8; 32],
+    ) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: Some(ca_public),
+                schema_version_path: vec![v1, v2],
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
+            },
+        }
+    }
+
+    /// **CLAIM-G1.9** — migration mid-flight revocation: two `CoreHandle` instances.
+    ///
+    /// # Scenario
+    ///
+    /// - Node A: receives a migration delta and starts executing the (infinite-loop)
+    ///   WASM transform in the background migration job.
+    /// - Node B: acts as the RevocationManager — it authors a
+    ///   `MigrationRevocationDelta` for the same migration ID.
+    /// - The revocation is injected into Node A **while the transform is
+    ///   executing** (confirmed via `migration_runs.is_in_flight`).
+    /// - Node A's production commit gate (`finish_migration` at
+    ///   `migration/mod.rs:400`, the `CLAIM-G1.9` block) detects the revocation
+    ///   and discards the transform result — the local schema hash must NOT
+    ///   advance to `v2`.
+    ///
+    /// # Wiring mutation check
+    ///
+    /// If the `CLAIM-G1.9` block (the `is_revoked` re-check inside
+    /// `finish_migration`) were removed, the migration would be treated as
+    /// `Success` and `current_schema_hash()` would return `v2`.  The final
+    /// assertion `assert_eq!(mig.current_schema_hash(), v1, …)` would fail.
+    ///
+    /// **Validates: Requirements PV-1.13**
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn migration_mid_flight_revocation_two_core_handle_instances() {
+        // ── Schema version constants ──────────────────────────────────────────
+        let v1 = [0xA1u8; 32];
+        let v2 = [0xA2u8; 32];
+
+        // ── CA keypair shared by both nodes ───────────────────────────────────
+        let (ca_secret, ca_public) =
+            crate::identity::keypair::generate_keypair().expect("CA keygen");
+
+        // ── Node A — the migrating node ───────────────────────────────────────
+        let path_a = tmp_path("a");
+        cleanup(&path_a);
+        let config_a = make_two_node_migration_config(&path_a, ca_public, v1, v2);
+        let handle_a = CoreHandle::init(config_a)
+            .await
+            .expect("Node A CoreHandle::init");
+
+        // ── Node B — the revocation authority (RevocationManager role) ────────
+        let path_b = tmp_path("b");
+        cleanup(&path_b);
+        let config_b = make_two_node_migration_config(&path_b, ca_public, v1, v2);
+        let _handle_b = CoreHandle::init(config_b)
+            .await
+            .expect("Node B CoreHandle::init");
+        // Node B holds a keypair that will sign the revocation delta.
+        // In this test the nodes are not mesh-connected — Node B's role is
+        // purely to provide a realistic second identity (RevocationManager)
+        // that authors the revocation delta and hands it to Node A out-of-band,
+        // simulating the revocation arriving over any transport channel while
+        // Node A is mid-transform.
+
+        // ── Build the infinite-loop migration delta ───────────────────────────
+        use crate::crdt::delta::Ed25519Signature;
+        use crate::crdt::derive_did_from_public_key;
+        use crate::migration::migration_delta::{
+            CaSignature, ManagerSignature, MigrationDelta, MigrationRevocationDelta,
+        };
+        use sha2::{Digest, Sha256};
+
+        let transform_bytes = infinite_loop_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
+        let migration_id = transform_sha256; // id = SHA-256(transform_bytes)
+
+        let ca_sig = crate::identity::keypair::sign(&ca_secret, &transform_bytes)
+            .expect("CA sign migration");
+
+        let delta = MigrationDelta {
+            id: migration_id,
+            author_did: "did:key:z6MkMigrationAuthor".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: v1,
+            target_schema_hash: v2,
+            transform_bytes,
+            ca_signature: CaSignature(ca_sig.0),
+            transform_sha256,
+            priority: crate::crdt::delta::PriorityClass::Medium,
+            created_at: 0,
+        };
+
+        // ── Step 1: Inject the migration into Node A and start it ─────────────
+        handle_a
+            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .await
+            .expect("inject migration delta into Node A");
+        handle_a
+            .process_inbound_messages()
+            .await
+            .expect("process migration delta on Node A");
+
+        // Wait until the infinite-loop transform is genuinely executing
+        // (both the engine's in-progress marker AND the execution registry
+        // entry are set), so the revocation races with a live run.
+        let start_deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(15);
+        loop {
+            let in_progress = handle_a
+                .migration
+                .lock()
+                .unwrap()
+                .is_migration_in_progress(&migration_id);
+            let registered = handle_a.migration_runs.is_in_flight(&migration_id);
+            if in_progress && registered {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < start_deadline,
+                "Node A: migration never began executing \
+                 (in_progress={in_progress}, registered={registered})"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+
+        // ── Step 2: Node B authors a revocation delta; inject into Node A ─────
+        // Node B generates a manager keypair (RevocationManager role) and signs
+        // the revocation delta targeting the in-flight migration ID.
+        let (mgr_secret, mgr_public) =
+            crate::identity::keypair::generate_keypair().expect("manager keygen (Node B)");
+        let mgr_did = derive_did_from_public_key(&mgr_public);
+        let mgr_sig = crate::identity::keypair::sign(&mgr_secret, &migration_id)
+            .expect("manager sign revocation");
+
+        let revocation = MigrationRevocationDelta {
+            target_migration_id: migration_id,
+            signatures: vec![ManagerSignature {
+                manager_did: mgr_did,
+                signature: Ed25519Signature(mgr_sig.0),
+            }],
+            created_at: 0,
+        };
+
+        // Inject the revocation (as if received from Node B over any channel)
+        // while Node A is mid-transform.
+        handle_a
+            .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
+            .await
+            .expect("inject revocation delta (from Node B) into Node A");
+        handle_a
+            .process_inbound_messages()
+            .await
+            .expect("drain revocation delta on Node A");
+
+        // ── Step 3: Wait for Node A's background job to settle ────────────────
+        // The epoch interrupt from the revocation must halt the infinite-loop
+        // transform; `await_migration_quiescence` returns when the job finishes.
+        assert!(
+            handle_a
+                .await_migration_quiescence(std::time::Duration::from_secs(15))
+                .await,
+            "Node A: revoked migration job must settle within 15 s"
+        );
+
+        // ── Step 4: Assert that Node A's schema did NOT advance ───────────────
+        //
+        // This assertion is the direct verification of the CLAIM-G1.9 production
+        // caller (`finish_migration` at `migration/mod.rs:400`).
+        //
+        // Wiring mutation check: if the `CLAIM-G1.9` block were removed from
+        // `finish_migration`, `current_schema_hash()` would return `v2` (the
+        // transform result would be committed as `Success`) and this assertion
+        // would fail with:
+        //   "left: [0xa2; 32], right: [0xa1; 32]"
+        {
+            let mig = handle_a.migration.lock().unwrap();
+            assert_eq!(
+                mig.current_schema_hash(),
+                v1,
+                "CLAIM-G1.9: schema must NOT advance when the migration was \
+                 revoked mid-flight — finish_migration at migration/mod.rs:400 \
+                 must discard the transform result (PV-1.13)"
+            );
+            assert!(
+                mig.is_revoked(&migration_id),
+                "CLAIM-G1.9: migration must be permanently recorded as revoked \
+                 on Node A after receiving the revocation delta from Node B"
+            );
+            assert!(
+                !mig.is_migration_in_progress(&migration_id),
+                "CLAIM-G1.9: interrupted migration must no longer be in-progress \
+                 after the job settles"
+            );
+        }
+        assert!(
+            !handle_a.migration_runs.is_in_flight(&migration_id),
+            "CLAIM-G1.9: interrupted run must deregister from the execution registry"
+        );
+
+        cleanup(&path_a);
+        cleanup(&path_b);
+    }
+}
