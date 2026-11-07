@@ -149,9 +149,45 @@ jobs:
           echo "OK: $MANIFEST contains no forbidden dependency declarations."
           cargo check -p tirbase-drivers
 
+  public-api:
+    name: cargo public-api (CLAIM-2.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustdoc
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-public-api-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-public-api
+        # Install only if not already cached from a previous run.
+        # Pinned to 0.52.0 to avoid unexpected breakage from tool updates.
+        run: |
+          if ! command -v cargo-public-api &>/dev/null; then
+            cargo install cargo-public-api --version 0.52.0 --locked
+          fi
+
+      - name: Check public API manifests (CLAIM-2.6)
+        # Fails if any crate has new pub items not present in its committed manifest.
+        # To update a manifest after an intentional API addition:
+        #   cargo +nightly public-api -p <crate> > <crate>/public-api.txt
+        # then commit the updated file.
+        run: bash scripts/check-public-api.sh
+
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -195,7 +231,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

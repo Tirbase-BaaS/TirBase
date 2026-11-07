@@ -1,0 +1,288 @@
+pub mod tirbase_types
+pub use tirbase_types::serde
+pub enum tirbase_types::CommandRole
+pub tirbase_types::CommandRole::Auditor
+pub tirbase_types::CommandRole::CommandIssuer
+pub tirbase_types::CommandRole::PolicyAuthority
+pub tirbase_types::CommandRole::RevocationManager
+pub tirbase_types::CommandRole::TimeAnchor
+pub tirbase_types::CommandRole::UpdateSigner
+impl core::clone::Clone for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::clone(&self) -> tirbase_types::CommandRole
+impl core::cmp::Eq for tirbase_types::CommandRole
+impl core::cmp::PartialEq for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::eq(&self, &tirbase_types::CommandRole) -> bool
+impl core::fmt::Debug for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::CommandRole
+impl core::marker::StructuralPartialEq for tirbase_types::CommandRole
+impl serde_core::ser::Serialize for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::CommandRole
+impl core::marker::Send for tirbase_types::CommandRole
+impl core::marker::Sync for tirbase_types::CommandRole
+impl core::marker::Unpin for tirbase_types::CommandRole
+impl core::marker::UnsafeUnpin for tirbase_types::CommandRole
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::CommandRole
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::CommandRole
+impl<T, U> core::convert::Into<U> for tirbase_types::CommandRole where U: core::convert::From<T>
+pub fn tirbase_types::CommandRole::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::CommandRole where U: core::convert::Into<T>
+pub type tirbase_types::CommandRole::Error = core::convert::Infallible
+pub fn tirbase_types::CommandRole::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::CommandRole where U: core::convert::TryFrom<T>
+pub type tirbase_types::CommandRole::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::CommandRole::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::CommandRole where T: core::clone::Clone
+pub type tirbase_types::CommandRole::Owned = T
+pub fn tirbase_types::CommandRole::clone_into(&self, &mut T)
+pub fn tirbase_types::CommandRole::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::CommandRole where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::CommandRole::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::CommandRole where T: ?core::marker::Sized
+pub fn tirbase_types::CommandRole::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::CommandRole where T: ?core::marker::Sized
+pub fn tirbase_types::CommandRole::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::CommandRole where T: core::clone::Clone
+pub unsafe fn tirbase_types::CommandRole::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::CommandRole where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::DeviceKeyType
+pub tirbase_types::DeviceKeyType::Ed25519
+pub tirbase_types::DeviceKeyType::P256
+impl core::clone::Clone for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::clone(&self) -> tirbase_types::DeviceKeyType
+impl core::cmp::Eq for tirbase_types::DeviceKeyType
+impl core::cmp::PartialEq for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::eq(&self, &tirbase_types::DeviceKeyType) -> bool
+impl core::fmt::Debug for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::DeviceKeyType
+impl core::marker::StructuralPartialEq for tirbase_types::DeviceKeyType
+impl serde_core::ser::Serialize for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::DeviceKeyType
+impl core::marker::Send for tirbase_types::DeviceKeyType
+impl core::marker::Sync for tirbase_types::DeviceKeyType
+impl core::marker::Unpin for tirbase_types::DeviceKeyType
+impl core::marker::UnsafeUnpin for tirbase_types::DeviceKeyType
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::DeviceKeyType
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::DeviceKeyType
+impl<T, U> core::convert::Into<U> for tirbase_types::DeviceKeyType where U: core::convert::From<T>
+pub fn tirbase_types::DeviceKeyType::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::DeviceKeyType where U: core::convert::Into<T>
+pub type tirbase_types::DeviceKeyType::Error = core::convert::Infallible
+pub fn tirbase_types::DeviceKeyType::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::DeviceKeyType where U: core::convert::TryFrom<T>
+pub type tirbase_types::DeviceKeyType::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::DeviceKeyType::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::DeviceKeyType where T: core::clone::Clone
+pub type tirbase_types::DeviceKeyType::Owned = T
+pub fn tirbase_types::DeviceKeyType::clone_into(&self, &mut T)
+pub fn tirbase_types::DeviceKeyType::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::DeviceKeyType where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::DeviceKeyType::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::DeviceKeyType where T: ?core::marker::Sized
+pub fn tirbase_types::DeviceKeyType::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::DeviceKeyType where T: ?core::marker::Sized
+pub fn tirbase_types::DeviceKeyType::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::DeviceKeyType where T: core::clone::Clone
+pub unsafe fn tirbase_types::DeviceKeyType::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::DeviceKeyType
+pub fn tirbase_types::DeviceKeyType::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::DeviceKeyType where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::DeviceSignature
+pub tirbase_types::DeviceSignature::Ed25519(alloc::vec::Vec<u8>)
+pub tirbase_types::DeviceSignature::P256(alloc::vec::Vec<u8>)
+impl core::clone::Clone for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::clone(&self) -> tirbase_types::DeviceSignature
+impl core::cmp::Eq for tirbase_types::DeviceSignature
+impl core::cmp::PartialEq for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::eq(&self, &tirbase_types::DeviceSignature) -> bool
+impl core::fmt::Debug for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::DeviceSignature
+impl serde_core::ser::Serialize for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::DeviceSignature
+impl core::marker::Send for tirbase_types::DeviceSignature
+impl core::marker::Sync for tirbase_types::DeviceSignature
+impl core::marker::Unpin for tirbase_types::DeviceSignature
+impl core::marker::UnsafeUnpin for tirbase_types::DeviceSignature
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::DeviceSignature
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::DeviceSignature
+impl<T, U> core::convert::Into<U> for tirbase_types::DeviceSignature where U: core::convert::From<T>
+pub fn tirbase_types::DeviceSignature::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::DeviceSignature where U: core::convert::Into<T>
+pub type tirbase_types::DeviceSignature::Error = core::convert::Infallible
+pub fn tirbase_types::DeviceSignature::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::DeviceSignature where U: core::convert::TryFrom<T>
+pub type tirbase_types::DeviceSignature::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::DeviceSignature::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::DeviceSignature where T: core::clone::Clone
+pub type tirbase_types::DeviceSignature::Owned = T
+pub fn tirbase_types::DeviceSignature::clone_into(&self, &mut T)
+pub fn tirbase_types::DeviceSignature::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::DeviceSignature where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::DeviceSignature::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::DeviceSignature where T: ?core::marker::Sized
+pub fn tirbase_types::DeviceSignature::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::DeviceSignature where T: ?core::marker::Sized
+pub fn tirbase_types::DeviceSignature::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::DeviceSignature where T: core::clone::Clone
+pub unsafe fn tirbase_types::DeviceSignature::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::DeviceSignature
+pub fn tirbase_types::DeviceSignature::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::DeviceSignature where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::Did(pub alloc::string::String)
+impl core::clone::Clone for tirbase_types::Did
+pub fn tirbase_types::Did::clone(&self) -> tirbase_types::Did
+impl core::cmp::Eq for tirbase_types::Did
+impl core::cmp::PartialEq for tirbase_types::Did
+pub fn tirbase_types::Did::eq(&self, &tirbase_types::Did) -> bool
+impl core::fmt::Debug for tirbase_types::Did
+pub fn tirbase_types::Did::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::Did
+pub fn tirbase_types::Did::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for tirbase_types::Did
+impl serde_core::ser::Serialize for tirbase_types::Did
+pub fn tirbase_types::Did::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::Did
+pub fn tirbase_types::Did::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::Did
+impl core::marker::Send for tirbase_types::Did
+impl core::marker::Sync for tirbase_types::Did
+impl core::marker::Unpin for tirbase_types::Did
+impl core::marker::UnsafeUnpin for tirbase_types::Did
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::Did
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::Did
+impl<T, U> core::convert::Into<U> for tirbase_types::Did where U: core::convert::From<T>
+pub fn tirbase_types::Did::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::Did where U: core::convert::Into<T>
+pub type tirbase_types::Did::Error = core::convert::Infallible
+pub fn tirbase_types::Did::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::Did where U: core::convert::TryFrom<T>
+pub type tirbase_types::Did::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::Did::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::Did where T: core::clone::Clone
+pub type tirbase_types::Did::Owned = T
+pub fn tirbase_types::Did::clone_into(&self, &mut T)
+pub fn tirbase_types::Did::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::Did where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::Did::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::Did where T: ?core::marker::Sized
+pub fn tirbase_types::Did::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::Did where T: ?core::marker::Sized
+pub fn tirbase_types::Did::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::Did where T: core::clone::Clone
+pub unsafe fn tirbase_types::Did::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::Did
+pub fn tirbase_types::Did::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::Did where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::FixedPointValue
+pub tirbase_types::FixedPointValue::exponent: i8
+pub tirbase_types::FixedPointValue::mantissa: i64
+pub tirbase_types::FixedPointValue::unit_id: u16
+impl core::clone::Clone for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::clone(&self) -> tirbase_types::FixedPointValue
+impl core::cmp::Eq for tirbase_types::FixedPointValue
+impl core::cmp::PartialEq for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::eq(&self, &tirbase_types::FixedPointValue) -> bool
+impl core::fmt::Debug for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::FixedPointValue
+impl core::marker::StructuralPartialEq for tirbase_types::FixedPointValue
+impl serde_core::ser::Serialize for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::FixedPointValue
+impl core::marker::Send for tirbase_types::FixedPointValue
+impl core::marker::Sync for tirbase_types::FixedPointValue
+impl core::marker::Unpin for tirbase_types::FixedPointValue
+impl core::marker::UnsafeUnpin for tirbase_types::FixedPointValue
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::FixedPointValue
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::FixedPointValue
+impl<T, U> core::convert::Into<U> for tirbase_types::FixedPointValue where U: core::convert::From<T>
+pub fn tirbase_types::FixedPointValue::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::FixedPointValue where U: core::convert::Into<T>
+pub type tirbase_types::FixedPointValue::Error = core::convert::Infallible
+pub fn tirbase_types::FixedPointValue::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::FixedPointValue where U: core::convert::TryFrom<T>
+pub type tirbase_types::FixedPointValue::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::FixedPointValue::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::FixedPointValue where T: core::clone::Clone
+pub type tirbase_types::FixedPointValue::Owned = T
+pub fn tirbase_types::FixedPointValue::clone_into(&self, &mut T)
+pub fn tirbase_types::FixedPointValue::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::FixedPointValue where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::FixedPointValue::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::FixedPointValue::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::FixedPointValue where T: ?core::marker::Sized
+pub fn tirbase_types::FixedPointValue::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::FixedPointValue where T: core::clone::Clone
+pub unsafe fn tirbase_types::FixedPointValue::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::FixedPointValue
+pub fn tirbase_types::FixedPointValue::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::TargetId(pub alloc::string::String)
+impl core::clone::Clone for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::clone(&self) -> tirbase_types::TargetId
+impl core::cmp::Eq for tirbase_types::TargetId
+impl core::cmp::PartialEq for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::eq(&self, &tirbase_types::TargetId) -> bool
+impl core::fmt::Debug for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for tirbase_types::TargetId
+impl serde_core::ser::Serialize for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::TargetId
+impl core::marker::Send for tirbase_types::TargetId
+impl core::marker::Sync for tirbase_types::TargetId
+impl core::marker::Unpin for tirbase_types::TargetId
+impl core::marker::UnsafeUnpin for tirbase_types::TargetId
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::TargetId
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::TargetId
+impl<T, U> core::convert::Into<U> for tirbase_types::TargetId where U: core::convert::From<T>
+pub fn tirbase_types::TargetId::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::TargetId where U: core::convert::Into<T>
+pub type tirbase_types::TargetId::Error = core::convert::Infallible
+pub fn tirbase_types::TargetId::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::TargetId where U: core::convert::TryFrom<T>
+pub type tirbase_types::TargetId::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::TargetId::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::TargetId where T: core::clone::Clone
+pub type tirbase_types::TargetId::Owned = T
+pub fn tirbase_types::TargetId::clone_into(&self, &mut T)
+pub fn tirbase_types::TargetId::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::TargetId where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::TargetId::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::TargetId where T: ?core::marker::Sized
+pub fn tirbase_types::TargetId::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::TargetId where T: ?core::marker::Sized
+pub fn tirbase_types::TargetId::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::TargetId where T: core::clone::Clone
+pub unsafe fn tirbase_types::TargetId::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::TargetId where T: for<'de> serde_core::de::Deserialize<'de>
+pub type tirbase_types::DeltaId = [u8; 32]
+pub type tirbase_types::MigrationId = [u8; 32]
+pub type tirbase_types::ProfileId = [u8; 16]
+pub type tirbase_types::UnitId = u16
