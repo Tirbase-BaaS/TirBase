@@ -212,9 +212,21 @@ jobs:
         # Any item past its expiry version in the allowlist also fails CI.
         run: bash scripts/check-orphan-api.sh
 
+  claims-check:
+    name: CLAIMS.md registry check (CLAIM-3.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate CLAIMS.md — fail if any Proven claim lacks a test identifier (CLAIM-3.1)
+        # scripts/check-claims.sh parses CLAIMS.md, finds every row whose Status
+        # column is exactly "Proven", and fails CI naming each claim that has an
+        # empty Test Identifier column.  See PV-2.2 and task 3.1.
+        run: bash scripts/check-claims.sh CLAIMS.md
+
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -256,9 +268,93 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: RUSTFLAGS="-D dead_code" cargo check --workspace --features native
 
+  cargo-mutants-pr:
+    name: cargo-mutants (PR diff scope, CLAIM-2.8)
+    # Only run on pull requests — the nightly job covers full-scope mutation
+    # testing on the default branch (task 2.5 / nightly-mutants.yml).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Run after the regular test suite so we know the baseline tests pass first.
+    needs: [test]
+    continue-on-error: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch the full history so `git diff` against the base branch works.
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-mutants-pr-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-mutants
+        run: |
+          if ! command -v cargo-mutants &>/dev/null; then
+            cargo install cargo-mutants --locked
+          fi
+
+      # -----------------------------------------------------------------------
+      # Produce a unified diff of every Rust source file changed in this PR
+      # relative to the merge-base of the base branch, then pass it to
+      # cargo-mutants via --in-diff.  cargo-mutants will only generate and
+      # test mutations that touch lines present in the diff, keeping CI fast
+      # for small PRs while still catching surviving mutations in changed code
+      # (PV-1.15 / CLAIM-2.8).
+      #
+      # Notes:
+      #   - `git diff origin/$BASE...HEAD` uses the three-dot form, which diffs
+      #     from the common merge-base rather than the current tip of the base
+      #     branch, matching what a PR review actually shows.
+      #   - We write the diff to a temp file because process substitution
+      #     (<(...)) is a bashism that may not be available in all runner shells.
+      #   - --timeout 120 mirrors the nightly job default.
+      #   - --jobs 2 avoids overwhelming the shared runner.
+      #   - --no-shuffle keeps the output deterministic so artifact diffs are
+      #     meaningful across re-runs.
+      # -----------------------------------------------------------------------
+      - name: Generate PR diff for mutation scoping (CLAIM-2.8)
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_BRANCH" --depth=50
+          git diff "origin/${BASE_BRANCH}...HEAD" -- '*.rs' > /tmp/pr.diff
+          DIFF_LINES=$(wc -l < /tmp/pr.diff)
+          echo "PR diff contains ${DIFF_LINES} lines across changed Rust files."
+          if [ "$DIFF_LINES" -eq 0 ]; then
+            echo "No Rust source changes detected in this PR — skipping mutation run."
+            echo "SKIP_MUTANTS=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run cargo-mutants scoped to PR diff (CLAIM-2.8)
+        if: env.SKIP_MUTANTS != 'true'
+        run: |
+          cargo mutants \
+            --in-diff /tmp/pr.diff \
+            --timeout 120 \
+            --jobs 2 \
+            --no-shuffle
+
+      - name: Upload PR mutants artifact
+        if: always() && env.SKIP_MUTANTS != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-pr-diff
+          path: mutants.out/
+          retention-days: 14
+
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api]
+    needs: [cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
