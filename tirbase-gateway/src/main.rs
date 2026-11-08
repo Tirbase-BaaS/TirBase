@@ -182,11 +182,15 @@ async fn main() -> Result<()> {
                                     tirbase_core::events::Severity::Low,
                                     tirbase_core::events::ReasonCode::LedgerPruned,
                                 )
-                                .with_detail(format!("pruned {deleted} applied_effects_ledger entries")),
+                                .with_detail(format!(
+                                    "pruned {deleted} applied_effects_ledger entries"
+                                )),
                             );
                         }
                         Ok(Err(error)) => tracing::warn!(%error, "ledger pruning failed (19.5)"),
-                        Err(error) => tracing::warn!(%error, "ledger pruning task join failed (19.5)"),
+                        Err(error) => {
+                            tracing::warn!(%error, "ledger pruning task join failed (19.5)")
+                        }
                         _ => {}
                     }
                 }

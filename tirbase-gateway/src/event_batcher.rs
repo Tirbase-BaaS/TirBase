@@ -132,10 +132,7 @@ impl GroupCommitBatcher {
                 continue;
             }
             let window = state.window;
-            let (guard, wait) = self
-                .cv
-                .wait_timeout(state, window)
-                .unwrap();
+            let (guard, wait) = self.cv.wait_timeout(state, window).unwrap();
             state = guard;
             if state.stop && state.queue.is_empty() {
                 return;

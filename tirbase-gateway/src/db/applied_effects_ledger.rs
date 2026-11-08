@@ -137,7 +137,9 @@ pub fn create_table(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn insert_actuating_tx(tx: &Transaction<'_>, row: &AppliedEffectRow) -> Result<(), String> {
-    if tirbase_core::fail_crate::eval("aef_insert_actuating", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_insert_actuating")); }
+    if tirbase_core::fail_crate::eval("aef_insert_actuating", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_insert_actuating"));
+    }
     tx.execute(
         &format!("INSERT INTO {APPLIED_EFFECTS_LEDGER_TABLE}
             (entry_id,issuer_did,target_id,param,desired_mantissa,desired_exponent,desired_unit_id,sequence_number,idempotency_key,expiry_est,policy_version,enrollment_epoch,state,actuating_ts,completion_ts,driver_response)
@@ -160,7 +162,9 @@ pub fn update_terminal_state_tx(
     completion_ts: i64,
     driver_response: Option<&[u8]>,
 ) -> Result<(), String> {
-    if tirbase_core::fail_crate::eval("aef_update_terminal", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_update_terminal")); }
+    if tirbase_core::fail_crate::eval("aef_update_terminal", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_update_terminal"));
+    }
     tx.execute(
         &format!("UPDATE {APPLIED_EFFECTS_LEDGER_TABLE} SET state=?1, completion_ts=?2, driver_response=?3 WHERE entry_id=?4"),
         params![state.as_str(), completion_ts, driver_response, entry_id.as_slice()],
@@ -170,7 +174,9 @@ pub fn update_terminal_state_tx(
 
 /// List all rows in `Actuating` state (19.2 boot reconciliation).
 pub fn list_actuating(conn: &Connection) -> Result<Vec<ActuatingEntry>, String> {
-    if tirbase_core::fail_crate::eval("aef_scan_actuating", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_scan_actuating")); }
+    if tirbase_core::fail_crate::eval("aef_scan_actuating", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_scan_actuating"));
+    }
     let mut stmt = conn
         .prepare(&format!(
             "SELECT entry_id,issuer_did,target_id,param,desired_mantissa,desired_exponent,desired_unit_id,actuating_ts \
@@ -211,7 +217,9 @@ pub fn mark_pre_actuating_as_old_schema_failed(
     conn: &Connection,
     completion_ts: i64,
 ) -> Result<usize, String> {
-    if tirbase_core::fail_crate::eval("aef_mark_pre_actuating", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_mark_pre_actuating")); }
+    if tirbase_core::fail_crate::eval("aef_mark_pre_actuating", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_mark_pre_actuating"));
+    }
     let changed = conn
         .execute(
             &format!(
@@ -232,7 +240,9 @@ pub fn apply_reconciliation_outcome(
     outcome: &ReadBackOutcome,
     completion_ts: i64,
 ) -> Result<EffectState, String> {
-    if tirbase_core::fail_crate::eval("aef_apply_reconciliation", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_apply_reconciliation")); }
+    if tirbase_core::fail_crate::eval("aef_apply_reconciliation", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_apply_reconciliation"));
+    }
     let (state, response): (EffectState, Option<&[u8]>) = match outcome {
         ReadBackOutcome::Matches => (EffectState::Complete, Some(b"MATCH".as_slice())),
         ReadBackOutcome::Mismatch { response } => (EffectState::Failed, Some(response.as_slice())),
@@ -243,12 +253,7 @@ pub fn apply_reconciliation_outcome(
             "UPDATE {APPLIED_EFFECTS_LEDGER_TABLE} \
              SET state=?1, completion_ts=?2, driver_response=?3 WHERE entry_id=?4"
         ),
-        params![
-            state.as_str(),
-            completion_ts,
-            response,
-            entry_id.as_slice()
-        ],
+        params![state.as_str(), completion_ts, response, entry_id.as_slice()],
     )
     .map_err(|e| format!("apply_reconciliation_outcome: {e}"))?;
     Ok(state)
@@ -273,7 +278,9 @@ pub fn prune_retention(
     max_age_secs: i64,
     max_entries: i64,
 ) -> Result<usize, String> {
-    if tirbase_core::fail_crate::eval("aef_prune", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_prune")); }
+    if tirbase_core::fail_crate::eval("aef_prune", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_prune"));
+    }
     let cutoff = now_est.saturating_sub(max_age_secs);
     // Age-based pruning of terminal Complete/Failed entries.
     let age_deleted = conn
@@ -351,4 +358,3 @@ impl SqliteAppliedEffectsStore {
         }
     }
 }
-

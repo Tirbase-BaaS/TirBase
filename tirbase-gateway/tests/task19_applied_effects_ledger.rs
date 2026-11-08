@@ -80,7 +80,11 @@ fn sample_row(id: u8, state: EffectState, actuating_ts: i64) -> AppliedEffectRow
         enrollment_epoch: 0,
         state,
         actuating_ts,
-        completion_ts: if state.is_terminal() { Some(actuating_ts + 1) } else { None },
+        completion_ts: if state.is_terminal() {
+            Some(actuating_ts + 1)
+        } else {
+            None
+        },
         driver_response: None,
     }
 }
@@ -111,10 +115,16 @@ impl LedgerReadBack for FixedReadBack {
 }
 
 #[derive(Debug)]
-struct MapReadBack(std::collections::BTreeMap<[u8; 16], ReadBackOutcome>, ReadBackOutcome);
+struct MapReadBack(
+    std::collections::BTreeMap<[u8; 16], ReadBackOutcome>,
+    ReadBackOutcome,
+);
 impl LedgerReadBack for MapReadBack {
     fn read_back(&self, entry: &ActuatingEntry, _timeout: Duration) -> ReadBackOutcome {
-        self.0.get(&entry.entry_id).cloned().unwrap_or_else(|| self.1.clone())
+        self.0
+            .get(&entry.entry_id)
+            .cloned()
+            .unwrap_or_else(|| self.1.clone())
     }
 }
 
@@ -128,30 +138,84 @@ fn claim_19_1_applied_effects_ledger_table_exists_and_transitions_on_actuation()
     let _primary = tirbase_gateway::db::open_primary(&db).unwrap();
     let conn = Connection::open(&db).unwrap();
     let cols: Vec<String> = conn
-        .prepare(&format!("PRAGMA table_info({})", applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE))
+        .prepare(&format!(
+            "PRAGMA table_info({})",
+            applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE
+        ))
         .unwrap()
         .query_map([], |r| r.get::<_, String>(1))
         .unwrap()
         .collect::<Result<_, _>>()
         .unwrap();
     for required in [
-        "entry_id", "issuer_did", "target_id", "param", "desired_mantissa", "desired_exponent",
-        "desired_unit_id", "sequence_number", "idempotency_key", "expiry_est", "policy_version",
-        "enrollment_epoch", "state", "actuating_ts", "completion_ts", "driver_response",
+        "entry_id",
+        "issuer_did",
+        "target_id",
+        "param",
+        "desired_mantissa",
+        "desired_exponent",
+        "desired_unit_id",
+        "sequence_number",
+        "idempotency_key",
+        "expiry_est",
+        "policy_version",
+        "enrollment_epoch",
+        "state",
+        "actuating_ts",
+        "completion_ts",
+        "driver_response",
     ] {
-        assert!(cols.iter().any(|c| c == required), "missing column {required}: {cols:?}");
+        assert!(
+            cols.iter().any(|c| c == required),
+            "missing column {required}: {cols:?}"
+        );
     }
 
     let conn = open(&db);
     insert(&conn, &sample_row(1, EffectState::Actuating, 100));
     insert(&conn, &sample_row(2, EffectState::Actuating, 100));
     insert(&conn, &sample_row(3, EffectState::Actuating, 100));
-    applied_effects_ledger::apply_reconciliation_outcome(&conn, &[1; 16], &ReadBackOutcome::Matches, 101).unwrap();
-    applied_effects_ledger::apply_reconciliation_outcome(&conn, &[2; 16], &ReadBackOutcome::Mismatch { response: b"BAD".to_vec() }, 101).unwrap();
-    applied_effects_ledger::apply_reconciliation_outcome(&conn, &[3; 16], &ReadBackOutcome::Timeout, 101).unwrap();
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[1; 16]).unwrap().as_deref(), Some("Complete"));
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[2; 16]).unwrap().as_deref(), Some("Failed"));
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[3; 16]).unwrap().as_deref(), Some("Unknown"));
+    applied_effects_ledger::apply_reconciliation_outcome(
+        &conn,
+        &[1; 16],
+        &ReadBackOutcome::Matches,
+        101,
+    )
+    .unwrap();
+    applied_effects_ledger::apply_reconciliation_outcome(
+        &conn,
+        &[2; 16],
+        &ReadBackOutcome::Mismatch {
+            response: b"BAD".to_vec(),
+        },
+        101,
+    )
+    .unwrap();
+    applied_effects_ledger::apply_reconciliation_outcome(
+        &conn,
+        &[3; 16],
+        &ReadBackOutcome::Timeout,
+        101,
+    )
+    .unwrap();
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[1; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Complete")
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[2; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Failed")
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[3; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Unknown")
+    );
     let _ = std::fs::remove_dir_all(db.parent().unwrap());
 }
 
@@ -181,13 +245,28 @@ fn claim_19_2_boot_reconciliation_resolves_actuating_and_emits_events() {
     assert_eq!(summary.actuating_complete, 1);
     assert_eq!(summary.actuating_unknown, 1);
     assert!(summary.timed_out);
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[7; 16]).unwrap().as_deref(), Some("Complete"));
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[8; 16]).unwrap().as_deref(), Some("Unknown"));
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[7; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Complete")
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[8; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Unknown")
+    );
 
-    tirbase_core::events::install_security_event_sink(prev.unwrap_or_else(|| Arc::new(RecordingSink::default())));
+    tirbase_core::events::install_security_event_sink(
+        prev.unwrap_or_else(|| Arc::new(RecordingSink::default())),
+    );
     let events = sink.0.lock().unwrap();
     assert!(
-        events.iter().any(|e| e.reason_code == ReasonCode::ReconciliationTimeout && e.severity == Severity::High),
+        events
+            .iter()
+            .any(|e| e.reason_code == ReasonCode::ReconciliationTimeout
+                && e.severity == Severity::High),
         "expected ReconciliationTimeout High event, got {events:?}"
     );
     let _ = std::fs::remove_dir_all(db.parent().unwrap());
@@ -213,9 +292,13 @@ fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actu
     row.completion_ts = None;
     insert(&conn, &row);
     conn.execute(
-        &format!("UPDATE {} SET state='Intent' WHERE entry_id=?1", applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE),
+        &format!(
+            "UPDATE {} SET state='Intent' WHERE entry_id=?1",
+            applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE
+        ),
         params![[9u8; 16].as_slice()],
-    ).unwrap();
+    )
+    .unwrap();
     // A real Actuating row must NOT be marked by the pre-Actuating scan.
     insert(&conn, &sample_row(10, EffectState::Actuating, 100));
 
@@ -226,22 +309,39 @@ fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actu
     )
     .unwrap();
     assert_eq!(summary.pre_actuating_marked_failed, 1);
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[9; 16]).unwrap().as_deref(), Some("Failed"));
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[9; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Failed")
+    );
     // 19.3 wiring/invariant: Intent was NOT treated as Actuating in the scan.
     // Actuating row #10 was resolved by reconciliation (Timeout->Unknown), not by 19.3.
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[10; 16]).unwrap().as_deref(), Some("Unknown"));
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[10; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Unknown")
+    );
     let resp: Option<Vec<u8>> = conn
         .query_row(
-            &format!("SELECT driver_response FROM {} WHERE entry_id=?1", applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE),
+            &format!(
+                "SELECT driver_response FROM {} WHERE entry_id=?1",
+                applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE
+            ),
             params![[9u8; 16].as_slice()],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(resp.as_deref(), Some(b"OLD_SCHEMA_ENTRY".as_slice()));
 
-    tirbase_core::events::install_security_event_sink(prev.unwrap_or_else(|| Arc::new(RecordingSink::default())));
+    tirbase_core::events::install_security_event_sink(
+        prev.unwrap_or_else(|| Arc::new(RecordingSink::default())),
+    );
     let events = sink.0.lock().unwrap();
-    assert!(events.iter().any(|e| e.reason_code == ReasonCode::OldSchemaEntry && e.severity == Severity::High));
+    assert!(events
+        .iter()
+        .any(|e| e.reason_code == ReasonCode::OldSchemaEntry && e.severity == Severity::High));
     let _ = std::fs::remove_dir_all(db.parent().unwrap());
 }
 
@@ -252,7 +352,10 @@ struct CountingBackend {
 }
 impl CountingBackend {
     fn new() -> Self {
-        Self { flushes: Mutex::new(Vec::new()), calls: AtomicUsize::new(0) }
+        Self {
+            flushes: Mutex::new(Vec::new()),
+            calls: AtomicUsize::new(0),
+        }
     }
 }
 impl EventBatchBackend for CountingBackend {
@@ -292,7 +395,10 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
     let mut saw_high = false;
     while Instant::now() < deadline {
         let flushes = backend.flushes.lock().unwrap();
-        if flushes.iter().any(|(_, b)| b.iter().any(|e| e.severity == Severity::High)) {
+        if flushes
+            .iter()
+            .any(|(_, b)| b.iter().any(|e| e.severity == Severity::High))
+        {
             saw_high = true;
             break;
         }
@@ -309,9 +415,21 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
     // Buffered low event eventually flushes.
     std::thread::sleep(Duration::from_millis(90));
     batcher.stop();
-    let all: Vec<_> = backend.flushes.lock().unwrap().iter().flat_map(|(_, b)| b.clone()).collect();
-    assert!(all.iter().any(|e| e.severity == Severity::Low), "buffered low event must flush: {all:?}");
-    assert!(all.iter().any(|e| e.severity == Severity::High), "high event must be flushed: {all:?}");
+    let all: Vec<_> = backend
+        .flushes
+        .lock()
+        .unwrap()
+        .iter()
+        .flat_map(|(_, b)| b.clone())
+        .collect();
+    assert!(
+        all.iter().any(|e| e.severity == Severity::Low),
+        "buffered low event must flush: {all:?}"
+    );
+    assert!(
+        all.iter().any(|e| e.severity == Severity::High),
+        "high event must be flushed: {all:?}"
+    );
 }
 
 #[test]
@@ -322,10 +440,19 @@ fn claim_19_5_ledger_pruning_removes_entries_beyond_retention() {
     let conn = open(&db);
     let now = 1_000_000i64;
     // Old Complete/Failed should be pruned by age; recent terminal retained.
-    insert(&conn, &sample_row(1, EffectState::Complete, now - (95 * 24 * 3600)));
-    insert(&conn, &sample_row(2, EffectState::Failed, now - (91 * 24 * 3600)));
+    insert(
+        &conn,
+        &sample_row(1, EffectState::Complete, now - (95 * 24 * 3600)),
+    );
+    insert(
+        &conn,
+        &sample_row(2, EffectState::Failed, now - (91 * 24 * 3600)),
+    );
     insert(&conn, &sample_row(3, EffectState::Complete, now - 10));
-    insert(&conn, &sample_row(4, EffectState::Actuating, now - (200 * 24 * 3600))); // not pruned by age (not terminal Complete/Failed)
+    insert(
+        &conn,
+        &sample_row(4, EffectState::Actuating, now - (200 * 24 * 3600)),
+    ); // not pruned by age (not terminal Complete/Failed)
     let deleted = applied_effects_ledger::prune_retention(
         &conn,
         now,
@@ -333,19 +460,39 @@ fn claim_19_5_ledger_pruning_removes_entries_beyond_retention() {
         PRUNE_MAX_ENTRIES,
     )
     .unwrap();
-    assert!(deleted >= 2, "expected age-based pruning of old terminal entries, deleted={deleted}");
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[1; 16]).unwrap(), None);
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[2; 16]).unwrap(), None);
-    assert_eq!(applied_effects_ledger::get_state(&conn, &[3; 16]).unwrap().as_deref(), Some("Complete"));
+    assert!(
+        deleted >= 2,
+        "expected age-based pruning of old terminal entries, deleted={deleted}"
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[1; 16]).unwrap(),
+        None
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[2; 16]).unwrap(),
+        None
+    );
+    assert_eq!(
+        applied_effects_ledger::get_state(&conn, &[3; 16])
+            .unwrap()
+            .as_deref(),
+        Some("Complete")
+    );
 
     // Count-based retention: keep max entries, prune oldest Complete/Failed first.
     let db2 = tmpdb("195c");
     let conn2 = open(&db2);
     for i in 0u8..12 {
-        insert(&conn2, &sample_row(i + 20, EffectState::Complete, 100 + i as i64));
+        insert(
+            &conn2,
+            &sample_row(i + 20, EffectState::Complete, 100 + i as i64),
+        );
     }
     let deleted = applied_effects_ledger::prune_retention(&conn2, 200, 90 * 24 * 3600, 10).unwrap();
-    assert!(deleted >= 2, "count pruning should remove excess terminal entries, deleted={deleted}");
+    assert!(
+        deleted >= 2,
+        "count pruning should remove excess terminal entries, deleted={deleted}"
+    );
     assert!(applied_effects_ledger::count_entries(&conn2).unwrap() <= 10);
     let _ = std::fs::remove_dir_all(db.parent().unwrap());
     let _ = std::fs::remove_dir_all(db2.parent().unwrap());
@@ -383,15 +530,24 @@ fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
         let _ = applied_effects_ledger::list_actuating(&conn);
         let _ = applied_effects_ledger::mark_pre_actuating_as_old_schema_failed(&conn, 101);
         let _ = applied_effects_ledger::apply_reconciliation_outcome(
-            &conn, &[1; 16], &ReadBackOutcome::Timeout, 101,
+            &conn,
+            &[1; 16],
+            &ReadBackOutcome::Timeout,
+            101,
         );
-        let _ = applied_effects_ledger::prune_retention(&conn, 200, 90 * 24 * 3600, PRUNE_MAX_ENTRIES);
+        let _ =
+            applied_effects_ledger::prune_retention(&conn, 200, 90 * 24 * 3600, PRUNE_MAX_ENTRIES);
         let _ = ledger_reconciliation::reconcile_with_readback(
-            &conn, Arc::new(FixedReadBack(ReadBackOutcome::Matches)), 202,
+            &conn,
+            Arc::new(FixedReadBack(ReadBackOutcome::Matches)),
+            202,
         );
         // Zero unhandled states: every row is in a known terminal/actuating state.
         let mut stmt = conn
-            .prepare(&format!("SELECT state FROM {}", applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE))
+            .prepare(&format!(
+                "SELECT state FROM {}",
+                applied_effects_ledger::APPLIED_EFFECTS_LEDGER_TABLE
+            ))
             .unwrap();
         let states = stmt.query_map([], |r| r.get::<_, String>(0)).unwrap();
         for s in states {

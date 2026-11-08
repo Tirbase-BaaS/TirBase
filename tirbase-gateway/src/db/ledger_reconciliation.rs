@@ -42,7 +42,9 @@ pub fn reconcile_on_boot(
     read_back: &dyn LedgerReadBack,
     completion_ts: i64,
 ) -> Result<ReconciliationSummary, String> {
-    if tirbase_core::fail_crate::eval("aef_reconcile_boot", |_| ()).is_some() { return Err(format!("failpoint {}", "aef_reconcile_boot")); }
+    if tirbase_core::fail_crate::eval("aef_reconcile_boot", |_| ()).is_some() {
+        return Err(format!("failpoint {}", "aef_reconcile_boot"));
+    }
     let mut summary = ReconciliationSummary::default();
 
     // 19.3: pre-Actuating legacy states (e.g. `Intent` from older schema) ->
@@ -99,14 +101,16 @@ pub fn reconcile_on_boot(
         (ReasonCode::ReconciliationTimeout, Severity::High)
     };
     emit(
-        SecurityEvent::new(SecurityEventCategory::EffectsLedger, severity, reason).with_detail(format!(
-            "pre_actuating_failed={}, complete={}, failed={}, unknown={}, timed_out={}",
-            summary.pre_actuating_marked_failed,
-            summary.actuating_complete,
-            summary.actuating_failed,
-            summary.actuating_unknown,
-            summary.timed_out
-        )),
+        SecurityEvent::new(SecurityEventCategory::EffectsLedger, severity, reason).with_detail(
+            format!(
+                "pre_actuating_failed={}, complete={}, failed={}, unknown={}, timed_out={}",
+                summary.pre_actuating_marked_failed,
+                summary.actuating_complete,
+                summary.actuating_failed,
+                summary.actuating_unknown,
+                summary.timed_out
+            ),
+        ),
     );
 
     Ok(summary)
