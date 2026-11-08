@@ -16,21 +16,39 @@ pub fn s24_crash_loop_escalates_to_lockdown_within_window() {
     let mut tracker = CrashLoopTracker::new(3, 300);
 
     let d1 = tracker.record_crash(10);
-    assert_eq!(d1, CrashLoopEscalation::RestartNormal { crashes_in_window: 1 });
+    assert_eq!(
+        d1,
+        CrashLoopEscalation::RestartNormal {
+            crashes_in_window: 1
+        }
+    );
     apply_crash_decision(d1, &store, &mode).unwrap();
     assert_eq!(mode.get(), NodeMode::Normal);
     assert!(!store.is_lockdown().unwrap());
 
     let d2 = tracker.record_crash(120);
-    assert_eq!(d2, CrashLoopEscalation::RestartNormal { crashes_in_window: 2 });
+    assert_eq!(
+        d2,
+        CrashLoopEscalation::RestartNormal {
+            crashes_in_window: 2
+        }
+    );
     apply_crash_decision(d2, &store, &mode).unwrap();
     assert_eq!(mode.get(), NodeMode::Normal);
 
     let d3 = tracker.record_crash(200);
-    assert_eq!(d3, CrashLoopEscalation::EscalateLockdown { crashes_in_window: 3 });
+    assert_eq!(
+        d3,
+        CrashLoopEscalation::EscalateLockdown {
+            crashes_in_window: 3
+        }
+    );
     apply_crash_decision(d3, &store, &mode).unwrap();
     assert_eq!(mode.get(), NodeMode::Lockdown);
-    assert!(store.is_lockdown().unwrap(), "S24: crash-loop must escalate to LOCKDOWN");
+    assert!(
+        store.is_lockdown().unwrap(),
+        "S24: crash-loop must escalate to LOCKDOWN"
+    );
 }
 
 #[cfg(test)]
