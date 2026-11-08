@@ -9,5 +9,6 @@
 
 pub mod device_epoch;
 pub mod enrollment_nonce;
+pub mod lockdown;
 pub mod pending_approvals;
 pub mod time_ratchet;
