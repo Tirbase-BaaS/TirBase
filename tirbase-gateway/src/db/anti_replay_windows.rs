@@ -186,3 +186,47 @@ impl SqliteAntiReplayStore {
         }
     }
 }
+
+/// Reset the window baseline (PA-signed sequence reset, CLAIM-20.3). Clears bitmap.
+pub fn reset_window_baseline_tx(
+    tx: &Transaction<'_>,
+    issuer_did: &str,
+    target_id: &str,
+    enrollment_epoch: u64,
+    new_baseline: u64,
+    forward_gap: u64,
+) -> Result<(), String> {
+    upsert_window_tx(
+        tx,
+        issuer_did,
+        target_id,
+        enrollment_epoch,
+        new_baseline,
+        1u64,
+        forward_gap.max(DEFAULT_FORWARD_GAP_G),
+    )
+}
+
+impl SqliteAntiReplayStore {
+    pub fn reset_baseline(
+        &self,
+        issuer_did: &str,
+        target_id: &str,
+        enrollment_epoch: u64,
+        new_baseline: u64,
+    ) -> Result<(), String> {
+        let mut conn = self.connection();
+        let tx = conn
+            .transaction()
+            .map_err(|e| format!("begin reset: {e}"))?;
+        reset_window_baseline_tx(
+            &tx,
+            issuer_did,
+            target_id,
+            enrollment_epoch,
+            new_baseline,
+            DEFAULT_FORWARD_GAP_G,
+        )?;
+        tx.commit().map_err(|e| format!("commit reset: {e}"))
+    }
+}

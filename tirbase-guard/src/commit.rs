@@ -105,6 +105,18 @@ pub enum Stage16Error {
     Store(String),
 }
 
+/// Default idempotency key retention: 24 hours (PV-5.6, CLAIM-20.5).
+pub const DEFAULT_IDEMPOTENCY_RETENTION_SECS: i64 = 24 * 60 * 60;
+pub const MIN_IDEMPOTENCY_RETENTION_SECS: i64 = 60;
+pub const MAX_IDEMPOTENCY_RETENTION_SECS: i64 = 7 * 24 * 60 * 60;
+
+pub fn clamp_idempotency_retention_secs(secs: i64) -> i64 {
+    secs.clamp(
+        MIN_IDEMPOTENCY_RETENTION_SECS,
+        MAX_IDEMPOTENCY_RETENTION_SECS,
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct Stage16Request<'a> {
     pub cmd: &'a CommandMessage,
@@ -115,6 +127,9 @@ pub struct Stage16Request<'a> {
     pub lease_duration_secs: i64,
     pub max_consecutive_renewals: u32,
     pub original_result_json: &'a str,
+    /// Idempotency retention window in seconds (CLAIM-20.5). Clamped to
+    /// [1 min, 7 days]; default 24h.
+    pub idempotency_retention_secs: i64,
 }
 
 /// Atomic Stage 16 store. Implementations MUST make `commit_actuating` atomic:
@@ -276,6 +291,7 @@ where
         lease_duration_secs: 30,
         max_consecutive_renewals: 10,
         original_result_json: &original,
+        idempotency_retention_secs: DEFAULT_IDEMPOTENCY_RETENTION_SECS,
     };
     match store.commit_actuating(&req) {
         Err(Stage16Error::LeaseHeld { holder }) => {

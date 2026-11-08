@@ -130,7 +130,25 @@ impl Stage16Store for SqliteStage16Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| Stage16Error::Store(format!("begin immediate: {e}")))?;
 
-        // (a) non-mutating anti-replay check
+        // (b) non-mutating idempotency check first (CLAIM-20.5/PV-5.6): a known
+        // (issuer_did,target_id,idempotency_key) returns the stored outcome without
+        // a second actuation, even on retry.
+        if let Some(existing) = idempotency_keys::lookup_tx(
+            &tx,
+            cmd.issuer_did.as_str(),
+            cmd.target_id.as_str(),
+            &cmd.idempotency_key,
+            req.now_est,
+        )
+        .map_err(Stage16Error::Store)?
+        {
+            return Err(Stage16Error::IdempotencyHit {
+                original_result: existing.original_result,
+            });
+        }
+
+        // (a) non-mutating anti-replay check (CLAIM-20.2/PV-5.5): rejected/duplicate
+        // sequences must not mutate state; only committed commands advance the window.
         let row = anti_replay_windows::load_window_tx(
             &tx,
             cmd.issuer_did.as_str(),
@@ -148,21 +166,6 @@ impl Stage16Store for SqliteStage16Store {
                 return Err(Stage16Error::AntiReplay)
             }
             AntiReplayCheck::Accepted { .. } => {}
-        }
-
-        // (b) non-mutating idempotency check
-        if let Some(existing) = idempotency_keys::lookup_tx(
-            &tx,
-            cmd.issuer_did.as_str(),
-            cmd.target_id.as_str(),
-            &cmd.idempotency_key,
-            req.now_est,
-        )
-        .map_err(Stage16Error::Store)?
-        {
-            return Err(Stage16Error::IdempotencyHit {
-                original_result: existing.original_result,
-            });
         }
 
         // (c) acquire SingleWriterLease inside the same transaction
@@ -216,6 +219,8 @@ impl Stage16Store for SqliteStage16Store {
         .map_err(Stage16Error::Store)?;
 
         // (e) insert idempotency key
+        let retention =
+            tirbase_guard::commit::clamp_idempotency_retention_secs(req.idempotency_retention_secs);
         idempotency_keys::insert_tx(
             &tx,
             &IdempotencyRow {
@@ -224,7 +229,7 @@ impl Stage16Store for SqliteStage16Store {
                 idempotency_key: cmd.idempotency_key,
                 original_result: req.original_result_json.to_string(),
                 recorded_at_est: req.now_est,
-                expires_at_est: req.now_est.saturating_add(86_400),
+                expires_at_est: req.now_est.saturating_add(retention),
             },
         )
         .map_err(Stage16Error::Store)?;

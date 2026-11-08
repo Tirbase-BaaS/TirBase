@@ -1,5 +1,8 @@
-//! `idempotency_keys` SQLite store (PV-5.6, CLAIM-15.1, INV-2).
+//! `idempotency_keys` SQLite store (PV-5.6, CLAIM-15.1/20.5, INV-2).
 //! Scoped to `(issuer_did, target_id, idempotency_key)`.
+//!
+//! Retention is configurable (default 24h, valid 1 min–7 days). Expired rows
+//! are ignored on lookup and may be pruned.
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -7,6 +10,18 @@ use std::sync::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 pub const IDEMPOTENCY_KEYS_TABLE: &str = "idempotency_keys";
+/// Default retention: 24 hours (PV-5.6).
+pub const DEFAULT_IDEMPOTENCY_RETENTION_SECS: i64 = 24 * 60 * 60;
+pub const MIN_IDEMPOTENCY_RETENTION_SECS: i64 = 60;
+pub const MAX_IDEMPOTENCY_RETENTION_SECS: i64 = 7 * 24 * 60 * 60;
+
+/// Clamp retention to the valid range [1 min, 7 days].
+pub fn clamp_retention_secs(secs: i64) -> i64 {
+    secs.clamp(
+        MIN_IDEMPOTENCY_RETENTION_SECS,
+        MAX_IDEMPOTENCY_RETENTION_SECS,
+    )
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IdempotencyRow {
@@ -60,6 +75,15 @@ pub fn lookup_tx(
     ).optional().map_err(|e| format!("lookup idempotency_key: {e}")).map(|opt| opt.filter(|r| r.expires_at_est >= now_est))
 }
 
+/// Prune expired idempotency keys (background/maintenance). Returns rows deleted.
+pub fn prune_expired_tx(tx: &Transaction<'_>, now_est: i64) -> Result<usize, String> {
+    tx.execute(
+        &format!("DELETE FROM {IDEMPOTENCY_KEYS_TABLE} WHERE expires_at_est < ?1"),
+        params![now_est],
+    )
+    .map_err(|e| format!("prune idempotency_keys: {e}"))
+}
+
 pub fn insert_tx(tx: &Transaction<'_>, row: &IdempotencyRow) -> Result<(), String> {
     tx.execute(
         &format!("INSERT INTO {IDEMPOTENCY_KEYS_TABLE} (issuer_did,target_id,idempotency_key,original_result,recorded_at_est,expires_at_est) VALUES (?1,?2,?3,?4,?5,?6)"),
@@ -95,5 +119,21 @@ impl SqliteIdempotencyStore {
             Ok(g) => g,
             Err(p) => p.into_inner(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn clamp_retention_bounds() {
+        assert_eq!(clamp_retention_secs(10), MIN_IDEMPOTENCY_RETENTION_SECS);
+        assert_eq!(
+            clamp_retention_secs(MAX_IDEMPOTENCY_RETENTION_SECS + 1),
+            MAX_IDEMPOTENCY_RETENTION_SECS
+        );
+        assert_eq!(clamp_retention_secs(3600), 3600);
     }
 }

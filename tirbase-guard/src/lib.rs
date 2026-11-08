@@ -20,6 +20,10 @@ pub mod policy;
 /// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
 
+/// Anti-replay sliding window and PolicyAuthority-signed reset
+/// (tasks 20.1–20.3 — CLAIM-20.1…20.3, PV-5.5, INV-10).
+pub mod anti_replay;
+
 /// Node operational mode and mode × operation matrix (task 13.1 —
 /// CLAIM-13.1, PV-4.13).
 pub mod node_mode;
@@ -108,6 +112,11 @@ pub use policy::{
 };
 pub use tirbase_types::policy::{PolicyBundle, PolicyBundleKind, PolicyCoSignature};
 
+pub use anti_replay::{
+    check_sequence, verify_and_apply_window_reset, AntiReplayDecision, AntiReplayWindow,
+    AntiReplayWindowReset, CONTEXT_ANTI_REPLAY_WINDOW_RESET, DEFAULT_FORWARD_GAP_G,
+    DEFAULT_WINDOW_W,
+};
 pub use signed_operation::{
     SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,
     CONTEXT_EPOCH_BUMP, CONTEXT_POLICY_BUNDLE,

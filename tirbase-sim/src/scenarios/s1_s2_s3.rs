@@ -416,7 +416,91 @@ pub fn scenario_s3_replay_returns_cached_no_second_actuation() {
     let mut proxy2 = DriverProxy::new(Cursor::new(&mut out2));
     guard
         .admit_with_context(&cmd, &ctx, &mut proxy2, b"f")
-        .unwrap();
+        .expect("S3: in-memory decided-outcome cache returns cached acceptance");
+}
+
+/// S3 via durable Stage 16 store (authoritative, CLAIM-20.5/20.8, INV-2):
+/// replay returns cached original result without second actuation.
+pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
+    use std::io::Cursor as IoCursor;
+    use tirbase_gateway::guard::SqliteStage16Store;
+    use tirbase_guard::commit::commit_dispatch_finalize;
+
+    let issuer = InMemoryKeyProvider::generate().unwrap();
+    let mut cmd = CommandMessage {
+        issuer_did: Did::new(issuer.did()),
+        role: CommandRole::CommandIssuer,
+        target_id: TargetId::new("pump-1"),
+        param: "speed".into(),
+        desired_state: fpv(500),
+        sequence_number: 1,
+        idempotency_key: [7u8; 16],
+        expiry_est: 9_999_999_999,
+        policy_version: 1,
+        enrollment_epoch: 0,
+        challenge_nonce: None,
+        co_signatures: vec![],
+        signature: DeviceSignature::Ed25519([0; 64]),
+    };
+    sign_command(&mut cmd, &issuer).unwrap();
+    let dir = std::env::temp_dir().join(format!(
+        "tg-s3-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("primary.db");
+    let store = SqliteStage16Store::open(&db).unwrap();
+    let mut wire1 = Vec::new();
+    let mut proxy1 = DriverProxy::new(IoCursor::new(&mut wire1));
+    let mut drv1 = IoCursor::new(b"OK".to_vec());
+    let v1 = commit_dispatch_finalize(
+        &store,
+        &cmd,
+        [1u8; 16],
+        100,
+        1000,
+        100,
+        &mut proxy1,
+        b"ACT",
+        &mut drv1,
+        101,
+    );
+    assert_eq!(v1["status"], "accepted");
+    assert!(!wire1.is_empty(), "first command must actuate");
+
+    // Replay same (issuer,target,idempotency_key): must return original result, no dispatch.
+    let mut wire2 = Vec::new();
+    let mut proxy2 = DriverProxy::new(IoCursor::new(&mut wire2));
+    let mut drv2 = IoCursor::new(b"OK".to_vec());
+    let v2 = commit_dispatch_finalize(
+        &store,
+        &cmd,
+        [2u8; 16],
+        102,
+        1000,
+        102,
+        &mut proxy2,
+        b"ACT",
+        &mut drv2,
+        103,
+    );
+    assert_eq!(v2["status"], "accepted");
+    assert_eq!(
+        v2["idempotency_cache_hit"], true,
+        "S3: duplicate key must return cached result: {v2}"
+    );
+    assert!(wire2.is_empty(), "S3: replay must not actuate second time");
+    assert_eq!(
+        store.effect_state(&[2u8; 16]).unwrap(),
+        None,
+        "no second Actuating row"
+    );
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[cfg(test)]
@@ -433,5 +517,9 @@ mod tests {
     #[test]
     fn s3_replay_cached_claim_14_11_15_9() {
         scenario_s3_replay_returns_cached_no_second_actuation();
+    }
+    #[test]
+    fn s3_replay_duplicate_idempotency_no_second_actuation_claim_20_5_20_8() {
+        scenario_s3_replay_duplicate_idempotency_no_second_actuation();
     }
 }

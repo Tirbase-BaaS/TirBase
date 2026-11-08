@@ -109,6 +109,7 @@ fn claim_15_1_stage16_atomic_commit_and_lease_failure_rolls_back_all_state() {
         lease_duration_secs: 30,
         max_consecutive_renewals: 10,
         original_result_json: original,
+        idempotency_retention_secs: tirbase_guard::commit::DEFAULT_IDEMPOTENCY_RETENTION_SECS,
     };
     store.commit_actuating(&req).expect("first commit");
     assert_eq!(
@@ -145,6 +146,7 @@ fn claim_15_1_stage16_atomic_commit_and_lease_failure_rolls_back_all_state() {
         lease_duration_secs: 30,
         max_consecutive_renewals: 10,
         original_result_json: original,
+        idempotency_retention_secs: tirbase_guard::commit::DEFAULT_IDEMPOTENCY_RETENTION_SECS,
     };
     let err = store.commit_actuating(&req2).unwrap_err();
     assert!(matches!(err, Stage16Error::LeaseHeld { .. }), "{err:?}");

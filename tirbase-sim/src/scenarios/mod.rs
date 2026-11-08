@@ -5,6 +5,7 @@
 //! `docs/adversary-scenarios.md`.
 
 pub mod s1_s2_s3;
+pub mod s20_sequence_poisoning;
 pub mod s24_crash_loop;
 pub mod s32_challenge_nonce_flood;
 pub mod s7_policy_loosening;
