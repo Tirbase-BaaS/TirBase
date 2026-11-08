@@ -8,6 +8,7 @@
 
 pub mod dag;
 pub mod delta;
+pub(crate) mod hardening;
 pub mod merge;
 pub mod schema_hash;
 
@@ -538,6 +539,21 @@ impl CrdtEngine {
     #[cfg(feature = "native")]
     pub(crate) fn dag(&self) -> &crate::crdt::dag::ChangesetDag {
         &self.dag
+    }
+
+    /// Mutable access to the underlying Automerge document.
+    ///
+    /// Used by the CRDT hardening layer (PV-6.1, CLAIM-22.1) to resolve causal
+    /// dependency metadata (`start_op`/`len`) for inbound `start_op` validation
+    /// before merge. Callers must not apply unvalidated peer changes through
+    /// this handle except via the validated inbound path.
+    pub(crate) fn doc_mut(&mut self) -> &mut automerge::AutoCommit {
+        &mut self.doc
+    }
+
+    /// Shared access to the underlying Automerge document (introspection/tests).
+    pub(crate) fn doc(&self) -> &automerge::AutoCommit {
+        &self.doc
     }
 
     /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG,

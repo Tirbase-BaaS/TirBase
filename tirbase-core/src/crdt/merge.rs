@@ -47,6 +47,9 @@ pub enum QuarantineReason {
     UnknownSchemaHash,
     /// The Schema_Identifier_Hash field is absent or malformed (Req 17.6).
     MissingOrMalformedHash,
+    /// `start_op` deviates from the value implied by the change's causal
+    /// dependencies (dependency-relative clock/start_op poisoning, PV-6.1/S4).
+    ClockJump,
 }
 
 /// Classify the operation type in Automerge changeset bytes.
@@ -122,6 +125,31 @@ pub fn apply_incoming_delta(
     engine: &mut CrdtEngine,
     delta: &Delta,
 ) -> Result<MergeOutcome, TirBaseError> {
+    // PV-6.1 / CLAIM-22.1 (S4): validate `start_op` against causal dependencies
+    // before merge. A deviation is a clock/start_op poisoning attempt and is
+    // quarantined as `ClockJump`. Missing dependencies are deferred (task 23
+    // pending queue); `NotAutomerge`/empty payloads keep legacy behavior.
+    {
+        let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
+        match crate::crdt::hardening::validate_start_op(delta, &known) {
+            crate::crdt::hardening::StartOpValidation::Ok
+            | crate::crdt::hardening::StartOpValidation::NotAutomerge
+            | crate::crdt::hardening::StartOpValidation::MissingDependency => {}
+            crate::crdt::hardening::StartOpValidation::ClockJump {
+                change_hash,
+                expected,
+                actual,
+            } => {
+                return Ok(crate::crdt::hardening::quarantine_clock_jump(
+                    delta,
+                    change_hash.as_deref(),
+                    expected,
+                    actual,
+                ));
+            }
+        }
+    }
+
     // Classify operation type for routing decision (best-effort).
     let is_rga = is_rga_operation(&delta.automerge_bytes);
 

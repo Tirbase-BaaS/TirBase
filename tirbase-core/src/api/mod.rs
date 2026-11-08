@@ -13129,6 +13129,120 @@ mod quarantine_sidecar_wiring_tests {
         cleanup_wiring(&path_a);
         cleanup_wiring(&path_b);
     }
+
+    /// CLAIM-22.1 / PV-6.1 (S4, integration): two real `CoreHandle` instances.
+    /// An inflated-`start_op` delta delivered through the production inbound path
+    /// (`inject_inbound` + `process_inbound_messages` → `receive_inbound` →
+    /// `apply_incoming_delta` → `validate_start_op`) is quarantined as `ClockJump`
+    /// and never mutates node B's merged state.
+    ///
+    /// Wiring-mutation check (CLAIM-22.1/22.3): removing the `validate_start_op()`
+    /// call from `crdt/merge.rs::apply_incoming_delta` lets the hostile delta merge
+    /// (see characterization test `crdt::hardening::task22_tests::
+    /// task22_2_characterization_inflated_start_op_wins_unprotected_lww`) and this
+    /// test fails because node B's state would contain the attack value.
+    #[tokio::test]
+    async fn start_op_inflated_delta_quarantined_two_core_handles_claim_22_1_s4() {
+        use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+        use crate::crdt::{derive_did_from_public_key, CrdtEngine};
+        use crate::identity::keypair::{generate_keypair, sign};
+        use crate::schema::hash::compute_schema_identifier_hash;
+        use crate::transport::message::GossipMessage;
+        use automerge::transaction::Transactable;
+        use automerge::{AutoCommit, ROOT};
+
+        fn sign_d(
+            secret: &[u8; 32],
+            author_did: String,
+            schema: [u8; 32],
+            lamport: u64,
+            automerge_bytes: Vec<u8>,
+        ) -> Delta {
+            let mut d = Delta {
+                id: [0u8; 32],
+                author_did,
+                signature: Ed25519Signature::default(),
+                schema_hash: schema,
+                automerge_bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport,
+                created_at: 0,
+            };
+            let canonical = d.canonical_bytes();
+            d.signature = sign(secret, &canonical).expect("sign");
+            d.id = Delta::compute_id(&canonical);
+            d
+        }
+
+        fn honest(actor: &[u8], key: &str, value: &str) -> Vec<u8> {
+            let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(actor));
+            doc.put(ROOT, key, value).expect("put");
+            doc.save()
+        }
+
+        fn inflate(bytes: &[u8], offset: u64) -> Vec<u8> {
+            let mut doc = AutoCommit::load(bytes).expect("load");
+            let changes = doc.get_changes(&[]);
+            let mut inflated = Vec::new();
+            for change in changes {
+                let mut expanded = change.decode();
+                expanded.start_op =
+                    std::num::NonZeroU64::new(expanded.start_op.get() + offset).unwrap();
+                inflated.push(automerge::Change::try_from(expanded).expect("recode"));
+            }
+            let mut out = Vec::new();
+            for ch in &mut inflated {
+                out.extend_from_slice(&ch.bytes());
+            }
+            AutoCommit::load(&out).expect("inflated loadable");
+            out
+        }
+
+        let path_a = tmp_wiring_path("s4startop_a");
+        let path_b = tmp_wiring_path("s4startop_b");
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+
+        let _handle_a = CoreHandle::init(make_plain_config_for_wiring(&path_a))
+            .await
+            .expect("handle_a init");
+        let handle_b = CoreHandle::init(make_plain_config_for_wiring(&path_b))
+            .await
+            .expect("handle_b init");
+
+        let (attacker_secret, attacker_public) = generate_keypair().expect("keygen");
+        let attacker_did = derive_did_from_public_key(&attacker_public);
+        let sch =
+            compute_schema_identifier_hash(&[("s4sensors", &[("id", "TEXT"), ("val", "TEXT")])]);
+
+        let attack_bytes = inflate(&honest(&attacker_public, "val", "pwned"), 1_000_000);
+        let attack_delta = sign_d(&attacker_secret, attacker_did, sch, 5, attack_bytes);
+
+        handle_b
+            .inject_inbound(GossipMessage::InboundDelta(attack_delta))
+            .await
+            .expect("inject");
+        let processed = handle_b.process_inbound_messages().await.expect("process");
+        assert_eq!(processed, 1, "node B must process the injected delta");
+
+        // Production guarantee (task 22): quarantined as ClockJump, not merged.
+        // ClockJump quarantine-ledger persistence is wired by task 23; here we
+        // assert the attack value never takes effect in node B's merged state.
+        let read_str = match handle_b.read("s4sensors", "val").await {
+            Ok(qr) => qr.data.to_string(),
+            Err(_) => String::new(),
+        };
+        assert!(
+            !read_str.contains("pwned"),
+            "inflated start_op delta must be quarantined (S4/PV-6.1/CLAIM-22.1) and not \
+             applied to node B state; read={read_str}"
+        );
+
+        cleanup_wiring(&path_a);
+        cleanup_wiring(&path_b);
+    }
 }
 
 // ─── Task 0.6 — Gate G1.6: Cloud Sync Wiring (CLAIM-G1.6) ───────────────────

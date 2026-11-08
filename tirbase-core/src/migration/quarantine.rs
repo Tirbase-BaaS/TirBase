@@ -26,6 +26,8 @@ pub enum QuarantineReason {
     BreakingSchemaChange,
     UnknownSchemaHash,
     MissingOrMalformedHash,
+    /// `start_op` deviates from causal dependencies (CRDT hardening, PV-6.1/S4).
+    ClockJump,
 }
 
 impl QuarantineReason {
@@ -35,6 +37,7 @@ impl QuarantineReason {
             Self::BreakingSchemaChange => "BREAKING_CHANGE",
             Self::UnknownSchemaHash => "UNKNOWN_HASH",
             Self::MissingOrMalformedHash => "MISSING_HASH",
+            Self::ClockJump => "CLOCK_JUMP",
         }
     }
 
@@ -44,6 +47,7 @@ impl QuarantineReason {
             "BREAKING_CHANGE" => Some(Self::BreakingSchemaChange),
             "UNKNOWN_HASH" => Some(Self::UnknownSchemaHash),
             "MISSING_HASH" => Some(Self::MissingOrMalformedHash),
+            "CLOCK_JUMP" => Some(Self::ClockJump),
             _ => None,
         }
     }
@@ -62,6 +66,7 @@ impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
             crate::crdt::merge::QuarantineReason::MissingOrMalformedHash => {
                 Self::MissingOrMalformedHash
             }
+            crate::crdt::merge::QuarantineReason::ClockJump => Self::ClockJump,
         }
     }
 }

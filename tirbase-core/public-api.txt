@@ -3196,6 +3196,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::crdt::merge::MergeOutcom
 pub fn tirbase_core::crdt::merge::MergeOutcome::vzip(self) -> V
 pub enum tirbase_core::crdt::merge::QuarantineReason
 pub tirbase_core::crdt::merge::QuarantineReason::BreakingSchemaChange
+pub tirbase_core::crdt::merge::QuarantineReason::ClockJump
 pub tirbase_core::crdt::merge::QuarantineReason::MissingOrMalformedHash
 pub tirbase_core::crdt::merge::QuarantineReason::UnknownSchemaHash
 impl core::clone::Clone for tirbase_core::crdt::merge::QuarantineReason
