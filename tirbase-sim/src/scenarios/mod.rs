@@ -1,7 +1,8 @@
-//! Adversary / safety scenarios wired into tirbase-sim.
+//! Adversarial scenario implementations (tirbase-sim, PV-12.8).
 //!
-//! Each scenario is a deterministic, self-contained test that exercises a
-//! production caller path (guard/gateway components) and asserts the expected
-//! system response.  `cargo test -p tirbase-sim` runs all wired scenarios.
+//! Each scenario module is a self-contained proof that the corresponding
+//! guard/lifecycle invariant holds. Scenario IDs map to
+//! `docs/adversary-scenarios.md`.
 
 pub mod s7_policy_loosening;
+pub mod s24_crash_loop;
