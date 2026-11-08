@@ -4848,6 +4848,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "hex",
  "libc",
  "reqwest",
  "rusqlite",
@@ -4870,6 +4871,7 @@ name = "tirbase-guard"
 version = "0.1.0"
 dependencies = [
  "ciborium",
+ "proptest",
  "serde",
  "sha2 0.11.0",
  "tirbase-core",

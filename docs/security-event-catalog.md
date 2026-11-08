@@ -184,12 +184,12 @@ Events emitted by the TimeRatchet and FreshnessState subsystem (PV-22).
 
 | Reason Code | Description | Severity | Status | PV Reference |
 |---|---|---|---|---|
-| BeaconAccepted | TimeAnchor beacon advanced the ratchet's persisted_floor | Low | Planned | PV-22.2 |
-| BeaconRejected | TimeAnchor beacon failed: jump too large or signature invalid | High | Planned | PV-22.5 |
-| BeaconJumpTooLarge | Beacon wall_time − persisted_floor > max_forward_jump_secs | High | Planned | PV-22.5 |
-| BeaconSignatureInvalid | Beacon COSE_Sign1 signature did not verify against any TimeAnchor key | High | Planned | PV-22.5 |
-| FreshnessUnverified | Authenticated-time estimate stale; node entered UNVERIFIED freshness state | Medium | Planned | PV-22.3 |
-| FreshnessRestored | Fresh beacon received; VERIFIED freshness state restored | Low | Planned | PV-22.3 |
+| BeaconAccepted | TimeAnchor beacon advanced the ratchet's persisted_floor | Low | Implemented | PV-22.2 |
+| BeaconRejected | TimeAnchor beacon failed: non-TimeAnchor signer, unknown anchor, or replay below the floor | High | Implemented | PV-22.5 |
+| BeaconJumpTooLarge | Beacon wall_time − persisted_floor > max_forward_jump_secs without an anchor quorum | High | Implemented | PV-22.5 |
+| BeaconSignatureInvalid | Beacon signature did not verify against any trusted TimeAnchor key | High | Implemented | PV-22.5 |
+| FreshnessUnverified | Authenticated-time estimate stale; node entered UNVERIFIED freshness state | Medium | Implemented | PV-22.3 |
+| FreshnessRestored | Fresh beacon received; VERIFIED freshness state restored | Low | Implemented | PV-22.3 |
 
 ---
 
