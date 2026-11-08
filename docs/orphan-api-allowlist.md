@@ -455,3 +455,19 @@ To add an entry:
 | `tirbase_core::transport::session::PeerPair` | @tirbase-core-team | Peer pair type; wired in Phase 9 | v0.3.0 |
 | `tirbase_core::transport::session::ResumptionCredential` | @tirbase-core-team | Credential type; wired in Phase 9 | v0.3.0 |
 | `tirbase_core::transport::session::SessionManager` | @tirbase-core-team | Session manager type; wired in Phase 9 | v0.3.0 |
+| `tirbase_types::envelope::ConstraintOperator` | @tirbase-core-team | Envelope constraint operator (PV-4.5, CLAIM-10.3); Stage 12 evaluation wired in task 13 | v0.3.0 |
+| `tirbase_types::envelope::DeviceModel` | @tirbase-core-team | Device model validation view (PV-10.2, CLAIM-10.6); driver model wired in task 33 | v0.3.0 |
+| `tirbase_types::envelope::DeviceParameter` | @tirbase-core-team | Device parameter validation view (PV-10.2, CLAIM-10.6); driver model wired in task 33 | v0.3.0 |
+| `tirbase_types::envelope::EnvelopeProfile` | @tirbase-core-team | Signed envelope profile document (PV-4.5, CLAIM-10.4); guard/gateway pipeline wired in task 13 | v0.3.0 |
+| `tirbase_types::envelope::EnvelopeProfileBody` | @tirbase-core-team | Unsigned profile body for signing/verification (PV-4.5, CLAIM-10.4) | v0.3.0 |
+| `tirbase_types::envelope::LinearConstraint` | @tirbase-core-team | Cross-parameter constraint (PV-4.5, CLAIM-10.3); Stage 12 wired in task 13 | v0.3.0 |
+| `tirbase_types::envelope::ParameterKind` | @tirbase-core-team | Parameter domain kind (PV-4.5, CLAIM-10.1); Stage 10-13 wired in task 13 | v0.3.0 |
+| `tirbase_types::envelope::ParameterSpec` | @tirbase-core-team | Per-parameter spec (PV-4.5, CLAIM-10.2); Stage 10-13 wired in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::FieldError` | @tirbase-core-team | Profile validation field error (PV-4.5, CLAIM-10.6); guard install path wired in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::ProfileInstallError` | @tirbase-core-team | Profile install error (PV-4.5, CLAIM-10.4/10.6); guard install path wired in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::ProfileMap` | @tirbase-core-team | Target-to-profile hot-swap map (PV-4.5, CLAIM-10.5); CommandGuard wiring in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::install_profile` | @tirbase-core-team | Production profile install path (PV-4.5, CLAIM-10.4/10.6); guard/gateway wiring in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::profile_signing_bytes` | @tirbase-core-team | Domain-separated profile signing bytes (PV-4.5, CLAIM-10.4) | v0.3.0 |
+| `tirbase_guard::envelope::validate_profile` | @tirbase-core-team | Install-time profile validation (PV-4.5, CLAIM-10.6); guard wiring in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::verify_profile_signature` | @tirbase-core-team | PolicyAuthority profile signature check (PV-4.5, CLAIM-10.4); guard wiring in task 13 | v0.3.0 |
+| `tirbase_guard::signed_operation::CONTEXT_ENVELOPE_PROFILE` | @tirbase-core-team | Domain-separation context for EnvelopeProfile signatures (PV-4.5, CLAIM-10.4) | v0.3.0 |
