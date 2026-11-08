@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
 use arc_swap::ArcSwap;
+use serde::{Deserialize, Serialize};
 use tirbase_core::auth::command_token::{
     check_command_binding, verify_command_token, CommandTokenClaims,
 };
@@ -23,21 +24,44 @@ use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::TimeSource;
 use tirbase_types::command::CommandMessage;
-use tirbase_types::envelope::{ConstraintOperator, EnvelopeProfile, ParameterKind, ParameterSpec};
+use tirbase_types::envelope::{ConstraintOperator, EnvelopeProfile, ParameterKind};
 use tirbase_types::policy::PolicyBundle;
 use tirbase_types::{CommandRole, Did, FixedPointValue, TargetId};
 
 use crate::command::verify_command_signature;
 use crate::driver_proxy::IngressSource;
-use crate::envelope::ProfileMap;
-use crate::epoch::{EpochError, EpochRegistry};
-use crate::node_mode::{NodeMode, NodeModeState};
+use crate::epoch::EpochRegistry;
+use crate::node_mode::NodeModeState;
 use crate::time::{FreshnessState, TimeRatchet};
 
 pub(crate) const DEFAULT_PRE_AUTH_RPS: u32 = 50;
 pub(crate) const DEFAULT_ISSUER_RPS: u32 = 10;
 pub(crate) const DEFAULT_MAX_TTL_SECS: i64 = 3600;
-pub(crate) const DEFAULT_CHALLENGE_NONCE_TTL_SECS: u64 = 300;
+pub const DEFAULT_CHALLENGE_NONCE_TTL_SECS: u64 = 300;
+pub const DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE: u32 = 5;
+
+/// Single-use challenge nonce for critical parameters in `FreshnessState::Unverified`
+/// (task 16.1 — CLAIM-16.1, PV-22.3). The guard consumes the nonce on first valid
+/// use; a second use is rejected.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChallengeNonce {
+    pub device_id: String,
+    pub param: String,
+    pub nonce: [u8; 32],
+    /// Monotonic issuance time in seconds.
+    pub issued_at_mono: i64,
+    /// Monotonic expiry time in seconds.
+    pub expires_at_mono: i64,
+    /// Binding fields carried for durable storage and Stage 9 consumption.
+    pub issuer_did: String,
+    pub target_id: String,
+}
+
+impl ChallengeNonce {
+    pub fn is_expired(&self, mono_secs_now: i64) -> bool {
+        mono_secs_now > self.expires_at_mono
+    }
+}
 
 pub trait DriftHistoryStore: Send + Sync + std::fmt::Debug {
     fn record(&self, issuer_did: &str, target_id: &str, param: &str, mono_secs: i64, value_mantissa: i64, exponent: i8, unit_id: u16) -> Result<(), String>;
@@ -48,7 +72,19 @@ pub trait DecidedOutcomeStore: Send + Sync + std::fmt::Debug {
     fn store(&self, issuer_did: &str, target_id: &str, sequence_number: u64, enrollment_epoch: u64, decision: &AdmitDecision) -> Result<(), String>;
 }
 pub trait ChallengeNonceStore: Send + Sync + std::fmt::Debug {
-    fn consume_if_valid(&self, nonce: &[u8; 32], issuer_did: &str, target_id: &str, param: &str, mono_secs_now: i64, consume: bool) -> Result<bool, String>;
+    fn insert(&self, nonce: &ChallengeNonce) -> Result<(), String>;
+    /// Consume a nonce once. Returns `Ok(true)` only when the nonce exists, is
+    /// unconsumed, not expired, and matches the command binding. When `consume`
+    /// is false, the check must not mutate durable state (`simulate()` path).
+    fn consume_if_valid(
+        &self,
+        nonce: &[u8; 32],
+        issuer_did: &str,
+        target_id: &str,
+        param: &str,
+        mono_secs_now: i64,
+        consume: bool,
+    ) -> Result<bool, String>;
 }
 pub trait PendingApprovalQuorum: Send + Sync + std::fmt::Debug {
     fn has_quorum(&self, issuer_did: &str, target_id: &str, param: &str, sequence_number: u64, required_m: usize) -> Result<bool, String>;
@@ -188,12 +224,14 @@ pub struct AdmitPipelineState {
     pub(crate) revoked_dids: Arc<RwLock<BTreeSet<String>>>,
     pub(crate) decided_outcomes: Arc<Mutex<HashMap<(String, String, u64, u64), AdmitDecision>>>,
     pub(crate) unknown_targets: Arc<RwLock<BTreeSet<String>>>,
-    pub(crate) challenge_nonces: Arc<Mutex<HashMap<[u8; 32], (String, String, String, i64)>>>, // nonce -> (issuer,target,param,expires_mono_secs)
+    pub(crate) challenge_nonces: Arc<Mutex<HashMap<[u8; 32], ChallengeNonce>>>,
+    pub(crate) challenge_issue_counts: Arc<Mutex<HashMap<(String, String, String), VecDeque<i64>>>>, // (device_id,target,param)
     pub(crate) drift_history: Arc<Mutex<HashMap<(String, String, String), VecDeque<DriftRecord>>>>, // (issuer,target,param)
     pub(crate) rate_limiters: Arc<RateLimiters>,
     pub(crate) pre_auth_rps: AtomicU64,
     pub(crate) issuer_rps: AtomicU64,
     pub(crate) max_ttl_secs: AtomicU64,
+    pub(crate) challenge_requests_per_minute: AtomicU64,
     pub(crate) ratchet: Arc<Mutex<TimeRatchet>>,
     pub(crate) trust_root: Arc<ArcSwap<Option<crate::trust_root::TrustRootRecord>>>,
     pub(crate) time_source: Arc<dyn TimeSource>,
@@ -220,11 +258,13 @@ impl AdmitPipelineState {
             decided_outcomes: Arc::new(Mutex::new(HashMap::new())),
             unknown_targets: Arc::new(RwLock::new(BTreeSet::new())),
             challenge_nonces: Arc::new(Mutex::new(HashMap::new())),
+            challenge_issue_counts: Arc::new(Mutex::new(HashMap::new())),
             drift_history: Arc::new(Mutex::new(HashMap::new())),
             rate_limiters: Arc::new(RateLimiters::default()),
             pre_auth_rps: AtomicU64::new(DEFAULT_PRE_AUTH_RPS as u64),
             issuer_rps: AtomicU64::new(DEFAULT_ISSUER_RPS as u64),
             max_ttl_secs: AtomicU64::new(DEFAULT_MAX_TTL_SECS as u64),
+            challenge_requests_per_minute: AtomicU64::new(DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE as u64),
             ratchet,
             trust_root: Arc::new(ArcSwap::from_pointee(None)),
             time_source,
@@ -238,6 +278,7 @@ impl AdmitPipelineState {
     pub fn set_pre_auth_rps(&self, rps: u32) { self.pre_auth_rps.store(rps as u64, Ordering::Relaxed); }
     pub fn set_issuer_rps(&self, rps: u32) { self.issuer_rps.store(rps as u64, Ordering::Relaxed); }
     pub fn set_max_ttl_secs(&self, secs: i64) { self.max_ttl_secs.store(secs.max(0) as u64, Ordering::Relaxed); }
+    pub fn set_challenge_requests_per_minute(&self, n: u32) { self.challenge_requests_per_minute.store(n as u64, Ordering::Relaxed); }
     pub fn revoke_did(&self, did: impl Into<String>) {
         if let Ok(mut g) = self.revoked_dids.write() { g.insert(did.into()); }
     }
@@ -253,16 +294,143 @@ impl AdmitPipelineState {
     pub fn set_challenge_store(&self, store: Arc<dyn ChallengeNonceStore>) { if let Ok(mut g)=self.challenge_store.write() { *g=Some(store); } }
     pub fn set_quorum_provider(&self, p: Arc<dyn PendingApprovalQuorum>) { if let Ok(mut g)=self.quorum_provider.write() { *g=Some(p); } }
     pub fn set_desired_state(&self, target_id: &str, param: &str, value: FixedPointValue) { if let Ok(mut g)=self.desired_state.write() { g.insert((target_id.to_string(), param.to_string()), value); } }
+    /// Backward-compatible issuance path. Prefer `issue_challenge_nonce_for_device`
+    /// so the durable `ChallengeNonce` carries `device_id` (CLAIM-16.1).
     pub fn issue_challenge_nonce(&self, issuer_did: &str, target_id: &str, param: &str) -> [u8; 32] {
-        use sha2::{Digest, Sha256};
-        let mut nonce = [0u8; 32];
-        let seed = format!("{}:{}:{}:{}", issuer_did, target_id, param, self.time_source.monotonic_now());
-        nonce.copy_from_slice(&Sha256::digest(seed.as_bytes()));
-        let expires = (self.time_source.monotonic_now() / 1_000_000) as i64 + DEFAULT_CHALLENGE_NONCE_TTL_SECS as i64;
-        if let Ok(mut g) = self.challenge_nonces.lock() {
-            g.insert(nonce, (issuer_did.to_string(), target_id.to_string(), param.to_string(), expires));
+        self.issue_challenge_nonce_for_device(target_id, issuer_did, target_id, param)
+            .map(|n| n.nonce)
+            .unwrap_or([0u8; 32])
+    }
+
+    /// Issue a single-use challenge nonce (CLAIM-16.1/16.3/16.4, PV-22.3).
+    /// The nonce is persisted through `challenge_store` when configured and
+    /// mirrored in-memory for local tests; consumption is enforced once in Stage 9.
+    /// Enforces per-device issuance rate limiting (S32/16.4) before issuance.
+    pub fn issue_challenge_nonce_for_device(
+        &self,
+        device_id: &str,
+        issuer_did: &str,
+        target_id: &str,
+        param: &str,
+    ) -> Result<ChallengeNonce, String> {
+        let issued_at_mono = (self.time_source.monotonic_now() / 1_000_000) as i64;
+        if !self.check_challenge_issue_rate_limit(device_id, target_id, param, issued_at_mono) {
+            return Err("challenge nonce issuance rate limited (S32); retry_after_secs=60".to_string());
         }
-        nonce
+        let expires_at_mono =
+            issued_at_mono.saturating_add(DEFAULT_CHALLENGE_NONCE_TTL_SECS as i64);
+        let nonce = self.next_challenge_nonce_bytes(
+            device_id,
+            issuer_did,
+            target_id,
+            param,
+            issued_at_mono,
+        )?;
+        let challenge = ChallengeNonce {
+            device_id: device_id.to_string(),
+            param: param.to_string(),
+            nonce,
+            issued_at_mono,
+            expires_at_mono,
+            issuer_did: issuer_did.to_string(),
+            target_id: target_id.to_string(),
+        };
+        if let Ok(mut g) = self.challenge_nonces.lock() {
+            g.insert(nonce, challenge.clone());
+        }
+        if let Ok(g) = self.challenge_store.read() {
+            if let Some(store) = g.as_ref() {
+                store.insert(&challenge)?;
+            }
+        }
+        Ok(challenge)
+    }
+
+    fn next_challenge_nonce_bytes(
+        &self,
+        device_id: &str,
+        issuer_did: &str,
+        target_id: &str,
+        param: &str,
+        issued_at_mono: i64,
+    ) -> Result<[u8; 32], String> {
+        use sha2::{Digest, Sha256};
+        let mut salt = 0u64;
+        loop {
+            let mut nonce = [0u8; 32];
+            let mono = self.time_source.monotonic_now();
+            let seed = format!(
+                "challenge:{device_id}:{issuer_did}:{target_id}:{param}:{issued_at_mono}:{mono}:{salt}"
+            );
+            nonce.copy_from_slice(&Sha256::digest(seed.as_bytes()));
+            if nonce == [0u8; 32] {
+                salt = salt.saturating_add(1);
+                continue;
+            }
+            let in_mem = self
+                .challenge_nonces
+                .lock()
+                .map(|g| g.contains_key(&nonce))
+                .unwrap_or(true);
+            if in_mem {
+                if salt > 1024 {
+                    return Err("unable to derive unique challenge nonce".to_string());
+                }
+                salt = salt.saturating_add(1);
+                continue;
+            }
+            return Ok(nonce);
+        }
+    }
+
+    /// Per-device challenge issuance rate limit (S32/CLAIM-16.4). The key is
+    /// `(device_id, target_id, param)`; default max 5 requests/minute.
+    pub fn check_challenge_issue_rate_limit(
+        &self,
+        device_id: &str,
+        target_id: &str,
+        param: &str,
+        mono_secs_now: i64,
+    ) -> bool {
+        let limit = self.challenge_requests_per_minute.load(Ordering::Relaxed) as usize;
+        if limit == 0 {
+            return true;
+        }
+        let mut g = match self.challenge_issue_counts.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        let q = g
+            .entry((device_id.to_string(), target_id.to_string(), param.to_string()))
+            .or_insert_with(VecDeque::new);
+        while q.front().is_some_and(|t| mono_secs_now.saturating_sub(*t) >= 60) {
+            q.pop_front();
+        }
+        if q.len() >= limit {
+            return false;
+        }
+        q.push_back(mono_secs_now);
+        true
+    }
+
+    pub fn ratchet(&self) -> &Arc<Mutex<TimeRatchet>> {
+        &self.ratchet
+    }
+
+    pub fn time_source(&self) -> &Arc<dyn TimeSource> {
+        &self.time_source
+    }
+
+    /// Freshness evaluation for admin/challenge issuance (PV-22.3).
+    pub fn freshness_state(&self) -> FreshnessState {
+        match self.ratchet.lock() {
+            Ok(r) => r.freshness(self.time_source.as_ref()),
+            Err(p) => p.into_inner().freshness(self.time_source.as_ref()),
+        }
+    }
+
+    pub fn mono_secs_now(&self) -> i64 {
+        (self.time_source.monotonic_now() / 1_000_000) as i64
     }
 }
 
@@ -408,14 +576,45 @@ pub fn admit_stages_0_to_15(
             None => return reject(AdmitRejection::ChallengeMissing, "critical parameter requires challenge nonce in Unverified freshness", &cmd.issuer_did, &cmd.target_id),
         };
         let mono_now = (pipeline.time_source.monotonic_now() / 1_000_000) as i64;
-        let mut ok = if let Ok(g)=pipeline.challenge_store.read() { if let Some(store)=g.as_ref() { store.consume_if_valid(&nonce, cmd.issuer_did.as_str(), cmd.target_id.as_str(), &cmd.param, mono_now, !simulate).unwrap_or(false) } else { false } } else { false };
-        if !ok { ok = if let Ok(mut store) = pipeline.challenge_nonces.lock() {
-            if let Some((issuer, target, param, exp)) = store.get(&nonce).cloned() {
-                let valid = issuer == cmd.issuer_did.as_str() && target == cmd.target_id.as_str() && param == cmd.param && mono_now <= exp;
-                if valid && !simulate { store.remove(&nonce); }
-                valid
-            } else { false }
-        } else { false }; }
+        let mut ok = if let Ok(g) = pipeline.challenge_store.read() {
+            if let Some(store) = g.as_ref() {
+                store
+                    .consume_if_valid(
+                        &nonce,
+                        cmd.issuer_did.as_str(),
+                        cmd.target_id.as_str(),
+                        &cmd.param,
+                        mono_now,
+                        !simulate,
+                    )
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if !ok {
+            ok = if let Ok(mut store) = pipeline.challenge_nonces.lock() {
+                if let Some(challenge) = store.get(&nonce).cloned() {
+                    let valid = challenge.issuer_did == cmd.issuer_did.as_str()
+                        && challenge.target_id == cmd.target_id.as_str()
+                        && challenge.param == cmd.param
+                        && mono_now >= challenge.issued_at_mono
+                        && mono_now <= challenge.expires_at_mono;
+                    if valid && !simulate {
+                        // One-time use (CLAIM-16.1, PV-22.3): remove after first
+                        // non-simulated consumption. simulate() leaves the nonce.
+                        store.remove(&nonce);
+                    }
+                    valid
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+        }
         if !ok {
             return reject(AdmitRejection::ChallengeMissing, "invalid, expired, or reused challenge nonce", &cmd.issuer_did, &cmd.target_id);
         }

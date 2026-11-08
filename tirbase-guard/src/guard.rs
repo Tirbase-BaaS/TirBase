@@ -199,6 +199,21 @@ impl CommandGuard {
         self.envelope_profiles.get(target).map(|c| c.load_full())
     }
 
+    /// Resolve the enrolled `device_id` for a target (CLAIM-16.1/16.3).
+    pub fn device_id_for_target(&self, target: &TargetId) -> Option<String> {
+        self.config
+            .read()
+            .ok()
+            .and_then(|cfg| cfg.targets.get(target).map(|t| t.device_id.clone()))
+    }
+
+    /// True when the installed profile marks `param` on `target` as `critical`.
+    pub fn parameter_is_critical(&self, target: &TargetId, param: &str) -> bool {
+        self.envelope_profile_for(target)
+            .and_then(|p| p.parameters.iter().find(|s| s.name == param).map(|s| s.critical))
+            .unwrap_or(false)
+    }
+
     pub(crate) fn actuator_handles(&self) -> &ActuatorHandles {
         &self.actuator_handles
     }
@@ -208,13 +223,6 @@ impl CommandGuard {
         let mut id = [0u8; 16];
         id[..8].copy_from_slice(&n.to_le_bytes());
         id
-    }
-
-    fn device_id_for_target(&self, target: &TargetId) -> Option<String> {
-        self.config
-            .read()
-            .ok()
-            .and_then(|cfg| cfg.targets.get(target).map(|t| t.device_id.clone()))
     }
 
     /// Admit via legacy task 11/13 path (signature + mode + epoch) for callers

@@ -76,7 +76,11 @@ pub use command::{
 pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
 pub use driver_proxy::{DriverProxy, IngressSource};
 pub use guard::{single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission};
-pub use admit::{AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection, admit_stages_0_to_15};
+pub use admit::{
+    admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection,
+    ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS,
+    DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+};
 pub use permit::{ActuationPermit, ActuationPermitRef};
 pub use commit::{
     coarse_for_rejection, commit_dispatch_finalize, dispatch_and_await, stage17_acceptance,
