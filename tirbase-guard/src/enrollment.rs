@@ -506,3 +506,10 @@ mod tests {
             .expect("RevocationManager credential is accepted");
     }
 }
+
+
+impl Drop for EnrollmentService {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.root_ca_private_key);
+    }
+}

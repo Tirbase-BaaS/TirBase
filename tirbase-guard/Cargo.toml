@@ -14,6 +14,7 @@ sha2 = "0.11"
 ciborium = "0.2"
 # Lock-free config hot-swap for the target-to-profile map (CLAIM-10.5, PV-4.5).
 arc-swap = "1"
+zeroize = { version = "1.9", features = ["derive"] }
 
 [dev-dependencies]
 # Property test for ratchet monotonicity (task 7.7, CLAIM-7.7).

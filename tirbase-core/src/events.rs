@@ -159,12 +159,50 @@ pub enum ReasonCode {
     NonAutomergePayload,
 
     // CommandDecision
-    /// A Biscuit token was invalid, expired, or from an unknown CA.
+    /// Pre-auth per-source token bucket exceeded before any crypto (Stage 0).
+    PreAuthRateLimit,
+    /// Node is in Lockdown or Restricted mode; command rejected at Stage 1.
+    ModeLockdown,
+    /// A Biscuit token was invalid, expired, or from an unknown CA (Stage 3).
     TokenInvalid,
     /// A command signature failed verification (Stage 2).
     CommandSignatureInvalid,
     /// Command passed the task-11 admission core and was dispatched.
     CommandAccepted,
+    /// Token does not authorise requested target/parameter/role binding (Stage 4).
+    ScopeViolation,
+    /// Issuer DID is revoked (Stage 5).
+    IssuerRevoked,
+    /// Command enrollment epoch is stale (Stage 6).
+    StaleEpoch,
+    /// Target has an Unknown ledger entry (Stage 6.5).
+    TargetBusy,
+    /// Command expiry exceeded using `now_est` (Stage 8).
+    Expired,
+    /// Critical parameter in UNVERIFIED freshness requires challenge nonce (Stage 9).
+    ChallengeMissing,
+    /// FixedPointValue invalid or non-canonical exponent (Stage 10).
+    ValueInvalid,
+    /// Value outside envelope bounds (Stage 11).
+    EnvelopeViolation,
+    /// Cross-parameter linear constraint failed (Stage 12).
+    ConstraintViolation,
+    /// Rate-of-change or cumulative drift window exceeded (Stage 13).
+    DriftExceeded,
+    /// Dwell/min-off timing violation (Stage 13).
+    DwellViolation,
+    /// Per-issuer rate limit exceeded (Stage 14).
+    RateLimit,
+    /// Critical parameter requires M-of-N co-signatures (Stage 15).
+    QuorumRequired,
+    /// Atomic commit/sequence conflict (Stage 16).
+    CommitConflict,
+    /// Another issuer holds the SingleWriterLease (Stage 16).
+    LeaseHeld,
+    /// No EnvelopeProfile installed for target.
+    NoProfile,
+    /// Operation unsupported in this mode/version.
+    Unsupported,
 
     // Revocation
     /// A DID was added to the revocation set.
@@ -282,8 +320,6 @@ pub enum ReasonCode {
     LockdownExitRejected,
 
     // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
-    /// Command rejected because the node is in Lockdown or Restricted mode.
-    ModeLockdown,
 }
 
 impl ReasonCode {
@@ -296,6 +332,7 @@ impl ReasonCode {
             ReasonCode::MissingDependencyTimeout => "MissingDependencyTimeout",
             ReasonCode::PendingQueueOverflow => "PendingQueueOverflow",
             ReasonCode::RateExceeded => "RateExceeded",
+            ReasonCode::PreAuthRateLimit => "PreAuthRateLimit",
             ReasonCode::Oversize => "Oversize",
             ReasonCode::OpCountExceeded => "OpCountExceeded",
             ReasonCode::BatchExceeded => "BatchExceeded",
@@ -309,6 +346,23 @@ impl ReasonCode {
             ReasonCode::TokenInvalid => "TokenInvalid",
             ReasonCode::CommandSignatureInvalid => "CommandSignatureInvalid",
             ReasonCode::CommandAccepted => "CommandAccepted",
+            ReasonCode::ScopeViolation => "ScopeViolation",
+            ReasonCode::IssuerRevoked => "IssuerRevoked",
+            ReasonCode::StaleEpoch => "StaleEpoch",
+            ReasonCode::TargetBusy => "TargetBusy",
+            ReasonCode::Expired => "Expired",
+            ReasonCode::ChallengeMissing => "ChallengeMissing",
+            ReasonCode::ValueInvalid => "ValueInvalid",
+            ReasonCode::EnvelopeViolation => "EnvelopeViolation",
+            ReasonCode::ConstraintViolation => "ConstraintViolation",
+            ReasonCode::DriftExceeded => "DriftExceeded",
+            ReasonCode::DwellViolation => "DwellViolation",
+            ReasonCode::RateLimit => "RateLimit",
+            ReasonCode::QuorumRequired => "QuorumRequired",
+            ReasonCode::CommitConflict => "CommitConflict",
+            ReasonCode::LeaseHeld => "LeaseHeld",
+            ReasonCode::NoProfile => "NoProfile",
+            ReasonCode::Unsupported => "Unsupported",
             ReasonCode::DidRevoked => "DidRevoked",
             ReasonCode::RevocationSignatureReceived => "RevocationSignatureReceived",
             ReasonCode::RevocationLeaseReleased => "RevocationLeaseReleased",

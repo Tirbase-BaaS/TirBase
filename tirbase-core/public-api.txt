@@ -170,7 +170,7 @@ help: remove explicit link target
   |
 
 warning: `tirbase-core` (lib doc) generated 20 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.98s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.14s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_core
@@ -960,6 +960,8 @@ pub tirbase_core::auth::biscuit::BiscuitClaims::issued_at: i64
 pub tirbase_core::auth::biscuit::BiscuitClaims::role: alloc::string::String
 impl core::clone::Clone for tirbase_core::auth::biscuit::BiscuitClaims
 pub fn tirbase_core::auth::biscuit::BiscuitClaims::clone(&self) -> tirbase_core::auth::biscuit::BiscuitClaims
+impl core::convert::From<tirbase_core::auth::biscuit::BiscuitClaims> for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::from(tirbase_core::auth::biscuit::BiscuitClaims) -> Self
 impl core::fmt::Debug for tirbase_core::auth::biscuit::BiscuitClaims
 pub fn tirbase_core::auth::biscuit::BiscuitClaims::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::auth::biscuit::BiscuitClaims
@@ -1018,6 +1020,85 @@ pub fn tirbase_core::auth::biscuit::verify_and_check_caveat(&[u8], &str, &[u8], 
 pub fn tirbase_core::auth::biscuit::verify_token(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::biscuit::BiscuitClaims, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::biscuit::verify_token_distinguish_expiry(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::biscuit::BiscuitClaims, tirbase_core::auth::biscuit::TokenVerifyError>
 pub fn tirbase_core::auth::biscuit::verify_token_expiry_only(&[u8], &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub mod tirbase_core::auth::command_token
+pub struct tirbase_core::auth::command_token::CommandTokenClaims
+pub tirbase_core::auth::command_token::CommandTokenClaims::did: alloc::string::String
+pub tirbase_core::auth::command_token::CommandTokenClaims::expires_at: i64
+pub tirbase_core::auth::command_token::CommandTokenClaims::issued_at: i64
+pub tirbase_core::auth::command_token::CommandTokenClaims::param_scope: core::option::Option<alloc::string::String>
+pub tirbase_core::auth::command_token::CommandTokenClaims::role: tirbase_types::CommandRole
+pub tirbase_core::auth::command_token::CommandTokenClaims::role_raw: alloc::string::String
+pub tirbase_core::auth::command_token::CommandTokenClaims::scope_unrestricted: bool
+pub tirbase_core::auth::command_token::CommandTokenClaims::target_scope: core::option::Option<alloc::string::String>
+impl core::clone::Clone for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::clone(&self) -> tirbase_core::auth::command_token::CommandTokenClaims
+impl core::cmp::Eq for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::cmp::PartialEq for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::eq(&self, &tirbase_core::auth::command_token::CommandTokenClaims) -> bool
+impl core::convert::From<tirbase_core::auth::biscuit::BiscuitClaims> for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::from(tirbase_core::auth::biscuit::BiscuitClaims) -> Self
+impl core::fmt::Debug for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::marker::Freeze for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::marker::Send for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::marker::Sync for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::marker::Unpin for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::marker::UnsafeUnpin for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::auth::command_token::CommandTokenClaims
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::auth::command_token::CommandTokenClaims
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::auth::command_token::CommandTokenClaims where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::auth::command_token::CommandTokenClaims where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::auth::command_token::CommandTokenClaims where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::auth::command_token::CommandTokenClaims where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::equivalent(&self, &K) -> bool
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::equivalent(&self, &K) -> bool
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::auth::command_token::CommandTokenClaims where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::auth::command_token::CommandTokenClaims where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::auth::command_token::CommandTokenClaims where U: core::convert::From<T>
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::auth::command_token::CommandTokenClaims where U: core::convert::Into<T>
+pub type tirbase_core::auth::command_token::CommandTokenClaims::Error = core::convert::Infallible
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::auth::command_token::CommandTokenClaims where U: core::convert::TryFrom<T>
+pub type tirbase_core::auth::command_token::CommandTokenClaims::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::auth::command_token::CommandTokenClaims where T: core::clone::Clone
+pub type tirbase_core::auth::command_token::CommandTokenClaims::Owned = T
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::clone_into(&self, &mut T)
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::auth::command_token::CommandTokenClaims where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::auth::command_token::CommandTokenClaims where T: ?core::marker::Sized
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::auth::command_token::CommandTokenClaims where T: ?core::marker::Sized
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::auth::command_token::CommandTokenClaims where T: core::clone::Clone
+pub unsafe fn tirbase_core::auth::command_token::CommandTokenClaims::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::auth::command_token::CommandTokenClaims
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::auth::command_token::CommandTokenClaims
+pub type tirbase_core::auth::command_token::CommandTokenClaims::Init = T
+pub const tirbase_core::auth::command_token::CommandTokenClaims::ALIGN: usize
+pub unsafe fn tirbase_core::auth::command_token::CommandTokenClaims::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_core::auth::command_token::CommandTokenClaims::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_core::auth::command_token::CommandTokenClaims::drop(usize)
+pub unsafe fn tirbase_core::auth::command_token::CommandTokenClaims::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_core::auth::command_token::CommandTokenClaims
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::auth::command_token::CommandTokenClaims where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::auth::command_token::CommandTokenClaims
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::auth::command_token::CommandTokenClaims
+impl<T> typenum::type_operators::Same for tirbase_core::auth::command_token::CommandTokenClaims
+pub type tirbase_core::auth::command_token::CommandTokenClaims::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::auth::command_token::CommandTokenClaims where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::auth::command_token::CommandTokenClaims where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::auth::command_token::CommandTokenClaims::vzip(self) -> V
+pub fn tirbase_core::auth::command_token::check_command_binding(&tirbase_core::auth::command_token::CommandTokenClaims, &str, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_core::auth::command_token::create_command_token(&str, &str, u64, &str, &str, &[&str], &[u8]) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::command_token::parse_command_role(&str) -> core::option::Option<tirbase_types::CommandRole>
+pub fn tirbase_core::auth::command_token::verify_command_token(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::command_token::CommandTokenClaims, tirbase_core::auth::biscuit::TokenVerifyError>
 pub mod tirbase_core::auth::revocation
 pub enum tirbase_core::auth::revocation::RevocationStatus
 pub tirbase_core::auth::revocation::RevocationStatus::Applied
@@ -4528,18 +4609,29 @@ pub tirbase_core::events::ReasonCode::BeaconJumpTooLarge
 pub tirbase_core::events::ReasonCode::BeaconRejected
 pub tirbase_core::events::ReasonCode::BeaconSignatureInvalid
 pub tirbase_core::events::ReasonCode::BootCompleted
+pub tirbase_core::events::ReasonCode::ChallengeMissing
 pub tirbase_core::events::ReasonCode::ClockJump
 pub tirbase_core::events::ReasonCode::CommandAccepted
 pub tirbase_core::events::ReasonCode::CommandSignatureInvalid
+pub tirbase_core::events::ReasonCode::CommitConflict
+pub tirbase_core::events::ReasonCode::ConstraintViolation
+pub tirbase_core::events::ReasonCode::CrashLoopEscalation
 pub tirbase_core::events::ReasonCode::DeltaQuarantined
 pub tirbase_core::events::ReasonCode::DeltaRouted
 pub tirbase_core::events::ReasonCode::DepCountExceeded
 pub tirbase_core::events::ReasonCode::DeviceEnrolled
 pub tirbase_core::events::ReasonCode::DidRevoked
+pub tirbase_core::events::ReasonCode::DriftExceeded
+pub tirbase_core::events::ReasonCode::DwellViolation
 pub tirbase_core::events::ReasonCode::EngineVersionMismatch
+pub tirbase_core::events::ReasonCode::EnteredLockdown
+pub tirbase_core::events::ReasonCode::EnteredRestricted
+pub tirbase_core::events::ReasonCode::EnvelopeViolation
 pub tirbase_core::events::ReasonCode::EpochBumped
 pub tirbase_core::events::ReasonCode::EpochRegression
+pub tirbase_core::events::ReasonCode::ExitedLockdown
 pub tirbase_core::events::ReasonCode::ExpandContractViolation
+pub tirbase_core::events::ReasonCode::Expired
 pub tirbase_core::events::ReasonCode::FleetPreconditionMissing
 pub tirbase_core::events::ReasonCode::FragmentReassemblyFailed
 pub tirbase_core::events::ReasonCode::FreshnessRestored
@@ -4548,6 +4640,10 @@ pub tirbase_core::events::ReasonCode::FuelExhausted
 pub tirbase_core::events::ReasonCode::HandshakeFailed
 pub tirbase_core::events::ReasonCode::HandshakeSuccess
 pub tirbase_core::events::ReasonCode::HeadCountExceeded
+pub tirbase_core::events::ReasonCode::IssuerRevoked
+pub tirbase_core::events::ReasonCode::LeaseHeld
+pub tirbase_core::events::ReasonCode::LockdownExitApplied
+pub tirbase_core::events::ReasonCode::LockdownExitRejected
 pub tirbase_core::events::ReasonCode::LockdownFlagFound
 pub tirbase_core::events::ReasonCode::LooseningApplied
 pub tirbase_core::events::ReasonCode::LooseningCancelled
@@ -4557,7 +4653,9 @@ pub tirbase_core::events::ReasonCode::MigrationApplied
 pub tirbase_core::events::ReasonCode::MigrationCancelled
 pub tirbase_core::events::ReasonCode::MissingDependency
 pub tirbase_core::events::ReasonCode::MissingDependencyTimeout
+pub tirbase_core::events::ReasonCode::ModeLockdown
 pub tirbase_core::events::ReasonCode::MonotonicCounterRegression
+pub tirbase_core::events::ReasonCode::NoProfile
 pub tirbase_core::events::ReasonCode::NonAutomergePayload
 pub tirbase_core::events::ReasonCode::NonDeterministicModule
 pub tirbase_core::events::ReasonCode::NonceReused
@@ -4570,18 +4668,26 @@ pub tirbase_core::events::ReasonCode::PolicyLooseningM1Warning
 pub tirbase_core::events::ReasonCode::PolicyRejected
 pub tirbase_core::events::ReasonCode::PolicyRollbackBlocked
 pub tirbase_core::events::ReasonCode::PostconditionFailed
+pub tirbase_core::events::ReasonCode::PreAuthRateLimit
+pub tirbase_core::events::ReasonCode::QuorumRequired
 pub tirbase_core::events::ReasonCode::RateExceeded
+pub tirbase_core::events::ReasonCode::RateLimit
 pub tirbase_core::events::ReasonCode::RelaySelected
 pub tirbase_core::events::ReasonCode::RevocationLeaseReleased
 pub tirbase_core::events::ReasonCode::RevocationPostExecution
 pub tirbase_core::events::ReasonCode::RevocationSignatureReceived
 pub tirbase_core::events::ReasonCode::RevocationVerificationFailed
 pub tirbase_core::events::ReasonCode::SchemaAdditiveAccepted
+pub tirbase_core::events::ReasonCode::ScopeViolation
+pub tirbase_core::events::ReasonCode::StaleEpoch
+pub tirbase_core::events::ReasonCode::TargetBusy
 pub tirbase_core::events::ReasonCode::TighteningApplied
 pub tirbase_core::events::ReasonCode::TighteningFloorViolation
 pub tirbase_core::events::ReasonCode::TokenInvalid
 pub tirbase_core::events::ReasonCode::TraversalBudgetExceeded
 pub tirbase_core::events::ReasonCode::TrustRootRollbackRejected
+pub tirbase_core::events::ReasonCode::Unsupported
+pub tirbase_core::events::ReasonCode::ValueInvalid
 impl tirbase_core::events::ReasonCode
 pub fn tirbase_core::events::ReasonCode::as_str(&self) -> &'static str
 impl core::clone::Clone for tirbase_core::events::ReasonCode

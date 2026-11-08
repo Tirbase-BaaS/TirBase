@@ -6,6 +6,7 @@
 
 pub mod biscuit;
 pub mod revocation;
+pub mod command_token;
 pub mod root_ca;
 pub mod trust;
 

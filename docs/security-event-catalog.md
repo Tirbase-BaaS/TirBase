@@ -36,30 +36,30 @@ Events emitted by the Command Guard when it accepts or rejects a command (Stage 
 | Reason Code | Description | Severity | Status | PV Reference |
 |---|---|---|---|---|
 | Accepted | Command passed all guard stages and was admitted | Low | Planned | PV-4 |
-| PreAuthRateLimit | Pre-auth per-source token bucket exceeded before any crypto | Medium | Planned | PV-4.3 |
+| PreAuthRateLimit | Pre-auth per-source token bucket exceeded before any crypto | Medium | Implemented | PV-4.3 |
 | ModeLockdown | Node is in Lockdown or Restricted mode; command rejected at Stage 1 | High | Implemented | PV-4.13 |
 | InvalidSignature | Command signature failed verification at Stage 2 | High | Planned | PV-4.3 |
 | TokenInvalid | Biscuit token invalid, expired, or from unknown CA (Stage 3) | High | Planned | PV-3.2 |
 | CommandSignatureInvalid | Command signature failed verification over canonical CBOR (Stage 2) | High | Implemented | PV-4.2 |
 | CommandAccepted | Command passed task-11 admission (signature+epoch gate) and was dispatched via DriverProxy | Low | Implemented | PV-4.3 |
-| ScopeViolation | Token does not authorise the requested target or parameter (Stage 4) | High | Planned | PV-4.6 |
-| IssuerRevoked | Issuer DID is in the revocation set (Stage 5) | High | Planned | PV-4.3 |
+| ScopeViolation | Token does not authorise the requested target or parameter (Stage 4) | High | Implemented | PV-4.6 |
+| IssuerRevoked | Issuer DID is in the revocation set (Stage 5) | High | Implemented | PV-4.3 |
 | StaleEpoch | Command enrollment epoch is less than current device epoch (Stage 6) | Medium | Planned | PV-5.5 |
-| TargetBusy | Target has an Unknown ledger entry; command rejected at Stage 6.5 | Medium | Planned | PV-5.11 |
+| TargetBusy | Target has an Unknown ledger entry; command rejected at Stage 6.5 | Medium | Implemented | PV-5.11 |
 | Expired | Command expiry (now_est > expiry_est) exceeded max_ttl_secs (Stage 8) | Medium | Planned | PV-22.1 |
-| ChallengeMissing | Critical parameter in UNVERIFIED freshness state requires challenge nonce (Stage 9) | Medium | Planned | PV-22.3 |
-| ValueInvalid | FixedPointValue non-finite or canonical-exponent mismatch (Stage 10) | Medium | Planned | PV-21.1 |
-| EnvelopeViolation | Value outside envelope [min, max] bounds (Stage 11) | Medium | Planned | PV-4.6 |
-| ConstraintViolation | Cross-parameter linear constraint failed (Stage 12) | Medium | Planned | PV-4.5 |
-| DriftExceeded | Rate-of-change or cumulative drift window exceeded (Stage 13) | Medium | Planned | PV-4.7 |
-| DwellViolation | Command arrived before dwell period elapsed (Stage 13) | Medium | Planned | PV-4.7 |
+| ChallengeMissing | Critical parameter in UNVERIFIED freshness state requires challenge nonce (Stage 9) | Medium | Implemented | PV-22.3 |
+| ValueInvalid | FixedPointValue non-finite or canonical-exponent mismatch (Stage 10) | Medium | Implemented | PV-21.1 |
+| EnvelopeViolation | Value outside envelope [min, max] bounds (Stage 11) | Medium | Implemented | PV-4.6 |
+| ConstraintViolation | Cross-parameter linear constraint failed (Stage 12) | Medium | Implemented | PV-4.5 |
+| DriftExceeded | Rate-of-change or cumulative drift window exceeded (Stage 13) | Medium | Implemented | PV-4.7 |
+| DwellViolation | Command arrived before dwell period elapsed (Stage 13) | Medium | Implemented | PV-4.7 |
 | MinOffViolation | Command arrived before min-off period elapsed (Stage 13) | Medium | Planned | PV-4.7 |
 | RateLimit | Per-issuer rate limit (default 10 cmd/s) exceeded (Stage 14) | Low | Planned | PV-24.2 |
-| QuorumRequired | Critical parameter requires M-of-N co-signatures (Stage 15) | Medium | Planned | PV-4.16 |
+| QuorumRequired | Critical parameter requires M-of-N co-signatures (Stage 15) | Medium | Implemented | PV-4.16 |
 | CommitConflict | Atomic Stage 16 transaction conflict (sequence number already seen) | Medium | Planned | PV-5.5 |
 | LeaseHeld | Another issuer holds the SingleWriterLease for this target (Stage 16) | Low | Planned | PV-5.8 |
-| NoProfile | No EnvelopeProfile installed for the target | High | Planned | PV-4.5 |
-| Unsupported | Multi-parameter command not supported in v1 | Low | Planned | PV-5.12 |
+| NoProfile | No EnvelopeProfile installed for the target | High | Implemented | PV-4.5 |
+| Unsupported | Multi-parameter command not supported in v1 | Low | Implemented | PV-5.12 |
 | PolicyChangedMidActuation | Policy changed while command was in Stages 16–19 | Low | Planned | PV-4 |
 
 ---

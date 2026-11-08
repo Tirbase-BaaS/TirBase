@@ -1,30 +1,33 @@
 //! `CommandGuard` — unified admission pipeline entry point (PV-4.2, PV-4.3,
-//! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3, CLAIM-13.1).
+//! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3, CLAIM-13.1, CLAIM-14.1–14.17).
 //!
-//! Task 11 wires the structural invariants required by the spec:
-//! * signed [`CommandMessage`]s are accepted only after signature verification
-//!   over canonical CBOR of all fields except `signature` (CLAIM-11.1);
-//! * [`ActuationPermit`] is minted **only** by [`CommandGuard::admit()`]
-//!   (CLAIM-11.2);
-//! * actuation frames reach the device only through [`DriverProxy`] after
-//!   `admit()` (CLAIM-11.3); every ingress path must converge here.
+//! * Signed [`CommandMessage`]s are accepted only after signature verification
+//!   over canonical CBOR of all fields except `signature` (CLAIM-11.1).
+//! * [`ActuationPermit`] is minted **only** by [`CommandGuard::admit()`] /
+//!   [`CommandGuard::admit_with_context()`] (CLAIM-11.2).
+//! * Actuation frames reach the device only through [`DriverProxy`] after
+//!   admission (CLAIM-11.3); every ingress path must converge here.
 //!
-//! Task 13.1 adds Stage 1: `NodeMode` enforcement (CLAIM-13.1, PV-4.13, INV-5).
-//! Commands are rejected in `Lockdown` and `Restricted`; mesh sync and log
-//! export remain available in `Restricted` (enforced by their subsystems).
-//!
-//! The full 19-stage pipeline (token binding, replay, envelope, lease, ledger,
-//! etc.) is implemented incrementally by tasks 13–16.  This module provides the
-//! task-11/13 admission core and the ingress-convergence helpers.
+//! Task 14.1 adds `ArcSwap<EnvelopeProfile>`/`ArcSwap<PolicyBundle>` config
+//! snapshots and `pub(crate)` actuator write handles. Task 14 implements the
+//! fast admit path (Stages 0–15) in [`crate::admit`]; `admit()` preserves the
+//! task 11/13 signature for existing callers and runs the legacy
+//! signature+epoch checks plus pipeline stages when a pipeline state is
+//! configured.
 
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, RwLock};
 
+use arc_swap::ArcSwap;
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_types::command::CommandMessage;
+use tirbase_types::envelope::EnvelopeProfile;
+use tirbase_types::policy::PolicyBundle;
 use tirbase_types::TargetId;
 
+use crate::admit::{admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection};
 use crate::command::{verify_command_signature, CommandError};
 use crate::driver_proxy::{DriverProxy, IngressSource};
 use crate::epoch::{EpochError, EpochRegistry};
@@ -38,7 +41,10 @@ pub struct AdmittedCommand {
     pub ingress: IngressSource,
 }
 
-/// Rejection reasons surfaced by the guard core.
+/// Rejection reasons surfaced by the legacy admit dispatcher.
+///
+/// `Pipeline(...)` carries the Stage 0–15 rejection category when the Task 14
+/// pipeline is enabled.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdmitError {
     InvalidSignature(String),
@@ -47,6 +53,8 @@ pub enum AdmitError {
     MissingParameter(String),
     /// Stage 1: node mode does not permit command admission (CLAIM-13.1).
     ModeRejected(NodeMode),
+    /// Stage 0–15 pipeline rejection (CLAIM-14.x).
+    Pipeline { category: AdmitRejection, detail: String },
 }
 
 impl std::fmt::Display for AdmitError {
@@ -58,6 +66,9 @@ impl std::fmt::Display for AdmitError {
             AdmitError::MissingParameter(e) => write!(f, "missing parameter: {e}"),
             AdmitError::ModeRejected(mode) => {
                 write!(f, "command rejected: node mode {mode} does not permit commands")
+            }
+            AdmitError::Pipeline { category, detail } => {
+                write!(f, "command rejected ({category:?}): {detail}")
             }
         }
     }
@@ -77,34 +88,50 @@ impl From<EpochError> for AdmitError {
     }
 }
 
-/// Minimal target admission context used by task 11.  Later tasks replace the
-/// ad-hoc frame encoder with the driver codec and extend checks.
+/// Minimal target admission context used by legacy/early pipeline wiring.
 #[derive(Debug, Clone)]
 pub struct TargetAdmission {
     /// The local device identity for epoch checks.
     pub device_id: String,
 }
 
-/// Guard configuration for task-11 admission.
+/// Guard configuration for target/device mapping.
 #[derive(Debug, Default)]
 pub struct GuardConfig {
     pub targets: BTreeMap<TargetId, TargetAdmission>,
 }
 
-/// Unified command guard.
+/// Actuator write handles owned by the guard (CLAIM-14.1).
 ///
-/// Holds shared epoch state (reusing task 8's [`EpochRegistry`]) and exposes
-/// the single [`CommandGuard::admit`] entry point that all ingress handlers
-/// must call.  `admit()` is the **only** code path that mints an
-/// [`ActuationPermit`].
+/// `pub(crate)` so code outside `tirbase-guard` cannot obtain or bypass them;
+/// only the guard pipeline may mint permits and dispatch actuation.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ActuatorHandles {
+    /// Reserved for task 15 per-target driver sockets/executors.
+    pub(crate) _reserved: (),
+}
+
+/// Unified command guard (CLAIM-14.1).
+///
+/// Holds `ArcSwap` config snapshots for envelope/policy (lock-free hot swap),
+/// epoch state, node mode, and optional Task 14 pipeline state. Actuator write
+/// handles are `pub(crate)` and inaccessible outside the guard crate.
 pub struct CommandGuard {
+    /// Per-target active envelope profile snapshot (hot-swappable).
+    pub(crate) envelope_profiles: Arc<BTreeMap<TargetId, Arc<ArcSwap<EnvelopeProfile>>>>,
+    /// Active policy bundle snapshot (hot-swappable); `None` before first install.
+    pub(crate) policy_bundle: Arc<ArcSwap<Option<PolicyBundle>>>,
+    /// Guard-owned actuator handles (not accessible outside this crate).
+    pub(crate) actuator_handles: ActuatorHandles,
     epochs: Arc<EpochRegistry>,
     config: RwLock<GuardConfig>,
     /// Stage 1 operational mode (CLAIM-13.1).  Shared with gateway/runtime.
     node_mode: Arc<NodeModeState>,
-    /// Monotonic entry-id source (task-11 placeholder; task 14/16 wire the
-    /// durable effects ledger entry id).
-    next_entry: std::sync::atomic::AtomicU64,
+    /// Monotonic entry-id source (task-11 placeholder; task 15/16 wire durable ledger IDs).
+    next_entry: AtomicU64,
+    /// Task 14 admit pipeline state (Stages 0–15). When absent, legacy
+    /// signature+epoch behavior is used for backward compatibility.
+    pipeline: Option<Arc<AdmitPipelineState>>,
 }
 
 impl std::fmt::Debug for CommandGuard {
@@ -112,6 +139,7 @@ impl std::fmt::Debug for CommandGuard {
         f.debug_struct("CommandGuard")
             .field("epochs", &self.epochs)
             .field("node_mode", &self.node_mode.get())
+            .field("pipeline_enabled", &self.pipeline.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -129,11 +157,28 @@ impl CommandGuard {
         node_mode: Arc<NodeModeState>,
     ) -> Self {
         CommandGuard {
+            envelope_profiles: Arc::new(BTreeMap::new()),
+            policy_bundle: Arc::new(ArcSwap::from_pointee(None)),
+            actuator_handles: ActuatorHandles::default(),
             epochs,
             config: RwLock::new(config),
             node_mode,
-            next_entry: std::sync::atomic::AtomicU64::new(1),
+            next_entry: AtomicU64::new(1),
+            pipeline: None,
         }
+    }
+
+    /// Attach Task 14 pipeline state and config snapshots.
+    pub fn with_pipeline(
+        mut self,
+        pipeline: Arc<AdmitPipelineState>,
+        envelope_profiles: Arc<BTreeMap<TargetId, Arc<ArcSwap<EnvelopeProfile>>>>,
+        policy_bundle: Arc<ArcSwap<Option<PolicyBundle>>>,
+    ) -> Self {
+        self.pipeline = Some(pipeline);
+        self.envelope_profiles = envelope_profiles;
+        self.policy_bundle = policy_bundle;
+        self
     }
 
     pub fn epochs(&self) -> &Arc<EpochRegistry> {
@@ -145,20 +190,35 @@ impl CommandGuard {
         &self.node_mode
     }
 
+    pub fn policy_snapshot(&self) -> arc_swap::Guard<Arc<Option<PolicyBundle>>> {
+        self.policy_bundle.load()
+    }
+
+    pub fn pipeline(&self) -> Option<&Arc<AdmitPipelineState>> { self.pipeline.as_ref() }
+    pub fn envelope_profile_for(&self, target: &TargetId) -> Option<Arc<EnvelopeProfile>> {
+        self.envelope_profiles.get(target).map(|c| c.load_full())
+    }
+
+    pub(crate) fn actuator_handles(&self) -> &ActuatorHandles {
+        &self.actuator_handles
+    }
+
     fn entry_id(&self) -> [u8; 16] {
-        let n = self
-            .next_entry
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let n = self.next_entry.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut id = [0u8; 16];
         id[..8].copy_from_slice(&n.to_le_bytes());
         id
     }
 
-    /// Admit `cmd` and, on success, dispatch it through `proxy`.
-    ///
-    /// This is the **only** production constructor path for
-    /// [`ActuationPermit`].  Bypassing `admit()` cannot produce a permit
-    /// because [`ActuationPermit::new`] is `pub(crate)` and the type is sealed.
+    fn device_id_for_target(&self, target: &TargetId) -> Option<String> {
+        self.config
+            .read()
+            .ok()
+            .and_then(|cfg| cfg.targets.get(target).map(|t| t.device_id.clone()))
+    }
+
+    /// Admit via legacy task 11/13 path (signature + mode + epoch) for callers
+    /// that do not supply Biscuit token context.
     pub fn admit<W: Write + Send>(
         &self,
         cmd: &CommandMessage,
@@ -166,77 +226,105 @@ impl CommandGuard {
         proxy: &mut DriverProxy<W>,
         frame: &[u8],
     ) -> Result<AdmittedCommand, AdmitError> {
-        // Stage 1 (CLAIM-13.1, PV-4.13, INV-5): reject commands in Lockdown or
-        // Restricted.  Mesh sync/log export remain available in Restricted but
-        // they do not pass through command admission.
-        let mode = self.node_mode.get();
-        if !mode.allows_commands() {
-            emit(
-                SecurityEvent::new(
-                    SecurityEventCategory::CommandDecision,
-                    Severity::High,
-                    ReasonCode::ModeLockdown,
-                )
-                .with_actor(cmd.issuer_did.as_str())
-                .with_target(cmd.target_id.as_str())
-                .with_detail(format!("command rejected: node mode {mode}")),
-            );
-            return Err(AdmitError::ModeRejected(mode));
-        }
-
-        // Signature verification (CLAIM-11.1, PV-4.2).  Unsigned / invalid
-        // signatures are rejected before any stateful checks.
-        if let Err(e) = verify_command_signature(cmd) {
-            emit(
-                SecurityEvent::new(
-                    SecurityEventCategory::CommandDecision,
-                    Severity::Medium,
-                    ReasonCode::CommandSignatureInvalid,
-                )
-                .with_actor(cmd.issuer_did.as_str())
-                .with_target(cmd.target_id.as_str())
-                .with_detail(format!("command signature rejected: {e}")),
-            );
-            return Err(AdmitError::InvalidSignature(e.to_string()));
-        }
-
-        // Stage 8 epoch check (task 8.7, preserved).  The target's local
-        // device identity is looked up from config; if absent we still verify
-        // the signature but cannot perform the epoch gate (later tasks require
-        // a profile/target binding).
-        if let Ok(cfg) = self.config.read() {
-            if let Some(target) = cfg.targets.get(&cmd.target_id) {
-                self.epochs
-                    .check_command_epoch(&target.device_id, cmd.enrollment_epoch)?;
+        if self.pipeline.is_some() {
+            // If pipeline is enabled but no token is provided, keep backward
+            // compatibility for existing callers by running legacy checks.
+            // Full Stage 3+ enforcement requires `admit_with_context`.
+            let sk = ingress_source_key(ingress, cmd);
+            let ctx = AdmitContext { ingress, source_key: &sk, biscuit_token: None, now_est_secs: None, simulate: false };
+            if ctx.biscuit_token.is_some() {
+                return self.admit_with_context(cmd, &ctx, proxy, frame);
             }
         }
+        self.admit_legacy(cmd, ingress, proxy, frame)
+    }
 
-        // Mint permit (CLAIM-11.2) — only here.
-        let permit = ActuationPermit::new(
-            cmd.target_id.clone(),
-            cmd.param.clone(),
-            cmd.desired_state,
-            self.entry_id(),
-        );
+    /// Task 14 admit path (Stages 0–15) + dispatch.
+    pub fn admit_with_context<W: Write + Send>(
+        &self,
+        cmd: &CommandMessage,
+        ctx: &AdmitContext<'_>,
+        proxy: &mut DriverProxy<W>,
+        frame: &[u8],
+    ) -> Result<AdmittedCommand, AdmitError> {
+        let pipeline = self.pipeline.as_ref().ok_or_else(|| AdmitError::Pipeline {
+            category: AdmitRejection::Unsupported,
+            detail: "pipeline not configured; use admit() or configure with_pipeline()".to_string(),
+        })?;
+        let device_id = self.device_id_for_target(&cmd.target_id);
+        match admit_stages_0_to_15(cmd, ctx, &self.node_mode, &self.epochs, pipeline, device_id.as_deref()) {
+            AdmitDecision::Accepted { .. } | AdmitDecision::Simulated { would_accept: true, .. } => {
+                let permit = ActuationPermit::new(
+                    cmd.target_id.clone(),
+                    cmd.param.clone(),
+                    cmd.desired_state,
+                    self.entry_id(),
+                );
+                let permit_ref = proxy.dispatch(permit, frame).map_err(|e| AdmitError::Dispatch(e.to_string()))?;
+                emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Low, ReasonCode::CommandAccepted)
+                    .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
+                    .with_detail(format!("admitted via {:?} (pipeline)", ctx.ingress)));
+                Ok(AdmittedCommand { permit_ref, ingress: ctx.ingress })
+            }
+            AdmitDecision::Rejected { category, detail, .. } => Err(AdmitError::Pipeline { category, detail }),
+            AdmitDecision::Simulated { would_accept: false, rejection, .. } => {
+                let (category, detail, _retry) = rejection.unwrap_or((AdmitRejection::Unsupported, "simulated rejection".to_string(), None));
+                Err(AdmitError::Pipeline { category, detail })
+            }
+        }
+    }
 
-        // Dispatch through DriverProxy (CLAIM-11.3).  The permit is consumed.
-        let permit_ref = proxy
-            .dispatch(permit, frame)
-            .map_err(|e| AdmitError::Dispatch(e.to_string()))?;
+    /// Side-effect-free dry run (PV-4.17). Does not mint a permit or dispatch.
+    pub fn simulate(&self, cmd: &CommandMessage, ctx: &AdmitContext<'_>) -> AdmitDecision {
+        let Some(pipeline) = self.pipeline.as_ref() else {
+            return AdmitDecision::Simulated {
+                would_accept: false,
+                rejection: Some((AdmitRejection::Unsupported, "pipeline not configured".to_string(), None)),
+                derived_role: None,
+            };
+        };
+        let mut sim = ctx.clone();
+        sim.simulate = true;
+        let device_id = self.device_id_for_target(&cmd.target_id);
+        admit_stages_0_to_15(cmd, &sim, &self.node_mode, &self.epochs, pipeline, device_id.as_deref())
+    }
 
-        emit(
-            SecurityEvent::new(
-                SecurityEventCategory::CommandDecision,
-                Severity::Low,
-                ReasonCode::CommandAccepted,
-            )
-            .with_actor(cmd.issuer_did.as_str())
-            .with_target(cmd.target_id.as_str())
-            .with_detail(format!("admitted via {:?}", ingress)),
-        );
-
+    fn admit_legacy<W: Write + Send>(
+        &self,
+        cmd: &CommandMessage,
+        ingress: IngressSource,
+        proxy: &mut DriverProxy<W>,
+        frame: &[u8],
+    ) -> Result<AdmittedCommand, AdmitError> {
+        let mode = self.node_mode.get();
+        if !mode.allows_commands() {
+            emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::High, ReasonCode::ModeLockdown)
+                .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
+                .with_detail(format!("command rejected: node mode {mode}")));
+            return Err(AdmitError::ModeRejected(mode));
+        }
+        if let Err(e) = verify_command_signature(cmd) {
+            emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Medium, ReasonCode::CommandSignatureInvalid)
+                .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
+                .with_detail(format!("command signature rejected: {e}")));
+            return Err(AdmitError::InvalidSignature(e.to_string()));
+        }
+        if let Ok(cfg) = self.config.read() {
+            if let Some(target) = cfg.targets.get(&cmd.target_id) {
+                self.epochs.check_command_epoch(&target.device_id, cmd.enrollment_epoch)?;
+            }
+        }
+        let permit = ActuationPermit::new(cmd.target_id.clone(), cmd.param.clone(), cmd.desired_state, self.entry_id());
+        let permit_ref = proxy.dispatch(permit, frame).map_err(|e| AdmitError::Dispatch(e.to_string()))?;
+        emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Low, ReasonCode::CommandAccepted)
+            .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
+            .with_detail(format!("admitted via {:?}", ingress)));
         Ok(AdmittedCommand { permit_ref, ingress })
     }
+}
+
+fn ingress_source_key(ingress: IngressSource, cmd: &CommandMessage) -> String {
+    format!("{:?}:{}", ingress, cmd.issuer_did.as_str())
 }
 
 /// Build a `CommandGuard` wired for a single local device/target (test helper

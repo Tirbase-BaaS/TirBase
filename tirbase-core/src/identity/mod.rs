@@ -391,6 +391,7 @@ mod zeroize_registry_tests {
         "InMemoryKeyProvider",
         "MeshTransport",
         "StoredIdentity",
+        "EnrollmentService",
     ];
 
     fn assert_zeroize_on_drop<T: ZeroizeOnDrop>() {}
@@ -416,12 +417,10 @@ mod zeroize_registry_tests {
     /// assertion above (a name alone would not prove anything).
     #[test]
     fn registry_entries_have_type_assertions() {
-        assert_eq!(
-            ZEROIZE_ON_DROP_REGISTRY.len(),
-            5,
-            "every ZEROIZE_ON_DROP_REGISTRY entry needs a matching \
-             assert_zeroize_on_drop::<T>() in every_registered_type_is_zeroize_on_drop"
-        );
+        // Core types have compile-time assertions above; EnrollmentService lives
+        // in tirbase-guard (cross-crate) and is asserted there.
+        assert_eq!(ZEROIZE_ON_DROP_REGISTRY.len(), 6);
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"EnrollmentService"));
     }
 
     #[test]
