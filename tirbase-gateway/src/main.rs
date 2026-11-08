@@ -28,11 +28,16 @@ pub mod admin;
 /// Health endpoint: GET /health → 200 OK (task 4.9.3, PV-30.3, CLAIM-4.9.3).
 pub mod health;
 
+/// `primary.db` schema and stores — including the `time_ratchet` table
+/// (task 7.6, CLAIM-7.6).
+pub mod db;
+
 mod config;
 mod hw_counter_binding;
 mod key_provider;
 mod monotonic_counter;
 mod security_sink;
+mod time_beacon;
 mod time_source;
 
 use std::sync::Arc;
@@ -40,11 +45,10 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use config::{GatewayConfig, KeyBackend};
+use db::time_ratchet::SqliteTimeRatchetStore;
 use hw_counter_binding::{BootCheck, HardwareCounterBinding, DEFAULT_SW_INCREMENT_PER_HW_WRITE};
 use key_provider::FileKeyProvider;
-use monotonic_counter::{
-    default_hardware_counter, SoftwareMonotonicCounter,
-};
+use monotonic_counter::{default_hardware_counter, SoftwareMonotonicCounter};
 use security_sink::GatewaySecurityEventLog;
 use time_source::SystemTimeSource;
 
@@ -52,6 +56,7 @@ use serde::{Deserialize, Serialize};
 use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::{KeyProvider, MonotonicCounterTrait};
 use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
+use tirbase_guard::time::{FreshnessState, TimeRatchet, TimeRatchetConfig};
 use tirbase_types::{CommandRole, DeviceSignature};
 
 /// Serialises tests that own the process-wide security event sink.
@@ -107,10 +112,121 @@ async fn main() -> Result<()> {
     // Install before anything else can emit, so boot events are recorded too.
     let event_log = GatewaySecurityEventLog::new().install();
 
+    // ── TimeRatchet (CLAIM-7.2, 7.3, 7.5, 7.6) ─────────────────────────────
+    // The ratchet lives in `primary.db` next to the monotonic counters.  Opening
+    // it creates/reads the `time_ratchet` table (with `beacon_boot_id`) and
+    // recovers `persisted_floor` from the previous run.
+    let ratchet_store =
+        SqliteTimeRatchetStore::open(&config.counter_db_path).with_context(|| {
+            format!(
+                "failed to open time_ratchet store at {}",
+                config.counter_db_path.display()
+            )
+        })?;
+    let mut ratchet = TimeRatchet::open(
+        Arc::new(ratchet_store),
+        TimeRatchetConfig {
+            max_forward_jump_secs: config.time_max_forward_jump_secs,
+            required_anchor_signatures: config.time_required_anchor_signatures,
+            staleness_window_secs: config.time_staleness_window_secs,
+        },
+    )
+    .context("failed to load the TimeRatchet from primary.db")?;
+
+    let freshness_before_beacon = ratchet.freshness(time_source.as_ref());
+    tracing::info!(
+        persisted_floor = ratchet.persisted_floor(),
+        last_beacon_time = ratchet.last_beacon_time(),
+        beacon_boot_id = ratchet.beacon_boot_id(),
+        now_est = ratchet.now_est(time_source.as_ref()),
+        freshness = freshness_before_beacon.as_str(),
+        max_forward_jump_secs = ratchet.max_forward_jump_secs(),
+        required_anchor_signatures = ratchet.required_anchor_signatures(),
+        "TimeRatchet loaded"
+    );
+
+    if freshness_before_beacon == FreshnessState::Unverified {
+        tirbase_core::events::emit(
+            SecurityEvent::new(
+                SecurityEventCategory::TimeRatchet,
+                Severity::Medium,
+                ReasonCode::FreshnessUnverified,
+            )
+            .with_detail(format!(
+                "authenticated time is UNVERIFIED (persisted_floor={}, beacon_boot_id={}); \
+                 critical parameters require a challenge nonce",
+                ratchet.persisted_floor(),
+                ratchet.beacon_boot_id()
+            )),
+        );
+    }
+
+    // Time-beacon ingress: a signed TimeAnchor beacon is admitted through
+    // `TimeRatchet::advance`, which enforces the max-forward-jump and M-of-N
+    // quorum rules (CLAIM-7.4, scenario S23).
+    if let Some(beacon_path) = &config.time_beacon_path {
+        let anchors_path = config
+            .time_anchor_keys_path
+            .as_ref()
+            .context("time_beacon_path requires time_anchor_keys_path")?;
+        let anchors = time_beacon::load_trust_anchors(anchors_path)?;
+        match time_beacon::ingest_time_beacon_file(
+            beacon_path,
+            &anchors,
+            &mut ratchet,
+            time_source.as_ref(),
+        ) {
+            Ok(advance) => tracing::info!(
+                previous_floor = advance.previous_floor,
+                new_floor = advance.new_floor,
+                jump_secs = advance.jump_secs,
+                anchor_signatures = advance.anchor_signatures,
+                "Beacon accepted"
+            ),
+            Err(error) => {
+                tracing::warn!(%error, "Beacon rejected");
+                if config.key_backend == KeyBackend::File {
+                    return Err(error).context("time beacon was rejected at boot");
+                }
+            }
+        }
+
+        if freshness_before_beacon == FreshnessState::Unverified
+            && ratchet.freshness(time_source.as_ref()) == FreshnessState::Verified
+        {
+            tirbase_core::events::emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::TimeRatchet,
+                    Severity::Low,
+                    ReasonCode::FreshnessRestored,
+                )
+                .with_detail(format!(
+                    "fresh beacon restored VERIFIED freshness (now_est={})",
+                    ratchet.now_est(time_source.as_ref())
+                )),
+            );
+        }
+    }
+
+    // Authenticated-time expiry gate: the boot attestation is issued with its
+    // expiry anchored to the ratchet floor and is checked with `now_est`, never
+    // the wall clock (CLAIM-7.3).  Time spent waiting for a beacon therefore
+    // expires it, which is precisely the behaviour Stage 9 applies to commands.
+    let now_est = ratchet.now_est(time_source.as_ref());
+    let expires_est = ratchet
+        .persisted_floor()
+        .saturating_add(config.boot_attestation_ttl_secs);
+    if ratchet.is_expired(expires_est, time_source.as_ref()) {
+        bail!(
+            "boot attestation expired: now_est {now_est} > expires_est {expires_est} \
+             (authenticated time advanced past the attestation window)"
+        );
+    }
+
     // ── MonotonicCounterTrait — Level 1 SQLite counter (CLAIM-5.3, 6.5) ────
     // WAL + synchronous=FULL; an increment is durable before it returns.
-    let counter = SoftwareMonotonicCounter::open(&config.counter_db_path, 0)
-        .with_context(|| {
+    let counter =
+        SoftwareMonotonicCounter::open(&config.counter_db_path, 0).with_context(|| {
             format!(
                 "failed to open monotonic counter at {}",
                 config.counter_db_path.display()
@@ -177,16 +293,18 @@ async fn main() -> Result<()> {
 
     // Prove the gateway signing path goes through the provider trait and that
     // a domain-separated SignedOperation verifies end-to-end (CLAIM-6.7).
-    let created_est = time_source
-        .wall_hint()
-        .map(|micros| micros.div_euclid(1_000_000))
-        .unwrap_or(0);
+    let created_est = ratchet.now_est(time_source.as_ref());
     let boot_record = GatewayBootRecord {
         boot_id: time_source.boot_id(),
         counter: boot_counter,
         did: key_provider.did().to_string(),
     };
-    match sign_and_verify_boot_record(key_provider.as_ref(), &boot_record, created_est) {
+    match sign_and_verify_boot_record(
+        key_provider.as_ref(),
+        &boot_record,
+        created_est,
+        expires_est,
+    ) {
         Ok(signature_count) => tracing::info!(
             signature_count,
             context = GatewayBootRecord::CONTEXT,
@@ -252,9 +370,10 @@ async fn main() -> Result<()> {
 fn build_key_provider(config: &GatewayConfig) -> Result<Arc<dyn KeyProvider>> {
     match config.key_backend {
         KeyBackend::File => {
-            let provider = FileKeyProvider::load_or_generate(&config.key_path).with_context(|| {
-                format!("failed to load device key at {}", config.key_path.display())
-            })?;
+            let provider =
+                FileKeyProvider::load_or_generate(&config.key_path).with_context(|| {
+                    format!("failed to load device key at {}", config.key_path.display())
+                })?;
             Ok(Arc::new(provider))
         }
         KeyBackend::Tpm2 => build_tpm2_provider(config),
@@ -267,9 +386,8 @@ fn build_tpm2_provider(config: &GatewayConfig) -> Result<Arc<dyn KeyProvider>> {
     use key_provider::Tpm2KeyProvider;
 
     let pcr_policy = match &config.tpm2_pcr_policy_path {
-        Some(path) => std::fs::read(path).with_context(|| {
-            format!("failed to read TPM2 PCR policy at {}", path.display())
-        })?,
+        Some(path) => std::fs::read(path)
+            .with_context(|| format!("failed to read TPM2 PCR policy at {}", path.display()))?,
         None => Vec::new(),
     };
     let provider = Tpm2KeyProvider::ed25519_sealed_seed(config.tpm2_nv_handle, pcr_policy);
@@ -316,13 +434,16 @@ fn sign_and_verify_boot_record(
     provider: &dyn KeyProvider,
     record: &GatewayBootRecord,
     created_est: i64,
+    expires_est: i64,
 ) -> Result<usize> {
-    let mut operation = SignedOperation::<GatewayBootRecord>::new(record, created_est, None)?;
+    let mut operation =
+        SignedOperation::<GatewayBootRecord>::new(record, created_est, Some(expires_est))?;
     operation.sign_with(provider, CommandRole::UpdateSigner)?;
 
-    let public_key: [u8; 32] = provider.public_key_bytes().try_into().map_err(|_| {
-        anyhow::anyhow!("device public key is not a 32-byte Ed25519 key")
-    })?;
+    let public_key: [u8; 32] = provider
+        .public_key_bytes()
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("device public key is not a 32-byte Ed25519 key"))?;
     let did = provider.did().to_string();
 
     operation.verify(record, |candidate| {

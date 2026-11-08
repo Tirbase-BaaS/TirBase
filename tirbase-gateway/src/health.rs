@@ -51,8 +51,7 @@ mod tests {
             .expect("bind to ephemeral port");
         let addr = listener.local_addr().expect("local_addr");
 
-        let app =
-            axum::Router::new().route("/health", axum::routing::get(health_handler));
+        let app = axum::Router::new().route("/health", axum::routing::get(health_handler));
 
         tokio::spawn(async move {
             axum::serve(listener, app)

@@ -147,9 +147,7 @@ mod linux {
 
     /// Return a JSON 501 Not Implemented response for `endpoint`.
     fn stub_501(endpoint: &str) -> String {
-        format!(
-            r#"{{"status":501,"error":"not implemented","endpoint":"{endpoint}"}}"#
-        )
+        format!(r#"{{"status":501,"error":"not implemented","endpoint":"{endpoint}"}}"#)
     }
 
     /// Minimal extraction of the `"cmd"` field value from a JSON object.

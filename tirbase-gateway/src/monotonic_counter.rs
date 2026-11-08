@@ -51,11 +51,13 @@ impl SoftwareMonotonicCounter {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|error| TirBaseError::LocalStoreWriteFailed {
-                    reason: format!(
-                        "create monotonic counter directory {}: {error}",
-                        parent.display()
-                    ),
+                std::fs::create_dir_all(parent).map_err(|error| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!(
+                            "create monotonic counter directory {}: {error}",
+                            parent.display()
+                        ),
+                    }
                 })?;
             }
         }
@@ -135,9 +137,11 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
     fn read(&self) -> Result<u64, TirBaseError> {
         self.with_conn(|conn| {
             let value: i64 = conn
-                .query_row("SELECT value FROM monotonic_counter WHERE id = 1", [], |row| {
-                    row.get(0)
-                })
+                .query_row(
+                    "SELECT value FROM monotonic_counter WHERE id = 1",
+                    [],
+                    |row| row.get(0),
+                )
                 .map_err(|e| db_error("read", e))?;
             from_i64(value)
         })
@@ -145,11 +149,15 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
 
     fn increment(&self) -> Result<u64, TirBaseError> {
         self.with_conn(|conn| {
-            let tx = conn.transaction().map_err(|e| db_error("begin increment", e))?;
+            let tx = conn
+                .transaction()
+                .map_err(|e| db_error("begin increment", e))?;
             let current: i64 = tx
-                .query_row("SELECT value FROM monotonic_counter WHERE id = 1", [], |row| {
-                    row.get(0)
-                })
+                .query_row(
+                    "SELECT value FROM monotonic_counter WHERE id = 1",
+                    [],
+                    |row| row.get(0),
+                )
                 .map_err(|e| db_error("read for increment", e))?;
             let next = from_i64(current)?.checked_add(1).ok_or_else(|| {
                 TirBaseError::LocalStoreWriteFailed {
@@ -169,11 +177,15 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
 
     fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
         self.with_conn(|conn| {
-            let tx = conn.transaction().map_err(|e| db_error("begin set_if_greater", e))?;
+            let tx = conn
+                .transaction()
+                .map_err(|e| db_error("begin set_if_greater", e))?;
             let current: i64 = tx
-                .query_row("SELECT value FROM monotonic_counter WHERE id = 1", [], |row| {
-                    row.get(0)
-                })
+                .query_row(
+                    "SELECT value FROM monotonic_counter WHERE id = 1",
+                    [],
+                    |row| row.get(0),
+                )
                 .map_err(|e| db_error("read for set_if_greater", e))?;
             let current = from_i64(current)?;
             let stored = if value > current {
@@ -186,7 +198,8 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
             } else {
                 current
             };
-            tx.commit().map_err(|e| db_error("commit set_if_greater", e))?;
+            tx.commit()
+                .map_err(|e| db_error("commit set_if_greater", e))?;
             Ok(stored)
         })
     }
@@ -270,12 +283,10 @@ impl MonotonicCounterTrait for SimulatedHardwareCounter {
             if value <= current {
                 return Ok(current);
             }
-            match self.value.compare_exchange(
-                current,
-                value,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            ) {
+            match self
+                .value
+                .compare_exchange(current, value, Ordering::SeqCst, Ordering::SeqCst)
+            {
                 Ok(_) => return Ok(value),
                 Err(observed) => current = observed,
             }

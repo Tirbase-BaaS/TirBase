@@ -346,7 +346,10 @@ mod tests {
     fn tpm2_stub_builds_both_key_options_and_fails_closed() {
         let sealed = Tpm2KeyProvider::ed25519_sealed_seed(0x0150_0001, vec![0xaa; 32]);
         assert_eq!(sealed.key_type(), DeviceKeyType::Ed25519);
-        assert!(matches!(sealed.mode(), Tpm2KeyMode::Ed25519SealedSeed { .. }));
+        assert!(matches!(
+            sealed.mode(),
+            Tpm2KeyMode::Ed25519SealedSeed { .. }
+        ));
         assert!(sealed.sign(b"payload").is_err());
 
         let p256 = Tpm2KeyProvider::p256(0x8100_0001);

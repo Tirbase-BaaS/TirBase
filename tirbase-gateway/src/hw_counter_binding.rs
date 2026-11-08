@@ -28,9 +28,7 @@ use std::sync::{Arc, Mutex};
 
 use rusqlite::{params, Connection};
 use tirbase_core::errors::TirBaseError;
-use tirbase_core::events::{
-    ReasonCode, SecurityEvent, SecurityEventCategory, Severity,
-};
+use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::{AssuranceLevel, MonotonicCounterTrait};
 
 /// Default software-counter advance between hardware NV writes.
@@ -140,7 +138,10 @@ impl HardwareCounterBinding {
         };
 
         // Record the wear-leveling threshold once, on first open.
-        if binding.read_value(keys::SW_INCREMENT_PER_HW_WRITE)?.is_none() {
+        if binding
+            .read_value(keys::SW_INCREMENT_PER_HW_WRITE)?
+            .is_none()
+        {
             binding.write_value(
                 keys::SW_INCREMENT_PER_HW_WRITE,
                 sw_increment_per_hw_write.max(1),
@@ -162,9 +163,7 @@ impl HardwareCounterBinding {
     /// `MonotonicCounterRegression` security event before returning.
     pub fn check_at_boot(&self) -> Result<BootCheck, TirBaseError> {
         let device_hw = self.hardware.read()?;
-        let persisted_hw = self
-            .read_value(keys::HW_COUNTER_VALUE)?
-            .unwrap_or_default();
+        let persisted_hw = self.read_value(keys::HW_COUNTER_VALUE)?.unwrap_or_default();
         // Use the higher of the live device value and the last persisted value:
         // a restore can drag the DB (and therefore the persisted value) back.
         let hw_counter = device_hw.max(persisted_hw);
@@ -364,9 +363,7 @@ mod tests {
         // Pretend the software counter was reset: 100 recorded at the last NV
         // write, but the NV counter has advanced to 900.
         let binding = open(&db, Arc::new(FakeHardwareCounter::new(900)), 1_000);
-        binding
-            .write_value(keys::HW_COUNTER_VALUE, 100)
-            .unwrap();
+        binding.write_value(keys::HW_COUNTER_VALUE, 100).unwrap();
         binding
             .write_value(keys::SW_COUNTER_AT_LAST_HW_WRITE, 100)
             .unwrap();
@@ -425,7 +422,11 @@ mod tests {
         );
 
         assert!(!binding.record_checkpoint(1_500).unwrap());
-        assert_eq!(hw.writes(), 1, "wear leveling suppresses per-command writes");
+        assert_eq!(
+            hw.writes(),
+            1,
+            "wear leveling suppresses per-command writes"
+        );
 
         assert!(binding.record_checkpoint(2_000).unwrap());
         assert_eq!(hw.writes(), 2);
