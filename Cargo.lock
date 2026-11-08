@@ -4871,11 +4871,14 @@ name = "tirbase-guard"
 version = "0.1.0"
 dependencies = [
  "ciborium",
+ "hex",
  "proptest",
  "serde",
+ "serde_json",
  "sha2 0.11.0",
  "tirbase-core",
  "tirbase-types",
+ "tokio",
 ]
 
 [[package]]

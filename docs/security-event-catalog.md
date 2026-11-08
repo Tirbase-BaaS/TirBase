@@ -135,6 +135,7 @@ Events emitted by the device enrollment and epoch subsystem (PV-3, PV-5.5).
 | EpochBumped | Device enrollment epoch bumped; prior-epoch commands will now be rejected | High | Planned | PV-5.5 |
 | EpochRegression | Peer reported a lower epoch than previously witnessed | High | Planned | PV-5.5 |
 | NonceReused | Bootstrap nonce was reused; replay rejected | High | Planned | PV-3.13 |
+| TrustRootRollbackRejected | A trust-root install/rotation record had a version not greater than the committed counter; boot rejected it | High | Implemented | PV-3.4 |
 
 ---
 
