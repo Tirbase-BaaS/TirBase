@@ -1,0 +1,24 @@
+# tirbase-guard.service — TirBase guard/gateway process (task 13.4/13.6).
+# ExecStopPost cannot drive safe defaults because driver children die with the
+# guard; safe defaults use controller watchdog registers armed by the guard
+# while healthy (option a, CLAIM-13.5).  See docs/safe-default-guard-death.md.
+
+[Unit]
+Description=TirBase hardened edge guard
+After=network.target
+OnFailure=tirbase-lockdown.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/tirbase-gateway /etc/tirbase/gateway.toml
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30
+# Crash-loop escalation (CLAIM-13.6, S24): supervisor restarts into Normal
+# after crash reconciliation; systemd StartLimitBurst=3 within 300s plus
+# OnFailure=tirbase-lockdown.service escalates to security LOCKDOWN.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+# tirbase-lockdown.service — oneshot lockdown flag writer (task 13.4, CLAIM-13.4,
+# PV-1.11, PV-4.15).  Triggered by OnFailure= from tirbase-guard.service.
+#
+# Writes LOCKDOWN to primary.db monotonic_counters(lockdown_state)=1 and the
+# secondary indicator /var/lib/tirbase/lockdown.  /run is tmpfs and is NOT used
+# as sole persistence.
+
+[Unit]
+Description=TirBase security LOCKDOWN flag writer (guard failure)
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/tirbase-admin lockdown-set --reason guard_process_failure --db /var/lib/tirbase/primary.db --marker /var/lib/tirbase/lockdown
+# Fallback: if tirbase-admin is unavailable, persist directly.
+ExecStart=-/bin/sh -c 'mkdir -p /var/lib/tirbase && printf "lockdown_state=1\nreason=guard_process_failure\n" > /var/lib/tirbase/lockdown'
+# DB fallback marker for tooling that only checks the file; the gateway boot
+# path also checks primary.db monotonic_counters(lockdown_state) and enters
+# LOCKDOWN if set.
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
