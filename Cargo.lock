@@ -4930,6 +4930,7 @@ name = "tirbase-sim"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "automerge",
  "rusqlite",
  "serde_json",
  "tirbase-core",
