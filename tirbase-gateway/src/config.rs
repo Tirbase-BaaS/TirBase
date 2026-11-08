@@ -39,8 +39,14 @@ pub struct GatewayConfig {
 
     /// SQLite database holding the Level 1 monotonic counter and the
     /// hardware-counter binding state (`monotonic_counters`).
+    /// Defaults to `primary.db` (PrimaryLedger, synchronous=FULL).
     #[serde(default = "default_counter_db")]
     pub counter_db_path: std::path::PathBuf,
+
+    /// DerivedLedger database (synchronous=NORMAL).  Created/opened at boot via
+    /// the migration framework (task 18.2, CLAIM-18.2).
+    #[serde(default = "default_derived_db")]
+    pub derived_db_path: std::path::PathBuf,
 
     /// How often the checkpoint loop binds the software counter to the
     /// hardware counter (PV-7.3 cadence; CLAIM-6.7a).  Defaults to 60 seconds.
@@ -148,6 +154,24 @@ pub struct GatewayConfig {
     pub admin_enabled: bool,
 }
 
+impl GatewayConfig {
+    /// Returns a derived DB path that lives alongside `counter_db_path` when the
+    /// derived path is not explicitly configured to a different location.
+    pub fn effective_derived_db_path(&self) -> std::path::PathBuf {
+        let default = default_derived_db();
+        if self.derived_db_path != default {
+            return self.derived_db_path.clone();
+        }
+        // If primary was overridden (common in tests/dev), co-locate derived next to it.
+        if self.counter_db_path != default_counter_db() {
+            if let Some(parent) = self.counter_db_path.parent() {
+                return parent.join("derived.db");
+            }
+        }
+        self.derived_db_path.clone()
+    }
+}
+
 fn default_admin_sock() -> std::path::PathBuf {
     std::path::PathBuf::from("/run/tirbase/admin.sock")
 }
@@ -160,6 +184,10 @@ fn default_counter_db() -> std::path::PathBuf {
     // The monotonic counters are PrimaryLedger state and live in `primary.db`
     // alongside the other anti-rollback tables (task 18.1).
     std::path::PathBuf::from("/var/lib/tirbase/primary.db")
+}
+
+fn default_derived_db() -> std::path::PathBuf {
+    std::path::PathBuf::from("/var/lib/tirbase/derived.db")
 }
 
 fn default_checkpoint_interval_secs() -> u64 {
@@ -217,6 +245,10 @@ mod tests {
         assert_eq!(
             config.counter_db_path,
             std::path::PathBuf::from("/var/lib/tirbase/primary.db")
+        );
+        assert_eq!(
+            config.derived_db_path,
+            std::path::PathBuf::from("/var/lib/tirbase/derived.db")
         );
         assert_eq!(config.checkpoint_interval_secs, 60);
         assert_eq!(config.time_max_forward_jump_secs, 86_400);

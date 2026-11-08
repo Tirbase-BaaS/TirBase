@@ -22,7 +22,6 @@
 
 use tirbase_gateway::*;
 
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -33,7 +32,9 @@ use db::enrollment_nonce::SqliteEnrollmentNonceStore;
 use db::time_ratchet::SqliteTimeRatchetStore;
 use hw_counter_binding::{BootCheck, HardwareCounterBinding, DEFAULT_SW_INCREMENT_PER_HW_WRITE};
 use key_provider::FileKeyProvider;
-use monotonic_counter::{default_hardware_counter, NamedMonotonicCounter, SoftwareMonotonicCounter};
+use monotonic_counter::{
+    default_hardware_counter, NamedMonotonicCounter, SoftwareMonotonicCounter,
+};
 use security_sink::GatewaySecurityEventLog;
 use time_source::SystemTimeSource;
 
@@ -41,8 +42,8 @@ use serde::{Deserialize, Serialize};
 use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::{KeyProvider, MonotonicCounterTrait};
-use tirbase_guard::epoch::{EnrollmentNonceStore, EpochBump, EpochRegistry};
 use tirbase_guard::enrollment::EnrollmentService;
+use tirbase_guard::epoch::{EnrollmentNonceStore, EpochBump, EpochRegistry};
 use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_guard::time::{FreshnessState, TimeRatchet, TimeRatchetConfig};
 use tirbase_guard::trust_root::{TrustRootError, TrustRootManager, TrustRootRecord};
@@ -100,6 +101,49 @@ async fn main() -> Result<()> {
     // ── SecurityEventSink (CLAIM-5.4) ──────────────────────────────────────
     // Install before anything else can emit, so boot events are recorded too.
     let event_log = GatewaySecurityEventLog::new().install();
+
+    // ── SQLite database split (CLAIM-18.1–18.4, PV-9.3) ────────────────────
+    // Open primary.db (PrimaryLedger, WAL+synchronous=FULL) and derived.db
+    // (DerivedLedger, WAL+synchronous=NORMAL) through the migration framework
+    // (task 32.1) before any reads/writes. Hardening pragmas are applied by
+    // the open helpers.
+    let node_mode =
+        tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Starting);
+    let primary_db_path = config.counter_db_path.clone();
+    let derived_db_path = config.effective_derived_db_path();
+    {
+        let primary = match db::open_primary(&primary_db_path) {
+            Ok(conn) => conn,
+            Err(action) => {
+                action.apply(Some(node_mode.as_ref()));
+                tracing::error!(
+                    node_mode = %node_mode.get().as_str(),
+                    action = %action,
+                    "primary.db open failed; SQLite error mapping applied (CLAIM-18.4)"
+                );
+                return Err(anyhow::anyhow!(action.to_string())).context("open primary.db");
+            }
+        };
+        let primary_ver = db::schema_version(&primary, db::DbKind::Primary)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        tracing::info!(path = %primary_db_path.display(), schema_version = primary_ver, "primary.db ready (synchronous=FULL, WAL, PrimaryLedger)");
+
+        let derived = match db::open_derived(&derived_db_path) {
+            Ok(conn) => conn,
+            Err(action) => {
+                action.apply(Some(node_mode.as_ref()));
+                tracing::error!(
+                    node_mode = %node_mode.get().as_str(),
+                    action = %action,
+                    "derived.db open failed; SQLite error mapping applied (CLAIM-18.4)"
+                );
+                return Err(anyhow::anyhow!(action.to_string())).context("open derived.db");
+            }
+        };
+        let derived_ver = db::schema_version(&derived, db::DbKind::Derived)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        tracing::info!(path = %derived_db_path.display(), schema_version = derived_ver, "derived.db ready (synchronous=NORMAL, WAL, DerivedLedger)");
+    }
 
     // ── TimeRatchet (CLAIM-7.2, 7.3, 7.5, 7.6) ─────────────────────────────
     // The ratchet lives in `primary.db` next to the monotonic counters.  Opening
@@ -423,6 +467,7 @@ async fn main() -> Result<()> {
     tracing::info!(
         admin_socket = %config.admin_socket.display(),
         health_addr  = %config.health_addr,
+        mode = node_mode.get().as_str(),
         "tirbase-gateway starting (skeleton — guard pipeline pending)",
     );
 
@@ -531,20 +576,13 @@ fn trust_root_failure(stage: &str, error: TrustRootError) -> anyhow::Error {
                  is not greater than committed version {current}"
             )),
         );
-        tracing::error!(
-            incoming,
-            current,
-            stage,
-            "trust root rollback rejected"
-        );
+        tracing::error!(incoming, current, stage, "trust root rollback rejected");
     }
     anyhow::anyhow!("trust root {stage} rejected: {error}")
 }
 
 /// Build the token-verification registry from the installed trust root.
-fn build_root_ca_registry(
-    record: Option<&TrustRootRecord>,
-) -> Result<Option<RootCaRegistry>> {
+fn build_root_ca_registry(record: Option<&TrustRootRecord>) -> Result<Option<RootCaRegistry>> {
     let Some(record) = record else {
         return Ok(None);
     };
@@ -567,8 +605,12 @@ fn run_root_ca_self_test(
     registered: &RootCaRegistry,
     now_est: i64,
 ) -> Result<()> {
-    let body = std::fs::read_to_string(token_path)
-        .with_context(|| format!("failed to read root CA self-test token at {}", token_path.display()))?;
+    let body = std::fs::read_to_string(token_path).with_context(|| {
+        format!(
+            "failed to read root CA self-test token at {}",
+            token_path.display()
+        )
+    })?;
     let token = hex::decode(body.trim())
         .context("root CA self-test token is not hex-encoded Biscuit bytes")?;
 
@@ -585,9 +627,7 @@ fn run_root_ca_self_test(
         registry.register(key);
     }
     registry
-        .verify_against_first(|key| {
-            tirbase_core::auth::biscuit::verify_token(&token, key, now_est)
-        })
+        .verify_against_first(|key| tirbase_core::auth::biscuit::verify_token(&token, key, now_est))
         .context("root CA self-test failed: token rejected after CA registration")?;
     tracing::info!(
         registered_keys = registry.active_keys().len(),

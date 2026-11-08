@@ -302,6 +302,16 @@ pub enum ReasonCode {
     BootCompleted,
     /// A persisted lockdown flag was found at boot.
     LockdownFlagFound,
+    /// PRAGMA quick_check detected database corruption at boot (PV-9.3).
+    QuickCheckFailed,
+    /// `SQLITE_FULL` (ENOSPC): High severity; continue with reduced logging (PV-9, CLAIM-18.4).
+    StorageFull,
+    /// `SQLITE_IOERR`: PrimaryLedger/DB I/O failure; enter Restricted mode (PV-9, CLAIM-18.4).
+    StorageError,
+    /// `SQLITE_CORRUPT`: enter Restricted mode; operator intervention required (PV-9, CLAIM-18.4).
+    StorageCorrupt,
+    /// Derived ledger rebuilt from signed delta log after corruption.
+    LedgerRebuilt,
     /// A trust-root record with a stale version was rejected at boot/rotation.
     TrustRootRollbackRejected,
 
@@ -318,7 +328,6 @@ pub enum ReasonCode {
     LockdownExitApplied,
     /// A lockdown-exit command was rejected (signature/quorum/profile).
     LockdownExitRejected,
-
     // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
 }
 
@@ -403,6 +412,11 @@ impl ReasonCode {
             ReasonCode::NonceReused => "NonceReused",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
+            ReasonCode::QuickCheckFailed => "QuickCheckFailed",
+            ReasonCode::StorageFull => "StorageFull",
+            ReasonCode::StorageError => "StorageError",
+            ReasonCode::StorageCorrupt => "StorageCorrupt",
+            ReasonCode::LedgerRebuilt => "LedgerRebuilt",
             ReasonCode::TrustRootRollbackRejected => "TrustRootRollbackRejected",
             ReasonCode::EnteredLockdown => "EnteredLockdown",
             ReasonCode::ExitedLockdown => "ExitedLockdown",
