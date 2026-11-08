@@ -358,3 +358,81 @@ impl SqliteAppliedEffectsStore {
         }
     }
 }
+
+/// Task 21.9: list targets with unresolved `Unknown` entries.
+pub fn list_unknown_targets(conn: &Connection) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT DISTINCT target_id FROM {APPLIED_EFFECTS_LEDGER_TABLE} WHERE state='Unknown'"
+        ))
+        .map_err(|e| format!("prepare unknown targets: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| format!("query unknown targets: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("collect unknown targets: {e}"))
+}
+
+/// Task 21.9: operator-clear (PolicyAuthority) advances an `Unknown` entry to
+/// `Failed`. Production caller: gateway admin path.
+pub fn operator_clear_unknown_to_failed(
+    conn: &Connection,
+    entry_id: &[u8; 16],
+    completion_ts: i64,
+    operator_detail: &[u8],
+) -> Result<bool, String> {
+    let changed = conn
+        .execute(
+            &format!(
+                "UPDATE {APPLIED_EFFECTS_LEDGER_TABLE}
+                 SET state='Failed', completion_ts=?2, driver_response=?3
+                 WHERE entry_id=?1 AND state='Unknown'"
+            ),
+            params![entry_id.as_slice(), completion_ts, operator_detail],
+        )
+        .map_err(|e| format!("operator clear unknown: {e}"))?;
+    Ok(changed > 0)
+}
+
+/// Task 21.9: insert or upsert an Unknown entry (admin/operator/test helper).
+pub fn mark_unknown_tx(
+    tx: &Transaction<'_>,
+    entry_id: [u8; 16],
+    issuer_did: &str,
+    target_id: &str,
+    param: &str,
+    actuating_ts: i64,
+) -> Result<(), String> {
+    tx.execute(
+        &format!("INSERT OR REPLACE INTO {APPLIED_EFFECTS_LEDGER_TABLE} (entry_id,issuer_did,target_id,param,desired_mantissa,desired_exponent,desired_unit_id,sequence_number,idempotency_key,expiry_est,policy_version,enrollment_epoch,state,actuating_ts,completion_ts,driver_response) VALUES (?1,?2,?3,?4,0,0,0,0,?5,0,0,0,'Unknown',?6,?6,NULL)"),
+        params![entry_id.as_slice(), issuer_did, target_id, param, entry_id.as_slice(), actuating_ts],
+    ).map_err(|e| format!("mark unknown: {e}"))?;
+    Ok(())
+}
+
+/// Task 21.9 runtime sync helper: resolve target_id for an entry (used to clear
+/// pipeline unknown_targets after operator clear).
+pub fn target_id_for_entry(
+    conn: &Connection,
+    entry_id: &[u8; 16],
+) -> Result<Option<String>, String> {
+    conn.query_row(
+        &format!("SELECT target_id FROM {APPLIED_EFFECTS_LEDGER_TABLE} WHERE entry_id=?1"),
+        params![entry_id.as_slice()],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(|e| format!("target_id_for_entry: {e}"))
+}
+
+/// Returns true if the target still has any `Unknown` AEF entries.
+pub fn target_has_unknown(conn: &Connection, target_id: &str) -> Result<bool, String> {
+    let n: i64 = conn
+        .query_row(
+            &format!("SELECT COUNT(*) FROM {APPLIED_EFFECTS_LEDGER_TABLE} WHERE target_id=?1 AND state='Unknown'"),
+            params![target_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("target_has_unknown: {e}"))?;
+    Ok(n > 0)
+}

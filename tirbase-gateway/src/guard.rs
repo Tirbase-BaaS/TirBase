@@ -13,7 +13,9 @@ use crate::db::anti_replay_windows::{
     self, AntiReplayCheck, DEFAULT_FORWARD_GAP_G, DEFAULT_WINDOW_W,
 };
 use crate::db::applied_effects_ledger::{self, AppliedEffectRow, EffectState};
+use crate::db::drift_rate_history::{self, DriftSummaryRow};
 use crate::db::idempotency_keys::{self, IdempotencyRow};
+use crate::db::target_state;
 
 pub use tirbase_guard::{
     coarse_for_rejection, commit_dispatch_finalize, stage17_acceptance, stage17_rejection,
@@ -56,6 +58,8 @@ impl SqliteStage16Store {
         anti_replay_windows::create_table(&conn)?;
         idempotency_keys::create_table(&conn)?;
         crate::db::single_writer_leases::create_table(&conn)?;
+        crate::db::target_state::create_table(&conn)?;
+        crate::db::drift_rate_history::create_table(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -258,6 +262,64 @@ impl Stage16Store for SqliteStage16Store {
         )
         .map_err(Stage16Error::Store)?;
 
+        // (g) 21.12: target_state updated atomically with Actuating write.
+        let canonical = cmd
+            .desired_state
+            .with_canonical_exponent(cmd.desired_state.exponent)
+            .unwrap_or(cmd.desired_state);
+        target_state::upsert_tx(&tx, cmd.target_id.as_str(), &cmd.param, canonical)
+            .map_err(Stage16Error::Store)?;
+
+        // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
+        let prev = drift_rate_history::load_summary_conn(&*tx, cmd.target_id.as_str(), &cmd.param)
+            .map_err(Stage16Error::Store)?;
+        let prev_target = target_state::get(&*tx, cmd.target_id.as_str(), &cmd.param)
+            .map_err(Stage16Error::Store)?
+            .or_else(|| prev.as_ref().map(|p| p.last_value));
+        let value_changed = prev_target
+            .map(|p| {
+                p.mantissa != canonical.mantissa
+                    || p.exponent != canonical.exponent
+                    || p.unit_id != canonical.unit_id
+            })
+            .unwrap_or(true);
+        let last_change_mono = if value_changed {
+            req.now_mono_secs
+        } else {
+            prev.as_ref()
+                .map(|p| p.last_change_mono)
+                .unwrap_or(req.now_mono_secs)
+        };
+        let is_bool_deactivation =
+            canonical.mantissa == 0 && prev_target.map(|p| p.mantissa == 1).unwrap_or(false);
+        let last_deactivation_mono = if is_bool_deactivation {
+            Some(req.now_mono_secs)
+        } else {
+            prev.as_ref().and_then(|p| p.last_deactivation_mono)
+        };
+        let cumulative_delta = if let Some(p) = &prev {
+            let delta =
+                (canonical.mantissa as i128 - p.last_value.mantissa as i128).unsigned_abs() as i64;
+            p.cumulative_delta_mantissa.saturating_add(delta)
+        } else {
+            0
+        };
+        let summary = DriftSummaryRow {
+            target_id: cmd.target_id.as_str().to_string(),
+            param: cmd.param.clone(),
+            last_accepted_est: req.now_est,
+            last_accepted_mono: req.now_mono_secs,
+            last_value: canonical,
+            window_start_est: prev
+                .as_ref()
+                .map(|p| p.window_start_est)
+                .unwrap_or(req.now_est),
+            cumulative_delta_mantissa: cumulative_delta,
+            last_change_mono,
+            last_deactivation_mono,
+        };
+        drift_rate_history::upsert_summary_tx(&tx, &summary).map_err(Stage16Error::Store)?;
+
         tx.execute(
             &format!("INSERT OR REPLACE INTO {} (issuer_did,target_id,sequence_number,enrollment_epoch,accepted,rejection_category,detail) VALUES (?1,?2,?3,?4,1,NULL,?5)", crate::db::decided_outcomes::DECIDED_OUTCOMES_TABLE),
             rusqlite::params![cmd.issuer_did.as_str(), cmd.target_id.as_str(), cmd.sequence_number as i64, cmd.enrollment_epoch as i64, req.original_result_json],
@@ -440,4 +502,74 @@ fn make_entry_id(cmd: &tirbase_types::command::CommandMessage) -> [u8; 16] {
         id[i % 16] ^= b;
     }
     id
+}
+
+/// Task 21.9/21.10/21.12/21.13 runtime hydration helpers (production wiring).
+/// Call after boot reconciliation and before accepting commands.
+pub fn hydrate_task21_runtime(
+    primary_db_path: &std::path::Path,
+    pipeline: &tirbase_guard::admit::AdmitPipelineState,
+) -> Result<Task21HydrationReport, String> {
+    let conn = rusqlite::Connection::open(primary_db_path)
+        .map_err(|e| format!("open primary.db for hydration: {e}"))?;
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .map_err(|e| format!("wal: {e}"))?;
+    conn.pragma_update(None, "synchronous", "FULL")
+        .map_err(|e| format!("sync: {e}"))?;
+
+    // 21.9: AEF Unknown targets block commands (INV-11) until operator clear.
+    let unknown = crate::db::applied_effects_ledger::list_unknown_targets(&conn)?;
+    for t in &unknown {
+        pipeline.mark_target_unknown(t.clone());
+    }
+
+    // 21.12: hydrate desired_state for Stage 12 cross-constraints.
+    let desired = crate::db::target_state::load_all(&conn)?;
+    let desired_count = desired.len();
+    for ((target, param), value) in desired {
+        pipeline.set_desired_state(&target, &param, value);
+    }
+
+    Ok(Task21HydrationReport {
+        unknown_targets: unknown,
+        desired_state_entries: desired_count,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Task21HydrationReport {
+    pub unknown_targets: Vec<String>,
+    pub desired_state_entries: usize,
+}
+
+/// Task 21.9: after operator clear, clear runtime unknown_targets if no Unknown
+/// AEF entries remain for the target. Production caller: admin clear-unknown.
+pub fn sync_unknown_target_after_clear(
+    primary_db_path: &std::path::Path,
+    entry_id: &[u8; 16],
+    pipeline: Option<&tirbase_guard::admit::AdmitPipelineState>,
+) -> Result<Option<String>, String> {
+    let conn =
+        rusqlite::Connection::open(primary_db_path).map_err(|e| format!("open primary.db: {e}"))?;
+    let Some(target_id) = crate::db::applied_effects_ledger::target_id_for_entry(&conn, entry_id)?
+    else {
+        return Ok(None);
+    };
+    let still_unknown = crate::db::applied_effects_ledger::target_has_unknown(&conn, &target_id)?;
+    if !still_unknown {
+        if let Some(p) = pipeline {
+            p.clear_target_unknown(&target_id);
+        }
+    }
+    Ok(Some(target_id))
+}
+
+/// Build a production drift/timing store wired for Stage 12/13/16 (21.10/21.13).
+/// Returns an Arc suitable for `AdmitPipelineState::set_drift_store`.
+pub fn open_drift_timing_store(
+    primary_db_path: impl AsRef<std::path::Path>,
+) -> Result<std::sync::Arc<crate::db::drift_rate_history::SqliteDriftRateHistoryStore>, String> {
+    Ok(std::sync::Arc::new(
+        crate::db::drift_rate_history::SqliteDriftRateHistoryStore::open(primary_db_path)?,
+    ))
 }

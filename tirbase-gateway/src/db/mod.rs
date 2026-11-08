@@ -26,6 +26,7 @@ pub mod migrations;
 pub mod pending_approvals;
 pub mod single_writer_leases;
 pub mod sqlite_errors;
+pub mod target_state;
 pub mod time_ratchet;
 
 pub use migrations::{open_derived, open_primary, schema_version, MigrationReport};

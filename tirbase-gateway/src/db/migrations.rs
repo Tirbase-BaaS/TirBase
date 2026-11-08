@@ -228,10 +228,11 @@ pub fn derived_migrations() -> &'static [Migration] {
     &DERIVED_MIGRATIONS
 }
 
-const PRIMARY_MIGRATIONS: [Migration; 1] = [Migration {
-    version: 1,
-    name: "task18_primary_ledger_tables",
-    sql: r#"
+const PRIMARY_MIGRATIONS: [Migration; 2] = [
+    Migration {
+        version: 1,
+        name: "task18_primary_ledger_tables",
+        sql: r#"
 -- Applied_Effects_Ledger (PrimaryLedger) (PV-5.1)
 CREATE TABLE IF NOT EXISTS applied_effects_ledger (
     entry_id          BLOB PRIMARY KEY,
@@ -442,7 +443,43 @@ CREATE TABLE IF NOT EXISTS drift_rate_history (
 CREATE INDEX IF NOT EXISTS idx_drift_lookup
     ON drift_rate_history(issuer_did, target_id, param, mono_secs);
 "#,
-}];
+    },
+    Migration {
+        version: 2,
+        name: "task21_single_writer_target_state_drift",
+        sql: r#"
+CREATE TABLE IF NOT EXISTS single_writer_leases (
+    target_id              TEXT PRIMARY KEY,
+    issuer_did             TEXT NOT NULL,
+    expires_mono           INTEGER NOT NULL,
+    consecutive_renewals   INTEGER NOT NULL DEFAULT 0,
+    cooldown_until_mono    INTEGER
+);
+CREATE TABLE IF NOT EXISTS target_state (
+    target_id       TEXT NOT NULL,
+    param           TEXT NOT NULL,
+    value_mantissa  INTEGER NOT NULL,
+    value_exponent  INTEGER NOT NULL,
+    value_unit_id   INTEGER NOT NULL,
+    PRIMARY KEY (target_id, param)
+);
+CREATE TABLE IF NOT EXISTS drift_rate_summary (
+    target_id                 TEXT NOT NULL,
+    param                     TEXT NOT NULL,
+    last_accepted_est         INTEGER NOT NULL,
+    last_accepted_mono        INTEGER NOT NULL,
+    last_value_mantissa       INTEGER NOT NULL,
+    last_value_exponent       INTEGER NOT NULL,
+    last_value_unit_id        INTEGER NOT NULL,
+    window_start_est          INTEGER NOT NULL DEFAULT 0,
+    cumulative_delta_mantissa INTEGER NOT NULL DEFAULT 0,
+    last_change_mono          INTEGER NOT NULL,
+    last_deactivation_mono    INTEGER,
+    PRIMARY KEY (target_id, param)
+);
+"#,
+    },
+];
 
 const DERIVED_MIGRATIONS: [Migration; 1] = [Migration {
     version: 1,
@@ -534,7 +571,7 @@ mod tests {
         let db = tmp("idempotent");
         {
             let conn = open_primary(&db).expect("open primary");
-            assert_eq!(schema_version(&conn, DbKind::Primary).unwrap(), 1);
+            assert!(schema_version(&conn, DbKind::Primary).unwrap() >= 2);
         }
         {
             let conn = open_primary(&db).expect("reopen primary");
@@ -543,7 +580,7 @@ mod tests {
                 report.applied.is_empty(),
                 "second run must not reapply: {report:?}"
             );
-            assert_eq!(report.to_version, 1);
+            assert!(report.to_version >= 2);
         }
         let _ = std::fs::remove_file(db);
     }

@@ -302,6 +302,8 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         "idempotency_keys",
         "challenge_nonces",
         "drift_rate_history",
+        "drift_rate_summary",
+        "target_state",
         "pending_approvals",
         "peer_checkpoint_witnesses",
         "security_event_segments",

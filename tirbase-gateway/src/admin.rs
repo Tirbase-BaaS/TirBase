@@ -34,6 +34,8 @@ pub struct AdminState {
     pub challenge_store: Option<Arc<dyn ChallengeNonceStore>>,
     /// Task 16.4/S32: max challenge nonce requests per device/target/param/minute.
     pub challenge_requests_per_minute: u32,
+    /// Task 21.2/21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
+    pub primary_db_path: Option<std::path::PathBuf>,
 }
 
 impl fmt::Debug for AdminState {
@@ -62,6 +64,7 @@ impl Default for AdminState {
             guard: None,
             challenge_store: None,
             challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+            primary_db_path: None,
         }
     }
 }
@@ -83,6 +86,7 @@ impl AdminState {
             guard: None,
             challenge_store: None,
             challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+            primary_db_path: None,
         }
     }
 }
@@ -111,6 +115,9 @@ pub fn dispatch_admin_command_at(
         Some("status") => stub_501("status"),
         Some("sequence-reset") => dispatch_sequence_reset(command, state, now_est),
         Some("epoch-bump") => dispatch_epoch_bump(command, state, now_est),
+        Some("lease-preempt") => dispatch_lease_preempt(command, state, now_est),
+        Some("clear-unknown") => dispatch_clear_unknown(command, state, now_est),
+        Some("revoke-issuer") => dispatch_revoke_issuer(command, state, now_est),
         _ => r#"{"status":400,"error":"unknown command"}"#.to_string(),
     };
     format!("{body}\n")
@@ -511,6 +518,288 @@ pub async fn run_admin_listener(
         let _ = (sock_path, state);
         anyhow::bail!("admin Unix-socket listener is Linux-only (SO_PEERCRED); not supported on this platform")
     }
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+struct LeasePreemptPayload {
+    action: String,
+    target_id: String,
+    #[serde(default)]
+    new_issuer_did: Option<String>,
+    now_est: i64,
+}
+impl tirbase_guard::SignedOperationPayload for LeasePreemptPayload {
+    const CONTEXT: &'static str = "TirBase/v1/LeasePreempt";
+}
+
+#[derive(Debug, Deserialize)]
+struct LeasePreemptRequest {
+    target_id: String,
+    #[serde(default)]
+    new_issuer_did: Option<String>,
+    #[serde(default)]
+    lease_duration_secs: Option<i64>,
+}
+
+/// Task 21.2 (CLAIM-21.2, PV-5.8a): M-of-N RevocationManager + PolicyAuthority
+/// joint operation forcibly releases/reassigns a SingleWriterLease. Production
+/// caller: gateway admin Unix-socket path.
+fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(st) = state else {
+        return stub_501("lease-preempt");
+    };
+    let Some(db_path) = st.primary_db_path.as_ref() else {
+        return stub_501("lease-preempt");
+    };
+    let Some(trust_root) = st.trust_root.as_ref() else {
+        return stub_501("lease-preempt");
+    };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("lease-preempt requires payload"),
+    };
+    let op_val = payload_val.get("operation").cloned();
+    let req: LeasePreemptRequest = match serde_json::from_value(
+        payload_val
+            .get("request")
+            .cloned()
+            .unwrap_or(payload_val.clone()),
+    ) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid lease-preempt: {e}")),
+    };
+    // Require joint M-of-N: at least one PolicyAuthority and one RevocationManager signature.
+    if let Some(opv) = op_val {
+        let op: tirbase_guard::SignedOperation<LeasePreemptPayload> =
+            match serde_json::from_value(opv) {
+                Ok(o) => o,
+                Err(e) => return bad_request(&format!("invalid operation: {e}")),
+            };
+        let resolve = |did: &str| -> Option<Vec<u8>> {
+            for role in [
+                tirbase_types::CommandRole::PolicyAuthority,
+                tirbase_types::CommandRole::RevocationManager,
+            ] {
+                if let Some(rp) = trust_root.role_thresholds.get(&role) {
+                    if let Some(s) = rp.authorized_signers.iter().find(|s| s.did == did) {
+                        return Some(s.public_key.clone());
+                    }
+                }
+            }
+            None
+        };
+        let binding = LeasePreemptPayload {
+            action: "lease-preempt".into(),
+            target_id: req.target_id.clone(),
+            new_issuer_did: req.new_issuer_did.clone(),
+            now_est,
+        };
+        if op.verify(&binding, resolve).is_err() {
+            return serde_json::json!({"status":409,"error":"lease-preempt requires valid M-of-N RevocationManager+PolicyAuthority signatures","endpoint":"lease-preempt"}).to_string();
+        }
+        let has_pa = op
+            .signatures
+            .iter()
+            .any(|s| s.role == tirbase_types::CommandRole::PolicyAuthority);
+        let has_rm = op
+            .signatures
+            .iter()
+            .any(|s| s.role == tirbase_types::CommandRole::RevocationManager);
+        if !has_pa || !has_rm {
+            return serde_json::json!({"status":409,"error":"lease-preempt requires PolicyAuthority and RevocationManager signatures","endpoint":"lease-preempt"}).to_string();
+        }
+    } else {
+        return serde_json::json!({"status":409,"error":"lease-preempt requires signed joint operation (M-of-N RevocationManager+PolicyAuthority)","endpoint":"lease-preempt"}).to_string();
+    }
+    let conn = match rusqlite::Connection::open(db_path) {
+        Ok(c) => c,
+        Err(e) => {
+            return serde_json::json!({"status":500,"error":format!("open primary.db: {e}")})
+                .to_string()
+        }
+    };
+    let _ = conn.pragma_update(None, "journal_mode", "WAL");
+    let _ = conn.pragma_update(None, "synchronous", "FULL");
+    let lease_dur = req
+        .lease_duration_secs
+        .unwrap_or(crate::db::single_writer_leases::DEFAULT_LEASE_DURATION_MONO_SECS);
+    let now_mono = now_est; // admin path uses now_est as monotonic hint when mono unavailable
+    let mut txc = conn;
+    let tx = match txc.transaction() {
+        Ok(t) => t,
+        Err(e) => return serde_json::json!({"status":500,"error":format!("tx: {e}")}).to_string(),
+    };
+    match crate::db::single_writer_leases::preempt_tx(
+        &tx,
+        &req.target_id,
+        req.new_issuer_did.as_deref(),
+        now_mono,
+        lease_dur,
+    ) {
+        Ok(prior) => {
+            if tx.commit().is_err() {
+                return serde_json::json!({"status":500,"error":"commit failed"}).to_string();
+            }
+            serde_json::json!({"status":200,"endpoint":"lease-preempt","target_id":req.target_id,"prior_holder":prior,"new_issuer_did":req.new_issuer_did}).to_string()
+        }
+        Err(e) => {
+            serde_json::json!({"status":500,"error":e,"endpoint":"lease-preempt"}).to_string()
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+struct ClearUnknownPayload {
+    action: String,
+    entry_id_hex: String,
+}
+impl tirbase_guard::SignedOperationPayload for ClearUnknownPayload {
+    const CONTEXT: &'static str = "TirBase/v1/ClearUnknown";
+}
+
+#[derive(Debug, Deserialize)]
+struct ClearUnknownRequest {
+    entry_id_hex: String,
+}
+
+/// Task 21.9 (CLAIM-21.9, PV-5.11): PolicyAuthority operator-clear advances
+/// Unknown -> Failed.
+fn dispatch_clear_unknown(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(st) = state else {
+        return stub_501("clear-unknown");
+    };
+    let Some(db_path) = st.primary_db_path.as_ref() else {
+        return stub_501("clear-unknown");
+    };
+    let Some(trust_root) = st.trust_root.as_ref() else {
+        return stub_501("clear-unknown");
+    };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("clear-unknown requires payload"),
+    };
+    let op_val = payload_val.get("operation").cloned();
+    let req: ClearUnknownRequest = match serde_json::from_value(
+        payload_val
+            .get("request")
+            .cloned()
+            .unwrap_or(payload_val.clone()),
+    ) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid clear-unknown: {e}")),
+    };
+    if let Some(opv) = op_val {
+        let op: tirbase_guard::SignedOperation<ClearUnknownPayload> =
+            match serde_json::from_value(opv) {
+                Ok(o) => o,
+                Err(e) => return bad_request(&format!("invalid operation: {e}")),
+            };
+        let resolve = |did: &str| -> Option<Vec<u8>> {
+            trust_root
+                .role_thresholds
+                .get(&tirbase_types::CommandRole::PolicyAuthority)
+                .and_then(|rp| rp.authorized_signers.iter().find(|s| s.did == did))
+                .map(|s| s.public_key.clone())
+        };
+        let binding = ClearUnknownPayload {
+            action: "clear-unknown".into(),
+            entry_id_hex: req.entry_id_hex.clone(),
+        };
+        if op.verify(&binding, resolve).is_err() {
+            return serde_json::json!({"status":409,"error":"clear-unknown requires valid PolicyAuthority signature","endpoint":"clear-unknown"}).to_string();
+        }
+        if !op
+            .signatures
+            .iter()
+            .any(|s| s.role == tirbase_types::CommandRole::PolicyAuthority)
+        {
+            return serde_json::json!({"status":409,"error":"clear-unknown requires PolicyAuthority role","endpoint":"clear-unknown"}).to_string();
+        }
+    } else {
+        return serde_json::json!({"status":409,"error":"clear-unknown requires PolicyAuthority signed operation","endpoint":"clear-unknown"}).to_string();
+    }
+    let Some(entry_id) = hex_decode_32(&req.entry_id_hex)
+        .map(|b| {
+            let mut id = [0u8; 16];
+            id.copy_from_slice(&b[..16]);
+            id
+        })
+        .or_else(|| {
+            let s = req.entry_id_hex.trim();
+            if s.len() != 32 {
+                return None;
+            }
+            let mut id = [0u8; 16];
+            for i in 0..16 {
+                let hi = (s.as_bytes()[i * 2] as char).to_digit(16)? as u8;
+                let lo = (s.as_bytes()[i * 2 + 1] as char).to_digit(16)? as u8;
+                id[i] = (hi << 4) | lo;
+            }
+            Some(id)
+        })
+    else {
+        return bad_request("invalid entry_id_hex");
+    };
+    let conn = match rusqlite::Connection::open(db_path) {
+        Ok(c) => c,
+        Err(e) => {
+            return serde_json::json!({"status":500,"error":format!("open: {e}")}).to_string()
+        }
+    };
+    let target_before = crate::db::applied_effects_ledger::target_id_for_entry(&conn, &entry_id)
+        .ok()
+        .flatten();
+    match crate::db::applied_effects_ledger::operator_clear_unknown_to_failed(&conn, &entry_id, now_est, b"operator_clear_policy_authority") {
+        Ok(true) => {
+            // Task 21.9 runtime sync: unblock target if no Unknown entries remain.
+            if let Some(target_id) = target_before {
+                let still = crate::db::applied_effects_ledger::target_has_unknown(&conn, &target_id).unwrap_or(true);
+                if !still {
+                    if let Some(guard) = st.guard.as_ref() {
+                        if let Some(p) = guard.pipeline() { p.clear_target_unknown(&target_id); }
+                    }
+                }
+            }
+            serde_json::json!({"status":200,"endpoint":"clear-unknown","entry_id_hex":req.entry_id_hex,"outcome":"Unknown->Failed"}).to_string()
+        }
+        Ok(false) => serde_json::json!({"status":404,"error":"no Unknown entry with that id","endpoint":"clear-unknown"}).to_string(),
+        Err(e) => serde_json::json!({"status":500,"error":e}).to_string(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct RevokeIssuerRequest {
+    issuer_did: String,
+}
+
+/// Task 21.3 (CLAIM-21.3): release leases held by revoked issuer DID.
+fn dispatch_revoke_issuer(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
+    let Some(st) = state else {
+        return stub_501("revoke-issuer");
+    };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("revoke-issuer requires payload"),
+    };
+    let req: RevokeIssuerRequest =
+        match serde_json::from_value(payload_val.get("request").cloned().unwrap_or(payload_val)) {
+            Ok(r) => r,
+            Err(e) => return bad_request(&format!("invalid revoke-issuer: {e}")),
+        };
+    if let Some(guard) = st.guard.as_ref() {
+        if let Some(p) = guard.pipeline() {
+            p.revoke_did(req.issuer_did.clone());
+        }
+    }
+    let mut leases_released = 0usize;
+    if let Some(db_path) = st.primary_db_path.as_ref() {
+        if let Ok(conn) = rusqlite::Connection::open(db_path) {
+            leases_released =
+                crate::db::single_writer_leases::release_all_for_issuer_did(&conn, &req.issuer_did)
+                    .unwrap_or(0);
+        }
+    }
+    serde_json::json!({"status":200,"endpoint":"revoke-issuer","issuer_did":req.issuer_did,"leases_released":leases_released}).to_string()
 }
 
 #[cfg(test)]

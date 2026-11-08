@@ -149,6 +149,16 @@ async fn main() -> Result<()> {
             ),
         }
 
+        // Task 21.5: release all SingleWriterLease rows at boot (stale leases
+        // must not block targets after restart). Production caller: gateway.
+        match db::single_writer_leases::release_all_at_boot(&primary) {
+            Ok(deleted) => tracing::info!(
+                deleted,
+                "released all single_writer_leases at boot (CLAIM-21.5)"
+            ),
+            Err(error) => tracing::error!(%error, "single_writer_leases boot release failed"),
+        }
+
         // ── Ledger pruning background job (19.5, PV-5.12) ──────────────────
         // Production caller: background task in tirbase-gateway.
         {
@@ -503,11 +513,12 @@ async fn main() -> Result<()> {
 
     // ── Admin listener with enrollment / epoch-bump state (tasks 8.5–8.8) ──
     let admin_state = match (&enrollment_service, trust_root.as_ref()) {
-        (Some(service), Some(record)) => Some(Arc::new(admin::AdminState::new(
-            service.clone(),
-            epochs.clone(),
-            record.clone(),
-        ))),
+        (Some(service), Some(record)) => {
+            let mut st =
+                admin::AdminState::new(service.clone(), epochs.clone(), Arc::clone(record));
+            st.primary_db_path = Some(primary_db_path.clone());
+            Some(Arc::new(st))
+        }
         _ => None,
     };
     if config.admin_enabled {
@@ -895,3 +906,7 @@ fn sign_and_verify_boot_record(
 
     Ok(operation.signatures.len())
 }
+
+// (note: full CommandGuard/AdmitPipeline production construction is pending
+// gateway command-server wiring; Task 21 hydration/sync helpers are implemented
+// and integration-tested in tirbase_gateway::guard and admin dispatch paths.)

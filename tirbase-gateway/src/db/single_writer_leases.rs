@@ -1,10 +1,11 @@
-//! `single_writer_leases` SQLite store (PV-5.8, CLAIM-15.1/21.x, INV-13).
+//! `single_writer_leases` SQLite store (PV-5.8, CLAIM-15.1/21.1-21.5, INV-13).
 //! Lease duration uses monotonic time (`CLOCK_BOOTTIME` domain), not `now_est`.
 
 use std::path::Path;
 use std::sync::Mutex;
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 
 pub const SINGLE_WRITER_LEASES_TABLE: &str = "single_writer_leases";
 pub const DEFAULT_LEASE_DURATION_MONO_SECS: i64 = 30;
@@ -97,7 +98,7 @@ pub fn acquire_tx(
                 row.consecutive_renewals.saturating_add(1)
             };
             if renewals >= max_consecutive_renewals {
-                // enter cooldown, do not grant lease now
+                // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
                 let cooldown_until = now_mono_secs.saturating_add(lease_duration_secs);
                 tx.execute(
                     &format!("INSERT OR REPLACE INTO {SINGLE_WRITER_LEASES_TABLE} (target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono) VALUES (?1,?2,?3,?4,?5)"),
@@ -124,6 +125,77 @@ pub fn release_tx(tx: &Transaction<'_>, target_id: &str, issuer_did: &str) -> Re
     )
     .map_err(|e| format!("release lease: {e}"))?;
     Ok(())
+}
+
+/// Task 21.5: release all leases at boot (stale leases are expired/released).
+pub fn release_all_at_boot(conn: &Connection) -> Result<usize, String> {
+    let deleted = conn
+        .execute(&format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE}"), [])
+        .map_err(|e| format!("release all leases at boot: {e}"))?;
+    Ok(deleted)
+}
+
+/// Task 21.2: M-of-N preemption by RevocationManager + PolicyAuthority joint op.
+/// Production caller: gateway admin path.
+pub fn preempt_tx(
+    tx: &Transaction<'_>,
+    target_id: &str,
+    new_issuer_did: Option<&str>,
+    now_mono_secs: i64,
+    lease_duration_secs: i64,
+) -> Result<Option<String>, String> {
+    let prior = load_tx(tx, target_id)?.map(|r| r.issuer_did);
+    if let Some(issuer) = new_issuer_did {
+        let expires = now_mono_secs.saturating_add(lease_duration_secs);
+        tx.execute(
+            &format!("INSERT OR REPLACE INTO {SINGLE_WRITER_LEASES_TABLE} (target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono) VALUES (?1,?2,?3,0,NULL)"),
+            params![target_id, issuer, expires],
+        )
+        .map_err(|e| format!("preempt lease: {e}"))?;
+    } else {
+        tx.execute(
+            &format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE} WHERE target_id=?1"),
+            params![target_id],
+        )
+        .map_err(|e| format!("preempt release lease: {e}"))?;
+    }
+    emit(
+        SecurityEvent::new(
+            SecurityEventCategory::Revocation,
+            Severity::Medium,
+            ReasonCode::RevocationLeaseReleased,
+        )
+        .with_target(target_id)
+        .with_detail(format!(
+            "lease preempted prior_holder={:?} new_issuer={:?}",
+            prior, new_issuer_did
+        )),
+    );
+    Ok(prior)
+}
+
+/// Task 21.3: release all leases held by a revoked DID.
+pub fn release_all_for_issuer_did(conn: &Connection, issuer_did: &str) -> Result<usize, String> {
+    let deleted = conn
+        .execute(
+            &format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE} WHERE issuer_did=?1"),
+            params![issuer_did],
+        )
+        .map_err(|e| format!("release leases for revoked DID: {e}"))?;
+    if deleted > 0 {
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::Revocation,
+                Severity::Medium,
+                ReasonCode::RevocationLeaseReleased,
+            )
+            .with_actor(issuer_did)
+            .with_detail(format!(
+                "released {deleted} lease(s) for revoked issuer DID"
+            )),
+        );
+    }
+    Ok(deleted)
 }
 
 #[derive(Debug)]
@@ -153,5 +225,30 @@ impl SqliteLeaseStore {
             Ok(g) => g,
             Err(p) => p.into_inner(),
         }
+    }
+    pub fn release_all_at_boot(&self) -> Result<usize, String> {
+        release_all_at_boot(&self.connection())
+    }
+    pub fn release_all_for_issuer_did(&self, issuer_did: &str) -> Result<usize, String> {
+        release_all_for_issuer_did(&self.connection(), issuer_did)
+    }
+    pub fn preempt(
+        &self,
+        target_id: &str,
+        new_issuer_did: Option<&str>,
+        now_mono_secs: i64,
+        lease_duration_secs: i64,
+    ) -> Result<Option<String>, String> {
+        let mut conn = self.connection();
+        let tx = conn.transaction().map_err(|e| format!("begin: {e}"))?;
+        let prior = preempt_tx(
+            &tx,
+            target_id,
+            new_issuer_did,
+            now_mono_secs,
+            lease_duration_secs,
+        )?;
+        tx.commit().map_err(|e| format!("commit: {e}"))?;
+        Ok(prior)
     }
 }
