@@ -34,7 +34,7 @@
 use std::collections::HashMap;
 
 use crate::api::types::TrustLevel;
-use crate::crdt::delta::{Did, DeltaId, Ed25519Signature};
+use crate::crdt::delta::{DeltaId, Did, Ed25519Signature};
 use crate::errors::TirBaseError;
 use crate::events::{emit_revocation, ReasonCode, Severity};
 use crate::identity::{did as did_mod, keypair};
@@ -98,10 +98,7 @@ pub struct PendingRevocation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RevocationStatus {
     /// Not yet reached the M threshold.
-    Pending {
-        collected: usize,
-        required: usize,
-    },
+    Pending { collected: usize, required: usize },
     /// M signatures collected; Revocation_Delta is ready to apply.
     Applied,
 }
@@ -199,10 +196,7 @@ impl PendingRevocationStore {
             .any(|s| s.manager_did == sig.manager_did)
         {
             return Err(TirBaseError::AuthorisationFailed {
-                reason: format!(
-                    "duplicate signature from manager DID '{}'",
-                    sig.manager_did
-                ),
+                reason: format!("duplicate signature from manager DID '{}'", sig.manager_did),
             });
         }
 
@@ -429,8 +423,9 @@ impl RevocationSubsystem {
                 );
 
                 // 2. Query DAG for all Delta IDs authored by the revoked DID.
-                let authored_delta_ids =
-                    self.query_deltas_by_author(&delta.target_did).unwrap_or_default();
+                let authored_delta_ids = self
+                    .query_deltas_by_author(&delta.target_did)
+                    .unwrap_or_default();
 
                 // 3. Gossip callback — HIGH priority (Req 9.2).
                 on_revocation_applied(&delta.target_did, &complete_delta);
@@ -453,10 +448,7 @@ impl RevocationSubsystem {
     /// - at least M valid, distinct, non-REVOKED Manager signatures are present
     ///
     /// Returns `Err(ThresholdNotMet)` if fewer than M valid sigs present.
-    pub fn validate_revocation_delta(
-        &self,
-        delta: &RevocationDelta,
-    ) -> Result<(), TirBaseError> {
+    pub fn validate_revocation_delta(&self, delta: &RevocationDelta) -> Result<(), TirBaseError> {
         if delta.target_did.is_empty() {
             return Err(TirBaseError::DeltaMalformed {
                 reason: "RevocationDelta.target_did is empty".to_string(),
@@ -570,9 +562,12 @@ impl RevocationSubsystem {
     /// This is used to collect the initial set of root Deltas to pass to the CCE
     /// when a device is revoked (Req 10.1).
     fn query_deltas_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("RevocationSubsystem mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("RevocationSubsystem mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare("SELECT id FROM dag_nodes WHERE author_did = ?1;")
@@ -681,7 +676,9 @@ impl RevocationSubsystem {
                 self.threshold_n,
                 &self.revoked_dids,
             ) {
-                Ok(status) => { last_status = Some(status); }
+                Ok(status) => {
+                    last_status = Some(status);
+                }
                 Err(TirBaseError::AuthorisationFailed { reason }) => {
                     log_revocation_failure(&delta.target_did, &reason);
                 }
@@ -741,10 +738,7 @@ impl RevocationSubsystem {
         Ok(current_status)
     }
 
-    pub fn validate_revocation_delta(
-        &self,
-        delta: &RevocationDelta,
-    ) -> Result<(), TirBaseError> {
+    pub fn validate_revocation_delta(&self, delta: &RevocationDelta) -> Result<(), TirBaseError> {
         if delta.target_did.is_empty() {
             return Err(TirBaseError::DeltaMalformed {
                 reason: "RevocationDelta.target_did is empty".to_string(),
@@ -851,10 +845,15 @@ pub fn current_timestamp_micros() -> i64 {
 fn log_revocation_failure(target_did: &str, reason: &str) {
     // In a production build this would write to the structured diagnostic log.
     // For v1 we use eprintln so the record is always visible without a log subscriber.
-    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-        "[RevocationSubsystem] verification failure for target='{}': {}",
-        target_did, reason
-    ));
+    emit_revocation(
+        Severity::High,
+        ReasonCode::RevocationVerificationFailed,
+        None,
+        format!(
+            "[RevocationSubsystem] verification failure for target='{}': {}",
+            target_did, reason
+        ),
+    );
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -890,12 +889,8 @@ mod tests {
         manager_did: &str,
         manager_sk: &[u8; 32],
     ) -> RevocationDelta {
-        sys.produce_partial_delta(
-            target_did.to_string(),
-            manager_did.to_string(),
-            manager_sk,
-        )
-        .expect("produce_partial_delta should succeed")
+        sys.produce_partial_delta(target_did.to_string(), manager_did.to_string(), manager_sk)
+            .expect("produce_partial_delta should succeed")
     }
 
     /// No-op callbacks for testing (we verify effects via device_status).
@@ -917,7 +912,13 @@ mod tests {
             .expect("process_incoming_delta should not fail with 1/3 sigs");
 
         assert!(
-            matches!(status, RevocationStatus::Pending { collected: 1, required: 3 }),
+            matches!(
+                status,
+                RevocationStatus::Pending {
+                    collected: 1,
+                    required: 3
+                }
+            ),
             "expected Pending(1/3), got: {status:?}"
         );
     }
@@ -949,7 +950,9 @@ mod tests {
         assert_eq!(status, RevocationStatus::Applied, "expected Applied at M=2");
 
         // Device must now be in the REVOKED map.
-        let device_st = sys.device_status(&target).expect("device status must exist");
+        let device_st = sys
+            .device_status(&target)
+            .expect("device status must exist");
         assert_eq!(device_st.last_known_trust_level, TrustLevel::Revoked);
         assert!(device_st.last_revocation_delta_received_at.is_some());
     }
@@ -987,7 +990,8 @@ mod tests {
         // Device must NOT be revoked.
         assert!(
             sys.device_status(&target).is_none()
-                || sys.device_status(&target).unwrap().last_known_trust_level != TrustLevel::Revoked,
+                || sys.device_status(&target).unwrap().last_known_trust_level
+                    != TrustLevel::Revoked,
             "target must not be REVOKED with M-1 sigs"
         );
     }
@@ -1008,8 +1012,12 @@ mod tests {
         let status = sys
             .process_incoming_delta(
                 &delta,
-                &mut |_did, _d| { gossip_called = true; },
-                &mut |_did, _ids| { cce_called = true; },
+                &mut |_did, _d| {
+                    gossip_called = true;
+                },
+                &mut |_did, _ids| {
+                    cce_called = true;
+                },
             )
             .expect("1-of-1 revocation should succeed");
 
@@ -1161,7 +1169,10 @@ mod tests {
 
         let result = sys.validate_revocation_delta(&d1);
         assert!(
-            matches!(result, Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })),
+            matches!(
+                result,
+                Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })
+            ),
             "should fail with 1/2 sigs, got: {result:?}"
         );
     }
@@ -1208,16 +1219,24 @@ mod tests {
 
         sys.process_incoming_delta(
             &delta,
-            &mut |_, _| { gossip_count += 1; },
-            &mut |_, _| { cce_count += 1; },
+            &mut |_, _| {
+                gossip_count += 1;
+            },
+            &mut |_, _| {
+                cce_count += 1;
+            },
         )
         .unwrap();
 
         // Replay the same delta.
         let _ = sys.process_incoming_delta(
             &delta,
-            &mut |_, _| { gossip_count += 1; },
-            &mut |_, _| { cce_count += 1; },
+            &mut |_, _| {
+                gossip_count += 1;
+            },
+            &mut |_, _| {
+                cce_count += 1;
+            },
         );
 
         // Gossip must only be called once.
@@ -1275,11 +1294,9 @@ mod tests {
             .unwrap();
 
         let mut cce_ids: Vec<DeltaId> = Vec::new();
-        sys.process_incoming_delta(
-            &delta,
-            &mut noop_gossip,
-            &mut |_did, ids| { cce_ids = ids; },
-        )
+        sys.process_incoming_delta(&delta, &mut noop_gossip, &mut |_did, ids| {
+            cce_ids = ids;
+        })
         .unwrap();
 
         assert_eq!(cce_ids.len(), 2, "CCE must receive both authored Delta IDs");
@@ -1297,13 +1314,23 @@ mod tests {
 
         let payload = RevocationDelta::signing_payload(&target);
         let sig = keypair::sign(&mgr_sk, &payload).expect("sign");
-        let ms = ManagerSignature { manager_did: mgr_did.clone(), signature: sig };
+        let ms = ManagerSignature {
+            manager_did: mgr_did.clone(),
+            signature: sig,
+        };
 
-        let status = store.add_signature(target.clone(), ms, 2, 3, &[])
+        let status = store
+            .add_signature(target.clone(), ms, 2, 3, &[])
             .expect("should accept valid signature");
 
         assert!(
-            matches!(status, RevocationStatus::Pending { collected: 1, required: 2 }),
+            matches!(
+                status,
+                RevocationStatus::Pending {
+                    collected: 1,
+                    required: 2
+                }
+            ),
             "got: {status:?}"
         );
     }
@@ -1316,7 +1343,10 @@ mod tests {
 
         let payload = RevocationDelta::signing_payload(&target);
         let sig = keypair::sign(&mgr_sk, &payload).unwrap();
-        let ms = ManagerSignature { manager_did: mgr_did.clone(), signature: sig };
+        let ms = ManagerSignature {
+            manager_did: mgr_did.clone(),
+            signature: sig,
+        };
 
         // Mark mgr_did as revoked.
         let revoked = vec![mgr_did.clone()];
@@ -1338,7 +1368,10 @@ mod tests {
         let (_, other_sk) = make_manager();
         let wrong_payload = b"not a revocation payload";
         let bad_sig = keypair::sign(&other_sk, wrong_payload).unwrap();
-        let ms = ManagerSignature { manager_did: mgr_did.clone(), signature: bad_sig };
+        let ms = ManagerSignature {
+            manager_did: mgr_did.clone(),
+            signature: bad_sig,
+        };
 
         let result = store.add_signature(target.clone(), ms, 1, 1, &[]);
         assert!(
@@ -1429,14 +1462,10 @@ mod non_native_tests {
         let mut captured_did: Option<String> = None;
 
         let status = sys
-            .process_incoming_delta(
-                &rev_delta,
-                &mut |_target, _d| {},
-                &mut |_did, ids| {
-                    captured_did = Some(_did.to_string());
-                    captured_ids = ids;
-                },
-            )
+            .process_incoming_delta(&rev_delta, &mut |_target, _d| {}, &mut |_did, ids| {
+                captured_did = Some(_did.to_string());
+                captured_ids = ids;
+            })
             .expect("process_incoming_delta should succeed at 1-of-1");
 
         assert_eq!(

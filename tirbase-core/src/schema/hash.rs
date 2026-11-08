@@ -26,9 +26,7 @@ pub type SchemaIdentifierHash = [u8; 32];
 ///
 /// The computation is order-independent: tables and fields are sorted before
 /// hashing to guarantee identical output regardless of declaration order.
-pub fn compute_schema_identifier_hash(
-    tables: &[(&str, &[(&str, &str)])],
-) -> SchemaIdentifierHash {
+pub fn compute_schema_identifier_hash(tables: &[(&str, &[(&str, &str)])]) -> SchemaIdentifierHash {
     let mut hasher = Sha256::new();
 
     // Sort tables by name for determinism.
@@ -63,7 +61,10 @@ mod tests {
     #[test]
     fn hash_is_deterministic_for_same_schema() {
         let tables: &[(&str, &[(&str, &str)])] = &[
-            ("users", &[("id", "TEXT"), ("name", "TEXT"), ("age", "INTEGER")]),
+            (
+                "users",
+                &[("id", "TEXT"), ("name", "TEXT"), ("age", "INTEGER")],
+            ),
             ("posts", &[("id", "TEXT"), ("body", "TEXT")]),
         ];
         let h1 = compute_schema_identifier_hash(tables);
@@ -89,12 +90,10 @@ mod tests {
 
     #[test]
     fn hash_is_order_independent_for_fields() {
-        let tables_a: &[(&str, &[(&str, &str)])] = &[
-            ("users", &[("id", "TEXT"), ("name", "TEXT")]),
-        ];
-        let tables_b: &[(&str, &[(&str, &str)])] = &[
-            ("users", &[("name", "TEXT"), ("id", "TEXT")]),
-        ];
+        let tables_a: &[(&str, &[(&str, &str)])] =
+            &[("users", &[("id", "TEXT"), ("name", "TEXT")])];
+        let tables_b: &[(&str, &[(&str, &str)])] =
+            &[("users", &[("name", "TEXT"), ("id", "TEXT")])];
         assert_eq!(
             compute_schema_identifier_hash(tables_a),
             compute_schema_identifier_hash(tables_b)
@@ -103,12 +102,10 @@ mod tests {
 
     #[test]
     fn hash_differs_for_different_schemas() {
-        let tables_a: &[(&str, &[(&str, &str)])] = &[
-            ("users", &[("id", "TEXT"), ("name", "TEXT")]),
-        ];
-        let tables_b: &[(&str, &[(&str, &str)])] = &[
-            ("users", &[("id", "INTEGER"), ("name", "TEXT")]),
-        ];
+        let tables_a: &[(&str, &[(&str, &str)])] =
+            &[("users", &[("id", "TEXT"), ("name", "TEXT")])];
+        let tables_b: &[(&str, &[(&str, &str)])] =
+            &[("users", &[("id", "INTEGER"), ("name", "TEXT")])];
         assert_ne!(
             compute_schema_identifier_hash(tables_a),
             compute_schema_identifier_hash(tables_b)

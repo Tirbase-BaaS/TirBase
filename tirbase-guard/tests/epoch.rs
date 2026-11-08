@@ -11,7 +11,7 @@ use tirbase_core::events::{install_security_event_sink, ReasonCode, SecurityEven
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::{KeyProvider, SecurityEventSink};
 use tirbase_guard::epoch::{
-    CommandEnvelope, EpochCommandGuard, DeviceEpoch, DeviceEpochStore, EpochBump, EpochError,
+    CommandEnvelope, DeviceEpoch, DeviceEpochStore, EpochBump, EpochCommandGuard, EpochError,
     EpochRegistry, InMemoryEpochStore,
 };
 use tirbase_guard::signed_operation::SignedOperation;

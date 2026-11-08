@@ -171,8 +171,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&receipt).expect("serialise receipt");
-        let decoded: DurabilityReceipt =
-            serde_json::from_str(&json).expect("deserialise receipt");
+        let decoded: DurabilityReceipt = serde_json::from_str(&json).expect("deserialise receipt");
 
         assert_eq!(receipt.id, decoded.id);
         assert_eq!(receipt.state_hash, decoded.state_hash);

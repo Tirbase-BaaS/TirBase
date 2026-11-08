@@ -30,7 +30,8 @@ pub fn create_table(conn: &Connection) -> Result<(), String> {
             PRIMARY KEY (issuer_did, target_id, idempotency_key)
         );
         CREATE INDEX IF NOT EXISTS idx_idem_expiry ON {IDEMPOTENCY_KEYS_TABLE}(expires_at_est);"
-    )).map_err(|e| format!("create idempotency_keys: {e}"))
+    ))
+    .map_err(|e| format!("create idempotency_keys: {e}"))
 }
 
 pub fn lookup_tx(
@@ -74,12 +75,25 @@ pub struct SqliteIdempotencyStore {
 impl SqliteIdempotencyStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent() { if !parent.as_os_str().is_empty() { std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?; } }
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
+            }
+        }
         let conn = Connection::open(path).map_err(|e| format!("open: {e}"))?;
-        conn.pragma_update(None, "journal_mode", "WAL").map_err(|e| format!("journal_mode: {e}"))?;
-        conn.pragma_update(None, "synchronous", "FULL").map_err(|e| format!("synchronous: {e}"))?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| format!("journal_mode: {e}"))?;
+        conn.pragma_update(None, "synchronous", "FULL")
+            .map_err(|e| format!("synchronous: {e}"))?;
         create_table(&conn)?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
-    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> { match self.conn.lock() { Ok(g)=>g, Err(p)=>p.into_inner() } }
+    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> {
+        match self.conn.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        }
+    }
 }

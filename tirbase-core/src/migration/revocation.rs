@@ -143,10 +143,15 @@ impl RevokedMigrationRegistry {
         // Arbitrary hashes are rejected rather than accepted.
         if !self.known.contains(&revocation.target_migration_id) {
             let migration_id_hex = hex::encode(revocation.target_migration_id);
-            emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-                "[revocation] Rejected: target migration hash {migration_id_hex} was \
+            emit_revocation(
+                Severity::High,
+                ReasonCode::RevocationVerificationFailed,
+                None,
+                format!(
+                    "[revocation] Rejected: target migration hash {migration_id_hex} was \
                  never seen by this device (Req 18.7)"
-            ));
+                ),
+            );
             return Err(TirBaseError::UnknownMigrationHash {
                 migration_id: migration_id_hex,
             });
@@ -162,10 +167,15 @@ impl RevokedMigrationRegistry {
             let public_key = match resolve_did_key_to_public_key(&ms.manager_did) {
                 Ok(pk) => pk,
                 Err(e) => {
-                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-                        "[revocation] DID resolution failed for {}: {e}",
-                        ms.manager_did
-                    ));
+                    emit_revocation(
+                        Severity::High,
+                        ReasonCode::RevocationVerificationFailed,
+                        None,
+                        format!(
+                            "[revocation] DID resolution failed for {}: {e}",
+                            ms.manager_did
+                        ),
+                    );
                     continue; // skip invalid DIDs — don't count them
                 }
             };
@@ -174,10 +184,15 @@ impl RevokedMigrationRegistry {
             let sig_bytes = match ms.signature.as_bytes() {
                 Some(b) => b,
                 None => {
-                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-                        "[revocation] Malformed signature from {}: wrong length",
-                        ms.manager_did
-                    ));
+                    emit_revocation(
+                        Severity::High,
+                        ReasonCode::RevocationVerificationFailed,
+                        None,
+                        format!(
+                            "[revocation] Malformed signature from {}: wrong length",
+                            ms.manager_did
+                        ),
+                    );
                     continue;
                 }
             };
@@ -186,10 +201,15 @@ impl RevokedMigrationRegistry {
             let verifying_key = match VerifyingKey::from_bytes(&public_key) {
                 Ok(vk) => vk,
                 Err(e) => {
-                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-                        "[revocation] Invalid public key for {}: {e}",
-                        ms.manager_did
-                    ));
+                    emit_revocation(
+                        Severity::High,
+                        ReasonCode::RevocationVerificationFailed,
+                        None,
+                        format!(
+                            "[revocation] Invalid public key for {}: {e}",
+                            ms.manager_did
+                        ),
+                    );
                     continue;
                 }
             };
@@ -203,10 +223,15 @@ impl RevokedMigrationRegistry {
                     }
                 }
                 Err(e) => {
-                    emit_revocation(Severity::High, ReasonCode::RevocationVerificationFailed, None, format!(
-                        "[revocation] Signature verification failed for {}: {e}",
-                        ms.manager_did
-                    ));
+                    emit_revocation(
+                        Severity::High,
+                        ReasonCode::RevocationVerificationFailed,
+                        None,
+                        format!(
+                            "[revocation] Signature verification failed for {}: {e}",
+                            ms.manager_did
+                        ),
+                    );
                 }
             }
         }
@@ -229,10 +254,15 @@ impl RevokedMigrationRegistry {
         // timeout — a revoked-but-still-running transform can never overlap a
         // subsequent migration.
         if self.in_progress.contains(&revocation.target_migration_id) {
-            emit_revocation(Severity::High, ReasonCode::RevocationPostExecution, None, format!(
-                "[revocation] Halting in-progress migration {:?}",
-                revocation.target_migration_id
-            ));
+            emit_revocation(
+                Severity::High,
+                ReasonCode::RevocationPostExecution,
+                None,
+                format!(
+                    "[revocation] Halting in-progress migration {:?}",
+                    revocation.target_migration_id
+                ),
+            );
             halted = true;
         }
 
@@ -248,10 +278,15 @@ impl RevokedMigrationRegistry {
             revoked_at,
         });
 
-        emit_revocation(Severity::High, ReasonCode::RevocationPostExecution, None, format!(
-            "[revocation] Migration {:?} revoked and permanently blocked.",
-            revocation.target_migration_id
-        ));
+        emit_revocation(
+            Severity::High,
+            ReasonCode::RevocationPostExecution,
+            None,
+            format!(
+                "[revocation] Migration {:?} revoked and permanently blocked.",
+                revocation.target_migration_id
+            ),
+        );
 
         Ok(halted)
     }
@@ -322,7 +357,10 @@ mod tests {
             .apply_revocation(revocation, 2)
             .expect("apply_revocation should succeed");
 
-        assert!(!halted, "no in-progress transform existed, so nothing was halted");
+        assert!(
+            !halted,
+            "no in-progress transform existed, so nothing was halted"
+        );
         assert!(registry.is_revoked(&target), "migration must be revoked");
         assert_eq!(registry.revocation_log().len(), 1);
     }
@@ -337,10 +375,16 @@ mod tests {
         let result = registry.apply_revocation(revocation, 2); // need 2, got 1
 
         assert!(
-            matches!(result, Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })),
+            matches!(
+                result,
+                Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })
+            ),
             "should return ThresholdNotMet: {result:?}"
         );
-        assert!(!registry.is_revoked(&target), "should not be revoked below threshold");
+        assert!(
+            !registry.is_revoked(&target),
+            "should not be revoked below threshold"
+        );
     }
 
     #[test]
@@ -355,7 +399,10 @@ mod tests {
         let revocation = make_signed_revocation(target, &[id1]);
         let halted = registry.apply_revocation(revocation, 1).expect("revoke");
 
-        assert!(halted, "revoking an in-progress migration must report the halt");
+        assert!(
+            halted,
+            "revoking an in-progress migration must report the halt"
+        );
         assert!(
             registry.is_in_progress(&target),
             "the in-progress marker must persist until the sandbox run exits \

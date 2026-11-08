@@ -18,8 +18,8 @@ use tirbase_core::identity::keypair;
 use tirbase_core::traits::{AssuranceLevel, KeyProvider, MonotonicCounterTrait};
 use tirbase_guard::signed_operation::SignatureEntry;
 use tirbase_guard::trust_root::{
-    AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager, TrustRootRecord,
-    TrustRootSignature,
+    AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager,
+    TrustRootRecord, TrustRootSignature,
 };
 use tirbase_types::{CommandRole, FixedPointValue, UNIT_DEG_C};
 

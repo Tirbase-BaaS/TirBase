@@ -149,9 +149,15 @@ fn task9_4_rotate_generates_new_identity_and_backs_up_old_key() {
     assert_ne!(result.old_did, Some(result.new_did.clone()));
     let backup = result.backup_path.as_deref().expect("backup path");
     let backup_body = std::fs::read_to_string(backup).unwrap();
-    assert!(backup_body.contains("zOldDevice"), "backup keeps old identity");
+    assert!(
+        backup_body.contains("zOldDevice"),
+        "backup keeps old identity"
+    );
     let new_body = std::fs::read_to_string(&key_path).unwrap();
-    assert!(new_body.contains(&result.new_did), "key file now holds new identity");
+    assert!(
+        new_body.contains(&result.new_did),
+        "key file now holds new identity"
+    );
     assert!(!new_body.contains("zOldDevice"));
 }
 
@@ -173,7 +179,10 @@ fn task9_5_inspect_identities_reports_public_fields_without_private_seed() {
     assert_eq!(records.len(), 1);
     let record = &records[0];
     assert_eq!(record.did.as_deref(), Some("did:key:z6MkInspect"));
-    assert_eq!(record.public_key_hex.as_deref(), Some(hex::encode([8u8; 32]).as_str()));
+    assert_eq!(
+        record.public_key_hex.as_deref(),
+        Some(hex::encode([8u8; 32]).as_str())
+    );
     assert!(record.has_private_key);
     assert!(record.error.is_none());
 

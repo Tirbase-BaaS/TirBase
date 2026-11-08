@@ -99,7 +99,9 @@ impl CloudLedger {
         schema_hash: SchemaIdentifierHash,
     ) -> Result<Self, TirBaseError> {
         use ed25519_dalek::SigningKey;
-        let public_key: [u8; 32] = SigningKey::from_bytes(&secret_key).verifying_key().to_bytes();
+        let public_key: [u8; 32] = SigningKey::from_bytes(&secret_key)
+            .verifying_key()
+            .to_bytes();
 
         let conn = rusqlite::Connection::open_in_memory().map_err(|e| {
             TirBaseError::LocalStoreWriteFailed {
@@ -222,9 +224,8 @@ impl<'a> CloudLedgerConnection<'a> {
 impl<'a> crate::durability::cloud_queue::CloudConnection for CloudLedgerConnection<'a> {
     fn send_delta(&mut self, delta_id: &DeltaId, bytes: &[u8]) -> Result<(), String> {
         // Deserialise the Delta from the bytes provided by the sync loop.
-        let delta: Delta = serde_json::from_slice(bytes).map_err(|e| {
-            format!("failed to deserialise Delta {}: {e}", hex::encode(delta_id))
-        })?;
+        let delta: Delta = serde_json::from_slice(bytes)
+            .map_err(|e| format!("failed to deserialise Delta {}: {e}", hex::encode(delta_id)))?;
 
         match self.ledger.receive_delta(&delta) {
             Ok(ReceiveOutcome::Committed) => Ok(()),
@@ -241,9 +242,7 @@ impl<'a> crate::durability::cloud_queue::CloudConnection for CloudLedgerConnecti
 // ─── Internal logging ────────────────────────────────────────────────────────
 
 fn log_ledger_rejection(delta_id: &str, reason: &str) {
-    eprintln!(
-        "[cloud_ledger] Rejected delta {delta_id}: {reason}"
-    );
+    eprintln!("[cloud_ledger] Rejected delta {delta_id}: {reason}");
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -294,8 +293,8 @@ mod tests {
     fn make_ledger() -> (CloudLedger, [u8; 32], Did, SchemaIdentifierHash) {
         let (secret, _, ledger_did) = make_identity();
         let schema = test_schema_hash();
-        let ledger = CloudLedger::new_in_memory(secret, ledger_did.clone(), schema)
-            .expect("new_in_memory");
+        let ledger =
+            CloudLedger::new_in_memory(secret, ledger_did.clone(), schema).expect("new_in_memory");
         (ledger, secret, ledger_did, schema)
     }
 
@@ -327,8 +326,11 @@ mod tests {
 
         // Second submission — same Delta ID.
         let second = ledger.receive_delta(&delta).unwrap();
-        assert_eq!(second, ReceiveOutcome::AlreadyCommitted,
-            "re-submitting the same Delta must return AlreadyCommitted");
+        assert_eq!(
+            second,
+            ReceiveOutcome::AlreadyCommitted,
+            "re-submitting the same Delta must return AlreadyCommitted"
+        );
 
         // Committed count must remain 1 (no duplicate stored).
         assert_eq!(ledger.committed_count(), 1);
@@ -350,7 +352,10 @@ mod tests {
             matches!(outcome, ReceiveOutcome::Rejected { .. }),
             "tampered Delta must be rejected: {outcome:?}"
         );
-        assert!(!ledger.is_committed(&delta.id), "rejected Delta must not be committed");
+        assert!(
+            !ledger.is_committed(&delta.id),
+            "rejected Delta must not be committed"
+        );
         assert_eq!(ledger.rejection_log.len(), 1);
     }
 

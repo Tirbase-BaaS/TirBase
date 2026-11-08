@@ -57,10 +57,7 @@ fn now_secs() -> i64 {
 /// A unique in-memory SQLite database, wrapped in Arc<Mutex<>> for sharing
 /// between the CCE and a standalone ChangesetDag (needed because the CCE's
 /// internal `dag` field is not public).
-fn open_cce() -> (
-    CausalContaminationEngine,
-    Arc<Mutex<rusqlite::Connection>>,
-) {
+fn open_cce() -> (CausalContaminationEngine, Arc<Mutex<rusqlite::Connection>>) {
     let conn = sqlite::open(":memory:").expect("open in-memory SQLite");
     let conn = Arc::new(Mutex::new(conn));
     let cce = CausalContaminationEngine::new(conn.clone());
@@ -186,7 +183,8 @@ fn test_late_arriving_descendant_taint() {
     let lock = conn.lock().unwrap();
     let tags = read_tags(&lock, &late_child);
     assert!(
-        tags.iter().any(|t| matches!(t, DeltaTag::Contaminated { .. })),
+        tags.iter()
+            .any(|t| matches!(t, DeltaTag::Contaminated { .. })),
         "late-arriving descendant must be caught by a subsequent tag_contamination_root BFS walk"
     );
 }
@@ -255,7 +253,9 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
     // After decomposition, it transitions to Decomposed state, so the regular
     // ICO lookup returns None.
     assert!(
-        cce.get_incident(composite_id).expect("get incident").is_none(),
+        cce.get_incident(composite_id)
+            .expect("get incident")
+            .is_none(),
         "composite incident should not be found via get_incident (it lives in composite_incidents)"
     );
 
@@ -285,10 +285,7 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
         "surviving ICO must be Open"
     );
     assert!(
-        surviving
-            .affected_rows
-            .iter()
-            .any(|r| r.table == "reports"),
+        surviving.affected_rows.iter().any(|r| r.table == "reports"),
         "surviving ICO must have affected_rows populated for the unresolved lineage"
     );
 
@@ -373,13 +370,10 @@ fn test_verify_data_and_admin_close_audit_trail() {
         .expect("get incident ok")
         .expect("ICO exists");
     assert!(
-        ico
-            .audit_log
-            .iter()
-            .any(|e| matches!(
-                e.operation,
-                tirbase_core::contamination::incident::AuditOperation::VerifyData
-            )),
+        ico.audit_log.iter().any(|e| matches!(
+            e.operation,
+            tirbase_core::contamination::incident::AuditOperation::VerifyData
+        )),
         "VerifyData audit entry must be present"
     );
 
@@ -398,13 +392,10 @@ fn test_verify_data_and_admin_close_audit_trail() {
         "ICO must be Closed after admin_close"
     );
     assert!(
-        ico_after
-            .audit_log
-            .iter()
-            .any(|e| matches!(
-                e.operation,
-                tirbase_core::contamination::incident::AuditOperation::AdminClose
-            )),
+        ico_after.audit_log.iter().any(|e| matches!(
+            e.operation,
+            tirbase_core::contamination::incident::AuditOperation::AdminClose
+        )),
         "AdminClose audit entry must be present"
     );
     assert_eq!(
@@ -441,7 +432,7 @@ fn test_token_expiry_rejects_expired_manager_token() {
         )
         .expect("tag root");
 
-     let now_s = now_secs();
+    let now_s = now_secs();
 
     // --- verify_data with expired token ---
     // Token expiry is compared against `now_secs * 1_000_000` inside
@@ -708,7 +699,9 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
     // Composite ICOs live in `composite_incidents`, not `incidents`, so
     // `get_incident` (which queries `incidents` only) should return None.
     assert!(
-        cce.get_incident(composite_id).expect("get incident").is_none(),
+        cce.get_incident(composite_id)
+            .expect("get incident")
+            .is_none(),
         "composite incident should not be found via get_incident (it lives in composite_incidents)"
     );
 
@@ -812,7 +805,10 @@ fn expired_manager_token_is_rejected() {
     );
 
     // The ICO must still be Open — admin_close was short-circuited.
-    let ico = cce.get_incident(ico_id).expect("get incident").expect("ICO exists");
+    let ico = cce
+        .get_incident(ico_id)
+        .expect("get incident")
+        .expect("ICO exists");
     assert_eq!(
         ico.state,
         IncidentState::Open,

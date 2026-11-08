@@ -5,8 +5,8 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
 pub mod biscuit;
-pub mod revocation;
 pub mod command_token;
+pub mod revocation;
 pub mod root_ca;
 pub mod trust;
 
@@ -479,7 +479,8 @@ mod tests {
             .present_token(&token_bytes, expired_secs)
             .expect("present_token of expired token should return Ok(Unverified)");
         assert_eq!(
-            level, TrustLevel::Unverified,
+            level,
+            TrustLevel::Unverified,
             "expired token should transition to UNVERIFIED"
         );
 

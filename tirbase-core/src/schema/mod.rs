@@ -85,10 +85,10 @@ impl FieldType {
     /// Return the canonical string representation used in hash computation.
     pub fn canonical_str(&self) -> &'static str {
         match self {
-            FieldType::Text    => "TEXT",
+            FieldType::Text => "TEXT",
             FieldType::Integer => "INTEGER",
-            FieldType::Real    => "REAL",
-            FieldType::Blob    => "BLOB",
+            FieldType::Real => "REAL",
+            FieldType::Blob => "BLOB",
             FieldType::Boolean => "BOOLEAN",
         }
     }

@@ -187,10 +187,7 @@ impl DurabilitySubsystem {
     /// durability event broadcast channel (Subphase 4.2).  The listener is
     /// invoked while the subsystem mutex is held, so it must not re-enter the
     /// subsystem.
-    pub fn set_tier_changed_listener(
-        &mut self,
-        listener: TierChangedListener,
-    ) {
+    pub fn set_tier_changed_listener(&mut self, listener: TierChangedListener) {
         self.tier_changed_listener = Some(listener);
     }
 
@@ -233,11 +230,8 @@ impl DurabilitySubsystem {
         causal_parents: Vec<DeltaId>,
         peer_public_keys: HashMap<Did, [u8; 32]>,
     ) -> Result<(), TirBaseError> {
-        let state = DeltaDurabilityState::new(
-            state_hash,
-            self.quorum_config.clone(),
-            peer_public_keys,
-        );
+        let state =
+            DeltaDurabilityState::new(state_hash, self.quorum_config.clone(), peer_public_keys);
         self.states.insert(delta_id, state);
 
         // Enqueue for cloud sync (Req 14.8 — stays in queue until Tier-2).
@@ -643,7 +637,8 @@ mod tests {
         peers.insert("did:key:p1".to_string(), p1);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2()); // K=2
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         let r1 = make_signed_receipt(state_hash, &s1, "did:key:p1", None);
         let tier1 = sys.receive_receipt(r1, &delta_id).unwrap();
@@ -663,7 +658,8 @@ mod tests {
         peers.insert("did:key:p1".to_string(), p1);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         // Receipt signed over wrong state_hash.
         let wrong_hash = [0xFF; 32];
@@ -685,11 +681,11 @@ mod tests {
         peers.insert("did:key:registered".to_string(), p_registered);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         // Receipt from DID not in the peer registry.
-        let receipt =
-            make_signed_receipt(state_hash, &s_unknown, "did:key:unknown-peer", None);
+        let receipt = make_signed_receipt(state_hash, &s_unknown, "did:key:unknown-peer", None);
         let result = sys.receive_receipt(receipt, &delta_id);
         assert!(result.is_err(), "unknown issuer DID must be rejected");
     }
@@ -709,7 +705,11 @@ mod tests {
         sys.on_cloud_ack(&delta_id).unwrap();
 
         assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Tier2);
-        assert_eq!(sys.cloud_queue_depth(), 0, "Delta removed from queue on Tier-2 ack");
+        assert_eq!(
+            sys.cloud_queue_depth(),
+            0,
+            "Delta removed from queue on Tier-2 ack"
+        );
     }
 
     #[test]
@@ -718,8 +718,9 @@ mod tests {
         let state_hash = [0x2B; 32];
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
-        let calls: std::sync::Arc<std::sync::Mutex<Vec<(DeltaId, DurabilityTier, DurabilityTier)>>> =
-            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let calls: std::sync::Arc<
+            std::sync::Mutex<Vec<(DeltaId, DurabilityTier, DurabilityTier)>>,
+        > = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let calls_clone = std::sync::Arc::clone(&calls);
         sys.set_tier_changed_listener(Box::new(move |id, prev, new| {
             calls_clone.lock().unwrap().push((id, prev, new));
@@ -735,7 +736,10 @@ mod tests {
             1,
             "the instance listener must fire exactly once per transition"
         );
-        assert_eq!(calls[0], (delta_id, DurabilityTier::Uncommitted, DurabilityTier::Tier2));
+        assert_eq!(
+            calls[0],
+            (delta_id, DurabilityTier::Uncommitted, DurabilityTier::Tier2)
+        );
     }
 
     // ── Tier-1 does not remove from cloud queue ───────────────────────────────
@@ -753,7 +757,8 @@ mod tests {
         peers.insert("did:key:t2".to_string(), p2);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
-        sys.register_delta(delta_id, state_hash, vec![0u8; 8], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![0u8; 8], vec![], peers)
+            .unwrap();
 
         let r1 = make_signed_receipt(state_hash, &s1, "did:key:t1", Some("sq-a"));
         let r2 = make_signed_receipt(state_hash, &s2, "did:key:t2", Some("sq-a"));
@@ -794,7 +799,8 @@ mod tests {
         }
 
         let mut sys = DurabilitySubsystem::new(cfg);
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         for (i, s) in secrets.iter().enumerate() {
             let did = format!("did:key:sp{i}");
@@ -871,11 +877,15 @@ mod tests {
         let mut sys = DurabilitySubsystem::with_anchor(
             cfg,
             Some(AnchorAttestedLocation::new(
-                vec![make_beacon_entry(&b_public_a), make_beacon_entry(&b_public_b)],
+                vec![
+                    make_beacon_entry(&b_public_a),
+                    make_beacon_entry(&b_public_b),
+                ],
                 0,
             )),
         );
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         let r1 = make_signed_receipt_with_token(
             state_hash,
@@ -914,13 +924,17 @@ mod tests {
         // Registered beacon; the anchor's Lamport current epoch is 5.
         let mut sys = DurabilitySubsystem::with_anchor(
             make_quorum_k1(),
-            Some(AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 5)),
+            Some(AnchorAttestedLocation::new(
+                vec![make_beacon_entry(&b_public)],
+                5,
+            )),
         );
 
         let (s_peer, p_peer) = generate_keypair().unwrap();
         let mut peers = HashMap::new();
         peers.insert("did:key:peer".to_string(), p_peer);
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         // (a) No beacon token attached → excluded (Req 15.2).
         let no_token = make_signed_receipt(state_hash, &s_peer, "did:key:peer", Some("sq-a"));
@@ -1014,9 +1028,13 @@ mod tests {
 
         let mut sys = DurabilitySubsystem::with_anchor(
             cfg,
-            Some(AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 0)),
+            Some(AnchorAttestedLocation::new(
+                vec![make_beacon_entry(&b_public)],
+                0,
+            )),
         );
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         let declared_tags = ["sq-a", "sq-b", "sq-c"];
         for (i, s) in secrets.iter().enumerate() {
@@ -1047,8 +1065,7 @@ mod tests {
         // so subsequent receipts are counted by their declared squad tags again —
         // no beacon token is required.
         let (_b_secret, b_public) = generate_keypair().unwrap();
-        let mut anchor =
-            AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 0);
+        let mut anchor = AnchorAttestedLocation::new(vec![make_beacon_entry(&b_public)], 0);
         anchor.on_beacon_signal_lost(0, vec![]).unwrap();
         assert_eq!(anchor.mode(), AnchorMode::SquadTagFallback);
 
@@ -1062,7 +1079,8 @@ mod tests {
         peers.insert("did:key:peer2".to_string(), p2);
 
         let mut sys = DurabilitySubsystem::with_anchor(make_quorum_k2(), Some(anchor));
-        sys.register_delta(delta_id, state_hash, vec![], vec![], peers).unwrap();
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
 
         // No beacon tokens at all — fallback mode must accept by declared tags.
         let r1 = make_signed_receipt(state_hash, &s1, "did:key:peer1", Some("sq-a"));

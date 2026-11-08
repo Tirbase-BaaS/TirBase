@@ -42,9 +42,7 @@ pub use policy::{PolicyBundle, PolicyBundleBody, PolicyBundleKind, PolicyCoSigna
 
 // ── command module (CLAIM-11.1, PV-4.1, PV-4.2) ────────────────────────────
 pub mod command;
-pub use command::{
-    CoSignature, CommandMessage, CommandMessageBody, CONTEXT_COMMAND_MESSAGE,
-};
+pub use command::{CoSignature, CommandMessage, CommandMessageBody, CONTEXT_COMMAND_MESSAGE};
 
 // ── Role ───────────────────────────────────────────────────────────────────────
 
@@ -162,7 +160,9 @@ pub type ProfileId = [u8; 16];
 ///
 /// Wrapping `String` in a newtype prevents accidental interchange of arbitrary
 /// strings with DIDs at the type level. (CLAIM-4.6)
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct Did(pub String);
 
 impl Did {
@@ -181,7 +181,9 @@ impl Did {
 ///
 /// Wrapping `String` in a newtype prevents accidental interchange of arbitrary
 /// strings with target IDs at the type level. (CLAIM-4.6)
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct TargetId(pub String);
 
 impl TargetId {

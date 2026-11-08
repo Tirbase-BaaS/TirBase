@@ -17,9 +17,7 @@ use std::sync::{Arc, Mutex};
 use crate::crdt::delta::{Delta, DeltaId, Ed25519Signature, PriorityClass};
 use crate::crdt::derive_did_from_public_key;
 use crate::crdt::CrdtEngine;
-use crate::durability::cloud_ledger::{
-    CloudLedger, CloudLedgerConnection, ReceiveOutcome,
-};
+use crate::durability::cloud_ledger::{CloudLedger, CloudLedgerConnection, ReceiveOutcome};
 use crate::durability::cloud_queue::{
     cloud_sync_loop, CloudConnection, CloudOutboundQueue, QueueEntry,
 };
@@ -111,8 +109,8 @@ fn two_peers_sync_to_cloud_ledger() {
 
     // Cloud Ledger (uses its own identity and accepts the same schema).
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     // Run sync loop.
     let mut conn = CloudLedgerConnection::new(&mut ledger);
@@ -123,8 +121,14 @@ fn two_peers_sync_to_cloud_ledger() {
     assert_eq!(result.deferred, 0);
     assert_eq!(queue.depth(), 0, "queue must be empty after full ack");
 
-    assert!(ledger.is_committed(&delta_a.id), "delta_a must be committed on ledger");
-    assert!(ledger.is_committed(&delta_b.id), "delta_b must be committed on ledger");
+    assert!(
+        ledger.is_committed(&delta_a.id),
+        "delta_a must be committed on ledger"
+    );
+    assert!(
+        ledger.is_committed(&delta_b.id),
+        "delta_b must be committed on ledger"
+    );
     assert_eq!(ledger.committed_count(), 2);
 }
 
@@ -140,8 +144,8 @@ fn idempotent_resubmit_does_not_duplicate() {
     let delta = produce_delta(&mut engine, b"unique-report".to_vec());
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     // First submission.
     let out1 = ledger.receive_delta(&delta).unwrap();
@@ -149,10 +153,17 @@ fn idempotent_resubmit_does_not_duplicate() {
 
     // Second submission — same Delta.
     let out2 = ledger.receive_delta(&delta).unwrap();
-    assert_eq!(out2, ReceiveOutcome::AlreadyCommitted,
-        "second submission must be idempotent");
+    assert_eq!(
+        out2,
+        ReceiveOutcome::AlreadyCommitted,
+        "second submission must be idempotent"
+    );
 
-    assert_eq!(ledger.committed_count(), 1, "only one entry should be committed");
+    assert_eq!(
+        ledger.committed_count(),
+        1,
+        "only one entry should be committed"
+    );
 }
 
 /// Same scenario exercised through the full `cloud_sync_loop` path:
@@ -167,8 +178,8 @@ fn sync_loop_idempotent_after_ack() {
     let delta = produce_delta(&mut engine, b"report".to_vec());
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
     enqueue(&mut queue, &delta);
@@ -191,7 +202,11 @@ fn sync_loop_idempotent_after_ack() {
         assert_eq!(r.acknowledged, 1, "idempotent re-submit must still ack");
     }
     assert_eq!(queue.depth(), 0);
-    assert_eq!(ledger.committed_count(), 1, "only one logical Delta committed");
+    assert_eq!(
+        ledger.committed_count(),
+        1,
+        "only one logical Delta committed"
+    );
 }
 
 // ─── Test 3: Rejection retention and retry (Req 16.5) ────────────────────────
@@ -212,8 +227,8 @@ fn rejected_delta_retained_for_retry() {
     //  signature no longer matches — the ledger will reject it.)
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
     enqueue(&mut queue, &delta);
@@ -227,7 +242,10 @@ fn rejected_delta_retained_for_retry() {
 
     // The ledger logged the rejection.
     assert_eq!(ledger.rejection_log.len(), 1);
-    assert!(!ledger.is_committed(&delta.id), "rejected Delta must not be committed");
+    assert!(
+        !ledger.is_committed(&delta.id),
+        "rejected Delta must not be committed"
+    );
 }
 
 /// Selective rejection: two Deltas in the queue; the first is valid, the
@@ -246,8 +264,8 @@ fn partial_rejection_acks_valid_retains_invalid() {
     bad_delta.automerge_bytes = vec![0xFF]; // tamper
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
     enqueue(&mut queue, &valid_delta);
@@ -264,7 +282,10 @@ fn partial_rejection_acks_valid_retains_invalid() {
     let remaining = queue.find(&bad_delta.id);
     assert!(remaining.is_some(), "bad Delta must still be in queue");
     // Valid Delta removed.
-    assert!(queue.find(&valid_delta.id).is_none(), "valid Delta removed from queue");
+    assert!(
+        queue.find(&valid_delta.id).is_none(),
+        "valid Delta removed from queue"
+    );
 }
 
 // ─── Test 4: Append-only invariant (Req 16.2) ─────────────────────────────────
@@ -276,8 +297,8 @@ fn partial_rejection_acks_valid_retains_invalid() {
 fn append_only_committed_set_never_shrinks() {
     let schema = test_schema();
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut delta_ids: Vec<DeltaId> = Vec::new();
 
@@ -323,14 +344,17 @@ fn cloud_ledger_rejects_same_invalid_delta_as_client_engine() {
     let mut peer_engine = make_engine(peer_secret, peer_did, schema);
     let peer_outcome = peer_engine.apply(&delta).unwrap();
     assert!(
-        matches!(peer_outcome, crate::crdt::merge::MergeOutcome::Rejected { .. }),
+        matches!(
+            peer_outcome,
+            crate::crdt::merge::MergeOutcome::Rejected { .. }
+        ),
         "client engine must reject tampered Delta: {peer_outcome:?}"
     );
 
     // Cloud Ledger.
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
     let ledger_outcome = ledger.receive_delta(&delta).unwrap();
     assert!(
         matches!(ledger_outcome, ReceiveOutcome::Rejected { .. }),
@@ -391,7 +415,9 @@ fn sync_loop_sends_parent_before_child() {
         }
     }
 
-    let mut conn = RecordingConn { transmitted: transmitted_clone };
+    let mut conn = RecordingConn {
+        transmitted: transmitted_clone,
+    };
     let result = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
 
     assert_eq!(result.acknowledged, 2);
@@ -428,16 +454,13 @@ fn compacted_delta_is_fetched_and_sent() {
     let real_bytes = serialise_delta(&real_delta);
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
     // Compacted entry — no bytes, has a receipt holder.
-    let compacted_entry = QueueEntry::new_compacted(
-        real_delta.id,
-        vec![],
-        vec!["did:key:holder1".to_string()],
-    );
+    let compacted_entry =
+        QueueEntry::new_compacted(real_delta.id, vec![], vec!["did:key:holder1".to_string()]);
     queue.enqueue(compacted_entry).expect("enqueue compacted");
 
     // Refetch returns the real Delta bytes.
@@ -447,7 +470,10 @@ fn compacted_delta_is_fetched_and_sent() {
         Some(real_bytes_clone.clone())
     });
 
-    assert_eq!(result.acknowledged, 1, "compacted Delta must be acked after refetch");
+    assert_eq!(
+        result.acknowledged, 1,
+        "compacted Delta must be acked after refetch"
+    );
     assert_eq!(result.deferred, 0);
     assert_eq!(queue.depth(), 0);
 }
@@ -458,23 +484,23 @@ fn compacted_delta_deferred_when_refetch_fails() {
 
     let (ledger_secret, _, ledger_did) = make_identity();
     let schema = test_schema();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
     let delta_id: DeltaId = [0x99u8; 32];
-    let compacted_entry = QueueEntry::new_compacted(
-        delta_id,
-        vec![],
-        vec!["did:key:holder2".to_string()],
-    );
+    let compacted_entry =
+        QueueEntry::new_compacted(delta_id, vec![], vec!["did:key:holder2".to_string()]);
     queue.enqueue(compacted_entry).expect("enqueue");
 
     let mut conn = CloudLedgerConnection::new(&mut ledger);
     // Refetch always fails.
     let result = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
 
-    assert_eq!(result.deferred, 1, "compacted Delta with no refetch must be deferred");
+    assert_eq!(
+        result.deferred, 1,
+        "compacted Delta with no refetch must be deferred"
+    );
     assert_eq!(result.acknowledged, 0);
     assert_eq!(queue.depth(), 1, "deferred entry retained in queue");
 }
@@ -492,8 +518,8 @@ fn cloud_ledger_connection_maps_outcomes_correctly() {
     let bytes = serialise_delta(&delta);
 
     let (ledger_secret, _, ledger_did) = make_identity();
-    let mut ledger = CloudLedger::new_in_memory(ledger_secret, ledger_did, schema)
-        .expect("new_in_memory");
+    let mut ledger =
+        CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     // Pre-commit the Delta so the next call returns AlreadyCommitted.
     ledger.receive_delta(&delta).expect("first receive");

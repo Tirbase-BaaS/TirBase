@@ -321,8 +321,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
                 })
                 .collect();
             // Stable ordering within the newly-ready batch.
-            next_ready
-                .sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
+            next_ready.sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
             for id in next_ready {
                 ready.push_back(id);
             }
@@ -643,8 +642,7 @@ mod tests {
 
         let mut conn = AlwaysOkConn;
         // Re-fetch succeeds.
-        let result =
-            cloud_sync_loop(&mut q, &mut conn, &|_id, _holders| Some(vec![0xDE, 0xAD]));
+        let result = cloud_sync_loop(&mut q, &mut conn, &|_id, _holders| Some(vec![0xDE, 0xAD]));
 
         assert_eq!(result.acknowledged, 1);
         assert_eq!(result.deferred, 0);
@@ -691,7 +689,10 @@ mod tests {
         let delta_id = make_delta_id(0x44);
         let result =
             refetch_for_cloud_sync(delta_id, vec![], |_did, _id| async move { None }).await;
-        assert!(matches!(result, Err(TirBaseError::RefetchUnavailable { .. })));
+        assert!(matches!(
+            result,
+            Err(TirBaseError::RefetchUnavailable { .. })
+        ));
     }
 
     // ── add_receipt_holder ────────────────────────────────────────────────

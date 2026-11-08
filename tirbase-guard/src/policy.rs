@@ -153,10 +153,16 @@ pub fn classify_bundle(
         return PolicyBundleKind::Loosening;
     }
 
-    let old_params: BTreeMap<&str, &ParameterSpec> =
-        old.parameters.iter().map(|p| (p.name.as_str(), p)).collect();
-    let new_params: BTreeMap<&str, &ParameterSpec> =
-        new.parameters.iter().map(|p| (p.name.as_str(), p)).collect();
+    let old_params: BTreeMap<&str, &ParameterSpec> = old
+        .parameters
+        .iter()
+        .map(|p| (p.name.as_str(), p))
+        .collect();
+    let new_params: BTreeMap<&str, &ParameterSpec> = new
+        .parameters
+        .iter()
+        .map(|p| (p.name.as_str(), p))
+        .collect();
 
     // Criterion 7: no parameter removed.  Criterion 8: adding any new parameter
     // is loosening.
@@ -177,10 +183,8 @@ pub fn classify_bundle(
         .get(&old.device_class)
         .cloned()
         .unwrap_or_default();
-    let floor_by_param: BTreeMap<&str, &ParamFloor> = floors
-        .iter()
-        .map(|f| (f.param_name.as_str(), f))
-        .collect();
+    let floor_by_param: BTreeMap<&str, &ParamFloor> =
+        floors.iter().map(|f| (f.param_name.as_str(), f)).collect();
 
     for (name, np) in &new_params {
         let Some(op) = old_params.get(name) else {
@@ -285,10 +289,7 @@ pub fn classify_bundle(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyError {
     /// Bundle version is not strictly greater than the last accepted / committed.
-    Rollback {
-        incoming: u64,
-        committed: u64,
-    },
+    Rollback { incoming: u64, committed: u64 },
     /// `prev_version_hash` does not match the hash of the current active bundle.
     PrevHashMismatch,
     /// A required co-signature is missing or invalid.
@@ -300,7 +301,10 @@ pub enum PolicyError {
     /// Monotonic counter failure (anti-rollback persistence).
     Counter(String),
     /// Loosening time-lock has not elapsed.
-    TimelockActive { timelock_until_est: i64, now_est: i64 },
+    TimelockActive {
+        timelock_until_est: i64,
+        now_est: i64,
+    },
     /// Not enough co-signatures for loosening.
     InsufficientCoSignatures { got: usize, need: usize },
     /// No pending loosening operation to apply/cancel.
@@ -424,7 +428,9 @@ impl PolicyLifecycle {
         profile_map: Arc<ProfileMap>,
         trust_root: Arc<ArcSwap<TrustRootRecord>>,
     ) -> Result<Self, PolicyError> {
-        let committed = counter.read().map_err(|e| PolicyError::Counter(e.to_string()))?;
+        let committed = counter
+            .read()
+            .map_err(|e| PolicyError::Counter(e.to_string()))?;
         if initial.version < committed {
             return Err(PolicyError::Rollback {
                 incoming: initial.version,
@@ -569,11 +575,9 @@ impl PolicyLifecycle {
         // 12.3: tightening_floor enforcement — classify_bundle already checked
         // containment against TrustRootRecord floors; a belt-and-braces check
         // defends against classification misuse.
-        if let Some(err) = check_tightening_floors(
-            &bundle.envelope,
-            trust_root,
-            &bundle.envelope.device_class,
-        ) {
+        if let Some(err) =
+            check_tightening_floors(&bundle.envelope, trust_root, &bundle.envelope.device_class)
+        {
             emit(
                 SecurityEvent::new(
                     SecurityEventCategory::PolicyLifecycle,
@@ -772,7 +776,9 @@ impl PolicyLifecycle {
                 ReasonCode::LooseningApplied,
             )
             .with_target(self.target_id.as_str())
-            .with_detail(format!("loosening bundle v{version} applied after timelock+M-of-N")),
+            .with_detail(format!(
+                "loosening bundle v{version} applied after timelock+M-of-N"
+            )),
         );
         Ok(PolicyIngestOutcome::TighteningApplied { version })
     }
@@ -805,9 +811,7 @@ impl PolicyLifecycle {
         self.active = ActivePolicyState { bundle, body_hash };
         // Hot-swap the active profile for the target (best-effort structural
         // update; the profile map is the guard's read path).
-        let _ = self
-            .profile_map
-            .swap(&self.target_id, profile.clone());
+        let _ = self.profile_map.swap(&self.target_id, profile.clone());
         // If target wasn't present, install it.
         let replaced = Arc::new(ProfileMap::from_profiles([(
             self.target_id.clone(),
@@ -834,7 +838,11 @@ pub fn check_tightening_floors(
 ) -> Option<PolicyError> {
     let floors = trust_root.device_class_floors.get(device_class)?;
     for floor in floors {
-        let Some(param) = envelope.parameters.iter().find(|p| p.name == floor.param_name) else {
+        let Some(param) = envelope
+            .parameters
+            .iter()
+            .find(|p| p.name == floor.param_name)
+        else {
             continue;
         };
         if let ParameterKind::Range { min, max } = &param.kind {
@@ -898,7 +906,10 @@ mod tests {
                 if value <= cur {
                     return Ok(cur);
                 }
-                match self.0.compare_exchange(cur, value, Ordering::SeqCst, Ordering::SeqCst) {
+                match self
+                    .0
+                    .compare_exchange(cur, value, Ordering::SeqCst, Ordering::SeqCst)
+                {
                     Ok(_) => return Ok(value),
                     Err(o) => cur = o,
                 }
@@ -954,7 +965,7 @@ mod tests {
             "cold_room".to_string(),
             vec![ParamFloor {
                 param_name: "temp".to_string(),
-                min_floor: fp(-500, -1),  // -50.0°C
+                min_floor: fp(-500, -1),   // -50.0°C
                 max_ceiling: fp(1500, -1), // 150.0°C
             }],
         );
@@ -975,7 +986,10 @@ mod tests {
         let tr = trust_root_with_floor();
         let old = profile(1, 0, 1000, 2, 3, 300);
         let new = profile(2, 10, 900, 2, 3, 300); // narrower
-        assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Tightening);
+        assert_eq!(
+            classify_bundle(&old, &new, &tr),
+            PolicyBundleKind::Tightening
+        );
     }
 
     #[test]
@@ -983,7 +997,10 @@ mod tests {
         let tr = trust_root_with_floor();
         let old = profile(1, 0, 1000, 2, 3, 300);
         let new = profile(2, -10, 1000, 2, 3, 300);
-        assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Loosening);
+        assert_eq!(
+            classify_bundle(&old, &new, &tr),
+            PolicyBundleKind::Loosening
+        );
     }
 
     #[test]
@@ -991,7 +1008,10 @@ mod tests {
         let tr = trust_root_with_floor();
         let old = profile(1, 0, 1000, 2, 3, 300);
         let new = profile(2, 0, 1000, 2, 4, 300);
-        assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Loosening);
+        assert_eq!(
+            classify_bundle(&old, &new, &tr),
+            PolicyBundleKind::Loosening
+        );
     }
 
     #[test]
@@ -1000,7 +1020,10 @@ mod tests {
         let old = profile(1, -300, 1400, 2, 3, 300);
         // new max 160.0°C > ceiling 150.0°C => floor violated => Loosening
         let new = profile(2, -300, 1600, 2, 3, 300);
-        assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Loosening);
+        assert_eq!(
+            classify_bundle(&old, &new, &tr),
+            PolicyBundleKind::Loosening
+        );
     }
 
     #[test]
@@ -1018,7 +1041,10 @@ mod tests {
             kind: PolicyBundleKind::Tightening, // lie
         };
         let _ = &mut claimed.kind;
-        assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Loosening);
+        assert_eq!(
+            classify_bundle(&old, &new, &tr),
+            PolicyBundleKind::Loosening
+        );
     }
 
     #[test]

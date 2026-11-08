@@ -86,7 +86,10 @@ impl IdentityManager {
         match path {
             Some(path) => {
                 let provider = FileKeyProvider::load_or_generate(path)?;
-                Ok(Self::from_key(DeviceKey::File(provider), Some(path.to_string())))
+                Ok(Self::from_key(
+                    DeviceKey::File(provider),
+                    Some(path.to_string()),
+                ))
             }
             None => {
                 let provider = InMemoryKeyProvider::generate()?;
@@ -240,7 +243,8 @@ mod tests {
         let mgr = IdentityManager::init_in_memory().unwrap();
         let mut delta = make_test_delta();
 
-        mgr.sign_delta(&mut delta).expect("sign_delta should succeed");
+        mgr.sign_delta(&mut delta)
+            .expect("sign_delta should succeed");
 
         assert_eq!(
             delta.author_did,
@@ -251,7 +255,8 @@ mod tests {
         assert_ne!(delta.id, [0u8; 32], "delta id should be computed");
 
         // Verify the signature
-        mgr.verify_delta(&delta).expect("delta signature should be valid");
+        mgr.verify_delta(&delta)
+            .expect("delta signature should be valid");
     }
 
     #[test]
@@ -278,14 +283,14 @@ mod tests {
         let _ = std::fs::remove_file(path);
 
         // Create new identity with persistence
-        let mgr = IdentityManager::init_with_path(Some(path))
-            .expect("init with path should succeed");
+        let mgr =
+            IdentityManager::init_with_path(Some(path)).expect("init with path should succeed");
         let original_did = mgr.did().to_string();
         let original_pk = mgr.public_key_bytes();
 
         // Load it back
-        let mgr2 = IdentityManager::init_with_path(Some(path))
-            .expect("reload from path should succeed");
+        let mgr2 =
+            IdentityManager::init_with_path(Some(path)).expect("reload from path should succeed");
         assert_eq!(mgr2.did(), &original_did, "DID should be restored");
         assert_eq!(
             mgr2.public_key_bytes(),
@@ -378,10 +383,10 @@ mod zeroize_registry_tests {
 
     use zeroize::ZeroizeOnDrop;
 
-    use crate::crdt::CrdtEngine;
-    use crate::transport::MeshTransport;
     use super::did::StoredIdentity;
     use super::file_key_provider::{FileKeyProvider, InMemoryKeyProvider};
+    use crate::crdt::CrdtEngine;
+    use crate::transport::MeshTransport;
 
     /// Every type in `tirbase-core` / `tirbase-guard` known to hold raw key
     /// bytes, by type name.
@@ -474,10 +479,7 @@ mod zeroize_registry_tests {
     /// key type (`SigningKey`, `SecretKey`, `StaticSecret`).  Test modules are
     /// stripped first so fixture structs do not need registry entries.
     fn key_material_structs(source: &str) -> Vec<String> {
-        let production = source
-            .split("\n#[cfg(test)]")
-            .next()
-            .unwrap_or(source);
+        let production = source.split("\n#[cfg(test)]").next().unwrap_or(source);
 
         let mut found = Vec::new();
         let mut current: Option<(String, usize, bool)> = None;

@@ -13,9 +13,9 @@ use crate::transport::fragment::{reassemble, DeltaFragment, ReassemblyBuffer};
 
 use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral as PlatformPeripheral};
+use libp2p::futures::StreamExt;
 use std::time::Duration;
 use tokio::time::timeout;
-use libp2p::futures::StreamExt;
 
 // ─── TirBase BLE service/characteristic UUIDs ─────────────────────────────────
 
@@ -182,17 +182,18 @@ impl BleAdapter {
                 })?;
 
                 for p in peripherals {
-                    let props = p.properties().await.map_err(|e| {
-                        TirBaseError::MeshUnavailable {
-                            reason: format!("BLE peripheral properties failed: {e}"),
-                        }
-                    })?;
+                    let props =
+                        p.properties()
+                            .await
+                            .map_err(|e| TirBaseError::MeshUnavailable {
+                                reason: format!("BLE peripheral properties failed: {e}"),
+                            })?;
 
                     if let Some(props) = props {
-                    if props
-                        .services
-                        .iter()
-                        .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
+                        if props
+                            .services
+                            .iter()
+                            .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
                         {
                             p.connect()
                                 .await
@@ -200,11 +201,11 @@ impl BleAdapter {
                                     reason: format!("BLE connect failed: {e}"),
                                 })?;
 
-                            p.discover_services()
-                                .await
-                                .map_err(|e| TirBaseError::MeshUnavailable {
+                            p.discover_services().await.map_err(|e| {
+                                TirBaseError::MeshUnavailable {
                                     reason: format!("BLE discover services failed: {e}"),
-                                })?;
+                                }
+                            })?;
 
                             let services = p.services();
                             let chr = services

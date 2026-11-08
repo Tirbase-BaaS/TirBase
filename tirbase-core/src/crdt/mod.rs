@@ -310,7 +310,10 @@ impl CrdtEngine {
     /// schema (default-schema-hash path).
     ///
     /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
-    pub(crate) fn compaction_policy_for(&self, table: &str) -> crate::store::compaction::CompactionPolicy {
+    pub(crate) fn compaction_policy_for(
+        &self,
+        table: &str,
+    ) -> crate::store::compaction::CompactionPolicy {
         use crate::store::compaction::CompactionPolicy;
         if let Some(schema) = self.schema_definitions.get(&self.known_schema_hash) {
             for tdef in &schema.tables {
@@ -544,7 +547,10 @@ impl CrdtEngine {
     /// callback delegates here to resolve compacted entries whose bytes were
     /// pruned from the cloud outbound queue.
     #[cfg(feature = "native")]
-    pub(crate) fn refetch_delta_bytes(&self, delta_id: &DeltaId) -> Result<Option<Vec<u8>>, TirBaseError> {
+    pub(crate) fn refetch_delta_bytes(
+        &self,
+        delta_id: &DeltaId,
+    ) -> Result<Option<Vec<u8>>, TirBaseError> {
         self.dag.delta_bytes(delta_id)
     }
 
@@ -711,7 +717,10 @@ impl CrdtEngine {
                     Severity::High,
                     ReasonCode::DeltaQuarantined,
                     Some(hex::encode(delta.id)),
-                    format!("rejected delta from {}: unknown schema hash {}", delta.author_did, hash_hex),
+                    format!(
+                        "rejected delta from {}: unknown schema hash {}",
+                        delta.author_did, hash_hex
+                    ),
                 );
                 return Ok(MergeOutcome::Quarantined {
                     reason: QuarantineReason::UnknownSchemaHash,
@@ -911,8 +920,8 @@ impl CrdtEngine {
                 actor_id,
                 lamport: delta.lamport,
                 schema_hash: delta.schema_hash,
-                 compacted: false,
-                 author_did: delta.author_did.clone(),
+                compacted: false,
+                author_did: delta.author_did.clone(),
             };
             self.dag.insert(node)?;
         }
@@ -1169,12 +1178,14 @@ impl CrdtEngine {
 
         let change_count = self.doc.get_changes(&[]).len() as u64;
         if should_compact(policy, change_count) {
-            let conn = self.dag.conn().lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let conn = self
+                .dag
+                .conn()
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("DAG mutex poisoned during compaction: {e}"),
-                }
-            })?;
-             let _ = compact_table(&*conn, table, &mut self.doc);
+                })?;
+            let _ = compact_table(&*conn, table, &mut self.doc);
             Ok(true)
         } else {
             Ok(false)
@@ -1278,20 +1289,18 @@ impl CrdtEngine {
     pub(crate) fn read_list(&self, key: &str) -> Option<Vec<String>> {
         use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef};
         match self.doc.get(automerge::ROOT, key).ok().flatten() {
-            Some((automerge::Value::Object(_), list_id)) => {
-                Some(
-                    self.doc
-                        .list_range(&list_id, ..)
-                        .filter_map(|item| match item.value {
-                            ValueRef::Scalar(sv) => match sv {
-                                ScalarValueRef::Str(s) => Some(s.to_string()),
-                                _ => None,
-                            },
+            Some((automerge::Value::Object(_), list_id)) => Some(
+                self.doc
+                    .list_range(&list_id, ..)
+                    .filter_map(|item| match item.value {
+                        ValueRef::Scalar(sv) => match sv {
+                            ScalarValueRef::Str(s) => Some(s.to_string()),
                             _ => None,
-                        })
-                        .collect(),
-                )
-            }
+                        },
+                        _ => None,
+                    })
+                    .collect(),
+            ),
             _ => None,
         }
     }
@@ -2605,7 +2614,7 @@ mod tests {
 
     /// Read a ROOT-level list back from the engine's merged doc (in-module test
     /// access to the private `doc`).
-     fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
+    fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
         use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef, ROOT};
         match engine.doc.get(ROOT, key).unwrap() {
             Some((automerge::Value::Object(ObjType::List), list_id)) => engine

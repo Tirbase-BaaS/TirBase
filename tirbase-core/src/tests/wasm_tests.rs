@@ -47,9 +47,18 @@ async fn test_local_store_query_with_filter() {
     use serde_json::json;
 
     let mut store = LocalStore::open(":memory:").await.expect("open store");
-    store.write("orders", "o1", &json!({"status": "open"})).await.unwrap();
-    store.write("orders", "o2", &json!({"status": "closed"})).await.unwrap();
-    store.write("orders", "o3", &json!({"status": "open"})).await.unwrap();
+    store
+        .write("orders", "o1", &json!({"status": "open"}))
+        .await
+        .unwrap();
+    store
+        .write("orders", "o2", &json!({"status": "closed"}))
+        .await
+        .unwrap();
+    store
+        .write("orders", "o3", &json!({"status": "open"}))
+        .await
+        .unwrap();
 
     let filter = json!({"status": "open"});
     let rows = store.query("orders", Some(&filter)).expect("query");
@@ -181,9 +190,7 @@ async fn test_quarantine_stores_and_retrieves() {
     use crate::migration::quarantine::{QuarantineLedger, QuarantineReason};
     use crate::store::indexed_db::IdbStore;
 
-    let db = std::rc::Rc::new(
-        IdbStore::open("test_quarantine").await.expect("open idb"),
-    );
+    let db = std::rc::Rc::new(IdbStore::open("test_quarantine").await.expect("open idb"));
     let mut ledger = QuarantineLedger::new(db);
     let raw = b"raw-delta-bytes".to_vec();
     let schema_hash = [0xAAu8; 32];
@@ -206,11 +213,17 @@ async fn test_quarantine_stores_and_retrieves() {
 
     // Verify persistence: re-open the same IndexedDB DB and read back.
     let db2 = std::rc::Rc::new(
-        IdbStore::open("test_quarantine").await.expect("re-open idb"),
+        IdbStore::open("test_quarantine")
+            .await
+            .expect("re-open idb"),
     );
     let ledger2 = QuarantineLedger::new(db2);
     let all = ledger2.get_all().await.expect("get_all after reload");
-    assert_eq!(all.len(), 1, "quarantine entry must survive IndexedDB reload");
+    assert_eq!(
+        all.len(),
+        1,
+        "quarantine entry must survive IndexedDB reload"
+    );
     assert_eq!(all[0].raw_bytes, raw, "raw_bytes must be byte-for-byte");
 }
 
@@ -222,14 +235,25 @@ async fn test_sidecar_record_and_order() {
     use crate::store::indexed_db::IdbStore;
 
     let db = std::rc::Rc::new(
-        IdbStore::open("test_sidecar_order").await.expect("open idb"),
+        IdbStore::open("test_sidecar_order")
+            .await
+            .expect("open idb"),
     );
     let mut ledger = SideCarLedger::new(db);
     let migration_id = [0x01u8; 32];
 
-    ledger.record(migration_id, "t".to_string(), b"c3".to_vec(), 300).await.unwrap();
-    ledger.record(migration_id, "t".to_string(), b"c1".to_vec(), 100).await.unwrap();
-    ledger.record(migration_id, "t".to_string(), b"c2".to_vec(), 200).await.unwrap();
+    ledger
+        .record(migration_id, "t".to_string(), b"c3".to_vec(), 300)
+        .await
+        .unwrap();
+    ledger
+        .record(migration_id, "t".to_string(), b"c1".to_vec(), 100)
+        .await
+        .unwrap();
+    ledger
+        .record(migration_id, "t".to_string(), b"c2".to_vec(), 200)
+        .await
+        .unwrap();
 
     let entries = ledger.load_entries_ordered(migration_id).await.unwrap();
     assert_eq!(entries.len(), 3);
@@ -239,11 +263,17 @@ async fn test_sidecar_record_and_order() {
 
     // Verify persistence: re-open the same IndexedDB DB and read back.
     let db2 = std::rc::Rc::new(
-        IdbStore::open("test_sidecar_order").await.expect("re-open idb"),
+        IdbStore::open("test_sidecar_order")
+            .await
+            .expect("re-open idb"),
     );
     let ledger2 = SideCarLedger::new(db2);
     let reloaded = ledger2.load_entries_ordered(migration_id).await.unwrap();
-    assert_eq!(reloaded.len(), 3, "sidecar entries must survive IndexedDB reload");
+    assert_eq!(
+        reloaded.len(),
+        3,
+        "sidecar entries must survive IndexedDB reload"
+    );
 }
 
 // ─── Compaction snapshot persistence (Req 3.4/3.5, WASM) ──────────────────────
@@ -254,9 +284,7 @@ async fn test_compaction_snapshot_persisted_to_indexeddb() {
     use crate::store::indexed_db::IdbStore;
     use automerge::ReadDoc;
 
-    let db = std::rc::Rc::new(
-        IdbStore::open("test_compaction").await.expect("open idb"),
-    );
+    let db = std::rc::Rc::new(IdbStore::open("test_compaction").await.expect("open idb"));
 
     let mut doc = automerge::AutoCommit::default();
     doc.put("table", "key1", "value1").unwrap();
@@ -267,25 +295,42 @@ async fn test_compaction_snapshot_persisted_to_indexeddb() {
     // Write enough changes to exceed the threshold.
     if compact_table_idb(&db, "items", &mut doc).await.is_ok() {
         // Snapshot should now be persisted.
-        let snapshot = db.get_compaction_snapshot("items").await.expect("get snapshot");
-        assert!(snapshot.is_some(), "compaction snapshot must be persisted to IndexedDB");
+        let snapshot = db
+            .get_compaction_snapshot("items")
+            .await
+            .expect("get snapshot");
+        assert!(
+            snapshot.is_some(),
+            "compaction snapshot must be persisted to IndexedDB"
+        );
     }
 
     // Verify persistence across reload.
     let db2 = std::rc::Rc::new(
-        IdbStore::open("test_compaction").await.expect("re-open idb"),
+        IdbStore::open("test_compaction")
+            .await
+            .expect("re-open idb"),
     );
-    let snapshot2 = db2.get_compaction_snapshot("items").await.expect("re-get snapshot");
-    assert!(snapshot2.is_some(), "compaction snapshot must survive IndexedDB reload");
-    assert!(!snapshot2.unwrap().snapshot_bytes.is_empty(), "snapshot bytes must be non-empty");
+    let snapshot2 = db2
+        .get_compaction_snapshot("items")
+        .await
+        .expect("re-get snapshot");
+    assert!(
+        snapshot2.is_some(),
+        "compaction snapshot must survive IndexedDB reload"
+    );
+    assert!(
+        !snapshot2.unwrap().snapshot_bytes.is_empty(),
+        "snapshot bytes must be non-empty"
+    );
 }
 
 // ─── Projection store ─────────────────────────────────────────────────────────
 
 #[wasm_bindgen_test]
 fn test_projection_mark_and_clear() {
-    use crate::store::projection::{mark_row_contaminated, clear_row_contamination};
     use crate::contamination::taint::WASM_PROJ_STORE;
+    use crate::store::projection::{clear_row_contamination, mark_row_contaminated};
 
     mark_row_contaminated("reports", "row-1").expect("mark");
 
@@ -336,8 +381,8 @@ fn test_mesh_status_is_disconnected_before_init() {
 
 #[wasm_bindgen_test]
 async fn test_init_write_read_round_trip() {
-    use wasm_bindgen::JsValue;
     use js_sys::JSON;
+    use wasm_bindgen::JsValue;
 
     // Initialise with a dummy storage path (in-memory on WASM).
     crate::wasm_exports::core_init("wasm-test".to_string(), vec![], None, vec![])
@@ -380,30 +425,23 @@ async fn test_init_write_query() {
     for i in 0u32..3 {
         let json_str = format!(r#"{{"index": {i}}}"#);
         let data = JSON::parse(&json_str).unwrap();
-        crate::wasm_exports::core_write(
-            "multi_table".to_string(),
-            format!("key-{i}"),
-            data,
-        )
-        .await
-        .expect("core_write should succeed");
+        crate::wasm_exports::core_write("multi_table".to_string(), format!("key-{i}"), data)
+            .await
+            .expect("core_write should succeed");
     }
 
     // Query all rows (no filter).
-    let query_result = crate::wasm_exports::core_query(
-        "multi_table".to_string(),
-        wasm_bindgen::JsValue::NULL,
-    )
-    .await
-    .expect("core_query should succeed");
+    let query_result =
+        crate::wasm_exports::core_query("multi_table".to_string(), wasm_bindgen::JsValue::NULL)
+            .await
+            .expect("core_query should succeed");
 
     // Result is a JSON array — parse and check length.
     let arr_str = js_sys::JSON::stringify(&query_result)
         .expect("stringify")
         .as_string()
         .expect("string");
-    let parsed: serde_json::Value =
-        serde_json::from_str(&arr_str).expect("parse json");
+    let parsed: serde_json::Value = serde_json::from_str(&arr_str).expect("parse json");
     let rows = parsed.as_array().expect("array");
     assert_eq!(rows.len(), 3, "query must return all 3 written rows");
 }
@@ -422,9 +460,14 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     use crate::transport::message::GossipMessage;
 
     // Fresh in-memory instance (M=1, N=1 from core_init).
-    crate::wasm_exports::core_init("wasm-test-local-revocation".to_string(), vec![], None, vec![])
-        .await
-        .expect("core_init should succeed");
+    crate::wasm_exports::core_init(
+        "wasm-test-local-revocation".to_string(),
+        vec![],
+        None,
+        vec![],
+    )
+    .await
+    .expect("core_init should succeed");
 
     // Sanity: trust level is Unverified before the revocation is locally known.
     assert_eq!(
@@ -480,8 +523,7 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     );
 
     // Read must be blocked by the gate.
-    let read_result =
-        crate::wasm_exports::core_read("t".to_string(), "k".to_string()).await;
+    let read_result = crate::wasm_exports::core_read("t".to_string(), "k".to_string()).await;
     assert!(
         read_result.is_err(),
         "REVOKED device must not be allowed to read"
@@ -511,8 +553,8 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
 #[wasm_bindgen_test]
 async fn test_receive_peer_message_json_envelope_projects_to_store() {
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
-    use crate::identity::keypair::{generate_keypair, sign};
     use crate::crdt::derive_did_from_public_key;
+    use crate::identity::keypair::{generate_keypair, sign};
     use crate::transport::message::GossipMessage;
 
     // Re-initialise with a fresh in-memory store.
@@ -527,8 +569,14 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     // Build the JSON envelope that receive_inbound_wasm expects.
     let written_data = serde_json::json!({"sensor": "humidity", "value": 55.0});
     let mut envelope = serde_json::Map::new();
-    envelope.insert("_tirbase_table".to_string(), serde_json::Value::String("sensors".to_string()));
-    envelope.insert("_tirbase_key".to_string(), serde_json::Value::String("h-1".to_string()));
+    envelope.insert(
+        "_tirbase_table".to_string(),
+        serde_json::Value::String("sensors".to_string()),
+    );
+    envelope.insert(
+        "_tirbase_key".to_string(),
+        serde_json::Value::String("h-1".to_string()),
+    );
     if let Some(obj) = written_data.as_object() {
         for (k, v) in obj {
             envelope.insert(k.clone(), v.clone());
@@ -564,12 +612,9 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
         .expect("core_receive_peer_message should succeed");
 
     // Read back the value — should match the written envelope.
-    let read_result = crate::wasm_exports::core_read(
-        "sensors".to_string(),
-        "h-1".to_string(),
-    )
-    .await
-    .expect("core_read should succeed after inbound delta");
+    let read_result = crate::wasm_exports::core_read("sensors".to_string(), "h-1".to_string())
+        .await
+        .expect("core_read should succeed after inbound delta");
 
     assert!(!read_result.is_null(), "read result must not be null");
 
@@ -610,15 +655,14 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
 /// Automerge's convergence guarantees.
 #[wasm_bindgen_test]
 fn test_wasm_crdt_engine_convergence_two_instances() {
-    use crate::crdt::CrdtEngine;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
-    use crate::identity::keypair::{generate_keypair, sign};
     use crate::crdt::derive_did_from_public_key;
+    use crate::crdt::CrdtEngine;
+    use crate::identity::keypair::{generate_keypair, sign};
     use crate::schema::hash::compute_schema_identifier_hash;
 
-    let schema_hash = compute_schema_identifier_hash(&[
-        ("items", &[("id", "TEXT"), ("name", "TEXT")]),
-    ]);
+    let schema_hash =
+        compute_schema_identifier_hash(&[("items", &[("id", "TEXT"), ("name", "TEXT")])]);
 
     // Create two engines — one for "peer A" and one for "peer B".
     let (secret_a, public_a) = generate_keypair().expect("keygen A");
@@ -632,7 +676,8 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
 
     // Produce a Delta from engine A (a real automerge changeset).
     // Use empty automerge_bytes — the engine merges the bytes into its doc.
-    let delta_from_a = engine_a.produce_delta(vec![], PriorityClass::Low, vec![])
+    let delta_from_a = engine_a
+        .produce_delta(vec![], PriorityClass::Low, vec![])
         .expect("produce delta from A");
 
     // Apply A's Delta to engine B.
@@ -643,7 +688,8 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
     );
 
     // Produce a Delta from engine B.
-    let delta_from_b = engine_b.produce_delta(vec![], PriorityClass::Low, vec![])
+    let delta_from_b = engine_b
+        .produce_delta(vec![], PriorityClass::Low, vec![])
         .expect("produce delta from B");
 
     // Apply B's Delta to engine A.
@@ -703,10 +749,9 @@ async fn test_inbound_revocation_cce_tags_actual_authored_delta_ids() {
     // The local device writes a row — the produced signed Delta must be
     // recorded as authored by the local DID (Subphase 6.3 write wiring).
     let data = js_sys::JSON::parse(r#"{"msg": "before revocation"}"#).unwrap();
-    let write_result =
-        crate::wasm_exports::core_write("t".to_string(), "k1".to_string(), data)
-            .await
-            .expect("core_write should succeed");
+    let write_result = crate::wasm_exports::core_write("t".to_string(), "k1".to_string(), data)
+        .await
+        .expect("core_write should succeed");
     let write_json: serde_json::Value = serde_json::from_str(
         &js_sys::JSON::stringify(&write_result)
             .expect("stringify")

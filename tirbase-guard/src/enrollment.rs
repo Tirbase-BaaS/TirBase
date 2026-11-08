@@ -33,8 +33,8 @@ use tirbase_core::traits::KeyProvider;
 use tirbase_types::{CommandRole, DeviceSignature};
 
 use crate::epoch::{
-    decommission_message, verify_decommission_credential, DecommissionCredential, EnrollmentNonceStore,
-    EpochError, EpochRegistry,
+    decommission_message, verify_decommission_credential, DecommissionCredential,
+    EnrollmentNonceStore, EpochError, EpochRegistry,
 };
 use crate::trust_root::TrustRootRecord;
 
@@ -205,13 +205,16 @@ impl EnrollmentService {
         request: &EnrollmentRequest,
         now_est: i64,
     ) -> Result<EnrolledDevice, EpochError> {
-        let public_key: [u8; 32] = request
-            .device_public_key
-            .as_slice()
-            .try_into()
-            .map_err(|_| {
-                EpochError::InvalidIdentity("device public key is not a 32-byte Ed25519 key".into())
-            })?;
+        let public_key: [u8; 32] =
+            request
+                .device_public_key
+                .as_slice()
+                .try_into()
+                .map_err(|_| {
+                    EpochError::InvalidIdentity(
+                        "device public key is not a 32-byte Ed25519 key".into(),
+                    )
+                })?;
 
         let derived = derive_did(&public_key).to_string();
         if derived != request.device_did {
@@ -228,12 +231,10 @@ impl EnrollmentService {
             request.role,
         );
         let valid = match &request.signature {
-            DeviceSignature::Ed25519(bytes) => keypair::verify(
-                &public_key,
-                &message,
-                &Ed25519Signature::from_bytes(*bytes),
-            )
-            .is_ok(),
+            DeviceSignature::Ed25519(bytes) => {
+                keypair::verify(&public_key, &message, &Ed25519Signature::from_bytes(*bytes))
+                    .is_ok()
+            }
             DeviceSignature::P256(_) => false,
         };
         if !valid {
@@ -419,7 +420,9 @@ mod tests {
             ..
         } = fixture();
         let device = DeviceIdentity::generate().unwrap();
-        let request = device.bootstrap([1u8; 32], CommandRole::CommandIssuer).unwrap();
+        let request = device
+            .bootstrap([1u8; 32], CommandRole::CommandIssuer)
+            .unwrap();
 
         let enrolled = service.enroll(&request, 1_000).unwrap();
         assert_eq!(enrolled.epoch, 0, "first enrollment starts at epoch 0");
@@ -435,7 +438,9 @@ mod tests {
     fn replayed_bootstrap_nonce_is_rejected() {
         let Fixture { service, .. } = fixture();
         let device = DeviceIdentity::generate().unwrap();
-        let request = device.bootstrap([9u8; 32], CommandRole::CommandIssuer).unwrap();
+        let request = device
+            .bootstrap([9u8; 32], CommandRole::CommandIssuer)
+            .unwrap();
 
         service.enroll(&request, 1_000).unwrap();
         assert_eq!(
@@ -450,7 +455,9 @@ mod tests {
         let Fixture { service, .. } = fixture();
         let device = DeviceIdentity::generate().unwrap();
         let attacker = DeviceIdentity::generate().unwrap();
-        let mut request = device.bootstrap([5u8; 32], CommandRole::CommandIssuer).unwrap();
+        let mut request = device
+            .bootstrap([5u8; 32], CommandRole::CommandIssuer)
+            .unwrap();
         request.signature = attacker
             .sign_bootstrap([5u8; 32], CommandRole::CommandIssuer)
             .unwrap();
@@ -506,7 +513,6 @@ mod tests {
             .expect("RevocationManager credential is accepted");
     }
 }
-
 
 impl Drop for EnrollmentService {
     fn drop(&mut self) {

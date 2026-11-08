@@ -212,11 +212,7 @@ impl PeerDiscovery {
         self.peers
             .values()
             .find(|state| {
-                state.active
-                    && matches!(
-                        state.peer.transport,
-                        PeerTransport::MultiHopRelay { .. }
-                    )
+                state.active && matches!(state.peer.transport, PeerTransport::MultiHopRelay { .. })
             })
             .map(|state| state.peer.did.clone())
     }
@@ -247,9 +243,7 @@ pub mod ble_adapter {
 
     /// Scan for BLE peripherals advertising the TirBase service UUID and
     /// return `(did, bridge_did)` pairs for each discovered device.
-    pub async fn scan_ble_peers(
-        scan_timeout_secs: u64,
-    ) -> Result<Vec<(Did, Did)>, TirBaseError> {
+    pub async fn scan_ble_peers(scan_timeout_secs: u64) -> Result<Vec<(Did, Did)>, TirBaseError> {
         let manager = Manager::new()
             .await
             .map_err(|e| TirBaseError::MeshUnavailable {
@@ -278,29 +272,29 @@ pub mod ble_adapter {
         let result = timeout(Duration::from_secs(scan_timeout_secs), async {
             let mut found = Vec::new();
             loop {
-                let peripherals = adapter.peripherals().await.map_err(|e| {
-                    TirBaseError::MeshUnavailable {
-                        reason: format!("BLE peripherals enumeration failed: {e}"),
-                    }
-                })?;
+                let peripherals =
+                    adapter
+                        .peripherals()
+                        .await
+                        .map_err(|e| TirBaseError::MeshUnavailable {
+                            reason: format!("BLE peripherals enumeration failed: {e}"),
+                        })?;
 
                 for p in peripherals {
-                    let props = p.properties().await.map_err(|e| {
-                        TirBaseError::MeshUnavailable {
-                            reason: format!("BLE peripheral properties failed: {e}"),
-                        }
-                    })?;
+                    let props =
+                        p.properties()
+                            .await
+                            .map_err(|e| TirBaseError::MeshUnavailable {
+                                reason: format!("BLE peripheral properties failed: {e}"),
+                            })?;
 
                     if let Some(props) = props {
-                    if props
-                        .services
-                        .iter()
-                        .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
+                        if props
+                            .services
+                            .iter()
+                            .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
                         {
-                            let peer_did = format!(
-                                "did:key:ble-{}",
-                                props.address
-                            );
+                            let peer_did = format!("did:key:ble-{}", props.address);
                             let bridge_did = peer_did.clone();
                             found.push((peer_did, bridge_did));
                         }
@@ -358,11 +352,7 @@ pub mod mdns_adapter {
     ///
     /// - `Discovered`: add each peer to the active list (hop_count = 0).
     /// - `Expired`:    remove each peer from the active list (Req 5.6).
-    pub fn handle_mdns_event(
-        discovery: &mut PeerDiscovery,
-        event: MdnsEvent,
-        now_us: i64,
-    ) {
+    pub fn handle_mdns_event(discovery: &mut PeerDiscovery, event: MdnsEvent, now_us: i64) {
         match event {
             MdnsEvent::Discovered(peers) => {
                 for (peer_id, addr) in peers {
@@ -414,7 +404,8 @@ mod tests {
     #[test]
     fn discovered_peer_added_to_active_list() {
         let mut disc = make_discovery();
-        disc.on_peer_discovered(mdns_peer("did:key:peerA"), 1_000_000).unwrap();
+        disc.on_peer_discovered(mdns_peer("did:key:peerA"), 1_000_000)
+            .unwrap();
         assert!(disc.is_active(&"did:key:peerA".to_string()));
     }
 
@@ -451,7 +442,8 @@ mod tests {
     #[test]
     fn peer_timeout_removes_stale_peer() {
         let mut disc = make_discovery(); // peer_timeout_secs = 30
-        disc.on_peer_discovered(mdns_peer("did:key:stale"), 0).unwrap();
+        disc.on_peer_discovered(mdns_peer("did:key:stale"), 0)
+            .unwrap();
         assert!(disc.is_active(&"did:key:stale".to_string()));
 
         // 31 seconds later (in microseconds)
@@ -462,7 +454,8 @@ mod tests {
     #[test]
     fn peer_not_removed_before_timeout() {
         let mut disc = make_discovery(); // peer_timeout_secs = 30
-        disc.on_peer_discovered(mdns_peer("did:key:active"), 0).unwrap();
+        disc.on_peer_discovered(mdns_peer("did:key:active"), 0)
+            .unwrap();
 
         disc.tick_timeouts(29 * 1_000_000); // 29s later
         assert!(disc.is_active(&"did:key:active".to_string()));
@@ -471,7 +464,8 @@ mod tests {
     #[test]
     fn touch_peer_resets_timeout_clock() {
         let mut disc = make_discovery(); // peer_timeout_secs = 30
-        disc.on_peer_discovered(mdns_peer("did:key:renew"), 0).unwrap();
+        disc.on_peer_discovered(mdns_peer("did:key:renew"), 0)
+            .unwrap();
 
         disc.touch_peer(&"did:key:renew".to_string(), 20 * 1_000_000);
         // Now 50s from original discovery but only 29s since touch
@@ -502,7 +496,7 @@ mod tests {
         disc.enqueue_retry(RetryEntry {
             peer_did: "did:key:a".to_string(),
             delta_bytes: vec![1],
-            next_retry_at: 500,   // due at t=500
+            next_retry_at: 500, // due at t=500
             attempts: 0,
         })
         .unwrap();
@@ -541,7 +535,8 @@ mod tests {
     #[test]
     fn remove_peer_makes_peer_inactive() {
         let mut disc = make_discovery();
-        disc.on_peer_discovered(mdns_peer("did:key:remove-me"), 0).unwrap();
+        disc.on_peer_discovered(mdns_peer("did:key:remove-me"), 0)
+            .unwrap();
         disc.remove_peer(&"did:key:remove-me".to_string());
         assert!(!disc.is_active(&"did:key:remove-me".to_string()));
     }

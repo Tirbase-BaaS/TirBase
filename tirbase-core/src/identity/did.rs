@@ -33,19 +33,20 @@ pub fn derive_did(public_key: &[u8; 32]) -> Did {
 /// unsupported method.
 pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
     // DID must start with "did:key:z"
-    let encoded = did.strip_prefix("did:key:z").ok_or_else(|| {
-        TirBaseError::DidResolutionFailed {
-            did: did.clone(),
-            reason: "DID must start with 'did:key:z'".to_string(),
-        }
-    })?;
+    let encoded =
+        did.strip_prefix("did:key:z")
+            .ok_or_else(|| TirBaseError::DidResolutionFailed {
+                did: did.clone(),
+                reason: "DID must start with 'did:key:z'".to_string(),
+            })?;
 
-    let decoded = bs58::decode(encoded).into_vec().map_err(|e| {
-        TirBaseError::DidResolutionFailed {
-            did: did.clone(),
-            reason: format!("base58btc decode error: {e}"),
-        }
-    })?;
+    let decoded =
+        bs58::decode(encoded)
+            .into_vec()
+            .map_err(|e| TirBaseError::DidResolutionFailed {
+                did: did.clone(),
+                reason: format!("base58btc decode error: {e}"),
+            })?;
 
     // Must start with the ed25519 multicodec prefix 0xed 0x01
     if decoded.len() < 2 || decoded[0] != 0xed || decoded[1] != 0x01 {
@@ -59,10 +60,7 @@ pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
     if key_bytes.len() != 32 {
         return Err(TirBaseError::DidResolutionFailed {
             did: did.clone(),
-            reason: format!(
-                "expected 32-byte public key, got {} bytes",
-                key_bytes.len()
-            ),
+            reason: format!("expected 32-byte public key, got {} bytes", key_bytes.len()),
         });
     }
 
@@ -166,17 +164,15 @@ pub fn load_identity_from(path: &str) -> Result<Option<(Did, Vec<u8>)>, TirBaseE
             return Ok(None);
         }
 
-        let json = std::fs::read_to_string(path).map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let json =
+            std::fs::read_to_string(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("read from {path} failed: {e}"),
-            }
-        })?;
+            })?;
 
-        let stored: StoredIdentity = serde_json::from_str(&json).map_err(|e| {
-            TirBaseError::LocalStoreWriteFailed {
+        let stored: StoredIdentity =
+            serde_json::from_str(&json).map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("JSON parse failed: {e}"),
-            }
-        })?;
+            })?;
 
         let secret_key_bytes = hex::decode(&stored.secret_key_hex).map_err(|e| {
             TirBaseError::LocalStoreWriteFailed {
@@ -310,8 +306,7 @@ mod tests {
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
     fn test_load_nonexistent_identity_returns_none() {
-        let result =
-            load_identity_from("./this_file_does_not_exist_tirbase_test.json").unwrap();
+        let result = load_identity_from("./this_file_does_not_exist_tirbase_test.json").unwrap();
         assert!(result.is_none(), "should return None for missing file");
     }
 }

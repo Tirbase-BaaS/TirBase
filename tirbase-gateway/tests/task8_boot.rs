@@ -106,7 +106,10 @@ fn run_until_marker(config: &Path, needle: &str) -> Vec<String> {
     let stdout = child.stdout.take().expect("stdout");
     let stderr = child.stderr.take().expect("stderr");
     let (tx, rx) = mpsc::channel();
-    for stream in [Box::new(stdout) as Box<dyn std::io::Read + Send>, Box::new(stderr)] {
+    for stream in [
+        Box::new(stdout) as Box<dyn std::io::Read + Send>,
+        Box::new(stderr),
+    ] {
         let tx = tx.clone();
         thread::spawn(move || {
             for line in BufReader::new(stream).lines().map_while(Result::ok) {
@@ -207,7 +210,10 @@ fn boot_installs_trust_root_and_runs_root_ca_self_test() {
         ),
     );
 
-    let lines = run_until_marker(&config, "root CA self-test: token verified after CA registration");
+    let lines = run_until_marker(
+        &config,
+        "root CA self-test: token verified after CA registration",
+    );
     let joined = strip_ansi(&lines.join("\n"));
     assert!(
         joined.contains("root CA self-test: token rejected before CA registration"),

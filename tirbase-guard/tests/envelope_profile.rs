@@ -23,7 +23,9 @@ use tirbase_guard::envelope::{
     ProfileInstallError, ProfileMap,
 };
 use tirbase_guard::signed_operation::CONTEXT_ENVELOPE_PROFILE;
-use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootError, TrustRootRecord};
+use tirbase_guard::trust_root::{
+    AuthorizedRoleSigner, RolePolicy, TrustRootError, TrustRootRecord,
+};
 use tirbase_guard::{
     ConstraintOperator, DeviceModel, DeviceParameter, EnvelopeProfile, LinearConstraint,
     ParameterKind, ParameterSpec,
@@ -463,7 +465,10 @@ fn validate_profile_rejects_device_class_mismatch() {
     let mut model = sample_device_model();
     model.device_class = "boiler".to_string();
     let err = validate_profile(&profile, &model).unwrap_err();
-    assert!(matches!(err, ProfileInstallError::DeviceClassMismatch { .. }));
+    assert!(matches!(
+        err,
+        ProfileInstallError::DeviceClassMismatch { .. }
+    ));
 }
 
 #[test]

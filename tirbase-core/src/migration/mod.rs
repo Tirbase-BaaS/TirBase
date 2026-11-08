@@ -136,9 +136,11 @@ impl SchemaMigrationEngine {
         revocation_threshold_m: usize,
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
-        #[cfg(not(feature = "native"))]
-        db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
-        schema_definitions: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
+        #[cfg(not(feature = "native"))] db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
+        schema_definitions: HashMap<
+            crate::schema::hash::SchemaIdentifierHash,
+            crate::schema::Schema,
+        >,
     ) -> Self {
         #[cfg(feature = "native")]
         let quarantine_ledger = QuarantineLedger::new(migration_conn.clone());
@@ -257,9 +259,9 @@ impl SchemaMigrationEngine {
         // Query all quarantined entries from IndexedDB and check if any
         // match our local schema hash without having been released.
         match self.quarantine_ledger.get_all().await {
-            Ok(entries) => entries.iter().any(|e| {
-                e.schema_hash == Some(self.local_schema_hash) && e.migration_id.is_none()
-            }),
+            Ok(entries) => entries
+                .iter()
+                .any(|e| e.schema_hash == Some(self.local_schema_hash) && e.migration_id.is_none()),
             Err(_) => false,
         }
     }
@@ -317,7 +319,12 @@ impl SchemaMigrationEngine {
 
         // ── 3. CA signature verification ─────────────────────────────────────
         if let Err(e) = self.verify_ca_signature(&delta) {
-            emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[migration] CA signature invalid from {sender_did}: {e} — blacklisting"));
+            emit_migration(
+                Severity::High,
+                ReasonCode::PostconditionFailed,
+                None,
+                format!("[migration] CA signature invalid from {sender_did}: {e} — blacklisting"),
+            );
             self.blacklisted_senders.insert(sender_did.to_string());
             let migration_id_hex = hex::encode(delta.id);
             return Err(TirBaseError::MigrationCaSignatureInvalid {
@@ -327,7 +334,12 @@ impl SchemaMigrationEngine {
 
         // ── 4. SHA-256 hash integrity check ──────────────────────────────────
         if let Err(e) = self.verify_transform_hash(&delta) {
-            emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[migration] Hash mismatch from {sender_did} — blacklisting"));
+            emit_migration(
+                Severity::High,
+                ReasonCode::PostconditionFailed,
+                None,
+                format!("[migration] Hash mismatch from {sender_did} — blacklisting"),
+            );
             self.blacklisted_senders.insert(sender_did.to_string());
             let migration_id_hex = hex::encode(delta.id);
             return Err(TirBaseError::MigrationHashMismatch {
@@ -408,10 +420,15 @@ impl SchemaMigrationEngine {
         // for CLAIM-G1.9 (see `docs/audits/gate-g1.md`).
         if self.revocation_registry.is_revoked(migration_id) {
             let migration_id_hex = hex::encode(migration_id);
-            emit_migration(Severity::Medium, ReasonCode::MigrationCancelled, None, format!(
-                "[migration] Migration {migration_id_hex} revoked before commit — \
+            emit_migration(
+                Severity::Medium,
+                ReasonCode::MigrationCancelled,
+                None,
+                format!(
+                    "[migration] Migration {migration_id_hex} revoked before commit — \
                  transform outcome discarded, schema NOT advanced"
-            ));
+                ),
+            );
             return Ok(MigrationResult::Revoked {
                 reason: format!("migration {migration_id_hex} revoked while in progress"),
             });
@@ -476,35 +493,55 @@ impl SchemaMigrationEngine {
 
         match outcome {
             Ok(MigrationResult::Success) => {
-                emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
-                    "[migration] Migration {:?} succeeded; schema updated to {:?}",
-                    prepared.migration_id, prepared.target_schema_hash
-                ));
+                emit_migration(
+                    Severity::Low,
+                    ReasonCode::MigrationApplied,
+                    None,
+                    format!(
+                        "[migration] Migration {:?} succeeded; schema updated to {:?}",
+                        prepared.migration_id, prepared.target_schema_hash
+                    ),
+                );
                 Ok(MigrationResult::Success)
             }
             Ok(MigrationResult::TimedOut { timeout_secs }) => {
                 let migration_id_hex = hex::encode(prepared.migration_id);
-                emit_migration(Severity::Medium, ReasonCode::MigrationCancelled, None, format!(
-                    "[migration] Migration {migration_id_hex} timed out after {timeout_secs}s"
-                ));
+                emit_migration(
+                    Severity::Medium,
+                    ReasonCode::MigrationCancelled,
+                    None,
+                    format!(
+                        "[migration] Migration {migration_id_hex} timed out after {timeout_secs}s"
+                    ),
+                );
                 Err(TirBaseError::MigrationTransformTimeout {
                     migration_id: migration_id_hex,
                 })
             }
             Ok(MigrationResult::Aborted { ref reason }) => {
-                emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!(
-                    "[migration] Migration {:?} aborted: {reason}",
-                    prepared.migration_id
-                ));
+                emit_migration(
+                    Severity::High,
+                    ReasonCode::PostconditionFailed,
+                    None,
+                    format!(
+                        "[migration] Migration {:?} aborted: {reason}",
+                        prepared.migration_id
+                    ),
+                );
                 Ok(MigrationResult::Aborted {
                     reason: reason.clone(),
                 })
             }
             Ok(MigrationResult::Revoked { ref reason }) => {
-                emit_migration(Severity::Medium, ReasonCode::MigrationCancelled, None, format!(
-                    "[migration] Migration {:?} revoked: {reason}",
-                    prepared.migration_id
-                ));
+                emit_migration(
+                    Severity::Medium,
+                    ReasonCode::MigrationCancelled,
+                    None,
+                    format!(
+                        "[migration] Migration {:?} revoked: {reason}",
+                        prepared.migration_id
+                    ),
+                );
                 Ok(MigrationResult::Revoked {
                     reason: reason.clone(),
                 })
@@ -550,12 +587,17 @@ impl SchemaMigrationEngine {
                     .entry(target)
                     .or_default()
                     .push(revoked_id);
-                emit_migration(Severity::Medium, ReasonCode::PostconditionFailed, None, format!(
-                    "[migration] Corruption window opened for schema {} \
+                emit_migration(
+                    Severity::Medium,
+                    ReasonCode::PostconditionFailed,
+                    None,
+                    format!(
+                        "[migration] Corruption window opened for schema {} \
                      (migration {:?}) — writes are now Side-Car captured (Req 19.2)",
-                    hex::encode(target),
-                    revoked_id
-                ));
+                        hex::encode(target),
+                        revoked_id
+                    ),
+                );
             }
         }
 
@@ -809,13 +851,9 @@ impl SchemaMigrationEngine {
         let Some(migration_id) = self.active_corruption_migration() else {
             return Ok(None);
         };
-        let entry_id = self.sidecar_ledger
-            .record(
-                migration_id,
-                table.to_string(),
-                delta_bytes,
-                recorded_ts,
-            )
+        let entry_id = self
+            .sidecar_ledger
+            .record(migration_id, table.to_string(), delta_bytes, recorded_ts)
             .await?;
         Ok(Some(entry_id))
     }
@@ -846,23 +884,33 @@ impl SchemaMigrationEngine {
                 .replay_sidecar(*migration_id, corrected_schema_hash, engine)
             {
                 Ok(summary) => {
-                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
-                        "[migration] Side-Car replay for corrupted migration {:?}: \
+                    emit_migration(
+                        Severity::Low,
+                        ReasonCode::MigrationApplied,
+                        None,
+                        format!(
+                            "[migration] Side-Car replay for corrupted migration {:?}: \
                          {}/{} entries replayed, {} conflicts, complete={} (Req 19.3)",
-                        migration_id,
-                        summary.replayed,
-                        summary.total_entries,
-                        summary.conflicts,
-                        summary.complete,
-                    ));
+                            migration_id,
+                            summary.replayed,
+                            summary.total_entries,
+                            summary.conflicts,
+                            summary.complete,
+                        ),
+                    );
                 }
                 Err(e) => {
                     // Best-effort: the migration has already committed and the
                     // entries stay PENDING in the ledger for a later retry.
-                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!(
-                        "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
-                        migration_id
-                    ));
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!(
+                            "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
+                            migration_id
+                        ),
+                    );
                 }
             }
         }
@@ -889,21 +937,31 @@ impl SchemaMigrationEngine {
                 .await
             {
                 Ok(summary) => {
-                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
-                        "[migration] Side-Car replay for corrupted migration {:?}: \
+                    emit_migration(
+                        Severity::Low,
+                        ReasonCode::MigrationApplied,
+                        None,
+                        format!(
+                            "[migration] Side-Car replay for corrupted migration {:?}: \
                          {}/{} entries replayed, {} conflicts, complete={} (Req 19.3)",
-                        migration_id,
-                        summary.replayed,
-                        summary.total_entries,
-                        summary.conflicts,
-                        summary.complete,
-                    ));
+                            migration_id,
+                            summary.replayed,
+                            summary.total_entries,
+                            summary.conflicts,
+                            summary.complete,
+                        ),
+                    );
                 }
                 Err(e) => {
-                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!(
-                        "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
-                        migration_id
-                    ));
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!(
+                            "[migration] Side-Car replay for corrupted migration {:?} failed: {e}",
+                            migration_id
+                        ),
+                    );
                 }
             }
         }
@@ -928,7 +986,9 @@ impl SchemaMigrationEngine {
         &self,
         migration_id: &MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
-        self.sidecar_ledger.load_entries_ordered(*migration_id).await
+        self.sidecar_ledger
+            .load_entries_ordered(*migration_id)
+            .await
     }
 }
 
@@ -2301,8 +2361,10 @@ mod tests {
         let source = [0x10u8; 32];
         let path = SchemaVersionPath::new(vec![source, target_hash]);
 
-        let mut schema_defs: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema> =
-            HashMap::new();
+        let mut schema_defs: HashMap<
+            crate::schema::hash::SchemaIdentifierHash,
+            crate::schema::Schema,
+        > = HashMap::new();
         schema_defs.insert(target_hash, schema.clone());
 
         let (ca_secret, ca_public) = generate_keypair().expect("keygen");
@@ -2336,7 +2398,8 @@ mod tests {
                 )),
                 {
                     let conn = rusqlite::Connection::open_in_memory().expect("open conn");
-                    conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+                    conn.execute_batch(CREATE_SCHEMA_SQL)
+                        .expect("create schema");
                     std::sync::Arc::new(std::sync::Mutex::new(conn))
                 },
                 schema_defs,
@@ -2345,7 +2408,10 @@ mod tests {
             // verify_version_path should succeed: the target hash has a valid
             // registered schema that round-trips through print → parse.
             let result = engine.verify_version_path(&delta);
-            assert!(result.is_ok(), "valid schema should pass parser validation: {result:?}");
+            assert!(
+                result.is_ok(),
+                "valid schema should pass parser validation: {result:?}"
+            );
         }
     }
 
@@ -2391,7 +2457,8 @@ mod tests {
                 )),
                 {
                     let conn = rusqlite::Connection::open_in_memory().expect("open conn");
-                    conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+                    conn.execute_batch(CREATE_SCHEMA_SQL)
+                        .expect("create schema");
                     std::sync::Arc::new(std::sync::Mutex::new(conn))
                 },
                 HashMap::new(),
@@ -2399,7 +2466,10 @@ mod tests {
 
             // verify_version_path succeeds with hash-based validation only.
             let result = engine.verify_version_path(&delta);
-            assert!(result.is_ok(), "hash-based validation should pass: {result:?}");
+            assert!(
+                result.is_ok(),
+                "hash-based validation should pass: {result:?}"
+            );
         }
     }
 }

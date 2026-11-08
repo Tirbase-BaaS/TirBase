@@ -65,8 +65,14 @@ const EXPORT_TO_METHOD: &[(&str, &str)] = &[
     ("core_trust_level", "trust_level"),
     ("core_mesh_status", "mesh_status"),
     ("core_register_root_ca_key", "register_root_ca_key"),
-    ("core_register_root_ca_key_with_token", "register_root_ca_key"),
-    ("core_register_migration_ca_key", "register_migration_ca_key"),
+    (
+        "core_register_root_ca_key_with_token",
+        "register_root_ca_key",
+    ),
+    (
+        "core_register_migration_ca_key",
+        "register_migration_ca_key",
+    ),
     ("core_initiate_revocation", "initiate_revocation"),
     ("core_revocation_status", "device_revocation_status"),
     ("core_verify_data", "verify_contamination"),
@@ -95,10 +101,7 @@ fn wasm_exports_match_core_handle_methods() {
 
     // 3. Every declared WASM export name has a delegation target.
     let declared_set: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
-    let delegation_exports: BTreeSet<&str> = EXPORT_TO_METHOD
-        .iter()
-        .map(|(e, _)| *e)
-        .collect();
+    let delegation_exports: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(e, _)| *e).collect();
 
     let exports_in_declared_but_not_mapped: Vec<&str> = declared_set
         .difference(&delegation_exports)
@@ -135,8 +138,7 @@ fn all_corehandle_public_io_methods_are_exported() {
     // The four primary data-plane methods (write, read, query) and the two
     // status accessors (trust_level, mesh_status) MUST have WASM exports so
     // the SDK can drive them through the WASM bridge (Req 2.1–2.6).
-    let required_methods: &[&str] =
-        &["write", "read", "query", "trust_level", "mesh_status"];
+    let required_methods: &[&str] = &["write", "read", "query", "trust_level", "mesh_status"];
     for m in required_methods {
         assert_method_exists::<crate::api::CoreHandle>(m);
     }
@@ -151,10 +153,7 @@ fn assert_method_exists<T>(method_name: &str) {
     // We can't do true compile-time method-name reflection, but we can call a
     // helper that exercises the delegation mapping.  The test framework
     // ensures the mapping is consistent with WASM_EXPORT_NAMES above.
-    let mapped: BTreeSet<&str> = EXPORT_TO_METHOD
-        .iter()
-        .map(|(_, m)| *m)
-        .collect();
+    let mapped: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(_, m)| *m).collect();
     assert!(
         mapped.contains(method_name),
         "method '{method_name}' has no WASM export mapping — \
@@ -217,10 +216,7 @@ fn wasm_exports_cover_sdk_wasmcore_interface() {
 /// `core_write` → `CoreHandle::write`, `core_read` → `CoreHandle::read`.
 #[test]
 fn sdk_production_callers_have_wasm_exports() {
-    let production_callers: &[(&str, &str)] = &[
-        ("core_write", "write"),
-        ("core_read", "read"),
-    ];
+    let production_callers: &[(&str, &str)] = &[("core_write", "write"), ("core_read", "read")];
 
     let declared: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
     let mapped: BTreeSet<(&str, &str)> = EXPORT_TO_METHOD.iter().copied().collect();
@@ -253,38 +249,53 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
     // Native-only diagnostics channel — `tokio::sync::broadcast::Receiver`
     // cannot be passed across the WASM boundary; diagnostics are delivered to
     // the SDK via `core_poll_events` (WasmEvent stream) instead.
-    ("subscribe_diagnostics", "native-only tokio broadcast channel"),
-
+    (
+        "subscribe_diagnostics",
+        "native-only tokio broadcast channel",
+    ),
     // Synchronous getter for the root CA public key bytes — the SDK retrieves
     // this via `core_register_root_ca_key_with_token` (which accepts the key
     // material) and stores it in JS memory; a separate getter is unnecessary.
-    ("root_ca_public_key", "synchronous key getter; key material stored in JS by register call"),
-
+    (
+        "root_ca_public_key",
+        "synchronous key getter; key material stored in JS by register call",
+    ),
     // Native-only inbound path — `receive_inbound` (the non-wasm arm at
     // api/mod.rs:2234) is the Swarm-polling-task caller on native; the WASM
     // equivalent is `receive_inbound_wasm` (which is exported as
     // `core_receive_peer_message`).
-    ("receive_inbound", "native-only Swarm polling caller; WASM equivalent is receive_inbound_wasm"),
-
+    (
+        "receive_inbound",
+        "native-only Swarm polling caller; WASM equivalent is receive_inbound_wasm",
+    ),
     // Internal dispatch — `process_inbound_messages` drains the native inbound
     // channel and is not a public WASM boundary method.
-    ("process_inbound_messages", "internal native inbound drain loop, not a WASM boundary method"),
-
+    (
+        "process_inbound_messages",
+        "internal native inbound drain loop, not a WASM boundary method",
+    ),
     // `receive_inbound_wasm` is the WASM-internal implementation of the inbound
     // path; it is called by `core_receive_peer_message` and is not itself
     // exported — exporting it would create a duplicate entry in the WASM
     // surface.
-    ("receive_inbound_wasm", "WASM-internal inbound impl, called by core_receive_peer_message"),
-
+    (
+        "receive_inbound_wasm",
+        "WASM-internal inbound impl, called by core_receive_peer_message",
+    ),
     // Native-only durability event subscription — returns a
     // `tokio::sync::broadcast::Receiver` which has no WASM equivalent;
     // durability events on WASM are delivered through `core_poll_events`.
-    ("subscribe_durability_events", "native-only tokio broadcast channel; WASM uses core_poll_events"),
-
+    (
+        "subscribe_durability_events",
+        "native-only tokio broadcast channel; WASM uses core_poll_events",
+    ),
     // Native-only test injection path — `inject_inbound` is used by native
     // integration tests to simulate inbound gossip messages; it is not part of
     // the SDK surface.
-    ("inject_inbound", "native-only test injection path, not part of SDK surface"),
+    (
+        "inject_inbound",
+        "native-only test injection path, not part of SDK surface",
+    ),
 ];
 
 /// All `pub` method names on `CoreHandle` (the complete set that must be
@@ -317,8 +328,10 @@ const ALL_COREHANDLE_PUBLIC_METHODS: &[&str] = &[
 #[test]
 fn all_corehandle_public_methods_are_accounted_for() {
     let exported: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(_, m)| *m).collect();
-    let unexported_reasons: BTreeSet<&str> =
-        UNEXPORTED_COREHANDLE_METHODS.iter().map(|(m, _)| *m).collect();
+    let unexported_reasons: BTreeSet<&str> = UNEXPORTED_COREHANDLE_METHODS
+        .iter()
+        .map(|(m, _)| *m)
+        .collect();
 
     for method in ALL_COREHANDLE_PUBLIC_METHODS {
         let is_exported = exported.contains(method);

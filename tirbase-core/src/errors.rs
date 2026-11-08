@@ -61,10 +61,7 @@ pub enum TirBaseError {
     MeshUnavailable { reason: String },
 
     #[error("Fragment reassembly failed from {sender_did}: expected {expected} fragments")]
-    FragmentReassemblyFailed {
-        sender_did: String,
-        expected: u32,
-    },
+    FragmentReassemblyFailed { sender_did: String, expected: u32 },
 
     #[error("Cloud outbound queue full: depth={depth}")]
     CloudQueueFull { depth: usize },
@@ -113,10 +110,7 @@ pub enum TirBaseError {
     RefetchUnavailable { delta_id: String },
 
     #[error("Spatial diversity degraded: available={available}, required={required}")]
-    SpatialDiversityDegraded {
-        available: usize,
-        required: usize,
-    },
+    SpatialDiversityDegraded { available: usize, required: usize },
 }
 
 #[cfg(test)]
@@ -156,7 +150,9 @@ mod tests {
 
     #[test]
     fn error_display_invalid_incident_state() {
-        let e = TirBaseError::InvalidIncidentState { got: IncidentState::Closed };
+        let e = TirBaseError::InvalidIncidentState {
+            got: IncidentState::Closed,
+        };
         let s = e.to_string();
         assert!(s.contains("OPEN"), "display: {s}");
         assert!(s.contains("Closed"), "display: {s}");
@@ -209,7 +205,10 @@ mod tests {
 
     #[test]
     fn error_display_spatial_diversity_degraded() {
-        let e = TirBaseError::SpatialDiversityDegraded { available: 1, required: 3 };
+        let e = TirBaseError::SpatialDiversityDegraded {
+            available: 1,
+            required: 3,
+        };
         let s = e.to_string();
         assert!(s.contains("available=1"), "display: {s}");
         assert!(s.contains("required=3"), "display: {s}");

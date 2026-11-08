@@ -30,8 +30,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::crdt::CrdtEngine;
 use crate::crdt::delta::{Delta, DeltaTag, PriorityClass};
+use crate::crdt::CrdtEngine;
 use crate::identity::keypair;
 use crate::schema::hash::{compute_schema_identifier_hash, SchemaIdentifierHash};
 
@@ -44,10 +44,8 @@ use crate::schema::hash::{compute_schema_identifier_hash, SchemaIdentifierHash};
 // (the same crate used internally by `keypair::generate_keypair`).
 
 const FIXED_SEED: [u8; 32] = [
-    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-    0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-    0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-    0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+    0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
 ];
 
 fn deterministic_keypair() -> ([u8; 32], [u8; 32]) {
@@ -68,8 +66,8 @@ fn make_delta_tag() -> DeltaTag {
     DeltaTag::Contaminated {
         root_id: [0xAA; 32],
         incident_id: uuid::Uuid::from_bytes([
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10,
         ]),
     }
 }
@@ -94,9 +92,10 @@ fn run_convergence_sequence(engine: &mut CrdtEngine) {
 
     // Step 2: schema migration to v2 (additive — adds email field)
     engine.add_known_schema(make_schema_hash());
-    let v2_hash = compute_schema_identifier_hash(&[
-        ("devices", &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")]),
-    ]);
+    let v2_hash = compute_schema_identifier_hash(&[(
+        "devices",
+        &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")],
+    )]);
     engine.set_current_schema(v2_hash);
 
     // Step 3: mark a DID as revoked (gate for future inbound deltas)
@@ -148,9 +147,10 @@ mod native_convergence {
         let mut engine = make_engine();
         run_convergence_sequence(&mut engine);
 
-        let v2_hash = compute_schema_identifier_hash(&[
-            ("devices", &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")]),
-        ]);
+        let v2_hash = compute_schema_identifier_hash(&[(
+            "devices",
+            &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")],
+        )]);
 
         let state = engine.convergent_state();
         let _bytes = serde_json::to_vec(&state).expect("serialise convergent state");
@@ -158,7 +158,10 @@ mod native_convergence {
         // Field-level assertions so regressions are caught even if the JSON
         // byte pattern stays accidentally stable.
         assert_eq!(state.lamport, 3);
-        assert_eq!(state.known_schema_hash, v2_hash, "after set_current_schema(v2) the current hash must be v2");
+        assert_eq!(
+            state.known_schema_hash, v2_hash,
+            "after set_current_schema(v2) the current hash must be v2"
+        );
         assert_eq!(state.known_schemas.len(), 2);
         assert!(state.known_schemas.contains(&make_schema_hash()));
         assert_eq!(state.revoked_dids.len(), 1);
@@ -203,16 +206,14 @@ mod native_convergence {
         // Two distinct deterministic keypairs so the two engines have
         // different actor IDs and Lamport-tie resolution is exercised.
         let seed_a: [u8; 32] = [
-            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10,
         ];
         let seed_b: [u8; 32] = [
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20,
         ];
 
         let sk_a = ed25519_dalek::SigningKey::from_bytes(&seed_a);
@@ -226,10 +227,14 @@ mod native_convergence {
 
         // Two engines with distinct actor IDs.
         let conn_a = rusqlite::Connection::open_in_memory().expect("in-memory A");
-        conn_a.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("schema A");
+        conn_a
+            .execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .expect("schema A");
         let conn_a = Arc::new(Mutex::new(conn_a));
         let conn_b = rusqlite::Connection::open_in_memory().expect("in-memory B");
-        conn_b.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("schema B");
+        conn_b
+            .execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
+            .expect("schema B");
         let conn_b = Arc::new(Mutex::new(conn_b));
 
         let mut engine_a = CrdtEngine::new(seed_a, pk_a, did_a.clone(), schema, conn_a);
@@ -317,9 +322,10 @@ mod wasm_convergence {
         let mut engine = make_engine();
         run_convergence_sequence(&mut engine);
 
-        let v2_hash = compute_schema_identifier_hash(&[
-            ("devices", &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")]),
-        ]);
+        let v2_hash = compute_schema_identifier_hash(&[(
+            "devices",
+            &[("id", "TEXT"), ("name", "TEXT"), ("email", "TEXT")],
+        )]);
 
         let state = engine.convergent_state();
         let _bytes = serde_json::to_vec(&state).expect("serialise convergent state");
@@ -327,7 +333,10 @@ mod wasm_convergence {
         // Same field-level invariants as the native test; both must agree for
         // byte-for-byte cross-build convergence.
         assert_eq!(state.lamport, 3);
-        assert_eq!(state.known_schema_hash, v2_hash, "after set_current_schema(v2) the current hash must be v2");
+        assert_eq!(
+            state.known_schema_hash, v2_hash,
+            "after set_current_schema(v2) the current hash must be v2"
+        );
         assert_eq!(state.known_schemas.len(), 2);
         assert!(state.known_schemas.contains(&make_schema_hash()));
         assert_eq!(state.revoked_dids.len(), 1);

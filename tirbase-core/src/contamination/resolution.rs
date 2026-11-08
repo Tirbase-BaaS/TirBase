@@ -191,8 +191,7 @@ pub fn verify_data(
     let composite_ico_ids: Vec<IncidentId> = composite_incidents
         .values()
         .filter(|c| {
-            c.state == IncidentState::Open
-                && c.contamination_roots.contains(&root_delta_id)
+            c.state == IncidentState::Open && c.contamination_roots.contains(&root_delta_id)
         })
         .map(|c| c.id)
         .collect();

@@ -96,10 +96,9 @@ pub fn verify_command_token(
         ));
     }
 
-    let did = query_string(&mut authorizer, "data($v) <- did($v)", &generous)
-        .unwrap_or_default();
-    let role_raw = query_string(&mut authorizer, "data($v) <- role($v)", &generous)
-        .unwrap_or_default();
+    let did = query_string(&mut authorizer, "data($v) <- did($v)", &generous).unwrap_or_default();
+    let role_raw =
+        query_string(&mut authorizer, "data($v) <- role($v)", &generous).unwrap_or_default();
     let role = parse_command_role(&role_raw).ok_or_else(|| {
         TokenVerifyError::OtherFailure(TirBaseError::AuthorisationFailed {
             reason: format!("unknown or missing token role: {role_raw:?}"),
@@ -111,9 +110,13 @@ pub fn verify_command_token(
     let target_scope = query_string(&mut authorizer, "data($v) <- command($v)", &generous);
     let param_scope = query_string(&mut authorizer, "data($v) <- scope($v)", &generous)
         .or_else(|| query_string(&mut authorizer, "data($v) <- param($v)", &generous));
-    let scope_unrestricted = query_string(&mut authorizer, "data($v) <- scope_unrestricted($v)", &generous)
-        .map(|v| v == "true")
-        .unwrap_or(false);
+    let scope_unrestricted = query_string(
+        &mut authorizer,
+        "data($v) <- scope_unrestricted($v)",
+        &generous,
+    )
+    .map(|v| v == "true")
+    .unwrap_or(false);
 
     Ok(CommandTokenClaims {
         did,
@@ -136,7 +139,11 @@ pub fn check_command_binding(
     if !claims.scope_unrestricted {
         match &claims.target_scope {
             Some(t) if t == "*" || t == target_id => {}
-            Some(t) => return Err(format!("token target scope {t:?} does not match {target_id:?}")),
+            Some(t) => {
+                return Err(format!(
+                    "token target scope {t:?} does not match {target_id:?}"
+                ))
+            }
             None => return Err("token missing command(target) scope fact".to_string()),
         }
         match &claims.param_scope {
@@ -209,23 +216,47 @@ pub fn create_command_token(
     let param_s = param_scope.to_string();
     let mut builder = Biscuit::builder()
         .fact(format!("did(\"{did_s}\")").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .fact(format!("role(\"{role_s}\")").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .fact(format!("issued_at({issued_secs})").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .fact(format!("expires_at({expiry_secs})").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .fact(format!("command(\"{target_s}\")").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .fact(format!("scope(\"{param_s}\")").as_str())
-        .map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?
         .check_expiration_date(expiry);
     for f in extra_facts {
-        builder = builder.fact(*f).map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?;
+        builder = builder
+            .fact(*f)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: e.to_string(),
+            })?;
     }
-    let token = builder.build(&keypair).map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })?;
-    token.to_vec().map_err(|e| TirBaseError::AuthorisationFailed { reason: e.to_string() })
+    let token = builder
+        .build(&keypair)
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })?;
+    token
+        .to_vec()
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: e.to_string(),
+        })
 }
 
 impl From<BiscuitClaims> for CommandTokenClaims {

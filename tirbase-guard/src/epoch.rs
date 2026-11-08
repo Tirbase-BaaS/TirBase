@@ -31,10 +31,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tirbase_core::events::{
-    emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity,
-};
 use tirbase_core::crdt::delta::Ed25519Signature;
+use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::identity::keypair;
 use tirbase_types::{CommandRole, DeviceSignature};
 
@@ -662,12 +660,9 @@ pub fn verify_ed25519(public_key: &[u8], message: &[u8], signature: &DeviceSigna
         return false;
     };
     match signature {
-        DeviceSignature::Ed25519(bytes) => keypair::verify(
-            &key,
-            message,
-            &Ed25519Signature::from_bytes(*bytes),
-        )
-        .is_ok(),
+        DeviceSignature::Ed25519(bytes) => {
+            keypair::verify(&key, message, &Ed25519Signature::from_bytes(*bytes)).is_ok()
+        }
         DeviceSignature::P256(_) => false,
     }
 }
@@ -745,12 +740,7 @@ mod tests {
 
     impl DeviceEpochStore for MemoryEpochStore {
         fn load(&self, device_id: &str) -> Result<Option<DeviceEpoch>, EpochError> {
-            Ok(self
-                .rows
-                .lock()
-                .unwrap()
-                .get(device_id)
-                .cloned())
+            Ok(self.rows.lock().unwrap().get(device_id).cloned())
         }
 
         fn save(&self, record: &DeviceEpoch) -> Result<(), EpochError> {
@@ -809,8 +799,12 @@ mod tests {
         payload: &EpochBump,
     ) -> SignedOperation<EpochBump> {
         let mut operation = SignedOperation::new(payload, 1_000, None).unwrap();
-        operation.sign_with(pa, CommandRole::PolicyAuthority).unwrap();
-        operation.sign_with(rm, CommandRole::RevocationManager).unwrap();
+        operation
+            .sign_with(pa, CommandRole::PolicyAuthority)
+            .unwrap();
+        operation
+            .sign_with(rm, CommandRole::RevocationManager)
+            .unwrap();
         operation
     }
 
@@ -828,7 +822,13 @@ mod tests {
         assert!(record.co_sig_rm.is_none());
         // Re-enrolling is idempotent and does not reset the epoch.
         registry.observe_epoch("did:key:zDevice", 0).unwrap();
-        assert_eq!(registry.ensure_enrolled("did:key:zDevice", 999).unwrap().epoch, 0);
+        assert_eq!(
+            registry
+                .ensure_enrolled("did:key:zDevice", 999)
+                .unwrap()
+                .epoch,
+            0
+        );
     }
 
     #[test]
@@ -894,15 +894,18 @@ mod tests {
 
         assert!(matches!(
             registry.apply_bump(&operation, &payload, &trust_root, 200),
-            Err(EpochError::TrustRoot(TrustRootError::ThresholdNotMet { got: 0, .. }))
+            Err(EpochError::TrustRoot(TrustRootError::ThresholdNotMet {
+                got: 0,
+                ..
+            }))
         ));
     }
 
     #[test]
     fn epoch_regression_emits_event_and_is_rejected() {
+        use std::sync::Mutex;
         use tirbase_core::events::install_security_event_sink;
         use tirbase_core::traits::SecurityEventSink;
-        use std::sync::Mutex;
 
         #[derive(Debug, Default)]
         struct RecordingSink {

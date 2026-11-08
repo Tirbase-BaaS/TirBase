@@ -5,9 +5,7 @@
 //! bypassing.
 
 use tirbase_guard::admit::AdmitContext;
-use tirbase_guard::{
-    AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource,
-};
+use tirbase_guard::{AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource};
 use tirbase_types::command::CommandMessage;
 
 /// Admit a mesh-delivered command (legacy path).

@@ -27,7 +27,9 @@ use tirbase_types::envelope::EnvelopeProfile;
 use tirbase_types::policy::PolicyBundle;
 use tirbase_types::TargetId;
 
-use crate::admit::{admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection};
+use crate::admit::{
+    admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection,
+};
 use crate::command::{verify_command_signature, CommandError};
 use crate::driver_proxy::{DriverProxy, IngressSource};
 use crate::epoch::{EpochError, EpochRegistry};
@@ -54,7 +56,10 @@ pub enum AdmitError {
     /// Stage 1: node mode does not permit command admission (CLAIM-13.1).
     ModeRejected(NodeMode),
     /// Stage 0–15 pipeline rejection (CLAIM-14.x).
-    Pipeline { category: AdmitRejection, detail: String },
+    Pipeline {
+        category: AdmitRejection,
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for AdmitError {
@@ -65,7 +70,10 @@ impl std::fmt::Display for AdmitError {
             AdmitError::Dispatch(e) => write!(f, "actuation dispatch failed: {e}"),
             AdmitError::MissingParameter(e) => write!(f, "missing parameter: {e}"),
             AdmitError::ModeRejected(mode) => {
-                write!(f, "command rejected: node mode {mode} does not permit commands")
+                write!(
+                    f,
+                    "command rejected: node mode {mode} does not permit commands"
+                )
             }
             AdmitError::Pipeline { category, detail } => {
                 write!(f, "command rejected ({category:?}): {detail}")
@@ -194,7 +202,9 @@ impl CommandGuard {
         self.policy_bundle.load()
     }
 
-    pub fn pipeline(&self) -> Option<&Arc<AdmitPipelineState>> { self.pipeline.as_ref() }
+    pub fn pipeline(&self) -> Option<&Arc<AdmitPipelineState>> {
+        self.pipeline.as_ref()
+    }
     pub fn envelope_profile_for(&self, target: &TargetId) -> Option<Arc<EnvelopeProfile>> {
         self.envelope_profiles.get(target).map(|c| c.load_full())
     }
@@ -210,7 +220,12 @@ impl CommandGuard {
     /// True when the installed profile marks `param` on `target` as `critical`.
     pub fn parameter_is_critical(&self, target: &TargetId, param: &str) -> bool {
         self.envelope_profile_for(target)
-            .and_then(|p| p.parameters.iter().find(|s| s.name == param).map(|s| s.critical))
+            .and_then(|p| {
+                p.parameters
+                    .iter()
+                    .find(|s| s.name == param)
+                    .map(|s| s.critical)
+            })
             .unwrap_or(false)
     }
 
@@ -219,7 +234,9 @@ impl CommandGuard {
     }
 
     fn entry_id(&self) -> [u8; 16] {
-        let n = self.next_entry.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let n = self
+            .next_entry
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut id = [0u8; 16];
         id[..8].copy_from_slice(&n.to_le_bytes());
         id
@@ -239,7 +256,13 @@ impl CommandGuard {
             // compatibility for existing callers by running legacy checks.
             // Full Stage 3+ enforcement requires `admit_with_context`.
             let sk = ingress_source_key(ingress, cmd);
-            let ctx = AdmitContext { ingress, source_key: &sk, biscuit_token: None, now_est_secs: None, simulate: false };
+            let ctx = AdmitContext {
+                ingress,
+                source_key: &sk,
+                biscuit_token: None,
+                now_est_secs: None,
+                simulate: false,
+            };
             if ctx.biscuit_token.is_some() {
                 return self.admit_with_context(cmd, &ctx, proxy, frame);
             }
@@ -260,23 +283,55 @@ impl CommandGuard {
             detail: "pipeline not configured; use admit() or configure with_pipeline()".to_string(),
         })?;
         let device_id = self.device_id_for_target(&cmd.target_id);
-        match admit_stages_0_to_15(cmd, ctx, &self.node_mode, &self.epochs, pipeline, device_id.as_deref()) {
-            AdmitDecision::Accepted { .. } | AdmitDecision::Simulated { would_accept: true, .. } => {
+        match admit_stages_0_to_15(
+            cmd,
+            ctx,
+            &self.node_mode,
+            &self.epochs,
+            pipeline,
+            device_id.as_deref(),
+        ) {
+            AdmitDecision::Accepted { .. }
+            | AdmitDecision::Simulated {
+                would_accept: true, ..
+            } => {
                 let permit = ActuationPermit::new(
                     cmd.target_id.clone(),
                     cmd.param.clone(),
                     cmd.desired_state,
                     self.entry_id(),
                 );
-                let permit_ref = proxy.dispatch(permit, frame).map_err(|e| AdmitError::Dispatch(e.to_string()))?;
-                emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Low, ReasonCode::CommandAccepted)
-                    .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
-                    .with_detail(format!("admitted via {:?} (pipeline)", ctx.ingress)));
-                Ok(AdmittedCommand { permit_ref, ingress: ctx.ingress })
+                let permit_ref = proxy
+                    .dispatch(permit, frame)
+                    .map_err(|e| AdmitError::Dispatch(e.to_string()))?;
+                emit(
+                    SecurityEvent::new(
+                        SecurityEventCategory::CommandDecision,
+                        Severity::Low,
+                        ReasonCode::CommandAccepted,
+                    )
+                    .with_actor(cmd.issuer_did.as_str())
+                    .with_target(cmd.target_id.as_str())
+                    .with_detail(format!("admitted via {:?} (pipeline)", ctx.ingress)),
+                );
+                Ok(AdmittedCommand {
+                    permit_ref,
+                    ingress: ctx.ingress,
+                })
             }
-            AdmitDecision::Rejected { category, detail, .. } => Err(AdmitError::Pipeline { category, detail }),
-            AdmitDecision::Simulated { would_accept: false, rejection, .. } => {
-                let (category, detail, _retry) = rejection.unwrap_or((AdmitRejection::Unsupported, "simulated rejection".to_string(), None));
+            AdmitDecision::Rejected {
+                category, detail, ..
+            } => Err(AdmitError::Pipeline { category, detail }),
+            AdmitDecision::Simulated {
+                would_accept: false,
+                rejection,
+                ..
+            } => {
+                let (category, detail, _retry) = rejection.unwrap_or((
+                    AdmitRejection::Unsupported,
+                    "simulated rejection".to_string(),
+                    None,
+                ));
                 Err(AdmitError::Pipeline { category, detail })
             }
         }
@@ -287,24 +342,50 @@ impl CommandGuard {
         let Some(pipeline) = self.pipeline.as_ref() else {
             return AdmitDecision::Simulated {
                 would_accept: false,
-                rejection: Some((AdmitRejection::Unsupported, "pipeline not configured".to_string(), None)),
+                rejection: Some((
+                    AdmitRejection::Unsupported,
+                    "pipeline not configured".to_string(),
+                    None,
+                )),
                 derived_role: None,
             };
         };
         let mut sim = ctx.clone();
         sim.simulate = true;
         let device_id = self.device_id_for_target(&cmd.target_id);
-        admit_stages_0_to_15(cmd, &sim, &self.node_mode, &self.epochs, pipeline, device_id.as_deref())
+        admit_stages_0_to_15(
+            cmd,
+            &sim,
+            &self.node_mode,
+            &self.epochs,
+            pipeline,
+            device_id.as_deref(),
+        )
     }
 
     /// Task 15.6: evaluate Stages 0–15 only (no driver/network I/O, no permit
     /// mint). Safe to run inside `spawn_blocking` for DB reads.
-    pub fn admit_stages_0_to_15_with_pipeline(&self, cmd: &CommandMessage, ctx: &AdmitContext<'_>) -> AdmitDecision {
+    pub fn admit_stages_0_to_15_with_pipeline(
+        &self,
+        cmd: &CommandMessage,
+        ctx: &AdmitContext<'_>,
+    ) -> AdmitDecision {
         let Some(pipeline) = self.pipeline.as_ref() else {
-            return AdmitDecision::Rejected { category: AdmitRejection::Unsupported, detail: "pipeline not configured".into(), retry_after_secs: None };
+            return AdmitDecision::Rejected {
+                category: AdmitRejection::Unsupported,
+                detail: "pipeline not configured".into(),
+                retry_after_secs: None,
+            };
         };
         let device_id = self.device_id_for_target(&cmd.target_id);
-        admit_stages_0_to_15(cmd, ctx, &self.node_mode, &self.epochs, pipeline, device_id.as_deref())
+        admit_stages_0_to_15(
+            cmd,
+            ctx,
+            &self.node_mode,
+            &self.epochs,
+            pipeline,
+            device_id.as_deref(),
+        )
     }
 
     fn admit_legacy<W: Write + Send>(
@@ -316,28 +397,60 @@ impl CommandGuard {
     ) -> Result<AdmittedCommand, AdmitError> {
         let mode = self.node_mode.get();
         if !mode.allows_commands() {
-            emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::High, ReasonCode::ModeLockdown)
-                .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
-                .with_detail(format!("command rejected: node mode {mode}")));
+            emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::CommandDecision,
+                    Severity::High,
+                    ReasonCode::ModeLockdown,
+                )
+                .with_actor(cmd.issuer_did.as_str())
+                .with_target(cmd.target_id.as_str())
+                .with_detail(format!("command rejected: node mode {mode}")),
+            );
             return Err(AdmitError::ModeRejected(mode));
         }
         if let Err(e) = verify_command_signature(cmd) {
-            emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Medium, ReasonCode::CommandSignatureInvalid)
-                .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
-                .with_detail(format!("command signature rejected: {e}")));
+            emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::CommandDecision,
+                    Severity::Medium,
+                    ReasonCode::CommandSignatureInvalid,
+                )
+                .with_actor(cmd.issuer_did.as_str())
+                .with_target(cmd.target_id.as_str())
+                .with_detail(format!("command signature rejected: {e}")),
+            );
             return Err(AdmitError::InvalidSignature(e.to_string()));
         }
         if let Ok(cfg) = self.config.read() {
             if let Some(target) = cfg.targets.get(&cmd.target_id) {
-                self.epochs.check_command_epoch(&target.device_id, cmd.enrollment_epoch)?;
+                self.epochs
+                    .check_command_epoch(&target.device_id, cmd.enrollment_epoch)?;
             }
         }
-        let permit = ActuationPermit::new(cmd.target_id.clone(), cmd.param.clone(), cmd.desired_state, self.entry_id());
-        let permit_ref = proxy.dispatch(permit, frame).map_err(|e| AdmitError::Dispatch(e.to_string()))?;
-        emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Low, ReasonCode::CommandAccepted)
-            .with_actor(cmd.issuer_did.as_str()).with_target(cmd.target_id.as_str())
-            .with_detail(format!("admitted via {:?}", ingress)));
-        Ok(AdmittedCommand { permit_ref, ingress })
+        let permit = ActuationPermit::new(
+            cmd.target_id.clone(),
+            cmd.param.clone(),
+            cmd.desired_state,
+            self.entry_id(),
+        );
+        let permit_ref = proxy
+            .dispatch(permit, frame)
+            .map_err(|e| AdmitError::Dispatch(e.to_string()))?;
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::CommandDecision,
+                Severity::Low,
+                ReasonCode::CommandAccepted,
+            )
+            .with_actor(cmd.issuer_did.as_str())
+            .with_target(cmd.target_id.as_str())
+            .with_detail(format!("admitted via {:?}", ingress)),
+        );
+        Ok(AdmittedCommand {
+            permit_ref,
+            ingress,
+        })
     }
 }
 
@@ -355,5 +468,9 @@ pub fn single_target_guard(
 ) -> CommandGuard {
     let mut targets = BTreeMap::new();
     targets.insert(target_id, TargetAdmission { device_id });
-    CommandGuard::with_mode(epochs, GuardConfig { targets }, NodeModeState::new(NodeMode::Normal))
+    CommandGuard::with_mode(
+        epochs,
+        GuardConfig { targets },
+        NodeModeState::new(NodeMode::Normal),
+    )
 }

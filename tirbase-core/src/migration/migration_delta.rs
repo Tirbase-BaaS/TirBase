@@ -118,7 +118,10 @@ mod tests {
 
         assert_eq!(rev.target_migration_id, decoded.target_migration_id);
         assert_eq!(rev.signatures.len(), decoded.signatures.len());
-        assert_eq!(rev.signatures[0].manager_did, decoded.signatures[0].manager_did);
+        assert_eq!(
+            rev.signatures[0].manager_did,
+            decoded.signatures[0].manager_did
+        );
     }
 
     #[test]

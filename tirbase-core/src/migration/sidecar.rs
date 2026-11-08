@@ -107,9 +107,12 @@ impl SideCarLedger {
         hasher.update(&recorded_ts.to_le_bytes());
         let id: DeltaId = hasher.finalize().into();
 
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SideCarLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
 
         conn.execute(
             "INSERT OR IGNORE INTO sidecar_ledger \
@@ -161,10 +164,12 @@ impl SideCarLedger {
             let delta: Delta = match serde_json::from_slice(&entry.delta_bytes) {
                 Ok(d) => d,
                 Err(e) => {
-                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!(
-                        "[sidecar] Failed to deserialise entry {:?}: {e}",
-                        entry.id
-                    ));
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!("[sidecar] Failed to deserialise entry {:?}: {e}", entry.id),
+                    );
                     // Treat deserialization failure as a conflict to avoid silent data loss.
                     conflicts += 1;
                     self.update_entry_status(
@@ -191,21 +196,36 @@ impl SideCarLedger {
                     // the corrected schema should have accepted this delta.
                     conflicts += 1;
                     let info = format!("quarantined during replay: {reason:?}");
-                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[sidecar] Entry {:?} quarantined: {}", entry.id, info));
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!("[sidecar] Entry {:?} quarantined: {}", entry.id, info),
+                    );
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Rejected { reason }) => {
                     // Rejection (bad sig, etc.) — treat as conflict, do NOT abort.
                     conflicts += 1;
                     let info = format!("rejected during replay: {reason}");
-                    emit_migration(Severity::High, ReasonCode::PostconditionFailed, None, format!("[sidecar] Entry {:?} rejected: {}", entry.id, info));
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!("[sidecar] Entry {:?} rejected: {}", entry.id, info),
+                    );
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
                 Err(e) => {
                     // Engine error — treat as conflict, continue.
                     conflicts += 1;
                     let info = format!("engine error during replay: {e}");
-                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!("[sidecar] Entry {:?} engine error: {}", entry.id, info));
+                    emit_migration(
+                        Severity::Low,
+                        ReasonCode::MigrationApplied,
+                        None,
+                        format!("[sidecar] Entry {:?} engine error: {}", entry.id, info),
+                    );
                     self.update_entry_status(&entry.id, "CONFLICT", Some(info))?;
                 }
             }
@@ -224,9 +244,12 @@ impl SideCarLedger {
             // Append DeltaTag::ReplayComplete to every successfully-replayed Delta
             // in dag_nodes (Req 19.6, design.md §replay algorithm step 3).
             // This is the canonical append-only tag path — tags are never removed.
-            let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("SideCarLedger mutex poisoned appending ReplayComplete: {e}"),
-            })?;
+            let conn = self
+                .conn
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("SideCarLedger mutex poisoned appending ReplayComplete: {e}"),
+                })?;
             for delta_id in &replayed_delta_ids {
                 // Best-effort: the delta may have been compacted from dag_nodes
                 // (dag_nodes.compacted = 1).  We attempt the append and silently
@@ -234,10 +257,15 @@ impl SideCarLedger {
                 // tag store has no record to update, which is acceptable.
                 let tag = DeltaTag::ReplayComplete { migration_id };
                 if let Err(e) = append_tag_to_db(&conn, delta_id, tag) {
-                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
-                        "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
-                        delta_id
-                    ));
+                    emit_migration(
+                        Severity::Low,
+                        ReasonCode::MigrationApplied,
+                        None,
+                        format!(
+                            "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
+                            delta_id
+                        ),
+                    );
                 }
             }
         }
@@ -259,9 +287,12 @@ impl SideCarLedger {
         &self,
         migration_id: MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SideCarLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare(
@@ -290,26 +321,36 @@ impl SideCarLedger {
                 reason: format!("Query sidecar_ledger failed: {e}"),
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id_bytes, _mig_bytes, table_name, delta_bytes, recorded_ts, status_str, conflict_info)| {
-                let id: DeltaId = id_bytes.try_into().ok()?;
-                let replay_status = match status_str.as_deref() {
-                    None | Some("PENDING") => ReplayStatus::Pending,
-                    Some("REPLAYED") => ReplayStatus::Replayed,
-                    Some("CONFLICT") => ReplayStatus::Conflict {
-                        conflict_info: conflict_info.unwrap_or_default(),
-                    },
-                    Some("COMPLETE") => ReplayStatus::Complete,
-                    _ => ReplayStatus::Pending,
-                };
-                Some(SideCarEntry {
-                    id,
-                    migration_id,
+            .filter_map(
+                |(
+                    id_bytes,
+                    _mig_bytes,
                     table_name,
                     delta_bytes,
                     recorded_ts,
-                    replay_status,
-                })
-            })
+                    status_str,
+                    conflict_info,
+                )| {
+                    let id: DeltaId = id_bytes.try_into().ok()?;
+                    let replay_status = match status_str.as_deref() {
+                        None | Some("PENDING") => ReplayStatus::Pending,
+                        Some("REPLAYED") => ReplayStatus::Replayed,
+                        Some("CONFLICT") => ReplayStatus::Conflict {
+                            conflict_info: conflict_info.unwrap_or_default(),
+                        },
+                        Some("COMPLETE") => ReplayStatus::Complete,
+                        _ => ReplayStatus::Pending,
+                    };
+                    Some(SideCarEntry {
+                        id,
+                        migration_id,
+                        table_name,
+                        delta_bytes,
+                        recorded_ts,
+                        replay_status,
+                    })
+                },
+            )
             .collect();
 
         Ok(entries)
@@ -321,9 +362,12 @@ impl SideCarLedger {
         status: &str,
         conflict_info: Option<String>,
     ) -> Result<(), TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SideCarLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
 
         conn.execute(
             "UPDATE sidecar_ledger SET replay_status = ?1, conflict_info = ?2 WHERE id = ?3",
@@ -337,9 +381,12 @@ impl SideCarLedger {
     }
 
     fn mark_migration_complete(&mut self, migration_id: MigrationId) -> Result<(), TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SideCarLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
 
         conn.execute(
             "UPDATE sidecar_ledger SET replay_status = 'COMPLETE' WHERE migration_id = ?1",
@@ -354,9 +401,12 @@ impl SideCarLedger {
 
     /// Count total entries for a given migration ID.
     pub fn count_for_migration(&self, migration_id: MigrationId) -> Result<usize, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("SideCarLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
 
         let count: i64 = conn
             .query_row(
@@ -408,7 +458,10 @@ impl SideCarLedger {
         let id: DeltaId = hasher.finalize().into();
 
         // Check if the entry already exists (INSERT OR IGNORE semantics).
-        let all = self.db.scan_sidecar_entries_for_migration(migration_id).await?;
+        let all = self
+            .db
+            .scan_sidecar_entries_for_migration(migration_id)
+            .await?;
         if all.iter().any(|e| e.id == id) {
             return Ok(id);
         }
@@ -451,16 +504,23 @@ impl SideCarLedger {
         let mut replayed_delta_ids: Vec<DeltaId> = Vec::new();
 
         for entry in &entries {
-            let delta: crate::crdt::delta::Delta = match serde_json::from_slice(&entry.delta_bytes) {
+            let delta: crate::crdt::delta::Delta = match serde_json::from_slice(&entry.delta_bytes)
+            {
                 Ok(d) => d,
                 Err(e) => {
                     conflicts += 1;
-                    self.update_entry_status(&entry.id, &serde_json::to_string(&ReplayStatus::Conflict {
-                        conflict_info: format!("deserialise error: {e}"),
-                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("conflict status serialisation failed: {e}"),
-                    })?)
-                        .await?;
+                    self.update_entry_status(
+                        &entry.id,
+                        &serde_json::to_string(&ReplayStatus::Conflict {
+                            conflict_info: format!("deserialise error: {e}"),
+                        })
+                        .map_err(|e| {
+                            crate::errors::TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("conflict status serialisation failed: {e}"),
+                            }
+                        })?,
+                    )
+                    .await?;
                     continue;
                 }
             };
@@ -471,16 +531,22 @@ impl SideCarLedger {
                 Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
                     replayed += 1;
                     replayed_delta_ids.push(delta_id);
-                    self.update_entry_status(&entry.id, &serde_json::to_string(&ReplayStatus::Replayed)
-                        .unwrap_or_else(|_| "REPLAYED".to_string()))
-                        .await?;
+                    self.update_entry_status(
+                        &entry.id,
+                        &serde_json::to_string(&ReplayStatus::Replayed)
+                            .unwrap_or_else(|_| "REPLAYED".to_string()),
+                    )
+                    .await?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
                     conflicts += 1;
                     let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("quarantined during replay: {reason:?}"),
-                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("conflict status serialisation failed: {e}"),
+                    })
+                    .map_err(|e| {
+                        crate::errors::TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("conflict status serialisation failed: {e}"),
+                        }
                     })?;
                     self.update_entry_status(&entry.id, &status_json).await?;
                 }
@@ -488,8 +554,11 @@ impl SideCarLedger {
                     conflicts += 1;
                     let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("rejected during replay: {reason}"),
-                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("conflict status serialisation failed: {e}"),
+                    })
+                    .map_err(|e| {
+                        crate::errors::TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("conflict status serialisation failed: {e}"),
+                        }
                     })?;
                     self.update_entry_status(&entry.id, &status_json).await?;
                 }
@@ -497,8 +566,11 @@ impl SideCarLedger {
                     conflicts += 1;
                     let status_json = serde_json::to_string(&ReplayStatus::Conflict {
                         conflict_info: format!("engine error: {e}"),
-                    }).map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
-                        reason: format!("conflict status serialisation failed: {e}"),
+                    })
+                    .map_err(|e| {
+                        crate::errors::TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("conflict status serialisation failed: {e}"),
+                        }
                     })?;
                     self.update_entry_status(&entry.id, &status_json).await?;
                 }
@@ -508,10 +580,11 @@ impl SideCarLedger {
         let complete = conflicts == 0 && total_entries > 0;
         if complete && total_entries > 0 {
             // Update all entries for this migration to COMPLETE via IndexedDB.
-            let complete_json = serde_json::to_string(&ReplayStatus::Complete)
-                .map_err(|e| crate::errors::TirBaseError::LocalStoreWriteFailed {
+            let complete_json = serde_json::to_string(&ReplayStatus::Complete).map_err(|e| {
+                crate::errors::TirBaseError::LocalStoreWriteFailed {
                     reason: format!("COMPLETE status serialisation failed: {e}"),
-                })?;
+                }
+            })?;
             for entry in &entries {
                 self.update_entry_status(&entry.id, &complete_json).await?;
             }
@@ -521,10 +594,15 @@ impl SideCarLedger {
             for delta_id in &replayed_delta_ids {
                 let tag = DeltaTag::ReplayComplete { migration_id };
                 if let Err(e) = append_tag(delta_id, tag) {
-                    emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!(
-                        "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
-                        delta_id
-                    ));
+                    emit_migration(
+                        Severity::Low,
+                        ReasonCode::MigrationApplied,
+                        None,
+                        format!(
+                            "[sidecar] Could not append ReplayComplete to delta {:?}: {e}",
+                            delta_id
+                        ),
+                    );
                 }
             }
         }
@@ -546,7 +624,9 @@ impl SideCarLedger {
         &self,
         migration_id: MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
-        self.db.scan_sidecar_entries_for_migration(migration_id).await
+        self.db
+            .scan_sidecar_entries_for_migration(migration_id)
+            .await
     }
 
     async fn update_entry_status(
@@ -558,8 +638,14 @@ impl SideCarLedger {
     }
 
     /// Count entries for a migration (used by tests).
-    pub(crate) async fn count_for_migration(&self, migration_id: MigrationId) -> Result<usize, TirBaseError> {
-        let entries = self.db.scan_sidecar_entries_for_migration(migration_id).await?;
+    pub(crate) async fn count_for_migration(
+        &self,
+        migration_id: MigrationId,
+    ) -> Result<usize, TirBaseError> {
+        let entries = self
+            .db
+            .scan_sidecar_entries_for_migration(migration_id)
+            .await?;
         Ok(entries.len())
     }
 }
@@ -570,14 +656,15 @@ impl SideCarLedger {
 mod tests {
     use super::*;
     use crate::contamination::taint::read_tags_from_db;
-    use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
     use crate::crdt::dag::{ChangesetDag, DagNode};
+    use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
     use crate::store::sqlite::CREATE_SCHEMA_SQL;
     use std::sync::{Arc, Mutex};
 
     fn open_conn() -> Arc<Mutex<rusqlite::Connection>> {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory DB");
-        conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+        conn.execute_batch(CREATE_SCHEMA_SQL)
+            .expect("create schema");
         Arc::new(Mutex::new(conn))
     }
 
@@ -664,7 +751,9 @@ mod tests {
         let count = ledger.count_for_migration(migration_id).expect("count");
         assert_eq!(count, 1);
 
-        let entries = ledger.load_entries_ordered(migration_id).expect("load entries");
+        let entries = ledger
+            .load_entries_ordered(migration_id)
+            .expect("load entries");
         assert_eq!(entries.len(), 1);
         // Req 19.2: no modification
         assert_eq!(entries[0].delta_bytes, raw);
@@ -678,9 +767,15 @@ mod tests {
         let migration_id: MigrationId = [0x02u8; 32];
 
         // Insert in reverse order.
-        ledger.record(migration_id, "t".to_string(), b"c3".to_vec(), 300).expect("c3");
-        ledger.record(migration_id, "t".to_string(), b"c1".to_vec(), 100).expect("c1");
-        ledger.record(migration_id, "t".to_string(), b"c2".to_vec(), 200).expect("c2");
+        ledger
+            .record(migration_id, "t".to_string(), b"c3".to_vec(), 300)
+            .expect("c3");
+        ledger
+            .record(migration_id, "t".to_string(), b"c1".to_vec(), 100)
+            .expect("c1");
+        ledger
+            .record(migration_id, "t".to_string(), b"c2".to_vec(), 200)
+            .expect("c2");
 
         let entries = ledger.load_entries_ordered(migration_id).expect("load");
         assert_eq!(entries.len(), 3);
@@ -717,10 +812,16 @@ mod tests {
         let mut ledger = open_ledger();
         let migration_id: MigrationId = [0x04u8; 32];
 
-        ledger.record(migration_id, "t".to_string(), b"a".to_vec(), 1).expect("a");
-        ledger.record(migration_id, "t".to_string(), b"b".to_vec(), 2).expect("b");
+        ledger
+            .record(migration_id, "t".to_string(), b"a".to_vec(), 1)
+            .expect("a");
+        ledger
+            .record(migration_id, "t".to_string(), b"b".to_vec(), 2)
+            .expect("b");
 
-        ledger.mark_migration_complete(migration_id).expect("mark complete");
+        ledger
+            .mark_migration_complete(migration_id)
+            .expect("mark complete");
 
         let entries = ledger.load_entries_ordered(migration_id).expect("load");
         for e in &entries {
@@ -811,14 +912,17 @@ mod tests {
             .expect("replay_sidecar must not error");
 
         assert!(summary.conflicts >= 1, "expected at least 1 conflict");
-        assert!(!summary.complete, "summary.complete must be false when conflicts > 0");
+        assert!(
+            !summary.complete,
+            "summary.complete must be false when conflicts > 0"
+        );
 
         // The valid delta must NOT carry a ReplayComplete tag.
         let lock = conn.lock().unwrap();
         let tags = read_tags_from_db(&lock, &d1.id).expect("read_tags_from_db");
-        let has_replay_complete = tags.iter().any(|t| {
-            matches!(t, DeltaTag::ReplayComplete { .. })
-        });
+        let has_replay_complete = tags
+            .iter()
+            .any(|t| matches!(t, DeltaTag::ReplayComplete { .. }));
         assert!(
             !has_replay_complete,
             "ReplayComplete must NOT be appended when replay has conflicts",

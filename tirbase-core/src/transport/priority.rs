@@ -60,9 +60,7 @@ pub fn classify_with_flags(flags: &[PayloadFlag]) -> PriorityClass {
 
     for flag in flags {
         match flag {
-            PayloadFlag::Revocation
-            | PayloadFlag::SafetyAlert
-            | PayloadFlag::EmergencyAlert => {
+            PayloadFlag::Revocation | PayloadFlag::SafetyAlert | PayloadFlag::EmergencyAlert => {
                 // HIGH beats everything — short-circuit
                 return PriorityClass::High;
             }

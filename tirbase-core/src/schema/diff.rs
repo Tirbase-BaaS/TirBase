@@ -127,8 +127,11 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
 
     let base_tables: HashMap<&str, &crate::schema::TableDef> =
         base.tables.iter().map(|t| (t.name.as_str(), t)).collect();
-    let incoming_tables: HashMap<&str, &crate::schema::TableDef> =
-        incoming.tables.iter().map(|t| (t.name.as_str(), t)).collect();
+    let incoming_tables: HashMap<&str, &crate::schema::TableDef> = incoming
+        .tables
+        .iter()
+        .map(|t| (t.name.as_str(), t))
+        .collect();
 
     let mut base_names: Vec<&str> = base_tables.keys().copied().collect();
     base_names.sort();
@@ -160,8 +163,10 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
 
         let base_field_map: HashMap<&str, &crate::schema::FieldDef> =
             base_fields.iter().map(|f| (f.name.as_str(), f)).collect();
-        let incoming_field_map: HashMap<&str, &crate::schema::FieldDef> =
-            incoming_fields.iter().map(|f| (f.name.as_str(), f)).collect();
+        let incoming_field_map: HashMap<&str, &crate::schema::FieldDef> = incoming_fields
+            .iter()
+            .map(|f| (f.name.as_str(), f))
+            .collect();
 
         let mut base_field_names: Vec<&str> = base_field_map.keys().copied().collect();
         base_field_names.sort();
@@ -384,7 +389,10 @@ mod tests {
         )]);
         let b = schema(vec![table(
             "t",
-            vec![field("name", FieldType::Text), field("age", FieldType::Integer)],
+            vec![
+                field("name", FieldType::Text),
+                field("age", FieldType::Integer),
+            ],
         )]);
 
         let d1 = diff_schemas(&a, &b);

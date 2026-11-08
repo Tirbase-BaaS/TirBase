@@ -85,9 +85,7 @@ fn parse_version_directive(pair: pest::iterators::Pair<Rule>) -> String {
     String::new()
 }
 
-fn parse_table_def(
-    pair: pest::iterators::Pair<Rule>,
-) -> Result<TableDef, Vec<TirBaseError>> {
+fn parse_table_def(pair: pest::iterators::Pair<Rule>) -> Result<TableDef, Vec<TirBaseError>> {
     let mut name = String::new();
     let mut compaction_policy = CompactionPolicy::None;
     let mut fields: Vec<FieldDef> = Vec::new();
@@ -152,9 +150,7 @@ fn parse_compaction_directive(pair: pest::iterators::Pair<Rule>) -> CompactionPo
     CompactionPolicy::None
 }
 
-fn parse_field_def(
-    pair: pest::iterators::Pair<Rule>,
-) -> Result<FieldDef, Vec<TirBaseError>> {
+fn parse_field_def(pair: pest::iterators::Pair<Rule>) -> Result<FieldDef, Vec<TirBaseError>> {
     let (line, col) = pair.line_col();
     let mut field_name = String::new();
     let mut field_type_opt: Option<FieldType> = None;
@@ -196,12 +192,12 @@ fn parse_field_def(
 
 fn parse_field_type(pair: pest::iterators::Pair<Rule>) -> FieldType {
     match pair.as_str() {
-        "TEXT"    => FieldType::Text,
+        "TEXT" => FieldType::Text,
         "INTEGER" => FieldType::Integer,
-        "REAL"    => FieldType::Real,
-        "BLOB"    => FieldType::Blob,
+        "REAL" => FieldType::Real,
+        "BLOB" => FieldType::Blob,
         "BOOLEAN" => FieldType::Boolean,
-        _         => FieldType::Text, // unreachable given grammar
+        _ => FieldType::Text, // unreachable given grammar
     }
 }
 
@@ -238,9 +234,7 @@ fn parse_default_value(pair: pest::iterators::Pair<Rule>) -> DefaultValue {
     DefaultValue::Null
 }
 
-fn parse_constraint(
-    pair: pest::iterators::Pair<Rule>,
-) -> Result<Constraint, Vec<TirBaseError>> {
+fn parse_constraint(pair: pest::iterators::Pair<Rule>) -> Result<Constraint, Vec<TirBaseError>> {
     // Capture location before consuming `pair` via into_inner().
     let (line, col) = pair.line_col();
     for inner in pair.into_inner() {
@@ -437,7 +431,12 @@ mod tests {
         let src = "schema { version = \"1.0.0\" table bad { compaction = none";
         let errs = parse(src).expect_err("should fail");
         assert!(!errs.is_empty());
-        if let TirBaseError::SchemaParseError { line, col, description } = &errs[0] {
+        if let TirBaseError::SchemaParseError {
+            line,
+            col,
+            description,
+        } = &errs[0]
+        {
             assert!(*line >= 1, "line={line}");
             assert!(*col >= 1, "col={col}");
             assert!(!description.is_empty(), "description empty");
@@ -599,6 +598,9 @@ mod tests {
         assert_eq!(path.next_version(&h3), None, "v3 is latest");
         assert_eq!(path.current_version(), Some(&h3));
         assert!(path.is_valid_step(&h1, &h2));
-        assert!(!path.is_valid_step(&h1, &h3), "non-adjacent step is invalid");
+        assert!(
+            !path.is_valid_step(&h1, &h3),
+            "non-adjacent step is invalid"
+        );
     }
 }

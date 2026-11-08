@@ -55,19 +55,20 @@ pub fn verify(
         }
     })?;
 
-    let sig_bytes = signature.as_bytes().ok_or_else(|| {
-        TirBaseError::SignatureVerificationFailed {
-            reason: "signature is not exactly 64 bytes".to_string(),
-        }
-    })?;
+    let sig_bytes =
+        signature
+            .as_bytes()
+            .ok_or_else(|| TirBaseError::SignatureVerificationFailed {
+                reason: "signature is not exactly 64 bytes".to_string(),
+            })?;
 
     let dalek_sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
-    verifying_key
-        .verify(payload, &dalek_sig)
-        .map_err(|e| TirBaseError::SignatureVerificationFailed {
+    verifying_key.verify(payload, &dalek_sig).map_err(|e| {
+        TirBaseError::SignatureVerificationFailed {
             reason: format!("signature verification failed: {e}"),
-        })
+        }
+    })
 }
 
 #[cfg(test)]

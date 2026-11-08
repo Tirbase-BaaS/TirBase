@@ -68,12 +68,18 @@ fn inspect_one(path: &PathBuf) -> IdentityRecord {
     };
     IdentityRecord {
         path: path_str,
-        did: value.get("did").and_then(|v| v.as_str()).map(ToOwned::to_owned),
+        did: value
+            .get("did")
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned),
         public_key_hex: value
             .get("public_key_hex")
             .and_then(|v| v.as_str())
             .map(ToOwned::to_owned),
-        has_private_key: value.get("secret_key_hex").and_then(|v| v.as_str()).is_some(),
+        has_private_key: value
+            .get("secret_key_hex")
+            .and_then(|v| v.as_str())
+            .is_some(),
         error: None,
     }
 }

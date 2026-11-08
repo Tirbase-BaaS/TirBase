@@ -16,10 +16,10 @@ use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::{
-    command_signing_bytes, sign_command, single_target_guard, verify_command_signature,
-    AdmitError, DriverProxy, IngressSource,
+    command_signing_bytes, sign_command, single_target_guard, verify_command_signature, AdmitError,
+    DriverProxy, IngressSource,
 };
-use tirbase_types::command::{CommandMessage, CoSignature};
+use tirbase_types::command::{CoSignature, CommandMessage};
 use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId, UNIT_PERCENT};
 
 fn fpv(mantissa: i64) -> FixedPointValue {

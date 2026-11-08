@@ -15,7 +15,7 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
-use crate::crdt::delta::{Did, DeltaId};
+use crate::crdt::delta::{DeltaId, Did};
 use crate::errors::TirBaseError;
 use crate::schema::hash::SchemaIdentifierHash;
 use serde::{Deserialize, Serialize};
@@ -58,9 +58,7 @@ impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
             crate::crdt::merge::QuarantineReason::BreakingSchemaChange => {
                 Self::BreakingSchemaChange
             }
-            crate::crdt::merge::QuarantineReason::UnknownSchemaHash => {
-                Self::UnknownSchemaHash
-            }
+            crate::crdt::merge::QuarantineReason::UnknownSchemaHash => Self::UnknownSchemaHash,
             crate::crdt::merge::QuarantineReason::MissingOrMalformedHash => {
                 Self::MissingOrMalformedHash
             }
@@ -116,9 +114,12 @@ impl QuarantineLedger {
         let id: DeltaId = Sha256::digest(&raw_bytes).into();
         let reason_str = reason.as_str();
 
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("QuarantineLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("QuarantineLedger mutex poisoned: {e}"),
+            })?;
 
         conn.execute(
             "INSERT OR IGNORE INTO quarantine_ledger \
@@ -145,9 +146,12 @@ impl QuarantineLedger {
         &self,
         hash: &SchemaIdentifierHash,
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("QuarantineLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("QuarantineLedger mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare(
@@ -174,23 +178,33 @@ impl QuarantineLedger {
                 reason: format!("Query quarantine_ledger failed: {e}"),
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id_bytes, sender_did, raw_bytes, schema_bytes, reason_str, received_at, migration_bytes)| {
-                let id: DeltaId = id_bytes.try_into().ok()?;
-                let schema_hash: Option<SchemaIdentifierHash> = schema_bytes
-                    .and_then(|b| b.try_into().ok());
-                let migration_id: Option<[u8; 32]> = migration_bytes
-                    .and_then(|b| b.try_into().ok());
-                let reason = QuarantineReason::from_str(&reason_str)?;
-                Some(QuarantineEntry {
-                    id,
+            .filter_map(
+                |(
+                    id_bytes,
                     sender_did,
                     raw_bytes,
-                    schema_hash,
-                    reason,
+                    schema_bytes,
+                    reason_str,
                     received_at,
-                    migration_id,
-                })
-            })
+                    migration_bytes,
+                )| {
+                    let id: DeltaId = id_bytes.try_into().ok()?;
+                    let schema_hash: Option<SchemaIdentifierHash> =
+                        schema_bytes.and_then(|b| b.try_into().ok());
+                    let migration_id: Option<[u8; 32]> =
+                        migration_bytes.and_then(|b| b.try_into().ok());
+                    let reason = QuarantineReason::from_str(&reason_str)?;
+                    Some(QuarantineEntry {
+                        id,
+                        sender_did,
+                        raw_bytes,
+                        schema_hash,
+                        reason,
+                        received_at,
+                        migration_id,
+                    })
+                },
+            )
             .collect();
 
         Ok(entries)
@@ -198,9 +212,12 @@ impl QuarantineLedger {
 
     /// Return all quarantined entries (regardless of schema hash).
     pub fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("QuarantineLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("QuarantineLedger mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare(
@@ -227,23 +244,33 @@ impl QuarantineLedger {
                 reason: format!("Query quarantine_ledger get_all failed: {e}"),
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(id_bytes, sender_did, raw_bytes, schema_bytes, reason_str, received_at, migration_bytes)| {
-                let id: DeltaId = id_bytes.try_into().ok()?;
-                let schema_hash: Option<SchemaIdentifierHash> = schema_bytes
-                    .and_then(|b| b.try_into().ok());
-                let migration_id: Option<[u8; 32]> = migration_bytes
-                    .and_then(|b| b.try_into().ok());
-                let reason = QuarantineReason::from_str(&reason_str)?;
-                Some(QuarantineEntry {
-                    id,
+            .filter_map(
+                |(
+                    id_bytes,
                     sender_did,
                     raw_bytes,
-                    schema_hash,
-                    reason,
+                    schema_bytes,
+                    reason_str,
                     received_at,
-                    migration_id,
-                })
-            })
+                    migration_bytes,
+                )| {
+                    let id: DeltaId = id_bytes.try_into().ok()?;
+                    let schema_hash: Option<SchemaIdentifierHash> =
+                        schema_bytes.and_then(|b| b.try_into().ok());
+                    let migration_id: Option<[u8; 32]> =
+                        migration_bytes.and_then(|b| b.try_into().ok());
+                    let reason = QuarantineReason::from_str(&reason_str)?;
+                    Some(QuarantineEntry {
+                        id,
+                        sender_did,
+                        raw_bytes,
+                        schema_hash,
+                        reason,
+                        received_at,
+                        migration_id,
+                    })
+                },
+            )
             .collect();
 
         Ok(entries)
@@ -259,9 +286,12 @@ impl QuarantineLedger {
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         // First, update the migration_id field on all matching rows.
         {
-            let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("QuarantineLedger mutex poisoned: {e}"),
-            })?;
+            let conn = self
+                .conn
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("QuarantineLedger mutex poisoned: {e}"),
+                })?;
 
             conn.execute(
                 "UPDATE quarantine_ledger SET migration_id = ?1 WHERE schema_hash = ?2",
@@ -278,9 +308,12 @@ impl QuarantineLedger {
 
     /// Count all quarantined entries.
     pub fn count(&self) -> Result<usize, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("QuarantineLedger mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("QuarantineLedger mutex poisoned: {e}"),
+            })?;
 
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM quarantine_ledger", [], |row| {
@@ -348,7 +381,8 @@ impl QuarantineLedger {
         hash: &SchemaIdentifierHash,
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         let all = self.db.scan_quarantine_entries().await?;
-        Ok(all.into_iter()
+        Ok(all
+            .into_iter()
             .filter(|e| e.schema_hash.as_ref() == Some(hash))
             .collect())
     }
@@ -394,7 +428,8 @@ mod tests {
 
     fn open_ledger() -> QuarantineLedger {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory DB");
-        conn.execute_batch(CREATE_SCHEMA_SQL).expect("create schema");
+        conn.execute_batch(CREATE_SCHEMA_SQL)
+            .expect("create schema");
         let conn = Arc::new(Mutex::new(conn));
         QuarantineLedger::new(conn)
     }
@@ -500,6 +535,9 @@ mod tests {
             .expect("second quarantine (should be deduped)");
 
         let count = ledger.count().expect("count");
-        assert_eq!(count, 1, "identical raw_bytes should be deduplicated (same SHA-256 id)");
+        assert_eq!(
+            count, 1,
+            "identical raw_bytes should be deduplicated (same SHA-256 id)"
+        );
     }
 }

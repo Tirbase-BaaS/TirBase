@@ -60,14 +60,20 @@ impl CoarseRejection {
 
 pub fn coarse_for_rejection(category: AdmitRejection) -> CoarseRejection {
     match category {
-        AdmitRejection::EnvelopeViolation | AdmitRejection::ConstraintViolation | AdmitRejection::DriftExceeded => CoarseRejection::EnvelopeViolation,
+        AdmitRejection::EnvelopeViolation
+        | AdmitRejection::ConstraintViolation
+        | AdmitRejection::DriftExceeded => CoarseRejection::EnvelopeViolation,
         AdmitRejection::RateLimit | AdmitRejection::PreAuthRateLimit => CoarseRejection::RateLimit,
         AdmitRejection::CommitConflict => CoarseRejection::AntiReplay,
         AdmitRejection::ValueInvalid => CoarseRejection::ValueInvalid,
         AdmitRejection::NoProfile => CoarseRejection::NoProfile,
         AdmitRejection::ModeLockdown => CoarseRejection::ModeLockdown,
         AdmitRejection::QuorumRequired => CoarseRejection::QuorumRequired,
-        AdmitRejection::TokenInvalid | AdmitRejection::ScopeViolation | AdmitRejection::IssuerRevoked | AdmitRejection::InvalidSignature | AdmitRejection::StaleEpoch => CoarseRejection::Unauthorized,
+        AdmitRejection::TokenInvalid
+        | AdmitRejection::ScopeViolation
+        | AdmitRejection::IssuerRevoked
+        | AdmitRejection::InvalidSignature
+        | AdmitRejection::StaleEpoch => CoarseRejection::Unauthorized,
         AdmitRejection::Expired => CoarseRejection::Expired,
         AdmitRejection::ChallengeMissing => CoarseRejection::ChallengeRequired,
         AdmitRejection::TargetBusy => CoarseRejection::TargetBusy,
@@ -135,10 +141,16 @@ pub fn stage17_rejection(
     caller_privileged: bool,
 ) -> serde_json::Value {
     let coarse = coarse_for_rejection(category);
-    emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Medium, category.reason_code())
+    emit(
+        SecurityEvent::new(
+            SecurityEventCategory::CommandDecision,
+            Severity::Medium,
+            category.reason_code(),
+        )
         .with_actor(cmd.issuer_did.as_str())
         .with_target(cmd.target_id.as_str())
-        .with_detail(format!("{}: {}", coarse.as_str(), fine_detail)));
+        .with_detail(format!("{}: {}", coarse.as_str(), fine_detail)),
+    );
     if caller_privileged {
         serde_json::json!({"status":"rejected","code":coarse.as_str(),"detail":fine_detail,"category":format!("{category:?}")})
     } else {
@@ -147,10 +159,19 @@ pub fn stage17_rejection(
 }
 
 pub fn stage17_acceptance(cmd: &CommandMessage, entry_id: &[u8; 16]) {
-    emit(SecurityEvent::new(SecurityEventCategory::CommandDecision, Severity::Low, ReasonCode::CommandAccepted)
+    emit(
+        SecurityEvent::new(
+            SecurityEventCategory::CommandDecision,
+            Severity::Low,
+            ReasonCode::CommandAccepted,
+        )
         .with_actor(cmd.issuer_did.as_str())
         .with_target(cmd.target_id.as_str())
-        .with_detail(format!("stage16_actuating_committed entry_id={}", hex_entry(entry_id))));
+        .with_detail(format!(
+            "stage16_actuating_committed entry_id={}",
+            hex_entry(entry_id)
+        )),
+    );
 }
 
 fn hex_entry(id: &[u8; 16]) -> String {
@@ -180,11 +201,26 @@ where
     S: Stage16Store + ?Sized,
 {
     // Stage 18: permit minted here (only tirbase-guard can mint), dispatch after fsync'd commit.
-    let permit = ActuationPermit::new(cmd.target_id.clone(), cmd.param.clone(), cmd.desired_state, entry_id);
-    proxy.dispatch(permit, frame).map_err(|e| format!("stage18 dispatch: {e}"))?;
+    let permit = ActuationPermit::new(
+        cmd.target_id.clone(),
+        cmd.param.clone(),
+        cmd.desired_state,
+        entry_id,
+    );
+    proxy
+        .dispatch(permit, frame)
+        .map_err(|e| format!("stage18 dispatch: {e}"))?;
     // Stage 19: await confirmation
     let terminal = read_driver_confirmation(driver_reader, timeout);
-    store.finalize_terminal(&entry_id, cmd.target_id.as_str(), cmd.issuer_did.as_str(), terminal.clone(), completion_ts, None)
+    store
+        .finalize_terminal(
+            &entry_id,
+            cmd.target_id.as_str(),
+            cmd.issuer_did.as_str(),
+            terminal.clone(),
+            completion_ts,
+            None,
+        )
         .map_err(|e| format!("stage19 finalize: {e}"))?;
     Ok(terminal)
 }
@@ -229,33 +265,65 @@ where
     R: Read,
     S: Stage16Store + ?Sized,
 {
-    let original = serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id)}).to_string();
+    let original =
+        serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id)}).to_string();
     let req = Stage16Request {
-        cmd, entry_id, actuating_ts, now_est, now_mono_secs,
-        lease_duration_secs: 30, max_consecutive_renewals: 10,
+        cmd,
+        entry_id,
+        actuating_ts,
+        now_est,
+        now_mono_secs,
+        lease_duration_secs: 30,
+        max_consecutive_renewals: 10,
         original_result_json: &original,
     };
     match store.commit_actuating(&req) {
         Err(Stage16Error::LeaseHeld { holder }) => {
-            let mut v = stage17_rejection(cmd, AdmitRejection::TargetBusy, &format!("lease held by {holder}"), false);
+            let mut v = stage17_rejection(
+                cmd,
+                AdmitRejection::TargetBusy,
+                &format!("lease held by {holder}"),
+                false,
+            );
             v["code"] = serde_json::json!(CoarseRejection::LeaseHeld.as_str());
             v
         }
         Err(Stage16Error::AntiReplay) => {
-            let mut v = stage17_rejection(cmd, AdmitRejection::CommitConflict, "anti-replay", false);
+            let mut v =
+                stage17_rejection(cmd, AdmitRejection::CommitConflict, "anti-replay", false);
             v["code"] = serde_json::json!(CoarseRejection::AntiReplay.as_str());
             v
         }
         Err(Stage16Error::IdempotencyHit { original_result }) => {
             serde_json::json!({"status":"accepted","idempotency_cache_hit":true,"original_result":original_result})
         }
-        Err(Stage16Error::Store(e)) => stage17_rejection(cmd, AdmitRejection::Unsupported, &e, false),
+        Err(Stage16Error::Store(e)) => {
+            stage17_rejection(cmd, AdmitRejection::Unsupported, &e, false)
+        }
         Ok(()) => {
             stage17_acceptance(cmd, &entry_id);
-            match dispatch_and_await(store, cmd, entry_id, proxy, frame, driver_reader, completion_ts, Duration::from_secs(30)) {
-                Ok(state) => serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id),"terminal_state":state.as_str()}),
+            match dispatch_and_await(
+                store,
+                cmd,
+                entry_id,
+                proxy,
+                frame,
+                driver_reader,
+                completion_ts,
+                Duration::from_secs(30),
+            ) {
+                Ok(state) => {
+                    serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id),"terminal_state":state.as_str()})
+                }
                 Err(e) => {
-                    let _ = store.finalize_terminal(&entry_id, cmd.target_id.as_str(), cmd.issuer_did.as_str(), EffectTerminalState::Unknown, completion_ts, None);
+                    let _ = store.finalize_terminal(
+                        &entry_id,
+                        cmd.target_id.as_str(),
+                        cmd.issuer_did.as_str(),
+                        EffectTerminalState::Unknown,
+                        completion_ts,
+                        None,
+                    );
                     serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id),"terminal_state":"Unknown","dispatch_error":e})
                 }
             }

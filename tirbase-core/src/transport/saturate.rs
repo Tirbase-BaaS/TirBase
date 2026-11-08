@@ -431,13 +431,17 @@ pub(crate) fn make_disaster_alert_token_for_test(ttl_secs: u64) -> (Vec<u8>, Vec
     let issued_secs = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
 
     let token = Biscuit::builder()
-        .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
-        .fact(format!("role(\"manager\")").as_str()).unwrap()
-        .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
-        .fact("caveat(\"disaster-alert\")").unwrap()
+        .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+        .unwrap()
+        .fact(format!("role(\"manager\")").as_str())
+        .unwrap()
+        .fact(format!("issued_at({issued_secs})").as_str())
+        .unwrap()
+        .fact("caveat(\"disaster-alert\")")
+        .unwrap()
         .check_expiration_date(expiry)
         .build(&KeyPair::from(
-            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
         ))
         .unwrap();
 
@@ -462,13 +466,16 @@ pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<
     let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
 
     let token = Biscuit::builder()
-        .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
-        .fact(format!("role(\"manager\")").as_str()).unwrap()
-        .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
+        .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+        .unwrap()
+        .fact(format!("role(\"manager\")").as_str())
+        .unwrap()
+        .fact(format!("issued_at({issued_secs})").as_str())
+        .unwrap()
         // Intentionally NO disaster-alert caveat
         .check_expiration_date(expiry)
         .build(&KeyPair::from(
-            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+            &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
         ))
         .unwrap();
 
@@ -497,11 +504,7 @@ mod tests {
         // builder API attenuates tokens by adding caveats as blocks.  Here we
         // create a base token and then add an attenuation block containing the
         // `disaster-alert` fact.
-        use biscuit_auth::{
-            Biscuit,
-            builder_ext::BuilderExt,
-            macros::*,
-        };
+        use biscuit_auth::{builder_ext::BuilderExt, macros::*, Biscuit};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
         let now = SystemTime::now();
@@ -509,13 +512,17 @@ mod tests {
         let issued_secs = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
 
         let token = Biscuit::builder()
-            .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
-            .fact(format!("role(\"manager\")").as_str()).unwrap()
-            .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
-            .fact("caveat(\"disaster-alert\")").unwrap()
+            .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+            .unwrap()
+            .fact(format!("role(\"manager\")").as_str())
+            .unwrap()
+            .fact(format!("issued_at({issued_secs})").as_str())
+            .unwrap()
+            .fact("caveat(\"disaster-alert\")")
+            .unwrap()
             .check_expiration_date(expiry)
             .build(&biscuit_auth::KeyPair::from(
-                &biscuit_auth::PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+                &biscuit_auth::PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
             ))
             .unwrap();
 
@@ -531,8 +538,8 @@ mod tests {
         let private_bytes = kp.private().to_bytes().to_vec();
         let public_bytes = kp.public().to_bytes().to_vec();
 
-        use biscuit_auth::Biscuit;
         use biscuit_auth::builder_ext::BuilderExt;
+        use biscuit_auth::Biscuit;
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
         let issued_secs = SystemTime::now()
@@ -543,13 +550,16 @@ mod tests {
         let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
 
         let token = Biscuit::builder()
-            .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
-            .fact(format!("role(\"manager\")").as_str()).unwrap()
-            .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
+            .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+            .unwrap()
+            .fact(format!("role(\"manager\")").as_str())
+            .unwrap()
+            .fact(format!("issued_at({issued_secs})").as_str())
+            .unwrap()
             // Intentionally no disaster-alert caveat
             .check_expiration_date(expiry)
             .build(&biscuit_auth::KeyPair::from(
-                &biscuit_auth::PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap()
+                &biscuit_auth::PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
             ))
             .unwrap();
 
@@ -606,7 +616,9 @@ mod tests {
             .unwrap_err();
         let msg = err.to_string();
         assert!(
-            msg.contains("caveat") || msg.contains("disaster-alert") || msg.contains("verification"),
+            msg.contains("caveat")
+                || msg.contains("disaster-alert")
+                || msg.contains("verification"),
             "expected caveat error: {msg}"
         );
         assert_eq!(sm.state(), SaturateState::Normal, "mode must be unchanged");
@@ -662,8 +674,8 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn renew_extends_lease_by_60_minutes() {
-        use biscuit_auth::{builder::Algorithm, KeyPair, PrivateKey};
         use biscuit_auth::builder_ext::BuilderExt;
+        use biscuit_auth::{builder::Algorithm, KeyPair, PrivateKey};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
         // Create a single CA keypair and use it for BOTH tokens so the SM
@@ -679,13 +691,17 @@ mod tests {
                 .as_secs() as i64;
             let expiry = SystemTime::now() + Duration::from_secs(ttl);
             biscuit_auth::Biscuit::builder()
-                .fact(format!("did(\"did:key:z6MkManager\")").as_str()).unwrap()
-                .fact(format!("role(\"manager\")").as_str()).unwrap()
-                .fact(format!("issued_at({issued_secs})").as_str()).unwrap()
-                .fact("caveat(\"disaster-alert\")").unwrap()
+                .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+                .unwrap()
+                .fact(format!("role(\"manager\")").as_str())
+                .unwrap()
+                .fact(format!("issued_at({issued_secs})").as_str())
+                .unwrap()
+                .fact("caveat(\"disaster-alert\")")
+                .unwrap()
                 .check_expiration_date(expiry)
                 .build(&KeyPair::from(
-                    &PrivateKey::from_bytes(priv_bytes, Algorithm::Ed25519).unwrap()
+                    &PrivateKey::from_bytes(priv_bytes, Algorithm::Ed25519).unwrap(),
                 ))
                 .unwrap()
                 .to_vec()
@@ -694,7 +710,7 @@ mod tests {
 
         let now = now_secs();
         let activate_token = make_token(&private_bytes, 3600);
-        let renew_token    = make_token(&private_bytes, 3600);
+        let renew_token = make_token(&private_bytes, 3600);
 
         let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
 
@@ -739,9 +755,7 @@ mod tests {
 
         // Only 1 valid signature, threshold is 2.
         // Provide a completely invalid signature (wrong length) to simulate failure.
-        let sigs: Vec<(Did, Vec<u8>)> = vec![
-            ("did:key:z6MkA".to_string(), vec![0u8; 64]),
-        ];
+        let sigs: Vec<(Did, Vec<u8>)> = vec![("did:key:z6MkA".to_string(), vec![0u8; 64])];
 
         let err = sm.terminate(sigs, message, 0).unwrap_err();
         let msg = err.to_string();
@@ -783,14 +797,18 @@ mod tests {
         });
 
         let sigs = vec![(did1, sig1), (did2, sig2)];
-        sm.terminate(sigs, message, 0).expect("termination should succeed");
+        sm.terminate(sigs, message, 0)
+            .expect("termination should succeed");
 
         assert_eq!(
             sm.state(),
             SaturateState::Normal,
             "should transition to NORMAL on valid M-of-N termination"
         );
-        assert!(sm.lease().is_none(), "lease should be cleared after termination");
+        assert!(
+            sm.lease().is_none(),
+            "lease should be cleared after termination"
+        );
     }
 
     #[test]
@@ -812,10 +830,7 @@ mod tests {
         });
 
         // Submit the same DID twice — should count as 1, not 2.
-        let sigs = vec![
-            (did1.clone(), sig1.clone()),
-            (did1.clone(), sig1.clone()),
-        ];
+        let sigs = vec![(did1.clone(), sig1.clone()), (did1.clone(), sig1.clone())];
         let err = sm.terminate(sigs, message, 0).unwrap_err();
         assert_eq!(
             sm.state(),

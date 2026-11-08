@@ -645,8 +645,7 @@ mod tests {
             assert_eq!(trust_root.set_if_greater(2).unwrap(), 2);
             assert_eq!(trust_root.set_if_greater(1).unwrap(), 2, "never moves back");
 
-            let other =
-                NamedMonotonicCounter::open(&path, "other_counter", 7).expect("open other");
+            let other = NamedMonotonicCounter::open(&path, "other_counter", 7).expect("open other");
             assert_eq!(other.read().unwrap(), 7, "separate row, no collision");
             assert_eq!(trust_root.read().unwrap(), 2);
         }

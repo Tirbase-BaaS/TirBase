@@ -122,7 +122,8 @@ impl Tier1QuorumTracker {
         }
 
         // Record the spatial tag.
-        self.spatial.add(diversity_tag.or(receipt.spatial_tag.as_deref()));
+        self.spatial
+            .add(diversity_tag.or(receipt.spatial_tag.as_deref()));
 
         // Mark issuer as seen.
         self.seen_issuers.insert(receipt.issuer_did.clone());
@@ -264,7 +265,10 @@ mod tests {
             let tag = format!("sq-{}", (b'a' + i) as char);
             let receipt = make_receipt(state_hash, &secret, &did, Some(&tag));
             let achieved = tracker.add_receipt(receipt).unwrap();
-            assert!(!achieved, "should not achieve Tier-1 with only {i} receipts");
+            assert!(
+                !achieved,
+                "should not achieve Tier-1 with only {i} receipts"
+            );
         }
         assert!(!tracker.is_tier1());
     }
@@ -277,8 +281,8 @@ mod tests {
         let cfg = QuorumConfig {
             k: 3,
             n: 5,
-            spatial_diversity_min: 1,         // only 1 distinct tag required
-            max_single_sector_fraction: 0.5,  // 50% max per sector
+            spatial_diversity_min: 1,        // only 1 distinct tag required
+            max_single_sector_fraction: 0.5, // 50% max per sector
         };
         let state_hash = [0xCC; 32];
         let mut tracker = Tier1QuorumTracker::new(cfg);
@@ -319,7 +323,10 @@ mod tests {
                 achieved_at_k = achieved;
             }
         }
-        assert!(achieved_at_k, "degradation fallback should allow Tier-1 via flat K-of-N");
+        assert!(
+            achieved_at_k,
+            "degradation fallback should allow Tier-1 via flat K-of-N"
+        );
         assert!(tracker.is_tier1());
     }
 
@@ -357,7 +364,11 @@ mod tests {
 
         // A fourth distinct tag cannot raise the requirement above K.
         add_tagged(&mut tracker, "sq-d");
-        assert_eq!(tracker.effective_min_distinct(), 3, "min-distinct caps at K");
+        assert_eq!(
+            tracker.effective_min_distinct(),
+            3,
+            "min-distinct caps at K"
+        );
     }
 
     #[test]
@@ -405,7 +416,10 @@ mod tests {
                 achieved = result;
             }
         }
-        assert!(achieved, "default rule must not block a single-sector quorum when the cap allows it");
+        assert!(
+            achieved,
+            "default rule must not block a single-sector quorum when the cap allows it"
+        );
         assert!(tracker.is_tier1());
     }
 

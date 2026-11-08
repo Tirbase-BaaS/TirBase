@@ -145,18 +145,18 @@ async fn initiate_noise_session(
             return;
         }
     };
-    if let Err(e) = t.initiate_session(
-        peer_did,
-        crate::api::types::TrustLevel::Verified,
-        local_static_privkey,
-        &[],
-        Some(&mut stream),
-        now_secs,
-    ).await
+    if let Err(e) = t
+        .initiate_session(
+            peer_did,
+            crate::api::types::TrustLevel::Verified,
+            local_static_privkey,
+            &[],
+            Some(&mut stream),
+            now_secs,
+        )
+        .await
     {
-        eprintln!(
-            "[transport-loop] initiate_session failed: {e}"
-        );
+        eprintln!("[transport-loop] initiate_session failed: {e}");
     }
 }
 
@@ -517,13 +517,15 @@ impl CoreHandle {
         #[cfg(not(feature = "native"))]
         let (store, store_db_rc) = {
             let store = LocalStore::open(&config.storage_path).await?;
-            let store_db_rc = store.idb_store_rc().expect("idb store must exist for non-:memory: path");
+            let store_db_rc = store
+                .idb_store_rc()
+                .expect("idb store must exist for non-:memory: path");
             (Arc::new(Mutex::new(store)), store_db_rc)
         };
 
         // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
         #[cfg(not(feature = "native"))]
-         let crdt = {
+        let crdt = {
             let crdt = CrdtEngine::new(
                 identity.signing_key_bytes(),
                 identity.public_key_bytes(),
@@ -1235,8 +1237,7 @@ impl CoreHandle {
         // anchor verifier to monitor.
         #[cfg(feature = "native")]
         {
-            let beacon_threshold_secs =
-                config.deployment.beacon_signal_loss_threshold_secs;
+            let beacon_threshold_secs = config.deployment.beacon_signal_loss_threshold_secs;
             if handle
                 .durability
                 .lock()
@@ -1460,11 +1461,12 @@ impl CoreHandle {
             .unwrap_or(false);
         #[cfg(not(feature = "native"))]
         let quarantine_active = {
-            let mig = self.migration.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
+            let mig = self
+                .migration
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("migration mutex poisoned in quarantine check: {e}"),
-                }
-            });
+                });
             match mig {
                 Ok(mig) => mig.is_schema_quarantined_async(table).await,
                 Err(_) => false,
@@ -1531,11 +1533,12 @@ impl CoreHandle {
             let bytes = crdt.write_scalar(table, key, &data)?;
 
             let policy = crdt.compaction_policy_for(table);
-            let store_guard = self.store.lock().map_err(|e| {
-                TirBaseError::LocalStoreWriteFailed {
-                    reason: format!("store mutex poisoned in compaction: {e}"),
-                }
-            })?;
+            let store_guard =
+                self.store
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("store mutex poisoned in compaction: {e}"),
+                    })?;
             let comp_res = if let Some(idb) = store_guard.idb_store() {
                 crdt.maybe_compact(table, &policy, &**idb).await
             } else {
@@ -1682,14 +1685,16 @@ impl CoreHandle {
         #[cfg(not(feature = "native"))]
         {
             let capture_result = {
-                let mig = self.migration.lock().map_err(|e| {
-                    TirBaseError::LocalStoreWriteFailed {
+                let mig = self
+                    .migration
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                         reason: format!("migration mutex poisoned in side-car capture: {e}"),
-                    }
-                });
+                    });
                 match mig {
                     Ok(mut mig) => {
-                        mig.record_corrupted_window_write(table, delta_bytes, delta.created_at).await
+                        mig.record_corrupted_window_write(table, delta_bytes, delta.created_at)
+                            .await
                     }
                     Err(e) => Err(e),
                 }
@@ -1881,8 +1886,8 @@ impl CoreHandle {
     /// Production caller: native host apps call this directly; the WASM SDK
     /// calls `core_present_token`.
     pub fn present_biscuit_token(&self, token_hex: &str) -> Result<TrustLevel, TirBaseError> {
-        let token_bytes = hex::decode(token_hex)
-            .map_err(|e| TirBaseError::AuthorisationFailed {
+        let token_bytes =
+            hex::decode(token_hex).map_err(|e| TirBaseError::AuthorisationFailed {
                 reason: format!("invalid hex encoding in biscuit token: {e}"),
             })?;
 
@@ -1893,12 +1898,12 @@ impl CoreHandle {
         }
 
         let now = now_secs();
-        let mut capability = self
-            .capability
-            .lock()
-            .map_err(|e| TirBaseError::AuthorisationFailed {
-                reason: format!("capability mutex poisoned: {e}"),
-            })?;
+        let mut capability =
+            self.capability
+                .lock()
+                .map_err(|e| TirBaseError::AuthorisationFailed {
+                    reason: format!("capability mutex poisoned: {e}"),
+                })?;
         capability.present_token(&token_bytes, now)
     }
 
@@ -2430,14 +2435,10 @@ impl CoreHandle {
                 reason: "no root CA public key registered; cannot verify manager token".to_string(),
             });
         }
-        let claims = crate::auth::biscuit::verify_token(
-            manager_token,
-            &root_ca_key,
-            now_secs,
-        )
-        .map_err(|e| TirBaseError::AuthorisationFailed {
-            reason: format!("manager token verification failed: {e}"),
-        })?;
+        let claims = crate::auth::biscuit::verify_token(manager_token, &root_ca_key, now_secs)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("manager token verification failed: {e}"),
+            })?;
 
         // The token's expires_at is in seconds; the CCE expects micros.
         let token_expiry = claims.expires_at * 1_000_000;
@@ -2494,14 +2495,10 @@ impl CoreHandle {
                 reason: "no root CA public key registered; cannot verify manager token".to_string(),
             });
         }
-        let claims = crate::auth::biscuit::verify_token(
-            manager_token,
-            &root_ca_key,
-            now_secs,
-        )
-        .map_err(|e| TirBaseError::AuthorisationFailed {
-            reason: format!("manager token verification failed: {e}"),
-        })?;
+        let claims = crate::auth::biscuit::verify_token(manager_token, &root_ca_key, now_secs)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("manager token verification failed: {e}"),
+            })?;
 
         let token_expiry = claims.expires_at * 1_000_000;
 
@@ -2974,8 +2971,7 @@ impl CoreHandle {
                     }
                 };
 
-                let target_schema_hash =
-                    mig.target_schema_for_migration(&target_migration_id);
+                let target_schema_hash = mig.target_schema_for_migration(&target_migration_id);
                 drop(mig);
 
                 // Req 19.1: query the DAG for every Delta authored under the
@@ -2997,9 +2993,7 @@ impl CoreHandle {
                             if !delta_ids.is_empty() {
                                 let store_guard = self.store.lock().map_err(|e| {
                                     TirBaseError::LocalStoreWriteFailed {
-                                        reason: format!(
-                                            "store mutex poisoned in DAG tagging: {e}"
-                                        ),
+                                        reason: format!("store mutex poisoned in DAG tagging: {e}"),
                                     }
                                 });
                                 if let Ok(store) = store_guard {
@@ -3252,8 +3246,7 @@ impl CoreHandle {
         use std::sync::atomic::Ordering;
         // Deadline is measured on the injected monotonic clock (PV-3.8,
         // PV-3.12); `tokio::time::Instant` is banned by clippy.toml.
-        let deadline =
-            crate::traits::monotonic_now().saturating_add(timeout.as_micros() as u64);
+        let deadline = crate::traits::monotonic_now().saturating_add(timeout.as_micros() as u64);
         loop {
             let active = self.migration_tasks_active.load(Ordering::SeqCst);
             let busy = self
@@ -3746,11 +3739,13 @@ impl CoreHandle {
                                         ),
                                     }
                                 })?;
-                                let _ = mig.replay_corrupted_windows(
-                                    &source_schema_hash,
-                                    new_current,
-                                    &mut crdt,
-                                ).await;
+                                let _ = mig
+                                    .replay_corrupted_windows(
+                                        &source_schema_hash,
+                                        new_current,
+                                        &mut crdt,
+                                    )
+                                    .await;
                             }
 
                             eprintln!(
@@ -3823,15 +3818,18 @@ impl CoreHandle {
                         target_did
                     );
                     let outcome = {
-                        let mut crdt = self.crdt.lock().map_err(|e| {
-                            TirBaseError::LocalStoreWriteFailed {
-                                reason: format!("crdt mutex poisoned in receive_inbound_wasm: {e}"),
-                            }
-                        })?;
+                        let mut crdt =
+                            self.crdt
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!(
+                                        "crdt mutex poisoned in receive_inbound_wasm: {e}"
+                                    ),
+                                })?;
                         apply_incoming_delta(&mut crdt, &delta)?
                     };
                     match outcome {
-                            MergeOutcome::Merged { .. } => {
+                        MergeOutcome::Merged { .. } => {
                             if let Ok(mut rev) = self.revocation.lock() {
                                 rev.record_authored_delta(delta.author_did.clone(), delta.id);
                             }
@@ -3953,74 +3951,72 @@ impl CoreHandle {
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                loop {
-                    ticker.tick().await;
-                    match handle.transport.lock() {
-                        Ok(mut transport) => {
-                            let now_us = now_micros();
+            loop {
+                ticker.tick().await;
+                match handle.transport.lock() {
+                    Ok(mut transport) => {
+                        let now_us = now_micros();
 
-                            // Req 5.6: advance the peer-timeout clock every epoch
-                            // so stale peers are evicted without manual intervention.
-                            transport.tick_timeouts(now_us);
+                        // Req 5.6: advance the peer-timeout clock every epoch
+                        // so stale peers are evicted without manual intervention.
+                        transport.tick_timeouts(now_us);
 
-                            // Req 5.6: drain the retry queue and re-attempt delivery
-                            // for any entries whose next_retry_at has passed.  Due
-                            // entries are forwarded to the outbound channel so the
-                            // Swarm polling task can publish them.
-                            let due_retries = transport.drain_due_retries(now_us);
-                            if !due_retries.is_empty() {
-                                eprintln!(
-                                    "[scheduler-loop] draining {n} retry entry(ies)",
-                                    n = due_retries.len()
-                                );
-                                let tx = match transport.outbound_tx.as_ref() {
-                                    Some(tx) => tx,
-                                    None => continue,
-                                };
-                                for entry in due_retries {
-                                    let delta = match serde_json::from_slice(&entry.delta_bytes) {
-                                        Ok(d) => d,
-                                        Err(e) => {
-                                            eprintln!(
+                        // Req 5.6: drain the retry queue and re-attempt delivery
+                        // for any entries whose next_retry_at has passed.  Due
+                        // entries are forwarded to the outbound channel so the
+                        // Swarm polling task can publish them.
+                        let due_retries = transport.drain_due_retries(now_us);
+                        if !due_retries.is_empty() {
+                            eprintln!(
+                                "[scheduler-loop] draining {n} retry entry(ies)",
+                                n = due_retries.len()
+                            );
+                            let tx = match transport.outbound_tx.as_ref() {
+                                Some(tx) => tx,
+                                None => continue,
+                            };
+                            for entry in due_retries {
+                                let delta = match serde_json::from_slice(&entry.delta_bytes) {
+                                    Ok(d) => d,
+                                    Err(e) => {
+                                        eprintln!(
                                                 "[scheduler-loop] retry entry for {} has malformed delta bytes: {e}",
                                                 entry.peer_did
                                             );
-                                            continue;
-                                        }
-                                    };
-                                    let gossip_msg =
-                                        crate::transport::message::GossipMessage::InboundDelta(
-                                            delta,
-                                        );
-                                    if let Err(e) = tx.try_send(gossip_msg.to_bytes()) {
-                                        eprintln!(
-                                            "[scheduler-loop] retry entry forward failed for {}: {e}",
-                                            entry.peer_did
-                                        );
+                                        continue;
                                     }
+                                };
+                                let gossip_msg =
+                                    crate::transport::message::GossipMessage::InboundDelta(delta);
+                                if let Err(e) = tx.try_send(gossip_msg.to_bytes()) {
+                                    eprintln!(
+                                        "[scheduler-loop] retry entry forward failed for {}: {e}",
+                                        entry.peer_did
+                                    );
                                 }
                             }
+                        }
 
-                         // Subphase 3.3: advance the Saturate_Mode state
-                         // machine's clock every epoch.  A lease that expired
-                         // without renewal demotes the state machine — and the
-                         // transport reconciles the DRR scheduler mirror — even
-                         // when no Manager event ever arrives again.  This runs
-                         // BEFORE the DRR epoch so a just-expired lease cannot
-                         // keep scheduling everything at HIGH priority for even
-                         // one extra epoch.
-                         transport.tick_saturate(now_secs());
+                        // Subphase 3.3: advance the Saturate_Mode state
+                        // machine's clock every epoch.  A lease that expired
+                        // without renewal demotes the state machine — and the
+                        // transport reconciles the DRR scheduler mirror — even
+                        // when no Manager event ever arrives again.  This runs
+                        // BEFORE the DRR epoch so a just-expired lease cannot
+                        // keep scheduling everything at HIGH priority for even
+                        // one extra epoch.
+                        transport.tick_saturate(now_secs());
 
-                         // Req 6.4: rotate Noise_IK session keys whose interval
-                         // has elapsed.  Iterates `active_sessions` and calls
-                         // `SessionManager::rotate_keys` for each due session;
-                         // failures are logged per-session without aborting the
-                         // epoch.
-                         transport.tick_key_rotation(now_secs());
+                        // Req 6.4: rotate Noise_IK session keys whose interval
+                        // has elapsed.  Iterates `active_sessions` and calls
+                        // `SessionManager::rotate_keys` for each due session;
+                        // failures are logged per-session without aborting the
+                        // epoch.
+                        transport.tick_key_rotation(now_secs());
 
-                         match transport
-                             .tick_scheduler(crate::transport::DEFAULT_LINK_CAPACITY_BYTES)
-                         {
+                        match transport
+                            .tick_scheduler(crate::transport::DEFAULT_LINK_CAPACITY_BYTES)
+                        {
                             Ok(0) => {}
                             Ok(n) => {
                                 eprintln!(
@@ -4193,7 +4189,7 @@ impl CoreHandle {
         interval: std::time::Duration,
         threshold_secs: u64,
     ) -> tokio::task::JoinHandle<()> {
-                let handle = self.clone();
+        let handle = self.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -4202,22 +4198,17 @@ impl CoreHandle {
                 let now = now_secs();
                 if let Ok(mut dur) = handle.durability.lock() {
                     if let Some(anchor) = dur.anchor_mut() {
-                        let lost_beacons =
-                            anchor.check_signal_loss(now, threshold_secs);
+                        let lost_beacons = anchor.check_signal_loss(now, threshold_secs);
                         if !lost_beacons.is_empty() {
                             // Build affected peer DIDs from the lost beacon DIDs.
                             use crate::crdt::delta::Did;
                             let affected_dids: Vec<Did> = lost_beacons
                                 .iter()
                                 .filter_map(|pk| {
-                                    anchor
-                                        .beacon_did_for_key(pk)
-                                        .map(|did| did.clone())
+                                    anchor.beacon_did_for_key(pk).map(|did| did.clone())
                                 })
                                 .collect();
-                            if let Err(e) =
-                                anchor.on_beacon_signal_lost(now, affected_dids)
-                            {
+                            if let Err(e) = anchor.on_beacon_signal_lost(now, affected_dids) {
                                 eprintln!(
                                     "[beacon-monitor-loop] on_beacon_signal_lost failed: {e}"
                                 );
@@ -4645,8 +4636,12 @@ mod tests {
         cleanup(&path_a);
         cleanup(&path_b);
 
-        let handle_a = CoreHandle::init(make_config(&path_a)).await.expect("init A");
-        let handle_b = CoreHandle::init(make_config(&path_b)).await.expect("init B");
+        let handle_a = CoreHandle::init(make_config(&path_a))
+            .await
+            .expect("init A");
+        let handle_b = CoreHandle::init(make_config(&path_b))
+            .await
+            .expect("init B");
 
         // Both handles persist their identity through a FileKeyProvider.
         let identity_file_a = format!("{path_a}.identity.json");
@@ -9673,7 +9668,10 @@ mod real_mesh_tests {
             Duration::from_secs(20),
         )
         .await;
-        assert_eq!(observed_a_on_b.data, from_a, "B must read A's data after round trip 1");
+        assert_eq!(
+            observed_a_on_b.data, from_a,
+            "B must read A's data after round trip 1"
+        );
 
         // Round trip 2: B writes, A merges.
         let from_b = json!({ "device": "B", "seq": 1, "msg": "hello from B" });
@@ -9690,7 +9688,10 @@ mod real_mesh_tests {
             Duration::from_secs(20),
         )
         .await;
-        assert_eq!(observed_b_on_a.data, from_b, "A must read B's data after round trip 2");
+        assert_eq!(
+            observed_b_on_a.data, from_b,
+            "A must read B's data after round trip 2"
+        );
 
         // Final-state identity: every key written by either engine must match on
         // both engines.
@@ -10536,7 +10537,8 @@ mod real_mesh_tests {
     /// crdt/mod.rs:642) → real mesh reconnection via `dial_peer`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn long_partition_clock_skew_rejoins_converges() {
-        let (handle_a, handle_b, path_a, path_b) = init_connected_pair("p76_skew_A", "p76_skew_B").await;
+        let (handle_a, handle_b, path_a, path_b) =
+            init_connected_pair("p76_skew_A", "p76_skew_B").await;
 
         // ── Phase 1: baseline sync — one Delta from A reaches B ───────────────
         let baseline = json!({ "baseline": true, "seq": 0i64 });
@@ -10777,7 +10779,9 @@ mod real_mesh_tests {
         assert!(
             clock_gap <= 1,
             "post-rejoin Lamport clocks must be within 1 tick of each other (gap={}, A={}, B={})",
-            clock_gap, lamport_a_after, lamport_b_after
+            clock_gap,
+            lamport_a_after,
+            lamport_b_after
         );
 
         // The baseline value (written before the partition) must still be
@@ -10836,14 +10840,12 @@ mod real_mesh_tests {
         tokio::time::sleep(Duration::from_millis(250)).await;
 
         // Step 4: identity C — the device that will be revoked.
-        let c_mgr = crate::identity::IdentityManager::init_in_memory()
-            .expect("init C identity");
+        let c_mgr = crate::identity::IdentityManager::init_in_memory().expect("init C identity");
         let c_did: String = c_mgr.did().to_string();
         let c_sk: [u8; 32] = c_mgr.signing_key_bytes();
 
         // Step 5: manager identity M — signs the revocation.
-        let m_mgr = crate::identity::IdentityManager::init_in_memory()
-            .expect("init M identity");
+        let m_mgr = crate::identity::IdentityManager::init_in_memory().expect("init M identity");
         let m_did: String = m_mgr.did().to_string();
         let m_sk: [u8; 32] = m_mgr.signing_key_bytes();
 
@@ -10898,9 +10900,9 @@ mod real_mesh_tests {
 
         // Step 9: inject C's data delta on A.
         handle_a
-            .inject_inbound(
-                crate::transport::message::GossipMessage::InboundDelta(c_delta),
-            )
+            .inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
+                c_delta,
+            ))
             .await
             .expect("inject C's data delta");
         handle_a
@@ -11072,15 +11074,14 @@ mod real_mesh_tests {
         // Build a real DISASTER_ALERT Biscuit token signed by the deployment CA.
         // This is the token `core_activate_saturate_mode` (lib.rs) / `CoreHandle::activate_saturate_mode`
         // expects on the production code path.
-        let activate_token =
-            crate::auth::biscuit::create_token_with_caveat(
-                "did:key:z6MkManager",
-                "manager",
-                3600,
-                "disaster-alert",
-                &ca_private_bytes,
-            )
-            .expect("DISASTER_ALERT token creation must succeed");
+        let activate_token = crate::auth::biscuit::create_token_with_caveat(
+            "did:key:z6MkManager",
+            "manager",
+            3600,
+            "disaster-alert",
+            &ca_private_bytes,
+        )
+        .expect("DISASTER_ALERT token creation must succeed");
 
         // Exercise the production caller:
         //   `CoreHandle::activate_saturate_mode` (api/mod.rs:2306)
@@ -11111,9 +11112,10 @@ mod real_mesh_tests {
                 "handle A's saturate state machine must be SATURATE after \
                  activate_saturate_mode — production caller at api/mod.rs:2306"
             );
-            let lease = t_a.saturate.lease().expect(
-                "activation must open a lease on the real SaturateModeStateMachine",
-            );
+            let lease = t_a
+                .saturate
+                .lease()
+                .expect("activation must open a lease on the real SaturateModeStateMachine");
             assert!(
                 lease.expires_at > 0,
                 "lease expires_at must be set by the real state machine"
@@ -11390,10 +11392,7 @@ mod cloud_sync_tests {
 
         // Re-enqueue the same Delta (simulating a client retry after a lost ack).
         let delta_bytes = {
-            let durability = handle
-                .durability
-                .lock()
-                .expect("durability mutex");
+            let durability = handle.durability.lock().expect("durability mutex");
             // Re-serialize the Delta from the DAG payload.
             let crdt = handle.crdt.lock().expect("crdt mutex");
             crdt.refetch_delta_bytes(&delta_id)
@@ -11403,16 +11402,13 @@ mod cloud_sync_tests {
 
         // Enqueue a second copy of the same Delta into the cloud outbound queue.
         {
-            let mut durability = handle
-                .durability
-                .lock()
-                .expect("durability mutex");
-            let entry = crate::durability::cloud_queue::QueueEntry::new(
-                delta_id,
-                delta_bytes,
-                vec![],
-            );
-            durability.cloud_queue_mut().enqueue(entry).expect("enqueue");
+            let mut durability = handle.durability.lock().expect("durability mutex");
+            let entry =
+                crate::durability::cloud_queue::QueueEntry::new(delta_id, delta_bytes, vec![]);
+            durability
+                .cloud_queue_mut()
+                .enqueue(entry)
+                .expect("enqueue");
         }
         assert_eq!(
             handle.cloud_queue_depth(),
@@ -11864,11 +11860,7 @@ mod tier2_ack_tests {
         let mut config = make_config_with_anchor(&path, true, vec![beacon_public]);
         config.deployment.beacon_signal_loss_threshold_secs = 1;
 
-        let handle = Arc::new(
-            CoreHandle::init(config)
-                .await
-                .expect("CoreHandle::init"),
-        );
+        let handle = Arc::new(CoreHandle::init(config).await.expect("CoreHandle::init"));
 
         // Anchor must start in BeaconAttested mode.
         {
@@ -11895,11 +11887,8 @@ mod tier2_ack_tests {
         // `unwrap_or(i64::MIN)`, `now_secs - i64::MIN` saturates to
         // `i64::MAX`, which exceeds any threshold.  So the beacon is detected
         // as lost on the very first tick.
-        let _monitor = CoreHandle::spawn_beacon_monitor_loop(
-            &handle,
-            std::time::Duration::from_millis(10),
-            1,
-        );
+        let _monitor =
+            CoreHandle::spawn_beacon_monitor_loop(&handle, std::time::Duration::from_millis(10), 1);
 
         // Poll until the anchor reverts to SquadTagFallback.
         let mut attempts = 0u32;
@@ -11907,9 +11896,7 @@ mod tier2_ack_tests {
             {
                 let dur = handle.durability.lock().unwrap();
                 let anchor = dur.anchor().expect("anchor must still be installed");
-                if anchor.mode()
-                    == crate::durability::anchor::AnchorMode::SquadTagFallback
-                {
+                if anchor.mode() == crate::durability::anchor::AnchorMode::SquadTagFallback {
                     break;
                 }
             }
@@ -12843,8 +12830,7 @@ mod quarantine_sidecar_wiring_tests {
         use sha2::{Digest, Sha256};
 
         let transform_sha256: [u8; 32] = Sha256::digest(&transform_bytes).into();
-        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes)
-            .expect("ca sign");
+        let ca_sig = crate::identity::keypair::sign(ca_secret, &transform_bytes).expect("ca sign");
         MigrationDelta {
             id: transform_sha256,
             author_did: "did:key:z6MkMigSender".to_string(),
@@ -12920,8 +12906,8 @@ mod quarantine_sidecar_wiring_tests {
             .expect("handle_b init");
 
         // Build a signed delta with a schema hash entirely unknown to Node B.
-        let (peer_secret, peer_public) = crate::identity::keypair::generate_keypair()
-            .expect("keygen");
+        let (peer_secret, peer_public) =
+            crate::identity::keypair::generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let unknown_schema = [0xCCu8; 32];
 
@@ -12938,8 +12924,8 @@ mod quarantine_sidecar_wiring_tests {
             created_at: 0,
         };
         let canonical = delta.canonical_bytes();
-        delta.signature = crate::identity::keypair::sign(&peer_secret, &canonical)
-            .expect("sign delta");
+        delta.signature =
+            crate::identity::keypair::sign(&peer_secret, &canonical).expect("sign delta");
         delta.id = crate::crdt::delta::Delta::compute_id(&canonical);
 
         // Capture the expected raw bytes (what the quarantine ledger must store).
@@ -12962,7 +12948,10 @@ mod quarantine_sidecar_wiring_tests {
         );
 
         // Assert the production quarantine_incoming call wrote to the ledger.
-        let migration = handle_b.migration.lock().expect("migration lock on handle_b");
+        let migration = handle_b
+            .migration
+            .lock()
+            .expect("migration lock on handle_b");
         let entries = migration
             .quarantined_entries()
             .expect("quarantined_entries on handle_b");
@@ -13020,17 +13009,14 @@ mod quarantine_sidecar_wiring_tests {
     /// **Failing test:** `sidecar_ledger_wiring_two_core_handle_instances`
     #[tokio::test]
     async fn sidecar_ledger_wiring_two_core_handle_instances() {
-        use crate::migration::migration_delta::{
-            ManagerSignature, MigrationRevocationDelta,
-        };
+        use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
 
         let path_a = tmp_wiring_path("sidecar_a");
         let path_b = tmp_wiring_path("sidecar_b");
         cleanup_wiring(&path_a);
         cleanup_wiring(&path_b);
 
-        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair()
-            .expect("keygen");
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
         let s = [0xA0u8; 32];
         let t = [0xA1u8; 32];
         let u = [0xA2u8; 32];
@@ -13083,12 +13069,12 @@ mod quarantine_sidecar_wiring_tests {
         }
 
         // ── Step 2: Revoke the migration, opening the corruption window on T.
-        let (mgr_secret, mgr_public) = crate::identity::keypair::generate_keypair()
-            .expect("keygen mgr");
+        let (mgr_secret, mgr_public) =
+            crate::identity::keypair::generate_keypair().expect("keygen mgr");
         let mgr_did = crate::crdt::derive_did_from_public_key(&mgr_public);
 
-        let sig_bytes = crate::identity::keypair::sign(&mgr_secret, &bad_migration_id)
-            .expect("mgr sign");
+        let sig_bytes =
+            crate::identity::keypair::sign(&mgr_secret, &bad_migration_id).expect("mgr sign");
         let revocation = MigrationRevocationDelta {
             target_migration_id: bad_migration_id,
             signatures: vec![ManagerSignature {
@@ -13298,13 +13284,12 @@ mod cloud_sync_wiring_tests {
             // `CloudLedgerConnection::send_delta` in the production adapter, the
             // Delta is never committed to the ledger, `cloud_ledger_is_committed`
             // returns `false`, and `wait_for_drain` panics.
-            let delta: crate::crdt::delta::Delta =
-                serde_json::from_slice(bytes).map_err(|e| {
-                    format!(
-                        "mock endpoint: deserialise {} failed: {e}",
-                        hex::encode(delta_id)
-                    )
-                })?;
+            let delta: crate::crdt::delta::Delta = serde_json::from_slice(bytes).map_err(|e| {
+                format!(
+                    "mock endpoint: deserialise {} failed: {e}",
+                    hex::encode(delta_id)
+                )
+            })?;
             match self.ledger.receive_delta(&delta) {
                 Ok(crate::durability::cloud_ledger::ReceiveOutcome::Committed) => Ok(()),
                 Ok(crate::durability::cloud_ledger::ReceiveOutcome::AlreadyCommitted) => Ok(()),
@@ -13351,14 +13336,20 @@ mod cloud_sync_wiring_tests {
 
         // Initialise a real CoreHandle — this wires the production cloud sync
         // loop (`spawn_cloud_sync_loop`) in `CoreHandle::init`.
-        let handle = CoreHandle::init(make_config(&path)).await.expect("CoreHandle::init");
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("CoreHandle::init");
 
         // Write 3 rows through the production path.  Each `write()` registers
         // a Delta in the Durability Subsystem's cloud outbound queue (Req 16.3).
         let mut delta_ids = Vec::new();
         for i in 0..3u32 {
             let wr = handle
-                .write("g16", &format!("row-{i}"), json!({ "seq": i, "claim": "G1.6" }))
+                .write(
+                    "g16",
+                    &format!("row-{i}"),
+                    json!({ "seq": i, "claim": "G1.6" }),
+                )
                 .await
                 .expect("write");
             delta_ids.push(wr.delta_id);
@@ -13492,7 +13483,9 @@ mod cloud_sync_wiring_tests {
         let path = tmp_path("g16prod");
         cleanup(&path);
 
-        let handle = CoreHandle::init(make_config(&path)).await.expect("CoreHandle::init");
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("CoreHandle::init");
 
         // Drive the identical production loop with a short interval.
         // (In production builds `CoreHandle::init` does this with
@@ -13502,7 +13495,11 @@ mod cloud_sync_wiring_tests {
         let mut delta_ids = Vec::new();
         for i in 0..2u32 {
             let wr = handle
-                .write("g16p", &format!("row-{i}"), json!({ "via": "production-loop" }))
+                .write(
+                    "g16p",
+                    &format!("row-{i}"),
+                    json!({ "via": "production-loop" }),
+                )
                 .await
                 .expect("write");
             delta_ids.push(wr.delta_id);
@@ -13703,8 +13700,7 @@ mod migration_mid_flight_revocation_tests {
         // Wait until the infinite-loop transform is genuinely executing
         // (both the engine's in-progress marker AND the execution registry
         // entry are set), so the revocation races with a live run.
-        let start_deadline =
-            std::time::Instant::now() + std::time::Duration::from_secs(15);
+        let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
         loop {
             let in_progress = handle_a
                 .migration

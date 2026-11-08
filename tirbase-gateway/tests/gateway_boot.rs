@@ -15,8 +15,8 @@
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -125,9 +125,11 @@ fn counter_value(db: &Path, key: &str) -> Option<i64> {
 
 fn counter_table_value(db: &Path) -> i64 {
     let conn = rusqlite::Connection::open(db).expect("open counter db");
-    conn.query_row("SELECT value FROM monotonic_counter WHERE id = 1", [], |row| {
-        row.get(0)
-    })
+    conn.query_row(
+        "SELECT value FROM monotonic_counter WHERE id = 1",
+        [],
+        |row| row.get(0),
+    )
     .expect("counter row")
 }
 

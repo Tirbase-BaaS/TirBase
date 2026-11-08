@@ -25,10 +25,7 @@ impl SchemaVersionPath {
 
     /// Return the next schema hash after `current`, or `None` if `current` is
     /// the latest or is not found in the path.
-    pub fn next_version(
-        &self,
-        current: &SchemaIdentifierHash,
-    ) -> Option<&SchemaIdentifierHash> {
+    pub fn next_version(&self, current: &SchemaIdentifierHash) -> Option<&SchemaIdentifierHash> {
         self.versions
             .iter()
             .position(|v| v == current)

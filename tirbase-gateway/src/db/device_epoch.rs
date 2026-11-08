@@ -189,7 +189,13 @@ mod tests {
             .collect();
         assert_eq!(
             columns,
-            vec!["device_id", "epoch", "bumped_at_est", "co_sig_pa", "co_sig_rm"]
+            vec![
+                "device_id",
+                "epoch",
+                "bumped_at_est",
+                "co_sig_pa",
+                "co_sig_rm"
+            ]
         );
         drop(stmt);
         drop(conn);

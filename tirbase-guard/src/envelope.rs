@@ -87,13 +87,11 @@ pub fn verify_profile_signature(
     profile: &EnvelopeProfile,
     trust_root: &TrustRootRecord,
 ) -> Result<String, ProfileInstallError> {
-    let policy = trust_root
-        .role_policy(CommandRole::PolicyAuthority)
-        .ok_or(ProfileInstallError::TrustRoot(
-            TrustRootError::RoleNotConfigured {
-                role: CommandRole::PolicyAuthority,
-            },
-        ))?;
+    let policy = trust_root.role_policy(CommandRole::PolicyAuthority).ok_or(
+        ProfileInstallError::TrustRoot(TrustRootError::RoleNotConfigured {
+            role: CommandRole::PolicyAuthority,
+        }),
+    )?;
     let message = profile_signing_bytes(profile);
     for signer in &policy.authorized_signers {
         // Registry gate + signature verification (PV-3.2/PV-3.3).
@@ -200,19 +198,13 @@ pub fn validate_profile(
                     if min_cmp == std::cmp::Ordering::Less {
                         errors.push(FieldError::new(
                             &param.name,
-                            format!(
-                                "range min {:?} is below DeviceModel min {:?}",
-                                min, dm_min
-                            ),
+                            format!("range min {:?} is below DeviceModel min {:?}", min, dm_min),
                         ));
                     }
                     if max_cmp == std::cmp::Ordering::Greater {
                         errors.push(FieldError::new(
                             &param.name,
-                            format!(
-                                "range max {:?} is above DeviceModel max {:?}",
-                                max, dm_max
-                            ),
+                            format!("range max {:?} is above DeviceModel max {:?}", max, dm_max),
                         ));
                     }
                 }
@@ -309,4 +301,3 @@ pub fn install_profile(
 }
 
 // suppress unused import warning in builds that don't exercise the helper path
-

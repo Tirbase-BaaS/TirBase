@@ -30,7 +30,9 @@ impl std::fmt::Display for LeaseAcquireError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LeaseAcquireError::HeldByOther { holder } => write!(f, "lease held by {holder}"),
-            LeaseAcquireError::Cooldown { until_mono } => write!(f, "issuer in cooldown until mono {until_mono}"),
+            LeaseAcquireError::Cooldown { until_mono } => {
+                write!(f, "issuer in cooldown until mono {until_mono}")
+            }
             LeaseAcquireError::Store(e) => write!(f, "lease store: {e}"),
         }
     }
@@ -46,7 +48,8 @@ pub fn create_table(conn: &Connection) -> Result<(), String> {
             consecutive_renewals   INTEGER NOT NULL DEFAULT 0,
             cooldown_until_mono    INTEGER
         );"
-    )).map_err(|e| format!("create single_writer_leases: {e}"))
+    ))
+    .map_err(|e| format!("create single_writer_leases: {e}"))
 }
 
 pub fn load_tx(tx: &Transaction<'_>, target_id: &str) -> Result<Option<LeaseRow>, String> {
@@ -76,13 +79,23 @@ pub fn acquire_tx(
     if let Some(row) = existing {
         let expired = row.expires_mono <= now_mono_secs;
         if !expired && row.issuer_did != issuer_did {
-            return Err(LeaseAcquireError::HeldByOther { holder: row.issuer_did });
+            return Err(LeaseAcquireError::HeldByOther {
+                holder: row.issuer_did,
+            });
         }
         if row.issuer_did == issuer_did {
             if let Some(cooldown) = row.cooldown_until_mono {
-                if cooldown > now_mono_secs { return Err(LeaseAcquireError::Cooldown { until_mono: cooldown }); }
+                if cooldown > now_mono_secs {
+                    return Err(LeaseAcquireError::Cooldown {
+                        until_mono: cooldown,
+                    });
+                }
             }
-            renewals = if expired { 0 } else { row.consecutive_renewals.saturating_add(1) };
+            renewals = if expired {
+                0
+            } else {
+                row.consecutive_renewals.saturating_add(1)
+            };
             if renewals >= max_consecutive_renewals {
                 // enter cooldown, do not grant lease now
                 let cooldown_until = now_mono_secs.saturating_add(lease_duration_secs);
@@ -90,7 +103,9 @@ pub fn acquire_tx(
                     &format!("INSERT OR REPLACE INTO {SINGLE_WRITER_LEASES_TABLE} (target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono) VALUES (?1,?2,?3,?4,?5)"),
                     params![target_id, issuer_did, now_mono_secs, renewals, cooldown_until],
                 ).map_err(|e| LeaseAcquireError::Store(format!("set cooldown: {e}")))?;
-                return Err(LeaseAcquireError::Cooldown { until_mono: cooldown_until });
+                return Err(LeaseAcquireError::Cooldown {
+                    until_mono: cooldown_until,
+                });
             }
         }
     }
@@ -106,7 +121,8 @@ pub fn release_tx(tx: &Transaction<'_>, target_id: &str, issuer_did: &str) -> Re
     tx.execute(
         &format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE} WHERE target_id=?1 AND issuer_did=?2"),
         params![target_id, issuer_did],
-    ).map_err(|e| format!("release lease: {e}"))?;
+    )
+    .map_err(|e| format!("release lease: {e}"))?;
     Ok(())
 }
 
@@ -117,12 +133,25 @@ pub struct SqliteLeaseStore {
 impl SqliteLeaseStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent() { if !parent.as_os_str().is_empty() { std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?; } }
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
+            }
+        }
         let conn = Connection::open(path).map_err(|e| format!("open: {e}"))?;
-        conn.pragma_update(None, "journal_mode", "WAL").map_err(|e| format!("journal_mode: {e}"))?;
-        conn.pragma_update(None, "synchronous", "FULL").map_err(|e| format!("synchronous: {e}"))?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| format!("journal_mode: {e}"))?;
+        conn.pragma_update(None, "synchronous", "FULL")
+            .map_err(|e| format!("synchronous: {e}"))?;
         create_table(&conn)?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
-    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> { match self.conn.lock() { Ok(g)=>g, Err(p)=>p.into_inner() } }
+    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> {
+        match self.conn.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        }
+    }
 }

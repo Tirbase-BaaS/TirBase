@@ -17,7 +17,9 @@ use tirbase_guard::policy::{
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootRecord};
 use tirbase_types::envelope::{EnvelopeProfile, ParameterKind, ParameterSpec};
 use tirbase_types::policy::{PolicyBundle, PolicyBundleKind, PolicyCoSignature};
-use tirbase_types::{CommandRole, DeviceSignature, FixedPointValue, ProfileId, TargetId, UNIT_DEG_C};
+use tirbase_types::{
+    CommandRole, DeviceSignature, FixedPointValue, ProfileId, TargetId, UNIT_DEG_C,
+};
 
 #[derive(Debug)]
 struct MemCounter(AtomicU64);
@@ -39,7 +41,10 @@ impl MonotonicCounterTrait for MemCounter {
             if value <= cur {
                 return Ok(cur);
             }
-            match self.0.compare_exchange(cur, value, Ordering::SeqCst, Ordering::SeqCst) {
+            match self
+                .0
+                .compare_exchange(cur, value, Ordering::SeqCst, Ordering::SeqCst)
+            {
                 Ok(_) => return Ok(value),
                 Err(o) => cur = o,
             }
@@ -128,16 +133,17 @@ fn sign_bundle(bundle: &PolicyBundle, pa: &InMemoryKeyProvider) -> PolicyCoSigna
     }
 }
 
-fn lifecycle(pa: &InMemoryKeyProvider, active_m: u8, tl: u32) -> (PolicyLifecycle, Arc<MemCounter>) {
+fn lifecycle(
+    pa: &InMemoryKeyProvider,
+    active_m: u8,
+    tl: u32,
+) -> (PolicyLifecycle, Arc<MemCounter>) {
     let tr = Arc::new(ArcSwap::from_pointee(trust_root(pa)));
     let counter = Arc::new(MemCounter::new(0));
     let target = TargetId::new("cr1");
     let p0 = profile(1, 0, 1000, active_m, 3, tl);
     let b0 = make_bundle(1, [0; 32], p0.clone(), vec![]);
-    let map = Arc::new(ProfileMap::from_profiles([(
-        target.clone(),
-        p0,
-    )]));
+    let map = Arc::new(ProfileMap::from_profiles([(target.clone(), p0)]));
     let lc = PolicyLifecycle::new(target, b0, counter.clone(), map, tr).expect("init");
     (lc, counter)
 }
@@ -198,7 +204,7 @@ fn tightening_floor_violation_is_rejected() {
         "cold_room".to_string(),
         vec![ParamFloor {
             param_name: "temp".to_string(),
-            min_floor: fp(50),   // 5.0°C floor
+            min_floor: fp(50), // 5.0°C floor
             max_ceiling: fp(1500),
         }],
     );
@@ -289,13 +295,19 @@ fn m1_loosening_is_allowed_with_timelock() {
     let mut b = make_bundle(2, prev_hash, profile(2, -100, 1100, 1, 1, 100), vec![]);
     b.co_signatures = vec![sign_bundle(&b, &pa)];
     let out = lc.ingest_bundle(b, 1_000).unwrap();
-    assert!(matches!(out, PolicyIngestOutcome::LooseningPending { required_m: 1, .. }));
+    assert!(matches!(
+        out,
+        PolicyIngestOutcome::LooseningPending { required_m: 1, .. }
+    ));
     assert!(matches!(
         lc.apply_pending_loosening(1_099),
         Err(PolicyError::TimelockActive { .. })
     ));
     let out = lc.apply_pending_loosening(1_100).unwrap();
-    assert!(matches!(out, PolicyIngestOutcome::TighteningApplied { version: 2 }));
+    assert!(matches!(
+        out,
+        PolicyIngestOutcome::TighteningApplied { version: 2 }
+    ));
 }
 
 #[test]
@@ -309,11 +321,22 @@ fn version_gap_trick_and_rollback_replay_bypass_attempts_rejected() {
     // replay v2 after v5 accepted
     let mut old = make_bundle(2, prev_hash, profile(2, 10, 900, 2, 3, 300), vec![]);
     old.co_signatures = vec![sign_bundle(&old, &pa)];
-    assert!(matches!(lc.ingest_bundle(old, 1_100), Err(PolicyError::Rollback { .. })));
+    assert!(matches!(
+        lc.ingest_bundle(old, 1_100),
+        Err(PolicyError::Rollback { .. })
+    ));
     // equal version
-    let mut eq = make_bundle(5, lc.active().body_hash, profile(5, 10, 900, 2, 3, 300), vec![]);
+    let mut eq = make_bundle(
+        5,
+        lc.active().body_hash,
+        profile(5, 10, 900, 2, 3, 300),
+        vec![],
+    );
     eq.co_signatures = vec![sign_bundle(&eq, &pa)];
-    assert!(matches!(lc.ingest_bundle(eq, 1_100), Err(PolicyError::Rollback { .. })));
+    assert!(matches!(
+        lc.ingest_bundle(eq, 1_100),
+        Err(PolicyError::Rollback { .. })
+    ));
 }
 
 #[test]
@@ -325,6 +348,9 @@ fn guard_ignores_bundle_kind_by_reclassifying() {
     let new = profile(2, -100, 1000, 2, 3, 300);
     let bundle = make_bundle(2, [0; 32], new.clone(), vec![]);
     assert_eq!(bundle.kind, PolicyBundleKind::Loosening); // default conservative
-    assert_eq!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Loosening);
+    assert_eq!(
+        classify_bundle(&old, &new, &tr),
+        PolicyBundleKind::Loosening
+    );
     // a forged "Tightening" claim in data is irrelevant to the computed result.
 }

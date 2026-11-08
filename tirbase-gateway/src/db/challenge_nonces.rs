@@ -71,8 +71,7 @@ impl SqliteChallengeNonceStore {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| format!("create {parent:?}: {e}"))?;
+                std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
             }
         }
         let conn = Connection::open(path).map_err(|e| format!("open: {e}"))?;
@@ -327,7 +326,10 @@ mod tests {
             .map(Result::unwrap)
             .collect();
         for required in CHALLENGE_NONCE_COLUMNS {
-            assert!(cols.contains(&required.to_string()), "missing {required}: {cols:?}");
+            assert!(
+                cols.contains(&required.to_string()),
+                "missing {required}: {cols:?}"
+            );
         }
         drop(stmt);
         drop(conn);
@@ -342,12 +344,24 @@ mod tests {
         };
         ChallengeNonceStore::insert(&store, &nonce).unwrap();
         assert!(ChallengeNonceStore::consume_if_valid(
-            &store, &[7u8; 32], "did:key:issuer", "target-a", "setpoint", 150, true
+            &store,
+            &[7u8; 32],
+            "did:key:issuer",
+            "target-a",
+            "setpoint",
+            150,
+            true
         )
         .unwrap());
         assert!(
             !ChallengeNonceStore::consume_if_valid(
-                &store, &[7u8; 32], "did:key:issuer", "target-a", "setpoint", 150, true
+                &store,
+                &[7u8; 32],
+                "did:key:issuer",
+                "target-a",
+                "setpoint",
+                150,
+                true
             )
             .unwrap(),
             "second use must be rejected (CLAIM-16.1)"
@@ -355,4 +369,3 @@ mod tests {
         let _ = std::fs::remove_file(db);
     }
 }
-

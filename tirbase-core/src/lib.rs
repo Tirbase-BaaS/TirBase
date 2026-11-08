@@ -313,7 +313,10 @@ mod wasm_exports {
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
-            handle.register_root_ca_key(key, None).map(|_| ()).map_err(to_js_err)
+            handle
+                .register_root_ca_key(key, None)
+                .map(|_| ())
+                .map_err(to_js_err)
         })
     }
 
@@ -603,9 +606,8 @@ mod wasm_exports {
         now_secs: i64,
     ) -> Result<(), JsValue> {
         let root_delta_id = decode_32byte_hex("root_delta_id", &root_delta_id_hex)?;
-        let token_bytes = hex::decode(&manager_token_hex).map_err(|e| {
-            to_js_err(format!("manager_token: invalid hex: {e}"))
-        })?;
+        let token_bytes = hex::decode(&manager_token_hex)
+            .map_err(|e| to_js_err(format!("manager_token: invalid hex: {e}")))?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
@@ -630,9 +632,8 @@ mod wasm_exports {
     ) -> Result<(), JsValue> {
         let ico_id = uuid::Uuid::parse_str(&ico_id_hex)
             .map_err(|e| to_js_err(format!("ico_id: invalid UUID: {e}")))?;
-        let token_bytes = hex::decode(&manager_token_hex).map_err(|e| {
-            to_js_err(format!("manager_token: invalid hex: {e}"))
-        })?;
+        let token_bytes = hex::decode(&manager_token_hex)
+            .map_err(|e| to_js_err(format!("manager_token: invalid hex: {e}")))?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
@@ -898,7 +899,12 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn core_schema_identifier_hash(schema_src: String) -> Result<String, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
-            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+            to_js_err(
+                e.iter()
+                    .map(|err| err.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            )
         })?;
         let hash = schema.identifier_hash();
         Ok(hex::encode(hash))
@@ -911,7 +917,12 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn core_schema_print(schema_src: String) -> Result<String, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
-            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+            to_js_err(
+                e.iter()
+                    .map(|err| err.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            )
         })?;
         Ok(crate::schema::printer::print(&schema))
     }
@@ -924,7 +935,12 @@ mod wasm_exports {
     #[wasm_bindgen]
     pub fn core_schema_parse(schema_src: String) -> Result<JsValue, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
-            to_js_err(e.iter().map(|err| err.to_string()).collect::<Vec<_>>().join("; "))
+            to_js_err(
+                e.iter()
+                    .map(|err| err.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            )
         })?;
         let json = serde_json::to_string(&schema).map_err(to_js_err)?;
         js_sys::JSON::parse(&json).map_err(|e| e)

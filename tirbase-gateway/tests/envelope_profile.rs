@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::envelope::{install_profile, profile_signing_bytes, ProfileInstallError};
-use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootError, TrustRootRecord};
+use tirbase_guard::trust_root::{
+    AuthorizedRoleSigner, RolePolicy, TrustRootError, TrustRootRecord,
+};
 use tirbase_guard::{DeviceModel, DeviceParameter, EnvelopeProfile, ParameterKind, ParameterSpec};
 use tirbase_types::{CommandRole, DeviceSignature, FixedPointValue, UNIT_DEG_C};
 

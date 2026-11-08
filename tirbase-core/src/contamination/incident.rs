@@ -30,7 +30,9 @@ pub enum TaintSource {
     BadMigration { migration_id: [u8; 32] },
     /// A write was made while the local projection was CONTAMINATED or
     /// the incoming Delta stream was quarantined (Req 10.1 / Table row 3, 19.5).
-    HumanReaction { triggered_by_incident_id: IncidentId },
+    HumanReaction {
+        triggered_by_incident_id: IncidentId,
+    },
 }
 
 /// An aggregated record grouping all Deltas and rows involved in a single
@@ -146,7 +148,10 @@ pub fn composite_merge(
     // Union of affected rows (deduped by row_key).
     let mut affected_rows = ico_a.affected_rows.clone();
     for row in &ico_b.affected_rows {
-        if !affected_rows.iter().any(|r: &AffectedRow| r.row_key == row.row_key) {
+        if !affected_rows
+            .iter()
+            .any(|r: &AffectedRow| r.row_key == row.row_key)
+        {
             affected_rows.push(row.clone());
         }
     }
@@ -196,7 +201,9 @@ mod tests {
         let ico = IncidentContextObject {
             id: Uuid::now_v7(),
             state: IncidentState::Open,
-            taint_source: TaintSource::DeviceRevocation { revocation_delta_id: [0u8; 32] },
+            taint_source: TaintSource::DeviceRevocation {
+                revocation_delta_id: [0u8; 32],
+            },
             contamination_roots: vec![[0u8; 32]],
             contaminated_deltas: BTreeSet::from([[0u8; 32], [1u8; 32]]),
             affected_rows: vec![make_affected_row()],
@@ -207,8 +214,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&ico).expect("serialise ICO");
-        let decoded: IncidentContextObject =
-            serde_json::from_str(&json).expect("deserialise ICO");
+        let decoded: IncidentContextObject = serde_json::from_str(&json).expect("deserialise ICO");
 
         assert_eq!(ico.id, decoded.id);
         assert_eq!(ico.state, decoded.state);
@@ -255,9 +261,15 @@ mod tests {
     #[test]
     fn taint_source_variants_serde_round_trip() {
         let sources = vec![
-            TaintSource::DeviceRevocation { revocation_delta_id: [7u8; 32] },
-            TaintSource::BadMigration { migration_id: [9u8; 32] },
-            TaintSource::HumanReaction { triggered_by_incident_id: Uuid::now_v7() },
+            TaintSource::DeviceRevocation {
+                revocation_delta_id: [7u8; 32],
+            },
+            TaintSource::BadMigration {
+                migration_id: [9u8; 32],
+            },
+            TaintSource::HumanReaction {
+                triggered_by_incident_id: Uuid::now_v7(),
+            },
         ];
         for src in &sources {
             let json = serde_json::to_string(src).unwrap();

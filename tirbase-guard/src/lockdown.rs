@@ -59,7 +59,10 @@ impl fmt::Display for LockdownError {
                 "lockdown-exit requires co-signatures from >= {need} distinct roles (got {got})"
             ),
             LockdownError::MissingEnvelopeProfile => {
-                write!(f, "lockdown-exit requires a full EnvelopeProfile matching the payload")
+                write!(
+                    f,
+                    "lockdown-exit requires a full EnvelopeProfile matching the payload"
+                )
             }
         }
     }
@@ -108,8 +111,11 @@ impl LockdownFileMarker {
                 fs::create_dir_all(parent).map_err(LockdownError::Io)?;
             }
         }
-        fs::write(&self.path, format!("lockdown_state=1\nreason={}\n", reason.as_str()))
-            .map_err(LockdownError::Io)
+        fs::write(
+            &self.path,
+            format!("lockdown_state=1\nreason={}\n", reason.as_str()),
+        )
+        .map_err(LockdownError::Io)
     }
     pub fn remove(&self) -> Result<(), LockdownError> {
         match fs::remove_file(&self.path) {
@@ -151,7 +157,8 @@ impl LockdownStore for InMemoryLockdownStore {
         Ok(())
     }
     fn clear_lockdown(&self) -> Result<(), LockdownError> {
-        self.locked.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.locked
+            .store(false, std::sync::atomic::Ordering::SeqCst);
         if let Some(m) = &self.marker {
             m.remove()?;
         }
@@ -203,15 +210,25 @@ pub fn apply_lockdown_exit(
     mode: &NodeModeState,
 ) -> Result<(), LockdownError> {
     let profile = envelope_profile.ok_or_else(|| {
-        emit(SecurityEvent::new(
-            SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitRejected,
-        ).with_detail("lockdown-exit rejected: full EnvelopeProfile required"));
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::ModeTransition,
+                Severity::High,
+                ReasonCode::LockdownExitRejected,
+            )
+            .with_detail("lockdown-exit rejected: full EnvelopeProfile required"),
+        );
         LockdownError::MissingEnvelopeProfile
     })?;
     if profile.profile_id != payload.envelope_profile_id {
-        emit(SecurityEvent::new(
-            SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitRejected,
-        ).with_detail("lockdown-exit rejected: envelope profile id mismatch"));
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::ModeTransition,
+                Severity::High,
+                ReasonCode::LockdownExitRejected,
+            )
+            .with_detail("lockdown-exit rejected: envelope profile id mismatch"),
+        );
         return Err(LockdownError::MissingEnvelopeProfile);
     }
 
@@ -233,19 +250,34 @@ pub fn apply_lockdown_exit(
         None
     };
     if let Err(e) = operation.verify(payload, resolve) {
-        emit(SecurityEvent::new(
-            SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitRejected,
-        ).with_detail(format!("lockdown-exit rejected: {e}")));
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::ModeTransition,
+                Severity::High,
+                ReasonCode::LockdownExitRejected,
+            )
+            .with_detail(format!("lockdown-exit rejected: {e}")),
+        );
         return Err(e.into());
     }
 
     let mut distinct_roles: Vec<CommandRole> = Vec::new();
     let message = operation.signing_bytes();
     for entry in &operation.signatures {
-        if let Err(e) = trust_root.verify_role_cosignature(entry.role, &entry.signer_did, &message, &entry.signature) {
-            emit(SecurityEvent::new(
-                SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitRejected,
-            ).with_detail(format!("lockdown-exit role/signature rejected: {e}")));
+        if let Err(e) = trust_root.verify_role_cosignature(
+            entry.role,
+            &entry.signer_did,
+            &message,
+            &entry.signature,
+        ) {
+            emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::ModeTransition,
+                    Severity::High,
+                    ReasonCode::LockdownExitRejected,
+                )
+                .with_detail(format!("lockdown-exit role/signature rejected: {e}")),
+            );
             return Err(e.into());
         }
         if !distinct_roles.contains(&entry.role) {
@@ -253,21 +285,36 @@ pub fn apply_lockdown_exit(
         }
     }
     if distinct_roles.len() < 2 {
-        let err = LockdownError::InsufficientDistinctRoles { got: distinct_roles.len(), need: 2 };
-        emit(SecurityEvent::new(
-            SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitRejected,
-        ).with_detail(err.to_string()));
+        let err = LockdownError::InsufficientDistinctRoles {
+            got: distinct_roles.len(),
+            need: 2,
+        };
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::ModeTransition,
+                Severity::High,
+                ReasonCode::LockdownExitRejected,
+            )
+            .with_detail(err.to_string()),
+        );
         return Err(err);
     }
 
     store.clear_lockdown()?;
     mode.set(NodeMode::Normal);
-    emit(SecurityEvent::new(
-        SecurityEventCategory::ModeTransition, Severity::High, ReasonCode::LockdownExitApplied,
-    ).with_detail(format!(
-        "LOCKDOWN exited for {} ({} distinct roles, profile {:?})",
-        payload.node_id, distinct_roles.len(), profile.profile_id
-    )));
+    emit(
+        SecurityEvent::new(
+            SecurityEventCategory::ModeTransition,
+            Severity::High,
+            ReasonCode::LockdownExitApplied,
+        )
+        .with_detail(format!(
+            "LOCKDOWN exited for {} ({} distinct roles, profile {:?})",
+            payload.node_id,
+            distinct_roles.len(),
+            profile.profile_id
+        )),
+    );
     Ok(())
 }
 
@@ -287,9 +334,15 @@ pub struct CrashLoopTracker {
 }
 
 impl CrashLoopTracker {
-    pub fn new_default() -> Self { Self::new(3, 300) }
+    pub fn new_default() -> Self {
+        Self::new(3, 300)
+    }
     pub fn new(threshold_n: usize, window_secs: u64) -> Self {
-        CrashLoopTracker { threshold_n: threshold_n.max(1), window_secs, crashes: Vec::new() }
+        CrashLoopTracker {
+            threshold_n: threshold_n.max(1),
+            window_secs,
+            crashes: Vec::new(),
+        }
     }
     pub fn record_crash(&mut self, now_mono_secs: u64) -> CrashLoopEscalation {
         self.crashes.push(now_mono_secs);
@@ -297,12 +350,24 @@ impl CrashLoopTracker {
         self.crashes.retain(|t| *t >= cutoff);
         let count = self.crashes.len();
         if count >= self.threshold_n {
-            emit(SecurityEvent::new(
-                SecurityEventCategory::ModeTransition, Severity::Critical, ReasonCode::CrashLoopEscalation,
-            ).with_detail(format!("{count} crashes within {}s (threshold {}) -> LOCKDOWN", self.window_secs, self.threshold_n)));
-            CrashLoopEscalation::EscalateLockdown { crashes_in_window: count }
+            emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::ModeTransition,
+                    Severity::Critical,
+                    ReasonCode::CrashLoopEscalation,
+                )
+                .with_detail(format!(
+                    "{count} crashes within {}s (threshold {}) -> LOCKDOWN",
+                    self.window_secs, self.threshold_n
+                )),
+            );
+            CrashLoopEscalation::EscalateLockdown {
+                crashes_in_window: count,
+            }
         } else {
-            CrashLoopEscalation::RestartNormal { crashes_in_window: count }
+            CrashLoopEscalation::RestartNormal {
+                crashes_in_window: count,
+            }
         }
     }
     pub fn crashes_in_window(&self, now_mono_secs: u64) -> usize {
@@ -347,8 +412,12 @@ pub fn arm_controller_watchdogs(
     safe_default: &str,
 ) -> Result<(), String> {
     for b in bindings {
-        b.arm_watchdog(timeout_secs, safe_default)
-            .map_err(|e| format!("failed to arm safe-default watchdog for {}: {e}", b.controller_id()))?;
+        b.arm_watchdog(timeout_secs, safe_default).map_err(|e| {
+            format!(
+                "failed to arm safe-default watchdog for {}: {e}",
+                b.controller_id()
+            )
+        })?;
     }
     Ok(())
 }
@@ -368,7 +437,12 @@ mod tests {
     }
     impl MemBinding {
         fn new(id: &str, initial: &str) -> Self {
-            MemBinding { id: id.into(), armed: AtomicBool::new(false), value: Mutex::new(initial.into()), safe: Mutex::new(String::new()) }
+            MemBinding {
+                id: id.into(),
+                armed: AtomicBool::new(false),
+                value: Mutex::new(initial.into()),
+                safe: Mutex::new(String::new()),
+            }
         }
         fn simulate_guard_death(&self) {
             if self.armed.load(Ordering::SeqCst) {
@@ -377,14 +451,20 @@ mod tests {
         }
     }
     impl SafeDefaultBinding for MemBinding {
-        fn controller_id(&self) -> &str { &self.id }
+        fn controller_id(&self) -> &str {
+            &self.id
+        }
         fn arm_watchdog(&self, _timeout_secs: u32, safe_default: &str) -> Result<(), String> {
             *self.safe.lock().unwrap() = safe_default.to_string();
             self.armed.store(true, Ordering::SeqCst);
             Ok(())
         }
-        fn refresh_watchdog(&self) -> Result<(), String> { Ok(()) }
-        fn current_value(&self) -> String { self.value.lock().unwrap().clone() }
+        fn refresh_watchdog(&self) -> Result<(), String> {
+            Ok(())
+        }
+        fn current_value(&self) -> String {
+            self.value.lock().unwrap().clone()
+        }
     }
 
     #[test]
@@ -398,15 +478,32 @@ mod tests {
     #[test]
     fn crash_loop_escalates_after_n_crashes_in_window() {
         let mut t = CrashLoopTracker::new(3, 300);
-        assert!(matches!(t.record_crash(100), CrashLoopEscalation::RestartNormal { .. }));
-        assert!(matches!(t.record_crash(200), CrashLoopEscalation::RestartNormal { .. }));
-        assert!(matches!(t.record_crash(250), CrashLoopEscalation::EscalateLockdown { crashes_in_window: 3 }));
+        assert!(matches!(
+            t.record_crash(100),
+            CrashLoopEscalation::RestartNormal { .. }
+        ));
+        assert!(matches!(
+            t.record_crash(200),
+            CrashLoopEscalation::RestartNormal { .. }
+        ));
+        assert!(matches!(
+            t.record_crash(250),
+            CrashLoopEscalation::EscalateLockdown {
+                crashes_in_window: 3
+            }
+        ));
     }
 
     #[test]
     fn crash_loop_restarts_to_normal_when_outside_window() {
         let mut t = CrashLoopTracker::new(3, 300);
-        t.record_crash(0); t.record_crash(100);
-        assert!(matches!(t.record_crash(400), CrashLoopEscalation::RestartNormal { crashes_in_window: 2 }));
+        t.record_crash(0);
+        t.record_crash(100);
+        assert!(matches!(
+            t.record_crash(400),
+            CrashLoopEscalation::RestartNormal {
+                crashes_in_window: 2
+            }
+        ));
     }
 }

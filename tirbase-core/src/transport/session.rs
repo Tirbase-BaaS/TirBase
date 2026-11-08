@@ -45,12 +45,11 @@ pub(crate) fn ed25519_pubkey_to_x25519(ed25519_pubkey: &[u8]) -> Result<Vec<u8>,
     let mut key_bytes = [0u8; 32];
     key_bytes.copy_from_slice(ed25519_pubkey);
 
-    let verifying_key = VerifyingKey::from_bytes(&key_bytes).map_err(|e| {
-        TirBaseError::DidResolutionFailed {
+    let verifying_key =
+        VerifyingKey::from_bytes(&key_bytes).map_err(|e| TirBaseError::DidResolutionFailed {
             did: String::new(),
             reason: format!("Ed25519 public key parse error during X25519 conversion: {e}"),
-        }
-    })?;
+        })?;
 
     let montgomery = verifying_key.to_montgomery();
     Ok(montgomery.to_bytes().to_vec())
@@ -519,14 +518,11 @@ impl SessionManager {
             })?;
 
             // Send message 1 to the responder over the wire.
-            stream
-                .write_noise_message(&msg1[..n1])
-                .await
-                .map_err(|e| {
-                    let reason = format!("stream write_message 1: {e}");
-                    self.record_failure(peer_did.clone(), reason.clone(), now_secs);
-                    make_err(reason)
-                })?;
+            stream.write_noise_message(&msg1[..n1]).await.map_err(|e| {
+                let reason = format!("stream write_message 1: {e}");
+                self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                make_err(reason)
+            })?;
 
             // Read message 2 from the responder (the remote e + payer).
             let mut msg2 = vec![0u8; 65535];
@@ -540,13 +536,11 @@ impl SessionManager {
             };
 
             let mut _p2 = vec![0u8; 65535];
-            initiator
-                .read_message(&msg2[..n2], &mut _p2)
-                .map_err(|e| {
-                    let reason = format!("initiator read_message 2: {e}");
-                    self.record_failure(peer_did.clone(), reason.clone(), now_secs);
-                    make_err(reason)
-                })?;
+            initiator.read_message(&msg2[..n2], &mut _p2).map_err(|e| {
+                let reason = format!("initiator read_message 2: {e}");
+                self.record_failure(peer_did.clone(), reason.clone(), now_secs);
+                make_err(reason)
+            })?;
         }
 
         let transport = initiator.into_transport_mode().map_err(|e| {
@@ -586,13 +580,14 @@ impl SessionManager {
         session: &mut NoiseSession,
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        let transport = session
-            .transport
-            .as_mut()
-            .ok_or_else(|| TirBaseError::NoiseHandshakeFailed {
-                peer_did: session.remote_did.clone(),
-                reason: "rotate_keys called on session without transport state".to_string(),
-            })?;
+        let transport =
+            session
+                .transport
+                .as_mut()
+                .ok_or_else(|| TirBaseError::NoiseHandshakeFailed {
+                    peer_did: session.remote_did.clone(),
+                    reason: "rotate_keys called on session without transport state".to_string(),
+                })?;
         transport.rekey_outgoing();
         transport.rekey_incoming();
         session.last_rotated_secs = now_secs;
@@ -732,14 +727,16 @@ mod tests {
     #[tokio::test]
     async fn revoked_peer_is_rejected_before_handshake() {
         let mut sm = SessionManager::new("did:key:local".to_string(), 3_600);
-        let result = sm.initiate(
-            "did:key:revoked-peer".to_string(),
-            TrustLevel::Revoked,
-            &[0u8; 32],
-            &[0u8; 32],
-            None,
-            1_000_000,
-        ).await;
+        let result = sm
+            .initiate(
+                "did:key:revoked-peer".to_string(),
+                TrustLevel::Revoked,
+                &[0u8; 32],
+                &[0u8; 32],
+                None,
+                1_000_000,
+            )
+            .await;
         assert!(
             matches!(result, Err(TirBaseError::PeerRevoked { .. })),
             "expected PeerRevoked"
@@ -752,7 +749,16 @@ mod tests {
         let mut sm = SessionManager::new("did:key:local".to_string(), 3_600);
         let peer = "did:key:backoff-peer".to_string();
         sm.record_failure(peer.clone(), "earlier failure".to_string(), 1_000);
-        let result = sm.initiate(peer, TrustLevel::Verified, &[0u8; 32], &[0u8; 32], None, 1_020).await;
+        let result = sm
+            .initiate(
+                peer,
+                TrustLevel::Verified,
+                &[0u8; 32],
+                &[0u8; 32],
+                None,
+                1_020,
+            )
+            .await;
         assert!(
             matches!(result, Err(TirBaseError::NoiseHandshakeFailed { .. })),
             "expected NoiseHandshakeFailed during backoff"
@@ -965,7 +971,10 @@ mod tests {
             .expect("session must still have transport state after rotation")
             .write_message(b"post-rotation ping", &mut cipher)
             .expect("write after rekey must succeed");
-        assert!(n > 0, "encrypted message length must be positive after rotation");
+        assert!(
+            n > 0,
+            "encrypted message length must be positive after rotation"
+        );
 
         // ── tick_key_rotation via MeshTransport ────────────────────────────────
         // Build a real MeshTransport with a short rotation interval, perform a
@@ -991,14 +1000,18 @@ mod tests {
 
         // Perform a full IK handshake through the transport's SessionManager,
         // producing a session with live snow::TransportState at time 1_000.
-        let session = transport.session_manager.full_ik_handshake(
-            resp_did.clone(),
-            &x25519_init_privkey,
-            &x25519_resp_pk,
-            Some(&x25519_resp_privkey),
-            None,
-            1_000,
-        ).await.expect("full IK handshake through transport SessionManager must succeed");
+        let session = transport
+            .session_manager
+            .full_ik_handshake(
+                resp_did.clone(),
+                &x25519_init_privkey,
+                &x25519_resp_pk,
+                Some(&x25519_resp_privkey),
+                None,
+                1_000,
+            )
+            .await
+            .expect("full IK handshake through transport SessionManager must succeed");
 
         // The session's rotation_interval_secs comes from the transport's
         // SessionManager (60s, clamped from key_rotation_interval_secs=60).
@@ -1034,7 +1047,7 @@ mod tests {
                 "did:key:12D3KooWFakePeerId".to_string(),
                 crate::api::types::TrustLevel::Verified,
                 &init_sk.to_bytes(),
-                &[], // empty → triggers DID resolution path
+                &[],  // empty → triggers DID resolution path
                 None, // non-resolvable DID → falls back to register_session, no stream needed
                 1_000,
             )

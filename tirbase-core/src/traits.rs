@@ -165,7 +165,11 @@ pub fn time_source() -> Arc<dyn TimeSource> {
         Ok(slot) => slot.clone(),
         Err(poisoned) => poisoned.into_inner().clone(),
     };
-    installed.unwrap_or_else(|| DEFAULT.get_or_init(|| Arc::new(SystemTimeSource::new())).clone())
+    installed.unwrap_or_else(|| {
+        DEFAULT
+            .get_or_init(|| Arc::new(SystemTimeSource::new()))
+            .clone()
+    })
 }
 
 /// `CLOCK_BOOTTIME`-domain time in microseconds.
@@ -309,7 +313,10 @@ mod tests {
         let first = source.monotonic_now();
         let second = source.monotonic_now();
         assert!(second >= first, "monotonic_now must not go backwards");
-        assert!(source.wall_hint().is_some(), "portable source has a wall clock");
+        assert!(
+            source.wall_hint().is_some(),
+            "portable source has a wall clock"
+        );
         assert_ne!(source.boot_id(), 0, "boot id must be a real identifier");
     }
 

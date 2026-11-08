@@ -150,7 +150,11 @@ mod tests {
 
     #[test]
     fn distinct_tag_count_multiple_peers_same_tag() {
-        let t = make_tracker(&[Some("squad-alpha"), Some("squad-alpha"), Some("squad-alpha")]);
+        let t = make_tracker(&[
+            Some("squad-alpha"),
+            Some("squad-alpha"),
+            Some("squad-alpha"),
+        ]);
         assert_eq!(t.distinct_tag_count(), 1);
     }
 
@@ -206,7 +210,10 @@ mod tests {
         let t = make_tracker(&[None, None, None]);
         let result = t.satisfies_diversity(2, 0.5, 3);
         // Fallback to flat K-of-N → returns Ok(true)
-        assert!(result.unwrap(), "all untagged should trigger degradation fallback");
+        assert!(
+            result.unwrap(),
+            "all untagged should trigger degradation fallback"
+        );
     }
 
     #[test]
@@ -214,7 +221,10 @@ mod tests {
         let t = make_tracker(&[Some("sq-a"), Some("sq-a")]);
         // min_tags=2, distinct=1 → degradation
         let result = t.satisfies_diversity(2, 0.5, 2);
-        assert!(result.unwrap(), "degradation fallback for 1 < 2 distinct tags");
+        assert!(
+            result.unwrap(),
+            "degradation fallback for 1 < 2 distinct tags"
+        );
     }
 
     // ── edge cases ────────────────────────────────────────────────────────────

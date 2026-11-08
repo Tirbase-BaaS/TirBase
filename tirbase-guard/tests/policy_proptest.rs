@@ -13,7 +13,15 @@ use tirbase_types::{DeviceSignature, FixedPointValue, ProfileId, UNIT_DEG_C};
 fn fp(m: i64) -> FixedPointValue {
     FixedPointValue::new(m, -1, UNIT_DEG_C)
 }
-fn param(min: i64, max: i64, rate: i64, dwell: u32, min_off: u32, critical: bool, safe: i64) -> ParameterSpec {
+fn param(
+    min: i64,
+    max: i64,
+    rate: i64,
+    dwell: u32,
+    min_off: u32,
+    critical: bool,
+    safe: i64,
+) -> ParameterSpec {
     ParameterSpec {
         name: "temp".to_string(),
         unit_id: UNIT_DEG_C,
@@ -72,16 +80,25 @@ fn fp_leq(a: &FixedPointValue, b: &FixedPointValue) -> bool {
     let scale = |x: &FixedPointValue, common: i8| -> Option<i128> {
         let d = (x.exponent as i16 - common as i16) as u32;
         let mut s: i128 = 1;
-        for _ in 0..d { s = s.checked_mul(10)?; }
+        for _ in 0..d {
+            s = s.checked_mul(10)?;
+        }
         (x.mantissa as i128).checked_mul(s)
     };
     let c = a.exponent.min(b.exponent);
-    scale(a, c).zip(scale(b, c)).map(|(x, y)| x <= y).unwrap_or(false)
+    scale(a, c)
+        .zip(scale(b, c))
+        .map(|(x, y)| x <= y)
+        .unwrap_or(false)
 }
-fn fp_geq(a: &FixedPointValue, b: &FixedPointValue) -> bool { fp_leq(b, a) }
+fn fp_geq(a: &FixedPointValue, b: &FixedPointValue) -> bool {
+    fp_leq(b, a)
+}
 
 fn accepts_range(profile: &EnvelopeProfile, value: &FixedPointValue) -> bool {
-    let Some(p) = profile.parameters.first() else { return false; };
+    let Some(p) = profile.parameters.first() else {
+        return false;
+    };
     match &p.kind {
         ParameterKind::Range { min, max } => fp_geq(value, min) && fp_leq(value, max),
         _ => false,

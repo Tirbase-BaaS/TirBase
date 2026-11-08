@@ -6,6 +6,8 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
+#[cfg(feature = "native")]
+pub mod ble;
 pub mod discovery;
 pub mod fragment;
 pub mod message;
@@ -13,14 +15,14 @@ pub mod priority;
 pub mod saturate;
 pub mod scheduler;
 pub mod session;
-#[cfg(feature = "native")]
-pub mod ble;
 
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{Delta, Did, PriorityClass};
 use crate::errors::TirBaseError;
 use crate::events::{emit_transport, ReasonCode, Severity};
 use crate::identity::did::resolve_did;
+#[cfg(feature = "native")]
+use crate::transport::session::{ed25519_privkey_to_x25519, ed25519_pubkey_to_x25519};
 use crate::transport::{
     discovery::{DiscoveredPeer, PeerDiscovery, PeerTransport, RetryEntry},
     fragment::{fragment as fragment_delta, ReassemblyBuffer},
@@ -28,8 +30,6 @@ use crate::transport::{
     scheduler::{DrrScheduler, QueuedDelta},
     session::SessionManager,
 };
-#[cfg(feature = "native")]
-use crate::transport::session::{ed25519_privkey_to_x25519, ed25519_pubkey_to_x25519};
 
 /// Current wall-clock time in microseconds since the Unix epoch.
 ///
@@ -173,10 +173,20 @@ pub(crate) fn dial_discovered_mdns_peers(
                 .build(),
         ) {
             Ok(()) => {
-                emit_transport(Severity::Low, ReasonCode::PeerConnected, None, format!("[transport] mDNS: dialing discovered peer {peer_id}"));
+                emit_transport(
+                    Severity::Low,
+                    ReasonCode::PeerConnected,
+                    None,
+                    format!("[transport] mDNS: dialing discovered peer {peer_id}"),
+                );
             }
             Err(e) => {
-                emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] mDNS: dial to discovered peer {peer_id} failed: {e}"));
+                emit_transport(
+                    Severity::Medium,
+                    ReasonCode::HandshakeFailed,
+                    None,
+                    format!("[transport] mDNS: dial to discovered peer {peer_id} failed: {e}"),
+                );
             }
         }
     }
@@ -234,9 +244,11 @@ pub struct MeshTransport {
     /// The BLE I/O task pushes completed Deltas here; `poll_ble_inbound` drains
     /// this receiver and dispatches each message through `process_wire_message`.
     #[cfg(feature = "native")]
-    pub(crate) ble_inbound_tx: Option<tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>>,
+    pub(crate) ble_inbound_tx:
+        Option<tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>>,
     #[cfg(feature = "native")]
-    pub(crate) ble_inbound_rx: Option<tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>>,
+    pub(crate) ble_inbound_rx:
+        Option<tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>>,
 
     /// Test-only: last inbound message received over BLE.
     #[cfg(all(feature = "native", test))]
@@ -248,7 +260,8 @@ pub struct MeshTransport {
     pub(crate) outbound_published: Vec<Vec<u8>>,
 
     /// Active Noise_IK sessions keyed by remote DID (Req 6.1).
-    pub(crate) active_sessions: std::collections::HashMap<Did, crate::transport::session::NoiseSession>,
+    pub(crate) active_sessions:
+        std::collections::HashMap<Did, crate::transport::session::NoiseSession>,
 
     /// Saturate_Mode state machine (Req 13): owns the lease lifecycle
     /// (activate / renew / M-of-N terminate / expiry tick) and verifies
@@ -367,12 +380,19 @@ impl MeshTransport {
         self.on_peer_discovered(
             DiscoveredPeer {
                 did: target_did.clone(),
-                transport: PeerTransport::BleBridge { bridge_did: bridge_did.clone() },
+                transport: PeerTransport::BleBridge {
+                    bridge_did: bridge_did.clone(),
+                },
                 hop_count: 1,
             },
             now_us,
         )?;
-        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE bridge: dialing {target_did} via bridge {bridge_did}"));
+        emit_transport(
+            Severity::Medium,
+            ReasonCode::HandshakeFailed,
+            None,
+            format!("[transport] BLE bridge: dialing {target_did} via bridge {bridge_did}"),
+        );
         Ok(())
     }
 
@@ -420,44 +440,60 @@ impl MeshTransport {
             // libp2p transport has already completed its own Noise handshake
             // and we only need rotation tracking + resumption cache sync.
             match resolve_did(&peer_did) {
-                Ok(ed25519_pk) => {
-                    match ed25519_pubkey_to_x25519(&ed25519_pk) {
-                        Ok(x25519_pk) => self.session_manager.initiate(
-                            peer_did.clone(),
-                            peer_trust_level,
-                            &x25519_local_privkey,
-                            &x25519_pk,
-                            stream,
-                            now_secs,
-                        ).await?,
-                        Err(e) => {
-                            emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
+                Ok(ed25519_pk) => match ed25519_pubkey_to_x25519(&ed25519_pk) {
+                    Ok(x25519_pk) => {
+                        self.session_manager
+                            .initiate(
+                                peer_did.clone(),
+                                peer_trust_level,
+                                &x25519_local_privkey,
+                                &x25519_pk,
+                                stream,
+                                now_secs,
+                            )
+                            .await?
+                    }
+                    Err(e) => {
+                        emit_transport(
+                            Severity::Medium,
+                            ReasonCode::HandshakeFailed,
+                            None,
+                            format!(
                                 "[transport] initiate_session: X25519 conversion \
                                  failed for peer '{}' ({e}); falling back to register_session",
                                 peer_did
-                            ));
-                            self.session_manager.register_session(peer_did.clone(), now_secs)
-                        }
+                            ),
+                        );
+                        self.session_manager
+                            .register_session(peer_did.clone(), now_secs)
                     }
-                }
+                },
                 Err(e) => {
-                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
-                        "[transport] initiate_session: DID '{}' not resolvable \
+                    emit_transport(
+                        Severity::Medium,
+                        ReasonCode::HandshakeFailed,
+                        None,
+                        format!(
+                            "[transport] initiate_session: DID '{}' not resolvable \
                          for Noise IK handshake ({e}); falling back to register_session",
-                        peer_did
-                    ));
-                    self.session_manager.register_session(peer_did.clone(), now_secs)
+                            peer_did
+                        ),
+                    );
+                    self.session_manager
+                        .register_session(peer_did.clone(), now_secs)
                 }
             }
         } else {
-            self.session_manager.initiate(
-                peer_did.clone(),
-                peer_trust_level,
-                &x25519_local_privkey,
-                remote_static_pubkey,
-                stream,
-                now_secs,
-            ).await?
+            self.session_manager
+                .initiate(
+                    peer_did.clone(),
+                    peer_trust_level,
+                    &x25519_local_privkey,
+                    remote_static_pubkey,
+                    stream,
+                    now_secs,
+                )
+                .await?
         };
         self.active_sessions.insert(peer_did.clone(), session);
         Ok(())
@@ -471,11 +507,7 @@ impl MeshTransport {
     /// tracking and the resumption cache stay in sync with connectivity.
     /// For the full Noise IK handshake path, use [`MeshTransport::initiate_session`].
     #[cfg(all(feature = "native", test))]
-    pub fn register_established_session(
-        &mut self,
-        peer_did: Did,
-        now_secs: i64,
-    ) {
+    pub fn register_established_session(&mut self, peer_did: Did, now_secs: i64) {
         let session = self
             .session_manager
             .register_session(peer_did.clone(), now_secs);
@@ -500,8 +532,7 @@ impl MeshTransport {
     /// deferred to the substream handler (Subphase 5.2).
     #[cfg(feature = "native")]
     pub fn open_noise_substream(&self) -> crate::transport::session::DuplexNoiseStream {
-        let (client, _transport_half) =
-            crate::transport::session::DuplexNoiseStream::pair();
+        let (client, _transport_half) = crate::transport::session::DuplexNoiseStream::pair();
         // NOTE: In production, `_transport_half` would be bridged to a real
         // libp2p substream via `libp2p::swarm::Swarm::new_handler` or a custom
         // `ConnectionHandler` that implements the Noise protocol.  When that
@@ -673,9 +704,12 @@ impl MeshTransport {
         for (peer_did, session) in self.active_sessions.iter_mut() {
             if session.rotation_due(now_secs) {
                 if let Err(e) = self.session_manager.rotate_keys(session, now_secs) {
-                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!(
-                        "[transport] key rotation failed for peer {peer_did}: {e}"
-                    ));
+                    emit_transport(
+                        Severity::Medium,
+                        ReasonCode::HandshakeFailed,
+                        None,
+                        format!("[transport] key rotation failed for peer {peer_did}: {e}"),
+                    );
                 }
             }
         }
@@ -850,21 +884,36 @@ impl MeshTransport {
                 let mut adapter = match BleAdapter::new(local_did.clone(), peer_did).await {
                     Ok(a) => a,
                     Err(e) => {
-                        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE adapter init failed: {e}"));
+                        emit_transport(
+                            Severity::Medium,
+                            ReasonCode::HandshakeFailed,
+                            None,
+                            format!("[transport] BLE adapter init failed: {e}"),
+                        );
                         return;
                     }
                 };
 
                 // Start scanning for TirBase peers (central role).
                 if let Err(e) = adapter.scan_and_connect(30).await {
-                    emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE scan/connect failed: {e}"));
+                    emit_transport(
+                        Severity::Medium,
+                        ReasonCode::HandshakeFailed,
+                        None,
+                        format!("[transport] BLE scan/connect failed: {e}"),
+                    );
                 }
 
                 // Subscribe to notifications on the TirBase characteristic.
                 let mut notification_rx = match adapter.subscribe_notifications().await {
                     Ok(rx) => rx,
                     Err(e) => {
-                        emit_transport(Severity::Medium, ReasonCode::HandshakeFailed, None, format!("[transport] BLE subscribe failed: {e}"));
+                        emit_transport(
+                            Severity::Medium,
+                            ReasonCode::HandshakeFailed,
+                            None,
+                            format!("[transport] BLE subscribe failed: {e}"),
+                        );
                         return;
                     }
                 };
@@ -1019,13 +1068,13 @@ impl MeshTransport {
 
         if is_ble_peer {
             let messages = self.prepare_outbound(delta)?;
-            let ble_tx = self
-                .ble_outbound_tx
-                .as_ref()
-                .ok_or_else(|| TirBaseError::MeshUnavailable {
-                    reason: "BLE transport not initialised (outbound channel missing)"
-                        .to_string(),
-                })?;
+            let ble_tx =
+                self.ble_outbound_tx
+                    .as_ref()
+                    .ok_or_else(|| TirBaseError::MeshUnavailable {
+                        reason: "BLE transport not initialised (outbound channel missing)"
+                            .to_string(),
+                    })?;
             for msg in messages {
                 let wire_payload = msg.to_bytes();
                 ble_tx
@@ -1041,21 +1090,27 @@ impl MeshTransport {
         // a relay peer.
         if !self.discovery.is_direct_neighbor(peer_did) {
             if let Some(relay_did) = self.discovery.find_relay_peer(peer_did) {
-                emit_transport(Severity::Low, ReasonCode::RelaySelected, None, format!(
-                    "[transport] relay: {peer_did} is not a direct neighbor; \
+                emit_transport(
+                    Severity::Low,
+                    ReasonCode::RelaySelected,
+                    None,
+                    format!(
+                        "[transport] relay: {peer_did} is not a direct neighbor; \
                      routing delta through relay peer {relay_did}"
-                ));
+                    ),
+                );
                 let relay_msg = crate::transport::message::GossipMessage::RelayDelta {
                     target_did: peer_did.clone(),
                     delta: delta.clone(),
                 };
                 let wire_payload = relay_msg.to_bytes();
-                let tx = self
-                    .outbound_tx
-                    .as_ref()
-                    .ok_or_else(|| TirBaseError::MeshUnavailable {
-                        reason: "transport not started (no outbound channel installed)".to_string(),
-                    })?;
+                let tx =
+                    self.outbound_tx
+                        .as_ref()
+                        .ok_or_else(|| TirBaseError::MeshUnavailable {
+                            reason: "transport not started (no outbound channel installed)"
+                                .to_string(),
+                        })?;
                 tx.try_send(wire_payload)
                     .map_err(|e| TirBaseError::MeshUnavailable {
                         reason: format!("outbound publish channel unavailable: {e}"),
@@ -1143,10 +1198,15 @@ impl MeshTransport {
                                 // and return None so the message is dropped
                                 // from the inbound pipeline without touching
                                 // the CRDT engine or DAG state.
-                                emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
+                                emit_transport(
+                                    Severity::Medium,
+                                    ReasonCode::FragmentReassemblyFailed,
+                                    None,
+                                    format!(
                                     "[transport] reassembled Delta failed to parse as Delta: {e} — \
                                      discarding (delta_id was from fragment reassembly)"
-                                ));
+                                ),
+                                );
                                 None
                             }
                         }
@@ -1159,10 +1219,15 @@ impl MeshTransport {
                         // Reassembly failure: missing fragments, inconsistent
                         // totals, oversized allocation, or slot eviction
                         // discarded a partial Delta mid-flight (Req 5.8).
-                        emit_transport(Severity::Medium, ReasonCode::FragmentReassemblyFailed, None, format!(
-                            "[transport] fragment reassembly failed: {e} — \
+                        emit_transport(
+                            Severity::Medium,
+                            ReasonCode::FragmentReassemblyFailed,
+                            None,
+                            format!(
+                                "[transport] fragment reassembly failed: {e} — \
                              partial Delta discarded without corrupting state"
-                        ));
+                            ),
+                        );
                         None
                     }
                 }
@@ -1270,7 +1335,9 @@ impl MeshTransport {
     pub(crate) fn poll_ble_inbound(&mut self) {
         use crate::transport::message::GossipMessage;
 
-        let Some(mut rx) = self.ble_inbound_rx.take() else { return };
+        let Some(mut rx) = self.ble_inbound_rx.take() else {
+            return;
+        };
 
         loop {
             let msg = match rx.try_recv() {
@@ -1296,9 +1363,11 @@ impl MeshTransport {
     pub(crate) fn receive_delta(&mut self, bytes: &[u8]) -> Result<(), TirBaseError> {
         use crate::transport::message::GossipMessage;
 
-        let msg = GossipMessage::from_bytes(bytes).ok_or_else(|| TirBaseError::MeshUnavailable {
-            reason: "receive_delta: bytes could not be deserialised as GossipMessage".to_string(),
-        })?;
+        let msg =
+            GossipMessage::from_bytes(bytes).ok_or_else(|| TirBaseError::MeshUnavailable {
+                reason: "receive_delta: bytes could not be deserialised as GossipMessage"
+                    .to_string(),
+            })?;
 
         let processed = self.process_wire_message(msg);
         if let Some(dispatch_msg) = processed {
@@ -1955,22 +2024,16 @@ mod tests {
         // Two real device instances: each `MeshTransport::start()` builds a
         // libp2p Swarm with TCP + Noise + Yamux + mDNS + Gossipsub + Identify
         // + Ping, exactly as `CoreHandle::init` does in production.
-        let mut transport_a = MeshTransport::new(
-            "did:key:node-a".to_string(),
-            [0u8; 32],
-            transport_config(),
-        );
+        let mut transport_a =
+            MeshTransport::new("did:key:node-a".to_string(), [0u8; 32], transport_config());
         transport_a.start().await.expect("transport A must start");
         let (tx_a, _rx_a) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_a = transport_a
             .take_swarm(tx_a)
             .expect("transport A must own a Swarm after start");
 
-        let mut transport_b = MeshTransport::new(
-            "did:key:node-b".to_string(),
-            [0u8; 32],
-            transport_config(),
-        );
+        let mut transport_b =
+            MeshTransport::new("did:key:node-b".to_string(), [0u8; 32], transport_config());
         transport_b.start().await.expect("transport B must start");
         let (tx_b, _rx_b) = mpsc::channel::<Vec<u8>>(16);
         let mut swarm_b = transport_b
@@ -2043,8 +2106,7 @@ mod tests {
         t.config.mesh_ble_enabled = true;
 
         let (ble_outbound_tx, mut ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
-        let (ble_inbound_tx, ble_inbound_rx) =
-            tokio::sync::mpsc::channel::<GossipMessage>(32);
+        let (ble_inbound_tx, ble_inbound_rx) = tokio::sync::mpsc::channel::<GossipMessage>(32);
 
         t.ble_outbound_tx = Some(ble_outbound_tx);
         t.ble_inbound_tx = Some(ble_inbound_tx);
@@ -2089,8 +2151,7 @@ mod tests {
         t.config.mesh_ble_enabled = true;
 
         let (ble_outbound_tx, _ble_outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(32);
-        let (ble_inbound_tx, ble_inbound_rx) =
-            tokio::sync::mpsc::channel::<GossipMessage>(32);
+        let (ble_inbound_tx, ble_inbound_rx) = tokio::sync::mpsc::channel::<GossipMessage>(32);
 
         t.ble_outbound_tx = Some(ble_outbound_tx);
         t.ble_inbound_tx = Some(ble_inbound_tx);
@@ -2102,7 +2163,10 @@ mod tests {
 
         t.receive_delta(&bytes).expect("receive_delta must succeed");
 
-        let processed = t.last_ble_inbound.take().expect("BLE inbound must be recorded");
+        let processed = t
+            .last_ble_inbound
+            .take()
+            .expect("BLE inbound must be recorded");
         match processed {
             GossipMessage::InboundDelta(d) => {
                 assert_eq!(d.id, delta.id);

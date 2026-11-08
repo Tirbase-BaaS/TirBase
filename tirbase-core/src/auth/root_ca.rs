@@ -135,9 +135,7 @@ impl RootCaRegistry {
 
     /// Return the first active root CA public key, if any.
     pub fn primary_key(&self) -> Option<&[u8; 32]> {
-        self.keys
-            .iter()
-            .find(|key| !self.revoked.contains(key))
+        self.keys.iter().find(|key| !self.revoked.contains(key))
     }
 
     /// Verify a token against every active root key.
@@ -303,10 +301,7 @@ mod tests {
         let new_keys = vec![[9u8; 32], [10u8; 32]];
 
         // One signature is not enough for k=2.
-        let one = vec![(
-            a.did().to_string(),
-            a.sign(message).unwrap(),
-        )];
+        let one = vec![(a.did().to_string(), a.sign(message).unwrap())];
         assert!(matches!(
             registry.rotate(new_keys.clone(), 1, message, &one, vec![]),
             Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })

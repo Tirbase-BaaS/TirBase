@@ -30,39 +30,75 @@ pub enum AntiReplayCheck {
 }
 
 fn bitmap_get(bitmap: u64, highest: u64, seq: u64, w: u64) -> bool {
-    if seq > highest { return false; }
+    if seq > highest {
+        return false;
+    }
     let delta = highest - seq;
-    if delta >= w { return false; }
+    if delta >= w {
+        return false;
+    }
     (bitmap & (1u64 << delta)) != 0
 }
 
 fn bitmap_set(bitmap: u64, highest: u64, seq: u64, w: u64) -> Option<(u64, u64)> {
     if seq > highest {
         let shift = seq - highest;
-        let new_bitmap = if shift >= 64 { 1u64 } else { (bitmap << shift) | 1u64 };
+        let new_bitmap = if shift >= 64 {
+            1u64
+        } else {
+            (bitmap << shift) | 1u64
+        };
         return Some((seq, new_bitmap));
     }
     let delta = highest - seq;
-    if delta >= w { return None; }
+    if delta >= w {
+        return None;
+    }
     let mask = 1u64 << delta;
-    if (bitmap & mask) != 0 { return None; }
+    if (bitmap & mask) != 0 {
+        return None;
+    }
     Some((highest, bitmap | mask))
 }
 
-pub fn check_and_advance(row: Option<&AntiReplayWindowRow>, seq: u64, w: u64, g: u64) -> AntiReplayCheck {
+pub fn check_and_advance(
+    row: Option<&AntiReplayWindowRow>,
+    seq: u64,
+    w: u64,
+    g: u64,
+) -> AntiReplayCheck {
     let (highest, bitmap, gap) = match row {
-        Some(r) => (r.highest_seen, u64::from_le_bytes(r.seen_bitmap.get(..8).and_then(|b| b.try_into().ok()).unwrap_or([0; 8])), r.forward_gap.max(g)),
+        Some(r) => (
+            r.highest_seen,
+            u64::from_le_bytes(
+                r.seen_bitmap
+                    .get(..8)
+                    .and_then(|b| b.try_into().ok())
+                    .unwrap_or([0; 8]),
+            ),
+            r.forward_gap.max(g),
+        ),
         None => (0u64, 0u64, g),
     };
     if highest == 0 && bitmap == 0 && row.is_none() {
-        return AntiReplayCheck::Accepted { new_highest: seq, new_bitmap: 1 };
+        return AntiReplayCheck::Accepted {
+            new_highest: seq,
+            new_bitmap: 1,
+        };
     }
     let lower = highest.saturating_sub(w);
     let upper = highest.saturating_add(gap);
-    if seq < lower || seq > upper { return AntiReplayCheck::OutsideWindow; }
-    if bitmap_get(bitmap, highest, seq, w) { return AntiReplayCheck::Replay; }
+    if seq < lower || seq > upper {
+        return AntiReplayCheck::OutsideWindow;
+    }
+    if bitmap_get(bitmap, highest, seq, w) {
+        return AntiReplayCheck::Replay;
+    }
     match bitmap_set(bitmap, highest, seq, w) {
-        Some((nh, nb)) => AntiReplayCheck::Accepted { new_highest: nh, new_bitmap: nb },
+        Some((nh, nb)) => AntiReplayCheck::Accepted {
+            new_highest: nh,
+            new_bitmap: nb,
+        },
         None => AntiReplayCheck::Replay,
     }
 }
@@ -117,7 +153,8 @@ pub fn create_table(conn: &Connection) -> Result<(), String> {
             forward_gap       INTEGER NOT NULL DEFAULT 1024,
             PRIMARY KEY (issuer_did, target_id, enrollment_epoch)
         );"
-    )).map_err(|e| format!("create anti_replay_windows: {e}"))
+    ))
+    .map_err(|e| format!("create anti_replay_windows: {e}"))
 }
 
 #[derive(Debug)]
@@ -127,12 +164,25 @@ pub struct SqliteAntiReplayStore {
 impl SqliteAntiReplayStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent() { if !parent.as_os_str().is_empty() { std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?; } }
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
+            }
+        }
         let conn = Connection::open(path).map_err(|e| format!("open: {e}"))?;
-        conn.pragma_update(None, "journal_mode", "WAL").map_err(|e| format!("journal_mode: {e}"))?;
-        conn.pragma_update(None, "synchronous", "FULL").map_err(|e| format!("synchronous: {e}"))?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| format!("journal_mode: {e}"))?;
+        conn.pragma_update(None, "synchronous", "FULL")
+            .map_err(|e| format!("synchronous: {e}"))?;
         create_table(&conn)?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
-    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> { match self.conn.lock() { Ok(g)=>g, Err(p)=>p.into_inner() } }
+    pub fn connection(&self) -> std::sync::MutexGuard<'_, Connection> {
+        match self.conn.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        }
+    }
 }

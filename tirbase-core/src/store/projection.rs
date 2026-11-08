@@ -40,25 +40,23 @@ pub fn project_table(
         .filter_map(|item| {
             // Convert the automerge ValueRef to a JSON string.
             let json_val = match item.value {
-                ValueRef::Scalar(sv) => {
-                    match sv {
-                        ScalarValueRef::Str(s)       => serde_json::Value::String(s.to_string()),
-                        ScalarValueRef::Int(n)       => serde_json::json!(n),
-                        ScalarValueRef::Uint(n)      => serde_json::json!(n),
-                        ScalarValueRef::F64(f)       => serde_json::json!(f),
-                        ScalarValueRef::Boolean(b)   => serde_json::Value::Bool(b),
-                        ScalarValueRef::Null         => serde_json::Value::Null,
-                        ScalarValueRef::Bytes(b)     => serde_json::Value::String(hex::encode(b)),
-                        ScalarValueRef::Counter(c)   => serde_json::json!(c),
-                        ScalarValueRef::Timestamp(t) => serde_json::json!(t),
-                        ScalarValueRef::Unknown { type_code, bytes } => {
-                            serde_json::json!({
-                                "type_code": type_code,
-                                "bytes": hex::encode(bytes)
-                            })
-                        }
+                ValueRef::Scalar(sv) => match sv {
+                    ScalarValueRef::Str(s) => serde_json::Value::String(s.to_string()),
+                    ScalarValueRef::Int(n) => serde_json::json!(n),
+                    ScalarValueRef::Uint(n) => serde_json::json!(n),
+                    ScalarValueRef::F64(f) => serde_json::json!(f),
+                    ScalarValueRef::Boolean(b) => serde_json::Value::Bool(b),
+                    ScalarValueRef::Null => serde_json::Value::Null,
+                    ScalarValueRef::Bytes(b) => serde_json::Value::String(hex::encode(b)),
+                    ScalarValueRef::Counter(c) => serde_json::json!(c),
+                    ScalarValueRef::Timestamp(t) => serde_json::json!(t),
+                    ScalarValueRef::Unknown { type_code, bytes } => {
+                        serde_json::json!({
+                            "type_code": type_code,
+                            "bytes": hex::encode(bytes)
+                        })
                     }
-                }
+                },
                 ValueRef::Object(_) => {
                     // Composite objects are not projected to flat rows.
                     // Nested structures are flattened to Null in v1; full nested

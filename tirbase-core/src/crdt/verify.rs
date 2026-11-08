@@ -133,7 +133,11 @@ fn root_scalars(doc: &AutoCommit) -> HashMap<String, (ObjId, automerge::ScalarVa
 
 /// One decoded scalar-valued list insertion: `(predecessor, element id, value)`.
 /// `predecessor` is `None` for an insertion at the head of the list.
-type InsertOp = (Option<(u64, Vec<u8>)>, (u64, Vec<u8>), automerge::ScalarValue);
+type InsertOp = (
+    Option<(u64, Vec<u8>)>,
+    (u64, Vec<u8>),
+    automerge::ScalarValue,
+);
 
 fn capture_rga(local: &AutoCommit, incoming: &AutoCommit) -> Vec<RgaConflict> {
     let local_inserts = list_inserts(local);
@@ -175,10 +179,10 @@ fn list_inserts(doc: &AutoCommit) -> Vec<InsertOp> {
             // An op at 0-based index `i` of a change carries op ID
             // `(start_op + i, change actor)`.
             let element = (start_op + i as u64, actor.clone());
-            let predecessor = op
-                .key
-                .as_element_id()
-                .and_then(|eid| eid.as_opid().map(|oid| (oid.counter(), oid.actor().to_bytes().to_vec())));
+            let predecessor = op.key.as_element_id().and_then(|eid| {
+                eid.as_opid()
+                    .map(|oid| (oid.counter(), oid.actor().to_bytes().to_vec()))
+            });
             out.push((predecessor, element, value));
         }
     }
@@ -231,19 +235,29 @@ pub(crate) fn verify_and_override(
 
         // Definitive zone: the rule mandates the incoming op wins.
         if actual_incoming_won {
-            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
-                "[CRDT] LWW read-back key='{}': actual winner=incoming | rule=incoming — OK",
-                conflict.key
-            ));
+            emit_crdt(
+                Severity::Low,
+                ReasonCode::MergeVerified,
+                None,
+                format!(
+                    "[CRDT] LWW read-back key='{}': actual winner=incoming | rule=incoming — OK",
+                    conflict.key
+                ),
+            );
             continue;
         }
         if !actual_local_won {
             // A third concurrent writer won — cannot attribute, never override.
             report.indeterminate += 1;
-            emit_crdt(Severity::Low, ReasonCode::MergeVerified, None, format!(
-                "[CRDT] LWW read-back key='{}': winner unattributable ({}) — no override",
-                conflict.key, actual
-            ));
+            emit_crdt(
+                Severity::Low,
+                ReasonCode::MergeVerified,
+                None,
+                format!(
+                    "[CRDT] LWW read-back key='{}': winner unattributable ({}) — no override",
+                    conflict.key, actual
+                ),
+            );
             continue;
         }
 
@@ -261,7 +275,12 @@ pub(crate) fn verify_and_override(
             Ok(()) => report.overrides_applied += 1,
             Err(e) => {
                 report.overrides_failed += 1;
-                emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!("[CRDT] LWW OVERRIDE FAILED key='{}': {e}", conflict.key));
+                emit_crdt(
+                    Severity::Medium,
+                    ReasonCode::MergeVerified,
+                    None,
+                    format!("[CRDT] LWW OVERRIDE FAILED key='{}': {e}", conflict.key),
+                );
             }
         }
     }
@@ -348,7 +367,12 @@ pub(crate) fn verify_and_override(
             Ok(()) => report.overrides_applied += 1,
             Err(e) => {
                 report.overrides_failed += 1;
-                emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!("[CRDT] RGA OVERRIDE FAILED list='{}': {e}", key));
+                emit_crdt(
+                    Severity::Medium,
+                    ReasonCode::MergeVerified,
+                    None,
+                    format!("[CRDT] RGA OVERRIDE FAILED list='{}': {e}", key),
+                );
             }
         }
     }

@@ -304,12 +304,13 @@ impl TrustRootRecord {
         let policy = self
             .role_policy(role)
             .ok_or(TrustRootError::RoleNotConfigured { role })?;
-        let public_key = policy
-            .public_key_for(signer_did)
-            .ok_or_else(|| TrustRootError::RoleNotAuthorized {
-                role,
-                signer_did: signer_did.to_string(),
-            })?;
+        let public_key =
+            policy
+                .public_key_for(signer_did)
+                .ok_or_else(|| TrustRootError::RoleNotAuthorized {
+                    role,
+                    signer_did: signer_did.to_string(),
+                })?;
         if !verify_signature(public_key, message, signature) {
             return Err(TrustRootError::SignatureInvalid {
                 signer_did: signer_did.to_string(),
@@ -409,12 +410,9 @@ fn verify_signature(public_key: &[u8], message: &[u8], signature: &DeviceSignatu
         return false;
     };
     match signature {
-        DeviceSignature::Ed25519(bytes) => keypair::verify(
-            &key,
-            message,
-            &Ed25519Signature::from_bytes(*bytes),
-        )
-        .is_ok(),
+        DeviceSignature::Ed25519(bytes) => {
+            keypair::verify(&key, message, &Ed25519Signature::from_bytes(*bytes)).is_ok()
+        }
         DeviceSignature::P256(_) => false,
     }
 }
@@ -562,11 +560,7 @@ impl TrustRootManager {
     /// `revoked_root_ca_keys`: a rotation that revokes a key and keeps the
     /// remaining active keys at or above `threshold_k` is accepted; a rotation
     /// that rolls the version back is rejected before anything is committed.
-    pub fn rotate(
-        &mut self,
-        record: TrustRootRecord,
-        now_est: i64,
-    ) -> Result<(), TrustRootError> {
+    pub fn rotate(&mut self, record: TrustRootRecord, now_est: i64) -> Result<(), TrustRootError> {
         record.validate(now_est)?;
         let current = self.counter.read()?;
         if record.version <= current {
@@ -772,9 +766,14 @@ mod tests {
         record.root_ca_public_keys = vec![vec![1u8; 32], vec![2u8; 32]];
         record.threshold_k = 1;
         record.revoked_root_ca_keys = vec![vec![1u8; 32]];
-        record.validate(1_000).expect("one active key satisfies k=1");
+        record
+            .validate(1_000)
+            .expect("one active key satisfies k=1");
         assert!(record.is_root_revoked(&[1u8; 32]));
-        assert_eq!(record.active_root_ca_keys(), vec![&[2u8; 32][..]] as Vec<&[u8]>);
+        assert_eq!(
+            record.active_root_ca_keys(),
+            vec![&[2u8; 32][..]] as Vec<&[u8]>
+        );
 
         record.revoked_root_ca_keys.push(vec![2u8; 32]);
         assert!(matches!(

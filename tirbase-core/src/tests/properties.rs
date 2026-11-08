@@ -55,24 +55,31 @@
 //! two or more live peers communicating over a loopback libp2p Swarm — a capability
 //! deferred to `durability/integration_tests.rs` post-v1.
 
-#![allow(dead_code, unused_imports, unused_variables, clippy::too_many_arguments)]
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    clippy::too_many_arguments
+)]
 
-use proptest::prelude::*;
 use proptest::collection::vec as prop_vec;
+use proptest::prelude::*;
 
-use crate::crdt::{CrdtEngine, lww_incoming_wins, rga_incoming_has_priority};
-use crate::crdt::delta::{Delta, DeltaTag, Ed25519Signature, PriorityClass};
 use crate::crdt::dag::DagNode;
-use crate::schema::{Schema, TableDef, FieldDef, FieldType};
-use crate::schema::hash::compute_schema_identifier_hash;
-use crate::schema::printer::print as print_schema;
-use crate::schema::parser::parse as parse_schema;
-use crate::transport::scheduler::{DrrScheduler, QueuedDelta};
-use crate::transport::saturate::{SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS};
+use crate::crdt::delta::{Delta, DeltaTag, Ed25519Signature, PriorityClass};
+use crate::crdt::{lww_incoming_wins, rga_incoming_has_priority, CrdtEngine};
 use crate::durability::quorum::{QuorumConfig, Tier1QuorumTracker};
-use crate::durability::receipt::{DurabilityReceipt, receipt_signing_payload};
+use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
 use crate::identity::keypair::{generate_keypair, sign, verify};
+use crate::schema::hash::compute_schema_identifier_hash;
+use crate::schema::parser::parse as parse_schema;
+use crate::schema::printer::print as print_schema;
+use crate::schema::{FieldDef, FieldType, Schema, TableDef};
 use crate::store::compaction::CompactionPolicy;
+use crate::transport::saturate::{
+    SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS,
+};
+use crate::transport::scheduler::{DrrScheduler, QueuedDelta};
 
 // ─── Fixed test seed for deterministic signing ─────────────────────────────────
 
@@ -220,28 +227,22 @@ pub fn arb_quorum_config() -> impl Strategy<Value = QuorumConfig> {
     (1usize..=5usize).prop_flat_map(|k| {
         let n_range = k..=10usize;
         let div_range = 1usize..=(k);
-        (
-            Just(k),
-            n_range,
-            div_range,
-            (0.3f64..=1.0f64),
+        (Just(k), n_range, div_range, (0.3f64..=1.0f64)).prop_map(
+            move |(k, n, spatial_diversity_min, max_single_sector_fraction)| QuorumConfig {
+                k,
+                n,
+                spatial_diversity_min,
+                max_single_sector_fraction,
+            },
         )
-            .prop_map(move |(k, n, spatial_diversity_min, max_single_sector_fraction)| {
-                QuorumConfig {
-                    k,
-                    n,
-                    spatial_diversity_min,
-                    max_single_sector_fraction,
-                }
-            })
     })
 }
 
 /// Strategy for a single valid signed Delta (with fixed secret key).
 pub fn arb_delta(schema_hash: [u8; 32]) -> impl Strategy<Value = Delta> {
     (
-        1u64..=100u64,                          // lamport
-        prop_vec(any::<u8>(), 0..=16usize),     // automerge_bytes (small)
+        1u64..=100u64,                      // lamport
+        prop_vec(any::<u8>(), 0..=16usize), // automerge_bytes (small)
     )
         .prop_map(move |(lamport, automerge_bytes)| {
             make_signed_delta_from(&FIXED_SECRET, schema_hash, lamport, automerge_bytes, vec![])
@@ -290,8 +291,8 @@ pub fn arb_ordered_delta_sequence(schema_hash: [u8; 32]) -> impl Strategy<Value 
 /// Open an in-memory CrdtEngine (native only).
 #[cfg(feature = "native")]
 fn make_engine(secret: [u8; 32], schema_hash: [u8; 32]) -> CrdtEngine {
-    use std::sync::{Arc, Mutex};
     use ed25519_dalek::SigningKey;
+    use std::sync::{Arc, Mutex};
     let sk = SigningKey::from_bytes(&secret);
     let public_bytes: [u8; 32] = sk.verifying_key().to_bytes();
     let did = did_from_public(&public_bytes);
@@ -1015,7 +1016,8 @@ fn insert_dag_node_direct(
         compacted: false,
         delta_bytes: None,
         author_did: "did:key:z6MkTest".to_string(),
-    }).expect("insert DagNode");
+    })
+    .expect("insert DagNode");
 }
 
 // ─── Property 8 — Contamination Propagates to All Reachable Descendants (Req 10.2)
@@ -1813,8 +1815,8 @@ proptest! {
 mod prop_20_biscuit {
     use super::*;
     use crate::transport::saturate::{
-        SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS,
         make_disaster_alert_token_for_test, make_token_without_disaster_alert_for_test,
+        SaturateModeStateMachine, SaturateState, SATURATE_LEASE_DURATION_SECS,
     };
 
     proptest! {

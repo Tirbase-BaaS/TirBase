@@ -64,37 +64,37 @@ pub use enrollment::{
 };
 
 pub use epoch::{
-    decommission_message, verify_decommission_credential, CommandEnvelope, EpochCommandGuard,
-    DecommissionCredential, DeviceEpoch, DeviceEpochStore, EnrollmentNonceStore, EpochBump,
-    EpochError, EpochRegistry, InMemoryEpochStore, InMemoryNonceStore,
-    DEFAULT_ENROLLMENT_NONCE_CAPACITY, DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS,
+    decommission_message, verify_decommission_credential, CommandEnvelope, DecommissionCredential,
+    DeviceEpoch, DeviceEpochStore, EnrollmentNonceStore, EpochBump, EpochCommandGuard, EpochError,
+    EpochRegistry, InMemoryEpochStore, InMemoryNonceStore, DEFAULT_ENROLLMENT_NONCE_CAPACITY,
+    DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS,
 };
 
-pub use command::{
-    command_signing_bytes, sign_command, verify_command_signature, CommandError,
-};
-pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
-pub use driver_proxy::{DriverProxy, IngressSource};
-pub use guard::{single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission};
 pub use admit::{
     admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection,
     ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS,
     DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
 };
-pub use permit::{ActuationPermit, ActuationPermitRef};
+pub use command::{command_signing_bytes, sign_command, verify_command_signature, CommandError};
 pub use commit::{
     coarse_for_rejection, commit_dispatch_finalize, dispatch_and_await, stage17_acceptance,
     stage17_rejection, CoarseRejection, EffectTerminalState, Stage16Error, Stage16Request,
     Stage16Store,
 };
+pub use driver_proxy::{DriverProxy, IngressSource};
+pub use guard::{
+    single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission,
+};
+pub use permit::{ActuationPermit, ActuationPermitRef};
+pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
 
-pub use node_mode::{NodeMode, NodeModeState};
 pub use lockdown::{
-    arm_controller_watchdogs, apply_crash_decision, apply_lockdown_exit, enter_lockdown,
+    apply_crash_decision, apply_lockdown_exit, arm_controller_watchdogs, enter_lockdown,
     CrashLoopEscalation, CrashLoopTracker, InMemoryLockdownStore, LockdownEntryReason,
     LockdownError, LockdownExitPayload, LockdownFileMarker, LockdownStore, SafeDefaultBinding,
     CONTEXT_LOCKDOWN_EXIT, LOCKDOWN_DB_KEY, LOCKDOWN_FILE_PATH,
 };
+pub use node_mode::{NodeMode, NodeModeState};
 
 pub use trust_root::{
     AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager,
@@ -103,8 +103,8 @@ pub use trust_root::{
 
 pub use policy::{
     check_tightening_floors, classify_bundle, make_bundle, policy_bundle_body_hash,
-    policy_bundle_signing_bytes, verify_policy_cosignature, ActivePolicyState, PendingLoosenOperation,
-    PolicyError, PolicyIngestOutcome, PolicyLifecycle,
+    policy_bundle_signing_bytes, verify_policy_cosignature, ActivePolicyState,
+    PendingLoosenOperation, PolicyError, PolicyIngestOutcome, PolicyLifecycle,
 };
 pub use tirbase_types::policy::{PolicyBundle, PolicyBundleKind, PolicyCoSignature};
 

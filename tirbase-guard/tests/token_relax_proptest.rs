@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use arc_swap::ArcSwap;
 use proptest::prelude::*;
+use std::io::Cursor;
 use tirbase_core::auth::command_token::create_command_token;
 use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
@@ -20,13 +21,40 @@ use tirbase_guard::{sign_command, CommandGuard, GuardConfig, TargetAdmission};
 use tirbase_types::command::CommandMessage;
 use tirbase_types::envelope::{EnvelopeProfile, ParameterKind, ParameterSpec};
 use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId, UNIT_PERCENT};
-use std::io::Cursor;
 
-#[derive(Debug)] struct T(u64);
-impl TimeSource for T { fn monotonic_now(&self)->u64{self.0} fn wall_hint(&self)->Option<i64>{Some((self.0/1_000_000) as i64)} fn boot_id(&self)->u64{1} }
-#[derive(Debug, Default)] struct S(std::sync::Mutex<Option<tirbase_guard::time::TimeRatchetRecord>>);
-impl TimeRatchetStore for S { fn load(&self)->Result<Option<tirbase_guard::time::TimeRatchetRecord>,tirbase_guard::time::TimeRatchetError>{Ok(self.0.lock().unwrap().clone())} fn save(&self,r:&tirbase_guard::time::TimeRatchetRecord)->Result<(),tirbase_guard::time::TimeRatchetError>{*self.0.lock().unwrap()=Some(*r);Ok(())} }
-fn fpv(m:i64)->FixedPointValue{FixedPointValue::new(m,-1,UNIT_PERCENT)}
+#[derive(Debug)]
+struct T(u64);
+impl TimeSource for T {
+    fn monotonic_now(&self) -> u64 {
+        self.0
+    }
+    fn wall_hint(&self) -> Option<i64> {
+        Some((self.0 / 1_000_000) as i64)
+    }
+    fn boot_id(&self) -> u64 {
+        1
+    }
+}
+#[derive(Debug, Default)]
+struct S(std::sync::Mutex<Option<tirbase_guard::time::TimeRatchetRecord>>);
+impl TimeRatchetStore for S {
+    fn load(
+        &self,
+    ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
+    {
+        Ok(self.0.lock().unwrap().clone())
+    }
+    fn save(
+        &self,
+        r: &tirbase_guard::time::TimeRatchetRecord,
+    ) -> Result<(), tirbase_guard::time::TimeRatchetError> {
+        *self.0.lock().unwrap() = Some(*r);
+        Ok(())
+    }
+}
+fn fpv(m: i64) -> FixedPointValue {
+    FixedPointValue::new(m, -1, UNIT_PERCENT)
+}
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]

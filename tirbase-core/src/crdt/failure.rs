@@ -55,9 +55,7 @@ impl DeltaRejectionCode {
             DeltaRejectionCode::RevokedAuthor => "REVOKED_AUTHOR",
             DeltaRejectionCode::MissingSignature => "MISSING_SIGNATURE",
             DeltaRejectionCode::DidResolutionFailed => "DID_RESOLUTION_FAILED",
-            DeltaRejectionCode::SignatureVerificationFailed => {
-                "SIGNATURE_VERIFICATION_FAILED"
-            }
+            DeltaRejectionCode::SignatureVerificationFailed => "SIGNATURE_VERIFICATION_FAILED",
         }
     }
 }
@@ -118,8 +116,7 @@ impl DeltaRejectionRecord {
 /// engine is locked (inside `CrdtEngine::apply`), so it must not re-enter the
 /// engine — [`CoreHandle::init`](crate::api::CoreHandle::init) registers a
 /// listener that only forwards onto a non-blocking broadcast channel.
-pub(crate) type DeltaRejectionListener =
-    Box<dyn Fn(&DeltaRejectionRecord) + Send + Sync>;
+pub(crate) type DeltaRejectionListener = Box<dyn Fn(&DeltaRejectionRecord) + Send + Sync>;
 
 // ─── Notification ─────────────────────────────────────────────────────────────
 
@@ -169,10 +166,16 @@ mod tests {
             occurred_at_utc: 1_720_000_000_123_456,
         };
         let line = record.render_line();
-        assert!(line.contains("SIGNATURE_VERIFICATION_FAILED"), "line: {line}");
+        assert!(
+            line.contains("SIGNATURE_VERIFICATION_FAILED"),
+            "line: {line}"
+        );
         assert!(line.contains("did:key:z6Mkpeer"), "line: {line}");
         assert!(line.contains(&hex::encode([0xAB; 32])), "line: {line}");
-        assert!(line.contains("occurred_at_utc=1720000000123456"), "line: {line}");
+        assert!(
+            line.contains("occurred_at_utc=1720000000123456"),
+            "line: {line}"
+        );
         assert!(line.contains("signature mismatch"), "line: {line}");
     }
 }

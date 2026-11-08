@@ -562,7 +562,9 @@ mod tests {
         // Phase 1: before partition, the epoch-3 token is valid.
         let pre_partition_token = make_signed_beacon_token(&beacon_did, &b_secret, 3, "sector-7G");
         assert!(
-            anchor.verify_beacon_token(&pre_partition_token, 100).is_ok(),
+            anchor
+                .verify_beacon_token(&pre_partition_token, 100)
+                .is_ok(),
             "token at epoch 3 must be valid when current_epoch is 0 (3 >= 0)"
         );
 

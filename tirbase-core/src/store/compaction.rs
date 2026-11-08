@@ -136,9 +136,6 @@ pub(crate) async fn compact_table_idb(
 /// `Aggressive { threshold }` and `None` policies behave identically across
 /// build targets.
 #[cfg(not(feature = "native"))]
-pub(crate) fn should_compact_idb(
-    policy: &CompactionPolicy,
-    change_count: u64,
-) -> bool {
+pub(crate) fn should_compact_idb(policy: &CompactionPolicy, change_count: u64) -> bool {
     should_compact(policy, change_count)
 }

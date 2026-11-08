@@ -21,13 +21,19 @@ use crate::migration::migration_delta::MigrationId;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MigrationResult {
     Success,
-    TimedOut { timeout_secs: u64 },
-    Aborted { reason: String },
+    TimedOut {
+        timeout_secs: u64,
+    },
+    Aborted {
+        reason: String,
+    },
     /// The migration was revoked before it could commit: the transform may
     /// have been interrupted mid-flight (Req 18.6) or the revocation landed in
     /// the window between sandbox exit and the schema-hash commit.  In either
     /// case the schema must NOT advance to the target hash.
-    Revoked { reason: String },
+    Revoked {
+        reason: String,
+    },
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────
@@ -231,11 +237,7 @@ pub fn execute_migration_wasm(
         if import.module() != "host" {
             let migration_id_hex = hex::encode([0u8; 32]); // placeholder
             return Err(TirBaseError::MigrationCaSignatureInvalid {
-                migration_id: format!(
-                    "forbidden import: {}::{}",
-                    import.module(),
-                    import.name()
-                ),
+                migration_id: format!("forbidden import: {}::{}", import.module(), import.name()),
             });
         }
     }
@@ -249,9 +251,7 @@ pub fn execute_migration_wasm(
             "host",
             "log_message",
             |caller: wasmi::Caller<'_, WasmHostState>, ptr: i32, len: i32| {
-                let mem = caller
-                    .get_export("memory")
-                    .and_then(|e| e.into_memory());
+                let mem = caller.get_export("memory").and_then(|e| e.into_memory());
                 if let Some(memory) = mem {
                     let data = memory.data(&caller);
                     let start = ptr as usize;
@@ -319,7 +319,10 @@ pub fn execute_migration_wasm(
                 };
 
                 let write_len = value.len().min(out_max as usize);
-                if mem.write(&mut caller, out_ptr as usize, &value[..write_len]).is_err() {
+                if mem
+                    .write(&mut caller, out_ptr as usize, &value[..write_len])
+                    .is_err()
+                {
                     return 0;
                 }
                 write_len as i32
@@ -354,7 +357,10 @@ pub fn execute_migration_wasm(
                 let mut key_buf = vec![0u8; key_len];
                 let mut val_buf = vec![0u8; val_len];
 
-                if mem.read(&caller, table_ptr as usize, &mut table_buf).is_err() {
+                if mem
+                    .read(&caller, table_ptr as usize, &mut table_buf)
+                    .is_err()
+                {
                     return;
                 }
                 if mem.read(&caller, key_ptr as usize, &mut key_buf).is_err() {
@@ -388,7 +394,9 @@ pub fn execute_migration_wasm(
     let mut temp_store_handle = InMemoryStoreHandle::new();
     core::mem::swap(store_handle, &mut temp_store_handle);
 
-    let host_state = WasmHostState { store: temp_store_handle };
+    let host_state = WasmHostState {
+        store: temp_store_handle,
+    };
     let mut wasm_store = Store::new(&engine, host_state);
     wasm_store
         .set_fuel(fuel)
@@ -558,8 +566,7 @@ fn execute_native(
             "host",
             "log_message",
             |mut caller: wasmtime::Caller<'_, MigrationHostState>, ptr: i32, len: i32| {
-                let mem = caller.get_export("memory")
-                    .and_then(|e| e.into_memory());
+                let mem = caller.get_export("memory").and_then(|e| e.into_memory());
 
                 if let Some(memory) = mem {
                     let data = memory.data(&caller);
@@ -567,7 +574,12 @@ fn execute_native(
                     let end = start.saturating_add(len as usize);
                     if end <= data.len() {
                         if let Ok(msg) = std::str::from_utf8(&data[start..end]) {
-                            emit_migration(Severity::Low, ReasonCode::MigrationApplied, None, format!("[migration sandbox] {msg}"));
+                            emit_migration(
+                                Severity::Low,
+                                ReasonCode::MigrationApplied,
+                                None,
+                                format!("[migration sandbox] {msg}"),
+                            );
                         }
                     }
                 }
@@ -598,7 +610,10 @@ fn execute_native(
 
                 // 2. Read table string from WASM memory
                 let mut table_buf = vec![0u8; table_len as usize];
-                if mem.read(&caller, table_ptr as usize, &mut table_buf).is_err() {
+                if mem
+                    .read(&caller, table_ptr as usize, &mut table_buf)
+                    .is_err()
+                {
                     return 0;
                 }
                 let table = match std::str::from_utf8(&table_buf) {
@@ -623,19 +638,20 @@ fn execute_native(
                         Err(_) => return 0,
                     };
                     match store_guard.read(&table, &key) {
-                        Ok(Some(val)) => {
-                            match serde_json::to_vec(&val) {
-                                Ok(b) => b,
-                                Err(_) => return 0,
-                            }
-                        }
+                        Ok(Some(val)) => match serde_json::to_vec(&val) {
+                            Ok(b) => b,
+                            Err(_) => return 0,
+                        },
                         _ => return 0,
                     }
                 };
 
                 // 5. Write result into WASM memory up to out_max bytes
                 let write_len = value_bytes.len().min(out_max as usize);
-                if mem.write(&mut caller, out_ptr as usize, &value_bytes[..write_len]).is_err() {
+                if mem
+                    .write(&mut caller, out_ptr as usize, &value_bytes[..write_len])
+                    .is_err()
+                {
                     return 0;
                 }
                 write_len as i32
@@ -666,9 +682,18 @@ fn execute_native(
                 let mut key_buf = vec![0u8; key_len as usize];
                 let mut val_buf = vec![0u8; val_len as usize];
 
-                if mem.read(&caller, table_ptr as usize, &mut table_buf).is_err() { return; }
-                if mem.read(&caller, key_ptr as usize, &mut key_buf).is_err() { return; }
-                if mem.read(&caller, val_ptr as usize, &mut val_buf).is_err() { return; }
+                if mem
+                    .read(&caller, table_ptr as usize, &mut table_buf)
+                    .is_err()
+                {
+                    return;
+                }
+                if mem.read(&caller, key_ptr as usize, &mut key_buf).is_err() {
+                    return;
+                }
+                if mem.read(&caller, val_ptr as usize, &mut val_buf).is_err() {
+                    return;
+                }
 
                 let table = match std::str::from_utf8(&table_buf) {
                     Ok(s) => s.to_string(),
@@ -706,7 +731,10 @@ fn execute_native(
     // the deadline is armed, so a revocation interrupt that finds a registered
     // run is guaranteed to have been made after the deadline and traps at the
     // next epoch check in the guest code.
-    let mut wt_store = Store::new(&engine, MigrationHostState::new(migration_id, store.clone()));
+    let mut wt_store = Store::new(
+        &engine,
+        MigrationHostState::new(migration_id, store.clone()),
+    );
     wt_store.set_epoch_deadline(1); // will be exceeded after `timeout_secs` real time
 
     // Register this run's engine only now that the epoch deadline is armed; a
@@ -772,11 +800,16 @@ fn execute_native(
                         // deadline elapsed or a migration revocation requested
                         // the interrupt (Req 18.6); the engine's revocation
                         // re-check distinguishes the two on commit.
-                        emit_migration(Severity::Medium, ReasonCode::MigrationCancelled, None, format!(
-                            "[migration sandbox] Migration {:?} epoch-interrupted \
+                        emit_migration(
+                            Severity::Medium,
+                            ReasonCode::MigrationCancelled,
+                            None,
+                            format!(
+                                "[migration sandbox] Migration {:?} epoch-interrupted \
                              (timeout {timeout_secs}s or migration revocation)",
-                            migration_id
-                        ));
+                                migration_id
+                            ),
+                        );
                         Ok(MigrationResult::TimedOut { timeout_secs })
                     } else {
                         Ok(MigrationResult::Aborted {
@@ -804,7 +837,10 @@ impl MigrationHostState {
         migration_id: MigrationId,
         store: std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
     ) -> Self {
-        Self { migration_id, store }
+        Self {
+            migration_id,
+            store,
+        }
     }
 }
 
@@ -888,7 +924,11 @@ mod tests {
         let wasm = log_message_wasm();
         let result = execute_migration(&wasm, [0x01u8; 32], 30, &test_store())
             .expect("execute_migration should not return Err");
-        assert_eq!(result, MigrationResult::Success, "log_message module should succeed");
+        assert_eq!(
+            result,
+            MigrationResult::Success,
+            "log_message module should succeed"
+        );
     }
 
     #[test]
@@ -937,7 +977,10 @@ mod tests {
             );
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
-        assert!(started.load(Ordering::SeqCst), "run thread must have started");
+        assert!(
+            started.load(Ordering::SeqCst),
+            "run thread must have started"
+        );
 
         let t0 = std::time::Instant::now();
         assert!(
@@ -1022,7 +1065,11 @@ mod tests {
         let result = execute_migration(&wasm, [0xABu8; 32], 30, &store_handle)
             .expect("execute_migration must not return Err");
 
-        assert_eq!(result, MigrationResult::Success, "transform must succeed: {result:?}");
+        assert_eq!(
+            result,
+            MigrationResult::Success,
+            "transform must succeed: {result:?}"
+        );
 
         // Verify the value was read and written to "dst"
         let s = store_handle.lock().unwrap();
@@ -1031,7 +1078,10 @@ mod tests {
             .expect("read dst")
             .expect("dst should exist after migration");
         let expected = serde_json::json!({"greeting": "hello"});
-        assert_eq!(dst_val, expected, "dst value must equal src value (copy transform)");
+        assert_eq!(
+            dst_val, expected,
+            "dst value must equal src value (copy transform)"
+        );
     }
 
     // ─── Test B: Timeout during a store-read-heavy transform ─────────────────
@@ -1066,7 +1116,8 @@ mod tests {
         // Populate a key so read_row actually does real work.
         {
             let mut s = store_handle.lock().unwrap();
-            s.write("test", "key", &serde_json::json!(42)).expect("write");
+            s.write("test", "key", &serde_json::json!(42))
+                .expect("write");
         }
 
         let result = execute_migration(&wasm, [0xCDu8; 32], 1, &store_handle)

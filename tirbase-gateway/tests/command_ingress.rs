@@ -13,9 +13,7 @@ use std::sync::Arc;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
-use tirbase_guard::{
-    sign_command, single_target_guard, AdmitError, DriverProxy, IngressSource,
-};
+use tirbase_guard::{sign_command, single_target_guard, AdmitError, DriverProxy, IngressSource};
 use tirbase_types::command::CommandMessage;
 use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId, UNIT_PERCENT};
 
@@ -88,7 +86,11 @@ fn every_ingress_rejects_unsigned_command_before_proxy_dispatch() {
         signature: DeviceSignature::Ed25519([0u8; 64]),
     };
 
-    for ingress in [IngressSource::Mesh, IngressSource::CloudApi, IngressSource::LocalAdmin] {
+    for ingress in [
+        IngressSource::Mesh,
+        IngressSource::CloudApi,
+        IngressSource::LocalAdmin,
+    ] {
         let mut wire = Vec::new();
         let mut proxy = DriverProxy::new(&mut wire);
         let r = guard.admit(&unsigned, ingress, &mut proxy, b"x");
@@ -96,6 +98,9 @@ fn every_ingress_rejects_unsigned_command_before_proxy_dispatch() {
             matches!(r, Err(AdmitError::InvalidSignature(_))),
             "{ingress:?} must reject unsigned command: {r:?}"
         );
-        assert!(wire.is_empty(), "{ingress:?} must not dispatch unsigned command");
+        assert!(
+            wire.is_empty(),
+            "{ingress:?} must not dispatch unsigned command"
+        );
     }
 }

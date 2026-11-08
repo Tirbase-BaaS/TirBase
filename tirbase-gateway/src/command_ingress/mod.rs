@@ -5,8 +5,8 @@
 //! an `ActuationPermit`; the guard holds it and sends the encoded frame over
 //! the guard-owned fd (PV-4.4, CLAIM-11.3).
 
-pub mod mesh;
 pub mod cloud;
 pub mod local_admin;
+pub mod mesh;
 
 pub use tirbase_guard::driver_proxy::IngressSource;

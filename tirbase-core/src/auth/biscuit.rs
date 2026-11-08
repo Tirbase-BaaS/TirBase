@@ -286,7 +286,11 @@ pub fn verify_token(
             reason: format!("expires_at query failed: {e}"),
         })?;
 
-    let expires_at = expires_results.into_iter().next().map(|(t,)| t).unwrap_or(now_secs);
+    let expires_at = expires_results
+        .into_iter()
+        .next()
+        .map(|(t,)| t)
+        .unwrap_or(now_secs);
 
     Ok(BiscuitClaims {
         did,
@@ -385,7 +389,11 @@ pub fn verify_token_distinguish_expiry(
             })
         })?;
 
-    let did = did_results.into_iter().next().map(|(d,)| d).unwrap_or_default();
+    let did = did_results
+        .into_iter()
+        .next()
+        .map(|(d,)| d)
+        .unwrap_or_default();
 
     let role_results: Vec<(String,)> = authorizer
         .query_with_limits("data($role) <- role($role)", generous.clone())
@@ -395,7 +403,11 @@ pub fn verify_token_distinguish_expiry(
             })
         })?;
 
-    let role = role_results.into_iter().next().map(|(r,)| r).unwrap_or_default();
+    let role = role_results
+        .into_iter()
+        .next()
+        .map(|(r,)| r)
+        .unwrap_or_default();
 
     let issued_results: Vec<(i64,)> = authorizer
         .query_with_limits("data($t) <- issued_at($t)", generous.clone())

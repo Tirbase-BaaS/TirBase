@@ -5,9 +5,12 @@ use std::fmt;
 use std::sync::Arc;
 
 use serde::Deserialize;
-use tirbase_guard::admit::{ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS, DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE};
-use tirbase_guard::epoch::{EpochBump, EpochRegistry};
+use tirbase_guard::admit::{
+    ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS,
+    DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+};
 use tirbase_guard::enrollment::{EnrollmentRequest, EnrollmentService};
+use tirbase_guard::epoch::{EpochBump, EpochRegistry};
 use tirbase_guard::lockdown::{apply_lockdown_exit, LockdownExitPayload, LockdownStore};
 use tirbase_guard::node_mode::NodeModeState;
 use tirbase_guard::signed_operation::SignedOperation;
@@ -49,9 +52,16 @@ impl fmt::Debug for AdminState {
 impl Default for AdminState {
     fn default() -> Self {
         AdminState {
-            enrollment: None, epochs: None, trust_root: None, policy: None,
-            node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
-            challenge_store: None, challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+            enrollment: None,
+            epochs: None,
+            trust_root: None,
+            policy: None,
+            node_mode: None,
+            lockdown_store: None,
+            envelope_profile: None,
+            guard: None,
+            challenge_store: None,
+            challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
         }
     }
 }
@@ -63,9 +73,16 @@ impl AdminState {
         trust_root: Arc<TrustRootRecord>,
     ) -> Self {
         AdminState {
-            enrollment: Some(enrollment), epochs: Some(epochs), trust_root: Some(trust_root),
-            policy: None, node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
-            challenge_store: None, challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+            enrollment: Some(enrollment),
+            epochs: Some(epochs),
+            trust_root: Some(trust_root),
+            policy: None,
+            node_mode: None,
+            lockdown_store: None,
+            envelope_profile: None,
+            guard: None,
+            challenge_store: None,
+            challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
         }
     }
 }
@@ -75,7 +92,11 @@ pub fn dispatch_admin_command(command: &str, state: Option<&AdminState>) -> Stri
     dispatch_admin_command_at(command, state, now_est)
 }
 
-pub fn dispatch_admin_command_at(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+pub fn dispatch_admin_command_at(
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+) -> String {
     let body = match parse_cmd_field(command).as_deref() {
         Some("enroll") => dispatch_enroll(command, state, now_est),
         Some("mint") => stub_501("mint"),
@@ -123,7 +144,11 @@ struct LockdownExitRequest {
 
 fn dispatch_lockdown_exit(command: &str, state: Option<&AdminState>) -> String {
     let Some((trust_root, store, mode)) = state.and_then(|s| {
-        Some((s.trust_root.as_ref()?, s.lockdown_store.as_ref()?, s.node_mode.as_ref()?))
+        Some((
+            s.trust_root.as_ref()?,
+            s.lockdown_store.as_ref()?,
+            s.node_mode.as_ref()?,
+        ))
     }) else {
         return stub_501("lockdown-exit");
     };
@@ -136,9 +161,22 @@ fn dispatch_lockdown_exit(command: &str, state: Option<&AdminState>) -> String {
         Err(e) => return bad_request(&format!("invalid lockdown-exit: {e}")),
     };
     let profile = state.and_then(|s| s.envelope_profile.as_deref());
-    match apply_lockdown_exit(&request.operation, &request.payload, trust_root, profile, store.as_ref(), mode) {
-        Ok(()) => serde_json::json!({"status":200,"mode":"Normal","outcome":"lockdown_exit_applied"}).to_string(),
-        Err(e) => serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"lockdown-exit"}).to_string(),
+    match apply_lockdown_exit(
+        &request.operation,
+        &request.payload,
+        trust_root,
+        profile,
+        store.as_ref(),
+        mode,
+    ) {
+        Ok(()) => {
+            serde_json::json!({"status":200,"mode":"Normal","outcome":"lockdown_exit_applied"})
+                .to_string()
+        }
+        Err(e) => {
+            serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"lockdown-exit"})
+                .to_string()
+        }
     }
 }
 
@@ -158,43 +196,68 @@ fn dispatch_enroll(command: &str, state: Option<&AdminState>, now_est: i64) -> S
         Ok(enrolled) => serde_json::json!({
             "status": 200, "device_id": enrolled.device_id, "epoch": enrolled.epoch,
             "token_hex": hex::encode(&enrolled.token), "token_ttl_secs": enrolled.token_ttl_secs,
-        }).to_string(),
+        })
+        .to_string(),
         Err(tirbase_guard::epoch::EpochError::NonceReused) => serde_json::json!({
             "status": 409, "error": "nonce reused", "endpoint": "enroll",
-        }).to_string(),
-        Err(error) => serde_json::json!({"status": 400, "error": error.to_string(), "endpoint": "enroll"}).to_string(),
+        })
+        .to_string(),
+        Err(error) => {
+            serde_json::json!({"status": 400, "error": error.to_string(), "endpoint": "enroll"})
+                .to_string()
+        }
     }
 }
 
 #[derive(Debug, Deserialize)]
-struct EpochBumpRequest { operation: SignedOperation<EpochBump>, payload: EpochBump }
+struct EpochBumpRequest {
+    operation: SignedOperation<EpochBump>,
+    payload: EpochBump,
+}
 
 fn dispatch_epoch_bump(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
-    let Some((epochs, trust_root)) = state.and_then(|s| s.epochs.as_ref().zip(s.trust_root.as_ref())) else {
+    let Some((epochs, trust_root)) =
+        state.and_then(|s| s.epochs.as_ref().zip(s.trust_root.as_ref()))
+    else {
         return stub_501("epoch-bump");
     };
     let payload = match payload_value(command) {
-        Some(p) => p, None => return bad_request("epoch-bump requires a payload object"),
+        Some(p) => p,
+        None => return bad_request("epoch-bump requires a payload object"),
     };
     let request: EpochBumpRequest = match serde_json::from_value(payload) {
-        Ok(r) => r, Err(e) => return bad_request(&format!("invalid epoch bump: {e}")),
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid epoch bump: {e}")),
     };
     match epochs.apply_bump(&request.operation, &request.payload, trust_root, now_est) {
-        Ok(record) => serde_json::json!({"status": 200, "device_id": record.device_id, "epoch": record.epoch}).to_string(),
-        Err(error) => serde_json::json!({"status": 409, "error": error.to_string(), "endpoint": "epoch-bump"}).to_string(),
+        Ok(record) => {
+            serde_json::json!({"status": 200, "device_id": record.device_id, "epoch": record.epoch})
+                .to_string()
+        }
+        Err(error) => {
+            serde_json::json!({"status": 409, "error": error.to_string(), "endpoint": "epoch-bump"})
+                .to_string()
+        }
     }
 }
 
 fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
-    let Some(policy) = state.and_then(|s| s.policy.as_ref()) else { return stub_501("policy"); };
+    let Some(policy) = state.and_then(|s| s.policy.as_ref()) else {
+        return stub_501("policy");
+    };
     let payload = match payload_value(command) {
-        Some(p) => p, None => return bad_request("policy requires a payload object"),
+        Some(p) => p,
+        None => return bad_request("policy requires a payload object"),
     };
     let bundle_val = payload.get("bundle").cloned().unwrap_or(payload);
     let bundle: PolicyBundle = match serde_json::from_value(bundle_val) {
-        Ok(b) => b, Err(e) => return bad_request(&format!("invalid policy bundle: {e}")),
+        Ok(b) => b,
+        Err(e) => return bad_request(&format!("invalid policy bundle: {e}")),
     };
-    let mut guard = match policy.lock() { Ok(g) => g, Err(p) => p.into_inner() };
+    let mut guard = match policy.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
     match guard.ingest_bundle(bundle, now_est) {
         Ok(tirbase_guard::PolicyIngestOutcome::TighteningApplied { version }) => {
             serde_json::json!({"status":200,"outcome":"tightening_applied","version":version}).to_string()
@@ -208,9 +271,13 @@ fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> S
 }
 
 fn payload_value(command: &str) -> Option<serde_json::Value> {
-    serde_json::from_str::<serde_json::Value>(command).ok().and_then(|v| v.get("payload").cloned())
+    serde_json::from_str::<serde_json::Value>(command)
+        .ok()
+        .and_then(|v| v.get("payload").cloned())
 }
-fn bad_request(message: &str) -> String { serde_json::json!({"status": 400, "error": message}).to_string() }
+fn bad_request(message: &str) -> String {
+    serde_json::json!({"status": 400, "error": message}).to_string()
+}
 fn stub_501(endpoint: &str) -> String {
     format!(r#"{{"status":501,"error":"not implemented","endpoint":"{endpoint}"}}"#)
 }
@@ -218,7 +285,12 @@ fn parse_cmd_field(json: &str) -> Option<String> {
     let mut parts = json.split('"');
     while let Some(segment) = parts.next() {
         if segment.trim_end_matches(|c: char| c.is_whitespace() || c == ':') == "cmd" {
-            return parts.find(|s| { let t = s.trim(); !t.is_empty() && t != ":" }).map(|s| s.to_string());
+            return parts
+                .find(|s| {
+                    let t = s.trim();
+                    !t.is_empty() && t != ":"
+                })
+                .map(|s| s.to_string());
         }
     }
     None
@@ -226,15 +298,20 @@ fn parse_cmd_field(json: &str) -> Option<String> {
 
 #[cfg(target_os = "linux")]
 mod linux {
+    use super::{dispatch_admin_command, AdminState};
     use std::path::Path;
     use std::sync::Arc;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::{UnixListener, UnixStream};
-    use super::{dispatch_admin_command, AdminState};
 
-    pub async fn run_admin_listener(sock_path: &Path, state: Option<Arc<AdminState>>) -> anyhow::Result<()> {
+    pub async fn run_admin_listener(
+        sock_path: &Path,
+        state: Option<Arc<AdminState>>,
+    ) -> anyhow::Result<()> {
         let _ = std::fs::remove_file(sock_path);
-        if let Some(parent) = sock_path.parent() { std::fs::create_dir_all(parent)?; }
+        if let Some(parent) = sock_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         let listener = UnixListener::bind(sock_path)?;
         tracing::info!(path = %sock_path.display(), "admin listener bound");
         loop {
@@ -248,12 +325,19 @@ mod linux {
         }
     }
 
-    async fn handle_admin_connection(stream: UnixStream, state: Option<Arc<AdminState>>) -> anyhow::Result<()> {
+    async fn handle_admin_connection(
+        stream: UnixStream,
+        state: Option<Arc<AdminState>>,
+    ) -> anyhow::Result<()> {
         let peer_cred = stream.peer_cred()?;
         let gateway_uid = unsafe { libc::getuid() };
         let peer_uid = peer_cred.uid();
         if peer_uid != 0 && peer_uid != gateway_uid {
-            tracing::warn!(peer_uid, gateway_uid, "admin: rejecting unauthenticated connection");
+            tracing::warn!(
+                peer_uid,
+                gateway_uid,
+                "admin: rejecting unauthenticated connection"
+            );
             return Ok(());
         }
         let mut reader = BufReader::new(stream);
@@ -266,7 +350,6 @@ mod linux {
         Ok(())
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 struct ChallengeRequest {
@@ -292,7 +375,9 @@ struct ChallengeRequest {
 /// GET/POST path variants from specs map to this JSON command in the Unix-socket
 /// admin dispatcher.
 fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
-    let Some(st) = state else { return stub_501("challenge"); };
+    let Some(st) = state else {
+        return stub_501("challenge");
+    };
     let payload_val = match payload_value(command) {
         Some(p) => p,
         None => return bad_request("challenge requires a payload object"),
@@ -301,7 +386,11 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid challenge payload: {e}")),
     };
-    let target_id = if !req.target_id.is_empty() { req.target_id } else { req.target };
+    let target_id = if !req.target_id.is_empty() {
+        req.target_id
+    } else {
+        req.target
+    };
     let param = req.param;
     if target_id.is_empty() || param.is_empty() {
         return bad_request("challenge requires target_id/target and param");
@@ -309,7 +398,9 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
     let target = tirbase_types::TargetId::new(&target_id);
 
     // Consumption path (one-time-use proof / admin helper).
-    if let (Some(nonce_hex), Some(issuer_did)) = (req.nonce_hex.as_deref(), req.issuer_did.as_deref()) {
+    if let (Some(nonce_hex), Some(issuer_did)) =
+        (req.nonce_hex.as_deref(), req.issuer_did.as_deref())
+    {
         if let Some(store) = st.challenge_store.as_ref() {
             let Some(nonce) = hex_decode_32(nonce_hex) else {
                 return bad_request("invalid nonce_hex");
@@ -321,15 +412,22 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
                 Ok(false) => {
                     return serde_json::json!({"status":409,"error":"challenge nonce invalid, expired, or already consumed","code":"CHALLENGE_INVALID","endpoint":"challenge"}).to_string();
                 }
-                Err(e) => return serde_json::json!({"status":500,"error":e,"endpoint":"challenge"}).to_string(),
+                Err(e) => {
+                    return serde_json::json!({"status":500,"error":e,"endpoint":"challenge"})
+                        .to_string()
+                }
             }
         }
         return stub_501("challenge");
     }
 
     // Issuance path (Task 16.3): only for Unverified + critical parameter.
-    let Some(guard) = st.guard.as_ref() else { return stub_501("challenge"); };
-    let Some(pipeline) = guard.pipeline() else { return stub_501("challenge"); };
+    let Some(guard) = st.guard.as_ref() else {
+        return stub_501("challenge");
+    };
+    let Some(pipeline) = guard.pipeline() else {
+        return stub_501("challenge");
+    };
     if pipeline.freshness_state() != tirbase_guard::time::FreshnessState::Unverified {
         return serde_json::json!({"status":409,"error":"challenge nonce issuance requires FreshnessState::Unverified","code":"FRESHNESS_NOT_UNVERIFIED","endpoint":"challenge"}).to_string();
     }
@@ -339,9 +437,15 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
     let Some(device_id) = guard.device_id_for_target(&target) else {
         return serde_json::json!({"status":404,"error":"unknown target/device","endpoint":"challenge"}).to_string();
     };
-    let issuer_did = req.issuer_did.unwrap_or_else(|| format!("admin:{device_id}"));
+    let issuer_did = req
+        .issuer_did
+        .unwrap_or_else(|| format!("admin:{device_id}"));
     let mono_now = pipeline.mono_secs_now();
-    let limit = if st.challenge_requests_per_minute == 0 { DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE } else { st.challenge_requests_per_minute };
+    let limit = if st.challenge_requests_per_minute == 0 {
+        DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE
+    } else {
+        st.challenge_requests_per_minute
+    };
     // Sync pipeline limit with admin/runtime config for S32 enforcement.
     pipeline.set_challenge_requests_per_minute(limit);
     if !pipeline.check_challenge_issue_rate_limit(&device_id, &target_id, &param, mono_now) {
@@ -373,21 +477,35 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
 fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes.len() * 2);
-    for b in bytes { s.push(HEX[(b >> 4) as usize] as char); s.push(HEX[(b & 0x0f) as usize] as char); }
+    for b in bytes {
+        s.push(HEX[(b >> 4) as usize] as char);
+        s.push(HEX[(b & 0x0f) as usize] as char);
+    }
     s
 }
 fn hex_decode_32(s: &str) -> Option<[u8; 32]> {
     let s = s.trim();
-    if s.len() != 64 || !s.is_ascii() { return None; }
-    let mut out = [0u8; 32]; let b = s.as_bytes();
-    for i in 0..32 { let hi = (b[i * 2] as char).to_digit(16)? as u8; let lo = (b[i * 2 + 1] as char).to_digit(16)? as u8; out[i] = (hi << 4) | lo; }
+    if s.len() != 64 || !s.is_ascii() {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    let b = s.as_bytes();
+    for i in 0..32 {
+        let hi = (b[i * 2] as char).to_digit(16)? as u8;
+        let lo = (b[i * 2 + 1] as char).to_digit(16)? as u8;
+        out[i] = (hi << 4) | lo;
+    }
     Some(out)
 }
 
-
-pub async fn run_admin_listener(sock_path: &std::path::Path, state: Option<Arc<AdminState>>) -> anyhow::Result<()> {
+pub async fn run_admin_listener(
+    sock_path: &std::path::Path,
+    state: Option<Arc<AdminState>>,
+) -> anyhow::Result<()> {
     #[cfg(target_os = "linux")]
-    { linux::run_admin_listener(sock_path, state).await }
+    {
+        linux::run_admin_listener(sock_path, state).await
+    }
     #[cfg(not(target_os = "linux"))]
     {
         let _ = (sock_path, state);
@@ -398,27 +516,37 @@ pub async fn run_admin_listener(sock_path: &std::path::Path, state: Option<Arc<A
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tirbase_core::identity::keypair;
-    use tirbase_core::traits::KeyProvider;
-    use tirbase_guard::epoch::{InMemoryEpochStore, InMemoryNonceStore};
-    use tirbase_guard::enrollment::DeviceIdentity;
-    use tirbase_guard::trust_root::RolePolicy;
-    use tirbase_types::CommandRole;
     use std::collections::BTreeMap;
     use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
+    use tirbase_core::identity::keypair;
+    use tirbase_core::traits::KeyProvider;
+    use tirbase_guard::enrollment::DeviceIdentity;
+    use tirbase_guard::epoch::{InMemoryEpochStore, InMemoryNonceStore};
+    use tirbase_guard::trust_root::RolePolicy;
+    use tirbase_types::CommandRole;
 
     #[test]
     fn parse_cmd_field_simple() {
-        assert_eq!(parse_cmd_field(r#"{"cmd":"enroll","payload":{}}"#).as_deref(), Some("enroll"));
+        assert_eq!(
+            parse_cmd_field(r#"{"cmd":"enroll","payload":{}}"#).as_deref(),
+            Some("enroll")
+        );
     }
     #[test]
-    fn parse_cmd_field_unknown_returns_none() { assert_eq!(parse_cmd_field(r#"{"foo":"bar"}"#), None); }
+    fn parse_cmd_field_unknown_returns_none() {
+        assert_eq!(parse_cmd_field(r#"{"foo":"bar"}"#), None);
+    }
     #[test]
-    fn parse_cmd_field_empty_string() { assert_eq!(parse_cmd_field(""), None); }
+    fn parse_cmd_field_empty_string() {
+        assert_eq!(parse_cmd_field(""), None);
+    }
     #[test]
     fn unknown_command_returns_400() {
         let response = dispatch_admin_command(r#"{"cmd":"does-not-exist"}"#, None);
-        assert!(response.contains("\"status\":400"), "unexpected: {response}");
+        assert!(
+            response.contains("\"status\":400"),
+            "unexpected: {response}"
+        );
     }
     #[test]
     fn response_is_newline_terminated() {
@@ -429,17 +557,33 @@ mod tests {
         let (root_seed, root_public) = keypair::generate_keypair().unwrap();
         let rm = InMemoryKeyProvider::generate().unwrap();
         let mut roles = BTreeMap::new();
-        roles.insert(CommandRole::RevocationManager, RolePolicy::new(1, vec![tirbase_guard::trust_root::AuthorizedRoleSigner {
-            did: rm.did().to_string(), public_key: rm.public_key_bytes(),
-        }]));
+        roles.insert(
+            CommandRole::RevocationManager,
+            RolePolicy::new(
+                1,
+                vec![tirbase_guard::trust_root::AuthorizedRoleSigner {
+                    did: rm.did().to_string(),
+                    public_key: rm.public_key_bytes(),
+                }],
+            ),
+        );
         let trust_root = Arc::new(TrustRootRecord {
-            version: 1, root_ca_public_keys: vec![root_public.to_vec()], threshold_k: 1,
-            role_thresholds: roles, device_class_floors: BTreeMap::new(), expiry_est: i64::MAX,
-            revoked_root_ca_keys: Vec::new(), signatures: Vec::new(),
+            version: 1,
+            root_ca_public_keys: vec![root_public.to_vec()],
+            threshold_k: 1,
+            role_thresholds: roles,
+            device_class_floors: BTreeMap::new(),
+            expiry_est: i64::MAX,
+            revoked_root_ca_keys: Vec::new(),
+            signatures: Vec::new(),
         });
         let epochs = Arc::new(EpochRegistry::new(Arc::new(InMemoryEpochStore::default())));
         let service = Arc::new(EnrollmentService::new(
-            Arc::new(InMemoryNonceStore::new()), epochs.clone(), trust_root.clone(), root_seed.to_vec(), 3_600,
+            Arc::new(InMemoryNonceStore::new()),
+            epochs.clone(),
+            trust_root.clone(),
+            root_seed.to_vec(),
+            3_600,
         ));
         (AdminState::new(service, epochs, trust_root), root_public)
     }
@@ -448,13 +592,16 @@ mod tests {
     fn enroll_endpoint_issues_a_token_and_rejects_nonce_reuse() {
         let (state, root_public) = admin_state();
         let device = DeviceIdentity::generate().unwrap();
-        let request = device.bootstrap([3u8; 32], CommandRole::CommandIssuer).unwrap();
+        let request = device
+            .bootstrap([3u8; 32], CommandRole::CommandIssuer)
+            .unwrap();
         let command = serde_json::json!({"cmd": "enroll", "payload": serde_json::to_value(&request).unwrap()}).to_string();
         let response = dispatch_admin_command_at(&command, Some(&state), 1_800_000_000);
         let value: serde_json::Value = serde_json::from_str(response.trim()).unwrap();
         assert_eq!(value["status"], 200);
         let token = hex::decode(value["token_hex"].as_str().unwrap()).unwrap();
-        let claims = tirbase_core::auth::biscuit::verify_token(&token, &root_public, 0).expect("issued token verifies");
+        let claims = tirbase_core::auth::biscuit::verify_token(&token, &root_public, 0)
+            .expect("issued token verifies");
         assert_eq!(claims.did, device.device_id());
         let replay = dispatch_admin_command_at(&command, Some(&state), 1_800_000_000);
         let value: serde_json::Value = serde_json::from_str(replay.trim()).unwrap();
@@ -489,7 +636,11 @@ fn dispatch_simulate(command: &str, state: Option<&AdminState>) -> String {
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid simulate payload: {e}")),
     };
-    let token = req.biscuit_token_hex.as_deref().and_then(|h| hex::decode(h).ok()).unwrap_or_default();
+    let token = req
+        .biscuit_token_hex
+        .as_deref()
+        .and_then(|h| hex::decode(h).ok())
+        .unwrap_or_default();
     let source = req.source_key.unwrap_or_else(|| "simulate".into());
     let ctx = tirbase_guard::AdmitContext {
         ingress: tirbase_guard::IngressSource::LocalAdmin,
@@ -499,7 +650,10 @@ fn dispatch_simulate(command: &str, state: Option<&AdminState>) -> String {
         simulate: true,
     };
     let decision = guard.simulate(&req.command, &ctx);
-    let privileged = matches!(req.caller_role.as_deref(), Some("Auditor") | Some("PolicyAuthority"));
+    let privileged = matches!(
+        req.caller_role.as_deref(),
+        Some("Auditor") | Some("PolicyAuthority")
+    );
     match decision {
         tirbase_guard::AdmitDecision::Simulated { would_accept: true, derived_role, .. } => {
             serde_json::json!({"status":200,"simulated":true,"would_accept":true,"derived_role":format!("{derived_role:?}")}).to_string()

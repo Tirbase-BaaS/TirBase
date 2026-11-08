@@ -126,9 +126,12 @@ impl ChangesetDag {
     ///
     /// The `tags_json` column stores an empty JSON array initially.
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         // Compress the payload before storing.
         let compressed = compress_payload(&node.payload)?;
@@ -191,9 +194,12 @@ impl ChangesetDag {
 
     /// Return all child Delta IDs of the given parent.
     pub fn children(&self, parent_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare("SELECT child_id FROM dag_edges WHERE parent_id = ?1;")
@@ -217,9 +223,12 @@ impl ChangesetDag {
 
     /// Return all parent Delta IDs of the given child.
     pub fn parents(&self, child_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare("SELECT parent_id FROM dag_edges WHERE child_id = ?1;")
@@ -250,9 +259,12 @@ impl ChangesetDag {
         &self,
         schema_hash: &SchemaIdentifierHash,
     ) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare("SELECT id FROM dag_nodes WHERE schema_hash = ?1;")
@@ -279,13 +291,13 @@ impl ChangesetDag {
     /// Used during contamination revocation (Req 10.1) to find every Delta
     /// authored by a now-revoked device so they can be tagged
     /// `Contaminated` and quarantined from future merges.
-    pub fn nodes_by_author(
-        &self,
-        author_did: &Did,
-    ) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+    pub fn nodes_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         let mut stmt = conn
             .prepare("SELECT id FROM dag_nodes WHERE author_did = ?1;")
@@ -310,10 +322,7 @@ impl ChangesetDag {
     /// BFS walk from `root_id` following child edges (forward reachability).
     ///
     /// Returns all reachable Delta IDs including `root_id` itself.
-    pub fn bfs_descendants(
-        &self,
-        root_id: &DeltaId,
-    ) -> Result<Vec<DeltaId>, TirBaseError> {
+    pub fn bfs_descendants(&self, root_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         let mut visited: std::collections::HashSet<DeltaId> = std::collections::HashSet::new();
         let mut queue: std::collections::VecDeque<DeltaId> = std::collections::VecDeque::new();
         let mut result: Vec<DeltaId> = Vec::new();
@@ -353,9 +362,12 @@ impl ChangesetDag {
     /// Used by the convergence test to assert that the native DAG persists
     /// at least as many nodes as the WASM in-memory equivalent.
     pub fn len(&self) -> Result<usize, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM dag_nodes;", [], |row| row.get(0))
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -368,18 +380,22 @@ impl ChangesetDag {
     ///
     /// Returns Delta IDs in causal order: all parents before their children.
     pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         // Fetch all node IDs.
         let all_ids: Vec<DeltaId> = {
-            let mut stmt = conn
-                .prepare("SELECT id FROM dag_nodes;")
-                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            let mut stmt = conn.prepare("SELECT id FROM dag_nodes;").map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Prepare all_ids failed: {e}"),
-                })?;
-            let x: Vec<DeltaId> = stmt.query_map([], |row| row.get::<_, Vec<u8>>(0))
+                }
+            })?;
+            let x: Vec<DeltaId> = stmt
+                .query_map([], |row| row.get::<_, Vec<u8>>(0))
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Query all dag_nodes failed: {e}"),
                 })?
@@ -396,19 +412,20 @@ impl ChangesetDag {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Prepare all_edges failed: {e}"),
                 })?;
-            let x: Vec<(DeltaId, DeltaId)> = stmt.query_map([], |row| {
-                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
-            })
-            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                reason: format!("Query all dag_edges failed: {e}"),
-            })?
-            .filter_map(|r| r.ok())
-            .filter_map(|(p, c)| {
-                let p: DeltaId = p.try_into().ok()?;
-                let c: DeltaId = c.try_into().ok()?;
-                Some((p, c))
-            })
-            .collect();
+            let x: Vec<(DeltaId, DeltaId)> = stmt
+                .query_map([], |row| {
+                    Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+                })
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("Query all dag_edges failed: {e}"),
+                })?
+                .filter_map(|r| r.ok())
+                .filter_map(|(p, c)| {
+                    let p: DeltaId = p.try_into().ok()?;
+                    let c: DeltaId = c.try_into().ok()?;
+                    Some((p, c))
+                })
+                .collect();
             x
         };
 
@@ -457,9 +474,12 @@ impl ChangesetDag {
 
     /// Look up a single node by its Delta ID.
     pub fn get(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         let result = conn.query_row(
             "SELECT id, payload, delta_bytes, lamport, schema_hash, compacted, author_did \
@@ -479,17 +499,27 @@ impl ChangesetDag {
         );
 
         match result {
-            Ok((id_bytes, payload_bytes, delta_bytes, lamport, schema_bytes, compacted, author_did)) => {
-                let delta_id_arr: DeltaId = id_bytes
-                    .try_into()
-                    .map_err(|_| TirBaseError::LocalStoreWriteFailed {
-                        reason: "Invalid delta_id length in dag_nodes".to_string(),
-                    })?;
-                let schema_hash: SchemaIdentifierHash = schema_bytes
-                    .try_into()
-                    .map_err(|_| TirBaseError::LocalStoreWriteFailed {
-                        reason: "Invalid schema_hash length in dag_nodes".to_string(),
-                    })?;
+            Ok((
+                id_bytes,
+                payload_bytes,
+                delta_bytes,
+                lamport,
+                schema_bytes,
+                compacted,
+                author_did,
+            )) => {
+                let delta_id_arr: DeltaId =
+                    id_bytes
+                        .try_into()
+                        .map_err(|_| TirBaseError::LocalStoreWriteFailed {
+                            reason: "Invalid delta_id length in dag_nodes".to_string(),
+                        })?;
+                let schema_hash: SchemaIdentifierHash =
+                    schema_bytes
+                        .try_into()
+                        .map_err(|_| TirBaseError::LocalStoreWriteFailed {
+                            reason: "Invalid schema_hash length in dag_nodes".to_string(),
+                        })?;
 
                 // Decompress payload.
                 drop(conn); // release the lock before decompression
@@ -519,9 +549,12 @@ impl ChangesetDag {
 
     /// Mark a node as compacted (hot-path payload pruned).
     pub fn mark_compacted(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned: {e}"),
+            })?;
 
         conn.execute(
             "UPDATE dag_nodes SET compacted = 1 WHERE id = ?1;",
@@ -541,9 +574,12 @@ impl ChangesetDag {
     /// Returns `Ok(Some(bytes))` when the DAG row exists and carries
     /// `delta_bytes`; `Ok(None)` when the row is absent or `delta_bytes` is NULL.
     pub fn delta_bytes(&self, delta_id: &DeltaId) -> Result<Option<Vec<u8>>, TirBaseError> {
-        let conn = self.conn.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("DAG mutex poisoned during refetch: {e}"),
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("DAG mutex poisoned during refetch: {e}"),
+            })?;
 
         let result = conn.query_row(
             "SELECT delta_bytes FROM dag_nodes WHERE id = ?1;",
@@ -634,10 +670,7 @@ impl ChangesetDag {
     /// for the CCE trigger path (fed by `record_authored_delta`), but this
     /// method is provided for parity and for any caller that needs to
     /// query the DAG directly (Req 10.1 WASM parity).
-    pub fn nodes_by_author(
-        &self,
-        author_did: &Did,
-    ) -> Result<Vec<DeltaId>, TirBaseError> {
+    pub fn nodes_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
         Ok(self
             .nodes
             .values()
@@ -646,14 +679,9 @@ impl ChangesetDag {
             .collect())
     }
 
-    pub fn bfs_descendants(
-        &self,
-        root_id: &DeltaId,
-    ) -> Result<Vec<DeltaId>, TirBaseError> {
-        let mut visited: std::collections::HashSet<DeltaId> =
-            std::collections::HashSet::new();
-        let mut queue: std::collections::VecDeque<DeltaId> =
-            std::collections::VecDeque::new();
+    pub fn bfs_descendants(&self, root_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
+        let mut visited: std::collections::HashSet<DeltaId> = std::collections::HashSet::new();
+        let mut queue: std::collections::VecDeque<DeltaId> = std::collections::VecDeque::new();
         let mut result: Vec<DeltaId> = Vec::new();
 
         queue.push_back(*root_id);

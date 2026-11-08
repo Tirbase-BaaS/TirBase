@@ -122,7 +122,10 @@ mod tests {
     fn tmp(tag: &str) -> (PathBuf, PathBuf) {
         static N: AtomicU64 = AtomicU64::new(0);
         let u = N.fetch_add(1, Ordering::Relaxed);
-        let base = std::env::temp_dir().join(format!("tirbase-lockdown-db-{tag}-{}-{u}", std::process::id()));
+        let base = std::env::temp_dir().join(format!(
+            "tirbase-lockdown-db-{tag}-{}-{u}",
+            std::process::id()
+        ));
         (base.join("primary.db"), base.join("var").join("lockdown"))
     }
 
@@ -132,18 +135,27 @@ mod tests {
         {
             let store = SqliteLockdownStore::new(&db, &marker);
             assert!(!store.is_lockdown().unwrap());
-            store.set_lockdown(LockdownEntryReason::GuardDecision).unwrap();
+            store
+                .set_lockdown(LockdownEntryReason::GuardDecision)
+                .unwrap();
             assert!(store.is_lockdown().unwrap());
             assert!(marker.exists());
             let conn = rusqlite::Connection::open(&db).unwrap();
             let v: i64 = conn
-                .query_row("SELECT value FROM monotonic_counters WHERE key=?1", [LOCKDOWN_DB_KEY], |r| r.get(0))
+                .query_row(
+                    "SELECT value FROM monotonic_counters WHERE key=?1",
+                    [LOCKDOWN_DB_KEY],
+                    |r| r.get(0),
+                )
                 .unwrap();
             assert_eq!(v, 1);
         }
         {
             let store = SqliteLockdownStore::new(&db, &marker);
-            assert!(store.is_lockdown().unwrap(), "LOCKDOWN must persist across restart (CLAIM-13.2)");
+            assert!(
+                store.is_lockdown().unwrap(),
+                "LOCKDOWN must persist across restart (CLAIM-13.2)"
+            );
         }
         let _ = std::fs::remove_dir_all(db.parent().unwrap().parent().unwrap());
     }

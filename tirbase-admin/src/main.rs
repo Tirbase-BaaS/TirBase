@@ -48,7 +48,9 @@ fn main() -> Result<()> {
             let result = cmd::enroll::run(&cmd::enroll::EnrollArgs {
                 root_ca_seed_hex: req(&flags, "root-ca-seed-hex")?,
                 role: one(&flags, "role").unwrap_or_else(|| "CommandIssuer".to_string()),
-                ttl_secs: one(&flags, "ttl-secs").unwrap_or_else(|| "86400".to_string()).parse()?,
+                ttl_secs: one(&flags, "ttl-secs")
+                    .unwrap_or_else(|| "86400".to_string())
+                    .parse()?,
                 device_key_path: one(&flags, "device-key-path").map(Into::into),
                 nonce_hex: one(&flags, "nonce-hex"),
             })?;
@@ -58,7 +60,9 @@ fn main() -> Result<()> {
             let token = cmd::mint::run(&cmd::mint::MintArgs {
                 did: req(&flags, "did")?,
                 role: req(&flags, "role")?,
-                ttl_secs: one(&flags, "ttl-secs").unwrap_or_else(|| "3600".to_string()).parse()?,
+                ttl_secs: one(&flags, "ttl-secs")
+                    .unwrap_or_else(|| "3600".to_string())
+                    .parse()?,
                 root_ca_seed_hex: req(&flags, "root-ca-seed-hex")?,
             })?;
             cmd::mint::print_token(&token)?;
@@ -81,9 +85,10 @@ fn main() -> Result<()> {
             if identities.is_empty() {
                 bail!("inspect-identities requires at least one --identity PATH");
             }
-            let records = cmd::inspect_identities::run(&cmd::inspect_identities::InspectIdentitiesArgs {
-                identities,
-            })?;
+            let records =
+                cmd::inspect_identities::run(&cmd::inspect_identities::InspectIdentitiesArgs {
+                    identities,
+                })?;
             cmd::inspect_identities::print_records(&records)?;
         }
         "help" | "--help" | "-h" => print_usage(),

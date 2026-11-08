@@ -66,7 +66,9 @@ pub fn on_write_commit(
         return Ok(None);
     }
     if let Some(incident_id) = ctx.active_incident_id {
-        delta.tags.push(DeltaTag::ContaminatedByHumanReaction { incident_id });
+        delta
+            .tags
+            .push(DeltaTag::ContaminatedByHumanReaction { incident_id });
         return Ok(Some((delta.id, incident_id)));
     }
     // Conditions were true but no incident_id was provided — tag is not appended.

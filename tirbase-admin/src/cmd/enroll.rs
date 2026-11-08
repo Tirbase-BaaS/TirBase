@@ -12,8 +12,8 @@ use anyhow::{Context, Result};
 use tirbase_core::auth::biscuit;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
-use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore, InMemoryNonceStore};
 use tirbase_guard::enrollment::{DeviceIdentity, EnrolledDevice, EnrollmentService};
+use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore, InMemoryNonceStore};
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
 use tirbase_types::CommandRole;
 

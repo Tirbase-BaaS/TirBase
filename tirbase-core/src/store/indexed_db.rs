@@ -111,9 +111,7 @@ impl IdbStore {
 
         let factory = idb::Factory::new().map_err(idb_error)?;
 
-        let mut open_req = factory
-            .open(&name, Some(DB_VERSION))
-            .map_err(idb_error)?;
+        let mut open_req = factory.open(&name, Some(DB_VERSION)).map_err(idb_error)?;
 
         let store_name_for_upgrade = store_name.clone();
         open_req.on_upgrade_needed(move |event| {
@@ -130,16 +128,20 @@ impl IdbStore {
                 if !database.store_names().iter().any(|s| s == *store_name) {
                     database
                         .create_object_store(store_name, idb::ObjectStoreParams::new())
-                        .unwrap_or_else(|e| panic!("create_object_store({store_name}) failed: {e:?}"));
+                        .unwrap_or_else(|e| {
+                            panic!("create_object_store({store_name}) failed: {e:?}")
+                        });
                 }
             }
             // Ensure the kv store is still present.
             let _ = &store_name_for_upgrade;
         });
 
-        let db = std::rc::Rc::new(open_req
-            .await
-            .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?);
+        let db = std::rc::Rc::new(
+            open_req
+                .await
+                .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?,
+        );
 
         Ok(IdbStore {
             db_name: name,
@@ -161,9 +163,8 @@ impl IdbStore {
         value: &[u8],
     ) -> Result<(), TirBaseError> {
         let composite = composite_key(table, key);
-        let value_str = String::from_utf8(value.to_vec()).map_err(|e| {
-            js_error(format!("row value is not valid UTF-8: {e}"))
-        })?;
+        let value_str = String::from_utf8(value.to_vec())
+            .map_err(|e| js_error(format!("row value is not valid UTF-8: {e}")))?;
 
         let tx = self
             .db
@@ -236,10 +237,7 @@ impl IdbStore {
     }
 
     /// Scan all rows in a table from IndexedDB, returning `(key, value)` pairs.
-    pub(crate) async fn query(
-        &self,
-        table: &str,
-    ) -> Result<Vec<(String, Vec<u8>)>, TirBaseError> {
+    pub(crate) async fn query(&self, table: &str) -> Result<Vec<(String, Vec<u8>)>, TirBaseError> {
         let prefix = format!("{table}{KEY_SEP}");
         let mut results: Vec<(String, Vec<u8>)> = Vec::new();
 
@@ -282,14 +280,12 @@ impl IdbStore {
                         .ok_or_else(|| js_error("cursor value is not a string"))?;
 
                     let (_, row_key) = split_composite_key(&composite)?;
-                    let value: Value = serde_json::from_str(&value_str)
-                        .map_err(|e| {
-                            js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
-                        })?;
-                    let bytes = serde_json::to_vec(&value)
-                        .map_err(|e| {
-                            js_error(format!("row {:?}: re-serialisation failed: {e}", composite))
-                        })?;
+                    let value: Value = serde_json::from_str(&value_str).map_err(|e| {
+                        js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                    })?;
+                    let bytes = serde_json::to_vec(&value).map_err(|e| {
+                        js_error(format!("row {:?}: re-serialisation failed: {e}", composite))
+                    })?;
 
                     results.push((row_key, bytes));
 
@@ -350,10 +346,9 @@ impl IdbStore {
                         .as_string()
                         .ok_or_else(|| js_error("cursor value is not a string"))?;
 
-                    let value: Value = serde_json::from_str(&value_str)
-                        .map_err(|e| {
-                            js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
-                        })?;
+                    let value: Value = serde_json::from_str(&value_str).map_err(|e| {
+                        js_error(format!("row {:?}: stored JSON is invalid: {e}", composite))
+                    })?;
 
                     let (table, row_key) = split_composite_key(&composite)?;
                     tables
@@ -433,7 +428,11 @@ impl IdbStore {
         let tx = self
             .db
             .transaction(&[COMPACTION_STORE], idb::TransactionMode::ReadWrite)
-            .map_err(|e| js_error(format!("IDB transaction (readwrite) for compaction failed: {e:?}")))?;
+            .map_err(|e| {
+                js_error(format!(
+                    "IDB transaction (readwrite) for compaction failed: {e:?}"
+                ))
+            })?;
 
         let store = tx
             .object_store(COMPACTION_STORE)
@@ -463,7 +462,11 @@ impl IdbStore {
         let tx = self
             .db
             .transaction(&[COMPACTION_STORE], idb::TransactionMode::ReadOnly)
-            .map_err(|e| js_error(format!("IDB transaction (readonly) for compaction failed: {e:?}")))?;
+            .map_err(|e| {
+                js_error(format!(
+                    "IDB transaction (readonly) for compaction failed: {e:?}"
+                ))
+            })?;
 
         let store = tx
             .object_store(COMPACTION_STORE)
@@ -501,7 +504,11 @@ impl IdbStore {
         let tx = self
             .db
             .transaction(&[COMPACTION_STORE], idb::TransactionMode::ReadWrite)
-            .map_err(|e| js_error(format!("IDB transaction (readwrite) for compaction delete failed: {e:?}")))?;
+            .map_err(|e| {
+                js_error(format!(
+                    "IDB transaction (readwrite) for compaction delete failed: {e:?}"
+                ))
+            })?;
 
         let store = tx
             .object_store(COMPACTION_STORE)
@@ -627,7 +634,11 @@ impl IdbStore {
         let tx = self
             .db
             .transaction(&[QUARANTINE_STORE], idb::TransactionMode::ReadWrite)
-            .map_err(|e| js_error(format!("IDB transaction for quarantine update failed: {e:?}")))?;
+            .map_err(|e| {
+                js_error(format!(
+                    "IDB transaction for quarantine update failed: {e:?}"
+                ))
+            })?;
 
         let store = tx
             .object_store(QUARANTINE_STORE)
@@ -800,7 +811,10 @@ impl IdbStore {
         let value_json = serde_json::to_string(&entry)
             .map_err(|e| js_error(format!("sidecar re-serialisation failed: {e}")))?;
         store
-            .put(&JsValue::from_str(&value_json), Some(&JsValue::from_str(&key)))
+            .put(
+                &JsValue::from_str(&value_json),
+                Some(&JsValue::from_str(&key)),
+            )
             .map_err(|e| js_error(format!("put(sidecar {key}) failed: {e:?}")))?
             .await
             .map_err(|e| js_error(format!("put(sidecar {key}) await failed: {e:?}")))?;
@@ -845,9 +859,7 @@ pub(crate) async fn open_database(path: &str) -> Result<idb::Database, TirBaseEr
     // Re-open to get a standalone handle that the caller owns.
     let name = database_name(path);
     let factory = idb::Factory::new().map_err(idb_error)?;
-    let mut open_req = factory
-        .open(&name, Some(DB_VERSION))
-        .map_err(idb_error)?;
+    let mut open_req = factory.open(&name, Some(DB_VERSION)).map_err(idb_error)?;
     open_req.on_upgrade_needed(move |event| {
         let database = event.database().expect("on_upgrade_needed: no database");
         for store_name in [KV_STORE, COMPACTION_STORE, QUARANTINE_STORE, SIDECAR_STORE] {

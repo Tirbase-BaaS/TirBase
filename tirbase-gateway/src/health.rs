@@ -118,18 +118,26 @@ mod tests {
         }
     }
     impl CountingNotifier {
-        fn count(&self) -> u64 { self.0.load(Ordering::SeqCst) }
+        fn count(&self) -> u64 {
+            self.0.load(Ordering::SeqCst)
+        }
     }
 
     #[tokio::test]
     async fn health_returns_200_within_500ms() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
         let addr = listener.local_addr().expect("local_addr");
         let app = axum::Router::new().route("/health", axum::routing::get(health_handler));
-        tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
         tokio::time::sleep(Duration::from_millis(10)).await;
         let start = Instant::now();
-        let resp = reqwest::get(format!("http://{addr}/health")).await.expect("GET");
+        let resp = reqwest::get(format!("http://{addr}/health"))
+            .await
+            .expect("GET");
         assert_eq!(resp.status(), 200);
         assert!(start.elapsed() < Duration::from_millis(500));
         let body: serde_json::Value = resp.json().await.unwrap();
@@ -150,8 +158,16 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(120)).await;
         shutdown.notify_waiters();
         let _ = task.await;
-        assert!(state.ticks() >= 3, "health loop must make forward progress (ticks={})", state.ticks());
-        assert!(notifier.count() >= 3, "WATCHDOG=1 must be sent each iteration (count={})", notifier.count());
+        assert!(
+            state.ticks() >= 3,
+            "health loop must make forward progress (ticks={})",
+            state.ticks()
+        );
+        assert!(
+            notifier.count() >= 3,
+            "WATCHDOG=1 must be sent each iteration (count={})",
+            notifier.count()
+        );
     }
 
     #[tokio::test]
@@ -174,7 +190,11 @@ mod tests {
         shutdown.notify_waiters();
         let _ = task.await;
         tokio::time::sleep(Duration::from_millis(80)).await;
-        assert_eq!(notifier.count(), before, "stalled/stopped loop must not send watchdog keepalives");
+        assert_eq!(
+            notifier.count(),
+            before,
+            "stalled/stopped loop must not send watchdog keepalives"
+        );
         assert!(state.ticks() >= 2);
     }
 }
@@ -185,9 +205,13 @@ mod tests {
 pub struct CountingNotifier(pub AtomicU64);
 #[cfg(any(test, feature = "test-util"))]
 impl WatchdogNotifier for CountingNotifier {
-    fn notify_watchdog(&self) { self.0.fetch_add(1, Ordering::SeqCst); }
+    fn notify_watchdog(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
 }
 #[cfg(any(test, feature = "test-util"))]
 impl CountingNotifier {
-    pub fn count(&self) -> u64 { self.0.load(Ordering::SeqCst) }
+    pub fn count(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
 }

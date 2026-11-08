@@ -83,9 +83,11 @@ impl FileKeyProvider {
     /// Load an existing key file.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
-        let path_str = path.to_str().ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("identity path is not valid UTF-8: {}", path.display()),
-        })?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("identity path is not valid UTF-8: {}", path.display()),
+            })?;
         let (did, keypair_bytes) = did::load_identity_from(path_str)?.ok_or_else(|| {
             TirBaseError::LocalStoreWriteFailed {
                 reason: format!("identity file not found: {path_str}"),
@@ -113,9 +115,11 @@ impl FileKeyProvider {
         let mut keypair_bytes = Vec::with_capacity(64);
         keypair_bytes.extend_from_slice(&seed);
         keypair_bytes.extend_from_slice(&public_key);
-        let path_str = path.to_str().ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
-            reason: format!("identity path is not valid UTF-8: {}", path.display()),
-        })?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("identity path is not valid UTF-8: {}", path.display()),
+            })?;
         did::persist_identity_to(&did, &keypair_bytes, path_str)?;
 
         let provider = Self::from_seed(seed, did, path.to_path_buf());
@@ -127,11 +131,7 @@ impl FileKeyProvider {
 
     /// Construct a provider from an existing seed (used by tests and by callers
     /// that already hold an identity file).
-    pub fn from_seed(
-        seed: [u8; 32],
-        did: String,
-        path: PathBuf,
-    ) -> Result<Self, TirBaseError> {
+    pub fn from_seed(seed: [u8; 32], did: String, path: PathBuf) -> Result<Self, TirBaseError> {
         let signing_key = SigningKey::from_bytes(&seed);
         let public_key = signing_key.verifying_key().to_bytes();
         Ok(FileKeyProvider {
@@ -188,7 +188,9 @@ impl ZeroizeOnDrop for FileKeyProvider {}
 impl KeyProvider for FileKeyProvider {
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
         let signing_key = SigningKey::from_bytes(self.seed.expose_secret());
-        Ok(DeviceSignature::Ed25519(signing_key.sign(payload).to_bytes()))
+        Ok(DeviceSignature::Ed25519(
+            signing_key.sign(payload).to_bytes(),
+        ))
     }
 
     async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
@@ -281,7 +283,9 @@ impl ZeroizeOnDrop for InMemoryKeyProvider {}
 impl KeyProvider for InMemoryKeyProvider {
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
         let signing_key = SigningKey::from_bytes(self.seed.expose_secret());
-        Ok(DeviceSignature::Ed25519(signing_key.sign(payload).to_bytes()))
+        Ok(DeviceSignature::Ed25519(
+            signing_key.sign(payload).to_bytes(),
+        ))
     }
 
     async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
@@ -334,12 +338,14 @@ mod tests {
             .public_key_bytes()
             .try_into()
             .expect("ed25519 public key is 32 bytes");
-        keypair::verify(&public_key, payload, &crate::crdt::delta::Ed25519Signature::from_bytes(
-            match signature {
+        keypair::verify(
+            &public_key,
+            payload,
+            &crate::crdt::delta::Ed25519Signature::from_bytes(match signature {
                 DeviceSignature::Ed25519(bytes) => bytes,
                 DeviceSignature::P256(_) => panic!("expected Ed25519 signature"),
-            },
-        ))
+            }),
+        )
         .expect("signature verifies");
 
         // Reloading the same file yields the same identity and can verify the

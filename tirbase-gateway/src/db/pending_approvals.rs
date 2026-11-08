@@ -65,8 +65,7 @@ impl SqlitePendingApprovalsStore {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| format!("create {parent:?}: {e}"))?;
+                std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
             }
         }
         let conn = Connection::open(path).map_err(|e| format!("open: {e}"))?;

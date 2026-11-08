@@ -77,25 +77,16 @@ pub enum DeltaTag {
         resolved_at: i64,
     },
     /// A Manager_DID has verified data for this root Delta.
-    Resolved {
-        by_manager_did: Did,
-        at: i64,
-    },
+    Resolved { by_manager_did: Did, at: i64 },
     /// This Delta was written while the local projection was CONTAMINATED
     /// or the incoming stream was quarantined (Req 19.5).
-    ContaminatedByHumanReaction {
-        incident_id: uuid::Uuid,
-    },
+    ContaminatedByHumanReaction { incident_id: uuid::Uuid },
     /// This Delta (or one of its causal ancestors) was authored under a
     /// schema produced by a migration that was later revoked as corrupted
     /// (Req 19.1).
-    ContaminatedByCorruptedMigration {
-        migration_id: [u8; 32],
-    },
+    ContaminatedByCorruptedMigration { migration_id: [u8; 32] },
     /// Side-Car replay completed with zero conflicts for this migration (Req 19.6).
-    ReplayComplete {
-        migration_id: [u8; 32],
-    },
+    ReplayComplete { migration_id: [u8; 32] },
 }
 
 // ─── Delta ────────────────────────────────────────────────────────────────────
@@ -163,8 +154,7 @@ impl Delta {
             lamport: self.lamport,
             created_at: self.created_at,
         };
-        serde_json::to_vec(&payload)
-            .expect("canonical_bytes serialisation must not fail")
+        serde_json::to_vec(&payload).expect("canonical_bytes serialisation must not fail")
     }
 
     /// Compute the `DeltaId` as SHA-256 of `canonical_bytes()` (Req 7.2 / design).
@@ -216,7 +206,10 @@ mod tests {
         let d = make_delta(42, "did:key:z6MkA", b"am-bytes".to_vec());
         let b1 = d.canonical_bytes();
         let b2 = d.canonical_bytes();
-        assert_eq!(b1, b2, "canonical_bytes must return identical bytes on repeated calls");
+        assert_eq!(
+            b1, b2,
+            "canonical_bytes must return identical bytes on repeated calls"
+        );
     }
 
     #[test]
@@ -242,7 +235,10 @@ mod tests {
         d.id = [0xAB; 32];
         let after = d.canonical_bytes();
 
-        assert_eq!(before, after, "canonical_bytes must not include the id field");
+        assert_eq!(
+            before, after,
+            "canonical_bytes must not include the id field"
+        );
     }
 
     #[test]
@@ -328,7 +324,9 @@ mod tests {
 
     #[test]
     fn delta_tag_replay_complete_round_trip() {
-        let tag = DeltaTag::ReplayComplete { migration_id: [0xBB; 32] };
+        let tag = DeltaTag::ReplayComplete {
+            migration_id: [0xBB; 32],
+        };
         let json = serde_json::to_string(&tag).unwrap();
         let decoded: DeltaTag = serde_json::from_str(&json).unwrap();
         assert_eq!(tag, decoded);
@@ -338,7 +336,11 @@ mod tests {
 
     #[test]
     fn priority_class_all_variants_round_trip() {
-        for p in [PriorityClass::High, PriorityClass::Medium, PriorityClass::Low] {
+        for p in [
+            PriorityClass::High,
+            PriorityClass::Medium,
+            PriorityClass::Low,
+        ] {
             let json = serde_json::to_string(&p).unwrap();
             let decoded: PriorityClass = serde_json::from_str(&json).unwrap();
             assert_eq!(p, decoded);
