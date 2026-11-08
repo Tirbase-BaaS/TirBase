@@ -2,7 +2,7 @@
 name = "tirbase-admin"
 version = "0.1.0"
 edition = "2021"
-description = "TirBase operator CLI for device enrollment, token minting, key rotation, and event inspection"
+description = "TirBase operator CLI for device enrollment, token minting, key rotation, and identity inspection"
 license = "MIT"
 
 [[bin]]
@@ -13,3 +13,11 @@ path = "src/main.rs"
 tirbase-types = { workspace = true }
 tirbase-core  = { workspace = true }
 tirbase-guard = { workspace = true }
+anyhow = "1"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
