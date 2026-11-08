@@ -1,5 +1,568 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+ Documenting tirbase-types v0.1.0 (/Users/macbook/github code/TriBase/tirbase-types)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.05s
 pub mod tirbase_types
 pub use tirbase_types::serde
+pub mod tirbase_types::command
+pub struct tirbase_types::command::CoSignature
+pub tirbase_types::command::CoSignature::role: tirbase_types::CommandRole
+pub tirbase_types::command::CoSignature::signature: tirbase_types::DeviceSignature
+pub tirbase_types::command::CoSignature::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::clone(&self) -> tirbase_types::command::CoSignature
+impl core::cmp::Eq for tirbase_types::command::CoSignature
+impl core::cmp::PartialEq for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::eq(&self, &tirbase_types::command::CoSignature) -> bool
+impl core::fmt::Debug for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::command::CoSignature
+impl serde_core::ser::Serialize for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::command::CoSignature
+impl core::marker::Send for tirbase_types::command::CoSignature
+impl core::marker::Sync for tirbase_types::command::CoSignature
+impl core::marker::Unpin for tirbase_types::command::CoSignature
+impl core::marker::UnsafeUnpin for tirbase_types::command::CoSignature
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CoSignature
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CoSignature
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CoSignature where U: core::convert::From<T>
+pub fn tirbase_types::command::CoSignature::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CoSignature where U: core::convert::Into<T>
+pub type tirbase_types::command::CoSignature::Error = core::convert::Infallible
+pub fn tirbase_types::command::CoSignature::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CoSignature where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CoSignature::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CoSignature::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CoSignature where T: core::clone::Clone
+pub type tirbase_types::command::CoSignature::Owned = T
+pub fn tirbase_types::command::CoSignature::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CoSignature::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CoSignature where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CoSignature where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CoSignature::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::command::CoSignature where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::command::CommandMessage
+pub tirbase_types::command::CommandMessage::challenge_nonce: core::option::Option<[u8; 32]>
+pub tirbase_types::command::CommandMessage::co_signatures: alloc::vec::Vec<tirbase_types::command::CoSignature>
+pub tirbase_types::command::CommandMessage::desired_state: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::command::CommandMessage::enrollment_epoch: u64
+pub tirbase_types::command::CommandMessage::expiry_est: i64
+pub tirbase_types::command::CommandMessage::idempotency_key: [u8; 16]
+pub tirbase_types::command::CommandMessage::issuer_did: tirbase_types::Did
+pub tirbase_types::command::CommandMessage::param: alloc::string::String
+pub tirbase_types::command::CommandMessage::policy_version: u64
+pub tirbase_types::command::CommandMessage::role: tirbase_types::CommandRole
+pub tirbase_types::command::CommandMessage::sequence_number: u64
+pub tirbase_types::command::CommandMessage::signature: tirbase_types::DeviceSignature
+pub tirbase_types::command::CommandMessage::target_id: tirbase_types::TargetId
+impl tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::body(&self) -> tirbase_types::command::CommandMessageBody<'_>
+impl core::clone::Clone for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::clone(&self) -> tirbase_types::command::CommandMessage
+impl core::cmp::Eq for tirbase_types::command::CommandMessage
+impl core::cmp::PartialEq for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::eq(&self, &tirbase_types::command::CommandMessage) -> bool
+impl core::fmt::Debug for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::command::CommandMessage
+impl serde_core::ser::Serialize for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::command::CommandMessage
+impl core::marker::Send for tirbase_types::command::CommandMessage
+impl core::marker::Sync for tirbase_types::command::CommandMessage
+impl core::marker::Unpin for tirbase_types::command::CommandMessage
+impl core::marker::UnsafeUnpin for tirbase_types::command::CommandMessage
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CommandMessage
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CommandMessage
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CommandMessage where U: core::convert::From<T>
+pub fn tirbase_types::command::CommandMessage::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CommandMessage where U: core::convert::Into<T>
+pub type tirbase_types::command::CommandMessage::Error = core::convert::Infallible
+pub fn tirbase_types::command::CommandMessage::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CommandMessage where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CommandMessage::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CommandMessage::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CommandMessage where T: core::clone::Clone
+pub type tirbase_types::command::CommandMessage::Owned = T
+pub fn tirbase_types::command::CommandMessage::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CommandMessage::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CommandMessage where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CommandMessage where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CommandMessage where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CommandMessage where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CommandMessage::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::command::CommandMessage where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::command::CommandMessageBody<'a>
+pub tirbase_types::command::CommandMessageBody::challenge_nonce: &'a core::option::Option<[u8; 32]>
+pub tirbase_types::command::CommandMessageBody::co_signatures: &'a [tirbase_types::command::CoSignature]
+pub tirbase_types::command::CommandMessageBody::desired_state: &'a tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::command::CommandMessageBody::enrollment_epoch: u64
+pub tirbase_types::command::CommandMessageBody::expiry_est: i64
+pub tirbase_types::command::CommandMessageBody::idempotency_key: &'a [u8; 16]
+pub tirbase_types::command::CommandMessageBody::issuer_did: &'a tirbase_types::Did
+pub tirbase_types::command::CommandMessageBody::param: &'a str
+pub tirbase_types::command::CommandMessageBody::policy_version: u64
+pub tirbase_types::command::CommandMessageBody::role: tirbase_types::CommandRole
+pub tirbase_types::command::CommandMessageBody::sequence_number: u64
+pub tirbase_types::command::CommandMessageBody::target_id: &'a tirbase_types::TargetId
+impl<'a> core::clone::Clone for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::clone(&self) -> tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::eq(&self, &tirbase_types::command::CommandMessageBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Send for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CommandMessageBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::command::CommandMessageBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::command::CommandMessageBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::command::CommandMessageBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CommandMessageBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CommandMessageBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CommandMessageBody<'a> where T: core::clone::Clone
+pub type tirbase_types::command::CommandMessageBody<'a>::Owned = T
+pub fn tirbase_types::command::CommandMessageBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CommandMessageBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CommandMessageBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CommandMessageBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CommandMessageBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CommandMessageBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CommandMessageBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::from(T) -> T
+pub const tirbase_types::command::CONTEXT_COMMAND_MESSAGE: &str
+pub mod tirbase_types::envelope
+pub enum tirbase_types::envelope::ConstraintOperator
+pub tirbase_types::envelope::ConstraintOperator::Eq
+pub tirbase_types::envelope::ConstraintOperator::Geq
+pub tirbase_types::envelope::ConstraintOperator::Leq
+impl core::clone::Clone for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::clone(&self) -> tirbase_types::envelope::ConstraintOperator
+impl core::cmp::Eq for tirbase_types::envelope::ConstraintOperator
+impl core::cmp::PartialEq for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::eq(&self, &tirbase_types::envelope::ConstraintOperator) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::envelope::ConstraintOperator
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ConstraintOperator
+impl serde_core::ser::Serialize for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Send for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Sync for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Unpin for tirbase_types::envelope::ConstraintOperator
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ConstraintOperator
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ConstraintOperator
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ConstraintOperator
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ConstraintOperator::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ConstraintOperator::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ConstraintOperator::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ConstraintOperator::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ConstraintOperator::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ConstraintOperator where T: core::clone::Clone
+pub type tirbase_types::envelope::ConstraintOperator::Owned = T
+pub fn tirbase_types::envelope::ConstraintOperator::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ConstraintOperator::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ConstraintOperator where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ConstraintOperator where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ConstraintOperator where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ConstraintOperator where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ConstraintOperator::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ConstraintOperator where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::envelope::ParameterKind
+pub tirbase_types::envelope::ParameterKind::Bool
+pub tirbase_types::envelope::ParameterKind::Enum
+pub tirbase_types::envelope::ParameterKind::Enum::variants: alloc::vec::Vec<(alloc::string::String, i64)>
+pub tirbase_types::envelope::ParameterKind::Range
+pub tirbase_types::envelope::ParameterKind::Range::max: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::ParameterKind::Range::min: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::clone(&self) -> tirbase_types::envelope::ParameterKind
+impl core::cmp::Eq for tirbase_types::envelope::ParameterKind
+impl core::cmp::PartialEq for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::eq(&self, &tirbase_types::envelope::ParameterKind) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ParameterKind
+impl serde_core::ser::Serialize for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ParameterKind
+impl core::marker::Send for tirbase_types::envelope::ParameterKind
+impl core::marker::Sync for tirbase_types::envelope::ParameterKind
+impl core::marker::Unpin for tirbase_types::envelope::ParameterKind
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ParameterKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ParameterKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ParameterKind
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ParameterKind where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ParameterKind::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ParameterKind where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ParameterKind::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ParameterKind::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ParameterKind where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ParameterKind::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ParameterKind::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ParameterKind where T: core::clone::Clone
+pub type tirbase_types::envelope::ParameterKind::Owned = T
+pub fn tirbase_types::envelope::ParameterKind::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ParameterKind::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ParameterKind where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ParameterKind where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ParameterKind where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ParameterKind where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ParameterKind::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ParameterKind where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::envelope::DeviceModel
+pub tirbase_types::envelope::DeviceModel::device_class: alloc::string::String
+pub tirbase_types::envelope::DeviceModel::parameters: alloc::vec::Vec<tirbase_types::envelope::DeviceParameter>
+impl tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::parameter(&self, &str) -> core::option::Option<&tirbase_types::envelope::DeviceParameter>
+impl core::clone::Clone for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::clone(&self) -> tirbase_types::envelope::DeviceModel
+impl core::cmp::Eq for tirbase_types::envelope::DeviceModel
+impl core::cmp::PartialEq for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::eq(&self, &tirbase_types::envelope::DeviceModel) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::DeviceModel
+impl serde_core::ser::Serialize for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::DeviceModel
+impl core::marker::Send for tirbase_types::envelope::DeviceModel
+impl core::marker::Sync for tirbase_types::envelope::DeviceModel
+impl core::marker::Unpin for tirbase_types::envelope::DeviceModel
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::DeviceModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::DeviceModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::DeviceModel
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::DeviceModel where U: core::convert::From<T>
+pub fn tirbase_types::envelope::DeviceModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::DeviceModel where U: core::convert::Into<T>
+pub type tirbase_types::envelope::DeviceModel::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::DeviceModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::DeviceModel where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::DeviceModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::DeviceModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::DeviceModel where T: core::clone::Clone
+pub type tirbase_types::envelope::DeviceModel::Owned = T
+pub fn tirbase_types::envelope::DeviceModel::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::DeviceModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::DeviceModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::DeviceModel where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::DeviceModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::DeviceModel where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::envelope::DeviceParameter
+pub tirbase_types::envelope::DeviceParameter::name: alloc::string::String
+pub tirbase_types::envelope::DeviceParameter::range: [tirbase_types::fixed_point::FixedPointValue; 2]
+pub tirbase_types::envelope::DeviceParameter::unit_id: tirbase_types::UnitId
+pub tirbase_types::envelope::DeviceParameter::unit_label: alloc::string::String
+pub tirbase_types::envelope::DeviceParameter::writable: bool
+impl core::clone::Clone for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::clone(&self) -> tirbase_types::envelope::DeviceParameter
+impl core::cmp::Eq for tirbase_types::envelope::DeviceParameter
+impl core::cmp::PartialEq for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::eq(&self, &tirbase_types::envelope::DeviceParameter) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::DeviceParameter
+impl serde_core::ser::Serialize for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::DeviceParameter
+impl core::marker::Send for tirbase_types::envelope::DeviceParameter
+impl core::marker::Sync for tirbase_types::envelope::DeviceParameter
+impl core::marker::Unpin for tirbase_types::envelope::DeviceParameter
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::DeviceParameter
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::DeviceParameter
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::DeviceParameter
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::From<T>
+pub fn tirbase_types::envelope::DeviceParameter::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::Into<T>
+pub type tirbase_types::envelope::DeviceParameter::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::DeviceParameter::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::DeviceParameter::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::DeviceParameter::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::DeviceParameter where T: core::clone::Clone
+pub type tirbase_types::envelope::DeviceParameter::Owned = T
+pub fn tirbase_types::envelope::DeviceParameter::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::DeviceParameter::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::DeviceParameter where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::DeviceParameter where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::DeviceParameter where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::DeviceParameter where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::DeviceParameter::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::DeviceParameter where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::envelope::EnvelopeProfile
+pub tirbase_types::envelope::EnvelopeProfile::cross_constraints: alloc::vec::Vec<tirbase_types::envelope::LinearConstraint>
+pub tirbase_types::envelope::EnvelopeProfile::device_class: alloc::string::String
+pub tirbase_types::envelope::EnvelopeProfile::parameters: alloc::vec::Vec<tirbase_types::envelope::ParameterSpec>
+pub tirbase_types::envelope::EnvelopeProfile::policy_cancel_window_secs: u32
+pub tirbase_types::envelope::EnvelopeProfile::policy_loosen_m: u8
+pub tirbase_types::envelope::EnvelopeProfile::policy_loosen_n: u8
+pub tirbase_types::envelope::EnvelopeProfile::policy_timelock_secs: u32
+pub tirbase_types::envelope::EnvelopeProfile::profile_id: tirbase_types::ProfileId
+pub tirbase_types::envelope::EnvelopeProfile::signature: tirbase_types::DeviceSignature
+pub tirbase_types::envelope::EnvelopeProfile::version: u64
+impl tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::body(&self) -> tirbase_types::envelope::EnvelopeProfileBody<'_>
+impl core::clone::Clone for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::clone(&self) -> tirbase_types::envelope::EnvelopeProfile
+impl core::cmp::Eq for tirbase_types::envelope::EnvelopeProfile
+impl core::cmp::PartialEq for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::eq(&self, &tirbase_types::envelope::EnvelopeProfile) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::EnvelopeProfile
+impl serde_core::ser::Serialize for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Send for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Sync for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Unpin for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::EnvelopeProfile
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::EnvelopeProfile
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::EnvelopeProfile
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::From<T>
+pub fn tirbase_types::envelope::EnvelopeProfile::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::Into<T>
+pub type tirbase_types::envelope::EnvelopeProfile::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::EnvelopeProfile::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::EnvelopeProfile::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::EnvelopeProfile::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::EnvelopeProfile where T: core::clone::Clone
+pub type tirbase_types::envelope::EnvelopeProfile::Owned = T
+pub fn tirbase_types::envelope::EnvelopeProfile::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::EnvelopeProfile::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::EnvelopeProfile where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::EnvelopeProfile where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::EnvelopeProfile where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::EnvelopeProfile where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::EnvelopeProfile::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::EnvelopeProfile where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub tirbase_types::envelope::EnvelopeProfileBody::cross_constraints: &'a [tirbase_types::envelope::LinearConstraint]
+pub tirbase_types::envelope::EnvelopeProfileBody::device_class: &'a str
+pub tirbase_types::envelope::EnvelopeProfileBody::parameters: &'a [tirbase_types::envelope::ParameterSpec]
+pub tirbase_types::envelope::EnvelopeProfileBody::policy_cancel_window_secs: u32
+pub tirbase_types::envelope::EnvelopeProfileBody::policy_loosen_m: u8
+pub tirbase_types::envelope::EnvelopeProfileBody::policy_loosen_n: u8
+pub tirbase_types::envelope::EnvelopeProfileBody::policy_timelock_secs: u32
+pub tirbase_types::envelope::EnvelopeProfileBody::profile_id: &'a tirbase_types::ProfileId
+pub tirbase_types::envelope::EnvelopeProfileBody::version: u64
+impl<'a> core::clone::Clone for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone(&self) -> tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::eq(&self, &tirbase_types::envelope::EnvelopeProfileBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Send for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: core::clone::Clone
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Owned = T
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::from(T) -> T
+pub struct tirbase_types::envelope::LinearConstraint
+pub tirbase_types::envelope::LinearConstraint::bound: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::LinearConstraint::coefficients: alloc::vec::Vec<(alloc::string::String, tirbase_types::fixed_point::FixedPointValue)>
+pub tirbase_types::envelope::LinearConstraint::operator: tirbase_types::envelope::ConstraintOperator
+impl core::clone::Clone for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::clone(&self) -> tirbase_types::envelope::LinearConstraint
+impl core::cmp::Eq for tirbase_types::envelope::LinearConstraint
+impl core::cmp::PartialEq for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::eq(&self, &tirbase_types::envelope::LinearConstraint) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::LinearConstraint
+impl serde_core::ser::Serialize for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::LinearConstraint
+impl core::marker::Send for tirbase_types::envelope::LinearConstraint
+impl core::marker::Sync for tirbase_types::envelope::LinearConstraint
+impl core::marker::Unpin for tirbase_types::envelope::LinearConstraint
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::LinearConstraint
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::LinearConstraint
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::LinearConstraint
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::From<T>
+pub fn tirbase_types::envelope::LinearConstraint::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::Into<T>
+pub type tirbase_types::envelope::LinearConstraint::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::LinearConstraint::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::LinearConstraint::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::LinearConstraint::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::LinearConstraint where T: core::clone::Clone
+pub type tirbase_types::envelope::LinearConstraint::Owned = T
+pub fn tirbase_types::envelope::LinearConstraint::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::LinearConstraint::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::LinearConstraint where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::LinearConstraint where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::LinearConstraint where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::LinearConstraint where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::LinearConstraint::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::LinearConstraint where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::envelope::ParameterSpec
+pub tirbase_types::envelope::ParameterSpec::canonical_exponent: i8
+pub tirbase_types::envelope::ParameterSpec::critical: bool
+pub tirbase_types::envelope::ParameterSpec::drift_window_secs: u32
+pub tirbase_types::envelope::ParameterSpec::dwell_secs: u32
+pub tirbase_types::envelope::ParameterSpec::kind: tirbase_types::envelope::ParameterKind
+pub tirbase_types::envelope::ParameterSpec::max_delta_in_window: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::ParameterSpec::max_rate_per_sec: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::ParameterSpec::min_off_secs: u32
+pub tirbase_types::envelope::ParameterSpec::name: alloc::string::String
+pub tirbase_types::envelope::ParameterSpec::safe_default: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::ParameterSpec::tightening_floor: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::envelope::ParameterSpec::unit_id: tirbase_types::UnitId
+impl core::clone::Clone for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::clone(&self) -> tirbase_types::envelope::ParameterSpec
+impl core::cmp::Eq for tirbase_types::envelope::ParameterSpec
+impl core::cmp::PartialEq for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::eq(&self, &tirbase_types::envelope::ParameterSpec) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ParameterSpec
+impl serde_core::ser::Serialize for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ParameterSpec
+impl core::marker::Send for tirbase_types::envelope::ParameterSpec
+impl core::marker::Sync for tirbase_types::envelope::ParameterSpec
+impl core::marker::Unpin for tirbase_types::envelope::ParameterSpec
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ParameterSpec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ParameterSpec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ParameterSpec
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ParameterSpec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ParameterSpec::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ParameterSpec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ParameterSpec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ParameterSpec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ParameterSpec where T: core::clone::Clone
+pub type tirbase_types::envelope::ParameterSpec::Owned = T
+pub fn tirbase_types::envelope::ParameterSpec::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ParameterSpec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ParameterSpec where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ParameterSpec where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ParameterSpec where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ParameterSpec where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ParameterSpec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ParameterSpec where T: for<'de> serde_core::de::Deserialize<'de>
 pub mod tirbase_types::fixed_point
 pub enum tirbase_types::fixed_point::BoundsCheck
 pub tirbase_types::fixed_point::BoundsCheck::AboveMax
@@ -202,6 +765,193 @@ pub const tirbase_types::fixed_point::UNIT_RPM: tirbase_types::UnitId
 pub const tirbase_types::fixed_point::UNIT_UNKNOWN: tirbase_types::UnitId
 pub const tirbase_types::fixed_point::UNIT_V: tirbase_types::UnitId
 pub fn tirbase_types::fixed_point::unit_descriptor(tirbase_types::UnitId) -> core::option::Option<&'static tirbase_types::fixed_point::UnitDescriptor>
+pub mod tirbase_types::policy
+pub enum tirbase_types::policy::PolicyBundleKind
+pub tirbase_types::policy::PolicyBundleKind::Loosening
+pub tirbase_types::policy::PolicyBundleKind::Tightening
+impl core::clone::Clone for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::clone(&self) -> tirbase_types::policy::PolicyBundleKind
+impl core::cmp::Eq for tirbase_types::policy::PolicyBundleKind
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::eq(&self, &tirbase_types::policy::PolicyBundleKind) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::policy::PolicyBundleKind
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundleKind
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Send for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Sync for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Unpin for tirbase_types::policy::PolicyBundleKind
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundleKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundleKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundleKind
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundleKind::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundleKind::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundleKind::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundleKind::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundleKind::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundleKind where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundleKind::Owned = T
+pub fn tirbase_types::policy::PolicyBundleKind::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundleKind::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundleKind where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundleKind where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundleKind where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundleKind where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundleKind::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyBundleKind where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::policy::PolicyBundle
+pub tirbase_types::policy::PolicyBundle::co_signatures: alloc::vec::Vec<tirbase_types::policy::PolicyCoSignature>
+pub tirbase_types::policy::PolicyBundle::envelope: tirbase_types::envelope::EnvelopeProfile
+pub tirbase_types::policy::PolicyBundle::kind: tirbase_types::policy::PolicyBundleKind
+pub tirbase_types::policy::PolicyBundle::prev_version_hash: [u8; 32]
+pub tirbase_types::policy::PolicyBundle::version: u64
+impl tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::body(&self) -> tirbase_types::policy::PolicyBundleBody<'_>
+impl core::clone::Clone for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::clone(&self) -> tirbase_types::policy::PolicyBundle
+impl core::cmp::Eq for tirbase_types::policy::PolicyBundle
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::eq(&self, &tirbase_types::policy::PolicyBundle) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundle
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyBundle
+impl core::marker::Send for tirbase_types::policy::PolicyBundle
+impl core::marker::Sync for tirbase_types::policy::PolicyBundle
+impl core::marker::Unpin for tirbase_types::policy::PolicyBundle
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundle
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundle where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundle where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundle::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundle where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundle where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundle::Owned = T
+pub fn tirbase_types::policy::PolicyBundle::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundle where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundle where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundle where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundle where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyBundle where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::policy::PolicyBundleBody<'a>
+pub tirbase_types::policy::PolicyBundleBody::envelope: &'a tirbase_types::envelope::EnvelopeProfile
+pub tirbase_types::policy::PolicyBundleBody::prev_version_hash: &'a [u8; 32]
+pub tirbase_types::policy::PolicyBundleBody::version: u64
+impl<'a> core::clone::Clone for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::clone(&self) -> tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::eq(&self, &tirbase_types::policy::PolicyBundleBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Send for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundleBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundleBody<'a> where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Owned = T
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundleBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundleBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundleBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundleBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundleBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::from(T) -> T
+pub struct tirbase_types::policy::PolicyCoSignature
+pub tirbase_types::policy::PolicyCoSignature::signature: tirbase_types::DeviceSignature
+pub tirbase_types::policy::PolicyCoSignature::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::clone(&self) -> tirbase_types::policy::PolicyCoSignature
+impl core::cmp::Eq for tirbase_types::policy::PolicyCoSignature
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::eq(&self, &tirbase_types::policy::PolicyCoSignature) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyCoSignature
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Send for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Sync for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Unpin for tirbase_types::policy::PolicyCoSignature
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyCoSignature
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyCoSignature
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyCoSignature
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyCoSignature::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyCoSignature::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyCoSignature::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyCoSignature::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyCoSignature::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyCoSignature where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyCoSignature::Owned = T
+pub fn tirbase_types::policy::PolicyCoSignature::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyCoSignature::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyCoSignature where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyCoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyCoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyCoSignature where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyCoSignature::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyCoSignature where T: for<'de> serde_core::de::Deserialize<'de>
 pub mod tirbase_types::units
 pub const tirbase_types::units::ALL_UNITS: &[tirbase_types::fixed_point::UnitDescriptor]
 pub const tirbase_types::units::UNIT_A: tirbase_types::fixed_point::UnitDescriptor
@@ -272,8 +1022,12 @@ pub fn tirbase_types::CommandRole::from_str(&str) -> core::option::Option<Self>
 impl core::clone::Clone for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::clone(&self) -> tirbase_types::CommandRole
 impl core::cmp::Eq for tirbase_types::CommandRole
+impl core::cmp::Ord for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::cmp(&self, &tirbase_types::CommandRole) -> core::cmp::Ordering
 impl core::cmp::PartialEq for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::eq(&self, &tirbase_types::CommandRole) -> bool
+impl core::cmp::PartialOrd for tirbase_types::CommandRole
+pub fn tirbase_types::CommandRole::partial_cmp(&self, &tirbase_types::CommandRole) -> core::option::Option<core::cmp::Ordering>
 impl core::fmt::Debug for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::hash::Hash for tirbase_types::CommandRole
@@ -317,6 +1071,53 @@ pub unsafe fn tirbase_types::CommandRole::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::CommandRole where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::ConstraintOperator
+pub tirbase_types::ConstraintOperator::Eq
+pub tirbase_types::ConstraintOperator::Geq
+pub tirbase_types::ConstraintOperator::Leq
+impl core::clone::Clone for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::clone(&self) -> tirbase_types::envelope::ConstraintOperator
+impl core::cmp::Eq for tirbase_types::envelope::ConstraintOperator
+impl core::cmp::PartialEq for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::eq(&self, &tirbase_types::envelope::ConstraintOperator) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::envelope::ConstraintOperator
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ConstraintOperator
+impl serde_core::ser::Serialize for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Send for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Sync for tirbase_types::envelope::ConstraintOperator
+impl core::marker::Unpin for tirbase_types::envelope::ConstraintOperator
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ConstraintOperator
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ConstraintOperator
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ConstraintOperator
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ConstraintOperator::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ConstraintOperator::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ConstraintOperator::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ConstraintOperator where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ConstraintOperator::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ConstraintOperator::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ConstraintOperator where T: core::clone::Clone
+pub type tirbase_types::envelope::ConstraintOperator::Owned = T
+pub fn tirbase_types::envelope::ConstraintOperator::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ConstraintOperator::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ConstraintOperator where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ConstraintOperator where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ConstraintOperator where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ConstraintOperator::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ConstraintOperator where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ConstraintOperator::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ConstraintOperator
+pub fn tirbase_types::envelope::ConstraintOperator::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ConstraintOperator where T: for<'de> serde_core::de::Deserialize<'de>
 pub enum tirbase_types::DeviceKeyType
 pub tirbase_types::DeviceKeyType::Ed25519
 pub tirbase_types::DeviceKeyType::P256
@@ -465,6 +1266,354 @@ pub unsafe fn tirbase_types::fixed_point::FixedPointError::clone_to_uninit(&self
 impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointError
 pub fn tirbase_types::fixed_point::FixedPointError::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointError where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::ParameterKind
+pub tirbase_types::ParameterKind::Bool
+pub tirbase_types::ParameterKind::Enum
+pub tirbase_types::ParameterKind::Enum::variants: alloc::vec::Vec<(alloc::string::String, i64)>
+pub tirbase_types::ParameterKind::Range
+pub tirbase_types::ParameterKind::Range::max: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::ParameterKind::Range::min: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::clone(&self) -> tirbase_types::envelope::ParameterKind
+impl core::cmp::Eq for tirbase_types::envelope::ParameterKind
+impl core::cmp::PartialEq for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::eq(&self, &tirbase_types::envelope::ParameterKind) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ParameterKind
+impl serde_core::ser::Serialize for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ParameterKind
+impl core::marker::Send for tirbase_types::envelope::ParameterKind
+impl core::marker::Sync for tirbase_types::envelope::ParameterKind
+impl core::marker::Unpin for tirbase_types::envelope::ParameterKind
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ParameterKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ParameterKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ParameterKind
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ParameterKind where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ParameterKind::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ParameterKind where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ParameterKind::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ParameterKind::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ParameterKind where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ParameterKind::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ParameterKind::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ParameterKind where T: core::clone::Clone
+pub type tirbase_types::envelope::ParameterKind::Owned = T
+pub fn tirbase_types::envelope::ParameterKind::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ParameterKind::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ParameterKind where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ParameterKind where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ParameterKind where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterKind::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ParameterKind where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ParameterKind::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ParameterKind
+pub fn tirbase_types::envelope::ParameterKind::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ParameterKind where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_types::PolicyBundleKind
+pub tirbase_types::PolicyBundleKind::Loosening
+pub tirbase_types::PolicyBundleKind::Tightening
+impl core::clone::Clone for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::clone(&self) -> tirbase_types::policy::PolicyBundleKind
+impl core::cmp::Eq for tirbase_types::policy::PolicyBundleKind
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::eq(&self, &tirbase_types::policy::PolicyBundleKind) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_types::policy::PolicyBundleKind
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundleKind
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Send for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Sync for tirbase_types::policy::PolicyBundleKind
+impl core::marker::Unpin for tirbase_types::policy::PolicyBundleKind
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundleKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundleKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundleKind
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundleKind::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundleKind::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundleKind::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundleKind where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundleKind::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundleKind::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundleKind where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundleKind::Owned = T
+pub fn tirbase_types::policy::PolicyBundleKind::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundleKind::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundleKind where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundleKind where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundleKind where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleKind::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundleKind where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundleKind::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_types::policy::PolicyBundleKind::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyBundleKind where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::CoSignature
+pub tirbase_types::CoSignature::role: tirbase_types::CommandRole
+pub tirbase_types::CoSignature::signature: tirbase_types::DeviceSignature
+pub tirbase_types::CoSignature::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::clone(&self) -> tirbase_types::command::CoSignature
+impl core::cmp::Eq for tirbase_types::command::CoSignature
+impl core::cmp::PartialEq for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::eq(&self, &tirbase_types::command::CoSignature) -> bool
+impl core::fmt::Debug for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::command::CoSignature
+impl serde_core::ser::Serialize for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::command::CoSignature
+impl core::marker::Send for tirbase_types::command::CoSignature
+impl core::marker::Sync for tirbase_types::command::CoSignature
+impl core::marker::Unpin for tirbase_types::command::CoSignature
+impl core::marker::UnsafeUnpin for tirbase_types::command::CoSignature
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CoSignature
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CoSignature
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CoSignature where U: core::convert::From<T>
+pub fn tirbase_types::command::CoSignature::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CoSignature where U: core::convert::Into<T>
+pub type tirbase_types::command::CoSignature::Error = core::convert::Infallible
+pub fn tirbase_types::command::CoSignature::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CoSignature where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CoSignature::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CoSignature::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CoSignature where T: core::clone::Clone
+pub type tirbase_types::command::CoSignature::Owned = T
+pub fn tirbase_types::command::CoSignature::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CoSignature::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CoSignature where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::command::CoSignature::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CoSignature where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CoSignature::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CoSignature
+pub fn tirbase_types::command::CoSignature::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::command::CoSignature where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::CommandMessage
+pub tirbase_types::CommandMessage::challenge_nonce: core::option::Option<[u8; 32]>
+pub tirbase_types::CommandMessage::co_signatures: alloc::vec::Vec<tirbase_types::command::CoSignature>
+pub tirbase_types::CommandMessage::desired_state: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::CommandMessage::enrollment_epoch: u64
+pub tirbase_types::CommandMessage::expiry_est: i64
+pub tirbase_types::CommandMessage::idempotency_key: [u8; 16]
+pub tirbase_types::CommandMessage::issuer_did: tirbase_types::Did
+pub tirbase_types::CommandMessage::param: alloc::string::String
+pub tirbase_types::CommandMessage::policy_version: u64
+pub tirbase_types::CommandMessage::role: tirbase_types::CommandRole
+pub tirbase_types::CommandMessage::sequence_number: u64
+pub tirbase_types::CommandMessage::signature: tirbase_types::DeviceSignature
+pub tirbase_types::CommandMessage::target_id: tirbase_types::TargetId
+impl tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::body(&self) -> tirbase_types::command::CommandMessageBody<'_>
+impl core::clone::Clone for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::clone(&self) -> tirbase_types::command::CommandMessage
+impl core::cmp::Eq for tirbase_types::command::CommandMessage
+impl core::cmp::PartialEq for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::eq(&self, &tirbase_types::command::CommandMessage) -> bool
+impl core::fmt::Debug for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::command::CommandMessage
+impl serde_core::ser::Serialize for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::command::CommandMessage
+impl core::marker::Send for tirbase_types::command::CommandMessage
+impl core::marker::Sync for tirbase_types::command::CommandMessage
+impl core::marker::Unpin for tirbase_types::command::CommandMessage
+impl core::marker::UnsafeUnpin for tirbase_types::command::CommandMessage
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CommandMessage
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CommandMessage
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CommandMessage where U: core::convert::From<T>
+pub fn tirbase_types::command::CommandMessage::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CommandMessage where U: core::convert::Into<T>
+pub type tirbase_types::command::CommandMessage::Error = core::convert::Infallible
+pub fn tirbase_types::command::CommandMessage::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CommandMessage where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CommandMessage::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CommandMessage::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CommandMessage where T: core::clone::Clone
+pub type tirbase_types::command::CommandMessage::Owned = T
+pub fn tirbase_types::command::CommandMessage::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CommandMessage::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CommandMessage where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CommandMessage where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CommandMessage where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessage::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CommandMessage where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CommandMessage::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CommandMessage
+pub fn tirbase_types::command::CommandMessage::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::command::CommandMessage where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::CommandMessageBody<'a>
+pub tirbase_types::CommandMessageBody::challenge_nonce: &'a core::option::Option<[u8; 32]>
+pub tirbase_types::CommandMessageBody::co_signatures: &'a [tirbase_types::command::CoSignature]
+pub tirbase_types::CommandMessageBody::desired_state: &'a tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::CommandMessageBody::enrollment_epoch: u64
+pub tirbase_types::CommandMessageBody::expiry_est: i64
+pub tirbase_types::CommandMessageBody::idempotency_key: &'a [u8; 16]
+pub tirbase_types::CommandMessageBody::issuer_did: &'a tirbase_types::Did
+pub tirbase_types::CommandMessageBody::param: &'a str
+pub tirbase_types::CommandMessageBody::policy_version: u64
+pub tirbase_types::CommandMessageBody::role: tirbase_types::CommandRole
+pub tirbase_types::CommandMessageBody::sequence_number: u64
+pub tirbase_types::CommandMessageBody::target_id: &'a tirbase_types::TargetId
+impl<'a> core::clone::Clone for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::clone(&self) -> tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::eq(&self, &tirbase_types::command::CommandMessageBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Send for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::command::CommandMessageBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::command::CommandMessageBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::command::CommandMessageBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::command::CommandMessageBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::command::CommandMessageBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::command::CommandMessageBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::command::CommandMessageBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::command::CommandMessageBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::command::CommandMessageBody<'a> where T: core::clone::Clone
+pub type tirbase_types::command::CommandMessageBody<'a>::Owned = T
+pub fn tirbase_types::command::CommandMessageBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::command::CommandMessageBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::command::CommandMessageBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::command::CommandMessageBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::command::CommandMessageBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::command::CommandMessageBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::command::CommandMessageBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::command::CommandMessageBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::command::CommandMessageBody<'a>
+pub fn tirbase_types::command::CommandMessageBody<'a>::from(T) -> T
+pub struct tirbase_types::DeviceModel
+pub tirbase_types::DeviceModel::device_class: alloc::string::String
+pub tirbase_types::DeviceModel::parameters: alloc::vec::Vec<tirbase_types::envelope::DeviceParameter>
+impl tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::parameter(&self, &str) -> core::option::Option<&tirbase_types::envelope::DeviceParameter>
+impl core::clone::Clone for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::clone(&self) -> tirbase_types::envelope::DeviceModel
+impl core::cmp::Eq for tirbase_types::envelope::DeviceModel
+impl core::cmp::PartialEq for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::eq(&self, &tirbase_types::envelope::DeviceModel) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::DeviceModel
+impl serde_core::ser::Serialize for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::DeviceModel
+impl core::marker::Send for tirbase_types::envelope::DeviceModel
+impl core::marker::Sync for tirbase_types::envelope::DeviceModel
+impl core::marker::Unpin for tirbase_types::envelope::DeviceModel
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::DeviceModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::DeviceModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::DeviceModel
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::DeviceModel where U: core::convert::From<T>
+pub fn tirbase_types::envelope::DeviceModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::DeviceModel where U: core::convert::Into<T>
+pub type tirbase_types::envelope::DeviceModel::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::DeviceModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::DeviceModel where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::DeviceModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::DeviceModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::DeviceModel where T: core::clone::Clone
+pub type tirbase_types::envelope::DeviceModel::Owned = T
+pub fn tirbase_types::envelope::DeviceModel::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::DeviceModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::DeviceModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::DeviceModel where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::DeviceModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::DeviceModel
+pub fn tirbase_types::envelope::DeviceModel::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::DeviceModel where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::DeviceParameter
+pub tirbase_types::DeviceParameter::name: alloc::string::String
+pub tirbase_types::DeviceParameter::range: [tirbase_types::fixed_point::FixedPointValue; 2]
+pub tirbase_types::DeviceParameter::unit_id: tirbase_types::UnitId
+pub tirbase_types::DeviceParameter::unit_label: alloc::string::String
+pub tirbase_types::DeviceParameter::writable: bool
+impl core::clone::Clone for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::clone(&self) -> tirbase_types::envelope::DeviceParameter
+impl core::cmp::Eq for tirbase_types::envelope::DeviceParameter
+impl core::cmp::PartialEq for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::eq(&self, &tirbase_types::envelope::DeviceParameter) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::DeviceParameter
+impl serde_core::ser::Serialize for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::DeviceParameter
+impl core::marker::Send for tirbase_types::envelope::DeviceParameter
+impl core::marker::Sync for tirbase_types::envelope::DeviceParameter
+impl core::marker::Unpin for tirbase_types::envelope::DeviceParameter
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::DeviceParameter
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::DeviceParameter
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::DeviceParameter
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::From<T>
+pub fn tirbase_types::envelope::DeviceParameter::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::Into<T>
+pub type tirbase_types::envelope::DeviceParameter::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::DeviceParameter::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::DeviceParameter where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::DeviceParameter::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::DeviceParameter::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::DeviceParameter where T: core::clone::Clone
+pub type tirbase_types::envelope::DeviceParameter::Owned = T
+pub fn tirbase_types::envelope::DeviceParameter::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::DeviceParameter::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::DeviceParameter where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::DeviceParameter where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::DeviceParameter where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::DeviceParameter::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::DeviceParameter where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::DeviceParameter::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::DeviceParameter
+pub fn tirbase_types::envelope::DeviceParameter::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::DeviceParameter where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_types::Did(pub alloc::string::String)
 impl tirbase_types::Did
 pub fn tirbase_types::Did::as_str(&self) -> &str
@@ -472,8 +1621,12 @@ pub fn tirbase_types::Did::new(impl core::convert::Into<alloc::string::String>) 
 impl core::clone::Clone for tirbase_types::Did
 pub fn tirbase_types::Did::clone(&self) -> tirbase_types::Did
 impl core::cmp::Eq for tirbase_types::Did
+impl core::cmp::Ord for tirbase_types::Did
+pub fn tirbase_types::Did::cmp(&self, &tirbase_types::Did) -> core::cmp::Ordering
 impl core::cmp::PartialEq for tirbase_types::Did
 pub fn tirbase_types::Did::eq(&self, &tirbase_types::Did) -> bool
+impl core::cmp::PartialOrd for tirbase_types::Did
+pub fn tirbase_types::Did::partial_cmp(&self, &tirbase_types::Did) -> core::option::Option<core::cmp::Ordering>
 impl core::fmt::Debug for tirbase_types::Did
 pub fn tirbase_types::Did::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::hash::Hash for tirbase_types::Did
@@ -513,6 +1666,111 @@ pub unsafe fn tirbase_types::Did::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::Did
 pub fn tirbase_types::Did::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::Did where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::EnvelopeProfile
+pub tirbase_types::EnvelopeProfile::cross_constraints: alloc::vec::Vec<tirbase_types::envelope::LinearConstraint>
+pub tirbase_types::EnvelopeProfile::device_class: alloc::string::String
+pub tirbase_types::EnvelopeProfile::parameters: alloc::vec::Vec<tirbase_types::envelope::ParameterSpec>
+pub tirbase_types::EnvelopeProfile::policy_cancel_window_secs: u32
+pub tirbase_types::EnvelopeProfile::policy_loosen_m: u8
+pub tirbase_types::EnvelopeProfile::policy_loosen_n: u8
+pub tirbase_types::EnvelopeProfile::policy_timelock_secs: u32
+pub tirbase_types::EnvelopeProfile::profile_id: tirbase_types::ProfileId
+pub tirbase_types::EnvelopeProfile::signature: tirbase_types::DeviceSignature
+pub tirbase_types::EnvelopeProfile::version: u64
+impl tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::body(&self) -> tirbase_types::envelope::EnvelopeProfileBody<'_>
+impl core::clone::Clone for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::clone(&self) -> tirbase_types::envelope::EnvelopeProfile
+impl core::cmp::Eq for tirbase_types::envelope::EnvelopeProfile
+impl core::cmp::PartialEq for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::eq(&self, &tirbase_types::envelope::EnvelopeProfile) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::EnvelopeProfile
+impl serde_core::ser::Serialize for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Send for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Sync for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::Unpin for tirbase_types::envelope::EnvelopeProfile
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::EnvelopeProfile
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::EnvelopeProfile
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::EnvelopeProfile
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::From<T>
+pub fn tirbase_types::envelope::EnvelopeProfile::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::Into<T>
+pub type tirbase_types::envelope::EnvelopeProfile::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::EnvelopeProfile::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::EnvelopeProfile where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::EnvelopeProfile::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::EnvelopeProfile::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::EnvelopeProfile where T: core::clone::Clone
+pub type tirbase_types::envelope::EnvelopeProfile::Owned = T
+pub fn tirbase_types::envelope::EnvelopeProfile::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::EnvelopeProfile::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::EnvelopeProfile where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::EnvelopeProfile where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::EnvelopeProfile where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfile::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::EnvelopeProfile where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::EnvelopeProfile::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::EnvelopeProfile
+pub fn tirbase_types::envelope::EnvelopeProfile::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::EnvelopeProfile where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::EnvelopeProfileBody<'a>
+pub tirbase_types::EnvelopeProfileBody::cross_constraints: &'a [tirbase_types::envelope::LinearConstraint]
+pub tirbase_types::EnvelopeProfileBody::device_class: &'a str
+pub tirbase_types::EnvelopeProfileBody::parameters: &'a [tirbase_types::envelope::ParameterSpec]
+pub tirbase_types::EnvelopeProfileBody::policy_cancel_window_secs: u32
+pub tirbase_types::EnvelopeProfileBody::policy_loosen_m: u8
+pub tirbase_types::EnvelopeProfileBody::policy_loosen_n: u8
+pub tirbase_types::EnvelopeProfileBody::policy_timelock_secs: u32
+pub tirbase_types::EnvelopeProfileBody::profile_id: &'a tirbase_types::ProfileId
+pub tirbase_types::EnvelopeProfileBody::version: u64
+impl<'a> core::clone::Clone for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone(&self) -> tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::eq(&self, &tirbase_types::envelope::EnvelopeProfileBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Send for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::EnvelopeProfileBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::EnvelopeProfileBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: core::clone::Clone
+pub type tirbase_types::envelope::EnvelopeProfileBody<'a>::Owned = T
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::EnvelopeProfileBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::EnvelopeProfileBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::EnvelopeProfileBody<'a>
+pub fn tirbase_types::envelope::EnvelopeProfileBody<'a>::from(T) -> T
 pub struct tirbase_types::FixedPointValue
 pub tirbase_types::FixedPointValue::exponent: i8
 pub tirbase_types::FixedPointValue::mantissa: i64
@@ -567,6 +1825,107 @@ pub unsafe fn tirbase_types::fixed_point::FixedPointValue::clone_to_uninit(&self
 impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointValue
 pub fn tirbase_types::fixed_point::FixedPointValue::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::LinearConstraint
+pub tirbase_types::LinearConstraint::bound: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::LinearConstraint::coefficients: alloc::vec::Vec<(alloc::string::String, tirbase_types::fixed_point::FixedPointValue)>
+pub tirbase_types::LinearConstraint::operator: tirbase_types::envelope::ConstraintOperator
+impl core::clone::Clone for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::clone(&self) -> tirbase_types::envelope::LinearConstraint
+impl core::cmp::Eq for tirbase_types::envelope::LinearConstraint
+impl core::cmp::PartialEq for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::eq(&self, &tirbase_types::envelope::LinearConstraint) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::LinearConstraint
+impl serde_core::ser::Serialize for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::LinearConstraint
+impl core::marker::Send for tirbase_types::envelope::LinearConstraint
+impl core::marker::Sync for tirbase_types::envelope::LinearConstraint
+impl core::marker::Unpin for tirbase_types::envelope::LinearConstraint
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::LinearConstraint
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::LinearConstraint
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::LinearConstraint
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::From<T>
+pub fn tirbase_types::envelope::LinearConstraint::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::Into<T>
+pub type tirbase_types::envelope::LinearConstraint::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::LinearConstraint::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::LinearConstraint where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::LinearConstraint::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::LinearConstraint::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::LinearConstraint where T: core::clone::Clone
+pub type tirbase_types::envelope::LinearConstraint::Owned = T
+pub fn tirbase_types::envelope::LinearConstraint::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::LinearConstraint::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::LinearConstraint where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::LinearConstraint where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::LinearConstraint where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::LinearConstraint::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::LinearConstraint where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::LinearConstraint::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::LinearConstraint
+pub fn tirbase_types::envelope::LinearConstraint::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::LinearConstraint where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::ParameterSpec
+pub tirbase_types::ParameterSpec::canonical_exponent: i8
+pub tirbase_types::ParameterSpec::critical: bool
+pub tirbase_types::ParameterSpec::drift_window_secs: u32
+pub tirbase_types::ParameterSpec::dwell_secs: u32
+pub tirbase_types::ParameterSpec::kind: tirbase_types::envelope::ParameterKind
+pub tirbase_types::ParameterSpec::max_delta_in_window: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::ParameterSpec::max_rate_per_sec: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::ParameterSpec::min_off_secs: u32
+pub tirbase_types::ParameterSpec::name: alloc::string::String
+pub tirbase_types::ParameterSpec::safe_default: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::ParameterSpec::tightening_floor: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_types::ParameterSpec::unit_id: tirbase_types::UnitId
+impl core::clone::Clone for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::clone(&self) -> tirbase_types::envelope::ParameterSpec
+impl core::cmp::Eq for tirbase_types::envelope::ParameterSpec
+impl core::cmp::PartialEq for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::eq(&self, &tirbase_types::envelope::ParameterSpec) -> bool
+impl core::fmt::Debug for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::envelope::ParameterSpec
+impl serde_core::ser::Serialize for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::envelope::ParameterSpec
+impl core::marker::Send for tirbase_types::envelope::ParameterSpec
+impl core::marker::Sync for tirbase_types::envelope::ParameterSpec
+impl core::marker::Unpin for tirbase_types::envelope::ParameterSpec
+impl core::marker::UnsafeUnpin for tirbase_types::envelope::ParameterSpec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::envelope::ParameterSpec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::envelope::ParameterSpec
+impl<T, U> core::convert::Into<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::From<T>
+pub fn tirbase_types::envelope::ParameterSpec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::Into<T>
+pub type tirbase_types::envelope::ParameterSpec::Error = core::convert::Infallible
+pub fn tirbase_types::envelope::ParameterSpec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::envelope::ParameterSpec where U: core::convert::TryFrom<T>
+pub type tirbase_types::envelope::ParameterSpec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::envelope::ParameterSpec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::envelope::ParameterSpec where T: core::clone::Clone
+pub type tirbase_types::envelope::ParameterSpec::Owned = T
+pub fn tirbase_types::envelope::ParameterSpec::clone_into(&self, &mut T)
+pub fn tirbase_types::envelope::ParameterSpec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::envelope::ParameterSpec where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::envelope::ParameterSpec where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::envelope::ParameterSpec where T: ?core::marker::Sized
+pub fn tirbase_types::envelope::ParameterSpec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::envelope::ParameterSpec where T: core::clone::Clone
+pub unsafe fn tirbase_types::envelope::ParameterSpec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::envelope::ParameterSpec
+pub fn tirbase_types::envelope::ParameterSpec::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::envelope::ParameterSpec where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_types::ParseCommandRoleError
 impl core::clone::Clone for tirbase_types::ParseCommandRoleError
 pub fn tirbase_types::ParseCommandRoleError::clone(&self) -> tirbase_types::ParseCommandRoleError
@@ -610,6 +1969,144 @@ impl<T> core::clone::CloneToUninit for tirbase_types::ParseCommandRoleError wher
 pub unsafe fn tirbase_types::ParseCommandRoleError::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::ParseCommandRoleError
 pub fn tirbase_types::ParseCommandRoleError::from(T) -> T
+pub struct tirbase_types::PolicyBundle
+pub tirbase_types::PolicyBundle::co_signatures: alloc::vec::Vec<tirbase_types::policy::PolicyCoSignature>
+pub tirbase_types::PolicyBundle::envelope: tirbase_types::envelope::EnvelopeProfile
+pub tirbase_types::PolicyBundle::kind: tirbase_types::policy::PolicyBundleKind
+pub tirbase_types::PolicyBundle::prev_version_hash: [u8; 32]
+pub tirbase_types::PolicyBundle::version: u64
+impl tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::body(&self) -> tirbase_types::policy::PolicyBundleBody<'_>
+impl core::clone::Clone for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::clone(&self) -> tirbase_types::policy::PolicyBundle
+impl core::cmp::Eq for tirbase_types::policy::PolicyBundle
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::eq(&self, &tirbase_types::policy::PolicyBundle) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundle
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyBundle
+impl core::marker::Send for tirbase_types::policy::PolicyBundle
+impl core::marker::Sync for tirbase_types::policy::PolicyBundle
+impl core::marker::Unpin for tirbase_types::policy::PolicyBundle
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundle
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundle where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundle where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundle::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundle where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundle where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundle::Owned = T
+pub fn tirbase_types::policy::PolicyBundle::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundle where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundle where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundle where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundle where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundle
+pub fn tirbase_types::policy::PolicyBundle::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyBundle where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::PolicyBundleBody<'a>
+pub tirbase_types::PolicyBundleBody::envelope: &'a tirbase_types::envelope::EnvelopeProfile
+pub tirbase_types::PolicyBundleBody::prev_version_hash: &'a [u8; 32]
+pub tirbase_types::PolicyBundleBody::version: u64
+impl<'a> core::clone::Clone for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::clone(&self) -> tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::cmp::Eq for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::cmp::PartialEq for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::eq(&self, &tirbase_types::policy::PolicyBundleBody<'a>) -> bool
+impl<'a> core::fmt::Debug for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::StructuralPartialEq for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> serde_core::ser::Serialize for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'a> core::marker::Freeze for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Send for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Sync for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::Unpin for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyBundleBody<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyBundleBody<'a>
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyBundleBody<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyBundleBody<'a> where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyBundleBody<'a>::Owned = T
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyBundleBody<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyBundleBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyBundleBody<'a> where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyBundleBody<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyBundleBody<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyBundleBody<'a>
+pub fn tirbase_types::policy::PolicyBundleBody<'a>::from(T) -> T
+pub struct tirbase_types::PolicyCoSignature
+pub tirbase_types::PolicyCoSignature::signature: tirbase_types::DeviceSignature
+pub tirbase_types::PolicyCoSignature::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::clone(&self) -> tirbase_types::policy::PolicyCoSignature
+impl core::cmp::Eq for tirbase_types::policy::PolicyCoSignature
+impl core::cmp::PartialEq for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::eq(&self, &tirbase_types::policy::PolicyCoSignature) -> bool
+impl core::fmt::Debug for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_types::policy::PolicyCoSignature
+impl serde_core::ser::Serialize for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Send for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Sync for tirbase_types::policy::PolicyCoSignature
+impl core::marker::Unpin for tirbase_types::policy::PolicyCoSignature
+impl core::marker::UnsafeUnpin for tirbase_types::policy::PolicyCoSignature
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::policy::PolicyCoSignature
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::policy::PolicyCoSignature
+impl<T, U> core::convert::Into<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::From<T>
+pub fn tirbase_types::policy::PolicyCoSignature::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::Into<T>
+pub type tirbase_types::policy::PolicyCoSignature::Error = core::convert::Infallible
+pub fn tirbase_types::policy::PolicyCoSignature::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::policy::PolicyCoSignature where U: core::convert::TryFrom<T>
+pub type tirbase_types::policy::PolicyCoSignature::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::policy::PolicyCoSignature::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::policy::PolicyCoSignature where T: core::clone::Clone
+pub type tirbase_types::policy::PolicyCoSignature::Owned = T
+pub fn tirbase_types::policy::PolicyCoSignature::clone_into(&self, &mut T)
+pub fn tirbase_types::policy::PolicyCoSignature::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_types::policy::PolicyCoSignature where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::policy::PolicyCoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::policy::PolicyCoSignature where T: ?core::marker::Sized
+pub fn tirbase_types::policy::PolicyCoSignature::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::policy::PolicyCoSignature where T: core::clone::Clone
+pub unsafe fn tirbase_types::policy::PolicyCoSignature::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::policy::PolicyCoSignature
+pub fn tirbase_types::policy::PolicyCoSignature::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_types::policy::PolicyCoSignature where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_types::TargetId(pub alloc::string::String)
 impl tirbase_types::TargetId
 pub fn tirbase_types::TargetId::as_str(&self) -> &str
@@ -617,8 +2114,12 @@ pub fn tirbase_types::TargetId::new(impl core::convert::Into<alloc::string::Stri
 impl core::clone::Clone for tirbase_types::TargetId
 pub fn tirbase_types::TargetId::clone(&self) -> tirbase_types::TargetId
 impl core::cmp::Eq for tirbase_types::TargetId
+impl core::cmp::Ord for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::cmp(&self, &tirbase_types::TargetId) -> core::cmp::Ordering
 impl core::cmp::PartialEq for tirbase_types::TargetId
 pub fn tirbase_types::TargetId::eq(&self, &tirbase_types::TargetId) -> bool
+impl core::cmp::PartialOrd for tirbase_types::TargetId
+pub fn tirbase_types::TargetId::partial_cmp(&self, &tirbase_types::TargetId) -> core::option::Option<core::cmp::Ordering>
 impl core::fmt::Debug for tirbase_types::TargetId
 pub fn tirbase_types::TargetId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::hash::Hash for tirbase_types::TargetId
@@ -700,6 +2201,7 @@ impl<T> core::clone::CloneToUninit for tirbase_types::fixed_point::UnitDescripto
 pub unsafe fn tirbase_types::fixed_point::UnitDescriptor::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_types::fixed_point::UnitDescriptor
 pub fn tirbase_types::fixed_point::UnitDescriptor::from(T) -> T
+pub const tirbase_types::CONTEXT_COMMAND_MESSAGE: &str
 pub const tirbase_types::UNIT_A: tirbase_types::UnitId
 pub const tirbase_types::UNIT_BAR: tirbase_types::UnitId
 pub const tirbase_types::UNIT_BOOLEAN: tirbase_types::UnitId

@@ -93,6 +93,12 @@ Events emitted by the Policy Lifecycle manager (PV-4).
 | LoosensingCancelled | Pending loosening operation cancelled by PolicyAuthority | Medium | Planned | PV-4.10 |
 | TighteningFloorViolation | Bundle would tighten beyond device-class floor from TrustRootRecord | High | Planned | PV-4.11 |
 | GovernanceWeakening | Bundle classified Loosening because governance fields weakened | High | Planned | PV-4.11 |
+| LooseningSignatureCollected | Loosening co-signature collected; operation still pending (implementation variant) | Low | Implemented | PV-4.10 |
+| LooseningApplied | Loosening policy applied after M-of-N threshold and time-lock (implementation variant) | Medium | Implemented | PV-4.10 |
+| LooseningCancelled | Pending loosening operation cancelled by PolicyAuthority (implementation variant) | Medium | Implemented | PV-4.10 |
+| PolicyRollbackBlocked | Incoming bundle version not strictly greater than committed anti-rollback counter; rejected | High | Implemented | PV-4.8 |
+| PolicyRejected | Bundle rejected: classification, signature, or governance check failed | High | Implemented | PV-4.8, PV-4.11 |
+| PolicyLooseningM1Warning | M=1 loosening governance accepted with a startup/operational warning (RD-9) | Medium | Implemented | PV-4.10 |
 
 ---
 

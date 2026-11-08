@@ -36,6 +36,10 @@ pub use envelope::{
     LinearConstraint, ParameterKind, ParameterSpec,
 };
 
+// ── policy module (CLAIM-12.1, PV-4.8) ──────────────────────────────────────
+pub mod policy;
+pub use policy::{PolicyBundle, PolicyBundleBody, PolicyBundleKind, PolicyCoSignature};
+
 // ── command module (CLAIM-11.1, PV-4.1, PV-4.2) ────────────────────────────
 pub mod command;
 pub use command::{

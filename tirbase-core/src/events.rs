@@ -216,6 +216,24 @@ pub enum ReasonCode {
     /// detected.
     MonotonicCounterRegression,
 
+    // PolicyLifecycle (PV-4.8–4.12, CLAIM-12.1–12.11)
+    /// Tightening policy bundle applied after signature verification (PV-4.9).
+    TighteningApplied,
+    /// Loosening co-signature collected; operation still pending.
+    LooseningSignatureCollected,
+    /// Loosening policy applied after M-of-N threshold and time-lock.
+    LooseningApplied,
+    /// Pending loosening operation cancelled by PolicyAuthority.
+    LooseningCancelled,
+    /// Bundle rejected: version not strictly greater than committed counter.
+    PolicyRollbackBlocked,
+    /// Bundle rejected: tightening would violate device-class tightening floor.
+    TighteningFloorViolation,
+    /// Bundle rejected: classification, signature, or governance check failed.
+    PolicyRejected,
+    /// M=1 loosening governance accepted with a startup/operational warning (RD-9).
+    PolicyLooseningM1Warning,
+
     // TimeRatchet (PV-22, CLAIM-7.2–7.5)
     /// A TimeAnchor beacon advanced the ratchet's persisted floor.
     BeaconAccepted,
@@ -293,6 +311,14 @@ impl ReasonCode {
             ReasonCode::ExpandContractViolation => "ExpandContractViolation",
             ReasonCode::FleetPreconditionMissing => "FleetPreconditionMissing",
             ReasonCode::MonotonicCounterRegression => "MonotonicCounterRegression",
+            ReasonCode::TighteningApplied => "TighteningApplied",
+            ReasonCode::LooseningSignatureCollected => "LooseningSignatureCollected",
+            ReasonCode::LooseningApplied => "LooseningApplied",
+            ReasonCode::LooseningCancelled => "LooseningCancelled",
+            ReasonCode::PolicyRollbackBlocked => "PolicyRollbackBlocked",
+            ReasonCode::TighteningFloorViolation => "TighteningFloorViolation",
+            ReasonCode::PolicyRejected => "PolicyRejected",
+            ReasonCode::PolicyLooseningM1Warning => "PolicyLooseningM1Warning",
             ReasonCode::BeaconAccepted => "BeaconAccepted",
             ReasonCode::BeaconRejected => "BeaconRejected",
             ReasonCode::BeaconJumpTooLarge => "BeaconJumpTooLarge",

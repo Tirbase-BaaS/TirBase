@@ -1,3 +1,178 @@
+ Documenting tirbase-core v0.1.0 (/Users/macbook/github code/TriBase/tirbase-core)
+warning: public documentation for `subscribe_durability_events` links to private item `CoreHandle::durability_tier`
+    --> tirbase-core/src/api/mod.rs:4332:11
+     |
+4332 |     /// [`CoreHandle::durability_tier`] for authoritative current state.
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+     |
+     = note: this link will resolve properly if you pass `--document-private-items`
+     = note: `#[warn(rustdoc::private_intra_doc_links)]` on by default
+
+warning: public documentation for `spatial_diversity_min` links to private item `crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct`
+    --> tirbase-core/src/api/mod.rs:4497:56
+     |
+4497 |     /// [`Tier1QuorumTracker::effective_min_distinct`](crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct)).
+     |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+     |
+     = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: unresolved link to `crate::trust_root::TrustRootManager`
+   --> tirbase-core/src/auth/root_ca.rs:127:24
+    |
+127 |     /// protected by [`crate::trust_root::TrustRootManager`].
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `trust_root` in module `tirbase_core`
+    |
+    = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
+
+warning: public documentation for `merge` links to private item `merge_lww`
+  --> tirbase-core/src/crdt/merge.rs:19:7
+   |
+19 | //! [`merge_lww`] or [`merge_rga`] directly.
+   |       ^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `merge` links to private item `merge_rga`
+  --> tirbase-core/src/crdt/merge.rs:19:24
+   |
+19 | //! [`merge_lww`] or [`merge_rga`] directly.
+   |                        ^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `merge` links to private item `merge_lww`
+  --> tirbase-core/src/crdt/merge.rs:21:7
+   |
+21 | //! [`merge_lww`] and [`merge_rga`] are internal helpers that implement the
+   |       ^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `merge` links to private item `merge_rga`
+  --> tirbase-core/src/crdt/merge.rs:21:25
+   |
+21 | //! [`merge_lww`] and [`merge_rga`] are internal helpers that implement the
+   |                         ^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `produce_delta` links to private item `Self::produce_delta_with_tags`
+   --> tirbase-core/src/crdt/mod.rs:555:11
+    |
+555 |     /// [`Self::produce_delta_with_tags`] when a tag must be part of the signed
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `apply` links to private item `DeltaRejectionRecord`
+   --> tirbase-core/src/crdt/mod.rs:641:11
+    |
+641 |     /// [`DeltaRejectionRecord`] carrying the sender DID and a UTC timestamp
+    |           ^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `quorum` links to private item `Tier1QuorumTracker::effective_min_distinct`
+  --> tirbase-core/src/durability/quorum.rs:17:7
+   |
+17 | //! [`Tier1QuorumTracker::effective_min_distinct`]).  Because the tracker only
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `spatial_diversity_min` links to private item `Tier1QuorumTracker::effective_min_distinct`
+  --> tirbase-core/src/durability/quorum.rs:41:39
+   |
+41 |     /// available)` at runtime (see [`Tier1QuorumTracker::effective_min_distinct`])
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `register_delta` links to private item `DurabilitySubsystem::register_peer_key`
+   --> tirbase-core/src/durability/mod.rs:225:14
+    |
+225 |     ///   ([`DurabilitySubsystem::register_peer_key`]).
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: unresolved link to `SecurityEventLog`
+  --> tirbase-core/src/events.rs:13:56
+   |
+13 | //! task 5.4 / 5.8.  The hash-chained, device-signed [`SecurityEventLog`]
+   |                                                        ^^^^^^^^^^^^^^^^ no item named `SecurityEventLog` in scope
+   |
+   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: public documentation for `identity` links to private item `IdentityManager::signing_key_bytes`
+  --> tirbase-core/src/identity/mod.rs:11:7
+   |
+11 | //! [`IdentityManager::signing_key_bytes`] is crate-internal and exists only to
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+   |
+   = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `receive_migration_delta` links to private item `SchemaMigrationEngine::prepare_migration`
+   --> tirbase-core/src/migration/mod.rs:448:51
+    |
+448 |     /// that must satisfy Req 18.6 goes through [`SchemaMigrationEngine::prepare_migration`]
+    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `receive_migration_delta` links to private item `SchemaMigrationEngine::finish_migration`
+   --> tirbase-core/src/migration/mod.rs:449:42
+    |
+449 |     /// → off-lock sandbox execution → [`SchemaMigrationEngine::finish_migration`]
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: public documentation for `receive_revocation_delta` links to private item `Self::prepare_migration`
+   --> tirbase-core/src/migration/mod.rs:520:30
+    |
+520 |     /// engine recorded in [`Self::prepare_migration`] after its CA signature
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+    |
+    = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: unresolved link to `indexed_db`
+  --> tirbase-core/src/store/mod.rs:10:36
+   |
+10 | //! in a throwaway HashMap.  See [`indexed_db`] for the browser glue.
+   |                                    ^^^^^^^^^^ no item named `indexed_db` in scope
+   |
+   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+
+warning: public documentation for `send_receipt` links to private item `crate::api::CoreHandle::issue_durability_receipt`
+    --> tirbase-core/src/transport/mod.rs:1186:30
+     |
+1186 |     /// Production caller: [`crate::api::CoreHandle::issue_durability_receipt`]
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
+     |
+     = note: this link will resolve properly if you pass `--document-private-items`
+
+warning: redundant explicit link target
+ --> tirbase-core/src/events.rs:6:27
+  |
+6 | //! [`SecurityEventSink`](crate::traits::SecurityEventSink).  Ad-hoc
+  |      -------------------  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ explicit target is redundant
+  |      |
+  |      because label contains path that resolves to same destination
+  |
+  = note: when a link's destination is not specified,
+          the label is used to resolve intra-doc links
+  = note: `#[warn(rustdoc::redundant_explicit_links)]` on by default
+help: remove explicit link target
+  |
+6 - //! [`SecurityEventSink`](crate::traits::SecurityEventSink).  Ad-hoc
+6 + //! [`SecurityEventSink`].  Ad-hoc
+  |
+
+warning: `tirbase-core` (lib doc) generated 20 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.98s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_core
 pub mod tirbase_core::api
 pub mod tirbase_core::api::types
@@ -1260,10 +1435,27 @@ pub fn tirbase_core::auth::revocation::current_timestamp_micros() -> i64
 pub mod tirbase_core::auth::root_ca
 pub struct tirbase_core::auth::root_ca::RootCaRegistry
 impl tirbase_core::auth::root_ca::RootCaRegistry
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::active_keys(&self) -> alloc::vec::Vec<[u8; 32]>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::all_keys(&self) -> &[[u8; 32]]
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::is_registered(&self, &[u8; 32]) -> bool
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::is_revoked(&self, &[u8; 32]) -> bool
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::keys(&self) -> &[[u8; 32]]
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::new(alloc::vec::Vec<[u8; 32]>) -> Self
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::primary_key(&self) -> core::option::Option<&[u8; 32]>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::register(&mut self, [u8; 32])
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::revoke(&mut self, &[u8; 32]) -> bool
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::rotate(&mut self, alloc::vec::Vec<[u8; 32]>, usize, &[u8], &[(alloc::string::String, tirbase_types::DeviceSignature)], alloc::vec::Vec<[u8; 32]>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::threshold_k(&self) -> usize
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::threshold_warning(&self) -> core::option::Option<alloc::string::String>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::validate_threshold(&self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::verify_against_first<T, E>(&self, impl core::ops::function::FnMut(&[u8; 32]) -> core::result::Result<T, E>) -> core::result::Result<T, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::with_threshold(alloc::vec::Vec<[u8; 32]>, usize) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+impl core::clone::Clone for tirbase_core::auth::root_ca::RootCaRegistry
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::clone(&self) -> tirbase_core::auth::root_ca::RootCaRegistry
+impl core::default::Default for tirbase_core::auth::root_ca::RootCaRegistry
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::default() -> tirbase_core::auth::root_ca::RootCaRegistry
+impl core::fmt::Debug for tirbase_core::auth::root_ca::RootCaRegistry
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::auth::root_ca::RootCaRegistry
 impl core::marker::Send for tirbase_core::auth::root_ca::RootCaRegistry
 impl core::marker::Sync for tirbase_core::auth::root_ca::RootCaRegistry
@@ -1281,12 +1473,18 @@ pub fn tirbase_core::auth::root_ca::RootCaRegistry::try_from(U) -> core::result:
 impl<T, U> core::convert::TryInto<U> for tirbase_core::auth::root_ca::RootCaRegistry where U: core::convert::TryFrom<T>
 pub type tirbase_core::auth::root_ca::RootCaRegistry::Error = <U as core::convert::TryFrom<T>>::Error
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::auth::root_ca::RootCaRegistry where T: core::clone::Clone
+pub type tirbase_core::auth::root_ca::RootCaRegistry::Owned = T
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::clone_into(&self, &mut T)
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::to_owned(&self) -> T
 impl<T> core::any::Any for tirbase_core::auth::root_ca::RootCaRegistry where T: 'static + ?core::marker::Sized
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::type_id(&self) -> core::any::TypeId
 impl<T> core::borrow::Borrow<T> for tirbase_core::auth::root_ca::RootCaRegistry where T: ?core::marker::Sized
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::borrow(&self) -> &T
 impl<T> core::borrow::BorrowMut<T> for tirbase_core::auth::root_ca::RootCaRegistry where T: ?core::marker::Sized
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::auth::root_ca::RootCaRegistry where T: core::clone::Clone
+pub unsafe fn tirbase_core::auth::root_ca::RootCaRegistry::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_core::auth::root_ca::RootCaRegistry
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::from(T) -> T
 impl<T> crossbeam_epoch::atomic::Pointable for tirbase_core::auth::root_ca::RootCaRegistry
@@ -4331,11 +4529,16 @@ pub tirbase_core::events::ReasonCode::BeaconRejected
 pub tirbase_core::events::ReasonCode::BeaconSignatureInvalid
 pub tirbase_core::events::ReasonCode::BootCompleted
 pub tirbase_core::events::ReasonCode::ClockJump
+pub tirbase_core::events::ReasonCode::CommandAccepted
+pub tirbase_core::events::ReasonCode::CommandSignatureInvalid
 pub tirbase_core::events::ReasonCode::DeltaQuarantined
 pub tirbase_core::events::ReasonCode::DeltaRouted
 pub tirbase_core::events::ReasonCode::DepCountExceeded
+pub tirbase_core::events::ReasonCode::DeviceEnrolled
 pub tirbase_core::events::ReasonCode::DidRevoked
 pub tirbase_core::events::ReasonCode::EngineVersionMismatch
+pub tirbase_core::events::ReasonCode::EpochBumped
+pub tirbase_core::events::ReasonCode::EpochRegression
 pub tirbase_core::events::ReasonCode::ExpandContractViolation
 pub tirbase_core::events::ReasonCode::FleetPreconditionMissing
 pub tirbase_core::events::ReasonCode::FragmentReassemblyFailed
@@ -4346,6 +4549,9 @@ pub tirbase_core::events::ReasonCode::HandshakeFailed
 pub tirbase_core::events::ReasonCode::HandshakeSuccess
 pub tirbase_core::events::ReasonCode::HeadCountExceeded
 pub tirbase_core::events::ReasonCode::LockdownFlagFound
+pub tirbase_core::events::ReasonCode::LooseningApplied
+pub tirbase_core::events::ReasonCode::LooseningCancelled
+pub tirbase_core::events::ReasonCode::LooseningSignatureCollected
 pub tirbase_core::events::ReasonCode::MergeVerified
 pub tirbase_core::events::ReasonCode::MigrationApplied
 pub tirbase_core::events::ReasonCode::MigrationCancelled
@@ -4354,11 +4560,15 @@ pub tirbase_core::events::ReasonCode::MissingDependencyTimeout
 pub tirbase_core::events::ReasonCode::MonotonicCounterRegression
 pub tirbase_core::events::ReasonCode::NonAutomergePayload
 pub tirbase_core::events::ReasonCode::NonDeterministicModule
+pub tirbase_core::events::ReasonCode::NonceReused
 pub tirbase_core::events::ReasonCode::OpCountExceeded
 pub tirbase_core::events::ReasonCode::Oversize
 pub tirbase_core::events::ReasonCode::PeerConnected
 pub tirbase_core::events::ReasonCode::PeerDisconnected
 pub tirbase_core::events::ReasonCode::PendingQueueOverflow
+pub tirbase_core::events::ReasonCode::PolicyLooseningM1Warning
+pub tirbase_core::events::ReasonCode::PolicyRejected
+pub tirbase_core::events::ReasonCode::PolicyRollbackBlocked
 pub tirbase_core::events::ReasonCode::PostconditionFailed
 pub tirbase_core::events::ReasonCode::RateExceeded
 pub tirbase_core::events::ReasonCode::RelaySelected
@@ -4367,8 +4577,11 @@ pub tirbase_core::events::ReasonCode::RevocationPostExecution
 pub tirbase_core::events::ReasonCode::RevocationSignatureReceived
 pub tirbase_core::events::ReasonCode::RevocationVerificationFailed
 pub tirbase_core::events::ReasonCode::SchemaAdditiveAccepted
+pub tirbase_core::events::ReasonCode::TighteningApplied
+pub tirbase_core::events::ReasonCode::TighteningFloorViolation
 pub tirbase_core::events::ReasonCode::TokenInvalid
 pub tirbase_core::events::ReasonCode::TraversalBudgetExceeded
+pub tirbase_core::events::ReasonCode::TrustRootRollbackRejected
 impl tirbase_core::events::ReasonCode
 pub fn tirbase_core::events::ReasonCode::as_str(&self) -> &'static str
 impl core::clone::Clone for tirbase_core::events::ReasonCode
@@ -4699,6 +4912,8 @@ pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::generate(impl
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::load(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::load_or_generate(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::path(&self) -> &std::path::Path
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::public_key(&self) -> [u8; 32]
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::secret_seed(&self) -> [u8; 32]
 impl core::fmt::Debug for tirbase_core::identity::file_key_provider::FileKeyProvider
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::ops::drop::Drop for tirbase_core::identity::file_key_provider::FileKeyProvider
@@ -4757,6 +4972,8 @@ pub struct tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 impl tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::from_seed([u8; 32]) -> Self
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::generate() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::public_key(&self) -> [u8; 32]
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::secret_seed(&self) -> [u8; 32]
 impl core::fmt::Debug for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::ops::drop::Drop for tirbase_core::identity::file_key_provider::InMemoryKeyProvider

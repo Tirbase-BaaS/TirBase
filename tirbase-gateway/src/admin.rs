@@ -42,6 +42,7 @@
 //!
 //! CLAIM-4.9.2 — PV-30.2
 
+use std::fmt;
 use std::sync::Arc;
 
 use serde::Deserialize;
@@ -49,9 +50,9 @@ use tirbase_guard::epoch::{EpochBump, EpochRegistry};
 use tirbase_guard::enrollment::{EnrollmentRequest, EnrollmentService};
 use tirbase_guard::signed_operation::SignedOperation;
 use tirbase_guard::trust_root::TrustRootRecord;
+use tirbase_guard::PolicyBundle;
 
-/// State shared by the admin endpoints that task 8 wires.
-#[derive(Debug)]
+/// State shared by the admin endpoints.
 pub struct AdminState {
     /// Enrollment service; `None` disables the `enroll` endpoint (501).
     pub enrollment: Option<Arc<EnrollmentService>>,
@@ -59,6 +60,27 @@ pub struct AdminState {
     pub epochs: Option<Arc<EpochRegistry>>,
     /// Trust root used for role-threshold checks during an epoch bump.
     pub trust_root: Option<Arc<TrustRootRecord>>,
+    /// Policy lifecycle (tasks 12.1–12.7, CLAIM-12.1–7). When present,
+    /// `/admin/policy` pushes bundles through `PolicyLifecycle::ingest_bundle`
+    /// (reclassifies — never trusts `bundle.kind`, enforces anti-rollback).
+    pub policy: Option<Arc<std::sync::Mutex<tirbase_guard::PolicyLifecycle>>>,
+}
+
+impl fmt::Debug for AdminState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AdminState")
+            .field("has_enrollment", &self.enrollment.is_some())
+            .field("has_epochs", &self.epochs.is_some())
+            .field("has_trust_root", &self.trust_root.is_some())
+            .field("has_policy", &self.policy.is_some())
+            .finish()
+    }
+}
+
+impl Default for AdminState {
+    fn default() -> Self {
+        AdminState { enrollment: None, epochs: None, trust_root: None, policy: None }
+    }
 }
 
 impl AdminState {
@@ -72,6 +94,7 @@ impl AdminState {
             enrollment: Some(enrollment),
             epochs: Some(epochs),
             trust_root: Some(trust_root),
+            policy: None,
         }
     }
 }
@@ -90,12 +113,12 @@ pub fn dispatch_admin_command(command: &str, state: Option<&AdminState>) -> Stri
 /// Production callers go through [`dispatch_admin_command`]; tests use this
 /// entry point so a concurrently installed simulated `TimeSource` cannot make
 /// nonces appear older than their 72-hour retention window.
-fn dispatch_admin_command_at(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+pub fn dispatch_admin_command_at(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let body = match parse_cmd_field(command).as_deref() {
         Some("enroll") => dispatch_enroll(command, state, now_est),
         Some("mint") => stub_501("mint"),
         Some("rotate") => stub_501("rotate"),
-        Some("policy") => stub_501("policy"),
+        Some("policy") => dispatch_policy(command, state, now_est),
         Some("events") => stub_501("events"),
         Some("simulate") => stub_501("simulate"),
         Some("challenge") => stub_501("challenge"),
@@ -220,7 +243,8 @@ fn parse_cmd_field(json: &str) -> Option<String> {
 #[cfg(target_os = "linux")]
 mod linux {
     use std::path::Path;
-    use std::sync::Arc;
+use std::fmt;
+use std::sync::Arc;
 
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::{UnixListener, UnixStream};
@@ -444,4 +468,34 @@ mod tests {
         assert!(value["error"].as_str().unwrap().contains("nonce reused"));
     }
 
+}
+
+fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(policy) = state.and_then(|s| s.policy.as_ref()) else {
+        return stub_501("policy");
+    };
+    let payload = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("policy requires a payload object"),
+    };
+    // Accept {"bundle": <PolicyBundle>} or a direct bundle payload.
+    let bundle_val = payload.get("bundle").cloned().unwrap_or(payload);
+    let bundle: PolicyBundle = match serde_json::from_value(bundle_val) {
+        Ok(b) => b,
+        Err(e) => return bad_request(&format!("invalid policy bundle: {e}")),
+    };
+    let mut guard = match policy.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    match guard.ingest_bundle(bundle, now_est) {
+        Ok(tirbase_guard::PolicyIngestOutcome::TighteningApplied { version }) => {
+            serde_json::json!({"status":200,"outcome":"tightening_applied","version":version}).to_string()
+        }
+        Ok(tirbase_guard::PolicyIngestOutcome::LooseningPending { version, required_m, required_n, timelock_until_est, .. }) => {
+            serde_json::json!({"status":202,"outcome":"loosening_pending","version":version,
+                "required_m":required_m,"required_n":required_n,"timelock_until_est":timelock_until_est}).to_string()
+        }
+        Err(e) => serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"policy"}).to_string(),
+    }
 }

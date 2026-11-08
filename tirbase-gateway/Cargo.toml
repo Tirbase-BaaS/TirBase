@@ -60,6 +60,7 @@ zeroize = { version = "1.9", features = ["derive"] }
 
 # Hex decoding for TimeAnchor public keys in the beacon trust file (task 7.4).
 hex = "0.4"
+arc-swap = "1"
 
 
 [dev-dependencies]

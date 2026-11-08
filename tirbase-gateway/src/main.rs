@@ -18,31 +18,10 @@
 //!
 //! The guard pipeline and admin/health listeners are wired in subsequent tasks.
 
-// Warn on dead private code across this crate. `pub` items are naturally exempt
-// (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]
 
-/// Admin Unix-socket listener with SO_PEERCRED authentication (task 4.9.2).
-pub mod admin;
+use tirbase_gateway::*;
 
-/// Command ingress (mesh, cloud, local admin) — all paths converge on
-/// `CommandGuard::admit()` before `DriverProxy` dispatch (task 11.3, CLAIM-11.3).
-pub mod command_ingress;
-
-/// Health endpoint: GET /health → 200 OK (task 4.9.3, PV-30.3, CLAIM-4.9.3).
-pub mod health;
-
-/// `primary.db` schema and stores — including the `time_ratchet` table
-/// (task 7.6, CLAIM-7.6).
-pub mod db;
-
-mod config;
-mod hw_counter_binding;
-mod key_provider;
-mod monotonic_counter;
-mod security_sink;
-mod time_beacon;
-mod time_source;
 
 use std::sync::Arc;
 use std::time::Duration;
