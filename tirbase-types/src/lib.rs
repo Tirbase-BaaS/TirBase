@@ -13,6 +13,8 @@ extern crate alloc;
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt;
+use core::str::FromStr;
 
 pub use serde;
 
@@ -22,25 +24,9 @@ pub use serde;
 //   (CLAIM-4.2, CLAIM-4.4, CLAIM-4.6, PV-21.1, INV-1)
 pub mod fixed_point;
 pub use fixed_point::{
-    BoundsCheck,
-    FixedPointError,
-    FixedPointValue,
-    UnitDescriptor,
-    UNIT_DESCRIPTORS,
-    UNIT_UNKNOWN,
-    UNIT_DEG_C,
-    UNIT_PA,
-    UNIT_RPM,
-    UNIT_BAR,
-    UNIT_KW,
-    UNIT_PERCENT,
-    UNIT_BOOLEAN,
-    UNIT_KPA,
-    UNIT_M3H,
-    UNIT_V,
-    UNIT_A,
-    UNIT_HZ,
-    unit_descriptor,
+    unit_descriptor, BoundsCheck, FixedPointError, FixedPointValue, UnitDescriptor, UNIT_A,
+    UNIT_BAR, UNIT_BOOLEAN, UNIT_DEG_C, UNIT_DESCRIPTORS, UNIT_HZ, UNIT_KPA, UNIT_KW, UNIT_M3H,
+    UNIT_PA, UNIT_PERCENT, UNIT_RPM, UNIT_UNKNOWN, UNIT_V,
 };
 
 // ── Role ───────────────────────────────────────────────────────────────────────
@@ -72,6 +58,32 @@ pub enum CommandRole {
     TimeAnchor,
 }
 
+/// Error returned when parsing a [`CommandRole`] from an unknown string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParseCommandRoleError;
+
+impl fmt::Display for ParseCommandRoleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("unknown command role")
+    }
+}
+
+impl FromStr for CommandRole {
+    type Err = ParseCommandRoleError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "CommandIssuer" => Ok(CommandRole::CommandIssuer),
+            "PolicyAuthority" => Ok(CommandRole::PolicyAuthority),
+            "UpdateSigner" => Ok(CommandRole::UpdateSigner),
+            "RevocationManager" => Ok(CommandRole::RevocationManager),
+            "Auditor" => Ok(CommandRole::Auditor),
+            "TimeAnchor" => Ok(CommandRole::TimeAnchor),
+            _ => Err(ParseCommandRoleError),
+        }
+    }
+}
+
 impl CommandRole {
     /// Returns the canonical string name of the role, matching the Biscuit token fact value.
     ///
@@ -79,29 +91,23 @@ impl CommandRole {
     /// for token-to-role binding at Stage 4 of the guard pipeline.
     pub fn as_str(&self) -> &'static str {
         match self {
-            CommandRole::CommandIssuer    => "CommandIssuer",
-            CommandRole::PolicyAuthority  => "PolicyAuthority",
-            CommandRole::UpdateSigner     => "UpdateSigner",
+            CommandRole::CommandIssuer => "CommandIssuer",
+            CommandRole::PolicyAuthority => "PolicyAuthority",
+            CommandRole::UpdateSigner => "UpdateSigner",
             CommandRole::RevocationManager => "RevocationManager",
-            CommandRole::Auditor          => "Auditor",
-            CommandRole::TimeAnchor       => "TimeAnchor",
+            CommandRole::Auditor => "Auditor",
+            CommandRole::TimeAnchor => "TimeAnchor",
         }
     }
 
-    /// Parses a [`CommandRole`] from a Biscuit token fact string.
+    /// Parses a [`CommandRole`] from a Biscuit token fact string, returning `None`
+    /// for unknown roles.
     ///
-    /// Returns `None` if the string does not match any known role. Unknown role
-    /// strings MUST be treated as authorization failures by the guard pipeline.
+    /// Unknown role strings MUST be treated as authorization failures by the guard
+    /// pipeline. For the standard trait implementation see [`FromStr`].
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "CommandIssuer"    => Some(CommandRole::CommandIssuer),
-            "PolicyAuthority"  => Some(CommandRole::PolicyAuthority),
-            "UpdateSigner"     => Some(CommandRole::UpdateSigner),
-            "RevocationManager" => Some(CommandRole::RevocationManager),
-            "Auditor"          => Some(CommandRole::Auditor),
-            "TimeAnchor"       => Some(CommandRole::TimeAnchor),
-            _                  => None,
-        }
+        s.parse().ok()
     }
 
     /// Returns `true` only for [`CommandRole::CommandIssuer`].
@@ -190,7 +196,7 @@ impl DeviceKeyType {
     pub fn as_str(&self) -> &'static str {
         match self {
             DeviceKeyType::Ed25519 => "Ed25519",
-            DeviceKeyType::P256    => "P256",
+            DeviceKeyType::P256 => "P256",
         }
     }
 }
@@ -227,8 +233,8 @@ impl serde::Serialize for DeviceSignature {
 
 impl<'de> serde::Deserialize<'de> for DeviceSignature {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        use serde::de::{self, EnumAccess, VariantAccess, Visitor};
         use core::fmt;
+        use serde::de::{self, EnumAccess, VariantAccess, Visitor};
 
         struct DeviceSignatureVisitor;
 
@@ -263,7 +269,11 @@ impl<'de> serde::Deserialize<'de> for DeviceSignature {
             }
         }
 
-        d.deserialize_enum("DeviceSignature", &["Ed25519", "P256"], DeviceSignatureVisitor)
+        d.deserialize_enum(
+            "DeviceSignature",
+            &["Ed25519", "P256"],
+            DeviceSignatureVisitor,
+        )
     }
 }
 
@@ -272,7 +282,7 @@ impl DeviceSignature {
     pub fn key_type(&self) -> DeviceKeyType {
         match self {
             DeviceSignature::Ed25519(_) => DeviceKeyType::Ed25519,
-            DeviceSignature::P256(_)    => DeviceKeyType::P256,
+            DeviceSignature::P256(_) => DeviceKeyType::P256,
         }
     }
 
@@ -280,7 +290,7 @@ impl DeviceSignature {
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             DeviceSignature::Ed25519(b) => b.as_ref(),
-            DeviceSignature::P256(v)    => v.as_ref(),
+            DeviceSignature::P256(v) => v.as_ref(),
         }
     }
 
@@ -322,29 +332,29 @@ pub mod units {
     // Individual constants — each carries the full descriptor (id, label, dimension).
 
     /// Degrees Celsius — temperature (ID 1).
-    pub const UNIT_DEG_C: UnitDescriptor    = UNIT_DESCRIPTORS[1];
+    pub const UNIT_DEG_C: UnitDescriptor = UNIT_DESCRIPTORS[1];
     /// Pascal — pressure (ID 2).
-    pub const UNIT_PA: UnitDescriptor       = UNIT_DESCRIPTORS[2];
+    pub const UNIT_PA: UnitDescriptor = UNIT_DESCRIPTORS[2];
     /// Revolutions per minute — angular velocity (ID 3).
-    pub const UNIT_RPM: UnitDescriptor      = UNIT_DESCRIPTORS[3];
+    pub const UNIT_RPM: UnitDescriptor = UNIT_DESCRIPTORS[3];
     /// Bar — pressure (ID 4).
-    pub const UNIT_BAR: UnitDescriptor      = UNIT_DESCRIPTORS[4];
+    pub const UNIT_BAR: UnitDescriptor = UNIT_DESCRIPTORS[4];
     /// Kilowatt — power (ID 5).
-    pub const UNIT_KW: UnitDescriptor       = UNIT_DESCRIPTORS[5];
+    pub const UNIT_KW: UnitDescriptor = UNIT_DESCRIPTORS[5];
     /// Percent — dimensionless ratio (ID 6).
-    pub const UNIT_PERCENT: UnitDescriptor  = UNIT_DESCRIPTORS[6];
+    pub const UNIT_PERCENT: UnitDescriptor = UNIT_DESCRIPTORS[6];
     /// Boolean — dimensionless; mantissa MUST be 0 or 1 (ID 7).
-    pub const UNIT_BOOLEAN: UnitDescriptor  = UNIT_DESCRIPTORS[7];
+    pub const UNIT_BOOLEAN: UnitDescriptor = UNIT_DESCRIPTORS[7];
     /// Kilopascal — pressure (ID 8).
-    pub const UNIT_KPA: UnitDescriptor      = UNIT_DESCRIPTORS[8];
+    pub const UNIT_KPA: UnitDescriptor = UNIT_DESCRIPTORS[8];
     /// Cubic metres per hour — volumetric flow rate (ID 9).
-    pub const UNIT_M3H: UnitDescriptor      = UNIT_DESCRIPTORS[9];
+    pub const UNIT_M3H: UnitDescriptor = UNIT_DESCRIPTORS[9];
     /// Volt — electric potential (ID 10).
-    pub const UNIT_V: UnitDescriptor        = UNIT_DESCRIPTORS[10];
+    pub const UNIT_V: UnitDescriptor = UNIT_DESCRIPTORS[10];
     /// Ampere — electric current (ID 11).
-    pub const UNIT_A: UnitDescriptor        = UNIT_DESCRIPTORS[11];
+    pub const UNIT_A: UnitDescriptor = UNIT_DESCRIPTORS[11];
     /// Hertz — frequency (ID 12).
-    pub const UNIT_HZ: UnitDescriptor       = UNIT_DESCRIPTORS[12];
+    pub const UNIT_HZ: UnitDescriptor = UNIT_DESCRIPTORS[12];
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -412,6 +422,7 @@ mod command_role_tests {
         assert_eq!(CommandRole::from_str("RootKey"), None);
         assert_eq!(CommandRole::from_str("commandissuer"), None); // case-sensitive
         assert_eq!(CommandRole::from_str("COMMANDISSUER"), None);
+        assert!("RootKey".parse::<CommandRole>().is_err());
     }
 
     // can_issue_commands is true only for CommandIssuer
@@ -429,7 +440,7 @@ mod command_role_tests {
 #[cfg(test)]
 mod tests {
     // Import the newtypes and type aliases from the crate root.
-    use super::{Did, TargetId, DeltaId, MigrationId, ProfileId};
+    use super::{DeltaId, Did, MigrationId, ProfileId, TargetId};
     // Import UnitDescriptor-level constants from the units submodule.
     use super::units;
 
@@ -456,7 +467,7 @@ mod tests {
         let did = Did::new("sensor-42");
         let tid = TargetId::new("sensor-42");
         assert_eq!(did.as_str(), tid.as_str()); // same inner value
-        // `did == tid` would be a compile error — that's the point
+                                                // `did == tid` would be a compile error — that's the point
     }
 
     // --- TargetId ---
@@ -479,18 +490,18 @@ mod tests {
 
     #[test]
     fn unit_descriptor_ids_match_registry() {
-        assert_eq!(units::UNIT_DEG_C.id,   1);
-        assert_eq!(units::UNIT_PA.id,      2);
-        assert_eq!(units::UNIT_RPM.id,     3);
-        assert_eq!(units::UNIT_BAR.id,     4);
-        assert_eq!(units::UNIT_KW.id,      5);
+        assert_eq!(units::UNIT_DEG_C.id, 1);
+        assert_eq!(units::UNIT_PA.id, 2);
+        assert_eq!(units::UNIT_RPM.id, 3);
+        assert_eq!(units::UNIT_BAR.id, 4);
+        assert_eq!(units::UNIT_KW.id, 5);
         assert_eq!(units::UNIT_PERCENT.id, 6);
         assert_eq!(units::UNIT_BOOLEAN.id, 7);
-        assert_eq!(units::UNIT_KPA.id,     8);
-        assert_eq!(units::UNIT_M3H.id,     9);
-        assert_eq!(units::UNIT_V.id,       10);
-        assert_eq!(units::UNIT_A.id,       11);
-        assert_eq!(units::UNIT_HZ.id,      12);
+        assert_eq!(units::UNIT_KPA.id, 8);
+        assert_eq!(units::UNIT_M3H.id, 9);
+        assert_eq!(units::UNIT_V.id, 10);
+        assert_eq!(units::UNIT_A.id, 11);
+        assert_eq!(units::UNIT_HZ.id, 12);
     }
 
     #[test]
@@ -501,8 +512,7 @@ mod tests {
 
     #[test]
     fn all_units_no_duplicate_ids() {
-        let mut ids: alloc::vec::Vec<u16> =
-            units::ALL_UNITS.iter().map(|u| u.id).collect();
+        let mut ids: alloc::vec::Vec<u16> = units::ALL_UNITS.iter().map(|u| u.id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), units::ALL_UNITS.len());

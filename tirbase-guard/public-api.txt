@@ -242,6 +242,606 @@ pub const tirbase_guard::signed_operation::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::signed_operation::CONTEXT_POLICY_BUNDLE: &str
 pub trait tirbase_guard::signed_operation::SignedOperationPayload: serde_core::ser::Serialize
 pub const tirbase_guard::signed_operation::SignedOperationPayload::CONTEXT: &'static str
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
+pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+pub mod tirbase_guard::time
+pub enum tirbase_guard::time::FreshnessState
+pub tirbase_guard::time::FreshnessState::Unverified
+pub tirbase_guard::time::FreshnessState::Verified
+impl tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::as_str(&self) -> &'static str
+pub fn tirbase_guard::time::FreshnessState::is_verified(&self) -> bool
+pub fn tirbase_guard::time::FreshnessState::requires_challenge(&self, bool) -> bool
+impl core::clone::Clone for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::clone(&self) -> tirbase_guard::time::FreshnessState
+impl core::cmp::Eq for tirbase_guard::time::FreshnessState
+impl core::cmp::PartialEq for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::eq(&self, &tirbase_guard::time::FreshnessState) -> bool
+impl core::fmt::Debug for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_guard::time::FreshnessState
+impl core::marker::StructuralPartialEq for tirbase_guard::time::FreshnessState
+impl core::marker::Freeze for tirbase_guard::time::FreshnessState
+impl core::marker::Send for tirbase_guard::time::FreshnessState
+impl core::marker::Sync for tirbase_guard::time::FreshnessState
+impl core::marker::Unpin for tirbase_guard::time::FreshnessState
+impl core::marker::UnsafeUnpin for tirbase_guard::time::FreshnessState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::FreshnessState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::FreshnessState
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::FreshnessState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::FreshnessState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::FreshnessState where U: core::convert::From<T>
+pub fn tirbase_guard::time::FreshnessState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::FreshnessState where U: core::convert::Into<T>
+pub type tirbase_guard::time::FreshnessState::Error = core::convert::Infallible
+pub fn tirbase_guard::time::FreshnessState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::FreshnessState where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::FreshnessState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::FreshnessState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::FreshnessState where T: core::clone::Clone
+pub type tirbase_guard::time::FreshnessState::Owned = T
+pub fn tirbase_guard::time::FreshnessState::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::FreshnessState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::FreshnessState where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::FreshnessState where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::FreshnessState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::FreshnessState
+pub type tirbase_guard::time::FreshnessState::Init = T
+pub const tirbase_guard::time::FreshnessState::ALIGN: usize
+pub unsafe fn tirbase_guard::time::FreshnessState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::FreshnessState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::FreshnessState::drop(usize)
+pub unsafe fn tirbase_guard::time::FreshnessState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::FreshnessState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::FreshnessState
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::FreshnessState
+impl<T> typenum::type_operators::Same for tirbase_guard::time::FreshnessState
+pub type tirbase_guard::time::FreshnessState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::FreshnessState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::FreshnessState::vzip(self) -> V
+pub enum tirbase_guard::time::TimeRatchetError
+pub tirbase_guard::time::TimeRatchetError::BeaconNotAdvancing
+pub tirbase_guard::time::TimeRatchetError::BeaconNotAdvancing::persisted_floor: i64
+pub tirbase_guard::time::TimeRatchetError::BeaconNotAdvancing::wall_time: i64
+pub tirbase_guard::time::TimeRatchetError::EmptySignatures
+pub tirbase_guard::time::TimeRatchetError::InsufficientAnchorQuorum
+pub tirbase_guard::time::TimeRatchetError::InsufficientAnchorQuorum::jump_secs: i64
+pub tirbase_guard::time::TimeRatchetError::InsufficientAnchorQuorum::required: usize
+pub tirbase_guard::time::TimeRatchetError::InsufficientAnchorQuorum::verified: usize
+pub tirbase_guard::time::TimeRatchetError::MalformedBeacon(alloc::string::String)
+pub tirbase_guard::time::TimeRatchetError::NonAnchorSignature
+pub tirbase_guard::time::TimeRatchetError::NonAnchorSignature::role: tirbase_types::CommandRole
+pub tirbase_guard::time::TimeRatchetError::NonAnchorSignature::signer_did: alloc::string::String
+pub tirbase_guard::time::TimeRatchetError::PayloadMismatch
+pub tirbase_guard::time::TimeRatchetError::SignatureInvalid
+pub tirbase_guard::time::TimeRatchetError::SignatureInvalid::signer_did: alloc::string::String
+pub tirbase_guard::time::TimeRatchetError::Store(alloc::string::String)
+pub tirbase_guard::time::TimeRatchetError::UnknownSigner
+pub tirbase_guard::time::TimeRatchetError::UnknownSigner::signer_did: alloc::string::String
+pub tirbase_guard::time::TimeRatchetError::WrongDomain
+pub tirbase_guard::time::TimeRatchetError::WrongDomain::actual: alloc::string::String
+pub tirbase_guard::time::TimeRatchetError::WrongDomain::expected: &'static str
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::clone(&self) -> tirbase_guard::time::TimeRatchetError
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetError
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::eq(&self, &tirbase_guard::time::TimeRatchetError) -> bool
+impl core::error::Error for tirbase_guard::time::TimeRatchetError
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetError
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetError
+impl core::marker::Send for tirbase_guard::time::TimeRatchetError
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetError
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetError
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetError
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetError::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetError where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetError::Owned = T
+pub fn tirbase_guard::time::TimeRatchetError::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_guard::time::TimeRatchetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetError where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetError where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetError
+pub type tirbase_guard::time::TimeRatchetError::Init = T
+pub const tirbase_guard::time::TimeRatchetError::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetError::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetError::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetError::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetError::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_guard::time::TimeRatchetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetError
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetError
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetError
+pub type tirbase_guard::time::TimeRatchetError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetError::vzip(self) -> V
+pub struct tirbase_guard::time::RatchetAdvance
+pub tirbase_guard::time::RatchetAdvance::anchor_signatures: usize
+pub tirbase_guard::time::RatchetAdvance::jump_secs: i64
+pub tirbase_guard::time::RatchetAdvance::new_floor: i64
+pub tirbase_guard::time::RatchetAdvance::previous_floor: i64
+impl core::clone::Clone for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::clone(&self) -> tirbase_guard::time::RatchetAdvance
+impl core::cmp::Eq for tirbase_guard::time::RatchetAdvance
+impl core::cmp::PartialEq for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::eq(&self, &tirbase_guard::time::RatchetAdvance) -> bool
+impl core::fmt::Debug for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::RatchetAdvance
+impl core::marker::StructuralPartialEq for tirbase_guard::time::RatchetAdvance
+impl core::marker::Freeze for tirbase_guard::time::RatchetAdvance
+impl core::marker::Send for tirbase_guard::time::RatchetAdvance
+impl core::marker::Sync for tirbase_guard::time::RatchetAdvance
+impl core::marker::Unpin for tirbase_guard::time::RatchetAdvance
+impl core::marker::UnsafeUnpin for tirbase_guard::time::RatchetAdvance
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::RatchetAdvance
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::RatchetAdvance
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::RatchetAdvance where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::RatchetAdvance where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::From<T>
+pub fn tirbase_guard::time::RatchetAdvance::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::Into<T>
+pub type tirbase_guard::time::RatchetAdvance::Error = core::convert::Infallible
+pub fn tirbase_guard::time::RatchetAdvance::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::RatchetAdvance::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::RatchetAdvance::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::RatchetAdvance where T: core::clone::Clone
+pub type tirbase_guard::time::RatchetAdvance::Owned = T
+pub fn tirbase_guard::time::RatchetAdvance::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::RatchetAdvance::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::RatchetAdvance where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::RatchetAdvance where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::RatchetAdvance::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::RatchetAdvance
+pub type tirbase_guard::time::RatchetAdvance::Init = T
+pub const tirbase_guard::time::RatchetAdvance::ALIGN: usize
+pub unsafe fn tirbase_guard::time::RatchetAdvance::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::RatchetAdvance::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::RatchetAdvance::drop(usize)
+pub unsafe fn tirbase_guard::time::RatchetAdvance::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::RatchetAdvance
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::RatchetAdvance
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::RatchetAdvance
+impl<T> typenum::type_operators::Same for tirbase_guard::time::RatchetAdvance
+pub type tirbase_guard::time::RatchetAdvance::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::RatchetAdvance where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::RatchetAdvance::vzip(self) -> V
+pub struct tirbase_guard::time::TimeBeacon
+pub tirbase_guard::time::TimeBeacon::issuer_did: alloc::string::String
+pub tirbase_guard::time::TimeBeacon::mono_seq: u64
+pub tirbase_guard::time::TimeBeacon::valid_for_secs: u32
+pub tirbase_guard::time::TimeBeacon::wall_time_secs: i64
+impl core::clone::Clone for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::clone(&self) -> tirbase_guard::time::TimeBeacon
+impl core::cmp::Eq for tirbase_guard::time::TimeBeacon
+impl core::cmp::PartialEq for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::eq(&self, &tirbase_guard::time::TimeBeacon) -> bool
+impl core::fmt::Debug for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeBeacon
+impl serde_core::ser::Serialize for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
+pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::time::TimeBeacon
+impl core::marker::Send for tirbase_guard::time::TimeBeacon
+impl core::marker::Sync for tirbase_guard::time::TimeBeacon
+impl core::marker::Unpin for tirbase_guard::time::TimeBeacon
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeBeacon
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeBeacon
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeBeacon
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeBeacon where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeBeacon where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeBeacon where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeBeacon::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeBeacon where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeBeacon::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeBeacon::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeBeacon where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeBeacon::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeBeacon::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeBeacon where T: core::clone::Clone
+pub type tirbase_guard::time::TimeBeacon::Owned = T
+pub fn tirbase_guard::time::TimeBeacon::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeBeacon::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeBeacon where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeBeacon where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeBeacon::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeBeacon
+pub type tirbase_guard::time::TimeBeacon::Init = T
+pub const tirbase_guard::time::TimeBeacon::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeBeacon::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeBeacon::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeBeacon::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeBeacon::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeBeacon
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::time::TimeBeacon where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeBeacon
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeBeacon
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeBeacon
+pub type tirbase_guard::time::TimeBeacon::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeBeacon where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeBeacon::vzip(self) -> V
+pub struct tirbase_guard::time::TimeRatchet
+impl tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::advance(&mut self, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::time::TimeBeacon>, &tirbase_guard::time::TimeBeacon, &dyn tirbase_core::traits::TimeSource, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<tirbase_guard::time::RatchetAdvance, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchet::beacon_boot_id(&self) -> u64
+pub fn tirbase_guard::time::TimeRatchet::freshness(&self, &dyn tirbase_core::traits::TimeSource) -> tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::TimeRatchet::is_expired(&self, i64, &dyn tirbase_core::traits::TimeSource) -> bool
+pub fn tirbase_guard::time::TimeRatchet::last_beacon_time(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::max_forward_jump_secs(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::mono_at_beacon(&self) -> u64
+pub fn tirbase_guard::time::TimeRatchet::now_est(&self, &dyn tirbase_core::traits::TimeSource) -> i64
+pub fn tirbase_guard::time::TimeRatchet::open(alloc::sync::Arc<dyn tirbase_guard::time::TimeRatchetStore>, tirbase_guard::time::TimeRatchetConfig) -> core::result::Result<Self, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchet::persisted_floor(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::record(&self) -> tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchet::required_anchor_signatures(&self) -> usize
+pub fn tirbase_guard::time::TimeRatchet::staleness_window_secs(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::updated_at_mono(&self) -> u64
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchet
+impl core::marker::Send for tirbase_guard::time::TimeRatchet
+impl core::marker::Sync for tirbase_guard::time::TimeRatchet
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchet
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchet
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchet
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchet
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchet where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchet where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchet where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchet::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchet where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchet::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchet::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchet where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchet::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchet::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchet where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchet
+pub type tirbase_guard::time::TimeRatchet::Init = T
+pub const tirbase_guard::time::TimeRatchet::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchet::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchet::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchet::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchet::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchet
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchet
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchet
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchet
+pub type tirbase_guard::time::TimeRatchet::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchet where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchet::vzip(self) -> V
+pub struct tirbase_guard::time::TimeRatchetConfig
+pub tirbase_guard::time::TimeRatchetConfig::max_forward_jump_secs: i64
+pub tirbase_guard::time::TimeRatchetConfig::required_anchor_signatures: usize
+pub tirbase_guard::time::TimeRatchetConfig::staleness_window_secs: i64
+impl tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::sanitised(self) -> Self
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::clone(&self) -> tirbase_guard::time::TimeRatchetConfig
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetConfig
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::eq(&self, &tirbase_guard::time::TimeRatchetConfig) -> bool
+impl core::default::Default for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::default() -> Self
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Send for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetConfig
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetConfig::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetConfig where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetConfig::Owned = T
+pub fn tirbase_guard::time::TimeRatchetConfig::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetConfig where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetConfig
+pub type tirbase_guard::time::TimeRatchetConfig::Init = T
+pub const tirbase_guard::time::TimeRatchetConfig::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetConfig
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetConfig
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetConfig
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetConfig
+pub type tirbase_guard::time::TimeRatchetConfig::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetConfig where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetConfig::vzip(self) -> V
+pub struct tirbase_guard::time::TimeRatchetRecord
+pub tirbase_guard::time::TimeRatchetRecord::beacon_boot_id: u64
+pub tirbase_guard::time::TimeRatchetRecord::last_beacon_time: i64
+pub tirbase_guard::time::TimeRatchetRecord::mono_at_beacon: u64
+pub tirbase_guard::time::TimeRatchetRecord::persisted_floor: i64
+pub tirbase_guard::time::TimeRatchetRecord::updated_at_mono: u64
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::clone(&self) -> tirbase_guard::time::TimeRatchetRecord
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetRecord
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::eq(&self, &tirbase_guard::time::TimeRatchetRecord) -> bool
+impl core::default::Default for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::default() -> tirbase_guard::time::TimeRatchetRecord
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetRecord
+impl serde_core::ser::Serialize for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Send for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetRecord
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetRecord
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetRecord
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetRecord where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetRecord where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetRecord::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetRecord::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetRecord::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetRecord::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetRecord::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetRecord where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetRecord::Owned = T
+pub fn tirbase_guard::time::TimeRatchetRecord::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetRecord::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetRecord where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetRecord where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetRecord
+pub type tirbase_guard::time::TimeRatchetRecord::Init = T
+pub const tirbase_guard::time::TimeRatchetRecord::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetRecord
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::time::TimeRatchetRecord where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetRecord
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetRecord
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetRecord
+pub type tirbase_guard::time::TimeRatchetRecord::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetRecord where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetRecord::vzip(self) -> V
+pub const tirbase_guard::time::CONTEXT_TIME_BEACON: &str
+pub const tirbase_guard::time::DEFAULT_MAX_FORWARD_JUMP_SECS: i64
+pub const tirbase_guard::time::DEFAULT_REQUIRED_ANCHOR_SIGNATURES: usize
+pub const tirbase_guard::time::DEFAULT_STALENESS_WINDOW_SECS: i64
+pub trait tirbase_guard::time::TimeRatchetStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_guard::time::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
+pub enum tirbase_guard::FreshnessState
+pub tirbase_guard::FreshnessState::Unverified
+pub tirbase_guard::FreshnessState::Verified
+impl tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::as_str(&self) -> &'static str
+pub fn tirbase_guard::time::FreshnessState::is_verified(&self) -> bool
+pub fn tirbase_guard::time::FreshnessState::requires_challenge(&self, bool) -> bool
+impl core::clone::Clone for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::clone(&self) -> tirbase_guard::time::FreshnessState
+impl core::cmp::Eq for tirbase_guard::time::FreshnessState
+impl core::cmp::PartialEq for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::eq(&self, &tirbase_guard::time::FreshnessState) -> bool
+impl core::fmt::Debug for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_guard::time::FreshnessState
+impl core::marker::StructuralPartialEq for tirbase_guard::time::FreshnessState
+impl core::marker::Freeze for tirbase_guard::time::FreshnessState
+impl core::marker::Send for tirbase_guard::time::FreshnessState
+impl core::marker::Sync for tirbase_guard::time::FreshnessState
+impl core::marker::Unpin for tirbase_guard::time::FreshnessState
+impl core::marker::UnsafeUnpin for tirbase_guard::time::FreshnessState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::FreshnessState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::FreshnessState
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::FreshnessState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::FreshnessState::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::FreshnessState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::FreshnessState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::FreshnessState where U: core::convert::From<T>
+pub fn tirbase_guard::time::FreshnessState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::FreshnessState where U: core::convert::Into<T>
+pub type tirbase_guard::time::FreshnessState::Error = core::convert::Infallible
+pub fn tirbase_guard::time::FreshnessState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::FreshnessState where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::FreshnessState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::FreshnessState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::FreshnessState where T: core::clone::Clone
+pub type tirbase_guard::time::FreshnessState::Owned = T
+pub fn tirbase_guard::time::FreshnessState::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::FreshnessState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::FreshnessState where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+pub fn tirbase_guard::time::FreshnessState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::FreshnessState where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::FreshnessState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::FreshnessState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::FreshnessState
+pub type tirbase_guard::time::FreshnessState::Init = T
+pub const tirbase_guard::time::FreshnessState::ALIGN: usize
+pub unsafe fn tirbase_guard::time::FreshnessState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::FreshnessState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::FreshnessState::drop(usize)
+pub unsafe fn tirbase_guard::time::FreshnessState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::FreshnessState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::FreshnessState
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::FreshnessState
+impl<T> typenum::type_operators::Same for tirbase_guard::time::FreshnessState
+pub type tirbase_guard::time::FreshnessState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::FreshnessState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::FreshnessState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::FreshnessState::vzip(self) -> V
 pub enum tirbase_guard::SignedOperationError
 pub tirbase_guard::SignedOperationError::ContextMismatch
 pub tirbase_guard::SignedOperationError::ContextMismatch::actual: alloc::string::String
@@ -323,6 +923,167 @@ pub type tirbase_guard::signed_operation::SignedOperationError::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperationError where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::signed_operation::SignedOperationError::vzip(self) -> V
+pub enum tirbase_guard::TimeRatchetError
+pub tirbase_guard::TimeRatchetError::BeaconNotAdvancing
+pub tirbase_guard::TimeRatchetError::BeaconNotAdvancing::persisted_floor: i64
+pub tirbase_guard::TimeRatchetError::BeaconNotAdvancing::wall_time: i64
+pub tirbase_guard::TimeRatchetError::EmptySignatures
+pub tirbase_guard::TimeRatchetError::InsufficientAnchorQuorum
+pub tirbase_guard::TimeRatchetError::InsufficientAnchorQuorum::jump_secs: i64
+pub tirbase_guard::TimeRatchetError::InsufficientAnchorQuorum::required: usize
+pub tirbase_guard::TimeRatchetError::InsufficientAnchorQuorum::verified: usize
+pub tirbase_guard::TimeRatchetError::MalformedBeacon(alloc::string::String)
+pub tirbase_guard::TimeRatchetError::NonAnchorSignature
+pub tirbase_guard::TimeRatchetError::NonAnchorSignature::role: tirbase_types::CommandRole
+pub tirbase_guard::TimeRatchetError::NonAnchorSignature::signer_did: alloc::string::String
+pub tirbase_guard::TimeRatchetError::PayloadMismatch
+pub tirbase_guard::TimeRatchetError::SignatureInvalid
+pub tirbase_guard::TimeRatchetError::SignatureInvalid::signer_did: alloc::string::String
+pub tirbase_guard::TimeRatchetError::Store(alloc::string::String)
+pub tirbase_guard::TimeRatchetError::UnknownSigner
+pub tirbase_guard::TimeRatchetError::UnknownSigner::signer_did: alloc::string::String
+pub tirbase_guard::TimeRatchetError::WrongDomain
+pub tirbase_guard::TimeRatchetError::WrongDomain::actual: alloc::string::String
+pub tirbase_guard::TimeRatchetError::WrongDomain::expected: &'static str
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::clone(&self) -> tirbase_guard::time::TimeRatchetError
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetError
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::eq(&self, &tirbase_guard::time::TimeRatchetError) -> bool
+impl core::error::Error for tirbase_guard::time::TimeRatchetError
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetError
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetError
+impl core::marker::Send for tirbase_guard::time::TimeRatchetError
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetError
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetError
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetError
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetError::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetError::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetError where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetError where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetError::Owned = T
+pub fn tirbase_guard::time::TimeRatchetError::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_guard::time::TimeRatchetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetError where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetError where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetError
+pub fn tirbase_guard::time::TimeRatchetError::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetError
+pub type tirbase_guard::time::TimeRatchetError::Init = T
+pub const tirbase_guard::time::TimeRatchetError::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetError::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetError::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetError::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetError::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_guard::time::TimeRatchetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetError
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetError
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetError
+pub type tirbase_guard::time::TimeRatchetError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetError::vzip(self) -> V
+pub struct tirbase_guard::RatchetAdvance
+pub tirbase_guard::RatchetAdvance::anchor_signatures: usize
+pub tirbase_guard::RatchetAdvance::jump_secs: i64
+pub tirbase_guard::RatchetAdvance::new_floor: i64
+pub tirbase_guard::RatchetAdvance::previous_floor: i64
+impl core::clone::Clone for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::clone(&self) -> tirbase_guard::time::RatchetAdvance
+impl core::cmp::Eq for tirbase_guard::time::RatchetAdvance
+impl core::cmp::PartialEq for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::eq(&self, &tirbase_guard::time::RatchetAdvance) -> bool
+impl core::fmt::Debug for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::RatchetAdvance
+impl core::marker::StructuralPartialEq for tirbase_guard::time::RatchetAdvance
+impl core::marker::Freeze for tirbase_guard::time::RatchetAdvance
+impl core::marker::Send for tirbase_guard::time::RatchetAdvance
+impl core::marker::Sync for tirbase_guard::time::RatchetAdvance
+impl core::marker::Unpin for tirbase_guard::time::RatchetAdvance
+impl core::marker::UnsafeUnpin for tirbase_guard::time::RatchetAdvance
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::RatchetAdvance
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::RatchetAdvance
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::RatchetAdvance where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::RatchetAdvance::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::RatchetAdvance where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::RatchetAdvance where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::From<T>
+pub fn tirbase_guard::time::RatchetAdvance::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::Into<T>
+pub type tirbase_guard::time::RatchetAdvance::Error = core::convert::Infallible
+pub fn tirbase_guard::time::RatchetAdvance::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::RatchetAdvance where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::RatchetAdvance::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::RatchetAdvance::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::RatchetAdvance where T: core::clone::Clone
+pub type tirbase_guard::time::RatchetAdvance::Owned = T
+pub fn tirbase_guard::time::RatchetAdvance::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::RatchetAdvance::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::RatchetAdvance where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+pub fn tirbase_guard::time::RatchetAdvance::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::RatchetAdvance where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::RatchetAdvance::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::RatchetAdvance
+pub fn tirbase_guard::time::RatchetAdvance::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::RatchetAdvance
+pub type tirbase_guard::time::RatchetAdvance::Init = T
+pub const tirbase_guard::time::RatchetAdvance::ALIGN: usize
+pub unsafe fn tirbase_guard::time::RatchetAdvance::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::RatchetAdvance::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::RatchetAdvance::drop(usize)
+pub unsafe fn tirbase_guard::time::RatchetAdvance::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::RatchetAdvance
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::RatchetAdvance
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::RatchetAdvance
+impl<T> typenum::type_operators::Same for tirbase_guard::time::RatchetAdvance
+pub type tirbase_guard::time::RatchetAdvance::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::RatchetAdvance where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::RatchetAdvance where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::RatchetAdvance::vzip(self) -> V
 pub struct tirbase_guard::SignatureEntry
 pub tirbase_guard::SignatureEntry::role: tirbase_types::CommandRole
 pub tirbase_guard::SignatureEntry::signature: tirbase_types::DeviceSignature
@@ -478,8 +1239,300 @@ pub type tirbase_guard::signed_operation::SignedOperation<T>::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperation<T> where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::vzip(self) -> V
+pub struct tirbase_guard::TimeBeacon
+pub tirbase_guard::TimeBeacon::issuer_did: alloc::string::String
+pub tirbase_guard::TimeBeacon::mono_seq: u64
+pub tirbase_guard::TimeBeacon::valid_for_secs: u32
+pub tirbase_guard::TimeBeacon::wall_time_secs: i64
+impl core::clone::Clone for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::clone(&self) -> tirbase_guard::time::TimeBeacon
+impl core::cmp::Eq for tirbase_guard::time::TimeBeacon
+impl core::cmp::PartialEq for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::eq(&self, &tirbase_guard::time::TimeBeacon) -> bool
+impl core::fmt::Debug for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeBeacon
+impl serde_core::ser::Serialize for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
+pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::time::TimeBeacon
+impl core::marker::Send for tirbase_guard::time::TimeBeacon
+impl core::marker::Sync for tirbase_guard::time::TimeBeacon
+impl core::marker::Unpin for tirbase_guard::time::TimeBeacon
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeBeacon
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeBeacon
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeBeacon
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeBeacon where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeBeacon::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeBeacon where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeBeacon where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeBeacon where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeBeacon::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeBeacon where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeBeacon::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeBeacon::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeBeacon where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeBeacon::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeBeacon::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeBeacon where T: core::clone::Clone
+pub type tirbase_guard::time::TimeBeacon::Owned = T
+pub fn tirbase_guard::time::TimeBeacon::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeBeacon::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeBeacon where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeBeacon::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeBeacon where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeBeacon::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeBeacon
+pub fn tirbase_guard::time::TimeBeacon::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeBeacon
+pub type tirbase_guard::time::TimeBeacon::Init = T
+pub const tirbase_guard::time::TimeBeacon::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeBeacon::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeBeacon::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeBeacon::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeBeacon::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeBeacon
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::time::TimeBeacon where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeBeacon
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeBeacon
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeBeacon
+pub type tirbase_guard::time::TimeBeacon::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeBeacon where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeBeacon where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeBeacon::vzip(self) -> V
+pub struct tirbase_guard::TimeRatchet
+impl tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::advance(&mut self, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::time::TimeBeacon>, &tirbase_guard::time::TimeBeacon, &dyn tirbase_core::traits::TimeSource, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<tirbase_guard::time::RatchetAdvance, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchet::beacon_boot_id(&self) -> u64
+pub fn tirbase_guard::time::TimeRatchet::freshness(&self, &dyn tirbase_core::traits::TimeSource) -> tirbase_guard::time::FreshnessState
+pub fn tirbase_guard::time::TimeRatchet::is_expired(&self, i64, &dyn tirbase_core::traits::TimeSource) -> bool
+pub fn tirbase_guard::time::TimeRatchet::last_beacon_time(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::max_forward_jump_secs(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::mono_at_beacon(&self) -> u64
+pub fn tirbase_guard::time::TimeRatchet::now_est(&self, &dyn tirbase_core::traits::TimeSource) -> i64
+pub fn tirbase_guard::time::TimeRatchet::open(alloc::sync::Arc<dyn tirbase_guard::time::TimeRatchetStore>, tirbase_guard::time::TimeRatchetConfig) -> core::result::Result<Self, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchet::persisted_floor(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::record(&self) -> tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchet::required_anchor_signatures(&self) -> usize
+pub fn tirbase_guard::time::TimeRatchet::staleness_window_secs(&self) -> i64
+pub fn tirbase_guard::time::TimeRatchet::updated_at_mono(&self) -> u64
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchet
+impl core::marker::Send for tirbase_guard::time::TimeRatchet
+impl core::marker::Sync for tirbase_guard::time::TimeRatchet
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchet
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchet
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchet
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchet
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchet where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchet where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchet where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchet::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchet where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchet::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchet::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchet where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchet::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchet::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchet where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchet::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchet
+pub fn tirbase_guard::time::TimeRatchet::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchet
+pub type tirbase_guard::time::TimeRatchet::Init = T
+pub const tirbase_guard::time::TimeRatchet::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchet::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchet::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchet::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchet::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchet
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchet
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchet
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchet
+pub type tirbase_guard::time::TimeRatchet::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchet where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchet where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchet::vzip(self) -> V
+pub struct tirbase_guard::TimeRatchetConfig
+pub tirbase_guard::TimeRatchetConfig::max_forward_jump_secs: i64
+pub tirbase_guard::TimeRatchetConfig::required_anchor_signatures: usize
+pub tirbase_guard::TimeRatchetConfig::staleness_window_secs: i64
+impl tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::sanitised(self) -> Self
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::clone(&self) -> tirbase_guard::time::TimeRatchetConfig
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetConfig
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::eq(&self, &tirbase_guard::time::TimeRatchetConfig) -> bool
+impl core::default::Default for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::default() -> Self
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Send for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetConfig
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetConfig
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetConfig::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetConfig::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetConfig where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetConfig where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetConfig::Owned = T
+pub fn tirbase_guard::time::TimeRatchetConfig::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetConfig where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetConfig
+pub fn tirbase_guard::time::TimeRatchetConfig::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetConfig
+pub type tirbase_guard::time::TimeRatchetConfig::Init = T
+pub const tirbase_guard::time::TimeRatchetConfig::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetConfig::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetConfig
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetConfig
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetConfig
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetConfig
+pub type tirbase_guard::time::TimeRatchetConfig::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetConfig where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetConfig where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetConfig::vzip(self) -> V
+pub struct tirbase_guard::TimeRatchetRecord
+pub tirbase_guard::TimeRatchetRecord::beacon_boot_id: u64
+pub tirbase_guard::TimeRatchetRecord::last_beacon_time: i64
+pub tirbase_guard::TimeRatchetRecord::mono_at_beacon: u64
+pub tirbase_guard::TimeRatchetRecord::persisted_floor: i64
+pub tirbase_guard::TimeRatchetRecord::updated_at_mono: u64
+impl core::clone::Clone for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::clone(&self) -> tirbase_guard::time::TimeRatchetRecord
+impl core::cmp::Eq for tirbase_guard::time::TimeRatchetRecord
+impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::eq(&self, &tirbase_guard::time::TimeRatchetRecord) -> bool
+impl core::default::Default for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::default() -> tirbase_guard::time::TimeRatchetRecord
+impl core::fmt::Debug for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::StructuralPartialEq for tirbase_guard::time::TimeRatchetRecord
+impl serde_core::ser::Serialize for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Send for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Sync for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::Unpin for tirbase_guard::time::TimeRatchetRecord
+impl core::marker::UnsafeUnpin for tirbase_guard::time::TimeRatchetRecord
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::time::TimeRatchetRecord
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::time::TimeRatchetRecord
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::time::TimeRatchetRecord where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::time::TimeRatchetRecord::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::time::TimeRatchetRecord where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::time::TimeRatchetRecord where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::From<T>
+pub fn tirbase_guard::time::TimeRatchetRecord::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::Into<T>
+pub type tirbase_guard::time::TimeRatchetRecord::Error = core::convert::Infallible
+pub fn tirbase_guard::time::TimeRatchetRecord::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::time::TimeRatchetRecord where U: core::convert::TryFrom<T>
+pub type tirbase_guard::time::TimeRatchetRecord::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::time::TimeRatchetRecord::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::time::TimeRatchetRecord where T: core::clone::Clone
+pub type tirbase_guard::time::TimeRatchetRecord::Owned = T
+pub fn tirbase_guard::time::TimeRatchetRecord::clone_into(&self, &mut T)
+pub fn tirbase_guard::time::TimeRatchetRecord::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::time::TimeRatchetRecord where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+pub fn tirbase_guard::time::TimeRatchetRecord::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::time::TimeRatchetRecord where T: core::clone::Clone
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::time::TimeRatchetRecord
+pub type tirbase_guard::time::TimeRatchetRecord::Init = T
+pub const tirbase_guard::time::TimeRatchetRecord::ALIGN: usize
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::drop(usize)
+pub unsafe fn tirbase_guard::time::TimeRatchetRecord::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::time::TimeRatchetRecord
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::time::TimeRatchetRecord where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::time::TimeRatchetRecord
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::time::TimeRatchetRecord
+impl<T> typenum::type_operators::Same for tirbase_guard::time::TimeRatchetRecord
+pub type tirbase_guard::time::TimeRatchetRecord::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::time::TimeRatchetRecord where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::time::TimeRatchetRecord where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::time::TimeRatchetRecord::vzip(self) -> V
 pub const tirbase_guard::CONTEXT_EPOCH_BUMP: &str
 pub const tirbase_guard::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::CONTEXT_POLICY_BUNDLE: &str
+pub const tirbase_guard::CONTEXT_TIME_BEACON: &str
+pub const tirbase_guard::DEFAULT_MAX_FORWARD_JUMP_SECS: i64
+pub const tirbase_guard::DEFAULT_REQUIRED_ANCHOR_SIGNATURES: usize
+pub const tirbase_guard::DEFAULT_STALENESS_WINDOW_SECS: i64
 pub trait tirbase_guard::SignedOperationPayload: serde_core::ser::Serialize
 pub const tirbase_guard::SignedOperationPayload::CONTEXT: &'static str
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
+pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+pub trait tirbase_guard::TimeRatchetStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_guard::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>

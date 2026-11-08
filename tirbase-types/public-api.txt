@@ -280,6 +280,9 @@ impl core::hash::Hash for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for tirbase_types::CommandRole
 impl core::marker::StructuralPartialEq for tirbase_types::CommandRole
+impl core::str::traits::FromStr for tirbase_types::CommandRole
+pub type tirbase_types::CommandRole::Err = tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::CommandRole::from_str(&str) -> core::result::Result<Self, Self::Err>
 impl serde_core::ser::Serialize for tirbase_types::CommandRole
 pub fn tirbase_types::CommandRole::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for tirbase_types::CommandRole
@@ -564,6 +567,49 @@ pub unsafe fn tirbase_types::fixed_point::FixedPointValue::clone_to_uninit(&self
 impl<T> core::convert::From<T> for tirbase_types::fixed_point::FixedPointValue
 pub fn tirbase_types::fixed_point::FixedPointValue::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_types::fixed_point::FixedPointValue where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_types::ParseCommandRoleError
+impl core::clone::Clone for tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::ParseCommandRoleError::clone(&self) -> tirbase_types::ParseCommandRoleError
+impl core::cmp::Eq for tirbase_types::ParseCommandRoleError
+impl core::cmp::PartialEq for tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::ParseCommandRoleError::eq(&self, &tirbase_types::ParseCommandRoleError) -> bool
+impl core::fmt::Debug for tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::ParseCommandRoleError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::ParseCommandRoleError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_types::ParseCommandRoleError
+impl core::marker::StructuralPartialEq for tirbase_types::ParseCommandRoleError
+impl core::marker::Freeze for tirbase_types::ParseCommandRoleError
+impl core::marker::Send for tirbase_types::ParseCommandRoleError
+impl core::marker::Sync for tirbase_types::ParseCommandRoleError
+impl core::marker::Unpin for tirbase_types::ParseCommandRoleError
+impl core::marker::UnsafeUnpin for tirbase_types::ParseCommandRoleError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_types::ParseCommandRoleError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_types::ParseCommandRoleError
+impl<T, U> core::convert::Into<U> for tirbase_types::ParseCommandRoleError where U: core::convert::From<T>
+pub fn tirbase_types::ParseCommandRoleError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_types::ParseCommandRoleError where U: core::convert::Into<T>
+pub type tirbase_types::ParseCommandRoleError::Error = core::convert::Infallible
+pub fn tirbase_types::ParseCommandRoleError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_types::ParseCommandRoleError where U: core::convert::TryFrom<T>
+pub type tirbase_types::ParseCommandRoleError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_types::ParseCommandRoleError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_types::ParseCommandRoleError where T: core::clone::Clone
+pub type tirbase_types::ParseCommandRoleError::Owned = T
+pub fn tirbase_types::ParseCommandRoleError::clone_into(&self, &mut T)
+pub fn tirbase_types::ParseCommandRoleError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_types::ParseCommandRoleError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_types::ParseCommandRoleError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_types::ParseCommandRoleError where T: 'static + ?core::marker::Sized
+pub fn tirbase_types::ParseCommandRoleError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_types::ParseCommandRoleError where T: ?core::marker::Sized
+pub fn tirbase_types::ParseCommandRoleError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_types::ParseCommandRoleError where T: ?core::marker::Sized
+pub fn tirbase_types::ParseCommandRoleError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_types::ParseCommandRoleError where T: core::clone::Clone
+pub unsafe fn tirbase_types::ParseCommandRoleError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_types::ParseCommandRoleError
+pub fn tirbase_types::ParseCommandRoleError::from(T) -> T
 pub struct tirbase_types::TargetId(pub alloc::string::String)
 impl tirbase_types::TargetId
 pub fn tirbase_types::TargetId::as_str(&self) -> &str

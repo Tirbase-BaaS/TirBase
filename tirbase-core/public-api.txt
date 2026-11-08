@@ -4325,6 +4325,10 @@ pub fn tirbase_core::errors::TirBaseError::vzip(self) -> V
 pub mod tirbase_core::events
 pub enum tirbase_core::events::ReasonCode
 pub tirbase_core::events::ReasonCode::BatchExceeded
+pub tirbase_core::events::ReasonCode::BeaconAccepted
+pub tirbase_core::events::ReasonCode::BeaconJumpTooLarge
+pub tirbase_core::events::ReasonCode::BeaconRejected
+pub tirbase_core::events::ReasonCode::BeaconSignatureInvalid
 pub tirbase_core::events::ReasonCode::BootCompleted
 pub tirbase_core::events::ReasonCode::ClockJump
 pub tirbase_core::events::ReasonCode::DeltaQuarantined
@@ -4335,6 +4339,8 @@ pub tirbase_core::events::ReasonCode::EngineVersionMismatch
 pub tirbase_core::events::ReasonCode::ExpandContractViolation
 pub tirbase_core::events::ReasonCode::FleetPreconditionMissing
 pub tirbase_core::events::ReasonCode::FragmentReassemblyFailed
+pub tirbase_core::events::ReasonCode::FreshnessRestored
+pub tirbase_core::events::ReasonCode::FreshnessUnverified
 pub tirbase_core::events::ReasonCode::FuelExhausted
 pub tirbase_core::events::ReasonCode::HandshakeFailed
 pub tirbase_core::events::ReasonCode::HandshakeSuccess

@@ -212,6 +212,21 @@ pub enum ReasonCode {
     /// detected.
     MonotonicCounterRegression,
 
+    // TimeRatchet (PV-22, CLAIM-7.2–7.5)
+    /// A TimeAnchor beacon advanced the ratchet's persisted floor.
+    BeaconAccepted,
+    /// A time beacon was rejected before the ratchet was updated.
+    BeaconRejected,
+    /// Beacon wall time exceeded `max_forward_jump_secs` without an anchor
+    /// quorum (S23).
+    BeaconJumpTooLarge,
+    /// A beacon signature did not verify against a trusted TimeAnchor key.
+    BeaconSignatureInvalid,
+    /// The authenticated-time estimate is stale or unknown after a reboot.
+    FreshnessUnverified,
+    /// A fresh beacon restored VERIFIED freshness.
+    FreshnessRestored,
+
     // Startup / Diagnostic
     /// Gateway startup completed.
     BootCompleted,
@@ -260,6 +275,12 @@ impl ReasonCode {
             ReasonCode::ExpandContractViolation => "ExpandContractViolation",
             ReasonCode::FleetPreconditionMissing => "FleetPreconditionMissing",
             ReasonCode::MonotonicCounterRegression => "MonotonicCounterRegression",
+            ReasonCode::BeaconAccepted => "BeaconAccepted",
+            ReasonCode::BeaconRejected => "BeaconRejected",
+            ReasonCode::BeaconJumpTooLarge => "BeaconJumpTooLarge",
+            ReasonCode::BeaconSignatureInvalid => "BeaconSignatureInvalid",
+            ReasonCode::FreshnessUnverified => "FreshnessUnverified",
+            ReasonCode::FreshnessRestored => "FreshnessRestored",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
         }
@@ -527,7 +548,10 @@ mod tests {
 
     #[test]
     fn category_and_reason_names_match_catalog() {
-        assert_eq!(SecurityEventCategory::CrdtHardening.as_str(), "CrdtHardening");
+        assert_eq!(
+            SecurityEventCategory::CrdtHardening.as_str(),
+            "CrdtHardening"
+        );
         assert_eq!(ReasonCode::DeltaQuarantined.as_str(), "DeltaQuarantined");
         assert_eq!(Severity::High.as_str(), "HIGH");
     }

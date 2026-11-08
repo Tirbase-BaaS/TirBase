@@ -11,9 +11,19 @@
 
 pub mod signed_operation;
 
+/// `TimeRatchet`, authenticated-time estimate, and freshness state
+/// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
+pub mod time;
+
 pub use signed_operation::{
-    SignedOperation, SignedOperationError, SignedOperationPayload, SignatureEntry,
+    SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,
     CONTEXT_EPOCH_BUMP, CONTEXT_LOCKDOWN_EXIT, CONTEXT_POLICY_BUNDLE,
+};
+
+pub use time::{
+    FreshnessState, RatchetAdvance, TimeBeacon, TimeRatchet, TimeRatchetConfig, TimeRatchetError,
+    TimeRatchetRecord, TimeRatchetStore, CONTEXT_TIME_BEACON, DEFAULT_MAX_FORWARD_JUMP_SECS,
+    DEFAULT_REQUIRED_ANCHOR_SIGNATURES, DEFAULT_STALENESS_WINDOW_SECS,
 };
 
 pub use tirbase_types;

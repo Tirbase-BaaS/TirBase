@@ -207,22 +207,25 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         entry: &SignatureEntry,
         public_key: &[u8],
     ) -> Result<(), SignedOperationError> {
-        let public_key: [u8; 32] = public_key
-            .try_into()
-            .map_err(|_| SignedOperationError::SignatureVerification {
-                signer_did: entry.signer_did.clone(),
-            })?;
+        let public_key: [u8; 32] =
+            public_key
+                .try_into()
+                .map_err(|_| SignedOperationError::SignatureVerification {
+                    signer_did: entry.signer_did.clone(),
+                })?;
 
         match &entry.signature {
-            DeviceSignature::Ed25519(bytes) => {
-                keypair::verify(&public_key, &self.signing_bytes(), &Ed25519Signature::from_bytes(*bytes))
-                    .map_err(|_| SignedOperationError::SignatureVerification {
-                        signer_did: entry.signer_did.clone(),
-                    })
-            }
-            DeviceSignature::P256(_) => {
-                Err(SignedOperationError::UnsupportedKeyType(entry.signature.clone()))
-            }
+            DeviceSignature::Ed25519(bytes) => keypair::verify(
+                &public_key,
+                &self.signing_bytes(),
+                &Ed25519Signature::from_bytes(*bytes),
+            )
+            .map_err(|_| SignedOperationError::SignatureVerification {
+                signer_did: entry.signer_did.clone(),
+            }),
+            DeviceSignature::P256(_) => Err(SignedOperationError::UnsupportedKeyType(
+                entry.signature.clone(),
+            )),
         }
     }
 
@@ -325,8 +328,8 @@ mod tests {
             version: 7,
             tightened: true,
         };
-        let mut op = SignedOperation::<PolicyBundleLike>::new(&payload, 1_000, None)
-            .expect("wrap payload");
+        let mut op =
+            SignedOperation::<PolicyBundleLike>::new(&payload, 1_000, None).expect("wrap payload");
         op.sign_with(&provider, CommandRole::PolicyAuthority)
             .expect("sign");
         op.verify(&payload, resolver(&provider)).expect("valid");
@@ -364,7 +367,8 @@ mod tests {
             tightened: true,
         };
         let mut op = SignedOperation::<PolicyBundleLike>::new(&payload, 1_000, None).unwrap();
-        op.sign_with(&provider, CommandRole::PolicyAuthority).unwrap();
+        op.sign_with(&provider, CommandRole::PolicyAuthority)
+            .unwrap();
 
         let tampered = PolicyBundleLike {
             version: 8,

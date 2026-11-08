@@ -81,7 +81,11 @@ impl FixedPointValue {
     /// canonical exponent before passing to the guard.
     #[inline]
     pub const fn new(mantissa: i64, exponent: i8, unit_id: UnitId) -> Self {
-        Self { mantissa, exponent, unit_id }
+        Self {
+            mantissa,
+            exponent,
+            unit_id,
+        }
     }
 
     // ── Float-to-fixed conversion (CLAIM-4.3, PV-21.1, PV-21.3) ─────────────
@@ -146,7 +150,11 @@ impl FixedPointValue {
         }
 
         let mantissa = scaled.round() as i64;
-        Ok(FixedPointValue { mantissa, exponent: target_exponent, unit_id })
+        Ok(FixedPointValue {
+            mantissa,
+            exponent: target_exponent,
+            unit_id,
+        })
     }
 
     // ── Canonical-exponent enforcement (CLAIM-4.2, PV-21.1) ─────────────────
@@ -166,10 +174,7 @@ impl FixedPointValue {
     /// # Errors
     /// - [`FixedPointError::OverflowOnConversion`] — scale factor overflows `i64`.
     /// - [`FixedPointError::LossyConversion`] — divide path has a non-zero remainder.
-    pub fn with_canonical_exponent(
-        &self,
-        canonical: i8,
-    ) -> Result<Self, FixedPointError> {
+    pub fn with_canonical_exponent(&self, canonical: i8) -> Result<Self, FixedPointError> {
         if self.exponent == canonical {
             return Ok(*self);
         }
@@ -180,8 +185,8 @@ impl FixedPointValue {
 
         if exp_delta > 0 {
             // self.exponent > canonical → multiply mantissa by 10^exp_delta
-            let scale = checked_pow10(exp_delta as u32)
-                .ok_or(FixedPointError::OverflowOnConversion)?;
+            let scale =
+                checked_pow10(exp_delta as u32).ok_or(FixedPointError::OverflowOnConversion)?;
             let new_mantissa = self
                 .mantissa
                 .checked_mul(scale)
@@ -194,8 +199,7 @@ impl FixedPointValue {
         } else {
             // self.exponent < canonical → divide mantissa by 10^(-exp_delta)
             let neg_delta = (-exp_delta) as u32;
-            let scale = checked_pow10(neg_delta)
-                .ok_or(FixedPointError::OverflowOnConversion)?;
+            let scale = checked_pow10(neg_delta).ok_or(FixedPointError::OverflowOnConversion)?;
             if self.mantissa % scale != 0 {
                 return Err(FixedPointError::LossyConversion);
             }
@@ -269,7 +273,10 @@ fn checked_pow10(exp: u32) -> Option<i64> {
 /// Returns an error if the required scale factor overflows i128.
 fn scale_to_i128(mantissa: i64, src_exp: i8, dst_exp: i8) -> Result<i128, FixedPointError> {
     let exp_delta = src_exp as i16 - dst_exp as i16;
-    debug_assert!(exp_delta >= 0, "dst_exp must be ≤ src_exp (we chose the minimum)");
+    debug_assert!(
+        exp_delta >= 0,
+        "dst_exp must be ≤ src_exp (we chose the minimum)"
+    );
     let m = mantissa as i128;
     if exp_delta == 0 {
         return Ok(m);
@@ -282,9 +289,12 @@ fn scale_to_i128(mantissa: i64, src_exp: i8, dst_exp: i8) -> Result<i128, FixedP
     }
     let mut scale: i128 = 1;
     for _ in 0..exp_delta {
-        scale = scale.checked_mul(10).ok_or(FixedPointError::OverflowOnConversion)?;
+        scale = scale
+            .checked_mul(10)
+            .ok_or(FixedPointError::OverflowOnConversion)?;
     }
-    m.checked_mul(scale).ok_or(FixedPointError::OverflowOnConversion)
+    m.checked_mul(scale)
+        .ok_or(FixedPointError::OverflowOnConversion)
 }
 
 // ── Unit ID constants (docs/unit-registry.md) ────────────────────────────────
@@ -344,19 +354,71 @@ pub struct UnitDescriptor {
 
 /// Static table of all registered unit descriptors (mirrors `docs/unit-registry.md`).
 pub const UNIT_DESCRIPTORS: &[UnitDescriptor] = &[
-    UnitDescriptor { id: UNIT_UNKNOWN, label: "unknown",  dimension: "dimensionless" },
-    UnitDescriptor { id: UNIT_DEG_C,  label: "degC",     dimension: "temperature" },
-    UnitDescriptor { id: UNIT_PA,     label: "Pa",        dimension: "pressure" },
-    UnitDescriptor { id: UNIT_RPM,    label: "rpm",       dimension: "angular_velocity" },
-    UnitDescriptor { id: UNIT_BAR,    label: "bar",       dimension: "pressure" },
-    UnitDescriptor { id: UNIT_KW,     label: "kW",        dimension: "power" },
-    UnitDescriptor { id: UNIT_PERCENT,label: "percent",   dimension: "dimensionless_ratio" },
-    UnitDescriptor { id: UNIT_BOOLEAN,label: "boolean",   dimension: "dimensionless" },
-    UnitDescriptor { id: UNIT_KPA,    label: "kPa",       dimension: "pressure" },
-    UnitDescriptor { id: UNIT_M3H,    label: "m3h",       dimension: "volumetric_flow" },
-    UnitDescriptor { id: UNIT_V,      label: "V",         dimension: "electric_potential" },
-    UnitDescriptor { id: UNIT_A,      label: "A",         dimension: "electric_current" },
-    UnitDescriptor { id: UNIT_HZ,     label: "Hz",        dimension: "frequency" },
+    UnitDescriptor {
+        id: UNIT_UNKNOWN,
+        label: "unknown",
+        dimension: "dimensionless",
+    },
+    UnitDescriptor {
+        id: UNIT_DEG_C,
+        label: "degC",
+        dimension: "temperature",
+    },
+    UnitDescriptor {
+        id: UNIT_PA,
+        label: "Pa",
+        dimension: "pressure",
+    },
+    UnitDescriptor {
+        id: UNIT_RPM,
+        label: "rpm",
+        dimension: "angular_velocity",
+    },
+    UnitDescriptor {
+        id: UNIT_BAR,
+        label: "bar",
+        dimension: "pressure",
+    },
+    UnitDescriptor {
+        id: UNIT_KW,
+        label: "kW",
+        dimension: "power",
+    },
+    UnitDescriptor {
+        id: UNIT_PERCENT,
+        label: "percent",
+        dimension: "dimensionless_ratio",
+    },
+    UnitDescriptor {
+        id: UNIT_BOOLEAN,
+        label: "boolean",
+        dimension: "dimensionless",
+    },
+    UnitDescriptor {
+        id: UNIT_KPA,
+        label: "kPa",
+        dimension: "pressure",
+    },
+    UnitDescriptor {
+        id: UNIT_M3H,
+        label: "m3h",
+        dimension: "volumetric_flow",
+    },
+    UnitDescriptor {
+        id: UNIT_V,
+        label: "V",
+        dimension: "electric_potential",
+    },
+    UnitDescriptor {
+        id: UNIT_A,
+        label: "A",
+        dimension: "electric_current",
+    },
+    UnitDescriptor {
+        id: UNIT_HZ,
+        label: "Hz",
+        dimension: "frequency",
+    },
 ];
 
 /// Look up a [`UnitDescriptor`] by its integer ID.
@@ -546,9 +608,12 @@ mod tests {
     // ── compare_with_bounds ───────────────────────────────────────────────────
 
     fn bounds_check(
-        v: i64, v_exp: i8,
-        lo: i64, lo_exp: i8,
-        hi: i64, hi_exp: i8,
+        v: i64,
+        v_exp: i8,
+        lo: i64,
+        lo_exp: i8,
+        hi: i64,
+        hi_exp: i8,
     ) -> Result<BoundsCheck, FixedPointError> {
         let val = FixedPointValue::new(v, v_exp, UNIT_DEG_C);
         let min = FixedPointValue::new(lo, lo_exp, UNIT_DEG_C);
@@ -568,10 +633,7 @@ mod tests {
     /// −1 < 0 → BelowMin.
     #[test]
     fn bounds_below_min() {
-        assert_eq!(
-            bounds_check(-1, 0, 0, 0, 100, 0),
-            Ok(BoundsCheck::BelowMin)
-        );
+        assert_eq!(bounds_check(-1, 0, 0, 0, 100, 0), Ok(BoundsCheck::BelowMin));
     }
 
     /// 101 > 100 → AboveMax.
@@ -616,17 +678,23 @@ mod tests {
     #[test]
     fn bounds_unit_mismatch_self_vs_min() {
         let val = FixedPointValue::new(50, -1, UNIT_DEG_C);
-        let min = FixedPointValue::new(0,  0,  UNIT_PA);
+        let min = FixedPointValue::new(0, 0, UNIT_PA);
         let max = FixedPointValue::new(100, -1, UNIT_DEG_C);
-        assert_eq!(val.compare_with_bounds(&min, &max), Err(FixedPointError::UnitMismatch));
+        assert_eq!(
+            val.compare_with_bounds(&min, &max),
+            Err(FixedPointError::UnitMismatch)
+        );
     }
 
     #[test]
     fn bounds_unit_mismatch_self_vs_max() {
         let val = FixedPointValue::new(50, -1, UNIT_DEG_C);
-        let min = FixedPointValue::new(0,  0,  UNIT_DEG_C);
+        let min = FixedPointValue::new(0, 0, UNIT_DEG_C);
         let max = FixedPointValue::new(100, -1, UNIT_PA);
-        assert_eq!(val.compare_with_bounds(&min, &max), Err(FixedPointError::UnitMismatch));
+        assert_eq!(
+            val.compare_with_bounds(&min, &max),
+            Err(FixedPointError::UnitMismatch)
+        );
     }
 
     /// Large i64 values use i128 intermediates without overflow.
@@ -634,27 +702,30 @@ mod tests {
     fn bounds_large_values_no_overflow() {
         // mantissa near i64::MAX in the same exponent — must compare without overflow
         let val = FixedPointValue::new(i64::MAX - 1, 0, UNIT_DEG_C);
-        let min = FixedPointValue::new(0,            0, UNIT_DEG_C);
-        let max = FixedPointValue::new(i64::MAX,     0, UNIT_DEG_C);
-        assert_eq!(val.compare_with_bounds(&min, &max), Ok(BoundsCheck::WithinBounds));
+        let min = FixedPointValue::new(0, 0, UNIT_DEG_C);
+        let max = FixedPointValue::new(i64::MAX, 0, UNIT_DEG_C);
+        assert_eq!(
+            val.compare_with_bounds(&min, &max),
+            Ok(BoundsCheck::WithinBounds)
+        );
     }
 
     // ── UnitId constants ─────────────────────────────────────────────────────
 
     #[test]
     fn unit_ids_match_registry() {
-        assert_eq!(UNIT_DEG_C,   1);
-        assert_eq!(UNIT_PA,      2);
-        assert_eq!(UNIT_RPM,     3);
-        assert_eq!(UNIT_BAR,     4);
-        assert_eq!(UNIT_KW,      5);
+        assert_eq!(UNIT_DEG_C, 1);
+        assert_eq!(UNIT_PA, 2);
+        assert_eq!(UNIT_RPM, 3);
+        assert_eq!(UNIT_BAR, 4);
+        assert_eq!(UNIT_KW, 5);
         assert_eq!(UNIT_PERCENT, 6);
         assert_eq!(UNIT_BOOLEAN, 7);
-        assert_eq!(UNIT_KPA,     8);
-        assert_eq!(UNIT_M3H,     9);
-        assert_eq!(UNIT_V,       10);
-        assert_eq!(UNIT_A,       11);
-        assert_eq!(UNIT_HZ,      12);
+        assert_eq!(UNIT_KPA, 8);
+        assert_eq!(UNIT_M3H, 9);
+        assert_eq!(UNIT_V, 10);
+        assert_eq!(UNIT_A, 11);
+        assert_eq!(UNIT_HZ, 12);
         // 0 is reserved
         assert_eq!(UNIT_UNKNOWN, 0);
     }
@@ -693,7 +764,10 @@ mod tests {
     fn checked_pow10_edge_cases() {
         assert_eq!(super::checked_pow10(0), Some(1));
         assert_eq!(super::checked_pow10(1), Some(10));
-        assert_eq!(super::checked_pow10(18), Some(1_000_000_000_000_000_000_i64));
+        assert_eq!(
+            super::checked_pow10(18),
+            Some(1_000_000_000_000_000_000_i64)
+        );
         assert_eq!(super::checked_pow10(19), None);
         assert_eq!(super::checked_pow10(100), None);
     }
@@ -727,12 +801,15 @@ mod prop_tests {
     }
 
     fn fpv_with_exp(unit_id: UnitId, exp: i8) -> impl Strategy<Value = FixedPointValue> {
-        any::<i64>().prop_map(move |m| FixedPointValue { mantissa: m, exponent: exp, unit_id })
+        any::<i64>().prop_map(move |m| FixedPointValue {
+            mantissa: m,
+            exponent: exp,
+            unit_id,
+        })
     }
 
     fn fpv_any(unit_id: UnitId) -> impl Strategy<Value = FixedPointValue> {
-        safe_exp()
-            .prop_flat_map(move |e| fpv_with_exp(unit_id, e))
+        safe_exp().prop_flat_map(move |e| fpv_with_exp(unit_id, e))
     }
 
     // ── Properties ────────────────────────────────────────────────────────────
