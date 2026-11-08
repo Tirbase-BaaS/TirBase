@@ -297,9 +297,9 @@ Events emitted during gateway boot and initialisation (PV-11).
 | BootCompleted | Gateway startup completed; node entered Normal mode | Low | Planned | PV-11 |
 | QuickCheckFailed | PRAGMA quick_check detected database corruption at boot | Critical | Planned | PV-9.3 |
 | LockdownFlagFound | Persisted lockdown flag detected at boot; entering Lockdown mode | Critical | Implemented | PV-4.13 |
-| StorageFull | SQLITE_FULL (ENOSPC) detected; reducing non-critical write rate | High | Planned | PV-9 |
-| StorageError | SQLITE_IOERR detected; entering Restricted mode | Critical | Planned | PV-9 |
-| StorageCorrupt | SQLITE_CORRUPT detected; entering Restricted mode | Critical | Planned | PV-9 |
+| StorageFull | SQLITE_FULL (ENOSPC) detected; reducing non-critical write rate | High | Implemented | PV-9, CLAIM-18.4 |
+| StorageError | SQLITE_IOERR detected; entering Restricted mode | Critical | Implemented | PV-9, CLAIM-18.4 |
+| StorageCorrupt | SQLITE_CORRUPT detected; entering Restricted mode | Critical | Implemented | PV-9, CLAIM-18.4 |
 | LedgerRebuilt | Derived ledger rebuilt from signed delta log after corruption | High | Planned | PV-9.3 |
 
 ---
