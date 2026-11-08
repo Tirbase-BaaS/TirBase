@@ -1,3 +1,10 @@
+[features]
+# Hardware-backed key providers and counters are feature-gated (tasks 6.3,
+# 6.4, 6.6).  Both stubs compile without their SDKs present.
+default = []
+tpm2 = []
+pkcs11 = []
+
 [package]
 name = "tirbase-gateway"
 version = "0.1.0"
@@ -44,6 +51,13 @@ axum = "0.7"
 
 # JSON body serialisation (used by health endpoint)
 serde_json = "1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+# Secret-typed private material (PKCS#11 PIN, key seeds) and zeroize-on-drop
+# assertions for key-material structs.
+secrecy = { version = "0.8" }
+zeroize = { version = "1.9", features = ["derive"] }
+
 
 [dev-dependencies]
 # HTTP client for health endpoint integration test

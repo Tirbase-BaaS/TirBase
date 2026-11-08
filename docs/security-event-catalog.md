@@ -173,7 +173,7 @@ Events emitted by the monotonic counter subsystem (PV-9.8).
 
 | Reason Code | Description | Severity | Status | PV Reference |
 |---|---|---|---|---|
-| MonotonicCounterRegression | Hardware counter ahead of software counter at boot; rollback detected | Critical | Planned | PV-9.8 |
+| MonotonicCounterRegression | Hardware counter ahead of software counter at boot; rollback detected | Critical | Implemented | PV-9.8 |
 | CounterLevelReported | Boot-time assurance level (Level1/Level2) reported in diagnostics | Low | Planned | PV-9.8 |
 
 ---

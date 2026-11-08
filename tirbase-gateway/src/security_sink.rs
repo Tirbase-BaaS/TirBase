@@ -81,12 +81,9 @@ mod tests {
     use tirbase_core::schema::hash::compute_schema_identifier_hash;
     use tirbase_core::store::sqlite;
 
-    /// Only one test may own the process-wide sink at a time.
-    static SINK_LOCK: Mutex<()> = Mutex::new(());
-
     #[test]
     fn core_events_are_routed_into_the_gateway_log() {
-        let _guard = SINK_LOCK.lock().unwrap();
+        let _guard = crate::EVENT_SINK_TEST_LOCK.lock().unwrap();
         let log = GatewaySecurityEventLog::new().install();
 
         tirbase_core::events::emit(
@@ -106,7 +103,7 @@ mod tests {
 
     #[test]
     fn crdt_rejection_in_core_reaches_the_gateway_event_log() {
-        let _guard = SINK_LOCK.lock().unwrap();
+        let _guard = crate::EVENT_SINK_TEST_LOCK.lock().unwrap();
         let log = GatewaySecurityEventLog::new().install();
 
         // Build a real CRDT engine over an in-memory SQLite database.
