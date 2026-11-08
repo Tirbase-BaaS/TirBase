@@ -266,6 +266,24 @@ pub enum ReasonCode {
     LockdownFlagFound,
     /// A trust-root record with a stale version was rejected at boot/rotation.
     TrustRootRollbackRejected,
+
+    // ModeTransition / lockdown (PV-4.13, PV-1.11, CLAIM-13.1–13.6)
+    /// Node entered LOCKDOWN.
+    EnteredLockdown,
+    /// Node exited LOCKDOWN after M-of-N authorization.
+    ExitedLockdown,
+    /// Node entered Restricted mode.
+    EnteredRestricted,
+    /// Crash-loop threshold exceeded; LOCKDOWN escalation triggered.
+    CrashLoopEscalation,
+    /// A valid M-of-N lockdown-exit command was applied.
+    LockdownExitApplied,
+    /// A lockdown-exit command was rejected (signature/quorum/profile).
+    LockdownExitRejected,
+
+    // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
+    /// Command rejected because the node is in Lockdown or Restricted mode.
+    ModeLockdown,
 }
 
 impl ReasonCode {
@@ -332,6 +350,13 @@ impl ReasonCode {
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
             ReasonCode::TrustRootRollbackRejected => "TrustRootRollbackRejected",
+            ReasonCode::EnteredLockdown => "EnteredLockdown",
+            ReasonCode::ExitedLockdown => "ExitedLockdown",
+            ReasonCode::EnteredRestricted => "EnteredRestricted",
+            ReasonCode::CrashLoopEscalation => "CrashLoopEscalation",
+            ReasonCode::LockdownExitApplied => "LockdownExitApplied",
+            ReasonCode::LockdownExitRejected => "LockdownExitRejected",
+            ReasonCode::ModeLockdown => "ModeLockdown",
         }
     }
 }

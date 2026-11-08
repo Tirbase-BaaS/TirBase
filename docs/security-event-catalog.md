@@ -37,7 +37,7 @@ Events emitted by the Command Guard when it accepts or rejects a command (Stage 
 |---|---|---|---|---|
 | Accepted | Command passed all guard stages and was admitted | Low | Planned | PV-4 |
 | PreAuthRateLimit | Pre-auth per-source token bucket exceeded before any crypto | Medium | Planned | PV-4.3 |
-| ModeLockdown | Node is in Lockdown or Restricted mode; command rejected at Stage 1 | High | Planned | PV-4.13 |
+| ModeLockdown | Node is in Lockdown or Restricted mode; command rejected at Stage 1 | High | Implemented | PV-4.13 |
 | InvalidSignature | Command signature failed verification at Stage 2 | High | Planned | PV-4.3 |
 | TokenInvalid | Biscuit token invalid, expired, or from unknown CA (Stage 3) | High | Planned | PV-3.2 |
 | CommandSignatureInvalid | Command signature failed verification over canonical CBOR (Stage 2) | High | Implemented | PV-4.2 |
@@ -111,11 +111,13 @@ Events emitted when the node changes its operational mode (PV-4.13).
 | EnteredStarting | Node entered Starting mode at boot | Low | Planned | PV-4.13 |
 | EnteredNormal | Node entered Normal mode after boot reconciliation | Low | Planned | PV-4.13 |
 | EnteredDegraded | No comms for > degraded_timeout_secs; entering last-known-safe loop | Medium | Planned | PV-4.13 |
-| EnteredRestricted | Security log tampered or PrimaryLedger corrupted; entering Restricted | High | Planned | PV-4.13 |
-| EnteredLockdown | Node entered LOCKDOWN | Critical | Planned | PV-4.13 |
-| ExitedLockdown | Node exited LOCKDOWN after M-of-N authorization | High | Planned | PV-4.13 |
+| EnteredRestricted | Security log tampered or PrimaryLedger corrupted; entering Restricted | High | Implemented | PV-4.13 |
+| EnteredLockdown | Node entered LOCKDOWN | Critical | Implemented | PV-4.13 |
+| ExitedLockdown | Node exited LOCKDOWN after M-of-N authorization | High | Implemented | PV-4.13 |
 | ExitedRestricted | Node exited Restricted mode after signed chain-recovery command | High | Planned | PV-4.13 |
-| CrashLoopEscalation | Crash-loop threshold exceeded; LOCKDOWN escalation triggered | Critical | Planned | PV-1.11 |
+| CrashLoopEscalation | Crash-loop threshold exceeded; LOCKDOWN escalation triggered | Critical | Implemented | PV-1.11 |
+| LockdownExitApplied | Valid M-of-N lockdown-exit command applied | High | Implemented | PV-4.13 |
+| LockdownExitRejected | Lockdown-exit command rejected (signature/quorum/profile) | High | Implemented | PV-4.13 |
 
 ---
 
@@ -294,7 +296,7 @@ Events emitted during gateway boot and initialisation (PV-11).
 |---|---|---|---|---|
 | BootCompleted | Gateway startup completed; node entered Normal mode | Low | Planned | PV-11 |
 | QuickCheckFailed | PRAGMA quick_check detected database corruption at boot | Critical | Planned | PV-9.3 |
-| LockdownFlagFound | Persisted lockdown flag detected at boot; entering Lockdown mode | Critical | Planned | PV-4.13 |
+| LockdownFlagFound | Persisted lockdown flag detected at boot; entering Lockdown mode | Critical | Implemented | PV-4.13 |
 | StorageFull | SQLITE_FULL (ENOSPC) detected; reducing non-critical write rate | High | Planned | PV-9 |
 | StorageError | SQLITE_IOERR detected; entering Restricted mode | Critical | Planned | PV-9 |
 | StorageCorrupt | SQLITE_CORRUPT detected; entering Restricted mode | Critical | Planned | PV-9 |

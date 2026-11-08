@@ -1,5 +1,5 @@
 //! `CommandGuard` — unified admission pipeline entry point (PV-4.2, PV-4.3,
-//! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3).
+//! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3, CLAIM-13.1).
 //!
 //! Task 11 wires the structural invariants required by the spec:
 //! * signed [`CommandMessage`]s are accepted only after signature verification
@@ -9,10 +9,13 @@
 //! * actuation frames reach the device only through [`DriverProxy`] after
 //!   `admit()` (CLAIM-11.3); every ingress path must converge here.
 //!
+//! Task 13.1 adds Stage 1: `NodeMode` enforcement (CLAIM-13.1, PV-4.13, INV-5).
+//! Commands are rejected in `Lockdown` and `Restricted`; mesh sync and log
+//! export remain available in `Restricted` (enforced by their subsystems).
+//!
 //! The full 19-stage pipeline (token binding, replay, envelope, lease, ledger,
 //! etc.) is implemented incrementally by tasks 13–16.  This module provides the
-//! task-11 admission core and the ingress-convergence helpers those later
-//! stages extend.
+//! task-11/13 admission core and the ingress-convergence helpers.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -25,6 +28,7 @@ use tirbase_types::TargetId;
 use crate::command::{verify_command_signature, CommandError};
 use crate::driver_proxy::{DriverProxy, IngressSource};
 use crate::epoch::{EpochError, EpochRegistry};
+use crate::node_mode::{NodeMode, NodeModeState};
 use crate::permit::{ActuationPermit, ActuationPermitRef};
 
 /// Admission / dispatch outcome.
@@ -34,13 +38,15 @@ pub struct AdmittedCommand {
     pub ingress: IngressSource,
 }
 
-/// Rejection reasons surfaced by the task-11 guard core.
+/// Rejection reasons surfaced by the guard core.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdmitError {
     InvalidSignature(String),
     Epoch(EpochError),
     Dispatch(String),
     MissingParameter(String),
+    /// Stage 1: node mode does not permit command admission (CLAIM-13.1).
+    ModeRejected(NodeMode),
 }
 
 impl std::fmt::Display for AdmitError {
@@ -50,6 +56,9 @@ impl std::fmt::Display for AdmitError {
             AdmitError::Epoch(e) => write!(f, "epoch check rejected: {e}"),
             AdmitError::Dispatch(e) => write!(f, "actuation dispatch failed: {e}"),
             AdmitError::MissingParameter(e) => write!(f, "missing parameter: {e}"),
+            AdmitError::ModeRejected(mode) => {
+                write!(f, "command rejected: node mode {mode} does not permit commands")
+            }
         }
     }
 }
@@ -91,6 +100,8 @@ pub struct GuardConfig {
 pub struct CommandGuard {
     epochs: Arc<EpochRegistry>,
     config: RwLock<GuardConfig>,
+    /// Stage 1 operational mode (CLAIM-13.1).  Shared with gateway/runtime.
+    node_mode: Arc<NodeModeState>,
     /// Monotonic entry-id source (task-11 placeholder; task 14/16 wire the
     /// durable effects ledger entry id).
     next_entry: std::sync::atomic::AtomicU64,
@@ -100,21 +111,38 @@ impl std::fmt::Debug for CommandGuard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CommandGuard")
             .field("epochs", &self.epochs)
+            .field("node_mode", &self.node_mode.get())
             .finish_non_exhaustive()
     }
 }
 
 impl CommandGuard {
+    /// Construct a guard in the default `Starting` mode.
     pub fn new(epochs: Arc<EpochRegistry>, config: GuardConfig) -> Self {
+        Self::with_mode(epochs, config, NodeModeState::new(NodeMode::Starting))
+    }
+
+    /// Construct a guard with an explicit shared mode state.
+    pub fn with_mode(
+        epochs: Arc<EpochRegistry>,
+        config: GuardConfig,
+        node_mode: Arc<NodeModeState>,
+    ) -> Self {
         CommandGuard {
             epochs,
             config: RwLock::new(config),
+            node_mode,
             next_entry: std::sync::atomic::AtomicU64::new(1),
         }
     }
 
     pub fn epochs(&self) -> &Arc<EpochRegistry> {
         &self.epochs
+    }
+
+    /// Shared operational mode state (Stage 1 / gateway runtime).
+    pub fn node_mode(&self) -> &Arc<NodeModeState> {
+        &self.node_mode
     }
 
     fn entry_id(&self) -> [u8; 16] {
@@ -138,8 +166,26 @@ impl CommandGuard {
         proxy: &mut DriverProxy<W>,
         frame: &[u8],
     ) -> Result<AdmittedCommand, AdmitError> {
-        // 1. Signature verification (CLAIM-11.1, PV-4.2).  Unsigned / invalid
-        //    signatures are rejected before any stateful checks.
+        // Stage 1 (CLAIM-13.1, PV-4.13, INV-5): reject commands in Lockdown or
+        // Restricted.  Mesh sync/log export remain available in Restricted but
+        // they do not pass through command admission.
+        let mode = self.node_mode.get();
+        if !mode.allows_commands() {
+            emit(
+                SecurityEvent::new(
+                    SecurityEventCategory::CommandDecision,
+                    Severity::High,
+                    ReasonCode::ModeLockdown,
+                )
+                .with_actor(cmd.issuer_did.as_str())
+                .with_target(cmd.target_id.as_str())
+                .with_detail(format!("command rejected: node mode {mode}")),
+            );
+            return Err(AdmitError::ModeRejected(mode));
+        }
+
+        // Signature verification (CLAIM-11.1, PV-4.2).  Unsigned / invalid
+        // signatures are rejected before any stateful checks.
         if let Err(e) = verify_command_signature(cmd) {
             emit(
                 SecurityEvent::new(
@@ -154,10 +200,10 @@ impl CommandGuard {
             return Err(AdmitError::InvalidSignature(e.to_string()));
         }
 
-        // 2. Stage 8 epoch check (task 8.7, preserved).  The target's local
-        //    device identity is looked up from config; if absent we still verify
-        //    the signature but cannot perform the epoch gate (later tasks require
-        //    a profile/target binding).
+        // Stage 8 epoch check (task 8.7, preserved).  The target's local
+        // device identity is looked up from config; if absent we still verify
+        // the signature but cannot perform the epoch gate (later tasks require
+        // a profile/target binding).
         if let Ok(cfg) = self.config.read() {
             if let Some(target) = cfg.targets.get(&cmd.target_id) {
                 self.epochs
@@ -165,7 +211,7 @@ impl CommandGuard {
             }
         }
 
-        // 3. Mint permit (CLAIM-11.2) — only here.
+        // Mint permit (CLAIM-11.2) — only here.
         let permit = ActuationPermit::new(
             cmd.target_id.clone(),
             cmd.param.clone(),
@@ -173,7 +219,7 @@ impl CommandGuard {
             self.entry_id(),
         );
 
-        // 4. Dispatch through DriverProxy (CLAIM-11.3).  The permit is consumed.
+        // Dispatch through DriverProxy (CLAIM-11.3).  The permit is consumed.
         let permit_ref = proxy
             .dispatch(permit, frame)
             .map_err(|e| AdmitError::Dispatch(e.to_string()))?;
@@ -194,7 +240,8 @@ impl CommandGuard {
 }
 
 /// Build a `CommandGuard` wired for a single local device/target (test helper
-/// and minimal production bootstrap).
+/// and minimal production bootstrap).  Starts in `Normal` mode so existing
+/// task-11/ingress tests remain meaningful; task-13 tests set mode explicitly.
 pub fn single_target_guard(
     epochs: Arc<EpochRegistry>,
     target_id: TargetId,
@@ -202,5 +249,5 @@ pub fn single_target_guard(
 ) -> CommandGuard {
     let mut targets = BTreeMap::new();
     targets.insert(target_id, TargetAdmission { device_id });
-    CommandGuard::new(epochs, GuardConfig { targets })
+    CommandGuard::with_mode(epochs, GuardConfig { targets }, NodeModeState::new(NodeMode::Normal))
 }

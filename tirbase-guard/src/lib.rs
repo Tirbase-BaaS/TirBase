@@ -20,6 +20,14 @@ pub mod policy;
 /// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
 
+/// Node operational mode and mode × operation matrix (task 13.1 —
+/// CLAIM-13.1, PV-4.13).
+pub mod node_mode;
+
+/// LOCKDOWN entry/exit, persistence, crash-loop escalation, and safe-default
+/// arming (tasks 13.2, 13.3, 13.5, 13.6 — CLAIM-13.2/3/5/6, PV-4.13, PV-4.15).
+pub mod lockdown;
+
 /// Envelope profile install/validation and target-to-profile hot-swap
 /// (tasks 10.4–10.6 — CLAIM-10.4…10.6, PV-4.5).
 pub mod envelope;
@@ -68,6 +76,14 @@ pub use driver_proxy::{DriverProxy, IngressSource};
 pub use guard::{single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission};
 pub use permit::{ActuationPermit, ActuationPermitRef};
 
+pub use node_mode::{NodeMode, NodeModeState};
+pub use lockdown::{
+    arm_controller_watchdogs, apply_crash_decision, apply_lockdown_exit, enter_lockdown,
+    CrashLoopEscalation, CrashLoopTracker, InMemoryLockdownStore, LockdownEntryReason,
+    LockdownError, LockdownExitPayload, LockdownFileMarker, LockdownStore, SafeDefaultBinding,
+    CONTEXT_LOCKDOWN_EXIT, LOCKDOWN_DB_KEY, LOCKDOWN_FILE_PATH,
+};
+
 pub use trust_root::{
     AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager,
     TrustRootRecord, TrustRootSignature,
@@ -82,7 +98,7 @@ pub use tirbase_types::policy::{PolicyBundle, PolicyBundleKind, PolicyCoSignatur
 
 pub use signed_operation::{
     SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,
-    CONTEXT_EPOCH_BUMP, CONTEXT_LOCKDOWN_EXIT, CONTEXT_POLICY_BUNDLE,
+    CONTEXT_EPOCH_BUMP, CONTEXT_POLICY_BUNDLE,
 };
 
 pub use time::{
