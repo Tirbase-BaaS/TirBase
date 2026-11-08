@@ -20,6 +20,9 @@ pub mod policy;
 /// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
 
+/// Single-writer lease type (Task 21.1, PV-5.8/5.8a).
+pub mod single_writer_lease;
+
 /// Anti-replay sliding window and PolicyAuthority-signed reset
 /// (tasks 20.1–20.3 — CLAIM-20.1…20.3, PV-5.5, INV-10).
 pub mod anti_replay;
@@ -121,6 +124,7 @@ pub use signed_operation::{
     SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,
     CONTEXT_EPOCH_BUMP, CONTEXT_POLICY_BUNDLE,
 };
+pub use single_writer_lease::SingleWriterLease;
 
 pub use time::{
     FreshnessState, RatchetAdvance, TimeBeacon, TimeRatchet, TimeRatchetConfig, TimeRatchetError,

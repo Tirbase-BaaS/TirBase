@@ -1,79 +1,3 @@
-    Blocking waiting for file lock on build directory
- Documenting tirbase-guard v0.1.0 (/Users/macbook/github code/TriBase/tirbase-guard)
-warning: unresolved link to `CommandRole`
-  |
-  = note: the link appears in this line:
-          
-            co-sign for each [`CommandRole`],
-                              ^^^^^^^^^^^^^
-  = note: no item named `CommandRole` in scope
-  = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
-  = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
-
-warning: unresolved link to `MonotonicCounterTrait`
-  |
-  = note: the link appears in this line:
-          
-          [`MonotonicCounterTrait`].  A record whose version is not strictly greater
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  = note: no item named `MonotonicCounterTrait` in scope
-  = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
-
-warning: unresolved link to `ReasonCode::EpochRegression`
-  |
-  = note: the link appears in this line:
-          
-          emits a [`ReasonCode::EpochRegression`] security event before the report is
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  = note: no item named `ReasonCode` in scope
-
-warning: unresolved link to `CommandGuard::admit`
-   --> tirbase-guard/src/epoch.rs:301:31
-    |
-301 |     /// This is called from [`CommandGuard::admit`].
-    |                               ^^^^^^^^^^^^^^^^^^^ no item named `CommandGuard` in scope
-
-warning: unresolved link to `CommandGuard::admit`
-   --> tirbase-guard/src/epoch.rs:481:7
-    |
-481 | /// [`CommandGuard::admit`].  The remaining pipeline stages (authentication,
-    |       ^^^^^^^^^^^^^^^^^^^ no item named `CommandGuard` in scope
-
-warning: public documentation for `permit` links to private item `ActuationPermit::new`
-  |
-  = note: the link appears in this line:
-          
-          [`ActuationPermit::new`] constructor.  The permit carries no `Default`,
-           ^^^^^^^^^^^^^^^^^^^^^^
-  = note: this link will resolve properly if you pass `--document-private-items`
-  = note: `#[warn(rustdoc::private_intra_doc_links)]` on by default
-
-warning: public documentation for `ActuationPermit` links to private item `ActuationPermit::new`
-  --> tirbase-guard/src/permit.rs:19:13
-   |
-19 | /// calls [`ActuationPermit::new`] after a command has passed every pipeline
-   |             ^^^^^^^^^^^^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: unresolved link to `CommandGuard::admit_legacy`
-   --> tirbase-guard/src/admit.rs:118:7
-    |
-118 | /// [`CommandGuard::admit_legacy`] which preserves prior signature+epoch behavior.
-    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `CommandGuard` in scope
-
-warning: unresolved link to `ReasonCode::NonceReused`
-  |
-  = note: the link appears in this line:
-          
-             emitting [`ReasonCode::NonceReused`].
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^
-  = note: no item named `ReasonCode` in scope
-
-warning: `tirbase-guard` (lib doc) generated 9 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.36s
-warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_guard
 pub use tirbase_guard::CONTEXT_COMMAND_MESSAGE
 pub use tirbase_guard::ConstraintOperator
@@ -169,10 +93,12 @@ pub tirbase_guard::admit::AdmitRejection::ChallengeMissing
 pub tirbase_guard::admit::AdmitRejection::CommitConflict
 pub tirbase_guard::admit::AdmitRejection::ConstraintViolation
 pub tirbase_guard::admit::AdmitRejection::DriftExceeded
+pub tirbase_guard::admit::AdmitRejection::DwellViolation
 pub tirbase_guard::admit::AdmitRejection::EnvelopeViolation
 pub tirbase_guard::admit::AdmitRejection::Expired
 pub tirbase_guard::admit::AdmitRejection::InvalidSignature
 pub tirbase_guard::admit::AdmitRejection::IssuerRevoked
+pub tirbase_guard::admit::AdmitRejection::MinOffViolation
 pub tirbase_guard::admit::AdmitRejection::ModeLockdown
 pub tirbase_guard::admit::AdmitRejection::NoProfile
 pub tirbase_guard::admit::AdmitRejection::PreAuthRateLimit
@@ -311,11 +237,17 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::AdmitContext<'a>
 pub fn tirbase_guard::admit::AdmitContext<'a>::vzip(self) -> V
 pub struct tirbase_guard::admit::AdmitPipelineState
 impl tirbase_guard::admit::AdmitPipelineState
+pub fn tirbase_guard::admit::AdmitPipelineState::check_challenge_issue_rate_limit(&self, &str, &str, &str, i64) -> bool
 pub fn tirbase_guard::admit::AdmitPipelineState::clear_target_unknown(&self, &str)
+pub fn tirbase_guard::admit::AdmitPipelineState::freshness_state(&self) -> tirbase_guard::time::FreshnessState
 pub fn tirbase_guard::admit::AdmitPipelineState::issue_challenge_nonce(&self, &str, &str, &str) -> [u8; 32]
+pub fn tirbase_guard::admit::AdmitPipelineState::issue_challenge_nonce_for_device(&self, &str, &str, &str, &str) -> core::result::Result<tirbase_guard::admit::ChallengeNonce, alloc::string::String>
 pub fn tirbase_guard::admit::AdmitPipelineState::mark_target_unknown(&self, impl core::convert::Into<alloc::string::String>)
+pub fn tirbase_guard::admit::AdmitPipelineState::mono_secs_now(&self) -> i64
 pub fn tirbase_guard::admit::AdmitPipelineState::new(alloc::sync::Arc<alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, alloc::sync::Arc<arc_swap::ArcSwap<tirbase_types::envelope::EnvelopeProfile>>>>, alloc::sync::Arc<arc_swap::ArcSwap<core::option::Option<tirbase_types::policy::PolicyBundle>>>, alloc::sync::Arc<std::sync::poison::rwlock::RwLock<tirbase_core::auth::root_ca::RootCaRegistry>>, alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_guard::time::TimeRatchet>>, alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>) -> Self
+pub fn tirbase_guard::admit::AdmitPipelineState::ratchet(&self) -> &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_guard::time::TimeRatchet>>
 pub fn tirbase_guard::admit::AdmitPipelineState::revoke_did(&self, impl core::convert::Into<alloc::string::String>)
+pub fn tirbase_guard::admit::AdmitPipelineState::set_challenge_requests_per_minute(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_challenge_store(&self, alloc::sync::Arc<dyn tirbase_guard::admit::ChallengeNonceStore>)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_decided_store(&self, alloc::sync::Arc<dyn tirbase_guard::admit::DecidedOutcomeStore>)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_desired_state(&self, &str, &str, tirbase_types::fixed_point::FixedPointValue)
@@ -324,6 +256,7 @@ pub fn tirbase_guard::admit::AdmitPipelineState::set_issuer_rps(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_max_ttl_secs(&self, i64)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_pre_auth_rps(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_quorum_provider(&self, alloc::sync::Arc<dyn tirbase_guard::admit::PendingApprovalQuorum>)
+pub fn tirbase_guard::admit::AdmitPipelineState::time_source(&self) -> &alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>
 impl core::fmt::Debug for tirbase_guard::admit::AdmitPipelineState
 pub fn tirbase_guard::admit::AdmitPipelineState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_guard::admit::AdmitPipelineState
@@ -367,6 +300,84 @@ pub type tirbase_guard::admit::AdmitPipelineState::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::AdmitPipelineState where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::AdmitPipelineState where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::admit::AdmitPipelineState::vzip(self) -> V
+pub struct tirbase_guard::admit::ChallengeNonce
+pub tirbase_guard::admit::ChallengeNonce::device_id: alloc::string::String
+pub tirbase_guard::admit::ChallengeNonce::expires_at_mono: i64
+pub tirbase_guard::admit::ChallengeNonce::issued_at_mono: i64
+pub tirbase_guard::admit::ChallengeNonce::issuer_did: alloc::string::String
+pub tirbase_guard::admit::ChallengeNonce::nonce: [u8; 32]
+pub tirbase_guard::admit::ChallengeNonce::param: alloc::string::String
+pub tirbase_guard::admit::ChallengeNonce::target_id: alloc::string::String
+impl tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::is_expired(&self, i64) -> bool
+impl core::clone::Clone for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::clone(&self) -> tirbase_guard::admit::ChallengeNonce
+impl core::cmp::Eq for tirbase_guard::admit::ChallengeNonce
+impl core::cmp::PartialEq for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::eq(&self, &tirbase_guard::admit::ChallengeNonce) -> bool
+impl core::fmt::Debug for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::admit::ChallengeNonce
+impl serde_core::ser::Serialize for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Send for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Sync for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Unpin for tirbase_guard::admit::ChallengeNonce
+impl core::marker::UnsafeUnpin for tirbase_guard::admit::ChallengeNonce
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::admit::ChallengeNonce
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::admit::ChallengeNonce
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::admit::ChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::admit::ChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::From<T>
+pub fn tirbase_guard::admit::ChallengeNonce::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::Into<T>
+pub type tirbase_guard::admit::ChallengeNonce::Error = core::convert::Infallible
+pub fn tirbase_guard::admit::ChallengeNonce::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::TryFrom<T>
+pub type tirbase_guard::admit::ChallengeNonce::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::admit::ChallengeNonce::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::admit::ChallengeNonce where T: core::clone::Clone
+pub type tirbase_guard::admit::ChallengeNonce::Owned = T
+pub fn tirbase_guard::admit::ChallengeNonce::clone_into(&self, &mut T)
+pub fn tirbase_guard::admit::ChallengeNonce::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::admit::ChallengeNonce where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::admit::ChallengeNonce where T: core::clone::Clone
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::admit::ChallengeNonce
+pub type tirbase_guard::admit::ChallengeNonce::Init = T
+pub const tirbase_guard::admit::ChallengeNonce::ALIGN: usize
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::drop(usize)
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::admit::ChallengeNonce
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::admit::ChallengeNonce where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::admit::ChallengeNonce
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::admit::ChallengeNonce
+impl<T> typenum::type_operators::Same for tirbase_guard::admit::ChallengeNonce
+pub type tirbase_guard::admit::ChallengeNonce::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::ChallengeNonce where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::admit::ChallengeNonce::vzip(self) -> V
 pub struct tirbase_guard::admit::DriftRecord
 pub tirbase_guard::admit::DriftRecord::exponent: i8
 pub tirbase_guard::admit::DriftRecord::mono_secs: i64
@@ -435,17 +446,327 @@ pub type tirbase_guard::admit::DriftRecord::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::DriftRecord where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::DriftRecord where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::admit::DriftRecord::vzip(self) -> V
+pub struct tirbase_guard::admit::DriftTimingSummary
+pub tirbase_guard::admit::DriftTimingSummary::last_change_mono: core::option::Option<i64>
+pub tirbase_guard::admit::DriftTimingSummary::last_deactivation_mono: core::option::Option<i64>
+impl core::clone::Clone for tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::clone(&self) -> tirbase_guard::admit::DriftTimingSummary
+impl core::cmp::Eq for tirbase_guard::admit::DriftTimingSummary
+impl core::cmp::PartialEq for tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::eq(&self, &tirbase_guard::admit::DriftTimingSummary) -> bool
+impl core::default::Default for tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::default() -> tirbase_guard::admit::DriftTimingSummary
+impl core::fmt::Debug for tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::admit::DriftTimingSummary
+impl core::marker::Freeze for tirbase_guard::admit::DriftTimingSummary
+impl core::marker::Send for tirbase_guard::admit::DriftTimingSummary
+impl core::marker::Sync for tirbase_guard::admit::DriftTimingSummary
+impl core::marker::Unpin for tirbase_guard::admit::DriftTimingSummary
+impl core::marker::UnsafeUnpin for tirbase_guard::admit::DriftTimingSummary
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::admit::DriftTimingSummary
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::admit::DriftTimingSummary
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::admit::DriftTimingSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::DriftTimingSummary::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::DriftTimingSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::DriftTimingSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::DriftTimingSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::DriftTimingSummary::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::DriftTimingSummary::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::DriftTimingSummary::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::admit::DriftTimingSummary where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::admit::DriftTimingSummary where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::admit::DriftTimingSummary where U: core::convert::From<T>
+pub fn tirbase_guard::admit::DriftTimingSummary::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::admit::DriftTimingSummary where U: core::convert::Into<T>
+pub type tirbase_guard::admit::DriftTimingSummary::Error = core::convert::Infallible
+pub fn tirbase_guard::admit::DriftTimingSummary::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::admit::DriftTimingSummary where U: core::convert::TryFrom<T>
+pub type tirbase_guard::admit::DriftTimingSummary::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::admit::DriftTimingSummary::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::admit::DriftTimingSummary where T: core::clone::Clone
+pub type tirbase_guard::admit::DriftTimingSummary::Owned = T
+pub fn tirbase_guard::admit::DriftTimingSummary::clone_into(&self, &mut T)
+pub fn tirbase_guard::admit::DriftTimingSummary::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::admit::DriftTimingSummary where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::admit::DriftTimingSummary::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::admit::DriftTimingSummary where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::DriftTimingSummary::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::admit::DriftTimingSummary where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::DriftTimingSummary::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::admit::DriftTimingSummary where T: core::clone::Clone
+pub unsafe fn tirbase_guard::admit::DriftTimingSummary::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::admit::DriftTimingSummary
+pub type tirbase_guard::admit::DriftTimingSummary::Init = T
+pub const tirbase_guard::admit::DriftTimingSummary::ALIGN: usize
+pub unsafe fn tirbase_guard::admit::DriftTimingSummary::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::admit::DriftTimingSummary::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::admit::DriftTimingSummary::drop(usize)
+pub unsafe fn tirbase_guard::admit::DriftTimingSummary::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::admit::DriftTimingSummary
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::admit::DriftTimingSummary where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::admit::DriftTimingSummary
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::admit::DriftTimingSummary
+impl<T> typenum::type_operators::Same for tirbase_guard::admit::DriftTimingSummary
+pub type tirbase_guard::admit::DriftTimingSummary::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::DriftTimingSummary where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::DriftTimingSummary where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::admit::DriftTimingSummary::vzip(self) -> V
+pub const tirbase_guard::admit::DEFAULT_CHALLENGE_NONCE_TTL_SECS: u64
+pub const tirbase_guard::admit::DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE: u32
 pub trait tirbase_guard::admit::ChallengeNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::ChallengeNonceStore::consume_if_valid(&self, &[u8; 32], &str, &str, &str, i64, bool) -> core::result::Result<bool, alloc::string::String>
+pub fn tirbase_guard::admit::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<(), alloc::string::String>
 pub trait tirbase_guard::admit::DecidedOutcomeStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::DecidedOutcomeStore::lookup(&self, &str, &str, u64, u64) -> core::result::Result<core::option::Option<tirbase_guard::admit::AdmitDecision>, alloc::string::String>
 pub fn tirbase_guard::admit::DecidedOutcomeStore::store(&self, &str, &str, u64, u64, &tirbase_guard::admit::AdmitDecision) -> core::result::Result<(), alloc::string::String>
 pub trait tirbase_guard::admit::DriftHistoryStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::DriftHistoryStore::recent(&self, &str, &str, &str, i64) -> core::result::Result<alloc::vec::Vec<tirbase_guard::admit::DriftRecord>, alloc::string::String>
 pub fn tirbase_guard::admit::DriftHistoryStore::record(&self, &str, &str, &str, i64, i64, i8, u16) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::admit::DriftHistoryStore::timing_summary(&self, &str, &str) -> core::result::Result<core::option::Option<tirbase_guard::admit::DriftTimingSummary>, alloc::string::String>
 pub trait tirbase_guard::admit::PendingApprovalQuorum: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::PendingApprovalQuorum::has_quorum(&self, &str, &str, &str, u64, usize) -> core::result::Result<bool, alloc::string::String>
 pub fn tirbase_guard::admit::admit_stages_0_to_15(&tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>, &tirbase_guard::node_mode::NodeModeState, &tirbase_guard::epoch::EpochRegistry, &tirbase_guard::admit::AdmitPipelineState, core::option::Option<&str>) -> tirbase_guard::admit::AdmitDecision
+pub mod tirbase_guard::anti_replay
+pub enum tirbase_guard::anti_replay::AntiReplayDecision
+pub tirbase_guard::anti_replay::AntiReplayDecision::Accept
+pub tirbase_guard::anti_replay::AntiReplayDecision::Accept::new_bitmap: u64
+pub tirbase_guard::anti_replay::AntiReplayDecision::Accept::new_highest: u64
+pub tirbase_guard::anti_replay::AntiReplayDecision::OutsideWindow
+pub tirbase_guard::anti_replay::AntiReplayDecision::Replay
+impl tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::is_accepted(self) -> bool
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::clone(&self) -> tirbase_guard::anti_replay::AntiReplayDecision
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::eq(&self, &tirbase_guard::anti_replay::AntiReplayDecision) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayDecision
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayDecision where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayDecision where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayDecision where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayDecision where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayDecision where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayDecision
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayDecision::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayDecision
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayDecision where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::vzip(self) -> V
+pub struct tirbase_guard::anti_replay::AntiReplayWindow
+pub tirbase_guard::anti_replay::AntiReplayWindow::enrollment_epoch: u64
+pub tirbase_guard::anti_replay::AntiReplayWindow::forward_gap: u64
+pub tirbase_guard::anti_replay::AntiReplayWindow::highest_seen: u64
+pub tirbase_guard::anti_replay::AntiReplayWindow::issuer_did: alloc::string::String
+pub tirbase_guard::anti_replay::AntiReplayWindow::seen_bitmap: u64
+pub tirbase_guard::anti_replay::AntiReplayWindow::target_id: alloc::string::String
+pub tirbase_guard::anti_replay::AntiReplayWindow::window_w: u64
+impl tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::apply_accepted(&mut self, tirbase_guard::anti_replay::AntiReplayDecision)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::check(&self, u64) -> tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::from_persisted(alloc::string::String, alloc::string::String, u64, u64, u64, u64, u64) -> Self
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::new(alloc::string::String, alloc::string::String, u64) -> Self
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::reset_to_baseline(&mut self, u64)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::with_params(alloc::string::String, alloc::string::String, u64, u64, u64) -> Self
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::clone(&self) -> tirbase_guard::anti_replay::AntiReplayWindow
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::eq(&self, &tirbase_guard::anti_replay::AntiReplayWindow) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayWindow
+impl serde_core::ser::Serialize for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayWindow
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayWindow where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayWindow where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayWindow where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayWindow where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayWindow where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayWindow
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayWindow::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::anti_replay::AntiReplayWindow where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayWindow
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayWindow where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::vzip(self) -> V
+pub struct tirbase_guard::anti_replay::AntiReplayWindowReset
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::enrollment_epoch: u64
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::issuer_did: alloc::string::String
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::new_baseline_sequence: u64
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::reason: alloc::string::String
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::requested_at_est: i64
+pub tirbase_guard::anti_replay::AntiReplayWindowReset::target_id: alloc::string::String
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone(&self) -> tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::eq(&self, &tirbase_guard::anti_replay::AntiReplayWindowReset) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl serde_core::ser::Serialize for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::CONTEXT: &'static str
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayWindowReset where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayWindowReset where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayWindowReset where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayWindowReset where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayWindowReset where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::anti_replay::AntiReplayWindowReset where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayWindowReset where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::vzip(self) -> V
+pub const tirbase_guard::anti_replay::CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str
+pub const tirbase_guard::anti_replay::DEFAULT_FORWARD_GAP_G: u64
+pub const tirbase_guard::anti_replay::DEFAULT_WINDOW_W: u64
+pub fn tirbase_guard::anti_replay::check_sequence(u64, u64, u64, u64, u64, bool) -> tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
 pub mod tirbase_guard::command
 pub enum tirbase_guard::command::CommandError
 pub tirbase_guard::command::CommandError::InvalidIssuerDid(alloc::string::String)
@@ -528,6 +849,299 @@ pub fn tirbase_guard::command::CommandError::vzip(self) -> V
 pub fn tirbase_guard::command::command_signing_bytes(&tirbase_types::command::CommandMessage) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_guard::command::CommandError>
 pub fn tirbase_guard::command::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<(), tirbase_guard::command::CommandError>
 pub fn tirbase_guard::command::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<(), tirbase_guard::command::CommandError>
+pub mod tirbase_guard::commit
+pub enum tirbase_guard::commit::CoarseRejection
+pub tirbase_guard::commit::CoarseRejection::AntiReplay
+pub tirbase_guard::commit::CoarseRejection::ChallengeRequired
+pub tirbase_guard::commit::CoarseRejection::EnvelopeViolation
+pub tirbase_guard::commit::CoarseRejection::Expired
+pub tirbase_guard::commit::CoarseRejection::LeaseHeld
+pub tirbase_guard::commit::CoarseRejection::ModeLockdown
+pub tirbase_guard::commit::CoarseRejection::NoProfile
+pub tirbase_guard::commit::CoarseRejection::QuorumRequired
+pub tirbase_guard::commit::CoarseRejection::RateLimit
+pub tirbase_guard::commit::CoarseRejection::TargetBusy
+pub tirbase_guard::commit::CoarseRejection::Unauthorized
+pub tirbase_guard::commit::CoarseRejection::Unsupported
+pub tirbase_guard::commit::CoarseRejection::ValueInvalid
+impl tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::clone(&self) -> tirbase_guard::commit::CoarseRejection
+impl core::cmp::Eq for tirbase_guard::commit::CoarseRejection
+impl core::cmp::PartialEq for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::eq(&self, &tirbase_guard::commit::CoarseRejection) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::commit::CoarseRejection
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::CoarseRejection
+impl core::marker::Freeze for tirbase_guard::commit::CoarseRejection
+impl core::marker::Send for tirbase_guard::commit::CoarseRejection
+impl core::marker::Sync for tirbase_guard::commit::CoarseRejection
+impl core::marker::Unpin for tirbase_guard::commit::CoarseRejection
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::CoarseRejection
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::CoarseRejection
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::CoarseRejection
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::CoarseRejection where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::CoarseRejection where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::From<T>
+pub fn tirbase_guard::commit::CoarseRejection::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::Into<T>
+pub type tirbase_guard::commit::CoarseRejection::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::CoarseRejection::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::CoarseRejection::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::CoarseRejection::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::CoarseRejection where T: core::clone::Clone
+pub type tirbase_guard::commit::CoarseRejection::Owned = T
+pub fn tirbase_guard::commit::CoarseRejection::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::CoarseRejection::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::CoarseRejection where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::CoarseRejection where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::CoarseRejection::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::CoarseRejection
+pub type tirbase_guard::commit::CoarseRejection::Init = T
+pub const tirbase_guard::commit::CoarseRejection::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::CoarseRejection::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::CoarseRejection::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::CoarseRejection::drop(usize)
+pub unsafe fn tirbase_guard::commit::CoarseRejection::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::CoarseRejection
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::CoarseRejection
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::CoarseRejection
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::CoarseRejection
+pub type tirbase_guard::commit::CoarseRejection::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::CoarseRejection where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::CoarseRejection::vzip(self) -> V
+pub enum tirbase_guard::commit::EffectTerminalState
+pub tirbase_guard::commit::EffectTerminalState::Complete
+pub tirbase_guard::commit::EffectTerminalState::Failed
+pub tirbase_guard::commit::EffectTerminalState::Unknown
+impl tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::clone(&self) -> tirbase_guard::commit::EffectTerminalState
+impl core::cmp::Eq for tirbase_guard::commit::EffectTerminalState
+impl core::cmp::PartialEq for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::eq(&self, &tirbase_guard::commit::EffectTerminalState) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Freeze for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Send for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Sync for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Unpin for tirbase_guard::commit::EffectTerminalState
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::EffectTerminalState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::EffectTerminalState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::EffectTerminalState
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::EffectTerminalState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::EffectTerminalState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::From<T>
+pub fn tirbase_guard::commit::EffectTerminalState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::Into<T>
+pub type tirbase_guard::commit::EffectTerminalState::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::EffectTerminalState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::EffectTerminalState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::EffectTerminalState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::EffectTerminalState where T: core::clone::Clone
+pub type tirbase_guard::commit::EffectTerminalState::Owned = T
+pub fn tirbase_guard::commit::EffectTerminalState::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::EffectTerminalState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::EffectTerminalState where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::EffectTerminalState where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::EffectTerminalState
+pub type tirbase_guard::commit::EffectTerminalState::Init = T
+pub const tirbase_guard::commit::EffectTerminalState::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::drop(usize)
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::EffectTerminalState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::EffectTerminalState
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::EffectTerminalState
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::EffectTerminalState
+pub type tirbase_guard::commit::EffectTerminalState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::EffectTerminalState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::EffectTerminalState::vzip(self) -> V
+pub enum tirbase_guard::commit::Stage16Error
+pub tirbase_guard::commit::Stage16Error::AntiReplay
+pub tirbase_guard::commit::Stage16Error::IdempotencyHit
+pub tirbase_guard::commit::Stage16Error::IdempotencyHit::original_result: alloc::string::String
+pub tirbase_guard::commit::Stage16Error::LeaseHeld
+pub tirbase_guard::commit::Stage16Error::LeaseHeld::holder: alloc::string::String
+pub tirbase_guard::commit::Stage16Error::Store(alloc::string::String)
+impl core::clone::Clone for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::clone(&self) -> tirbase_guard::commit::Stage16Error
+impl core::cmp::Eq for tirbase_guard::commit::Stage16Error
+impl core::cmp::PartialEq for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::eq(&self, &tirbase_guard::commit::Stage16Error) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::Stage16Error
+impl core::marker::Freeze for tirbase_guard::commit::Stage16Error
+impl core::marker::Send for tirbase_guard::commit::Stage16Error
+impl core::marker::Sync for tirbase_guard::commit::Stage16Error
+impl core::marker::Unpin for tirbase_guard::commit::Stage16Error
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::Stage16Error
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::Stage16Error
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::Stage16Error
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::Stage16Error where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::Stage16Error where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::Stage16Error where U: core::convert::From<T>
+pub fn tirbase_guard::commit::Stage16Error::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::Stage16Error where U: core::convert::Into<T>
+pub type tirbase_guard::commit::Stage16Error::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::Stage16Error::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::Stage16Error where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::Stage16Error::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::Stage16Error::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::Stage16Error where T: core::clone::Clone
+pub type tirbase_guard::commit::Stage16Error::Owned = T
+pub fn tirbase_guard::commit::Stage16Error::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::Stage16Error::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::Stage16Error where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::Stage16Error where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::Stage16Error::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::Stage16Error
+pub type tirbase_guard::commit::Stage16Error::Init = T
+pub const tirbase_guard::commit::Stage16Error::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::Stage16Error::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::Stage16Error::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::Stage16Error::drop(usize)
+pub unsafe fn tirbase_guard::commit::Stage16Error::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::Stage16Error
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::Stage16Error
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::Stage16Error
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::Stage16Error
+pub type tirbase_guard::commit::Stage16Error::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::Stage16Error where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::Stage16Error::vzip(self) -> V
+pub struct tirbase_guard::commit::Stage16Request<'a>
+pub tirbase_guard::commit::Stage16Request::actuating_ts: i64
+pub tirbase_guard::commit::Stage16Request::cmd: &'a tirbase_types::command::CommandMessage
+pub tirbase_guard::commit::Stage16Request::entry_id: [u8; 16]
+pub tirbase_guard::commit::Stage16Request::idempotency_retention_secs: i64
+pub tirbase_guard::commit::Stage16Request::lease_duration_secs: i64
+pub tirbase_guard::commit::Stage16Request::max_consecutive_renewals: u32
+pub tirbase_guard::commit::Stage16Request::now_est: i64
+pub tirbase_guard::commit::Stage16Request::now_mono_secs: i64
+pub tirbase_guard::commit::Stage16Request::original_result_json: &'a str
+impl<'a> core::clone::Clone for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::clone(&self) -> tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::fmt::Debug for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Send for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Sync for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Unpin for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::Stage16Request<'a>
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::Stage16Request<'a> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::Stage16Request<'a> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::From<T>
+pub fn tirbase_guard::commit::Stage16Request<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::Into<T>
+pub type tirbase_guard::commit::Stage16Request<'a>::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::Stage16Request<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::Stage16Request<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::Stage16Request<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::Stage16Request<'a> where T: core::clone::Clone
+pub type tirbase_guard::commit::Stage16Request<'a>::Owned = T
+pub fn tirbase_guard::commit::Stage16Request<'a>::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::Stage16Request<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::Stage16Request<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::Stage16Request<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::Stage16Request<'a>
+pub type tirbase_guard::commit::Stage16Request<'a>::Init = T
+pub const tirbase_guard::commit::Stage16Request<'a>::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::drop(usize)
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::Stage16Request<'a>
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::Stage16Request<'a>
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::Stage16Request<'a>
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::Stage16Request<'a>
+pub type tirbase_guard::commit::Stage16Request<'a>::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::Stage16Request<'a> where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::Stage16Request<'a>::vzip(self) -> V
+pub const tirbase_guard::commit::DEFAULT_IDEMPOTENCY_RETENTION_SECS: i64
+pub const tirbase_guard::commit::MAX_IDEMPOTENCY_RETENTION_SECS: i64
+pub const tirbase_guard::commit::MIN_IDEMPOTENCY_RETENTION_SECS: i64
+pub trait tirbase_guard::commit::Stage16Store: core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::commit::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<(), tirbase_guard::commit::Stage16Error>
+pub fn tirbase_guard::commit::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::commit::clamp_idempotency_retention_secs(i64) -> i64
+pub fn tirbase_guard::commit::coarse_for_rejection(tirbase_guard::admit::AdmitRejection) -> tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::commit_dispatch_finalize<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], i64, i64, i64, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64) -> serde_json::value::Value where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
+pub fn tirbase_guard::commit::dispatch_and_await<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64, core::time::Duration) -> core::result::Result<tirbase_guard::commit::EffectTerminalState, alloc::string::String> where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
+pub fn tirbase_guard::commit::stage17_acceptance(&tirbase_types::command::CommandMessage, &[u8; 16])
+pub fn tirbase_guard::commit::stage17_rejection(&tirbase_types::command::CommandMessage, tirbase_guard::admit::AdmitRejection, &str, bool) -> serde_json::value::Value
 pub mod tirbase_guard::driver_proxy
 pub enum tirbase_guard::driver_proxy::IngressSource
 pub tirbase_guard::driver_proxy::IngressSource::CloudApi
@@ -1853,11 +2467,14 @@ pub fn tirbase_guard::guard::AdmittedCommand::vzip(self) -> V
 pub struct tirbase_guard::guard::CommandGuard
 impl tirbase_guard::guard::CommandGuard
 pub fn tirbase_guard::guard::CommandGuard::admit<W: core::io::write::Write + core::marker::Send>(&self, &tirbase_types::command::CommandMessage, tirbase_guard::driver_proxy::IngressSource, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8]) -> core::result::Result<tirbase_guard::guard::AdmittedCommand, tirbase_guard::guard::AdmitError>
+pub fn tirbase_guard::guard::CommandGuard::admit_stages_0_to_15_with_pipeline(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>) -> tirbase_guard::admit::AdmitDecision
 pub fn tirbase_guard::guard::CommandGuard::admit_with_context<W: core::io::write::Write + core::marker::Send>(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8]) -> core::result::Result<tirbase_guard::guard::AdmittedCommand, tirbase_guard::guard::AdmitError>
+pub fn tirbase_guard::guard::CommandGuard::device_id_for_target(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::string::String>
 pub fn tirbase_guard::guard::CommandGuard::envelope_profile_for(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::sync::Arc<tirbase_types::envelope::EnvelopeProfile>>
 pub fn tirbase_guard::guard::CommandGuard::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
 pub fn tirbase_guard::guard::CommandGuard::new(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>, tirbase_guard::guard::GuardConfig) -> Self
 pub fn tirbase_guard::guard::CommandGuard::node_mode(&self) -> &alloc::sync::Arc<tirbase_guard::node_mode::NodeModeState>
+pub fn tirbase_guard::guard::CommandGuard::parameter_is_critical(&self, &tirbase_types::TargetId, &str) -> bool
 pub fn tirbase_guard::guard::CommandGuard::pipeline(&self) -> core::option::Option<&alloc::sync::Arc<tirbase_guard::admit::AdmitPipelineState>>
 pub fn tirbase_guard::guard::CommandGuard::policy_snapshot(&self) -> arc_swap::Guard<alloc::sync::Arc<core::option::Option<tirbase_types::policy::PolicyBundle>>>
 pub fn tirbase_guard::guard::CommandGuard::simulate(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>) -> tirbase_guard::admit::AdmitDecision
@@ -3342,18 +3959,94 @@ pub type tirbase_guard::signed_operation::SignedOperation<T>::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperation<T> where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::vzip(self) -> V
+pub const tirbase_guard::signed_operation::CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str
 pub const tirbase_guard::signed_operation::CONTEXT_ENVELOPE_PROFILE: &str
 pub const tirbase_guard::signed_operation::CONTEXT_EPOCH_BUMP: &str
 pub const tirbase_guard::signed_operation::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::signed_operation::CONTEXT_POLICY_BUNDLE: &str
 pub trait tirbase_guard::signed_operation::SignedOperationPayload: serde_core::ser::Serialize
 pub const tirbase_guard::signed_operation::SignedOperationPayload::CONTEXT: &'static str
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::epoch::EpochBump
 pub const tirbase_guard::epoch::EpochBump::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::lockdown::LockdownExitPayload
 pub const tirbase_guard::lockdown::LockdownExitPayload::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
 pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+pub mod tirbase_guard::single_writer_lease
+pub struct tirbase_guard::single_writer_lease::SingleWriterLease
+pub tirbase_guard::single_writer_lease::SingleWriterLease::consecutive_renewals: u32
+pub tirbase_guard::single_writer_lease::SingleWriterLease::cooldown_until_mono_secs: core::option::Option<i64>
+pub tirbase_guard::single_writer_lease::SingleWriterLease::expires_mono_secs: i64
+pub tirbase_guard::single_writer_lease::SingleWriterLease::issuer_did: tirbase_types::Did
+pub tirbase_guard::single_writer_lease::SingleWriterLease::target_id: alloc::string::String
+impl tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::in_cooldown(&self, i64) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::is_expired(&self, i64) -> bool
+impl core::clone::Clone for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::clone(&self) -> tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::cmp::Eq for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::cmp::PartialEq for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::eq(&self, &tirbase_guard::single_writer_lease::SingleWriterLease) -> bool
+impl core::fmt::Debug for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Freeze for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Send for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Sync for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Unpin for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::UnsafeUnpin for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::single_writer_lease::SingleWriterLease where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::single_writer_lease::SingleWriterLease where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::From<T>
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::Into<T>
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Error = core::convert::Infallible
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::TryFrom<T>
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::single_writer_lease::SingleWriterLease where T: core::clone::Clone
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Owned = T
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::clone_into(&self, &mut T)
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::single_writer_lease::SingleWriterLease where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::single_writer_lease::SingleWriterLease where T: core::clone::Clone
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::single_writer_lease::SingleWriterLease
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Init = T
+pub const tirbase_guard::single_writer_lease::SingleWriterLease::ALIGN: usize
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::drop(usize)
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> typenum::type_operators::Same for tirbase_guard::single_writer_lease::SingleWriterLease
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::single_writer_lease::SingleWriterLease where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::vzip(self) -> V
 pub mod tirbase_guard::time
 pub enum tirbase_guard::time::FreshnessState
 pub tirbase_guard::time::FreshnessState::Unverified
@@ -4574,10 +5267,12 @@ pub tirbase_guard::AdmitRejection::ChallengeMissing
 pub tirbase_guard::AdmitRejection::CommitConflict
 pub tirbase_guard::AdmitRejection::ConstraintViolation
 pub tirbase_guard::AdmitRejection::DriftExceeded
+pub tirbase_guard::AdmitRejection::DwellViolation
 pub tirbase_guard::AdmitRejection::EnvelopeViolation
 pub tirbase_guard::AdmitRejection::Expired
 pub tirbase_guard::AdmitRejection::InvalidSignature
 pub tirbase_guard::AdmitRejection::IssuerRevoked
+pub tirbase_guard::AdmitRejection::MinOffViolation
 pub tirbase_guard::AdmitRejection::ModeLockdown
 pub tirbase_guard::AdmitRejection::NoProfile
 pub tirbase_guard::AdmitRejection::PreAuthRateLimit
@@ -4657,6 +5352,158 @@ pub type tirbase_guard::admit::AdmitRejection::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::AdmitRejection where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::AdmitRejection where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::admit::AdmitRejection::vzip(self) -> V
+pub enum tirbase_guard::AntiReplayDecision
+pub tirbase_guard::AntiReplayDecision::Accept
+pub tirbase_guard::AntiReplayDecision::Accept::new_bitmap: u64
+pub tirbase_guard::AntiReplayDecision::Accept::new_highest: u64
+pub tirbase_guard::AntiReplayDecision::OutsideWindow
+pub tirbase_guard::AntiReplayDecision::Replay
+impl tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::is_accepted(self) -> bool
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::clone(&self) -> tirbase_guard::anti_replay::AntiReplayDecision
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::eq(&self, &tirbase_guard::anti_replay::AntiReplayDecision) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayDecision
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayDecision
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayDecision where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayDecision where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayDecision where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayDecision where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayDecision where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayDecision where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayDecision
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayDecision::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayDecision::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayDecision
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayDecision
+pub type tirbase_guard::anti_replay::AntiReplayDecision::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayDecision where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayDecision where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayDecision::vzip(self) -> V
+pub enum tirbase_guard::CoarseRejection
+pub tirbase_guard::CoarseRejection::AntiReplay
+pub tirbase_guard::CoarseRejection::ChallengeRequired
+pub tirbase_guard::CoarseRejection::EnvelopeViolation
+pub tirbase_guard::CoarseRejection::Expired
+pub tirbase_guard::CoarseRejection::LeaseHeld
+pub tirbase_guard::CoarseRejection::ModeLockdown
+pub tirbase_guard::CoarseRejection::NoProfile
+pub tirbase_guard::CoarseRejection::QuorumRequired
+pub tirbase_guard::CoarseRejection::RateLimit
+pub tirbase_guard::CoarseRejection::TargetBusy
+pub tirbase_guard::CoarseRejection::Unauthorized
+pub tirbase_guard::CoarseRejection::Unsupported
+pub tirbase_guard::CoarseRejection::ValueInvalid
+impl tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::clone(&self) -> tirbase_guard::commit::CoarseRejection
+impl core::cmp::Eq for tirbase_guard::commit::CoarseRejection
+impl core::cmp::PartialEq for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::eq(&self, &tirbase_guard::commit::CoarseRejection) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_guard::commit::CoarseRejection
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::CoarseRejection
+impl core::marker::Freeze for tirbase_guard::commit::CoarseRejection
+impl core::marker::Send for tirbase_guard::commit::CoarseRejection
+impl core::marker::Sync for tirbase_guard::commit::CoarseRejection
+impl core::marker::Unpin for tirbase_guard::commit::CoarseRejection
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::CoarseRejection
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::CoarseRejection
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::CoarseRejection
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::CoarseRejection where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::CoarseRejection::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::CoarseRejection where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::CoarseRejection where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::From<T>
+pub fn tirbase_guard::commit::CoarseRejection::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::Into<T>
+pub type tirbase_guard::commit::CoarseRejection::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::CoarseRejection::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::CoarseRejection where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::CoarseRejection::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::CoarseRejection::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::CoarseRejection where T: core::clone::Clone
+pub type tirbase_guard::commit::CoarseRejection::Owned = T
+pub fn tirbase_guard::commit::CoarseRejection::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::CoarseRejection::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::CoarseRejection where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::CoarseRejection::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::CoarseRejection where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::CoarseRejection::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::CoarseRejection
+pub fn tirbase_guard::commit::CoarseRejection::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::CoarseRejection
+pub type tirbase_guard::commit::CoarseRejection::Init = T
+pub const tirbase_guard::commit::CoarseRejection::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::CoarseRejection::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::CoarseRejection::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::CoarseRejection::drop(usize)
+pub unsafe fn tirbase_guard::commit::CoarseRejection::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::CoarseRejection
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::CoarseRejection
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::CoarseRejection
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::CoarseRejection
+pub type tirbase_guard::commit::CoarseRejection::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::CoarseRejection where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::CoarseRejection where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::CoarseRejection::vzip(self) -> V
 pub enum tirbase_guard::CommandError
 pub tirbase_guard::CommandError::InvalidIssuerDid(alloc::string::String)
 pub tirbase_guard::CommandError::MissingField(alloc::string::String)
@@ -4804,6 +5651,75 @@ pub type tirbase_guard::lockdown::CrashLoopEscalation::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::lockdown::CrashLoopEscalation where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::CrashLoopEscalation where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::lockdown::CrashLoopEscalation::vzip(self) -> V
+pub enum tirbase_guard::EffectTerminalState
+pub tirbase_guard::EffectTerminalState::Complete
+pub tirbase_guard::EffectTerminalState::Failed
+pub tirbase_guard::EffectTerminalState::Unknown
+impl tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::as_str(&self) -> &'static str
+impl core::clone::Clone for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::clone(&self) -> tirbase_guard::commit::EffectTerminalState
+impl core::cmp::Eq for tirbase_guard::commit::EffectTerminalState
+impl core::cmp::PartialEq for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::eq(&self, &tirbase_guard::commit::EffectTerminalState) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Freeze for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Send for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Sync for tirbase_guard::commit::EffectTerminalState
+impl core::marker::Unpin for tirbase_guard::commit::EffectTerminalState
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::EffectTerminalState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::EffectTerminalState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::EffectTerminalState
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::EffectTerminalState where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::EffectTerminalState::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::EffectTerminalState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::EffectTerminalState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::From<T>
+pub fn tirbase_guard::commit::EffectTerminalState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::Into<T>
+pub type tirbase_guard::commit::EffectTerminalState::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::EffectTerminalState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::EffectTerminalState where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::EffectTerminalState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::EffectTerminalState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::EffectTerminalState where T: core::clone::Clone
+pub type tirbase_guard::commit::EffectTerminalState::Owned = T
+pub fn tirbase_guard::commit::EffectTerminalState::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::EffectTerminalState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::EffectTerminalState where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::EffectTerminalState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::EffectTerminalState where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::EffectTerminalState
+pub fn tirbase_guard::commit::EffectTerminalState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::EffectTerminalState
+pub type tirbase_guard::commit::EffectTerminalState::Init = T
+pub const tirbase_guard::commit::EffectTerminalState::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::drop(usize)
+pub unsafe fn tirbase_guard::commit::EffectTerminalState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::EffectTerminalState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::EffectTerminalState
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::EffectTerminalState
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::EffectTerminalState
+pub type tirbase_guard::commit::EffectTerminalState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::EffectTerminalState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::EffectTerminalState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::EffectTerminalState::vzip(self) -> V
 pub enum tirbase_guard::EpochError
 pub tirbase_guard::EpochError::EpochRegression
 pub tirbase_guard::EpochError::EpochRegression::device_id: alloc::string::String
@@ -5595,6 +6511,76 @@ pub type tirbase_guard::signed_operation::SignedOperationError::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperationError where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::signed_operation::SignedOperationError::vzip(self) -> V
+pub enum tirbase_guard::Stage16Error
+pub tirbase_guard::Stage16Error::AntiReplay
+pub tirbase_guard::Stage16Error::IdempotencyHit
+pub tirbase_guard::Stage16Error::IdempotencyHit::original_result: alloc::string::String
+pub tirbase_guard::Stage16Error::LeaseHeld
+pub tirbase_guard::Stage16Error::LeaseHeld::holder: alloc::string::String
+pub tirbase_guard::Stage16Error::Store(alloc::string::String)
+impl core::clone::Clone for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::clone(&self) -> tirbase_guard::commit::Stage16Error
+impl core::cmp::Eq for tirbase_guard::commit::Stage16Error
+impl core::cmp::PartialEq for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::eq(&self, &tirbase_guard::commit::Stage16Error) -> bool
+impl core::fmt::Debug for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::commit::Stage16Error
+impl core::marker::Freeze for tirbase_guard::commit::Stage16Error
+impl core::marker::Send for tirbase_guard::commit::Stage16Error
+impl core::marker::Sync for tirbase_guard::commit::Stage16Error
+impl core::marker::Unpin for tirbase_guard::commit::Stage16Error
+impl core::marker::UnsafeUnpin for tirbase_guard::commit::Stage16Error
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::Stage16Error
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::Stage16Error
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::commit::Stage16Error where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::commit::Stage16Error::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::Stage16Error where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::Stage16Error where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::Stage16Error where U: core::convert::From<T>
+pub fn tirbase_guard::commit::Stage16Error::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::Stage16Error where U: core::convert::Into<T>
+pub type tirbase_guard::commit::Stage16Error::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::Stage16Error::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::Stage16Error where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::Stage16Error::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::Stage16Error::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::Stage16Error where T: core::clone::Clone
+pub type tirbase_guard::commit::Stage16Error::Owned = T
+pub fn tirbase_guard::commit::Stage16Error::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::Stage16Error::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::Stage16Error where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Error::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::Stage16Error where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::Stage16Error::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::Stage16Error
+pub fn tirbase_guard::commit::Stage16Error::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::Stage16Error
+pub type tirbase_guard::commit::Stage16Error::Init = T
+pub const tirbase_guard::commit::Stage16Error::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::Stage16Error::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::Stage16Error::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::Stage16Error::drop(usize)
+pub unsafe fn tirbase_guard::commit::Stage16Error::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::Stage16Error
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::Stage16Error
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::Stage16Error
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::Stage16Error
+pub type tirbase_guard::commit::Stage16Error::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::Stage16Error where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::Stage16Error where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::Stage16Error::vzip(self) -> V
 pub enum tirbase_guard::TimeRatchetError
 pub tirbase_guard::TimeRatchetError::BeaconNotAdvancing
 pub tirbase_guard::TimeRatchetError::BeaconNotAdvancing::persisted_floor: i64
@@ -6031,11 +7017,17 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::AdmitContext<'a>
 pub fn tirbase_guard::admit::AdmitContext<'a>::vzip(self) -> V
 pub struct tirbase_guard::AdmitPipelineState
 impl tirbase_guard::admit::AdmitPipelineState
+pub fn tirbase_guard::admit::AdmitPipelineState::check_challenge_issue_rate_limit(&self, &str, &str, &str, i64) -> bool
 pub fn tirbase_guard::admit::AdmitPipelineState::clear_target_unknown(&self, &str)
+pub fn tirbase_guard::admit::AdmitPipelineState::freshness_state(&self) -> tirbase_guard::time::FreshnessState
 pub fn tirbase_guard::admit::AdmitPipelineState::issue_challenge_nonce(&self, &str, &str, &str) -> [u8; 32]
+pub fn tirbase_guard::admit::AdmitPipelineState::issue_challenge_nonce_for_device(&self, &str, &str, &str, &str) -> core::result::Result<tirbase_guard::admit::ChallengeNonce, alloc::string::String>
 pub fn tirbase_guard::admit::AdmitPipelineState::mark_target_unknown(&self, impl core::convert::Into<alloc::string::String>)
+pub fn tirbase_guard::admit::AdmitPipelineState::mono_secs_now(&self) -> i64
 pub fn tirbase_guard::admit::AdmitPipelineState::new(alloc::sync::Arc<alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, alloc::sync::Arc<arc_swap::ArcSwap<tirbase_types::envelope::EnvelopeProfile>>>>, alloc::sync::Arc<arc_swap::ArcSwap<core::option::Option<tirbase_types::policy::PolicyBundle>>>, alloc::sync::Arc<std::sync::poison::rwlock::RwLock<tirbase_core::auth::root_ca::RootCaRegistry>>, alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_guard::time::TimeRatchet>>, alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>) -> Self
+pub fn tirbase_guard::admit::AdmitPipelineState::ratchet(&self) -> &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_guard::time::TimeRatchet>>
 pub fn tirbase_guard::admit::AdmitPipelineState::revoke_did(&self, impl core::convert::Into<alloc::string::String>)
+pub fn tirbase_guard::admit::AdmitPipelineState::set_challenge_requests_per_minute(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_challenge_store(&self, alloc::sync::Arc<dyn tirbase_guard::admit::ChallengeNonceStore>)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_decided_store(&self, alloc::sync::Arc<dyn tirbase_guard::admit::DecidedOutcomeStore>)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_desired_state(&self, &str, &str, tirbase_types::fixed_point::FixedPointValue)
@@ -6044,6 +7036,7 @@ pub fn tirbase_guard::admit::AdmitPipelineState::set_issuer_rps(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_max_ttl_secs(&self, i64)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_pre_auth_rps(&self, u32)
 pub fn tirbase_guard::admit::AdmitPipelineState::set_quorum_provider(&self, alloc::sync::Arc<dyn tirbase_guard::admit::PendingApprovalQuorum>)
+pub fn tirbase_guard::admit::AdmitPipelineState::time_source(&self) -> &alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>
 impl core::fmt::Debug for tirbase_guard::admit::AdmitPipelineState
 pub fn tirbase_guard::admit::AdmitPipelineState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_guard::admit::AdmitPipelineState
@@ -6133,6 +7126,166 @@ pub type tirbase_guard::guard::AdmittedCommand::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::guard::AdmittedCommand where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::guard::AdmittedCommand where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::guard::AdmittedCommand::vzip(self) -> V
+pub struct tirbase_guard::AntiReplayWindow
+pub tirbase_guard::AntiReplayWindow::enrollment_epoch: u64
+pub tirbase_guard::AntiReplayWindow::forward_gap: u64
+pub tirbase_guard::AntiReplayWindow::highest_seen: u64
+pub tirbase_guard::AntiReplayWindow::issuer_did: alloc::string::String
+pub tirbase_guard::AntiReplayWindow::seen_bitmap: u64
+pub tirbase_guard::AntiReplayWindow::target_id: alloc::string::String
+pub tirbase_guard::AntiReplayWindow::window_w: u64
+impl tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::apply_accepted(&mut self, tirbase_guard::anti_replay::AntiReplayDecision)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::check(&self, u64) -> tirbase_guard::anti_replay::AntiReplayDecision
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::from_persisted(alloc::string::String, alloc::string::String, u64, u64, u64, u64, u64) -> Self
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::new(alloc::string::String, alloc::string::String, u64) -> Self
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::reset_to_baseline(&mut self, u64)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::with_params(alloc::string::String, alloc::string::String, u64, u64, u64) -> Self
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::clone(&self) -> tirbase_guard::anti_replay::AntiReplayWindow
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::eq(&self, &tirbase_guard::anti_replay::AntiReplayWindow) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayWindow
+impl serde_core::ser::Serialize for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayWindow
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayWindow
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindow where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayWindow where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayWindow where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayWindow where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayWindow where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayWindow where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayWindow where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayWindow
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayWindow
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayWindow::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindow::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::anti_replay::AntiReplayWindow where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayWindow
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayWindow
+pub type tirbase_guard::anti_replay::AntiReplayWindow::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayWindow where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayWindow where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindow::vzip(self) -> V
+pub struct tirbase_guard::AntiReplayWindowReset
+pub tirbase_guard::AntiReplayWindowReset::enrollment_epoch: u64
+pub tirbase_guard::AntiReplayWindowReset::issuer_did: alloc::string::String
+pub tirbase_guard::AntiReplayWindowReset::new_baseline_sequence: u64
+pub tirbase_guard::AntiReplayWindowReset::reason: alloc::string::String
+pub tirbase_guard::AntiReplayWindowReset::requested_at_est: i64
+pub tirbase_guard::AntiReplayWindowReset::target_id: alloc::string::String
+impl core::clone::Clone for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone(&self) -> tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::cmp::Eq for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::cmp::PartialEq for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::eq(&self, &tirbase_guard::anti_replay::AntiReplayWindowReset) -> bool
+impl core::fmt::Debug for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl serde_core::ser::Serialize for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::CONTEXT: &'static str
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Send for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Sync for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::Unpin for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::marker::UnsafeUnpin for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::anti_replay::AntiReplayWindowReset where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::anti_replay::AntiReplayWindowReset where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::anti_replay::AntiReplayWindowReset where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::From<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::Into<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Error = core::convert::Infallible
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::anti_replay::AntiReplayWindowReset where U: core::convert::TryFrom<T>
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::anti_replay::AntiReplayWindowReset where T: core::clone::Clone
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Owned = T
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone_into(&self, &mut T)
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::anti_replay::AntiReplayWindowReset where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::anti_replay::AntiReplayWindowReset where T: core::clone::Clone
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Init = T
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::ALIGN: usize
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::drop(usize)
+pub unsafe fn tirbase_guard::anti_replay::AntiReplayWindowReset::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::anti_replay::AntiReplayWindowReset where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::anti_replay::AntiReplayWindowReset
+impl<T> typenum::type_operators::Same for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub type tirbase_guard::anti_replay::AntiReplayWindowReset::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::anti_replay::AntiReplayWindowReset where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::anti_replay::AntiReplayWindowReset where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::anti_replay::AntiReplayWindowReset::vzip(self) -> V
 pub struct tirbase_guard::AuthorizedRoleSigner
 pub tirbase_guard::AuthorizedRoleSigner::did: alloc::string::String
 pub tirbase_guard::AuthorizedRoleSigner::public_key: alloc::vec::Vec<u8>
@@ -6204,6 +7357,84 @@ pub type tirbase_guard::trust_root::AuthorizedRoleSigner::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::trust_root::AuthorizedRoleSigner where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::trust_root::AuthorizedRoleSigner where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::trust_root::AuthorizedRoleSigner::vzip(self) -> V
+pub struct tirbase_guard::ChallengeNonce
+pub tirbase_guard::ChallengeNonce::device_id: alloc::string::String
+pub tirbase_guard::ChallengeNonce::expires_at_mono: i64
+pub tirbase_guard::ChallengeNonce::issued_at_mono: i64
+pub tirbase_guard::ChallengeNonce::issuer_did: alloc::string::String
+pub tirbase_guard::ChallengeNonce::nonce: [u8; 32]
+pub tirbase_guard::ChallengeNonce::param: alloc::string::String
+pub tirbase_guard::ChallengeNonce::target_id: alloc::string::String
+impl tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::is_expired(&self, i64) -> bool
+impl core::clone::Clone for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::clone(&self) -> tirbase_guard::admit::ChallengeNonce
+impl core::cmp::Eq for tirbase_guard::admit::ChallengeNonce
+impl core::cmp::PartialEq for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::eq(&self, &tirbase_guard::admit::ChallengeNonce) -> bool
+impl core::fmt::Debug for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::admit::ChallengeNonce
+impl serde_core::ser::Serialize for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Send for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Sync for tirbase_guard::admit::ChallengeNonce
+impl core::marker::Unpin for tirbase_guard::admit::ChallengeNonce
+impl core::marker::UnsafeUnpin for tirbase_guard::admit::ChallengeNonce
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::admit::ChallengeNonce
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::admit::ChallengeNonce
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::admit::ChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::admit::ChallengeNonce::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::admit::ChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::admit::ChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::From<T>
+pub fn tirbase_guard::admit::ChallengeNonce::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::Into<T>
+pub type tirbase_guard::admit::ChallengeNonce::Error = core::convert::Infallible
+pub fn tirbase_guard::admit::ChallengeNonce::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::admit::ChallengeNonce where U: core::convert::TryFrom<T>
+pub type tirbase_guard::admit::ChallengeNonce::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::admit::ChallengeNonce::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::admit::ChallengeNonce where T: core::clone::Clone
+pub type tirbase_guard::admit::ChallengeNonce::Owned = T
+pub fn tirbase_guard::admit::ChallengeNonce::clone_into(&self, &mut T)
+pub fn tirbase_guard::admit::ChallengeNonce::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::admit::ChallengeNonce where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_guard::admit::ChallengeNonce::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::admit::ChallengeNonce where T: core::clone::Clone
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::admit::ChallengeNonce
+pub fn tirbase_guard::admit::ChallengeNonce::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::admit::ChallengeNonce
+pub type tirbase_guard::admit::ChallengeNonce::Init = T
+pub const tirbase_guard::admit::ChallengeNonce::ALIGN: usize
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::drop(usize)
+pub unsafe fn tirbase_guard::admit::ChallengeNonce::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::admit::ChallengeNonce
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::admit::ChallengeNonce where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::admit::ChallengeNonce
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::admit::ChallengeNonce
+impl<T> typenum::type_operators::Same for tirbase_guard::admit::ChallengeNonce
+pub type tirbase_guard::admit::ChallengeNonce::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::admit::ChallengeNonce where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::admit::ChallengeNonce where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::admit::ChallengeNonce::vzip(self) -> V
 pub struct tirbase_guard::CommandEnvelope
 pub tirbase_guard::CommandEnvelope::device_id: alloc::string::String
 pub tirbase_guard::CommandEnvelope::enrollment_epoch: u64
@@ -6274,11 +7505,14 @@ pub fn tirbase_guard::epoch::CommandEnvelope::vzip(self) -> V
 pub struct tirbase_guard::CommandGuard
 impl tirbase_guard::guard::CommandGuard
 pub fn tirbase_guard::guard::CommandGuard::admit<W: core::io::write::Write + core::marker::Send>(&self, &tirbase_types::command::CommandMessage, tirbase_guard::driver_proxy::IngressSource, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8]) -> core::result::Result<tirbase_guard::guard::AdmittedCommand, tirbase_guard::guard::AdmitError>
+pub fn tirbase_guard::guard::CommandGuard::admit_stages_0_to_15_with_pipeline(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>) -> tirbase_guard::admit::AdmitDecision
 pub fn tirbase_guard::guard::CommandGuard::admit_with_context<W: core::io::write::Write + core::marker::Send>(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8]) -> core::result::Result<tirbase_guard::guard::AdmittedCommand, tirbase_guard::guard::AdmitError>
+pub fn tirbase_guard::guard::CommandGuard::device_id_for_target(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::string::String>
 pub fn tirbase_guard::guard::CommandGuard::envelope_profile_for(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::sync::Arc<tirbase_types::envelope::EnvelopeProfile>>
 pub fn tirbase_guard::guard::CommandGuard::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
 pub fn tirbase_guard::guard::CommandGuard::new(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>, tirbase_guard::guard::GuardConfig) -> Self
 pub fn tirbase_guard::guard::CommandGuard::node_mode(&self) -> &alloc::sync::Arc<tirbase_guard::node_mode::NodeModeState>
+pub fn tirbase_guard::guard::CommandGuard::parameter_is_critical(&self, &tirbase_types::TargetId, &str) -> bool
 pub fn tirbase_guard::guard::CommandGuard::pipeline(&self) -> core::option::Option<&alloc::sync::Arc<tirbase_guard::admit::AdmitPipelineState>>
 pub fn tirbase_guard::guard::CommandGuard::policy_snapshot(&self) -> arc_swap::Guard<alloc::sync::Arc<core::option::Option<tirbase_types::policy::PolicyBundle>>>
 pub fn tirbase_guard::guard::CommandGuard::simulate(&self, &tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>) -> tirbase_guard::admit::AdmitDecision
@@ -8018,6 +9252,139 @@ pub type tirbase_guard::signed_operation::SignedOperation<T>::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperation<T> where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::vzip(self) -> V
+pub struct tirbase_guard::SingleWriterLease
+pub tirbase_guard::SingleWriterLease::consecutive_renewals: u32
+pub tirbase_guard::SingleWriterLease::cooldown_until_mono_secs: core::option::Option<i64>
+pub tirbase_guard::SingleWriterLease::expires_mono_secs: i64
+pub tirbase_guard::SingleWriterLease::issuer_did: tirbase_types::Did
+pub tirbase_guard::SingleWriterLease::target_id: alloc::string::String
+impl tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::in_cooldown(&self, i64) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::is_expired(&self, i64) -> bool
+impl core::clone::Clone for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::clone(&self) -> tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::cmp::Eq for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::cmp::PartialEq for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::eq(&self, &tirbase_guard::single_writer_lease::SingleWriterLease) -> bool
+impl core::fmt::Debug for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Freeze for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Send for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Sync for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::Unpin for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::marker::UnsafeUnpin for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::single_writer_lease::SingleWriterLease
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::single_writer_lease::SingleWriterLease where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::single_writer_lease::SingleWriterLease where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::single_writer_lease::SingleWriterLease where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::From<T>
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::Into<T>
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Error = core::convert::Infallible
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::single_writer_lease::SingleWriterLease where U: core::convert::TryFrom<T>
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::single_writer_lease::SingleWriterLease where T: core::clone::Clone
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Owned = T
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::clone_into(&self, &mut T)
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::single_writer_lease::SingleWriterLease where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::single_writer_lease::SingleWriterLease where T: core::clone::Clone
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::single_writer_lease::SingleWriterLease
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::single_writer_lease::SingleWriterLease
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Init = T
+pub const tirbase_guard::single_writer_lease::SingleWriterLease::ALIGN: usize
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::drop(usize)
+pub unsafe fn tirbase_guard::single_writer_lease::SingleWriterLease::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::single_writer_lease::SingleWriterLease
+impl<T> typenum::type_operators::Same for tirbase_guard::single_writer_lease::SingleWriterLease
+pub type tirbase_guard::single_writer_lease::SingleWriterLease::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::single_writer_lease::SingleWriterLease where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::single_writer_lease::SingleWriterLease where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::single_writer_lease::SingleWriterLease::vzip(self) -> V
+pub struct tirbase_guard::Stage16Request<'a>
+pub tirbase_guard::Stage16Request::actuating_ts: i64
+pub tirbase_guard::Stage16Request::cmd: &'a tirbase_types::command::CommandMessage
+pub tirbase_guard::Stage16Request::entry_id: [u8; 16]
+pub tirbase_guard::Stage16Request::idempotency_retention_secs: i64
+pub tirbase_guard::Stage16Request::lease_duration_secs: i64
+pub tirbase_guard::Stage16Request::max_consecutive_renewals: u32
+pub tirbase_guard::Stage16Request::now_est: i64
+pub tirbase_guard::Stage16Request::now_mono_secs: i64
+pub tirbase_guard::Stage16Request::original_result_json: &'a str
+impl<'a> core::clone::Clone for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::clone(&self) -> tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::fmt::Debug for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Send for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Sync for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::Unpin for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::commit::Stage16Request<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_guard::commit::Stage16Request<'a>
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::commit::Stage16Request<'a> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::commit::Stage16Request<'a> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::From<T>
+pub fn tirbase_guard::commit::Stage16Request<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::Into<T>
+pub type tirbase_guard::commit::Stage16Request<'a>::Error = core::convert::Infallible
+pub fn tirbase_guard::commit::Stage16Request<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::commit::Stage16Request<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_guard::commit::Stage16Request<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::commit::Stage16Request<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::commit::Stage16Request<'a> where T: core::clone::Clone
+pub type tirbase_guard::commit::Stage16Request<'a>::Owned = T
+pub fn tirbase_guard::commit::Stage16Request<'a>::clone_into(&self, &mut T)
+pub fn tirbase_guard::commit::Stage16Request<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::commit::Stage16Request<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+pub fn tirbase_guard::commit::Stage16Request<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::commit::Stage16Request<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::commit::Stage16Request<'a>
+pub fn tirbase_guard::commit::Stage16Request<'a>::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::commit::Stage16Request<'a>
+pub type tirbase_guard::commit::Stage16Request<'a>::Init = T
+pub const tirbase_guard::commit::Stage16Request<'a>::ALIGN: usize
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::drop(usize)
+pub unsafe fn tirbase_guard::commit::Stage16Request<'a>::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::commit::Stage16Request<'a>
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::commit::Stage16Request<'a>
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::commit::Stage16Request<'a>
+impl<T> typenum::type_operators::Same for tirbase_guard::commit::Stage16Request<'a>
+pub type tirbase_guard::commit::Stage16Request<'a>::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::commit::Stage16Request<'a> where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::commit::Stage16Request<'a> where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::commit::Stage16Request<'a>::vzip(self) -> V
 pub struct tirbase_guard::TargetAdmission
 pub tirbase_guard::TargetAdmission::device_id: alloc::string::String
 impl core::clone::Clone for tirbase_guard::guard::TargetAdmission
@@ -8565,18 +9932,26 @@ pub type tirbase_guard::trust_root::TrustRootSignature::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::trust_root::TrustRootSignature where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::trust_root::TrustRootSignature where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::trust_root::TrustRootSignature::vzip(self) -> V
+pub const tirbase_guard::CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str
 pub const tirbase_guard::CONTEXT_EPOCH_BUMP: &str
 pub const tirbase_guard::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::CONTEXT_POLICY_BUNDLE: &str
 pub const tirbase_guard::CONTEXT_TIME_BEACON: &str
+pub const tirbase_guard::DEFAULT_CHALLENGE_NONCE_TTL_SECS: u64
+pub const tirbase_guard::DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE: u32
 pub const tirbase_guard::DEFAULT_ENROLLMENT_NONCE_CAPACITY: usize
 pub const tirbase_guard::DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS: i64
+pub const tirbase_guard::DEFAULT_FORWARD_GAP_G: u64
 pub const tirbase_guard::DEFAULT_MAX_FORWARD_JUMP_SECS: i64
 pub const tirbase_guard::DEFAULT_REQUIRED_ANCHOR_SIGNATURES: usize
 pub const tirbase_guard::DEFAULT_STALENESS_WINDOW_SECS: i64
+pub const tirbase_guard::DEFAULT_WINDOW_W: u64
 pub const tirbase_guard::ENROLLMENT_BOOTSTRAP_CONTEXT: &str
 pub const tirbase_guard::LOCKDOWN_DB_KEY: &str
 pub const tirbase_guard::LOCKDOWN_FILE_PATH: &str
+pub trait tirbase_guard::ChallengeNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
+pub fn tirbase_guard::ChallengeNonceStore::consume_if_valid(&self, &[u8; 32], &str, &str, &str, i64, bool) -> core::result::Result<bool, alloc::string::String>
+pub fn tirbase_guard::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<(), alloc::string::String>
 pub trait tirbase_guard::DeviceEpochStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::DeviceEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::DeviceEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
@@ -8608,12 +9983,17 @@ pub fn tirbase_guard::SafeDefaultBinding::current_value(&self) -> alloc::string:
 pub fn tirbase_guard::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<(), alloc::string::String>
 pub trait tirbase_guard::SignedOperationPayload: serde_core::ser::Serialize
 pub const tirbase_guard::SignedOperationPayload::CONTEXT: &'static str
+impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::anti_replay::AntiReplayWindowReset
+pub const tirbase_guard::anti_replay::AntiReplayWindowReset::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::epoch::EpochBump
 pub const tirbase_guard::epoch::EpochBump::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::lockdown::LockdownExitPayload
 pub const tirbase_guard::lockdown::LockdownExitPayload::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
 pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
+pub trait tirbase_guard::Stage16Store: core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<(), tirbase_guard::commit::Stage16Error>
+pub fn tirbase_guard::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<(), alloc::string::String>
 pub trait tirbase_guard::TimeRatchetStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
 pub fn tirbase_guard::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
@@ -8621,10 +10001,14 @@ pub fn tirbase_guard::admit_stages_0_to_15(&tirbase_types::command::CommandMessa
 pub fn tirbase_guard::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::check_sequence(u64, u64, u64, u64, u64, bool) -> tirbase_guard::anti_replay::AntiReplayDecision
 pub fn tirbase_guard::check_tightening_floors(&tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord, &str) -> core::option::Option<tirbase_guard::policy::PolicyError>
 pub fn tirbase_guard::classify_bundle(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord) -> tirbase_types::policy::PolicyBundleKind
+pub fn tirbase_guard::coarse_for_rejection(tirbase_guard::admit::AdmitRejection) -> tirbase_guard::commit::CoarseRejection
 pub fn tirbase_guard::command_signing_bytes(&tirbase_types::command::CommandMessage) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_guard::command::CommandError>
+pub fn tirbase_guard::commit_dispatch_finalize<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], i64, i64, i64, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64) -> serde_json::value::Value where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
 pub fn tirbase_guard::decommission_message(&str) -> alloc::vec::Vec<u8>
+pub fn tirbase_guard::dispatch_and_await<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64, core::time::Duration) -> core::result::Result<tirbase_guard::commit::EffectTerminalState, alloc::string::String> where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
 pub fn tirbase_guard::enrollment_message(&str, &[u8], &[u8; 32], tirbase_types::CommandRole) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::enter_lockdown(&dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::install_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel, &tirbase_guard::trust_root::TrustRootRecord) -> core::result::Result<alloc::string::String, tirbase_guard::envelope::ProfileInstallError>
@@ -8634,7 +10018,10 @@ pub fn tirbase_guard::policy_bundle_signing_bytes(&tirbase_types::policy::Policy
 pub fn tirbase_guard::profile_signing_bytes(&tirbase_types::envelope::EnvelopeProfile) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<(), tirbase_guard::command::CommandError>
 pub fn tirbase_guard::single_target_guard(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>, tirbase_types::TargetId, alloc::string::String) -> tirbase_guard::guard::CommandGuard
+pub fn tirbase_guard::stage17_acceptance(&tirbase_types::command::CommandMessage, &[u8; 16])
+pub fn tirbase_guard::stage17_rejection(&tirbase_types::command::CommandMessage, tirbase_guard::admit::AdmitRejection, &str, bool) -> serde_json::value::Value
 pub fn tirbase_guard::validate_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel) -> core::result::Result<(), tirbase_guard::envelope::ProfileInstallError>
+pub fn tirbase_guard::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
 pub fn tirbase_guard::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<(), tirbase_guard::command::CommandError>
 pub fn tirbase_guard::verify_decommission_credential(&tirbase_guard::trust_root::TrustRootRecord, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::verify_policy_cosignature(&tirbase_guard::trust_root::TrustRootRecord, &tirbase_types::policy::PolicyBundle, &tirbase_types::policy::PolicyCoSignature) -> core::result::Result<(), tirbase_guard::policy::PolicyError>

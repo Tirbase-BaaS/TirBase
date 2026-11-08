@@ -17,9 +17,7 @@ use std::time::Instant;
 
 use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
-use tirbase_core::auth::command_token::{
-    check_command_binding, verify_command_token, CommandTokenClaims,
-};
+use tirbase_core::auth::command_token::{check_command_binding, verify_command_token};
 use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::TimeSource;
@@ -63,6 +61,13 @@ impl ChallengeNonce {
     }
 }
 
+/// Optional dwell/min-off summary loaded from `drift_rate_history` (Task 21.10).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DriftTimingSummary {
+    pub last_change_mono: Option<i64>,
+    pub last_deactivation_mono: Option<i64>,
+}
+
 pub trait DriftHistoryStore: Send + Sync + std::fmt::Debug {
     fn record(
         &self,
@@ -81,6 +86,14 @@ pub trait DriftHistoryStore: Send + Sync + std::fmt::Debug {
         param: &str,
         since_mono_secs: i64,
     ) -> Result<Vec<DriftRecord>, String>;
+    /// Best-effort dwell/min-off timing lookup (default: no DB timing info).
+    fn timing_summary(
+        &self,
+        _target_id: &str,
+        _param: &str,
+    ) -> Result<Option<DriftTimingSummary>, String> {
+        Ok(None)
+    }
 }
 pub trait DecidedOutcomeStore: Send + Sync + std::fmt::Debug {
     fn lookup(
@@ -160,6 +173,8 @@ pub enum AdmitRejection {
     EnvelopeViolation,
     ConstraintViolation,
     DriftExceeded,
+    DwellViolation,
+    MinOffViolation,
     RateLimit,
     QuorumRequired,
     NoProfile,
@@ -184,6 +199,8 @@ impl AdmitRejection {
             AdmitRejection::EnvelopeViolation => ReasonCode::EnvelopeViolation,
             AdmitRejection::ConstraintViolation => ReasonCode::ConstraintViolation,
             AdmitRejection::DriftExceeded => ReasonCode::DriftExceeded,
+            AdmitRejection::DwellViolation => ReasonCode::DwellViolation,
+            AdmitRejection::MinOffViolation => ReasonCode::MinOffViolation,
             AdmitRejection::RateLimit => ReasonCode::RateLimit,
             AdmitRejection::QuorumRequired => ReasonCode::QuorumRequired,
             AdmitRejection::NoProfile => ReasonCode::NoProfile,
@@ -914,7 +931,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
-    // Stage 10: FixedPointValue canonical exponent
+    // Stage 10: FixedPointValue canonical exponent / ParameterKind enforcement (21.11).
     if cmd.desired_state.unit_id != spec.unit_id {
         return reject(
             AdmitRejection::ValueInvalid,
@@ -940,6 +957,32 @@ pub fn admit_stages_0_to_15(
             )
         }
     };
+    match &spec.kind {
+        ParameterKind::Enum { variants } => {
+            if !variants.iter().any(|(_, v)| *v == canonical.mantissa) {
+                return reject(
+                    AdmitRejection::ValueInvalid,
+                    format!(
+                        "enum mantissa {} not a declared variant for {}",
+                        canonical.mantissa, cmd.param
+                    ),
+                    &cmd.issuer_did,
+                    &cmd.target_id,
+                );
+            }
+        }
+        ParameterKind::Bool => {
+            if canonical.mantissa != 0 && canonical.mantissa != 1 {
+                return reject(
+                    AdmitRejection::ValueInvalid,
+                    "bool parameter must be 0 or 1",
+                    &cmd.issuer_did,
+                    &cmd.target_id,
+                );
+            }
+        }
+        ParameterKind::Range { .. } => {}
+    }
 
     // Stage 11: envelope bounds (i128 intermediates)
     if let ParameterKind::Range { min, max } = &spec.kind {
@@ -961,15 +1004,6 @@ pub fn admit_stages_0_to_15(
                     &cmd.target_id,
                 )
             }
-        }
-    } else if let ParameterKind::Bool = spec.kind {
-        if canonical.mantissa != 0 && canonical.mantissa != 1 {
-            return reject(
-                AdmitRejection::EnvelopeViolation,
-                "bool parameter must be 0 or 1",
-                &cmd.issuer_did,
-                &cmd.target_id,
-            );
         }
     }
 
@@ -1016,8 +1050,61 @@ pub fn admit_stages_0_to_15(
         }
     }
 
-    // Stage 13: rate-of-change / cumulative drift
+    // Stage 13: dwell/min-off interlocks (21.10) + rate-of-change/cumulative drift.
     let mono_secs = (pipeline.time_source.monotonic_now() / 1_000_000) as i64;
+    let timing_summary = if let Ok(g) = pipeline.drift_store.read() {
+        if let Some(store) = g.as_ref() {
+            store
+                .timing_summary(cmd.target_id.as_str(), &cmd.param)
+                .unwrap_or(None)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    if matches!(spec.kind, ParameterKind::Range { .. } | ParameterKind::Bool) {
+        if spec.dwell_secs > 0 {
+            if let Some(last_change) = timing_summary.as_ref().and_then(|t| t.last_change_mono) {
+                let elapsed = mono_secs.saturating_sub(last_change);
+                if elapsed < spec.dwell_secs as i64 {
+                    return reject(
+                        AdmitRejection::DwellViolation,
+                        format!(
+                            "dwell interlock: {}s elapsed < {}s required",
+                            elapsed, spec.dwell_secs
+                        ),
+                        &cmd.issuer_did,
+                        &cmd.target_id,
+                    );
+                }
+            }
+        }
+        // Min-off (PV-4.7): Bool reactivation (0->1) must wait min_off_secs since
+        // last deactivation; last_deactivation_mono is tracked by Stage 16/summary.
+        if spec.min_off_secs > 0
+            && matches!(spec.kind, ParameterKind::Bool)
+            && canonical.mantissa == 1
+        {
+            if let Some(last_deact) = timing_summary
+                .as_ref()
+                .and_then(|t| t.last_deactivation_mono)
+            {
+                let elapsed = mono_secs.saturating_sub(last_deact);
+                if elapsed < spec.min_off_secs as i64 {
+                    return reject(
+                        AdmitRejection::MinOffViolation,
+                        format!(
+                            "min-off interlock: {}s elapsed < {}s required",
+                            elapsed, spec.min_off_secs
+                        ),
+                        &cmd.issuer_did,
+                        &cmd.target_id,
+                    );
+                }
+            }
+        }
+    }
     let drift_key = (
         cmd.issuer_did.as_str().to_string(),
         cmd.target_id.as_str().to_string(),

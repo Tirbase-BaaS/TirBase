@@ -62,7 +62,9 @@ pub fn coarse_for_rejection(category: AdmitRejection) -> CoarseRejection {
     match category {
         AdmitRejection::EnvelopeViolation
         | AdmitRejection::ConstraintViolation
-        | AdmitRejection::DriftExceeded => CoarseRejection::EnvelopeViolation,
+        | AdmitRejection::DriftExceeded
+        | AdmitRejection::DwellViolation
+        | AdmitRejection::MinOffViolation => CoarseRejection::EnvelopeViolation,
         AdmitRejection::RateLimit | AdmitRejection::PreAuthRateLimit => CoarseRejection::RateLimit,
         AdmitRejection::CommitConflict => CoarseRejection::AntiReplay,
         AdmitRejection::ValueInvalid => CoarseRejection::ValueInvalid,
