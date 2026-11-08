@@ -1,15 +1,16 @@
-//! Mesh command ingress (task 11.3 production caller).
+//! P2P mesh command ingress (tasks 11.3/14 production callers).
 //!
-//! This handler is the mesh/gossipsub-side entry point.  It does not construct
-//! `ActuationPermit`s and does not touch drivers directly — it calls through
-//! `CommandGuard::admit()`, which is the only permit issuer.
+//! Commands delivered from the mesh (Paxos-confirmed) pass through the local
+//! guard's `admit()` before actuation — mesh consensus is advisory, not
+//! bypassing.
 
+use tirbase_guard::admit::AdmitContext;
 use tirbase_guard::{
     AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource,
 };
 use tirbase_types::command::CommandMessage;
 
-/// Admit a command received over the mesh and dispatch via the guard-owned proxy.
+/// Admit a mesh-delivered command (legacy path).
 pub fn handle_mesh_command<W: std::io::Write + Send>(
     guard: &CommandGuard,
     proxy: &mut DriverProxy<W>,
@@ -17,4 +18,15 @@ pub fn handle_mesh_command<W: std::io::Write + Send>(
     frame: &[u8],
 ) -> Result<AdmittedCommand, AdmitError> {
     guard.admit(cmd, IngressSource::Mesh, proxy, frame)
+}
+
+/// Admit a mesh-delivered command with full Task 14 pipeline context.
+pub fn handle_mesh_command_with_context<W: std::io::Write + Send>(
+    guard: &CommandGuard,
+    proxy: &mut DriverProxy<W>,
+    cmd: &CommandMessage,
+    frame: &[u8],
+    ctx: &AdmitContext<'_>,
+) -> Result<AdmittedCommand, AdmitError> {
+    guard.admit_with_context(cmd, ctx, proxy, frame)
 }

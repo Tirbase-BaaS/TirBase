@@ -12,3 +12,6 @@ pub mod enrollment_nonce;
 pub mod lockdown;
 pub mod pending_approvals;
 pub mod time_ratchet;
+pub mod challenge_nonces;
+pub mod decided_outcomes;
+pub mod drift_rate_history;
