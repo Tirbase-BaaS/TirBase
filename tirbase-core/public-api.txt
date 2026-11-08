@@ -2999,6 +2999,11 @@ pub fn tirbase_core::crdt::CrdtEngine::produce_delta(&mut self, alloc::vec::Vec<
 pub fn tirbase_core::crdt::CrdtEngine::project_table_to_store(&self, &str, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::CrdtEngine::read_scalar(&self, &str) -> core::option::Option<serde_json::value::Value>
 pub fn tirbase_core::crdt::CrdtEngine::write_scalar(&mut self, &str, &str, &serde_json::value::Value) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
+impl core::ops::drop::Drop for tirbase_core::crdt::CrdtEngine
+pub fn tirbase_core::crdt::CrdtEngine::drop(&mut self)
+impl zeroize::Zeroize for tirbase_core::crdt::CrdtEngine
+pub fn tirbase_core::crdt::CrdtEngine::zeroize(&mut self)
+impl zeroize::ZeroizeOnDrop for tirbase_core::crdt::CrdtEngine
 impl core::marker::Freeze for tirbase_core::crdt::CrdtEngine
 impl core::marker::Send for tirbase_core::crdt::CrdtEngine
 impl core::marker::Sync for tirbase_core::crdt::CrdtEngine
@@ -4222,6 +4227,9 @@ pub tirbase_core::errors::TirBaseError::FragmentReassemblyFailed::expected: u32
 pub tirbase_core::errors::TirBaseError::FragmentReassemblyFailed::sender_did: alloc::string::String
 pub tirbase_core::errors::TirBaseError::InvalidIncidentState
 pub tirbase_core::errors::TirBaseError::InvalidIncidentState::got: tirbase_core::contamination::incident::IncidentState
+pub tirbase_core::errors::TirBaseError::KeyProviderUnavailable
+pub tirbase_core::errors::TirBaseError::KeyProviderUnavailable::provider: alloc::string::String
+pub tirbase_core::errors::TirBaseError::KeyProviderUnavailable::reason: alloc::string::String
 pub tirbase_core::errors::TirBaseError::LocalStoreWriteFailed
 pub tirbase_core::errors::TirBaseError::LocalStoreWriteFailed::reason: alloc::string::String
 pub tirbase_core::errors::TirBaseError::MeshUnavailable
@@ -4337,6 +4345,7 @@ pub tirbase_core::events::ReasonCode::MigrationApplied
 pub tirbase_core::events::ReasonCode::MigrationCancelled
 pub tirbase_core::events::ReasonCode::MissingDependency
 pub tirbase_core::events::ReasonCode::MissingDependencyTimeout
+pub tirbase_core::events::ReasonCode::MonotonicCounterRegression
 pub tirbase_core::events::ReasonCode::NonAutomergePayload
 pub tirbase_core::events::ReasonCode::NonDeterministicModule
 pub tirbase_core::events::ReasonCode::OpCountExceeded
@@ -4686,12 +4695,17 @@ pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::load_or_gener
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::path(&self) -> &std::path::Path
 impl core::fmt::Debug for tirbase_core::identity::file_key_provider::FileKeyProvider
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::ops::drop::Drop for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::drop(&mut self)
 impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::FileKeyProvider
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::did(&self) -> &str
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl zeroize::Zeroize for tirbase_core::identity::file_key_provider::FileKeyProvider
+pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::zeroize(&mut self)
+impl zeroize::ZeroizeOnDrop for tirbase_core::identity::file_key_provider::FileKeyProvider
 impl core::marker::Freeze for tirbase_core::identity::file_key_provider::FileKeyProvider
 impl core::marker::Send for tirbase_core::identity::file_key_provider::FileKeyProvider
 impl core::marker::Sync for tirbase_core::identity::file_key_provider::FileKeyProvider
@@ -4739,12 +4753,17 @@ pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::from_seed
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::generate() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 impl core::fmt::Debug for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::ops::drop::Drop for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::drop(&mut self)
 impl tirbase_core::traits::KeyProvider for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::did(&self) -> &str
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::key_type(&self) -> tirbase_types::DeviceKeyType
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::public_key_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::sign_async<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl zeroize::Zeroize for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::zeroize(&mut self)
+impl zeroize::ZeroizeOnDrop for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 impl core::marker::Freeze for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 impl core::marker::Send for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 impl core::marker::Sync for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
@@ -8143,6 +8162,11 @@ pub fn tirbase_core::transport::MeshTransport::send_receipt(&mut self, &tirbase_
 pub async fn tirbase_core::transport::MeshTransport::start(&mut self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::take_swarm(&mut self, tokio::sync::mpsc::bounded::Sender<alloc::vec::Vec<u8>>) -> core::option::Option<libp2p_swarm::Swarm<tirbase_core::transport::TirBaseBehaviour>>
 pub fn tirbase_core::transport::MeshTransport::tick_timeouts(&mut self, i64)
+impl core::ops::drop::Drop for tirbase_core::transport::MeshTransport
+pub fn tirbase_core::transport::MeshTransport::drop(&mut self)
+impl zeroize::Zeroize for tirbase_core::transport::MeshTransport
+pub fn tirbase_core::transport::MeshTransport::zeroize(&mut self)
+impl zeroize::ZeroizeOnDrop for tirbase_core::transport::MeshTransport
 impl !core::marker::Freeze for tirbase_core::transport::MeshTransport
 impl core::marker::Send for tirbase_core::transport::MeshTransport
 impl !core::marker::Sync for tirbase_core::transport::MeshTransport

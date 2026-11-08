@@ -5,6 +5,8 @@
 
 #![allow(dead_code, unused_variables)]
 
+use zeroize::Zeroize;
+
 use crate::errors::TirBaseError;
 
 /// A `did:key:` DID string.
@@ -72,14 +74,32 @@ pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
 /// The identity file format stored on disk.
+///
+/// Holds the hex-encoded private seed, so it is zeroized on drop (PV-3.7,
+/// CLAIM-6.1/6.2).  `pub(crate)` only so the zeroize registry test can name it;
+/// it is not part of the crate's public API.
 #[derive(serde::Serialize, serde::Deserialize)]
-struct StoredIdentity {
+pub(crate) struct StoredIdentity {
     did: String,
     /// Hex-encoded 32-byte secret key seed.
     secret_key_hex: String,
     /// Hex-encoded 32-byte public key.
     public_key_hex: String,
 }
+
+impl zeroize::Zeroize for StoredIdentity {
+    fn zeroize(&mut self) {
+        self.secret_key_hex.zeroize();
+    }
+}
+
+impl Drop for StoredIdentity {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for StoredIdentity {}
 
 /// Persist the device DID and private key to durable storage (Req 7.1).
 ///
@@ -174,7 +194,7 @@ pub fn load_identity_from(path: &str) -> Result<Option<(Did, Vec<u8>)>, TirBaseE
         let mut keypair = secret_key_bytes;
         keypair.extend_from_slice(&public_key_bytes);
 
-        return Ok(Some((stored.did, keypair)));
+        return Ok(Some((stored.did.clone(), keypair)));
     }
 
     #[cfg(target_arch = "wasm32")]

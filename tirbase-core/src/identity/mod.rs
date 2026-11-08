@@ -355,3 +355,225 @@ mod tests {
         assert_eq!(asynchronous, DeviceSignature::Ed25519(sync));
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ZeroizeOnDrop coverage registry (task 6.2 — CLAIM-6.2, PV-3.14)
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// This test module is the single registry of types that hold raw key material
+// in `tirbase-core` and `tirbase-guard`.  Two CI tests enforce coverage:
+//
+//   * `every_registered_type_is_zeroize_on_drop` — compile-time proof that each
+//     registered type implements `ZeroizeOnDrop`.  Removing a `ZeroizeOnDrop`
+//     impl/derive from any registered type breaks this test at compile time.
+//   * `registry_covers_every_key_material_struct` — scans both crates' source
+//     trees for structs whose fields include raw key bytes and fails if a type
+//     is missing from the registry.
+//
+// `StoredIdentity` is crate-private; the registry lives here (rather than in an
+// integration test) so private key-material types can be proven too.
+#[cfg(test)]
+mod zeroize_registry_tests {
+    use std::path::{Path, PathBuf};
+
+    use zeroize::ZeroizeOnDrop;
+
+    use crate::crdt::CrdtEngine;
+    use crate::transport::MeshTransport;
+    use super::did::StoredIdentity;
+    use super::file_key_provider::{FileKeyProvider, InMemoryKeyProvider};
+
+    /// Every type in `tirbase-core` / `tirbase-guard` known to hold raw key
+    /// bytes, by type name.
+    pub static ZEROIZE_ON_DROP_REGISTRY: &[&str] = &[
+        "CrdtEngine",
+        "FileKeyProvider",
+        "InMemoryKeyProvider",
+        "MeshTransport",
+        "StoredIdentity",
+    ];
+
+    fn assert_zeroize_on_drop<T: ZeroizeOnDrop>() {}
+
+    #[test]
+    fn every_registered_type_is_zeroize_on_drop() {
+        // One assertion per registry entry.  Adding an entry without an
+        // assertion here fails `registry_entries_have_type_assertions`.
+        assert_zeroize_on_drop::<CrdtEngine>();
+        assert_zeroize_on_drop::<FileKeyProvider>();
+        assert_zeroize_on_drop::<InMemoryKeyProvider>();
+        assert_zeroize_on_drop::<MeshTransport>();
+        assert_zeroize_on_drop::<StoredIdentity>();
+
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"CrdtEngine"));
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"MeshTransport"));
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"FileKeyProvider"));
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"InMemoryKeyProvider"));
+        assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"StoredIdentity"));
+    }
+
+    /// Guards against a registry entry that has no corresponding type-level
+    /// assertion above (a name alone would not prove anything).
+    #[test]
+    fn registry_entries_have_type_assertions() {
+        assert_eq!(
+            ZEROIZE_ON_DROP_REGISTRY.len(),
+            5,
+            "every ZEROIZE_ON_DROP_REGISTRY entry needs a matching \
+             assert_zeroize_on_drop::<T>() in every_registered_type_is_zeroize_on_drop"
+        );
+    }
+
+    #[test]
+    fn registry_covers_every_key_material_struct() {
+        let workspace = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("tirbase-core lives in the workspace root");
+        let mut missing = Vec::new();
+
+        for crate_dir in ["tirbase-core/src", "tirbase-guard/src"] {
+            for file in rust_files(&workspace.join(crate_dir)) {
+                let source = std::fs::read_to_string(&file).expect("read source file");
+                for name in key_material_structs(&source) {
+                    if !ZEROIZE_ON_DROP_REGISTRY.contains(&name.as_str()) {
+                        missing.push(format!("{} in {}", name, file.display()));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "key-material structs missing from ZEROIZE_ON_DROP_REGISTRY: {missing:?}"
+        );
+    }
+
+    /// Recursively collect `.rs` files below `root`.
+    fn rust_files(root: &Path) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        if !root.exists() {
+            return out;
+        }
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).expect("read source directory") {
+                let path = entry.expect("directory entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                    out.push(path);
+                }
+            }
+        }
+        out
+    }
+
+    /// Heuristic source scan for structs that hold raw key material.
+    ///
+    /// A struct qualifies when one of its fields is named like key material
+    /// (`seed`, `secret`, `private_key`, `signing_key`, `keypair`) or has a
+    /// key type (`SigningKey`, `SecretKey`, `StaticSecret`).  Test modules are
+    /// stripped first so fixture structs do not need registry entries.
+    fn key_material_structs(source: &str) -> Vec<String> {
+        let production = source
+            .split("\n#[cfg(test)]")
+            .next()
+            .unwrap_or(source);
+
+        let mut found = Vec::new();
+        let mut current: Option<(String, usize, bool)> = None;
+
+        for line in production.lines() {
+            let trimmed = line.trim();
+
+            if current.is_none() {
+                if let Some(name) = struct_name(trimmed) {
+                    let (open, close) = brace_delta(trimmed);
+                    let depth = open.saturating_sub(close);
+                    // Tuple/unit structs (no `{`) cannot hold named fields.
+                    if depth > 0 {
+                        current = Some((name, depth, false));
+                    }
+                    continue;
+                }
+                continue;
+            }
+
+            if let Some((name, depth, holds_key)) = current.as_mut() {
+                let field = field_declaration(trimmed);
+                if let Some((field_name, field_type)) = field {
+                    if looks_like_key_material(&field_name, &field_type) {
+                        *holds_key = true;
+                    }
+                }
+                let (open, close) = brace_delta(trimmed);
+                *depth = depth.saturating_add(open).saturating_sub(close);
+                if *depth == 0 {
+                    if *holds_key {
+                        found.push(name.clone());
+                    }
+                    current = None;
+                }
+            }
+        }
+
+        found
+    }
+
+    fn struct_name(line: &str) -> Option<String> {
+        let rest = line
+            .strip_prefix("pub(crate) struct ")
+            .or_else(|| line.strip_prefix("pub(super) struct "))
+            .or_else(|| line.strip_prefix("pub struct "))
+            .or_else(|| line.strip_prefix("struct "))?;
+        let name: String = rest
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        if name.is_empty() {
+            None
+        } else {
+            Some(name)
+        }
+    }
+
+    fn field_declaration(line: &str) -> Option<(String, String)> {
+        if line.is_empty()
+            || line.starts_with("//")
+            || line.starts_with('#')
+            || line.starts_with('}')
+            || line.starts_with("impl")
+        {
+            return None;
+        }
+        let (name, ty) = line.split_once(':')?;
+        let name = name.trim();
+        if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return None;
+        }
+        Some((name.to_string(), ty.trim().to_string()))
+    }
+
+    fn looks_like_key_material(field_name: &str, field_type: &str) -> bool {
+        const KEY_FIELD_FRAGMENTS: &[&str] = &[
+            "seed",
+            "secret",
+            "privkey",
+            "private_key",
+            "signing_key",
+            "keypair",
+        ];
+        const KEY_TYPES: &[&str] = &["SigningKey", "SecretKey", "StaticSecret"];
+
+        KEY_FIELD_FRAGMENTS
+            .iter()
+            .any(|fragment| field_name.contains(fragment))
+            || KEY_TYPES.iter().any(|ty| field_type.contains(ty))
+    }
+
+    fn brace_delta(line: &str) -> (usize, usize) {
+        let open = line.chars().filter(|c| *c == '{').count();
+        let close = line.chars().filter(|c| *c == '}').count();
+        (open, close)
+    }
+}

@@ -16,6 +16,8 @@ mod verify;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use zeroize::Zeroize;
+
 use failure::{
     notify_delta_rejection, DeltaRejectionCode, DeltaRejectionListener, DeltaRejectionRecord,
 };
@@ -148,6 +150,22 @@ pub struct CrdtEngine {
     #[cfg(feature = "native")]
     dag: ChangesetDag,
 }
+
+// The engine holds the device's Ed25519 signing seed, so it is key material
+// covered by the ZeroizeOnDrop registry (task 6.2, CLAIM-6.2, PV-3.7).
+impl zeroize::Zeroize for CrdtEngine {
+    fn zeroize(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.secret_key);
+    }
+}
+
+impl Drop for CrdtEngine {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for CrdtEngine {}
 
 /// Result of the schema-hash gate's additive-vs-breaking classification
 /// (Subphase 5.3 — Req 17.2–17.4).

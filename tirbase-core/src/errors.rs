@@ -20,6 +20,9 @@ pub enum TirBaseError {
     #[error("Peer revoked: {peer_did}")]
     PeerRevoked { peer_did: String },
 
+    #[error("Key provider unavailable: {provider}: {reason}")]
+    KeyProviderUnavailable { provider: String, reason: String },
+
     #[error("Threshold not met: got {got} signatures, need {need}")]
     ThresholdNotMet { got: usize, need: usize },
 

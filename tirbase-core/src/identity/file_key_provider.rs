@@ -1,22 +1,45 @@
 //! File-backed and in-memory [`KeyProvider`] implementations (PV-3.6).
 //!
 //! [`FileKeyProvider`] loads (or creates) a device Ed25519 key in the same JSON
-//! format the original identity persistence used.  The private seed stays inside
-//! the provider; it is never returned by the [`KeyProvider`] trait.
+//! format the original identity persistence used.  The private seed is held in
+//! a [`secrecy::Secret<[u8; 32]>`] and zeroized when the provider is dropped
+//! (PV-3.7, CLAIM-6.1); it is never returned by the [`KeyProvider`] trait.
 //!
 //! `Debug` is implemented by hand to redact the seed — deriving it would print
 //! private key material into logs.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use ed25519_dalek::{Signer, SigningKey};
+use secrecy::{ExposeSecret, Secret};
 use tirbase_types::{DeviceKeyType, DeviceSignature};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::TirBaseError;
 use crate::identity::{did, keypair};
 use crate::traits::KeyProvider;
+
+/// Counts explicit `zeroize()` invocations in test builds.
+///
+/// The wiring-mutation check for CLAIM-6.1 removes the `self.zeroize()` call
+/// from `Drop` and requires at least one test to fail: `dropping_provider_
+/// invokes_zeroize_on_the_seed` reads this counter around a drop.
+#[cfg(test)]
+thread_local! {
+    // Per-test-thread counter: each `#[test]` runs on its own thread, so
+    // concurrently dropping providers in other tests cannot perturb it.
+    pub(crate) static ZEROIZE_INVOCATIONS: std::cell::Cell<usize> =
+        std::cell::Cell::new(0);
+}
+
+#[inline]
+fn record_zeroize() {
+    #[cfg(test)]
+    {
+        ZEROIZE_INVOCATIONS.with(|count| count.set(count.get() + 1));
+    }
+}
 
 /// Ed25519 device key persisted in a JSON file.
 ///
@@ -27,7 +50,8 @@ use crate::traits::KeyProvider;
 /// ```
 pub struct FileKeyProvider {
     did: String,
-    seed: [u8; 32],
+    /// Private seed, zeroized on drop by `secrecy::Secret` (PV-3.7).
+    seed: Secret<[u8; 32]>,
     public_key: [u8; 32],
     path: PathBuf,
 }
@@ -94,7 +118,11 @@ impl FileKeyProvider {
         })?;
         did::persist_identity_to(&did, &keypair_bytes, path_str)?;
 
-        Self::from_seed(seed, did, path.to_path_buf())
+        let provider = Self::from_seed(seed, did, path.to_path_buf());
+        // The stack copy of the seed is no longer needed; wipe it.
+        let mut seed_copy = seed;
+        seed_copy.zeroize();
+        provider
     }
 
     /// Construct a provider from an existing seed (used by tests and by callers
@@ -108,7 +136,7 @@ impl FileKeyProvider {
         let public_key = signing_key.verifying_key().to_bytes();
         Ok(FileKeyProvider {
             did,
-            seed,
+            seed: Secret::new(seed),
             public_key,
             path,
         })
@@ -125,7 +153,7 @@ impl FileKeyProvider {
     /// This is intentionally not part of the [`KeyProvider`] trait: it is a
     /// migration bridge, not an API the rest of the system may use.
     pub(crate) fn secret_seed(&self) -> [u8; 32] {
-        self.seed
+        *self.seed.expose_secret()
     }
 
     /// 32-byte Ed25519 public key.
@@ -134,10 +162,32 @@ impl FileKeyProvider {
     }
 }
 
+impl Zeroize for FileKeyProvider {
+    fn zeroize(&mut self) {
+        record_zeroize();
+        // Replacing the live secret drops it, which zeroizes the seed bytes in
+        // place (secrecy::Secret's Drop impl).  The replacement is all-zero so a
+        // zeroized provider can never sign again.
+        let live = std::mem::replace(&mut self.seed, Secret::new([0u8; 32]));
+        drop(live);
+        self.public_key.zeroize();
+    }
+}
+
+impl Drop for FileKeyProvider {
+    fn drop(&mut self) {
+        // CLAIM-6.1 wiring point: removing this call must fail the
+        // `dropping_provider_invokes_zeroize_on_the_seed` test.
+        self.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for FileKeyProvider {}
+
 #[async_trait]
 impl KeyProvider for FileKeyProvider {
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
-        let signing_key = SigningKey::from_bytes(&self.seed);
+        let signing_key = SigningKey::from_bytes(self.seed.expose_secret());
         Ok(DeviceSignature::Ed25519(signing_key.sign(payload).to_bytes()))
     }
 
@@ -160,10 +210,11 @@ impl KeyProvider for FileKeyProvider {
 
 /// Ephemeral Ed25519 key held only in memory (WASM builds and tests).
 ///
-/// No persistence: the identity changes on every construction.
+/// No persistence: the identity changes on every construction.  The seed is
+/// held in a [`Secret`] and zeroized on drop (PV-3.7).
 pub struct InMemoryKeyProvider {
     did: String,
-    seed: [u8; 32],
+    seed: Secret<[u8; 32]>,
     public_key: [u8; 32],
 }
 
@@ -180,11 +231,14 @@ impl InMemoryKeyProvider {
     /// Generate a fresh in-memory keypair.
     pub fn generate() -> Result<Self, TirBaseError> {
         let (seed, public_key) = keypair::generate_keypair()?;
-        Ok(InMemoryKeyProvider {
+        let provider = InMemoryKeyProvider {
             did: did::derive_did(&public_key),
-            seed,
+            seed: Secret::new(seed),
             public_key,
-        })
+        };
+        let mut seed_copy = seed;
+        seed_copy.zeroize();
+        Ok(provider)
     }
 
     /// Construct from an existing seed.
@@ -192,13 +246,13 @@ impl InMemoryKeyProvider {
         let public_key = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
         InMemoryKeyProvider {
             did: did::derive_did(&public_key),
-            seed,
+            seed: Secret::new(seed),
             public_key,
         }
     }
 
     pub(crate) fn secret_seed(&self) -> [u8; 32] {
-        self.seed
+        *self.seed.expose_secret()
     }
 
     pub(crate) fn public_key(&self) -> [u8; 32] {
@@ -206,10 +260,27 @@ impl InMemoryKeyProvider {
     }
 }
 
+impl Zeroize for InMemoryKeyProvider {
+    fn zeroize(&mut self) {
+        record_zeroize();
+        let live = std::mem::replace(&mut self.seed, Secret::new([0u8; 32]));
+        drop(live);
+        self.public_key.zeroize();
+    }
+}
+
+impl Drop for InMemoryKeyProvider {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for InMemoryKeyProvider {}
+
 #[async_trait]
 impl KeyProvider for InMemoryKeyProvider {
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
-        let signing_key = SigningKey::from_bytes(&self.seed);
+        let signing_key = SigningKey::from_bytes(self.seed.expose_secret());
         Ok(DeviceSignature::Ed25519(signing_key.sign(payload).to_bytes()))
     }
 
@@ -241,6 +312,14 @@ pub(crate) fn temp_identity_path(tag: &str) -> PathBuf {
 mod tests {
     use super::*;
     use crate::identity::keypair;
+
+    fn zeroize_invocations() -> usize {
+        ZEROIZE_INVOCATIONS.with(|count| count.get())
+    }
+
+    fn render_seed(provider: &FileKeyProvider) -> Vec<u8> {
+        provider.secret_seed().to_vec()
+    }
 
     #[test]
     fn file_provider_round_trips_a_signature() {
@@ -287,5 +366,53 @@ mod tests {
         let rendered = format!("{provider:?}");
         assert!(rendered.contains("<redacted>"));
         assert!(!rendered.contains(&hex::encode(provider.secret_seed())));
+    }
+
+    #[test]
+    fn zeroize_wipes_the_seed_and_public_key() {
+        let mut provider = InMemoryKeyProvider::from_seed([7u8; 32]);
+        assert_eq!(provider.secret_seed(), [7u8; 32]);
+
+        provider.zeroize();
+
+        assert_eq!(
+            provider.secret_seed(),
+            [0u8; 32],
+            "explicit zeroize must overwrite the seed"
+        );
+        assert_eq!(provider.public_key(), [0u8; 32]);
+    }
+
+    #[test]
+    fn dropping_provider_invokes_zeroize_on_the_seed() {
+        let before = zeroize_invocations();
+        let provider = InMemoryKeyProvider::from_seed([9u8; 32]);
+        assert_eq!(render_seed_file(&provider), vec![9u8; 32]);
+        drop(provider);
+        let after = zeroize_invocations();
+        assert_eq!(
+            after,
+            before + 1,
+            "dropping a key provider must call zeroize() (CLAIM-6.1)"
+        );
+    }
+
+    // Helper so the drop test also exercises `FileKeyProvider`'s seed accessor
+    // without keeping a borrow across the drop.
+    fn render_seed_file(provider: &InMemoryKeyProvider) -> Vec<u8> {
+        provider.secret_seed().to_vec()
+    }
+
+    #[test]
+    fn file_provider_zeroize_is_observable() {
+        let path = temp_identity_path("zeroize");
+        let mut provider = FileKeyProvider::load_or_generate(&path).expect("provider");
+        let expected = render_seed(&provider);
+        assert_ne!(expected, vec![0u8; 32]);
+
+        provider.zeroize();
+        assert_eq!(render_seed(&provider), vec![0u8; 32]);
+
+        let _ = std::fs::remove_file(&path);
     }
 }

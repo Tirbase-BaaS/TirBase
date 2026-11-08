@@ -1,2 +1,485 @@
 pub mod tirbase_guard
 pub use tirbase_guard::tirbase_types
+pub mod tirbase_guard::signed_operation
+pub enum tirbase_guard::signed_operation::SignedOperationError
+pub tirbase_guard::signed_operation::SignedOperationError::ContextMismatch
+pub tirbase_guard::signed_operation::SignedOperationError::ContextMismatch::actual: alloc::string::String
+pub tirbase_guard::signed_operation::SignedOperationError::ContextMismatch::expected: &'static str
+pub tirbase_guard::signed_operation::SignedOperationError::EmptySignatures
+pub tirbase_guard::signed_operation::SignedOperationError::PayloadHashMismatch
+pub tirbase_guard::signed_operation::SignedOperationError::Serialization(alloc::string::String)
+pub tirbase_guard::signed_operation::SignedOperationError::SignatureVerification
+pub tirbase_guard::signed_operation::SignedOperationError::SignatureVerification::signer_did: alloc::string::String
+pub tirbase_guard::signed_operation::SignedOperationError::UnknownSigner(alloc::string::String)
+pub tirbase_guard::signed_operation::SignedOperationError::UnsupportedKeyType(tirbase_types::DeviceSignature)
+impl core::clone::Clone for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::clone(&self) -> tirbase_guard::signed_operation::SignedOperationError
+impl core::cmp::Eq for tirbase_guard::signed_operation::SignedOperationError
+impl core::cmp::PartialEq for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::eq(&self, &tirbase_guard::signed_operation::SignedOperationError) -> bool
+impl core::error::Error for tirbase_guard::signed_operation::SignedOperationError
+impl core::fmt::Debug for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Freeze for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Send for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Sync for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Unpin for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignedOperationError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignedOperationError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignedOperationError
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignedOperationError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignedOperationError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignedOperationError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignedOperationError::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignedOperationError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignedOperationError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignedOperationError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignedOperationError where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignedOperationError::Owned = T
+pub fn tirbase_guard::signed_operation::SignedOperationError::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_guard::signed_operation::SignedOperationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignedOperationError where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignedOperationError where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignedOperationError
+pub type tirbase_guard::signed_operation::SignedOperationError::Init = T
+pub const tirbase_guard::signed_operation::SignedOperationError::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignedOperationError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_guard::signed_operation::SignedOperationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignedOperationError
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignedOperationError
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignedOperationError
+pub type tirbase_guard::signed_operation::SignedOperationError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperationError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignedOperationError::vzip(self) -> V
+pub struct tirbase_guard::signed_operation::SignatureEntry
+pub tirbase_guard::signed_operation::SignatureEntry::role: tirbase_types::CommandRole
+pub tirbase_guard::signed_operation::SignatureEntry::signature: tirbase_types::DeviceSignature
+pub tirbase_guard::signed_operation::SignatureEntry::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::clone(&self) -> tirbase_guard::signed_operation::SignatureEntry
+impl core::cmp::Eq for tirbase_guard::signed_operation::SignatureEntry
+impl core::cmp::PartialEq for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::eq(&self, &tirbase_guard::signed_operation::SignatureEntry) -> bool
+impl core::fmt::Debug for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignatureEntry
+impl serde_core::ser::Serialize for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Send for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Sync for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Unpin for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignatureEntry
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignatureEntry
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignatureEntry
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignatureEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignatureEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignatureEntry::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignatureEntry::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignatureEntry::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignatureEntry::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignatureEntry::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignatureEntry where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignatureEntry::Owned = T
+pub fn tirbase_guard::signed_operation::SignatureEntry::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignatureEntry::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignatureEntry where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignatureEntry where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignatureEntry
+pub type tirbase_guard::signed_operation::SignatureEntry::Init = T
+pub const tirbase_guard::signed_operation::SignatureEntry::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignatureEntry
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::signed_operation::SignatureEntry where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignatureEntry
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignatureEntry
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignatureEntry
+pub type tirbase_guard::signed_operation::SignatureEntry::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignatureEntry where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignatureEntry::vzip(self) -> V
+pub struct tirbase_guard::signed_operation::SignedOperation<T>
+pub tirbase_guard::signed_operation::SignedOperation::_payload: core::marker::PhantomData<T>
+pub tirbase_guard::signed_operation::SignedOperation::context_string: alloc::string::String
+pub tirbase_guard::signed_operation::SignedOperation::created_est: i64
+pub tirbase_guard::signed_operation::SignedOperation::expires_est: core::option::Option<i64>
+pub tirbase_guard::signed_operation::SignedOperation::payload_hash: [u8; 32]
+pub tirbase_guard::signed_operation::SignedOperation::signatures: alloc::vec::Vec<tirbase_guard::signed_operation::SignatureEntry>
+impl<T: tirbase_guard::signed_operation::SignedOperationPayload> tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::new(&T, i64, core::option::Option<i64>) -> core::result::Result<Self, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::signing_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+impl<'de, T> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::clone(&self) -> tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::cmp::Eq> core::cmp::Eq for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::eq(&self, &tirbase_guard::signed_operation::SignedOperation<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<T> core::marker::Freeze for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> core::marker::Send for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Send
+impl<T> core::marker::Sync for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Sync
+impl<T> core::marker::Unpin for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Unpin
+impl<T> core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: core::panic::unwind_safe::RefUnwindSafe
+impl<T> core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: core::panic::unwind_safe::UnwindSafe
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignedOperation<T> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignedOperation<T> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignedOperation<T> where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Owned = T
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignedOperation<T> where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignedOperation<T> where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignedOperation<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Init = T
+pub const tirbase_guard::signed_operation::SignedOperation<T>::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::signed_operation::SignedOperation<T> where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignedOperation<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperation<T> where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::vzip(self) -> V
+pub const tirbase_guard::signed_operation::CONTEXT_EPOCH_BUMP: &str
+pub const tirbase_guard::signed_operation::CONTEXT_LOCKDOWN_EXIT: &str
+pub const tirbase_guard::signed_operation::CONTEXT_POLICY_BUNDLE: &str
+pub trait tirbase_guard::signed_operation::SignedOperationPayload: serde_core::ser::Serialize
+pub const tirbase_guard::signed_operation::SignedOperationPayload::CONTEXT: &'static str
+pub enum tirbase_guard::SignedOperationError
+pub tirbase_guard::SignedOperationError::ContextMismatch
+pub tirbase_guard::SignedOperationError::ContextMismatch::actual: alloc::string::String
+pub tirbase_guard::SignedOperationError::ContextMismatch::expected: &'static str
+pub tirbase_guard::SignedOperationError::EmptySignatures
+pub tirbase_guard::SignedOperationError::PayloadHashMismatch
+pub tirbase_guard::SignedOperationError::Serialization(alloc::string::String)
+pub tirbase_guard::SignedOperationError::SignatureVerification
+pub tirbase_guard::SignedOperationError::SignatureVerification::signer_did: alloc::string::String
+pub tirbase_guard::SignedOperationError::UnknownSigner(alloc::string::String)
+pub tirbase_guard::SignedOperationError::UnsupportedKeyType(tirbase_types::DeviceSignature)
+impl core::clone::Clone for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::clone(&self) -> tirbase_guard::signed_operation::SignedOperationError
+impl core::cmp::Eq for tirbase_guard::signed_operation::SignedOperationError
+impl core::cmp::PartialEq for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::eq(&self, &tirbase_guard::signed_operation::SignedOperationError) -> bool
+impl core::error::Error for tirbase_guard::signed_operation::SignedOperationError
+impl core::fmt::Debug for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Freeze for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Send for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Sync for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::Unpin for tirbase_guard::signed_operation::SignedOperationError
+impl core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignedOperationError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignedOperationError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignedOperationError
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperationError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperationError::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignedOperationError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignedOperationError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignedOperationError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignedOperationError::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignedOperationError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignedOperationError where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignedOperationError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignedOperationError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignedOperationError where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignedOperationError::Owned = T
+pub fn tirbase_guard::signed_operation::SignedOperationError::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_guard::signed_operation::SignedOperationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignedOperationError where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignedOperationError where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignedOperationError
+pub fn tirbase_guard::signed_operation::SignedOperationError::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignedOperationError
+pub type tirbase_guard::signed_operation::SignedOperationError::Init = T
+pub const tirbase_guard::signed_operation::SignedOperationError::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignedOperationError::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignedOperationError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_guard::signed_operation::SignedOperationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperationError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignedOperationError
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignedOperationError
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignedOperationError
+pub type tirbase_guard::signed_operation::SignedOperationError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperationError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperationError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignedOperationError::vzip(self) -> V
+pub struct tirbase_guard::SignatureEntry
+pub tirbase_guard::SignatureEntry::role: tirbase_types::CommandRole
+pub tirbase_guard::SignatureEntry::signature: tirbase_types::DeviceSignature
+pub tirbase_guard::SignatureEntry::signer_did: alloc::string::String
+impl core::clone::Clone for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::clone(&self) -> tirbase_guard::signed_operation::SignatureEntry
+impl core::cmp::Eq for tirbase_guard::signed_operation::SignatureEntry
+impl core::cmp::PartialEq for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::eq(&self, &tirbase_guard::signed_operation::SignatureEntry) -> bool
+impl core::fmt::Debug for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignatureEntry
+impl serde_core::ser::Serialize for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Send for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Sync for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::Unpin for tirbase_guard::signed_operation::SignatureEntry
+impl core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignatureEntry
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignatureEntry
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignatureEntry
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignatureEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignatureEntry::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignatureEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignatureEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignatureEntry::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignatureEntry::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignatureEntry::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignatureEntry where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignatureEntry::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignatureEntry::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignatureEntry where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignatureEntry::Owned = T
+pub fn tirbase_guard::signed_operation::SignatureEntry::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignatureEntry::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignatureEntry where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignatureEntry::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignatureEntry where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignatureEntry
+pub fn tirbase_guard::signed_operation::SignatureEntry::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignatureEntry
+pub type tirbase_guard::signed_operation::SignatureEntry::Init = T
+pub const tirbase_guard::signed_operation::SignatureEntry::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignatureEntry::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignatureEntry
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::signed_operation::SignatureEntry where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignatureEntry
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignatureEntry
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignatureEntry
+pub type tirbase_guard::signed_operation::SignatureEntry::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignatureEntry where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignatureEntry where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignatureEntry::vzip(self) -> V
+pub struct tirbase_guard::SignedOperation<T>
+pub tirbase_guard::SignedOperation::_payload: core::marker::PhantomData<T>
+pub tirbase_guard::SignedOperation::context_string: alloc::string::String
+pub tirbase_guard::SignedOperation::created_est: i64
+pub tirbase_guard::SignedOperation::expires_est: core::option::Option<i64>
+pub tirbase_guard::SignedOperation::payload_hash: [u8; 32]
+pub tirbase_guard::SignedOperation::signatures: alloc::vec::Vec<tirbase_guard::signed_operation::SignatureEntry>
+impl<T: tirbase_guard::signed_operation::SignedOperationPayload> tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::new(&T, i64, core::option::Option<i64>) -> core::result::Result<Self, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::signing_bytes(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+impl<'de, T> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::clone(&self) -> tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::cmp::Eq> core::cmp::Eq for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::eq(&self, &tirbase_guard::signed_operation::SignedOperation<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<T> core::marker::Freeze for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> core::marker::Send for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Send
+impl<T> core::marker::Sync for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Sync
+impl<T> core::marker::Unpin for tirbase_guard::signed_operation::SignedOperation<T> where T: core::marker::Unpin
+impl<T> core::marker::UnsafeUnpin for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: core::panic::unwind_safe::RefUnwindSafe
+impl<T> core::panic::unwind_safe::UnwindSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: core::panic::unwind_safe::UnwindSafe
+impl<Q, K> equivalent::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_guard::signed_operation::SignedOperation<T> where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::signed_operation::SignedOperation<T> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::signed_operation::SignedOperation<T> where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::From<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::Into<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Error = core::convert::Infallible
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::signed_operation::SignedOperation<T> where U: core::convert::TryFrom<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::signed_operation::SignedOperation<T> where T: core::clone::Clone
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Owned = T
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::clone_into(&self, &mut T)
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::signed_operation::SignedOperation<T> where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::signed_operation::SignedOperation<T> where T: core::clone::Clone
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::signed_operation::SignedOperation<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_guard::signed_operation::SignedOperation<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Init = T
+pub const tirbase_guard::signed_operation::SignedOperation<T>::ALIGN: usize
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::drop(usize)
+pub unsafe fn tirbase_guard::signed_operation::SignedOperation<T>::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_guard::signed_operation::SignedOperation<T> where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::signed_operation::SignedOperation<T>
+impl<T> typenum::type_operators::Same for tirbase_guard::signed_operation::SignedOperation<T>
+pub type tirbase_guard::signed_operation::SignedOperation<T>::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::signed_operation::SignedOperation<T> where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::signed_operation::SignedOperation<T> where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::vzip(self) -> V
+pub const tirbase_guard::CONTEXT_EPOCH_BUMP: &str
+pub const tirbase_guard::CONTEXT_LOCKDOWN_EXIT: &str
+pub const tirbase_guard::CONTEXT_POLICY_BUNDLE: &str
+pub trait tirbase_guard::SignedOperationPayload: serde_core::ser::Serialize
+pub const tirbase_guard::SignedOperationPayload::CONTEXT: &'static str

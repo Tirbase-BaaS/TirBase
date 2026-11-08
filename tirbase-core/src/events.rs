@@ -207,6 +207,11 @@ pub enum ReasonCode {
     /// A contract migration omitted the fleet precondition hash.
     FleetPreconditionMissing,
 
+    // MonotonicCounter (PV-9.8, CLAIM-6.7a)
+    /// Hardware counter ahead of the software counter at boot; device rollback
+    /// detected.
+    MonotonicCounterRegression,
+
     // Startup / Diagnostic
     /// Gateway startup completed.
     BootCompleted,
@@ -254,6 +259,7 @@ impl ReasonCode {
             ReasonCode::NonDeterministicModule => "NonDeterministicModule",
             ReasonCode::ExpandContractViolation => "ExpandContractViolation",
             ReasonCode::FleetPreconditionMissing => "FleetPreconditionMissing",
+            ReasonCode::MonotonicCounterRegression => "MonotonicCounterRegression",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
         }

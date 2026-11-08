@@ -258,6 +258,22 @@ pub struct MeshTransport {
     pub(crate) saturate: SaturateModeStateMachine,
 }
 
+// The transport owns the local Noise static private key, so it is registered
+// key material and zeroized on drop (task 6.2, CLAIM-6.2, PV-3.7).
+impl zeroize::Zeroize for MeshTransport {
+    fn zeroize(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.local_static_privkey);
+    }
+}
+
+impl Drop for MeshTransport {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.local_static_privkey);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for MeshTransport {}
+
 impl MeshTransport {
     /// Create a new `MeshTransport` with the given configuration.
     pub fn new(local_did: Did, local_static_privkey: [u8; 32], config: TransportConfig) -> Self {
