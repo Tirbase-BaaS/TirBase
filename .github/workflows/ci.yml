@@ -289,6 +289,18 @@ jobs:
         # in the catalog.  CI fails if any unlisted variant is found.  See PV-7.11.
         run: bash scripts/check-security-event-catalog.sh
 
+  system-invariants:
+    name: System invariants catalog check (CLAIM-17.1-17.8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check system invariants catalog and InvariantChecker wiring (PV-23.1/PV-23.2)
+        # Fails if docs/system-invariants.md is missing any INV-1..INV-16 row or
+        # if tirbase-sim/src/invariants.rs (InvariantChecker) is missing or does
+        # not reference every INV. Removing any INV-N entry must fail CI (17.1-17.8).
+        run: bash scripts/check-system-invariants.sh docs/system-invariants.md
+
   clippy-no-direct-clock:
     name: clippy — no direct clock calls (CLAIM-5.5, CLAIM-5.6)
     runs-on: ubuntu-latest
@@ -320,7 +332,7 @@ jobs:
 
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, system-invariants]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -448,7 +460,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, system-invariants]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
