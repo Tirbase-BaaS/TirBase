@@ -209,6 +209,159 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
     }
 }
 
+/// A durable named counter sharing the `monotonic_counters` key/value table.
+///
+/// The trust-root version is stored this way so it lives in `primary.db`
+/// alongside the other anti-rollback state (task 8.2 — CLAIM-8.2).  Each
+/// named counter has its own row, so unrelated counters cannot collide.
+#[derive(Debug)]
+pub struct NamedMonotonicCounter {
+    conn: Mutex<Connection>,
+    key: String,
+}
+
+impl NamedMonotonicCounter {
+    /// Open (or create) `key` in the `monotonic_counters` table, seeding it
+    /// with `initial` on first use.
+    pub fn open(
+        path: impl AsRef<Path>,
+        key: impl Into<String>,
+        initial: u64,
+    ) -> Result<Self, TirBaseError> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|error| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!(
+                            "create named counter directory {}: {error}",
+                            parent.display()
+                        ),
+                    }
+                })?;
+            }
+        }
+
+        let conn = Connection::open(path).map_err(|e| db_error("open named counter", e))?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| db_error("set journal_mode=WAL", e))?;
+        conn.pragma_update(None, "synchronous", "FULL")
+            .map_err(|e| db_error("set synchronous=FULL", e))?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS monotonic_counters (
+                 key   TEXT PRIMARY KEY,
+                 value INTEGER NOT NULL
+             );",
+        )
+        .map_err(|e| db_error("create monotonic_counters table", e))?;
+
+        let key = key.into();
+        conn.execute(
+            "INSERT OR IGNORE INTO monotonic_counters (key, value) VALUES (?1, ?2)",
+            params![key, to_i64(initial)?],
+        )
+        .map_err(|e| db_error("seed named counter", e))?;
+
+        Ok(NamedMonotonicCounter {
+            conn: Mutex::new(conn),
+            key,
+        })
+    }
+
+    /// The row key this counter is bound to.
+    #[cfg(test)]
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    fn with_conn<T>(
+        &self,
+        f: impl FnOnce(&mut Connection) -> Result<T, TirBaseError>,
+    ) -> Result<T, TirBaseError> {
+        let mut conn = match self.conn.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        f(&mut conn)
+    }
+}
+
+impl MonotonicCounterTrait for NamedMonotonicCounter {
+    fn read(&self) -> Result<u64, TirBaseError> {
+        self.with_conn(|conn| {
+            let value: i64 = conn
+                .query_row(
+                    "SELECT value FROM monotonic_counters WHERE key = ?1",
+                    params![self.key],
+                    |row| row.get(0),
+                )
+                .map_err(|e| db_error("read named counter", e))?;
+            from_i64(value)
+        })
+    }
+
+    fn increment(&self) -> Result<u64, TirBaseError> {
+        self.with_conn(|conn| {
+            let tx = conn
+                .transaction()
+                .map_err(|e| db_error("begin named increment", e))?;
+            let current: i64 = tx
+                .query_row(
+                    "SELECT value FROM monotonic_counters WHERE key = ?1",
+                    params![self.key],
+                    |row| row.get(0),
+                )
+                .map_err(|e| db_error("read named counter for increment", e))?;
+            let next = from_i64(current)?.checked_add(1).ok_or_else(|| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: "named monotonic counter overflow".to_string(),
+                }
+            })?;
+            tx.execute(
+                "UPDATE monotonic_counters SET value = ?1 WHERE key = ?2",
+                params![to_i64(next)?, self.key],
+            )
+            .map_err(|e| db_error("increment named counter", e))?;
+            tx.commit()
+                .map_err(|e| db_error("commit named increment", e))?;
+            Ok(next)
+        })
+    }
+
+    fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
+        self.with_conn(|conn| {
+            let tx = conn
+                .transaction()
+                .map_err(|e| db_error("begin named set_if_greater", e))?;
+            let current: i64 = tx
+                .query_row(
+                    "SELECT value FROM monotonic_counters WHERE key = ?1",
+                    params![self.key],
+                    |row| row.get(0),
+                )
+                .map_err(|e| db_error("read named counter for set_if_greater", e))?;
+            let current = from_i64(current)?;
+            let stored = if value > current {
+                tx.execute(
+                    "UPDATE monotonic_counters SET value = ?1 WHERE key = ?2",
+                    params![to_i64(value)?, self.key],
+                )
+                .map_err(|e| db_error("set_if_greater named counter", e))?;
+                value
+            } else {
+                current
+            };
+            tx.commit()
+                .map_err(|e| db_error("commit named set_if_greater", e))?;
+            Ok(stored)
+        })
+    }
+
+    fn assurance_level(&self) -> AssuranceLevel {
+        AssuranceLevel::Level1
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Hardware counters
 // ═════════════════════════════════════════════════════════════════════════════
@@ -478,6 +631,31 @@ mod tests {
         let counter = SoftwareMonotonicCounter::open(&path, 0).expect("open counter");
         assert_eq!(counter.assurance_level(), AssuranceLevel::Level1);
         assert_eq!(counter.assurance_level().as_str(), "Level1");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn named_counter_is_isolated_durable_and_monotonic() {
+        let path = temp_db("named");
+        {
+            let trust_root =
+                NamedMonotonicCounter::open(&path, "trust_root_version", 0).expect("open named");
+            assert_eq!(trust_root.key(), "trust_root_version");
+            assert_eq!(trust_root.read().unwrap(), 0);
+            assert_eq!(trust_root.set_if_greater(2).unwrap(), 2);
+            assert_eq!(trust_root.set_if_greater(1).unwrap(), 2, "never moves back");
+
+            let other =
+                NamedMonotonicCounter::open(&path, "other_counter", 7).expect("open other");
+            assert_eq!(other.read().unwrap(), 7, "separate row, no collision");
+            assert_eq!(trust_root.read().unwrap(), 2);
+        }
+
+        let reopened =
+            NamedMonotonicCounter::open(&path, "trust_root_version", 0).expect("reopen named");
+        assert_eq!(reopened.read().unwrap(), 2, "named counter is durable");
+        assert_eq!(reopened.increment().unwrap(), 3);
+
         let _ = std::fs::remove_file(&path);
     }
 

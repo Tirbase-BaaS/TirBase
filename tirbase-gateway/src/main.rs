@@ -45,18 +45,24 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use config::{GatewayConfig, KeyBackend};
+use db::device_epoch::SqliteDeviceEpochStore;
+use db::enrollment_nonce::SqliteEnrollmentNonceStore;
 use db::time_ratchet::SqliteTimeRatchetStore;
 use hw_counter_binding::{BootCheck, HardwareCounterBinding, DEFAULT_SW_INCREMENT_PER_HW_WRITE};
 use key_provider::FileKeyProvider;
-use monotonic_counter::{default_hardware_counter, SoftwareMonotonicCounter};
+use monotonic_counter::{default_hardware_counter, NamedMonotonicCounter, SoftwareMonotonicCounter};
 use security_sink::GatewaySecurityEventLog;
 use time_source::SystemTimeSource;
 
 use serde::{Deserialize, Serialize};
+use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_core::traits::{KeyProvider, MonotonicCounterTrait};
+use tirbase_guard::epoch::{EnrollmentNonceStore, EpochBump, EpochRegistry};
+use tirbase_guard::enrollment::EnrollmentService;
 use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_guard::time::{FreshnessState, TimeRatchet, TimeRatchetConfig};
+use tirbase_guard::trust_root::{TrustRootError, TrustRootManager, TrustRootRecord};
 use tirbase_types::{CommandRole, DeviceSignature};
 
 /// Serialises tests that own the process-wide security event sink.
@@ -322,6 +328,101 @@ async fn main() -> Result<()> {
         }
     }
 
+    // ── Trust root, root CA registry, rollback protection (tasks 8.1–8.3) ──
+    // The trust-root version is committed to a named `MonotonicCounter` row in
+    // primary.db.  Restoring an older `trust-root.json` therefore fails the
+    // version check before its revoked root keys can be re-admitted.
+    let trust_root = install_trust_root(&config, &mut ratchet, time_source.as_ref())?;
+    let root_ca_registry = build_root_ca_registry(trust_root.as_deref())?;
+    if let Some(registry) = &root_ca_registry {
+        tracing::info!(
+            active_keys = registry.active_keys().len(),
+            threshold_k = registry.threshold_k(),
+            "root CA registry initialised"
+        );
+        if let Some(warning) = registry.threshold_warning() {
+            tracing::warn!("{warning}");
+        }
+    }
+    if let Some(record) = trust_root.as_deref() {
+        if let Some(warning) = record.threshold_warning() {
+            tracing::warn!("{warning}");
+        }
+        tracing::info!(
+            version = record.version,
+            threshold_k = record.threshold_k,
+            roles = record.role_thresholds.len(),
+            device_classes = record.device_class_floors.len(),
+            "trust root record loaded for all role-threshold lookups"
+        );
+    }
+    if let Some(token_path) = &config.root_ca_self_test_token_path {
+        let registry = root_ca_registry
+            .as_ref()
+            .context("root_ca_self_test_token_path requires trust_root_path")?;
+        run_root_ca_self_test(token_path, registry, ratchet.now_est(time_source.as_ref()))?;
+    }
+
+    // ── Per-device epoch store (task 8.7) ──────────────────────────────────
+    let epoch_store = SqliteDeviceEpochStore::open(&config.counter_db_path)
+        .context("failed to open device_epoch store")?;
+    let epochs = Arc::new(EpochRegistry::new(Arc::new(epoch_store)));
+    tracing::info!(
+        db = %config.counter_db_path.display(),
+        "device_epoch store opened (epoch starts at 0 on first enrollment)"
+    );
+
+    // Signed epoch bump applied at boot (task 8.8).  This is the operator path
+    // after restoring a snapshot (S22); the admin endpoint reuses `epochs`.
+    if let Some(path) = &config.epoch_bump_path {
+        let record = trust_root
+            .as_deref()
+            .context("epoch_bump_path requires trust_root_path")?;
+        let file = std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read epoch bump at {}", path.display()))?;
+        let request: EpochBumpFile = serde_json::from_str(&file)
+            .with_context(|| format!("failed to parse epoch bump at {}", path.display()))?;
+        let bumped = epochs
+            .apply_bump(
+                &request.operation,
+                &request.payload,
+                record,
+                ratchet.now_est(time_source.as_ref()),
+            )
+            .context("signed epoch bump was rejected")?;
+        tracing::info!(
+            device_id = %bumped.device_id,
+            epoch = bumped.epoch,
+            "signed epoch bump applied; prior-epoch commands are now rejected"
+        );
+    }
+
+    // ── Enrollment service + bounded nonce store (tasks 8.5/8.6) ───────────
+    let enrollment_service = build_enrollment_service(
+        &config,
+        trust_root.as_ref(),
+        epochs.clone(),
+        ratchet.now_est(time_source.as_ref()),
+    )?;
+
+    // ── Admin listener with enrollment / epoch-bump state (tasks 8.5–8.8) ──
+    let admin_state = match (&enrollment_service, trust_root.as_ref()) {
+        (Some(service), Some(record)) => Some(Arc::new(admin::AdminState::new(
+            service.clone(),
+            epochs.clone(),
+            record.clone(),
+        ))),
+        _ => None,
+    };
+    if config.admin_enabled {
+        let admin_socket = config.admin_socket.clone();
+        tokio::spawn(async move {
+            if let Err(error) = admin::run_admin_listener(&admin_socket, admin_state).await {
+                tracing::warn!(%error, "admin listener unavailable");
+            }
+        });
+    }
+
     // ── Startup security event ─────────────────────────────────────────────
     tirbase_core::events::emit(
         SecurityEvent::new(
@@ -364,6 +465,238 @@ async fn main() -> Result<()> {
             Err(error) => tracing::error!(%error, "hardware counter checkpoint write failed"),
         }
     }
+}
+
+/// JSON envelope for a signed epoch bump applied at boot.
+#[derive(Debug, Deserialize)]
+struct EpochBumpFile {
+    operation: SignedOperation<EpochBump>,
+    payload: EpochBump,
+}
+
+/// Load, verify, install, and optionally rotate the offline trust root.
+///
+/// Returns `None` when the deployment has no `trust_root_path` (the skeleton
+/// still boots; enrollment/epoch administration is disabled).
+fn install_trust_root(
+    config: &GatewayConfig,
+    ratchet: &mut TimeRatchet,
+    time_source: &dyn tirbase_core::traits::TimeSource,
+) -> Result<Option<Arc<TrustRootRecord>>> {
+    let Some(path) = &config.trust_root_path else {
+        return Ok(None);
+    };
+
+    let record = read_trust_root(path)?;
+    record
+        .verify_threshold_signatures()
+        .map_err(|error| anyhow::anyhow!("trust root threshold signatures invalid: {error}"))?;
+
+    let counter = NamedMonotonicCounter::open(&config.counter_db_path, "trust_root_version", 0)
+        .context("failed to open the trust-root version counter")?;
+    let now_est = ratchet.now_est(time_source);
+
+    let mut manager = match TrustRootManager::install(record, Arc::new(counter), now_est) {
+        Ok(manager) => manager,
+        Err(error) => return Err(trust_root_failure("install", error)),
+    };
+    tracing::info!(
+        version = manager.record().version,
+        committed_version = manager.committed_version().unwrap_or_default(),
+        threshold_k = manager.record().threshold_k,
+        "trust root installed with rollback protection"
+    );
+
+    if let Some(rotation_path) = &config.trust_root_rotation_path {
+        let rotated = read_trust_root(rotation_path)?;
+        rotated
+            .verify_threshold_signatures()
+            .map_err(|error| anyhow::anyhow!("rotation threshold signatures invalid: {error}"))?;
+        if let Err(error) = manager.rotate(rotated, now_est) {
+            return Err(trust_root_failure("rotation", error));
+        }
+        tracing::info!(
+            version = manager.record().version,
+            committed_version = manager.committed_version().unwrap_or_default(),
+            revoked_root_keys = manager.record().revoked_root_ca_keys.len(),
+            "trust root rotated; revoked root keys are no longer accepted"
+        );
+    }
+
+    Ok(Some(Arc::new(manager.record().clone())))
+}
+
+fn read_trust_root(path: &std::path::Path) -> Result<TrustRootRecord> {
+    let body = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read trust root at {}", path.display()))?;
+    serde_json::from_str(&body)
+        .with_context(|| format!("failed to parse trust root at {}", path.display()))
+}
+
+/// Emit `TrustRootRollbackRejected` and build the boot error for a rejected
+/// trust-root install/rotation.
+fn trust_root_failure(stage: &str, error: TrustRootError) -> anyhow::Error {
+    if let TrustRootError::Rollback { incoming, current } = &error {
+        tirbase_core::events::emit(
+            SecurityEvent::new(
+                SecurityEventCategory::Enrollment,
+                Severity::High,
+                ReasonCode::TrustRootRollbackRejected,
+            )
+            .with_detail(format!(
+                "trust-root {stage} rejected: incoming version {incoming} \
+                 is not greater than committed version {current}"
+            )),
+        );
+        tracing::error!(
+            incoming,
+            current,
+            stage,
+            "trust root rollback rejected"
+        );
+    }
+    anyhow::anyhow!("trust root {stage} rejected: {error}")
+}
+
+/// Build the token-verification registry from the installed trust root.
+fn build_root_ca_registry(
+    record: Option<&TrustRootRecord>,
+) -> Result<Option<RootCaRegistry>> {
+    let Some(record) = record else {
+        return Ok(None);
+    };
+    let mut keys = Vec::new();
+    for key in record.active_root_ca_keys() {
+        let key: [u8; 32] = key.try_into().map_err(|_| {
+            anyhow::anyhow!("trust root contains a root CA key that is not 32 bytes")
+        })?;
+        keys.push(key);
+    }
+    let registry = RootCaRegistry::with_threshold(keys, usize::from(record.threshold_k))
+        .context("trust root root-key threshold is not usable")?;
+    Ok(Some(registry))
+}
+
+/// Prove the root CA registration path: the token must fail against an empty
+/// registry and succeed after the trust-root keys are registered (CLAIM-8.1).
+fn run_root_ca_self_test(
+    token_path: &std::path::Path,
+    registered: &RootCaRegistry,
+    now_est: i64,
+) -> Result<()> {
+    let body = std::fs::read_to_string(token_path)
+        .with_context(|| format!("failed to read root CA self-test token at {}", token_path.display()))?;
+    let token = hex::decode(body.trim())
+        .context("root CA self-test token is not hex-encoded Biscuit bytes")?;
+
+    let mut registry = RootCaRegistry::new(Vec::new());
+    let before = registry.verify_against_first(|key| {
+        tirbase_core::auth::biscuit::verify_token(&token, key, now_est)
+    });
+    if before.is_ok() {
+        bail!("root CA self-test failed: token verified before root CA registration");
+    }
+    tracing::info!("root CA self-test: token rejected before CA registration");
+
+    for key in registered.active_keys() {
+        registry.register(key);
+    }
+    registry
+        .verify_against_first(|key| {
+            tirbase_core::auth::biscuit::verify_token(&token, key, now_est)
+        })
+        .context("root CA self-test failed: token rejected after CA registration")?;
+    tracing::info!(
+        registered_keys = registry.active_keys().len(),
+        "root CA self-test: token verified after CA registration"
+    );
+    Ok(())
+}
+
+/// Build the enrollment service and its bounded nonce store, starting the
+/// background purge task (tasks 8.5/8.6).
+fn build_enrollment_service(
+    config: &GatewayConfig,
+    trust_root: Option<&Arc<TrustRootRecord>>,
+    epochs: Arc<EpochRegistry>,
+    _now_est: i64,
+) -> Result<Option<Arc<EnrollmentService>>> {
+    let Some(key_path) = &config.enrollment_root_ca_private_key_path else {
+        return Ok(None);
+    };
+    let record = trust_root
+        .context("enrollment_root_ca_private_key_path requires trust_root_path")?
+        .clone();
+    let seed = read_hex_key(key_path)?;
+
+    let nonces = Arc::new(
+        SqliteEnrollmentNonceStore::open(
+            &config.counter_db_path,
+            config.enrollment_nonce_retention_secs,
+            config.enrollment_nonce_capacity,
+        )
+        .context("failed to open the enrollment nonce store")?,
+    );
+
+    let service = Arc::new(EnrollmentService::new(
+        nonces.clone(),
+        epochs,
+        record,
+        seed,
+        config.enrollment_token_ttl_secs,
+    ));
+    tracing::info!(
+        retention_secs = nonces.retention_secs(),
+        capacity = nonces.capacity(),
+        token_ttl_secs = service.token_ttl_secs(),
+        "enrollment service ready (replay-safe bootstrap enabled)"
+    );
+
+    let purge_interval_secs = config.enrollment_nonce_purge_interval_secs.max(1);
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(purge_interval_secs));
+        loop {
+            ticker.tick().await;
+            let now = tirbase_core::traits::wall_hint_secs().unwrap_or_default();
+            match nonces.purge_expired(now) {
+                Ok(0) => {}
+                Ok(purged) => {
+                    tracing::debug!(purged, "expired enrollment nonces purged")
+                }
+                Err(error) => tracing::warn!(%error, "enrollment nonce purge failed"),
+            }
+        }
+    });
+
+    Ok(Some(service))
+}
+
+/// Read an Ed25519 private key seed: either 64 hex characters or 32 raw bytes.
+fn read_hex_key(path: &std::path::Path) -> Result<Vec<u8>> {
+    let bytes = std::fs::read(path)
+        .with_context(|| format!("failed to read key material at {}", path.display()))?;
+    let text = String::from_utf8_lossy(&bytes);
+    let trimmed = text.trim();
+    let trimmed = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+
+    let decoded = match hex::decode(trimmed) {
+        Ok(decoded) => decoded,
+        Err(_) if bytes.len() == 32 => bytes.clone(),
+        Err(error) => {
+            bail!(
+                "key material at {} is neither hex nor a 32-byte seed: {error}",
+                path.display()
+            )
+        }
+    };
+    if decoded.len() != 32 {
+        bail!(
+            "key material at {} must be a 32-byte Ed25519 seed (got {} bytes)",
+            path.display(),
+            decoded.len()
+        );
+    }
+    Ok(decoded)
 }
 
 /// Build the configured key provider (CLAIM-6.1 / 6.3 / 6.4).

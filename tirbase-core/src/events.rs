@@ -227,11 +227,23 @@ pub enum ReasonCode {
     /// A fresh beacon restored VERIFIED freshness.
     FreshnessRestored,
 
+    // Enrollment (PV-3.11, PV-3.13, PV-5.5)
+    /// A device completed enrollment and received a scoped token.
+    DeviceEnrolled,
+    /// A signed enrollment-epoch bump was committed.
+    EpochBumped,
+    /// A peer or issuer reported a lower epoch than previously witnessed.
+    EpochRegression,
+    /// A bootstrap enrollment nonce was reused inside its retention window.
+    NonceReused,
+
     // Startup / Diagnostic
     /// Gateway startup completed.
     BootCompleted,
     /// A persisted lockdown flag was found at boot.
     LockdownFlagFound,
+    /// A trust-root record with a stale version was rejected at boot/rotation.
+    TrustRootRollbackRejected,
 }
 
 impl ReasonCode {
@@ -281,8 +293,13 @@ impl ReasonCode {
             ReasonCode::BeaconSignatureInvalid => "BeaconSignatureInvalid",
             ReasonCode::FreshnessUnverified => "FreshnessUnverified",
             ReasonCode::FreshnessRestored => "FreshnessRestored",
+            ReasonCode::DeviceEnrolled => "DeviceEnrolled",
+            ReasonCode::EpochBumped => "EpochBumped",
+            ReasonCode::EpochRegression => "EpochRegression",
+            ReasonCode::NonceReused => "NonceReused",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
+            ReasonCode::TrustRootRollbackRejected => "TrustRootRollbackRejected",
         }
     }
 }

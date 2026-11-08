@@ -15,3 +15,7 @@ ciborium = "0.2"
 [dev-dependencies]
 # Property test for ratchet monotonicity (task 7.7, CLAIM-7.7).
 proptest = "1.11.0"
+# Async runtime for the two-CoreHandle enrollment integration test (task 8.6).
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+hex = "0.4"

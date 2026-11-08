@@ -97,6 +97,55 @@ pub struct GatewayConfig {
     #[cfg_attr(not(feature = "pkcs11"), allow(dead_code))]
     #[serde(default)]
     pub pkcs11_pin_path: Option<std::path::PathBuf>,
+
+    /// Offline-ceremony `TrustRootRecord` (JSON).  When present the gateway
+    /// verifies its threshold signatures and installs it under rollback
+    /// protection (tasks 8.2/8.3 — CLAIM-8.2, CLAIM-8.3).
+    #[serde(default)]
+    pub trust_root_path: Option<std::path::PathBuf>,
+
+    /// Optional signed rotation record applied at boot.  A record whose
+    /// version is not strictly greater than the committed trust-root version
+    /// is rejected with `TrustRootRollbackRejected` (task 8.2).
+    #[serde(default)]
+    pub trust_root_rotation_path: Option<std::path::PathBuf>,
+
+    /// Optional Biscuit token (hex) used at boot to prove the token path fails
+    /// before root CA registration and succeeds after (task 8.1, CLAIM-8.1).
+    #[serde(default)]
+    pub root_ca_self_test_token_path: Option<std::path::PathBuf>,
+
+    /// Root CA Ed25519 private key (hex, 32-byte seed) used to mint scoped
+    /// enrollment tokens (task 8.6).  Never inlined in `gateway.toml`.
+    #[serde(default)]
+    pub enrollment_root_ca_private_key_path: Option<std::path::PathBuf>,
+
+    /// Scoped enrollment-token TTL in seconds.  Clamped to the Biscuit window
+    /// `[3600, 86400]` (default 86,400 — the admin API maximum; PV-3.11).
+    #[serde(default = "default_enrollment_token_ttl_secs")]
+    pub enrollment_token_ttl_secs: u64,
+
+    /// Enrollment nonce retention window in seconds (PV-3.13; default 72h).
+    #[serde(default = "default_enrollment_nonce_retention_secs")]
+    pub enrollment_nonce_retention_secs: i64,
+
+    /// Maximum number of retained enrollment nonces.
+    #[serde(default = "default_enrollment_nonce_capacity")]
+    pub enrollment_nonce_capacity: usize,
+
+    /// Background nonce-purge cadence in seconds (PV-3.13).
+    #[serde(default = "default_enrollment_nonce_purge_interval_secs")]
+    pub enrollment_nonce_purge_interval_secs: u64,
+
+    /// Optional signed `SignedOperation<EpochBump>` (JSON) applied at boot.
+    /// This is the operator path used after restoring a snapshot (task 8.8,
+    /// scenario S22); the admin endpoint uses the same `EpochRegistry`.
+    #[serde(default)]
+    pub epoch_bump_path: Option<std::path::PathBuf>,
+
+    /// Whether to start the local admin listener (Linux only).
+    #[serde(default = "default_admin_enabled")]
+    pub admin_enabled: bool,
 }
 
 fn default_admin_sock() -> std::path::PathBuf {
@@ -137,6 +186,26 @@ fn default_tpm2_nv_handle() -> u32 {
     0x0150_0001
 }
 
+fn default_enrollment_token_ttl_secs() -> u64 {
+    86_400
+}
+
+fn default_enrollment_nonce_retention_secs() -> i64 {
+    72 * 60 * 60
+}
+
+fn default_enrollment_nonce_capacity() -> usize {
+    100_000
+}
+
+fn default_enrollment_nonce_purge_interval_secs() -> u64 {
+    300
+}
+
+fn default_admin_enabled() -> bool {
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +224,15 @@ mod tests {
         assert_eq!(config.time_staleness_window_secs, 3_600);
         assert_eq!(config.boot_attestation_ttl_secs, 300);
         assert!(config.time_beacon_path.is_none());
+        assert!(config.trust_root_path.is_none());
+        assert!(config.trust_root_rotation_path.is_none());
+        assert!(config.root_ca_self_test_token_path.is_none());
+        assert!(config.enrollment_root_ca_private_key_path.is_none());
+        assert_eq!(config.enrollment_token_ttl_secs, 86_400);
+        assert_eq!(config.enrollment_nonce_retention_secs, 72 * 60 * 60);
+        assert_eq!(config.enrollment_nonce_capacity, 100_000);
+        assert_eq!(config.enrollment_nonce_purge_interval_secs, 300);
+        assert!(config.epoch_bump_path.is_none());
+        assert!(config.admin_enabled);
     }
 }

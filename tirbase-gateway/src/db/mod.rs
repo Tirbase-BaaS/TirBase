@@ -7,4 +7,6 @@
 //! definitions mirror design.md §4.13 so the later migration framework can adopt
 //! them unchanged.
 
+pub mod device_epoch;
+pub mod enrollment_nonce;
 pub mod time_ratchet;

@@ -42,7 +42,9 @@ pub use fixed_point::{
 /// they are not issued as Biscuit roles and therefore do not appear in this enum.
 ///
 /// _Requirements: PV-3.1_
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum CommandRole {
     /// Authorised to submit desired-state commands to actuators.
     CommandIssuer,

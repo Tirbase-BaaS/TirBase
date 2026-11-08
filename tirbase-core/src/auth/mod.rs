@@ -91,7 +91,7 @@ impl CapabilityManager {
         }
 
         // Try each registered root CA public key
-        let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.keys().to_vec();
+        let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.active_keys();
         let mut last_err: Option<TirBaseError> = None;
 
         for ca_key in &ca_keys {
@@ -137,13 +137,13 @@ impl CapabilityManager {
         token_bytes: &[u8],
         now_secs: i64,
     ) -> Result<TrustLevel, TirBaseError> {
-        if self.root_ca_registry.keys().is_empty() {
+        if self.root_ca_registry.active_keys().is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "no registered root CA keys; cannot verify Biscuit token".to_string(),
             });
         }
 
-        let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.keys().to_vec();
+        let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.active_keys();
         let mut last_err: Option<TirBaseError> = None;
 
         for ca_key in &ca_keys {

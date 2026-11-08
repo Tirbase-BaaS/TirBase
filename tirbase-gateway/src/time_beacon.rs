@@ -157,6 +157,8 @@ mod tests {
     #[test]
     fn beacon_file_is_admitted_and_advances_the_ratchet() {
         let anchor = InMemoryKeyProvider::generate().expect("key");
+        // A jump this large requires the default quorum of two distinct anchors.
+        let second_anchor = InMemoryKeyProvider::generate().expect("key");
         let beacon = TimeBeacon {
             wall_time_secs: 1_800_000_000,
             issuer_did: anchor.did().to_string(),
@@ -169,6 +171,9 @@ mod tests {
         operation
             .sign_with(&anchor, CommandRole::TimeAnchor)
             .expect("sign beacon");
+        operation
+            .sign_with(&second_anchor, CommandRole::TimeAnchor)
+            .expect("co-sign beacon");
 
         let beacon_path = temp_file("admitted");
         let trust_path = temp_file("trust");
@@ -184,7 +189,10 @@ mod tests {
         std::fs::write(
             &trust_path,
             serde_json::to_string(&serde_json::json!({
-                "anchors": [{ "did": anchor.did(), "public_key_hex": hex::encode(anchor.public_key_bytes()) }],
+                "anchors": [
+                    { "did": anchor.did(), "public_key_hex": hex::encode(anchor.public_key_bytes()) },
+                    { "did": second_anchor.did(), "public_key_hex": hex::encode(second_anchor.public_key_bytes()) }
+                ],
             }))
             .unwrap(),
         )
