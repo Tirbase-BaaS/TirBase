@@ -73,9 +73,10 @@ Events emitted by the Applied Effects Ledger state machine (PV-5).
 | ActuationComplete | Driver confirmed state matches commanded value | Low | Planned | PV-5.2 |
 | ActuationFailed | Driver read-back did not match commanded value | High | Planned | PV-5.2 |
 | ActuationUnknown | Driver did not respond within 30 s; entry marked Unknown | High | Planned | PV-5.3 |
-| ReconciliationComplete | Boot-time reconciliation of Actuating entries finished | Low | Planned | PV-5.3 |
-| ReconciliationTimeout | One or more Actuating entries could not be reconciled within timeout | High | Planned | PV-5.3 |
-| LedgerPruned | Background pruning job removed old Complete/Failed entries | Low | Planned | PV-5.12 |
+| ReconciliationComplete | Boot-time reconciliation of Actuating entries finished | Low | Implemented | PV-5.3 |
+| ReconciliationTimeout | One or more Actuating entries could not be reconciled within timeout | High | Implemented | PV-5.3 |
+| OldSchemaEntry | Pre-Actuating ledger entry from an older schema marked Failed at boot | High | Implemented | PV-5.3 |
+| LedgerPruned | Background pruning job removed old Complete/Failed entries | Low | Implemented | PV-5.12 |
 
 ---
 
