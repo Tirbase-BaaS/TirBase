@@ -1,27 +1,996 @@
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on build directory
-warning: method `device_mut` is never used
-  --> tirbase-guard/src/driver_proxy.rs:54:19
-   |
-32 | impl<W: Write + Send> DriverProxy<W> {
-   | ------------------------------------ method in this implementation
-...
-54 |     pub(crate) fn device_mut(&mut self) -> &mut W {
-   |                   ^^^^^^^^^^
-   |
-note: the lint level is defined here
-  --> tirbase-guard/src/lib.rs:10:9
-   |
-10 | #![warn(dead_code)]
-   |         ^^^^^^^^^
-
-warning: `tirbase-guard` (lib) generated 1 warning
- Documenting tirbase-sim v0.1.0 (/Users/macbook/github code/TriBase/tirbase-sim)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.54s
-    Blocking waiting for file lock on package cache
-warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_sim
 pub use tirbase_sim::tirbase_types
+pub mod tirbase_sim::invariants
+pub enum tirbase_sim::invariants::InvariantId
+pub tirbase_sim::invariants::InvariantId::Inv1
+pub tirbase_sim::invariants::InvariantId::Inv10
+pub tirbase_sim::invariants::InvariantId::Inv11
+pub tirbase_sim::invariants::InvariantId::Inv12
+pub tirbase_sim::invariants::InvariantId::Inv13
+pub tirbase_sim::invariants::InvariantId::Inv14
+pub tirbase_sim::invariants::InvariantId::Inv15
+pub tirbase_sim::invariants::InvariantId::Inv16
+pub tirbase_sim::invariants::InvariantId::Inv2
+pub tirbase_sim::invariants::InvariantId::Inv3
+pub tirbase_sim::invariants::InvariantId::Inv4
+pub tirbase_sim::invariants::InvariantId::Inv5
+pub tirbase_sim::invariants::InvariantId::Inv6
+pub tirbase_sim::invariants::InvariantId::Inv7
+pub tirbase_sim::invariants::InvariantId::Inv8
+pub tirbase_sim::invariants::InvariantId::Inv9
+impl tirbase_sim::invariants::InvariantId
+pub const fn tirbase_sim::invariants::InvariantId::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::clone(&self) -> tirbase_sim::invariants::InvariantId
+impl core::cmp::Eq for tirbase_sim::invariants::InvariantId
+impl core::cmp::Ord for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::cmp(&self, &tirbase_sim::invariants::InvariantId) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::eq(&self, &tirbase_sim::invariants::InvariantId) -> bool
+impl core::cmp::PartialOrd for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::partial_cmp(&self, &tirbase_sim::invariants::InvariantId) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_sim::invariants::InvariantId
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::InvariantId
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantId
+impl core::marker::Send for tirbase_sim::invariants::InvariantId
+impl core::marker::Sync for tirbase_sim::invariants::InvariantId
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantId
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantId
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantId
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantId
+impl<N> petgraph::graphmap::NodeTrait for tirbase_sim::invariants::InvariantId where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
+impl<Q, K> equivalent::Comparable<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantId where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantId::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantId where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantId::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantId::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantId where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantId::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantId::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantId where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantId::Owned = T
+pub fn tirbase_sim::invariants::InvariantId::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantId::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_sim::invariants::InvariantId where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantId where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantId where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantId::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantId
+pub type tirbase_sim::invariants::InvariantId::Init = T
+pub const tirbase_sim::invariants::InvariantId::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantId::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantId::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantId::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantId::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantId
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+impl<T> pest::RuleType for tirbase_sim::invariants::InvariantId where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
+impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantId where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantId
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantId
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantId
+pub type tirbase_sim::invariants::InvariantId::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantId where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantId::vzip(self) -> V
+pub struct tirbase_sim::invariants::ActuationObservation
+pub tirbase_sim::invariants::ActuationObservation::durable_actuating_record: bool
+pub tirbase_sim::invariants::ActuationObservation::envelope_max: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_sim::invariants::ActuationObservation::envelope_min: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_sim::invariants::ActuationObservation::node_mode: tirbase_guard::node_mode::NodeMode
+pub tirbase_sim::invariants::ActuationObservation::param: alloc::string::String
+pub tirbase_sim::invariants::ActuationObservation::passed_through_guard: bool
+pub tirbase_sim::invariants::ActuationObservation::safe_default: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_sim::invariants::ActuationObservation::target_id: tirbase_types::TargetId
+pub tirbase_sim::invariants::ActuationObservation::value: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_sim::invariants::ActuationObservation
+pub fn tirbase_sim::invariants::ActuationObservation::clone(&self) -> tirbase_sim::invariants::ActuationObservation
+impl core::cmp::Eq for tirbase_sim::invariants::ActuationObservation
+impl core::cmp::PartialEq for tirbase_sim::invariants::ActuationObservation
+pub fn tirbase_sim::invariants::ActuationObservation::eq(&self, &tirbase_sim::invariants::ActuationObservation) -> bool
+impl core::fmt::Debug for tirbase_sim::invariants::ActuationObservation
+pub fn tirbase_sim::invariants::ActuationObservation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::ActuationObservation
+impl core::marker::Freeze for tirbase_sim::invariants::ActuationObservation
+impl core::marker::Send for tirbase_sim::invariants::ActuationObservation
+impl core::marker::Sync for tirbase_sim::invariants::ActuationObservation
+impl core::marker::Unpin for tirbase_sim::invariants::ActuationObservation
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::ActuationObservation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::ActuationObservation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::ActuationObservation
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::ActuationObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::ActuationObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::ActuationObservation where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::ActuationObservation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::ActuationObservation where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::ActuationObservation::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::ActuationObservation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::ActuationObservation where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::ActuationObservation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::ActuationObservation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::ActuationObservation where T: core::clone::Clone
+pub type tirbase_sim::invariants::ActuationObservation::Owned = T
+pub fn tirbase_sim::invariants::ActuationObservation::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::ActuationObservation::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::ActuationObservation where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::ActuationObservation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::ActuationObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::ActuationObservation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::ActuationObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::ActuationObservation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::ActuationObservation where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::ActuationObservation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::ActuationObservation
+pub fn tirbase_sim::invariants::ActuationObservation::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::ActuationObservation
+pub type tirbase_sim::invariants::ActuationObservation::Init = T
+pub const tirbase_sim::invariants::ActuationObservation::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::ActuationObservation::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::ActuationObservation::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::ActuationObservation::drop(usize)
+pub unsafe fn tirbase_sim::invariants::ActuationObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::ActuationObservation
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::ActuationObservation where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::ActuationObservation
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::ActuationObservation
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::ActuationObservation
+pub type tirbase_sim::invariants::ActuationObservation::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::ActuationObservation where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::ActuationObservation where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::ActuationObservation::vzip(self) -> V
+pub struct tirbase_sim::invariants::AdmissionObservation
+pub tirbase_sim::invariants::AdmissionObservation::accepted: bool
+pub tirbase_sim::invariants::AdmissionObservation::envelope_accepted: bool
+pub tirbase_sim::invariants::AdmissionObservation::expiry_est: core::option::Option<i64>
+pub tirbase_sim::invariants::AdmissionObservation::freshness_verified: bool
+pub tirbase_sim::invariants::AdmissionObservation::now_est: core::option::Option<i64>
+pub tirbase_sim::invariants::AdmissionObservation::rejection: core::option::Option<tirbase_guard::admit::AdmitRejection>
+pub tirbase_sim::invariants::AdmissionObservation::token_attempted_relaxation: bool
+impl core::clone::Clone for tirbase_sim::invariants::AdmissionObservation
+pub fn tirbase_sim::invariants::AdmissionObservation::clone(&self) -> tirbase_sim::invariants::AdmissionObservation
+impl core::cmp::Eq for tirbase_sim::invariants::AdmissionObservation
+impl core::cmp::PartialEq for tirbase_sim::invariants::AdmissionObservation
+pub fn tirbase_sim::invariants::AdmissionObservation::eq(&self, &tirbase_sim::invariants::AdmissionObservation) -> bool
+impl core::fmt::Debug for tirbase_sim::invariants::AdmissionObservation
+pub fn tirbase_sim::invariants::AdmissionObservation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::AdmissionObservation
+impl core::marker::Freeze for tirbase_sim::invariants::AdmissionObservation
+impl core::marker::Send for tirbase_sim::invariants::AdmissionObservation
+impl core::marker::Sync for tirbase_sim::invariants::AdmissionObservation
+impl core::marker::Unpin for tirbase_sim::invariants::AdmissionObservation
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::AdmissionObservation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::AdmissionObservation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::AdmissionObservation
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::AdmissionObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::AdmissionObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::AdmissionObservation where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::AdmissionObservation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::AdmissionObservation where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::AdmissionObservation::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::AdmissionObservation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::AdmissionObservation where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::AdmissionObservation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::AdmissionObservation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::AdmissionObservation where T: core::clone::Clone
+pub type tirbase_sim::invariants::AdmissionObservation::Owned = T
+pub fn tirbase_sim::invariants::AdmissionObservation::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::AdmissionObservation::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::AdmissionObservation where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::AdmissionObservation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::AdmissionObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::AdmissionObservation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::AdmissionObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::AdmissionObservation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::AdmissionObservation where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::AdmissionObservation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::AdmissionObservation
+pub fn tirbase_sim::invariants::AdmissionObservation::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::AdmissionObservation
+pub type tirbase_sim::invariants::AdmissionObservation::Init = T
+pub const tirbase_sim::invariants::AdmissionObservation::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::AdmissionObservation::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::AdmissionObservation::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::AdmissionObservation::drop(usize)
+pub unsafe fn tirbase_sim::invariants::AdmissionObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::AdmissionObservation
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::AdmissionObservation where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::AdmissionObservation
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::AdmissionObservation
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::AdmissionObservation
+pub type tirbase_sim::invariants::AdmissionObservation::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::AdmissionObservation where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::AdmissionObservation where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::AdmissionObservation::vzip(self) -> V
+pub struct tirbase_sim::invariants::CacheObservation
+pub tirbase_sim::invariants::CacheObservation::atomic_with_actuating: bool
+pub tirbase_sim::invariants::CacheObservation::key: tirbase_sim::invariants::ReplayTuple
+pub tirbase_sim::invariants::CacheObservation::mutated_existing: bool
+pub tirbase_sim::invariants::CacheObservation::outcome_fingerprint: u64
+impl core::clone::Clone for tirbase_sim::invariants::CacheObservation
+pub fn tirbase_sim::invariants::CacheObservation::clone(&self) -> tirbase_sim::invariants::CacheObservation
+impl core::cmp::Eq for tirbase_sim::invariants::CacheObservation
+impl core::cmp::PartialEq for tirbase_sim::invariants::CacheObservation
+pub fn tirbase_sim::invariants::CacheObservation::eq(&self, &tirbase_sim::invariants::CacheObservation) -> bool
+impl core::fmt::Debug for tirbase_sim::invariants::CacheObservation
+pub fn tirbase_sim::invariants::CacheObservation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::CacheObservation
+impl core::marker::Freeze for tirbase_sim::invariants::CacheObservation
+impl core::marker::Send for tirbase_sim::invariants::CacheObservation
+impl core::marker::Sync for tirbase_sim::invariants::CacheObservation
+impl core::marker::Unpin for tirbase_sim::invariants::CacheObservation
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::CacheObservation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::CacheObservation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::CacheObservation
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::CacheObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::CacheObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::CacheObservation where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::CacheObservation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::CacheObservation where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::CacheObservation::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::CacheObservation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::CacheObservation where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::CacheObservation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::CacheObservation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::CacheObservation where T: core::clone::Clone
+pub type tirbase_sim::invariants::CacheObservation::Owned = T
+pub fn tirbase_sim::invariants::CacheObservation::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::CacheObservation::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::CacheObservation where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::CacheObservation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::CacheObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::CacheObservation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::CacheObservation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::CacheObservation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::CacheObservation where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::CacheObservation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::CacheObservation
+pub fn tirbase_sim::invariants::CacheObservation::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::CacheObservation
+pub type tirbase_sim::invariants::CacheObservation::Init = T
+pub const tirbase_sim::invariants::CacheObservation::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::CacheObservation::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::CacheObservation::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::CacheObservation::drop(usize)
+pub unsafe fn tirbase_sim::invariants::CacheObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::CacheObservation
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::CacheObservation where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::CacheObservation
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::CacheObservation
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::CacheObservation
+pub type tirbase_sim::invariants::CacheObservation::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::CacheObservation where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::CacheObservation where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::CacheObservation::vzip(self) -> V
+pub struct tirbase_sim::invariants::GovernanceFields
+pub tirbase_sim::invariants::GovernanceFields::cancel_window_secs: u64
+pub tirbase_sim::invariants::GovernanceFields::policy_loosen_m: u16
+pub tirbase_sim::invariants::GovernanceFields::policy_loosen_n: u16
+pub tirbase_sim::invariants::GovernanceFields::timelock_secs: u64
+impl core::clone::Clone for tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::clone(&self) -> tirbase_sim::invariants::GovernanceFields
+impl core::cmp::Eq for tirbase_sim::invariants::GovernanceFields
+impl core::cmp::PartialEq for tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::eq(&self, &tirbase_sim::invariants::GovernanceFields) -> bool
+impl core::default::Default for tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::default() -> tirbase_sim::invariants::GovernanceFields
+impl core::fmt::Debug for tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::invariants::GovernanceFields
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::GovernanceFields
+impl core::marker::Freeze for tirbase_sim::invariants::GovernanceFields
+impl core::marker::Send for tirbase_sim::invariants::GovernanceFields
+impl core::marker::Sync for tirbase_sim::invariants::GovernanceFields
+impl core::marker::Unpin for tirbase_sim::invariants::GovernanceFields
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::GovernanceFields
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::GovernanceFields
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::GovernanceFields
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::GovernanceFields where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::GovernanceFields where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::GovernanceFields where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::GovernanceFields::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::GovernanceFields where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::GovernanceFields::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::GovernanceFields::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::GovernanceFields where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::GovernanceFields::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::GovernanceFields::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::GovernanceFields where T: core::clone::Clone
+pub type tirbase_sim::invariants::GovernanceFields::Owned = T
+pub fn tirbase_sim::invariants::GovernanceFields::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::GovernanceFields::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::GovernanceFields where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::GovernanceFields::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::GovernanceFields where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::GovernanceFields::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::GovernanceFields where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::GovernanceFields::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::GovernanceFields where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::GovernanceFields::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::GovernanceFields
+pub type tirbase_sim::invariants::GovernanceFields::Init = T
+pub const tirbase_sim::invariants::GovernanceFields::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::GovernanceFields::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::GovernanceFields::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::GovernanceFields::drop(usize)
+pub unsafe fn tirbase_sim::invariants::GovernanceFields::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::GovernanceFields
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::GovernanceFields where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::GovernanceFields
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::GovernanceFields
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::GovernanceFields
+pub type tirbase_sim::invariants::GovernanceFields::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::GovernanceFields where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::GovernanceFields where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::GovernanceFields::vzip(self) -> V
+pub struct tirbase_sim::invariants::InvariantChecker
+impl tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::new() -> Self
+impl core::clone::Clone for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::clone(&self) -> tirbase_sim::invariants::InvariantChecker
+impl core::default::Default for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::default() -> tirbase_sim::invariants::InvariantChecker
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Send for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Sync for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantChecker
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantChecker
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantChecker
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantChecker
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantChecker where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantChecker where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantChecker::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantChecker::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantChecker::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantChecker::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantChecker::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantChecker where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantChecker::Owned = T
+pub fn tirbase_sim::invariants::InvariantChecker::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantChecker::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantChecker where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantChecker where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantChecker
+pub type tirbase_sim::invariants::InvariantChecker::Init = T
+pub const tirbase_sim::invariants::InvariantChecker::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantChecker
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantChecker
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantChecker
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantChecker
+pub type tirbase_sim::invariants::InvariantChecker::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantChecker where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantChecker::vzip(self) -> V
+pub struct tirbase_sim::invariants::InvariantViolation
+pub tirbase_sim::invariants::InvariantViolation::detail: alloc::string::String
+pub tirbase_sim::invariants::InvariantViolation::invariant: tirbase_sim::invariants::InvariantId
+pub tirbase_sim::invariants::InvariantViolation::seed: u64
+pub tirbase_sim::invariants::InvariantViolation::triggering_state: alloc::string::String
+impl core::clone::Clone for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::clone(&self) -> tirbase_sim::invariants::InvariantViolation
+impl core::cmp::Eq for tirbase_sim::invariants::InvariantViolation
+impl core::cmp::PartialEq for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::eq(&self, &tirbase_sim::invariants::InvariantViolation) -> bool
+impl core::error::Error for tirbase_sim::invariants::InvariantViolation
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Send for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Sync for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantViolation
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantViolation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantViolation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantViolation
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantViolation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantViolation::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantViolation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantViolation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantViolation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantViolation where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantViolation::Owned = T
+pub fn tirbase_sim::invariants::InvariantViolation::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantViolation::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantViolation where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantViolation where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantViolation
+pub type tirbase_sim::invariants::InvariantViolation::Init = T
+pub const tirbase_sim::invariants::InvariantViolation::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantViolation
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantViolation
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantViolation
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantViolation
+pub type tirbase_sim::invariants::InvariantViolation::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantViolation where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantViolation::vzip(self) -> V
+pub struct tirbase_sim::invariants::LooseningApplication
+pub tirbase_sim::invariants::LooseningApplication::now_est: i64
+pub tirbase_sim::invariants::LooseningApplication::timelock_until_est: i64
+impl core::clone::Clone for tirbase_sim::invariants::LooseningApplication
+pub fn tirbase_sim::invariants::LooseningApplication::clone(&self) -> tirbase_sim::invariants::LooseningApplication
+impl core::cmp::Eq for tirbase_sim::invariants::LooseningApplication
+impl core::cmp::PartialEq for tirbase_sim::invariants::LooseningApplication
+pub fn tirbase_sim::invariants::LooseningApplication::eq(&self, &tirbase_sim::invariants::LooseningApplication) -> bool
+impl core::fmt::Debug for tirbase_sim::invariants::LooseningApplication
+pub fn tirbase_sim::invariants::LooseningApplication::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::LooseningApplication
+impl core::marker::Freeze for tirbase_sim::invariants::LooseningApplication
+impl core::marker::Send for tirbase_sim::invariants::LooseningApplication
+impl core::marker::Sync for tirbase_sim::invariants::LooseningApplication
+impl core::marker::Unpin for tirbase_sim::invariants::LooseningApplication
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::LooseningApplication
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::LooseningApplication
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::LooseningApplication
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::LooseningApplication where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::LooseningApplication where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::LooseningApplication where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::LooseningApplication::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::LooseningApplication where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::LooseningApplication::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::LooseningApplication::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::LooseningApplication where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::LooseningApplication::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::LooseningApplication::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::LooseningApplication where T: core::clone::Clone
+pub type tirbase_sim::invariants::LooseningApplication::Owned = T
+pub fn tirbase_sim::invariants::LooseningApplication::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::LooseningApplication::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::LooseningApplication where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::LooseningApplication::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::LooseningApplication where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::LooseningApplication::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::LooseningApplication where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::LooseningApplication::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::LooseningApplication where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::LooseningApplication::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::LooseningApplication
+pub fn tirbase_sim::invariants::LooseningApplication::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::LooseningApplication
+pub type tirbase_sim::invariants::LooseningApplication::Init = T
+pub const tirbase_sim::invariants::LooseningApplication::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::LooseningApplication::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::LooseningApplication::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::LooseningApplication::drop(usize)
+pub unsafe fn tirbase_sim::invariants::LooseningApplication::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::LooseningApplication
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::LooseningApplication where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::LooseningApplication
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::LooseningApplication
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::LooseningApplication
+pub type tirbase_sim::invariants::LooseningApplication::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::LooseningApplication where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::LooseningApplication where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::LooseningApplication::vzip(self) -> V
+pub struct tirbase_sim::invariants::SimState
+pub tirbase_sim::invariants::SimState::accepted_replay_tuples: alloc::vec::Vec<tirbase_sim::invariants::ReplayTuple>
+pub tirbase_sim::invariants::SimState::actuations: alloc::vec::Vec<tirbase_sim::invariants::ActuationObservation>
+pub tirbase_sim::invariants::SimState::admissions: alloc::vec::Vec<tirbase_sim::invariants::AdmissionObservation>
+pub tirbase_sim::invariants::SimState::cache_observations: alloc::vec::Vec<tirbase_sim::invariants::CacheObservation>
+pub tirbase_sim::invariants::SimState::commands_to_unknown_targets: alloc::vec::Vec<tirbase_types::TargetId>
+pub tirbase_sim::invariants::SimState::current_governance: core::option::Option<tirbase_sim::invariants::GovernanceFields>
+pub tirbase_sim::invariants::SimState::governance_weakening_approved: bool
+pub tirbase_sim::invariants::SimState::hash_chain_intact: bool
+pub tirbase_sim::invariants::SimState::idempotency_actuations: alloc::vec::Vec<tirbase_sim::invariants::IdempotencyTuple>
+pub tirbase_sim::invariants::SimState::inflight_actuating_per_target: alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, usize>
+pub tirbase_sim::invariants::SimState::loosening_applications: alloc::vec::Vec<tirbase_sim::invariants::LooseningApplication>
+pub tirbase_sim::invariants::SimState::now_est_observations: alloc::vec::Vec<i64>
+pub tirbase_sim::invariants::SimState::policy_versions_by_device: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<u64>>
+pub tirbase_sim::invariants::SimState::previous_governance: core::option::Option<tirbase_sim::invariants::GovernanceFields>
+pub tirbase_sim::invariants::SimState::seed: u64
+pub tirbase_sim::invariants::SimState::targets_with_unknown: alloc::collections::btree::set::BTreeSet<tirbase_types::TargetId>
+pub tirbase_sim::invariants::SimState::tick: u64
+pub tirbase_sim::invariants::SimState::triggering_state: alloc::string::String
+impl core::clone::Clone for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::clone(&self) -> tirbase_sim::invariants::SimState
+impl core::default::Default for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::default() -> tirbase_sim::invariants::SimState
+impl core::fmt::Debug for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_sim::invariants::SimState
+impl core::marker::Send for tirbase_sim::invariants::SimState
+impl core::marker::Sync for tirbase_sim::invariants::SimState
+impl core::marker::Unpin for tirbase_sim::invariants::SimState
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::SimState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::SimState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::SimState
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::SimState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::SimState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::SimState where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::SimState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::SimState where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::SimState::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::SimState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::SimState where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::SimState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::SimState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::SimState where T: core::clone::Clone
+pub type tirbase_sim::invariants::SimState::Owned = T
+pub fn tirbase_sim::invariants::SimState::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::SimState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::SimState where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::SimState where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::SimState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::SimState
+pub type tirbase_sim::invariants::SimState::Init = T
+pub const tirbase_sim::invariants::SimState::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::SimState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::SimState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::SimState::drop(usize)
+pub unsafe fn tirbase_sim::invariants::SimState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::SimState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::SimState
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::SimState
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::SimState
+pub type tirbase_sim::invariants::SimState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::SimState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::SimState::vzip(self) -> V
+pub fn tirbase_sim::invariants::assert_invariants_hold(&tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState)
+pub type tirbase_sim::invariants::IdempotencyTuple = (tirbase_types::Did, tirbase_types::TargetId, [u8; 16])
+pub type tirbase_sim::invariants::ReplayTuple = (tirbase_types::Did, tirbase_types::TargetId, u64, u64)
+pub enum tirbase_sim::InvariantId
+pub tirbase_sim::InvariantId::Inv1
+pub tirbase_sim::InvariantId::Inv10
+pub tirbase_sim::InvariantId::Inv11
+pub tirbase_sim::InvariantId::Inv12
+pub tirbase_sim::InvariantId::Inv13
+pub tirbase_sim::InvariantId::Inv14
+pub tirbase_sim::InvariantId::Inv15
+pub tirbase_sim::InvariantId::Inv16
+pub tirbase_sim::InvariantId::Inv2
+pub tirbase_sim::InvariantId::Inv3
+pub tirbase_sim::InvariantId::Inv4
+pub tirbase_sim::InvariantId::Inv5
+pub tirbase_sim::InvariantId::Inv6
+pub tirbase_sim::InvariantId::Inv7
+pub tirbase_sim::InvariantId::Inv8
+pub tirbase_sim::InvariantId::Inv9
+impl tirbase_sim::invariants::InvariantId
+pub const fn tirbase_sim::invariants::InvariantId::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::clone(&self) -> tirbase_sim::invariants::InvariantId
+impl core::cmp::Eq for tirbase_sim::invariants::InvariantId
+impl core::cmp::Ord for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::cmp(&self, &tirbase_sim::invariants::InvariantId) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::eq(&self, &tirbase_sim::invariants::InvariantId) -> bool
+impl core::cmp::PartialOrd for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::partial_cmp(&self, &tirbase_sim::invariants::InvariantId) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tirbase_sim::invariants::InvariantId
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::InvariantId
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantId
+impl core::marker::Send for tirbase_sim::invariants::InvariantId
+impl core::marker::Sync for tirbase_sim::invariants::InvariantId
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantId
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantId
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantId
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantId
+impl<N> petgraph::graphmap::NodeTrait for tirbase_sim::invariants::InvariantId where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
+impl<Q, K> equivalent::Comparable<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantId where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantId::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantId where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantId::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantId::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantId where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantId::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantId::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantId where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantId::Owned = T
+pub fn tirbase_sim::invariants::InvariantId::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantId::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_sim::invariants::InvariantId where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantId where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantId where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantId::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantId
+pub fn tirbase_sim::invariants::InvariantId::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantId
+pub type tirbase_sim::invariants::InvariantId::Init = T
+pub const tirbase_sim::invariants::InvariantId::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantId::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantId::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantId::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantId::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantId
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+impl<T> pest::RuleType for tirbase_sim::invariants::InvariantId where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
+impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantId where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantId::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantId
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantId
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantId
+pub type tirbase_sim::invariants::InvariantId::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantId where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantId::vzip(self) -> V
+pub struct tirbase_sim::InvariantChecker
+impl tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::new() -> Self
+impl core::clone::Clone for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::clone(&self) -> tirbase_sim::invariants::InvariantChecker
+impl core::default::Default for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::default() -> tirbase_sim::invariants::InvariantChecker
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Send for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Sync for tirbase_sim::invariants::InvariantChecker
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantChecker
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantChecker
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantChecker
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantChecker
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantChecker where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantChecker where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantChecker::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantChecker::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantChecker::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantChecker where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantChecker::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantChecker::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantChecker where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantChecker::Owned = T
+pub fn tirbase_sim::invariants::InvariantChecker::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantChecker::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantChecker where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantChecker::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantChecker where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantChecker
+pub type tirbase_sim::invariants::InvariantChecker::Init = T
+pub const tirbase_sim::invariants::InvariantChecker::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantChecker::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantChecker
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantChecker
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantChecker
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantChecker
+pub type tirbase_sim::invariants::InvariantChecker::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantChecker where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantChecker::vzip(self) -> V
+pub struct tirbase_sim::InvariantViolation
+pub tirbase_sim::InvariantViolation::detail: alloc::string::String
+pub tirbase_sim::InvariantViolation::invariant: tirbase_sim::invariants::InvariantId
+pub tirbase_sim::InvariantViolation::seed: u64
+pub tirbase_sim::InvariantViolation::triggering_state: alloc::string::String
+impl core::clone::Clone for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::clone(&self) -> tirbase_sim::invariants::InvariantViolation
+impl core::cmp::Eq for tirbase_sim::invariants::InvariantViolation
+impl core::cmp::PartialEq for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::eq(&self, &tirbase_sim::invariants::InvariantViolation) -> bool
+impl core::error::Error for tirbase_sim::invariants::InvariantViolation
+impl core::fmt::Debug for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Freeze for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Send for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Sync for tirbase_sim::invariants::InvariantViolation
+impl core::marker::Unpin for tirbase_sim::invariants::InvariantViolation
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantViolation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantViolation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantViolation
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::InvariantViolation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::InvariantViolation::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::InvariantViolation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::InvariantViolation where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::InvariantViolation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::InvariantViolation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::InvariantViolation where T: core::clone::Clone
+pub type tirbase_sim::invariants::InvariantViolation::Owned = T
+pub fn tirbase_sim::invariants::InvariantViolation::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::InvariantViolation::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_sim::invariants::InvariantViolation where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantViolation where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantViolation
+pub fn tirbase_sim::invariants::InvariantViolation::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantViolation
+pub type tirbase_sim::invariants::InvariantViolation::Init = T
+pub const tirbase_sim::invariants::InvariantViolation::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::drop(usize)
+pub unsafe fn tirbase_sim::invariants::InvariantViolation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantViolation
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_sim::invariants::InvariantViolation::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantViolation
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::InvariantViolation
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::InvariantViolation
+pub type tirbase_sim::invariants::InvariantViolation::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantViolation where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::InvariantViolation::vzip(self) -> V
+pub struct tirbase_sim::SimState
+pub tirbase_sim::SimState::accepted_replay_tuples: alloc::vec::Vec<tirbase_sim::invariants::ReplayTuple>
+pub tirbase_sim::SimState::actuations: alloc::vec::Vec<tirbase_sim::invariants::ActuationObservation>
+pub tirbase_sim::SimState::admissions: alloc::vec::Vec<tirbase_sim::invariants::AdmissionObservation>
+pub tirbase_sim::SimState::cache_observations: alloc::vec::Vec<tirbase_sim::invariants::CacheObservation>
+pub tirbase_sim::SimState::commands_to_unknown_targets: alloc::vec::Vec<tirbase_types::TargetId>
+pub tirbase_sim::SimState::current_governance: core::option::Option<tirbase_sim::invariants::GovernanceFields>
+pub tirbase_sim::SimState::governance_weakening_approved: bool
+pub tirbase_sim::SimState::hash_chain_intact: bool
+pub tirbase_sim::SimState::idempotency_actuations: alloc::vec::Vec<tirbase_sim::invariants::IdempotencyTuple>
+pub tirbase_sim::SimState::inflight_actuating_per_target: alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, usize>
+pub tirbase_sim::SimState::loosening_applications: alloc::vec::Vec<tirbase_sim::invariants::LooseningApplication>
+pub tirbase_sim::SimState::now_est_observations: alloc::vec::Vec<i64>
+pub tirbase_sim::SimState::policy_versions_by_device: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<u64>>
+pub tirbase_sim::SimState::previous_governance: core::option::Option<tirbase_sim::invariants::GovernanceFields>
+pub tirbase_sim::SimState::seed: u64
+pub tirbase_sim::SimState::targets_with_unknown: alloc::collections::btree::set::BTreeSet<tirbase_types::TargetId>
+pub tirbase_sim::SimState::tick: u64
+pub tirbase_sim::SimState::triggering_state: alloc::string::String
+impl core::clone::Clone for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::clone(&self) -> tirbase_sim::invariants::SimState
+impl core::default::Default for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::default() -> tirbase_sim::invariants::SimState
+impl core::fmt::Debug for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_sim::invariants::SimState
+impl core::marker::Send for tirbase_sim::invariants::SimState
+impl core::marker::Sync for tirbase_sim::invariants::SimState
+impl core::marker::Unpin for tirbase_sim::invariants::SimState
+impl core::marker::UnsafeUnpin for tirbase_sim::invariants::SimState
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::SimState
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::SimState
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::SimState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::invariants::SimState where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::invariants::SimState where U: core::convert::From<T>
+pub fn tirbase_sim::invariants::SimState::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::invariants::SimState where U: core::convert::Into<T>
+pub type tirbase_sim::invariants::SimState::Error = core::convert::Infallible
+pub fn tirbase_sim::invariants::SimState::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::invariants::SimState where U: core::convert::TryFrom<T>
+pub type tirbase_sim::invariants::SimState::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::invariants::SimState::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::invariants::SimState where T: core::clone::Clone
+pub type tirbase_sim::invariants::SimState::Owned = T
+pub fn tirbase_sim::invariants::SimState::clone_into(&self, &mut T)
+pub fn tirbase_sim::invariants::SimState::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::invariants::SimState where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+pub fn tirbase_sim::invariants::SimState::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::SimState where T: core::clone::Clone
+pub unsafe fn tirbase_sim::invariants::SimState::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::from(T) -> T
+impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::SimState
+pub type tirbase_sim::invariants::SimState::Init = T
+pub const tirbase_sim::invariants::SimState::ALIGN: usize
+pub unsafe fn tirbase_sim::invariants::SimState::deref<'a>(usize) -> &'a T
+pub unsafe fn tirbase_sim::invariants::SimState::deref_mut<'a>(usize) -> &'a mut T
+pub unsafe fn tirbase_sim::invariants::SimState::drop(usize)
+pub unsafe fn tirbase_sim::invariants::SimState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> either::into_either::IntoEither for tirbase_sim::invariants::SimState
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::SimState
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::invariants::SimState
+impl<T> typenum::type_operators::Same for tirbase_sim::invariants::SimState
+pub type tirbase_sim::invariants::SimState::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::SimState where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::invariants::SimState::vzip(self) -> V
+pub fn tirbase_sim::assert_invariants_hold(&tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState)
