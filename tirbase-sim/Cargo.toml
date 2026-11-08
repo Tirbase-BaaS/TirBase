@@ -10,3 +10,6 @@ tirbase-types   = { workspace = true }
 tirbase-core    = { workspace = true }
 tirbase-guard   = { workspace = true }
 tirbase-drivers = { workspace = true }
+
+[dev-dependencies]
+arc-swap = "1"

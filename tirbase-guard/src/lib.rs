@@ -11,6 +11,11 @@
 
 pub mod signed_operation;
 
+/// Policy lifecycle: bundle types (wire), 11-criterion tightening classification,
+/// tightening-floor enforcement, loosening M-of-N/timelock path, anti-rollback,
+/// and pending-approval accumulation (tasks 12.1–12.10 — CLAIM-12.1…12.10).
+pub mod policy;
+
 /// `TimeRatchet`, authenticated-time estimate, and freshness state
 /// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
@@ -67,6 +72,13 @@ pub use trust_root::{
     AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager,
     TrustRootRecord, TrustRootSignature,
 };
+
+pub use policy::{
+    check_tightening_floors, classify_bundle, make_bundle, policy_bundle_body_hash,
+    policy_bundle_signing_bytes, verify_policy_cosignature, ActivePolicyState, PendingLoosenOperation,
+    PolicyError, PolicyIngestOutcome, PolicyLifecycle,
+};
+pub use tirbase_types::policy::{PolicyBundle, PolicyBundleKind, PolicyCoSignature};
 
 pub use signed_operation::{
     SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,

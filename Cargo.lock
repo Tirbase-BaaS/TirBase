@@ -4873,6 +4873,7 @@ name = "tirbase-gateway"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "async-trait",
  "axum",
  "hex",
@@ -4914,6 +4915,7 @@ dependencies = [
 name = "tirbase-sim"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "tirbase-core",
  "tirbase-drivers",
  "tirbase-guard",

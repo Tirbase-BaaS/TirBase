@@ -1,2 +1,27 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+warning: method `device_mut` is never used
+  --> tirbase-guard/src/driver_proxy.rs:54:19
+   |
+32 | impl<W: Write + Send> DriverProxy<W> {
+   | ------------------------------------ method in this implementation
+...
+54 |     pub(crate) fn device_mut(&mut self) -> &mut W {
+   |                   ^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> tirbase-guard/src/lib.rs:10:9
+   |
+10 | #![warn(dead_code)]
+   |         ^^^^^^^^^
+
+warning: `tirbase-guard` (lib) generated 1 warning
+ Documenting tirbase-sim v0.1.0 (/Users/macbook/github code/TriBase/tirbase-sim)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.54s
+    Blocking waiting for file lock on package cache
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_sim
 pub use tirbase_sim::tirbase_types

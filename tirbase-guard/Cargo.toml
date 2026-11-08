@@ -9,6 +9,7 @@ license = "MIT"
 tirbase-types = { workspace = true }
 tirbase-core  = { workspace = true }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sha2 = "0.11"
 ciborium = "0.2"
 # Lock-free config hot-swap for the target-to-profile map (CLAIM-10.5, PV-4.5).
