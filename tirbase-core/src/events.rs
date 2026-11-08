@@ -197,6 +197,10 @@ pub enum ReasonCode {
     QuorumRequired,
     /// Atomic commit/sequence conflict (Stage 16).
     CommitConflict,
+    /// Anti-replay sequence rejected: replay or outside window (PV-5.5).
+    SequenceRejected,
+    /// Anti-replay window baseline reset by PolicyAuthority (PV-5.5).
+    WindowReset,
     /// Another issuer holds the SingleWriterLease (Stage 16).
     LeaseHeld,
     /// No EnvelopeProfile installed for target.
@@ -377,6 +381,8 @@ impl ReasonCode {
             ReasonCode::RateLimit => "RateLimit",
             ReasonCode::QuorumRequired => "QuorumRequired",
             ReasonCode::CommitConflict => "CommitConflict",
+            ReasonCode::SequenceRejected => "SequenceRejected",
+            ReasonCode::WindowReset => "WindowReset",
             ReasonCode::LeaseHeld => "LeaseHeld",
             ReasonCode::NoProfile => "NoProfile",
             ReasonCode::Unsupported => "Unsupported",

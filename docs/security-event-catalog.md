@@ -174,8 +174,8 @@ Events emitted by the anti-replay window (PV-5.5).
 
 | Reason Code | Description | Severity | Status | PV Reference |
 |---|---|---|---|---|
-| SequenceRejected | Sequence number already seen or outside [highest−W, highest+G] window | High | Planned | PV-5.5 |
-| WindowReset | Anti-replay window baseline reset by PolicyAuthority-signed operation | Medium | Planned | PV-5.5 |
+| SequenceRejected | Sequence number already seen or outside [highest−W, highest+G] window | High | Implemented | PV-5.5 |
+| WindowReset | Anti-replay window baseline reset by PolicyAuthority-signed operation | Medium | Implemented | PV-5.5 |
 
 ---
 

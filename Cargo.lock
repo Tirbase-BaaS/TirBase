@@ -4930,8 +4930,10 @@ name = "tirbase-sim"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "serde_json",
  "tirbase-core",
  "tirbase-drivers",
+ "tirbase-gateway",
  "tirbase-guard",
  "tirbase-types",
 ]
