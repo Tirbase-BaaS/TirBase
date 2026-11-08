@@ -312,6 +312,14 @@ pub enum ReasonCode {
     StorageCorrupt,
     /// Derived ledger rebuilt from signed delta log after corruption.
     LedgerRebuilt,
+    /// Boot-time reconciliation of Actuating effects-ledger entries finished (PV-5.3).
+    ReconciliationComplete,
+    /// One or more Actuating entries could not be reconciled within timeout (PV-5.3).
+    ReconciliationTimeout,
+    /// Pre-Actuating ledger entry from an older schema marked Failed at boot (PV-5.3, 19.3).
+    OldSchemaEntry,
+    /// Effects-ledger pruning job removed old Complete/Failed entries (PV-5.12).
+    LedgerPruned,
     /// A trust-root record with a stale version was rejected at boot/rotation.
     TrustRootRollbackRejected,
 
@@ -417,6 +425,10 @@ impl ReasonCode {
             ReasonCode::StorageError => "StorageError",
             ReasonCode::StorageCorrupt => "StorageCorrupt",
             ReasonCode::LedgerRebuilt => "LedgerRebuilt",
+            ReasonCode::ReconciliationComplete => "ReconciliationComplete",
+            ReasonCode::ReconciliationTimeout => "ReconciliationTimeout",
+            ReasonCode::OldSchemaEntry => "OldSchemaEntry",
+            ReasonCode::LedgerPruned => "LedgerPruned",
             ReasonCode::TrustRootRollbackRejected => "TrustRootRollbackRejected",
             ReasonCode::EnteredLockdown => "EnteredLockdown",
             ReasonCode::ExitedLockdown => "ExitedLockdown",

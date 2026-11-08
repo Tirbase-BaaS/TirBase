@@ -8,13 +8,13 @@
 #![warn(dead_code)]
 
 /// Serialises tests that own the process-wide security event sink.
-#[cfg(test)]
-pub(crate) static EVENT_SINK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub static EVENT_SINK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub mod admin;
 pub mod command_ingress;
 pub mod config;
 pub mod db;
+pub mod event_batcher;
 pub mod guard;
 pub mod health;
 pub mod hw_counter_binding;

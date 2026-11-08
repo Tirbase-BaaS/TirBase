@@ -12,6 +12,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+fail = "0.5"
 tirbase-types   = { path = "tirbase-types" }
 tirbase-core    = { path = "tirbase-core" }
 tirbase-guard   = { path = "tirbase-guard" }

@@ -62,6 +62,9 @@ zeroize = { version = "1.9", features = ["derive"] }
 hex = "0.4"
 arc-swap = "1"
 
+# Failpoint injection for kill-at-every-step ledger tests (PV-5.4, 19.6).
+fail = { workspace = true }
+
 
 [dev-dependencies]
 # HTTP client for health endpoint integration test

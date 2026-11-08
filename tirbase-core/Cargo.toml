@@ -115,6 +115,10 @@ secrecy = "0.8"
 # zeroizing of `String` (hex-encoded seeds in the on-disk identity DTO).
 zeroize = { version = "1.9", features = ["derive", "alloc"] }
 
+# Failpoint injection for kill-at-every-step ledger tests (PV-5.4, 19.6).
+# No-op in normal builds; enabled via `fail/failpoints` feature or tests.
+fail = { workspace = true }
+
 # ─── Native-only dependencies ──────────────────────────────────────────────────
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rusqlite     = { version = "0.40.2", optional = true }

@@ -946,3 +946,6 @@ mod wasm_exports {
         js_sys::JSON::parse(&json).map_err(|e| e)
     }
 }
+
+/// Re-export `fail` crate for ledger failpoint tests (PV-5.4, 19.6).
+pub use fail as fail_crate;

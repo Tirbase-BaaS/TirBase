@@ -128,6 +128,71 @@ async fn main() -> Result<()> {
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         tracing::info!(path = %primary_db_path.display(), schema_version = primary_ver, "primary.db ready (synchronous=FULL, WAL, PrimaryLedger)");
 
+        // ── Applied effects ledger boot reconciliation (19.2/19.3, PV-5.3) ──
+        // Runs before accepting commands. Scans pre-Actuating legacy entries
+        // (Failed/OLD_SCHEMA_ENTRY) and resolves Actuating entries via driver
+        // read-back (30s timeout) => Complete/Failed/Unknown, emitting
+        // ReconciliationComplete or ReconciliationTimeout.
+        let reconcile_ts = tirbase_core::traits::wall_hint_secs().unwrap_or(0);
+        match db::ledger_reconciliation::reconcile_on_boot(
+            &primary,
+            &db::ledger_reconciliation::NoDriverReadBack,
+            reconcile_ts,
+        ) {
+            Ok(summary) => tracing::info!(
+                ?summary,
+                "applied_effects_ledger boot reconciliation complete (CLAIM-19.2/19.3)"
+            ),
+            Err(error) => tracing::error!(
+                %error,
+                "applied_effects_ledger boot reconciliation failed (CLAIM-19.2/19.3)"
+            ),
+        }
+
+        // ── Ledger pruning background job (19.5, PV-5.12) ──────────────────
+        // Production caller: background task in tirbase-gateway.
+        {
+            let prune_path = primary_db_path.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(Duration::from_secs(6 * 60 * 60));
+                loop {
+                    ticker.tick().await;
+                    let now_est = tirbase_core::traits::wall_hint_secs().unwrap_or_default();
+                    let path = prune_path.clone();
+                    let res = tokio::task::spawn_blocking(move || {
+                        let conn = rusqlite::Connection::open(&path)
+                            .map_err(|e| format!("prune open: {e}"))?;
+                        conn.pragma_update(None, "journal_mode", "WAL")
+                            .map_err(|e| format!("prune wal: {e}"))?;
+                        conn.pragma_update(None, "synchronous", "FULL")
+                            .map_err(|e| format!("prune sync: {e}"))?;
+                        db::applied_effects_ledger::prune_retention(
+                            &conn,
+                            now_est,
+                            db::applied_effects_ledger::PRUNE_MAX_AGE_SECS,
+                            db::applied_effects_ledger::PRUNE_MAX_ENTRIES,
+                        )
+                    })
+                    .await;
+                    match res {
+                        Ok(Ok(deleted)) if deleted > 0 => {
+                            tirbase_core::events::emit(
+                                tirbase_core::events::SecurityEvent::new(
+                                    tirbase_core::events::SecurityEventCategory::EffectsLedger,
+                                    tirbase_core::events::Severity::Low,
+                                    tirbase_core::events::ReasonCode::LedgerPruned,
+                                )
+                                .with_detail(format!("pruned {deleted} applied_effects_ledger entries")),
+                            );
+                        }
+                        Ok(Err(error)) => tracing::warn!(%error, "ledger pruning failed (19.5)"),
+                        Err(error) => tracing::warn!(%error, "ledger pruning task join failed (19.5)"),
+                        _ => {}
+                    }
+                }
+            });
+        }
+
         let derived = match db::open_derived(&derived_db_path) {
             Ok(conn) => conn,
             Err(action) => {

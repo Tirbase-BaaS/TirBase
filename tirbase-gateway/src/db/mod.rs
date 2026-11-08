@@ -20,6 +20,7 @@ pub mod device_epoch;
 pub mod drift_rate_history;
 pub mod enrollment_nonce;
 pub mod idempotency_keys;
+pub mod ledger_reconciliation;
 pub mod lockdown;
 pub mod migrations;
 pub mod pending_approvals;
