@@ -430,3 +430,6 @@ mod tests {
         assert_eq!(&bytes[CONTEXT_POLICY_BUNDLE.len() + 1..], &a.payload_hash);
     }
 }
+
+/// Context string for `EnvelopeProfile` policy documents (CLAIM-10.4, PV-4.5).
+pub const CONTEXT_ENVELOPE_PROFILE: &str = "TirBase/v1/EnvelopeProfile";

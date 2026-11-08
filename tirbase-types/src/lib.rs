@@ -29,6 +29,13 @@ pub use fixed_point::{
     UNIT_PA, UNIT_PERCENT, UNIT_RPM, UNIT_UNKNOWN, UNIT_V,
 };
 
+// ── envelope module (CLAIM-10.1…10.4, CLAIM-10.6 view types, PV-4.5) ────────
+pub mod envelope;
+pub use envelope::{
+    ConstraintOperator, DeviceModel, DeviceParameter, EnvelopeProfile, EnvelopeProfileBody,
+    LinearConstraint, ParameterKind, ParameterSpec,
+};
+
 // ── Role ───────────────────────────────────────────────────────────────────────
 
 /// Role attached to a Biscuit credential.
@@ -145,7 +152,7 @@ pub type ProfileId = [u8; 16];
 ///
 /// Wrapping `String` in a newtype prevents accidental interchange of arbitrary
 /// strings with DIDs at the type level. (CLAIM-4.6)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Did(pub String);
 
 impl Did {
@@ -164,7 +171,7 @@ impl Did {
 ///
 /// Wrapping `String` in a newtype prevents accidental interchange of arbitrary
 /// strings with target IDs at the type level. (CLAIM-4.6)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct TargetId(pub String);
 
 impl TargetId {

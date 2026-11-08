@@ -15,6 +15,10 @@ pub mod signed_operation;
 /// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
 
+/// Envelope profile install/validation and target-to-profile hot-swap
+/// (tasks 10.4–10.6 — CLAIM-10.4…10.6, PV-4.5).
+pub mod envelope;
+
 /// Trust root record and per-role registry (tasks 8.3/8.3a — CLAIM-8.3,
 /// CLAIM-8.3a, PV-3.2, PV-3.3, PV-3.4).
 pub mod trust_root;
@@ -53,6 +57,15 @@ pub use time::{
     FreshnessState, RatchetAdvance, TimeBeacon, TimeRatchet, TimeRatchetConfig, TimeRatchetError,
     TimeRatchetRecord, TimeRatchetStore, CONTEXT_TIME_BEACON, DEFAULT_MAX_FORWARD_JUMP_SECS,
     DEFAULT_REQUIRED_ANCHOR_SIGNATURES, DEFAULT_STALENESS_WINDOW_SECS,
+};
+
+pub use envelope::{
+    install_profile, profile_signing_bytes, validate_profile, verify_profile_signature, FieldError,
+    ProfileInstallError, ProfileMap,
+};
+pub use tirbase_types::envelope::{
+    ConstraintOperator, DeviceModel, DeviceParameter, EnvelopeProfile, EnvelopeProfileBody,
+    LinearConstraint, ParameterKind, ParameterSpec,
 };
 
 pub use tirbase_types;
