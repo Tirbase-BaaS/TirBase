@@ -152,12 +152,12 @@ impl FileKeyProvider {
     ///
     /// This is intentionally not part of the [`KeyProvider`] trait: it is a
     /// migration bridge, not an API the rest of the system may use.
-    pub(crate) fn secret_seed(&self) -> [u8; 32] {
+    pub fn secret_seed(&self) -> [u8; 32] {
         *self.seed.expose_secret()
     }
 
     /// 32-byte Ed25519 public key.
-    pub(crate) fn public_key(&self) -> [u8; 32] {
+    pub fn public_key(&self) -> [u8; 32] {
         self.public_key
     }
 }
@@ -251,11 +251,11 @@ impl InMemoryKeyProvider {
         }
     }
 
-    pub(crate) fn secret_seed(&self) -> [u8; 32] {
+    pub fn secret_seed(&self) -> [u8; 32] {
         *self.seed.expose_secret()
     }
 
-    pub(crate) fn public_key(&self) -> [u8; 32] {
+    pub fn public_key(&self) -> [u8; 32] {
         self.public_key
     }
 }

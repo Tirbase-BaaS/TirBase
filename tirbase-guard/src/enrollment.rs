@@ -58,6 +58,24 @@ impl DeviceIdentity {
         Ok(DeviceIdentity { provider })
     }
 
+    /// Reconstruct a device identity from an existing 32-byte Ed25519 seed.
+    ///
+    /// Used by operator tooling that persists and reloads device keys; the
+    /// seed is never transmitted during enrollment.
+    pub fn from_seed(seed: [u8; 32]) -> Self {
+        DeviceIdentity {
+            provider: InMemoryKeyProvider::from_seed(seed),
+        }
+    }
+
+    /// The 32-byte Ed25519 seed for local persistence by the owning device.
+    ///
+    /// This is only for the device's own key file; enrollment bootstrap sends
+    /// the public key and signature, never the seed.
+    pub fn seed(&self) -> [u8; 32] {
+        self.provider.secret_seed()
+    }
+
     /// The device's `did:key` DID.
     pub fn device_id(&self) -> String {
         self.provider.did().to_string()
