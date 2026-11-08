@@ -178,7 +178,8 @@ fn claim_14_13_14_15_db_backed_stores_exercised() {
     assert_eq!(drift.recent("d","pump-1","speed",0).unwrap().len(),1);
     decided.upsert(&tirbase_gateway::db::decided_outcomes::DecidedOutcomeRow{issuer_did:"d".into(),target_id:"pump-1".into(),sequence_number:1,enrollment_epoch:0,accepted:true,rejection_category:None,detail:None}).unwrap();
     assert!(decided.lookup("d","pump-1",1,0).unwrap().is_some());
-    nonce_store.insert(&tirbase_gateway::db::challenge_nonces::ChallengeNonceRow{nonce_hex:"aa".into(),issuer_did:"d".into(),target_id:"pump-1".into(),param:"speed".into(),expires_mono_secs:9999,consumed:false}).unwrap();
-    assert!(nonce_store.consume_if_valid("aa","d","pump-1","speed",1).unwrap());
+    nonce_store.insert_row(&tirbase_gateway::db::challenge_nonces::ChallengeNonceRow{nonce_hex:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),device_id:"dev-pump-1".into(),issuer_did:"d".into(),target_id:"pump-1".into(),param:"speed".into(),issued_at_mono:0,expires_mono_secs:9999,consumed:false}).unwrap();
+    assert!(nonce_store.consume_if_valid_hex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","d","pump-1","speed",1).unwrap());
+    assert!(!nonce_store.consume_if_valid_hex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","d","pump-1","speed",1).unwrap(), "CLAIM-16.1 one-time-use");
     let _ = std::fs::remove_dir_all(&dir);
 }

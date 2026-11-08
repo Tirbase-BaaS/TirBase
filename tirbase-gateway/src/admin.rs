@@ -5,6 +5,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use serde::Deserialize;
+use tirbase_guard::admit::{ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS, DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE};
 use tirbase_guard::epoch::{EpochBump, EpochRegistry};
 use tirbase_guard::enrollment::{EnrollmentRequest, EnrollmentService};
 use tirbase_guard::lockdown::{apply_lockdown_exit, LockdownExitPayload, LockdownStore};
@@ -26,6 +27,10 @@ pub struct AdminState {
     pub envelope_profile: Option<Arc<EnvelopeProfile>>,
     /// Task 15.7: simulate() dry-run production caller (replaces stub).
     pub guard: Option<Arc<tirbase_guard::CommandGuard>>,
+    /// Task 16.2/16.3: production challenge nonce issuance/consumption store.
+    pub challenge_store: Option<Arc<dyn ChallengeNonceStore>>,
+    /// Task 16.4/S32: max challenge nonce requests per device/target/param/minute.
+    pub challenge_requests_per_minute: u32,
 }
 
 impl fmt::Debug for AdminState {
@@ -46,6 +51,7 @@ impl Default for AdminState {
         AdminState {
             enrollment: None, epochs: None, trust_root: None, policy: None,
             node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
+            challenge_store: None, challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
         }
     }
 }
@@ -59,6 +65,7 @@ impl AdminState {
         AdminState {
             enrollment: Some(enrollment), epochs: Some(epochs), trust_root: Some(trust_root),
             policy: None, node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
+            challenge_store: None, challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
         }
     }
 }
@@ -76,7 +83,7 @@ pub fn dispatch_admin_command_at(command: &str, state: Option<&AdminState>, now_
         Some("policy") => dispatch_policy(command, state, now_est),
         Some("events") => stub_501("events"),
         Some("simulate") => dispatch_simulate(command, state),
-        Some("challenge") => stub_501("challenge"),
+        Some("challenge") => dispatch_challenge(command, state, now_est),
         Some("mode") => dispatch_mode(state),
         Some("lockdown-exit") => dispatch_lockdown_exit(command, state),
         Some("chain-recovery") => stub_501("chain-recovery"),
@@ -259,6 +266,124 @@ mod linux {
         Ok(())
     }
 }
+
+
+#[derive(Debug, Deserialize)]
+struct ChallengeRequest {
+    #[serde(default)]
+    target_id: String,
+    #[serde(default)]
+    target: String,
+    #[serde(default)]
+    param: String,
+    #[serde(default)]
+    issuer_did: Option<String>,
+    #[serde(default)]
+    nonce_hex: Option<String>,
+}
+
+/// Task 16.3/16.4 (CLAIM-16.3/16.4, PV-22.3, S32): issue or consume a
+/// challenge nonce for a critical parameter when freshness is `Unverified`.
+/// - Issue: payload `{target_id|target, param, [issuer_did]}`. Requires
+///   `critical: true` in the target's envelope profile and Unverified
+///   freshness. Enforces one-per-device/target/param/minute issuance limit.
+/// - Consume (admin/test hook): payload `{..., nonce_hex, issuer_did}` marks the
+///   nonce used exactly once through the durable store; second use is rejected.
+/// GET/POST path variants from specs map to this JSON command in the Unix-socket
+/// admin dispatcher.
+fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(st) = state else { return stub_501("challenge"); };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("challenge requires a payload object"),
+    };
+    let req: ChallengeRequest = match serde_json::from_value(payload_val.clone()) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid challenge payload: {e}")),
+    };
+    let target_id = if !req.target_id.is_empty() { req.target_id } else { req.target };
+    let param = req.param;
+    if target_id.is_empty() || param.is_empty() {
+        return bad_request("challenge requires target_id/target and param");
+    }
+    let target = tirbase_types::TargetId::new(&target_id);
+
+    // Consumption path (one-time-use proof / admin helper).
+    if let (Some(nonce_hex), Some(issuer_did)) = (req.nonce_hex.as_deref(), req.issuer_did.as_deref()) {
+        if let Some(store) = st.challenge_store.as_ref() {
+            let Some(nonce) = hex_decode_32(nonce_hex) else {
+                return bad_request("invalid nonce_hex");
+            };
+            match store.consume_if_valid(&nonce, issuer_did, &target_id, &param, now_est, true) {
+                Ok(true) => {
+                    return serde_json::json!({"status":200,"outcome":"challenge_consumed","nonce_hex":nonce_hex,"one_time_use":true}).to_string();
+                }
+                Ok(false) => {
+                    return serde_json::json!({"status":409,"error":"challenge nonce invalid, expired, or already consumed","code":"CHALLENGE_INVALID","endpoint":"challenge"}).to_string();
+                }
+                Err(e) => return serde_json::json!({"status":500,"error":e,"endpoint":"challenge"}).to_string(),
+            }
+        }
+        return stub_501("challenge");
+    }
+
+    // Issuance path (Task 16.3): only for Unverified + critical parameter.
+    let Some(guard) = st.guard.as_ref() else { return stub_501("challenge"); };
+    let Some(pipeline) = guard.pipeline() else { return stub_501("challenge"); };
+    if pipeline.freshness_state() != tirbase_guard::time::FreshnessState::Unverified {
+        return serde_json::json!({"status":409,"error":"challenge nonce issuance requires FreshnessState::Unverified","code":"FRESHNESS_NOT_UNVERIFIED","endpoint":"challenge"}).to_string();
+    }
+    if !guard.parameter_is_critical(&target, &param) {
+        return serde_json::json!({"status":409,"error":"challenge nonce issuance requires a critical parameter","code":"PARAM_NOT_CRITICAL","endpoint":"challenge"}).to_string();
+    }
+    let Some(device_id) = guard.device_id_for_target(&target) else {
+        return serde_json::json!({"status":404,"error":"unknown target/device","endpoint":"challenge"}).to_string();
+    };
+    let issuer_did = req.issuer_did.unwrap_or_else(|| format!("admin:{device_id}"));
+    let mono_now = pipeline.mono_secs_now();
+    let limit = if st.challenge_requests_per_minute == 0 { DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE } else { st.challenge_requests_per_minute };
+    // Sync pipeline limit with admin/runtime config for S32 enforcement.
+    pipeline.set_challenge_requests_per_minute(limit);
+    if !pipeline.check_challenge_issue_rate_limit(&device_id, &target_id, &param, mono_now) {
+        return serde_json::json!({"status":429,"error":"challenge nonce issuance rate limited (S32)","code":"CHALLENGE_RATE_LIMITED","retry_after_secs":60,"limit_per_minute":limit,"endpoint":"challenge"}).to_string();
+    }
+    // In-process pipeline limit is authoritative for this admin endpoint (S32).
+    let _ = st.challenge_store.as_ref();
+    match pipeline.issue_challenge_nonce_for_device(&device_id, &issuer_did, &target_id, &param) {
+        Ok(nonce) => serde_json::json!({
+            "status":200,
+            "outcome":"challenge_issued",
+            "target_id":target_id,
+            "param":param,
+            "device_id":device_id,
+            "issuer_did":issuer_did,
+            "nonce_hex":hex_encode(&nonce.nonce),
+            "issued_at_mono":nonce.issued_at_mono,
+            "expires_at_mono":nonce.expires_at_mono,
+            "ttl_secs":DEFAULT_CHALLENGE_NONCE_TTL_SECS,
+            "one_time_use":true,
+            "critical":true,
+            "freshness":"Unverified",
+        }).to_string(),
+        Err(e) if e.contains("retry_after") || e.contains("rate limit") => serde_json::json!({"status":429,"error":e,"code":"CHALLENGE_RATE_LIMITED","endpoint":"challenge"}).to_string(),
+        Err(e) => serde_json::json!({"status":500,"error":e,"endpoint":"challenge"}).to_string(),
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes { s.push(HEX[(b >> 4) as usize] as char); s.push(HEX[(b & 0x0f) as usize] as char); }
+    s
+}
+fn hex_decode_32(s: &str) -> Option<[u8; 32]> {
+    let s = s.trim();
+    if s.len() != 64 || !s.is_ascii() { return None; }
+    let mut out = [0u8; 32]; let b = s.as_bytes();
+    for i in 0..32 { let hi = (b[i * 2] as char).to_digit(16)? as u8; let lo = (b[i * 2 + 1] as char).to_digit(16)? as u8; out[i] = (hi << 4) | lo; }
+    Some(out)
+}
+
 
 pub async fn run_admin_listener(sock_path: &std::path::Path, state: Option<Arc<AdminState>>) -> anyhow::Result<()> {
     #[cfg(target_os = "linux")]
