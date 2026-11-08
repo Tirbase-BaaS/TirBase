@@ -15,6 +15,7 @@ pub mod admin;
 pub mod command_ingress;
 pub mod config;
 pub mod db;
+pub mod guard;
 pub mod health;
 pub mod hw_counter_binding;
 pub mod key_provider;

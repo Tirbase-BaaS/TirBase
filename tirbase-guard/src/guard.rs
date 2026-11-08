@@ -289,6 +289,16 @@ impl CommandGuard {
         admit_stages_0_to_15(cmd, &sim, &self.node_mode, &self.epochs, pipeline, device_id.as_deref())
     }
 
+    /// Task 15.6: evaluate Stages 0–15 only (no driver/network I/O, no permit
+    /// mint). Safe to run inside `spawn_blocking` for DB reads.
+    pub fn admit_stages_0_to_15_with_pipeline(&self, cmd: &CommandMessage, ctx: &AdmitContext<'_>) -> AdmitDecision {
+        let Some(pipeline) = self.pipeline.as_ref() else {
+            return AdmitDecision::Rejected { category: AdmitRejection::Unsupported, detail: "pipeline not configured".into(), retry_after_secs: None };
+        };
+        let device_id = self.device_id_for_target(&cmd.target_id);
+        admit_stages_0_to_15(cmd, ctx, &self.node_mode, &self.epochs, pipeline, device_id.as_deref())
+    }
+
     fn admit_legacy<W: Write + Send>(
         &self,
         cmd: &CommandMessage,

@@ -24,6 +24,8 @@ pub struct AdminState {
     pub node_mode: Option<Arc<NodeModeState>>,
     pub lockdown_store: Option<Arc<dyn LockdownStore>>,
     pub envelope_profile: Option<Arc<EnvelopeProfile>>,
+    /// Task 15.7: simulate() dry-run production caller (replaces stub).
+    pub guard: Option<Arc<tirbase_guard::CommandGuard>>,
 }
 
 impl fmt::Debug for AdminState {
@@ -43,7 +45,7 @@ impl Default for AdminState {
     fn default() -> Self {
         AdminState {
             enrollment: None, epochs: None, trust_root: None, policy: None,
-            node_mode: None, lockdown_store: None, envelope_profile: None,
+            node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
         }
     }
 }
@@ -56,7 +58,7 @@ impl AdminState {
     ) -> Self {
         AdminState {
             enrollment: Some(enrollment), epochs: Some(epochs), trust_root: Some(trust_root),
-            policy: None, node_mode: None, lockdown_store: None, envelope_profile: None,
+            policy: None, node_mode: None, lockdown_store: None, envelope_profile: None, guard: None,
         }
     }
 }
@@ -73,7 +75,7 @@ pub fn dispatch_admin_command_at(command: &str, state: Option<&AdminState>, now_
         Some("rotate") => stub_501("rotate"),
         Some("policy") => dispatch_policy(command, state, now_est),
         Some("events") => stub_501("events"),
-        Some("simulate") => stub_501("simulate"),
+        Some("simulate") => dispatch_simulate(command, state),
         Some("challenge") => stub_501("challenge"),
         Some("mode") => dispatch_mode(state),
         Some("lockdown-exit") => dispatch_lockdown_exit(command, state),
@@ -332,5 +334,58 @@ mod tests {
         let replay = dispatch_admin_command_at(&command, Some(&state), 1_800_000_000);
         let value: serde_json::Value = serde_json::from_str(replay.trim()).unwrap();
         assert_eq!(value["status"], 409);
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct SimulateRequest {
+    command: tirbase_types::command::CommandMessage,
+    #[serde(default)]
+    biscuit_token_hex: Option<String>,
+    #[serde(default)]
+    source_key: Option<String>,
+    #[serde(default)]
+    now_est_secs: Option<i64>,
+    #[serde(default)]
+    caller_role: Option<String>,
+}
+
+/// Task 15.7 (CLAIM-15.7, PV-4.17): side-effect-free dry run.
+/// Skips Stage 0/9 nonce consumption/14 token consumption and Stages 16–19.
+fn dispatch_simulate(command: &str, state: Option<&AdminState>) -> String {
+    let Some(guard) = state.and_then(|s| s.guard.as_ref()) else {
+        return stub_501("simulate");
+    };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("simulate requires a payload object"),
+    };
+    let req: SimulateRequest = match serde_json::from_value(payload_val) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid simulate payload: {e}")),
+    };
+    let token = req.biscuit_token_hex.as_deref().and_then(|h| hex::decode(h).ok()).unwrap_or_default();
+    let source = req.source_key.unwrap_or_else(|| "simulate".into());
+    let ctx = tirbase_guard::AdmitContext {
+        ingress: tirbase_guard::IngressSource::LocalAdmin,
+        source_key: &source,
+        biscuit_token: if token.is_empty() { None } else { Some(&token) },
+        now_est_secs: req.now_est_secs,
+        simulate: true,
+    };
+    let decision = guard.simulate(&req.command, &ctx);
+    let privileged = matches!(req.caller_role.as_deref(), Some("Auditor") | Some("PolicyAuthority"));
+    match decision {
+        tirbase_guard::AdmitDecision::Simulated { would_accept: true, derived_role, .. } => {
+            serde_json::json!({"status":200,"simulated":true,"would_accept":true,"derived_role":format!("{derived_role:?}")}).to_string()
+        }
+        tirbase_guard::AdmitDecision::Simulated { would_accept: false, rejection, .. } => {
+            let (cat, detail, retry) = rejection.unwrap_or((tirbase_guard::AdmitRejection::Unsupported, "rejected".into(), None));
+            let mut v = tirbase_guard::stage17_rejection(&req.command, cat, &detail, privileged);
+            v["simulated"] = serde_json::json!(true);
+            if let Some(r) = retry { v["retry_after_secs"] = serde_json::json!(r); }
+            v.to_string()
+        }
+        other => serde_json::json!({"status":200,"simulated":true,"decision":format!("{other:?}")}).to_string(),
     }
 }

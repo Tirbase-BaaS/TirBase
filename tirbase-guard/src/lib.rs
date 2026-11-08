@@ -51,6 +51,7 @@ pub mod driver_proxy;
 
 /// Unified command admission: the only `ActuationPermit` issuer (tasks 11/13).
 pub mod admit;
+pub mod commit;
 pub mod guard;
 
 /// First-boot device identity generation, replay-safe bootstrap, and scoped
@@ -77,6 +78,11 @@ pub use driver_proxy::{DriverProxy, IngressSource};
 pub use guard::{single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission};
 pub use admit::{AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection, admit_stages_0_to_15};
 pub use permit::{ActuationPermit, ActuationPermitRef};
+pub use commit::{
+    coarse_for_rejection, commit_dispatch_finalize, dispatch_and_await, stage17_acceptance,
+    stage17_rejection, CoarseRejection, EffectTerminalState, Stage16Error, Stage16Request,
+    Stage16Store,
+};
 
 pub use node_mode::{NodeMode, NodeModeState};
 pub use lockdown::{
