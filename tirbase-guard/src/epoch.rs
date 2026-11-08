@@ -483,14 +483,14 @@ pub struct CommandEnvelope {
 /// type deliberately contains only what task 8.7 owns so the epoch check is
 /// unmistakably a production path rather than dead scaffolding.
 #[derive(Debug)]
-pub struct CommandGuard {
+pub struct EpochCommandGuard {
     epochs: Arc<EpochRegistry>,
 }
 
-impl CommandGuard {
+impl EpochCommandGuard {
     /// Construct a guard over `epochs`.
     pub fn new(epochs: Arc<EpochRegistry>) -> Self {
-        CommandGuard { epochs }
+        EpochCommandGuard { epochs }
     }
 
     /// Admit `command`, applying Stage 8 (PV-5.5, PV-9.8).
@@ -840,7 +840,7 @@ mod tests {
         let trust_root = trust_root_with(&pa, &rm);
 
         registry.ensure_enrolled("did:key:zDevice", 100).unwrap();
-        let guard = CommandGuard::new(registry.clone());
+        let guard = EpochCommandGuard::new(registry.clone());
         let command = CommandEnvelope {
             device_id: "did:key:zDevice".to_string(),
             issuer_did: "did:key:zIssuer".to_string(),

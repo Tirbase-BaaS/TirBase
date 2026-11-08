@@ -1,0 +1,11 @@
+error[E0277]: the trait bound `ActuationPermit: Clone` is not satisfied
+ --> tests/compile_fail/permit_not_clone.rs:4:20
+  |
+4 |     assert_clone::<ActuationPermit>();
+  |                    ^^^^^^^^^^^^^^^ the trait `Clone` is not implemented for `ActuationPermit`
+  |
+note: required by a bound in `assert_clone`
+ --> tests/compile_fail/permit_not_clone.rs:2:20
+  |
+2 | fn assert_clone<T: Clone>() {}
+  |                    ^^^^^ required by this bound in `assert_clone`

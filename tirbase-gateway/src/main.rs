@@ -25,6 +25,10 @@
 /// Admin Unix-socket listener with SO_PEERCRED authentication (task 4.9.2).
 pub mod admin;
 
+/// Command ingress (mesh, cloud, local admin) — all paths converge on
+/// `CommandGuard::admit()` before `DriverProxy` dispatch (task 11.3, CLAIM-11.3).
+pub mod command_ingress;
+
 /// Health endpoint: GET /health → 200 OK (task 4.9.3, PV-30.3, CLAIM-4.9.3).
 pub mod health;
 

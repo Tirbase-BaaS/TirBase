@@ -36,6 +36,12 @@ pub use envelope::{
     LinearConstraint, ParameterKind, ParameterSpec,
 };
 
+// ── command module (CLAIM-11.1, PV-4.1, PV-4.2) ────────────────────────────
+pub mod command;
+pub use command::{
+    CoSignature, CommandMessage, CommandMessageBody, CONTEXT_COMMAND_MESSAGE,
+};
+
 // ── Role ───────────────────────────────────────────────────────────────────────
 
 /// Role attached to a Biscuit credential.

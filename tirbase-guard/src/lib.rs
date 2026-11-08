@@ -27,6 +27,18 @@ pub mod trust_root;
 /// 8.5–8.8 — CLAIM-8.5…CLAIM-8.8, PV-3.11, PV-3.13, PV-5.5, PV-9.8).
 pub mod epoch;
 
+/// `CommandMessage` signing/verification (task 11.1, CLAIM-11.1, PV-4.1/4.2).
+pub mod command;
+
+/// Unforgeable actuation capability (task 11.2, CLAIM-11.2, PV-4.3).
+pub mod permit;
+
+/// Guard-owned dispatch to the device/driver boundary (task 11.3, CLAIM-11.3).
+pub mod driver_proxy;
+
+/// Unified command admission: the only `ActuationPermit` issuer (tasks 11/13).
+pub mod guard;
+
 /// First-boot device identity generation, replay-safe bootstrap, and scoped
 /// token issuance (task 8.6 — CLAIM-8.6, PV-3.11).
 pub mod enrollment;
@@ -37,11 +49,19 @@ pub use enrollment::{
 };
 
 pub use epoch::{
-    decommission_message, verify_decommission_credential, CommandEnvelope, CommandGuard,
+    decommission_message, verify_decommission_credential, CommandEnvelope, EpochCommandGuard,
     DecommissionCredential, DeviceEpoch, DeviceEpochStore, EnrollmentNonceStore, EpochBump,
     EpochError, EpochRegistry, InMemoryEpochStore, InMemoryNonceStore,
     DEFAULT_ENROLLMENT_NONCE_CAPACITY, DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS,
 };
+
+pub use command::{
+    command_signing_bytes, sign_command, verify_command_signature, CommandError,
+};
+pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
+pub use driver_proxy::{DriverProxy, IngressSource};
+pub use guard::{single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission};
+pub use permit::{ActuationPermit, ActuationPermitRef};
 
 pub use trust_root::{
     AuthorizedRoleSigner, ParamFloor, RolePolicy, TrustRootError, TrustRootManager,

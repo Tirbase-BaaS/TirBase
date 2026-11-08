@@ -161,6 +161,10 @@ pub enum ReasonCode {
     // CommandDecision
     /// A Biscuit token was invalid, expired, or from an unknown CA.
     TokenInvalid,
+    /// A command signature failed verification (Stage 2).
+    CommandSignatureInvalid,
+    /// Command passed the task-11 admission core and was dispatched.
+    CommandAccepted,
 
     // Revocation
     /// A DID was added to the revocation set.
@@ -267,6 +271,8 @@ impl ReasonCode {
             ReasonCode::MergeVerified => "MergeVerified",
             ReasonCode::NonAutomergePayload => "NonAutomergePayload",
             ReasonCode::TokenInvalid => "TokenInvalid",
+            ReasonCode::CommandSignatureInvalid => "CommandSignatureInvalid",
+            ReasonCode::CommandAccepted => "CommandAccepted",
             ReasonCode::DidRevoked => "DidRevoked",
             ReasonCode::RevocationSignatureReceived => "RevocationSignatureReceived",
             ReasonCode::RevocationLeaseReleased => "RevocationLeaseReleased",

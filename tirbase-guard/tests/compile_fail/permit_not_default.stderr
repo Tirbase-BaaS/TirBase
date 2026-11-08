@@ -1,0 +1,5 @@
+error[E0599]: no associated function or constant named `default` found for struct `ActuationPermit` in the current scope
+ --> tests/compile_fail/permit_not_default.rs:3:30
+  |
+3 |     let _ = ActuationPermit::default();
+  |                              ^^^^^^^ associated function or constant not found in `ActuationPermit`

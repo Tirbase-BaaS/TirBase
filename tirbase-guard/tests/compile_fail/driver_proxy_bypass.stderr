@@ -1,0 +1,15 @@
+error[E0624]: associated function `new` is private
+ --> tests/compile_fail/driver_proxy_bypass.rs:8:30
+  |
+8 |       let _ = ActuationPermit::new(
+  |                                ^^^ private associated function
+  |
+ ::: src/permit.rs
+  |
+  | /     pub(crate) fn new(
+  | |         target_id: TargetId,
+  | |         param: String,
+  | |         value: FixedPointValue,
+  | |         entry_id: [u8; 16],
+  | |     ) -> Self {
+  | |_____________- private associated function defined here

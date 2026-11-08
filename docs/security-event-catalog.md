@@ -40,6 +40,8 @@ Events emitted by the Command Guard when it accepts or rejects a command (Stage 
 | ModeLockdown | Node is in Lockdown or Restricted mode; command rejected at Stage 1 | High | Planned | PV-4.13 |
 | InvalidSignature | Command signature failed verification at Stage 2 | High | Planned | PV-4.3 |
 | TokenInvalid | Biscuit token invalid, expired, or from unknown CA (Stage 3) | High | Planned | PV-3.2 |
+| CommandSignatureInvalid | Command signature failed verification over canonical CBOR (Stage 2) | High | Implemented | PV-4.2 |
+| CommandAccepted | Command passed task-11 admission (signature+epoch gate) and was dispatched via DriverProxy | Low | Implemented | PV-4.3 |
 | ScopeViolation | Token does not authorise the requested target or parameter (Stage 4) | High | Planned | PV-4.6 |
 | IssuerRevoked | Issuer DID is in the revocation set (Stage 5) | High | Planned | PV-4.3 |
 | StaleEpoch | Command enrollment epoch is less than current device epoch (Stage 6) | Medium | Planned | PV-5.5 |

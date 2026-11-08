@@ -11,7 +11,7 @@ use tirbase_core::events::{install_security_event_sink, ReasonCode, SecurityEven
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::{KeyProvider, SecurityEventSink};
 use tirbase_guard::epoch::{
-    CommandEnvelope, CommandGuard, DeviceEpoch, DeviceEpochStore, EpochBump, EpochError,
+    CommandEnvelope, EpochCommandGuard, DeviceEpoch, DeviceEpochStore, EpochBump, EpochError,
     EpochRegistry, InMemoryEpochStore,
 };
 use tirbase_guard::signed_operation::SignedOperation;
@@ -86,7 +86,7 @@ fn epoch_starts_at_zero_and_prior_epoch_commands_are_rejected_after_bump() {
 
     let store = Arc::new(InMemoryEpochStore::default());
     let registry = Arc::new(EpochRegistry::new(store.clone()));
-    let guard = CommandGuard::new(registry.clone());
+    let guard = EpochCommandGuard::new(registry.clone());
 
     let enrolled = registry.ensure_enrolled("did:key:zDevice", 100).unwrap();
     assert_eq!(enrolled.epoch, 0);

@@ -1,0 +1,15 @@
+error[E0451]: fields `target_id`, `param`, `value`, `entry_id` and `_sealed` of struct `ActuationPermit` are private
+  --> tests/compile_fail/permit_sealed_admin_ingress.rs:7:9
+   |
+ 6 |     let _ = ActuationPermit {
+   |             --------------- in this type
+ 7 |         target_id: TargetId::new("t"),
+   |         ^^^^^^^^^ private field
+ 8 |         param: "p".to_string(),
+   |         ^^^^^ private field
+ 9 |         value: FixedPointValue::new(1, 0, UNIT_PERCENT),
+   |         ^^^^^ private field
+10 |         entry_id: [0u8; 16],
+   |         ^^^^^^^^ private field
+11 |         _sealed: (),
+   |         ^^^^^^^ private field

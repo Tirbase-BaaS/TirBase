@@ -1,0 +1,22 @@
+error[E0277]: the trait bound `ActuationPermit: serde::de::DeserializeOwned` is not satisfied
+ --> tests/compile_fail/permit_not_deserialize.rs:4:17
+  |
+4 |     assert_de::<ActuationPermit>();
+  |                 ^^^^^^^^^^^^^^^ the trait `for<'de> Deserialize<'de>` is not implemented for `ActuationPermit`
+  |
+  = help: the following other types implement trait `Deserialize<'de>`:
+            `&'a Path` implements `Deserialize<'de>`
+            `&'a [u8]` implements `Deserialize<'de>`
+            `&'a serde_bytes::bytearray::ByteArray<N>` implements `Deserialize<'de>`
+            `&'a serde_bytes::bytes::Bytes` implements `Deserialize<'de>`
+            `&'a str` implements `Deserialize<'de>`
+            `()` implements `Deserialize<'de>`
+            `(T,)` implements `Deserialize<'de>`
+            `(T0, T1)` implements `Deserialize<'de>`
+          and $N others
+  = note: required for `ActuationPermit` to implement `DeserializeOwned`
+note: required by a bound in `assert_de`
+ --> tests/compile_fail/permit_not_deserialize.rs:2:17
+  |
+2 | fn assert_de<T: serde::de::DeserializeOwned>() {}
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_de`
