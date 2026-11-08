@@ -53,7 +53,7 @@ Events emitted by the Command Guard when it accepts or rejects a command (Stage 
 | ConstraintViolation | Cross-parameter linear constraint failed (Stage 12) | Medium | Implemented | PV-4.5 |
 | DriftExceeded | Rate-of-change or cumulative drift window exceeded (Stage 13) | Medium | Implemented | PV-4.7 |
 | DwellViolation | Command arrived before dwell period elapsed (Stage 13) | Medium | Implemented | PV-4.7 |
-| MinOffViolation | Command arrived before min-off period elapsed (Stage 13) | Medium | Planned | PV-4.7 |
+| MinOffViolation | Command arrived before min-off period elapsed (Stage 13) | Medium | Implemented | PV-4.7 |
 | RateLimit | Per-issuer rate limit (default 10 cmd/s) exceeded (Stage 14) | Low | Planned | PV-24.2 |
 | QuorumRequired | Critical parameter requires M-of-N co-signatures (Stage 15) | Medium | Implemented | PV-4.16 |
 | CommitConflict | Atomic Stage 16 transaction conflict (sequence number already seen) | Medium | Planned | PV-5.5 |
@@ -130,7 +130,7 @@ Events emitted by the revocation subsystem (PV-3).
 |---|---|---|---|---|
 | DidRevoked | A DID was added to the revocation set | High | Planned | PV-3 |
 | RevocationSignatureReceived | One M-of-N co-signature received for a revocation operation | Low | Planned | PV-3 |
-| RevocationLeaseReleased | Lease held by a now-revoked DID was forcibly released | Medium | Planned | PV-5.8a |
+| RevocationLeaseReleased | Lease held by a now-revoked DID was forcibly released | Medium | Implemented | PV-5.8a |
 | RevocationPostExecution | Migration transform author DID was revoked; transform result discarded | High | Implemented | PV-8.7 |
 | RevocationVerificationFailed | A revocation signature or revocation delta failed verification | High | Implemented | PV-3 |
 

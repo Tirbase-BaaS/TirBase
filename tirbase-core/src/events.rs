@@ -189,8 +189,10 @@ pub enum ReasonCode {
     ConstraintViolation,
     /// Rate-of-change or cumulative drift window exceeded (Stage 13).
     DriftExceeded,
-    /// Dwell/min-off timing violation (Stage 13).
+    /// Dwell timing violation (Stage 13, PV-4.7).
     DwellViolation,
+    /// Min-off timing violation (Stage 13, PV-4.7).
+    MinOffViolation,
     /// Per-issuer rate limit exceeded (Stage 14).
     RateLimit,
     /// Critical parameter requires M-of-N co-signatures (Stage 15).
@@ -378,6 +380,7 @@ impl ReasonCode {
             ReasonCode::ConstraintViolation => "ConstraintViolation",
             ReasonCode::DriftExceeded => "DriftExceeded",
             ReasonCode::DwellViolation => "DwellViolation",
+            ReasonCode::MinOffViolation => "MinOffViolation",
             ReasonCode::RateLimit => "RateLimit",
             ReasonCode::QuorumRequired => "QuorumRequired",
             ReasonCode::CommitConflict => "CommitConflict",
