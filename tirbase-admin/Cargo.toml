@@ -19,16 +19,17 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
 sha2 = "0.10"
-
+rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
 tirbase_gateway = { package = "tirbase-gateway", path = "../tirbase-gateway" }
 
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 tirbase_gateway = { package = "tirbase-gateway", path = "../tirbase-gateway" }
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
 sha2 = "0.10"
 
 [[bin]]
 name = "tirbase-verify-log"
 path = "src/bin/tirbase_verify_log.rs"
+

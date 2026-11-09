@@ -140,6 +140,18 @@ fn main() -> Result<()> {
                 _ => bail!("rollout requires subcommand: status|signed-rollback"),
             }
         }
+        "restore" => {
+            let report = cmd::restore::run(&cmd::restore::RestoreArgs {
+                backup_db: req(&flags, "backup-db")?.into(),
+                target_db: req(&flags, "target-db")?.into(),
+                delta_log: one(&flags, "delta-log").map(Into::into),
+                epoch_store_db: req(&flags, "epoch-store-db")?.into(),
+                lockdown_db: req(&flags, "lockdown-db")?.into(),
+                signer_seed_hex: req(&flags, "signer-seed-hex")?,
+                output: req(&flags, "output")?.into(),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
         "help" | "--help" | "-h" => print_usage(),
         other => {
             print_usage();
