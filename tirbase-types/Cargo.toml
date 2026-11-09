@@ -11,6 +11,8 @@ publish = false
 # `derive` enables the #[derive(Serialize, Deserialize)] macros.
 # `std` is intentionally absent — this crate must compile on no_std targets.
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+# `libm` provides `powi`/`round` for `f64` in `no_std` (core `f64` lacks inherent math methods).
+libm = "0.2"
 
 [dev-dependencies]
 serde_json = "1"

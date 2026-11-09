@@ -4425,6 +4425,7 @@ dependencies = [
 name = "tirbase-drivers"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "tirbase-types",
 ]
 
@@ -4498,6 +4499,7 @@ dependencies = [
 name = "tirbase-types"
 version = "0.1.0"
 dependencies = [
+ "libm",
  "proptest",
  "serde",
  "serde_json",

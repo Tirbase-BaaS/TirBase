@@ -139,8 +139,8 @@ impl FixedPointValue {
         let value = if value == 0.0_f64 { 0.0_f64 } else { value };
 
         // Scale: mantissa = round(value × 10^(−target_exponent)).
-        // powi() accepts i32; i8 always fits.
-        let scale = 10_f64.powi(-(target_exponent as i32));
+        // `libm` is used so this compiles under `no_std` (core `f64` has no inherent `powi`/`round`).
+        let scale = libm::pow(10.0_f64, -(target_exponent as f64));
         let scaled = value * scale;
 
         // Reject values that cannot be represented as i64 before casting.
@@ -149,7 +149,7 @@ impl FixedPointValue {
             return Err(FixedPointError::OverflowOnConversion);
         }
 
-        let mantissa = scaled.round() as i64;
+        let mantissa = libm::round(scaled) as i64;
         Ok(FixedPointValue {
             mantissa,
             exponent: target_exponent,
