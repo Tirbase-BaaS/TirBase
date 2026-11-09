@@ -177,6 +177,7 @@ jobs:
           fi
           echo "OK: $MANIFEST contains no forbidden dependency declarations."
           cargo check -p tirbase-drivers
+          cargo test -p tirbase-drivers
 
   public-api:
     name: cargo public-api (CLAIM-2.6)

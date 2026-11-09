@@ -1,2 +1,1268 @@
+    Checking tirbase-types v0.1.0 (/Users/macbook/github code/TriBase/tirbase-types)
+ Documenting tirbase-drivers v0.1.0 (/Users/macbook/github code/TriBase/tirbase-drivers)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.11s
 pub mod tirbase_drivers
 pub use tirbase_drivers::tirbase_types
+pub mod tirbase_drivers::driver_trait
+pub enum tirbase_drivers::driver_trait::DriverError
+pub tirbase_drivers::driver_trait::DriverError::Capability(alloc::string::String)
+pub tirbase_drivers::driver_trait::DriverError::Codec(alloc::string::String)
+pub tirbase_drivers::driver_trait::DriverError::InvalidFrame(alloc::string::String)
+pub tirbase_drivers::driver_trait::DriverError::Timeout(tirbase_drivers::driver_trait::TimeoutError)
+pub tirbase_drivers::driver_trait::DriverError::UnsupportedParam(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::clone(&self) -> tirbase_drivers::driver_trait::DriverError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DriverError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::eq(&self, &tirbase_drivers::driver_trait::DriverError) -> bool
+impl core::convert::From<tirbase_drivers::driver_trait::TimeoutError> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(tirbase_drivers::driver_trait::TimeoutError) -> Self
+impl core::error::Error for tirbase_drivers::driver_trait::DriverError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Send for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Sync for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DriverError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DriverError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DriverError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DriverError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DriverError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DriverError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DriverError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DriverError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DriverError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DriverError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DriverError::Owned = T
+pub fn tirbase_drivers::driver_trait::DriverError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DriverError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::DriverError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DriverError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DriverError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DriverError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DriverError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DriverError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(T) -> T
+pub struct tirbase_drivers::driver_trait::ActuationPermitRef
+pub tirbase_drivers::driver_trait::ActuationPermitRef::entry_id: [u8; 16]
+pub tirbase_drivers::driver_trait::ActuationPermitRef::param: alloc::string::String
+pub tirbase_drivers::driver_trait::ActuationPermitRef::target_id: tirbase_types::TargetId
+pub tirbase_drivers::driver_trait::ActuationPermitRef::value: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::clone(&self) -> tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::cmp::Eq for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::eq(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Freeze for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Send for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Sync for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Unpin for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::ActuationPermitRef
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::ActuationPermitRef where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Owned = T
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::ActuationPermitRef where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::ActuationPermitRef where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::ActuationPermitRef where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ActuationPermitRef where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::ActuationPermitRef::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::from(T) -> T
+pub struct tirbase_drivers::driver_trait::DeviceModel
+pub tirbase_drivers::driver_trait::DeviceModel::device_class: alloc::string::String
+pub tirbase_drivers::driver_trait::DeviceModel::parameters: alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>
+impl tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_new(alloc::string::String, alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>) -> core::result::Result<Self, tirbase_drivers::driver_trait::EmptyDeviceModelError>
+pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<(), tirbase_drivers::driver_trait::EmptyDeviceModelError>
+impl core::clone::Clone for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::clone(&self) -> tirbase_drivers::driver_trait::DeviceModel
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DeviceModel
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::eq(&self, &tirbase_drivers::driver_trait::DeviceModel) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Send for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Sync for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DeviceModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DeviceModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DeviceModel
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DeviceModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DeviceModel::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DeviceModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DeviceModel where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DeviceModel::Owned = T
+pub fn tirbase_drivers::driver_trait::DeviceModel::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DeviceModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DeviceModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DeviceModel where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DeviceModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::from(T) -> T
+pub struct tirbase_drivers::driver_trait::DriverHealth
+pub tirbase_drivers::driver_trait::DriverHealth::detail: alloc::string::String
+pub tirbase_drivers::driver_trait::DriverHealth::healthy: bool
+impl core::clone::Clone for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::clone(&self) -> tirbase_drivers::driver_trait::DriverHealth
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DriverHealth
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::eq(&self, &tirbase_drivers::driver_trait::DriverHealth) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Send for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Sync for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DriverHealth
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DriverHealth
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DriverHealth
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DriverHealth::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DriverHealth::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DriverHealth::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DriverHealth::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DriverHealth::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DriverHealth where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DriverHealth::Owned = T
+pub fn tirbase_drivers::driver_trait::DriverHealth::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DriverHealth::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DriverHealth where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DriverHealth where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DriverHealth where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DriverHealth where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DriverHealth::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::from(T) -> T
+pub struct tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub tirbase_drivers::driver_trait::EmptyDeviceModelError::device_class: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone(&self) -> tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::eq(&self, &tirbase_drivers::driver_trait::EmptyDeviceModelError) -> bool
+impl core::error::Error for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Send for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Sync for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Owned = T
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::from(T) -> T
+pub struct tirbase_drivers::driver_trait::ParameterDescriptor
+pub tirbase_drivers::driver_trait::ParameterDescriptor::name: alloc::string::String
+pub tirbase_drivers::driver_trait::ParameterDescriptor::range: [tirbase_types::fixed_point::FixedPointValue; 2]
+pub tirbase_drivers::driver_trait::ParameterDescriptor::unit_id: tirbase_types::UnitId
+pub tirbase_drivers::driver_trait::ParameterDescriptor::unit_label: alloc::string::String
+pub tirbase_drivers::driver_trait::ParameterDescriptor::writable: bool
+impl core::clone::Clone for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::clone(&self) -> tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::cmp::Eq for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::eq(&self, &tirbase_drivers::driver_trait::ParameterDescriptor) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Freeze for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Send for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Sync for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Unpin for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::ParameterDescriptor
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::ParameterDescriptor where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Owned = T
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::ParameterDescriptor where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::ParameterDescriptor where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::ParameterDescriptor where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ParameterDescriptor where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::ParameterDescriptor::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::from(T) -> T
+pub struct tirbase_drivers::driver_trait::TimeoutError
+pub tirbase_drivers::driver_trait::TimeoutError::limit_ms: u64
+pub tirbase_drivers::driver_trait::TimeoutError::operation: &'static str
+impl core::clone::Clone for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::clone(&self) -> tirbase_drivers::driver_trait::TimeoutError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::TimeoutError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::eq(&self, &tirbase_drivers::driver_trait::TimeoutError) -> bool
+impl core::convert::From<tirbase_drivers::driver_trait::TimeoutError> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(tirbase_drivers::driver_trait::TimeoutError) -> Self
+impl core::error::Error for tirbase_drivers::driver_trait::TimeoutError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Send for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Sync for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::TimeoutError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::TimeoutError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::TimeoutError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::TimeoutError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::TimeoutError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::TimeoutError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::TimeoutError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::TimeoutError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::TimeoutError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::TimeoutError::Owned = T
+pub fn tirbase_drivers::driver_trait::TimeoutError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::TimeoutError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::TimeoutError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::TimeoutError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::TimeoutError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::TimeoutError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::TimeoutError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::TimeoutError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::from(T) -> T
+pub const tirbase_drivers::driver_trait::DRIVER_OPERATION_TIMEOUT: core::time::Duration
+pub trait tirbase_drivers::driver_trait::DriverTrait: core::marker::Send + core::marker::Sync
+pub fn tirbase_drivers::driver_trait::DriverTrait::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::driver_trait::DriverTrait::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::driver_trait::DriverTrait::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::driver_trait::DriverTrait::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::driver_trait::DriverTrait::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::driver_trait::DriverTrait::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::driver_trait::DriverTrait::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::driver_trait::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
+pub type tirbase_drivers::driver_trait::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
+pub type tirbase_drivers::driver_trait::Frame = alloc::vec::Vec<u8>
+pub mod tirbase_drivers::isolation
+pub enum tirbase_drivers::isolation::IsolationError
+pub tirbase_drivers::isolation::IsolationError::Exec(core::io::error::ErrorKind, alloc::string::String)
+pub tirbase_drivers::isolation::IsolationError::InvalidChildConfig(alloc::string::String)
+pub tirbase_drivers::isolation::IsolationError::PeerCredential(alloc::string::String)
+pub tirbase_drivers::isolation::IsolationError::SandboxApply(alloc::string::String)
+pub tirbase_drivers::isolation::IsolationError::SandboxUnavailable
+pub tirbase_drivers::isolation::IsolationError::SandboxUnavailable::detail: alloc::string::String
+pub tirbase_drivers::isolation::IsolationError::Socketpair(core::io::error::ErrorKind, alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::clone(&self) -> tirbase_drivers::isolation::IsolationError
+impl core::cmp::Eq for tirbase_drivers::isolation::IsolationError
+impl core::cmp::PartialEq for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::eq(&self, &tirbase_drivers::isolation::IsolationError) -> bool
+impl core::convert::From<core::io::error::Error> for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::from(core::io::error::Error) -> Self
+impl core::error::Error for tirbase_drivers::isolation::IsolationError
+impl core::fmt::Debug for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::IsolationError
+impl core::marker::Freeze for tirbase_drivers::isolation::IsolationError
+impl core::marker::Send for tirbase_drivers::isolation::IsolationError
+impl core::marker::Sync for tirbase_drivers::isolation::IsolationError
+impl core::marker::Unpin for tirbase_drivers::isolation::IsolationError
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::IsolationError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::IsolationError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::IsolationError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::IsolationError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::IsolationError::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::IsolationError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::IsolationError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::IsolationError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::IsolationError where T: core::clone::Clone
+pub type tirbase_drivers::isolation::IsolationError::Owned = T
+pub fn tirbase_drivers::isolation::IsolationError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::IsolationError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::isolation::IsolationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::isolation::IsolationError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::IsolationError where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::IsolationError where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::IsolationError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::IsolationError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::from(T) -> T
+pub struct tirbase_drivers::isolation::DriverSocketPair
+pub tirbase_drivers::isolation::DriverSocketPair::child_fd: i32
+pub tirbase_drivers::isolation::DriverSocketPair::parent_fd: i32
+impl core::fmt::Debug for tirbase_drivers::isolation::DriverSocketPair
+pub fn tirbase_drivers::isolation::DriverSocketPair::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Send for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Sync for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Unpin for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::DriverSocketPair
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::DriverSocketPair
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::DriverSocketPair
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::DriverSocketPair::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::DriverSocketPair::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::DriverSocketPair::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::DriverSocketPair::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::DriverSocketPair::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_drivers::isolation::DriverSocketPair where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::DriverSocketPair where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::DriverSocketPair where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::DriverSocketPair
+pub fn tirbase_drivers::isolation::DriverSocketPair::from(T) -> T
+pub struct tirbase_drivers::isolation::DriverSpawnPlan
+pub tirbase_drivers::isolation::DriverSpawnPlan::child_args: alloc::vec::Vec<alloc::string::String>
+pub tirbase_drivers::isolation::DriverSpawnPlan::child_program: std::path::PathBuf
+pub tirbase_drivers::isolation::DriverSpawnPlan::child_socket_fd: i32
+pub tirbase_drivers::isolation::DriverSpawnPlan::pass_device_fd_via_scm_rights: bool
+impl core::clone::Clone for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::clone(&self) -> tirbase_drivers::isolation::DriverSpawnPlan
+impl core::cmp::Eq for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::cmp::PartialEq for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::eq(&self, &tirbase_drivers::isolation::DriverSpawnPlan) -> bool
+impl core::fmt::Debug for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Freeze for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Send for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Sync for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Unpin for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::DriverSpawnPlan
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::DriverSpawnPlan where T: core::clone::Clone
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Owned = T
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::isolation::DriverSpawnPlan where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::DriverSpawnPlan where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::DriverSpawnPlan where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::DriverSpawnPlan where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::DriverSpawnPlan::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::from(T) -> T
+pub struct tirbase_drivers::isolation::KernelIsolationCaps
+pub tirbase_drivers::isolation::KernelIsolationCaps::kernel_major: u32
+pub tirbase_drivers::isolation::KernelIsolationCaps::kernel_minor: u32
+pub tirbase_drivers::isolation::KernelIsolationCaps::landlock_available: bool
+impl tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::supports_landlock(self) -> bool
+impl core::clone::Clone for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::clone(&self) -> tirbase_drivers::isolation::KernelIsolationCaps
+impl core::cmp::Eq for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::cmp::PartialEq for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::eq(&self, &tirbase_drivers::isolation::KernelIsolationCaps) -> bool
+impl core::fmt::Debug for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Freeze for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Send for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Sync for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Unpin for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::KernelIsolationCaps
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::KernelIsolationCaps where T: core::clone::Clone
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Owned = T
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::isolation::KernelIsolationCaps where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::KernelIsolationCaps where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::KernelIsolationCaps where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::KernelIsolationCaps where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::KernelIsolationCaps::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::from(T) -> T
+pub const tirbase_drivers::isolation::DEGRADED_ISOLATION_OPT_IN_FLAG: &str
+pub const tirbase_drivers::isolation::DRIVER_SOCKET_FD_ARG: &str
+pub fn tirbase_drivers::isolation::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
+pub mod tirbase_drivers::lifecycle
+pub enum tirbase_drivers::lifecycle::DriverRestartDecision
+pub tirbase_drivers::lifecycle::DriverRestartDecision::EscalateLockdown
+pub tirbase_drivers::lifecycle::DriverRestartDecision::EscalateLockdown::attempts: u32
+pub tirbase_drivers::lifecycle::DriverRestartDecision::Restart
+pub tirbase_drivers::lifecycle::DriverRestartDecision::Restart::attempt: u32
+pub tirbase_drivers::lifecycle::DriverRestartDecision::Restart::backoff: core::time::Duration
+impl tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::feeds_supervisor_lockdown(self) -> bool
+impl core::clone::Clone for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::clone(&self) -> tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::cmp::Eq for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::cmp::PartialEq for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::eq(&self, &tirbase_drivers::lifecycle::DriverRestartDecision) -> bool
+impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::StructuralPartialEq for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Send for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Sync for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Unpin for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::DriverRestartDecision
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::DriverRestartDecision where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Owned = T
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::lifecycle::DriverRestartDecision where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::DriverRestartDecision where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::DriverRestartDecision where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::DriverRestartDecision where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::DriverRestartDecision::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::from(T) -> T
+pub struct tirbase_drivers::lifecycle::DriverLifecycle
+impl tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::consecutive_crashes(&self) -> u32
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::new(core::time::Duration, core::time::Duration, u32) -> Self
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_crash(&mut self) -> tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_stable(&mut self)
+impl core::clone::Clone for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone(&self) -> tirbase_drivers::lifecycle::DriverLifecycle
+impl core::default::Default for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::default() -> Self
+impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Send for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Sync for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Unpin for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::DriverLifecycle
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::DriverLifecycle where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Owned = T
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::lifecycle::DriverLifecycle where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::DriverLifecycle where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::DriverLifecycle where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::DriverLifecycle where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::DriverLifecycle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::from(T) -> T
+pub struct tirbase_drivers::lifecycle::LifecycleConfigError(pub alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::clone(&self) -> tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::cmp::Eq for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::cmp::PartialEq for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::eq(&self, &tirbase_drivers::lifecycle::LifecycleConfigError) -> bool
+impl core::error::Error for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::fmt::Debug for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Freeze for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Send for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Sync for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Unpin for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::LifecycleConfigError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Owned = T
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::lifecycle::LifecycleConfigError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::LifecycleConfigError where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::LifecycleConfigError where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::LifecycleConfigError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::from(T) -> T
+pub const tirbase_drivers::lifecycle::DRIVER_RESTART_INITIAL: core::time::Duration
+pub const tirbase_drivers::lifecycle::DRIVER_RESTART_MAX: core::time::Duration
+pub const tirbase_drivers::lifecycle::DRIVER_RESTART_MAX_RETRIES: u32
+pub trait tirbase_drivers::lifecycle::DriverCrashSupervisor: core::marker::Send + core::marker::Sync
+pub fn tirbase_drivers::lifecycle::DriverCrashSupervisor::on_driver_escalate_lockdown(&self, u32)
+pub fn tirbase_drivers::lifecycle::DriverCrashSupervisor::on_driver_restart(&self, u32, core::time::Duration)
+pub fn tirbase_drivers::lifecycle::apply_restart_decision<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(tirbase_drivers::lifecycle::DriverRestartDecision, &S)
+pub enum tirbase_drivers::DriverError
+pub tirbase_drivers::DriverError::Capability(alloc::string::String)
+pub tirbase_drivers::DriverError::Codec(alloc::string::String)
+pub tirbase_drivers::DriverError::InvalidFrame(alloc::string::String)
+pub tirbase_drivers::DriverError::Timeout(tirbase_drivers::driver_trait::TimeoutError)
+pub tirbase_drivers::DriverError::UnsupportedParam(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::clone(&self) -> tirbase_drivers::driver_trait::DriverError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DriverError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::eq(&self, &tirbase_drivers::driver_trait::DriverError) -> bool
+impl core::convert::From<tirbase_drivers::driver_trait::TimeoutError> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(tirbase_drivers::driver_trait::TimeoutError) -> Self
+impl core::error::Error for tirbase_drivers::driver_trait::DriverError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Send for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Sync for tirbase_drivers::driver_trait::DriverError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DriverError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DriverError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DriverError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DriverError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DriverError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DriverError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DriverError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DriverError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DriverError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DriverError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DriverError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DriverError::Owned = T
+pub fn tirbase_drivers::driver_trait::DriverError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DriverError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::DriverError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DriverError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DriverError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DriverError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DriverError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DriverError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(T) -> T
+pub enum tirbase_drivers::DriverRestartDecision
+pub tirbase_drivers::DriverRestartDecision::EscalateLockdown
+pub tirbase_drivers::DriverRestartDecision::EscalateLockdown::attempts: u32
+pub tirbase_drivers::DriverRestartDecision::Restart
+pub tirbase_drivers::DriverRestartDecision::Restart::attempt: u32
+pub tirbase_drivers::DriverRestartDecision::Restart::backoff: core::time::Duration
+impl tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::feeds_supervisor_lockdown(self) -> bool
+impl core::clone::Clone for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::clone(&self) -> tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::cmp::Eq for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::cmp::PartialEq for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::eq(&self, &tirbase_drivers::lifecycle::DriverRestartDecision) -> bool
+impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::StructuralPartialEq for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Send for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Sync for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::Unpin for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::DriverRestartDecision
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::DriverRestartDecision
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::DriverRestartDecision where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::DriverRestartDecision where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::DriverRestartDecision::Owned = T
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::lifecycle::DriverRestartDecision where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::DriverRestartDecision where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::DriverRestartDecision where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::DriverRestartDecision where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::DriverRestartDecision::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverRestartDecision::from(T) -> T
+pub enum tirbase_drivers::IsolationError
+pub tirbase_drivers::IsolationError::Exec(core::io::error::ErrorKind, alloc::string::String)
+pub tirbase_drivers::IsolationError::InvalidChildConfig(alloc::string::String)
+pub tirbase_drivers::IsolationError::PeerCredential(alloc::string::String)
+pub tirbase_drivers::IsolationError::SandboxApply(alloc::string::String)
+pub tirbase_drivers::IsolationError::SandboxUnavailable
+pub tirbase_drivers::IsolationError::SandboxUnavailable::detail: alloc::string::String
+pub tirbase_drivers::IsolationError::Socketpair(core::io::error::ErrorKind, alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::clone(&self) -> tirbase_drivers::isolation::IsolationError
+impl core::cmp::Eq for tirbase_drivers::isolation::IsolationError
+impl core::cmp::PartialEq for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::eq(&self, &tirbase_drivers::isolation::IsolationError) -> bool
+impl core::convert::From<core::io::error::Error> for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::from(core::io::error::Error) -> Self
+impl core::error::Error for tirbase_drivers::isolation::IsolationError
+impl core::fmt::Debug for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::IsolationError
+impl core::marker::Freeze for tirbase_drivers::isolation::IsolationError
+impl core::marker::Send for tirbase_drivers::isolation::IsolationError
+impl core::marker::Sync for tirbase_drivers::isolation::IsolationError
+impl core::marker::Unpin for tirbase_drivers::isolation::IsolationError
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::IsolationError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::IsolationError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::IsolationError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::IsolationError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::IsolationError::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::IsolationError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::IsolationError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::IsolationError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::IsolationError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::IsolationError where T: core::clone::Clone
+pub type tirbase_drivers::isolation::IsolationError::Owned = T
+pub fn tirbase_drivers::isolation::IsolationError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::IsolationError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::isolation::IsolationError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::isolation::IsolationError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::IsolationError where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::IsolationError where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::IsolationError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::IsolationError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::IsolationError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::IsolationError
+pub fn tirbase_drivers::isolation::IsolationError::from(T) -> T
+pub struct tirbase_drivers::ActuationPermitRef
+pub tirbase_drivers::ActuationPermitRef::entry_id: [u8; 16]
+pub tirbase_drivers::ActuationPermitRef::param: alloc::string::String
+pub tirbase_drivers::ActuationPermitRef::target_id: tirbase_types::TargetId
+pub tirbase_drivers::ActuationPermitRef::value: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::clone(&self) -> tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::cmp::Eq for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::eq(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Freeze for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Send for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Sync for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::Unpin for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::ActuationPermitRef
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::ActuationPermitRef
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::ActuationPermitRef where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::ActuationPermitRef where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::ActuationPermitRef::Owned = T
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::ActuationPermitRef where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::ActuationPermitRef where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::ActuationPermitRef where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ActuationPermitRef where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::ActuationPermitRef::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ActuationPermitRef
+pub fn tirbase_drivers::driver_trait::ActuationPermitRef::from(T) -> T
+pub struct tirbase_drivers::DeviceModel
+pub tirbase_drivers::DeviceModel::device_class: alloc::string::String
+pub tirbase_drivers::DeviceModel::parameters: alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>
+impl tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_new(alloc::string::String, alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>) -> core::result::Result<Self, tirbase_drivers::driver_trait::EmptyDeviceModelError>
+pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<(), tirbase_drivers::driver_trait::EmptyDeviceModelError>
+impl core::clone::Clone for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::clone(&self) -> tirbase_drivers::driver_trait::DeviceModel
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DeviceModel
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::eq(&self, &tirbase_drivers::driver_trait::DeviceModel) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Send for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Sync for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DeviceModel
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DeviceModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DeviceModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DeviceModel
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DeviceModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DeviceModel::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DeviceModel where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DeviceModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DeviceModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DeviceModel where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DeviceModel::Owned = T
+pub fn tirbase_drivers::driver_trait::DeviceModel::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DeviceModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DeviceModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DeviceModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DeviceModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DeviceModel where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DeviceModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DeviceModel
+pub fn tirbase_drivers::driver_trait::DeviceModel::from(T) -> T
+pub struct tirbase_drivers::DriverHealth
+pub tirbase_drivers::DriverHealth::detail: alloc::string::String
+pub tirbase_drivers::DriverHealth::healthy: bool
+impl core::clone::Clone for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::clone(&self) -> tirbase_drivers::driver_trait::DriverHealth
+impl core::cmp::Eq for tirbase_drivers::driver_trait::DriverHealth
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::eq(&self, &tirbase_drivers::driver_trait::DriverHealth) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Freeze for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Send for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Sync for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::Unpin for tirbase_drivers::driver_trait::DriverHealth
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::DriverHealth
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::DriverHealth
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::DriverHealth
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::DriverHealth::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::DriverHealth::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::DriverHealth::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::DriverHealth where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::DriverHealth::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::DriverHealth::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::DriverHealth where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::DriverHealth::Owned = T
+pub fn tirbase_drivers::driver_trait::DriverHealth::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::DriverHealth::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::DriverHealth where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::DriverHealth where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::DriverHealth where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::DriverHealth::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::DriverHealth where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::DriverHealth::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::DriverHealth
+pub fn tirbase_drivers::driver_trait::DriverHealth::from(T) -> T
+pub struct tirbase_drivers::DriverLifecycle
+impl tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::consecutive_crashes(&self) -> u32
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::new(core::time::Duration, core::time::Duration, u32) -> Self
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_crash(&mut self) -> tirbase_drivers::lifecycle::DriverRestartDecision
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_stable(&mut self)
+impl core::clone::Clone for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone(&self) -> tirbase_drivers::lifecycle::DriverLifecycle
+impl core::default::Default for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::default() -> Self
+impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Send for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Sync for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::Unpin for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::DriverLifecycle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::DriverLifecycle
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::DriverLifecycle where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::DriverLifecycle where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::DriverLifecycle::Owned = T
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::lifecycle::DriverLifecycle where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::DriverLifecycle where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::DriverLifecycle where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::DriverLifecycle where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::DriverLifecycle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::DriverLifecycle
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::from(T) -> T
+pub struct tirbase_drivers::DriverSocketPair
+pub tirbase_drivers::DriverSocketPair::child_fd: i32
+pub tirbase_drivers::DriverSocketPair::parent_fd: i32
+impl core::fmt::Debug for tirbase_drivers::isolation::DriverSocketPair
+pub fn tirbase_drivers::isolation::DriverSocketPair::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Send for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Sync for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::Unpin for tirbase_drivers::isolation::DriverSocketPair
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::DriverSocketPair
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::DriverSocketPair
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::DriverSocketPair
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::DriverSocketPair::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::DriverSocketPair::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::DriverSocketPair::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::DriverSocketPair where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::DriverSocketPair::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::DriverSocketPair::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_drivers::isolation::DriverSocketPair where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::DriverSocketPair where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::DriverSocketPair where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSocketPair::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::DriverSocketPair
+pub fn tirbase_drivers::isolation::DriverSocketPair::from(T) -> T
+pub struct tirbase_drivers::DriverSpawnPlan
+pub tirbase_drivers::DriverSpawnPlan::child_args: alloc::vec::Vec<alloc::string::String>
+pub tirbase_drivers::DriverSpawnPlan::child_program: std::path::PathBuf
+pub tirbase_drivers::DriverSpawnPlan::child_socket_fd: i32
+pub tirbase_drivers::DriverSpawnPlan::pass_device_fd_via_scm_rights: bool
+impl core::clone::Clone for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::clone(&self) -> tirbase_drivers::isolation::DriverSpawnPlan
+impl core::cmp::Eq for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::cmp::PartialEq for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::eq(&self, &tirbase_drivers::isolation::DriverSpawnPlan) -> bool
+impl core::fmt::Debug for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Freeze for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Send for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Sync for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::Unpin for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::DriverSpawnPlan
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::DriverSpawnPlan
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::DriverSpawnPlan where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::DriverSpawnPlan where T: core::clone::Clone
+pub type tirbase_drivers::isolation::DriverSpawnPlan::Owned = T
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::isolation::DriverSpawnPlan where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::DriverSpawnPlan where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::DriverSpawnPlan where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::DriverSpawnPlan where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::DriverSpawnPlan::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::DriverSpawnPlan
+pub fn tirbase_drivers::isolation::DriverSpawnPlan::from(T) -> T
+pub struct tirbase_drivers::EmptyDeviceModelError
+pub tirbase_drivers::EmptyDeviceModelError::device_class: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone(&self) -> tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::eq(&self, &tirbase_drivers::driver_trait::EmptyDeviceModelError) -> bool
+impl core::error::Error for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Send for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Sync for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::EmptyDeviceModelError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::EmptyDeviceModelError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::EmptyDeviceModelError::Owned = T
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::EmptyDeviceModelError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError
+pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::from(T) -> T
+pub struct tirbase_drivers::KernelIsolationCaps
+pub tirbase_drivers::KernelIsolationCaps::kernel_major: u32
+pub tirbase_drivers::KernelIsolationCaps::kernel_minor: u32
+pub tirbase_drivers::KernelIsolationCaps::landlock_available: bool
+impl tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::supports_landlock(self) -> bool
+impl core::clone::Clone for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::clone(&self) -> tirbase_drivers::isolation::KernelIsolationCaps
+impl core::cmp::Eq for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::cmp::PartialEq for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::eq(&self, &tirbase_drivers::isolation::KernelIsolationCaps) -> bool
+impl core::fmt::Debug for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::StructuralPartialEq for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Freeze for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Send for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Sync for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::Unpin for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::marker::UnsafeUnpin for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::isolation::KernelIsolationCaps
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::isolation::KernelIsolationCaps
+impl<T, U> core::convert::Into<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::From<T>
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::Into<T>
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Error = core::convert::Infallible
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::isolation::KernelIsolationCaps where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::isolation::KernelIsolationCaps where T: core::clone::Clone
+pub type tirbase_drivers::isolation::KernelIsolationCaps::Owned = T
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::clone_into(&self, &mut T)
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::isolation::KernelIsolationCaps where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::isolation::KernelIsolationCaps where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::isolation::KernelIsolationCaps where T: ?core::marker::Sized
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::KernelIsolationCaps where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::isolation::KernelIsolationCaps::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::isolation::KernelIsolationCaps
+pub fn tirbase_drivers::isolation::KernelIsolationCaps::from(T) -> T
+pub struct tirbase_drivers::LifecycleConfigError(pub alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::clone(&self) -> tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::cmp::Eq for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::cmp::PartialEq for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::eq(&self, &tirbase_drivers::lifecycle::LifecycleConfigError) -> bool
+impl core::error::Error for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::fmt::Debug for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Freeze for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Send for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Sync for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::Unpin for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::marker::UnsafeUnpin for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::lifecycle::LifecycleConfigError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::lifecycle::LifecycleConfigError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::From<T>
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::Into<T>
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Error = core::convert::Infallible
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::lifecycle::LifecycleConfigError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::clone::Clone
+pub type tirbase_drivers::lifecycle::LifecycleConfigError::Owned = T
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::lifecycle::LifecycleConfigError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::lifecycle::LifecycleConfigError where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::lifecycle::LifecycleConfigError where T: ?core::marker::Sized
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::LifecycleConfigError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::lifecycle::LifecycleConfigError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::LifecycleConfigError
+pub fn tirbase_drivers::lifecycle::LifecycleConfigError::from(T) -> T
+pub struct tirbase_drivers::ParameterDescriptor
+pub tirbase_drivers::ParameterDescriptor::name: alloc::string::String
+pub tirbase_drivers::ParameterDescriptor::range: [tirbase_types::fixed_point::FixedPointValue; 2]
+pub tirbase_drivers::ParameterDescriptor::unit_id: tirbase_types::UnitId
+pub tirbase_drivers::ParameterDescriptor::unit_label: alloc::string::String
+pub tirbase_drivers::ParameterDescriptor::writable: bool
+impl core::clone::Clone for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::clone(&self) -> tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::cmp::Eq for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::eq(&self, &tirbase_drivers::driver_trait::ParameterDescriptor) -> bool
+impl core::fmt::Debug for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Freeze for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Send for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Sync for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::Unpin for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::ParameterDescriptor
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::ParameterDescriptor
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::ParameterDescriptor where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::ParameterDescriptor where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::ParameterDescriptor::Owned = T
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::driver_trait::ParameterDescriptor where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::ParameterDescriptor where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::ParameterDescriptor where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ParameterDescriptor where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::ParameterDescriptor::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ParameterDescriptor
+pub fn tirbase_drivers::driver_trait::ParameterDescriptor::from(T) -> T
+pub struct tirbase_drivers::TimeoutError
+pub tirbase_drivers::TimeoutError::limit_ms: u64
+pub tirbase_drivers::TimeoutError::operation: &'static str
+impl core::clone::Clone for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::clone(&self) -> tirbase_drivers::driver_trait::TimeoutError
+impl core::cmp::Eq for tirbase_drivers::driver_trait::TimeoutError
+impl core::cmp::PartialEq for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::eq(&self, &tirbase_drivers::driver_trait::TimeoutError) -> bool
+impl core::convert::From<tirbase_drivers::driver_trait::TimeoutError> for tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::driver_trait::DriverError::from(tirbase_drivers::driver_trait::TimeoutError) -> Self
+impl core::error::Error for tirbase_drivers::driver_trait::TimeoutError
+impl core::fmt::Debug for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Freeze for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Send for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Sync for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::Unpin for tirbase_drivers::driver_trait::TimeoutError
+impl core::marker::UnsafeUnpin for tirbase_drivers::driver_trait::TimeoutError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::driver_trait::TimeoutError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::driver_trait::TimeoutError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::From<T>
+pub fn tirbase_drivers::driver_trait::TimeoutError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::Into<T>
+pub type tirbase_drivers::driver_trait::TimeoutError::Error = core::convert::Infallible
+pub fn tirbase_drivers::driver_trait::TimeoutError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::driver_trait::TimeoutError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::driver_trait::TimeoutError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::driver_trait::TimeoutError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::driver_trait::TimeoutError where T: core::clone::Clone
+pub type tirbase_drivers::driver_trait::TimeoutError::Owned = T
+pub fn tirbase_drivers::driver_trait::TimeoutError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::driver_trait::TimeoutError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::driver_trait::TimeoutError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::driver_trait::TimeoutError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::driver_trait::TimeoutError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::driver_trait::TimeoutError where T: ?core::marker::Sized
+pub fn tirbase_drivers::driver_trait::TimeoutError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::TimeoutError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::driver_trait::TimeoutError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::TimeoutError
+pub fn tirbase_drivers::driver_trait::TimeoutError::from(T) -> T
+pub const tirbase_drivers::DEGRADED_ISOLATION_OPT_IN_FLAG: &str
+pub const tirbase_drivers::DRIVER_OPERATION_TIMEOUT: core::time::Duration
+pub const tirbase_drivers::DRIVER_RESTART_INITIAL: core::time::Duration
+pub const tirbase_drivers::DRIVER_RESTART_MAX: core::time::Duration
+pub const tirbase_drivers::DRIVER_RESTART_MAX_RETRIES: u32
+pub const tirbase_drivers::DRIVER_SOCKET_FD_ARG: &str
+pub trait tirbase_drivers::DriverCrashSupervisor: core::marker::Send + core::marker::Sync
+pub fn tirbase_drivers::DriverCrashSupervisor::on_driver_escalate_lockdown(&self, u32)
+pub fn tirbase_drivers::DriverCrashSupervisor::on_driver_restart(&self, u32, core::time::Duration)
+pub trait tirbase_drivers::DriverTrait: core::marker::Send + core::marker::Sync
+pub fn tirbase_drivers::DriverTrait::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::DriverTrait::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::DriverTrait::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::DriverTrait::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::DriverTrait::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::DriverTrait::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::DriverTrait::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::apply_restart_decision<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(tirbase_drivers::lifecycle::DriverRestartDecision, &S)
+pub fn tirbase_drivers::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
+pub fn tirbase_drivers::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
+pub type tirbase_drivers::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
+pub type tirbase_drivers::Frame = alloc::vec::Vec<u8>
