@@ -23,6 +23,7 @@ pub mod idempotency_keys;
 pub mod ledger_reconciliation;
 pub mod ledger_recovery;
 pub mod lockdown;
+pub mod logical_dump;
 pub mod migrations;
 pub mod peer_checkpoint_witnesses;
 pub mod pending_approvals;
@@ -31,8 +32,11 @@ pub mod single_writer_leases;
 pub mod sqlite_errors;
 pub mod target_state;
 pub mod time_ratchet;
+pub mod wal_checkpoint;
 
 pub use migrations::{
-    maintenance_integrity_check, open_derived, open_primary, schema_version, MigrationReport,
+    maintenance_integrity_check, open_derived, open_derived_with_key, open_primary,
+    open_primary_with_key, schema_version, MigrationReport,
 };
 pub use sqlite_errors::{DbKind, SqliteErrorAction, HARDENING_PRAGMAS};
+pub mod sqlcipher;

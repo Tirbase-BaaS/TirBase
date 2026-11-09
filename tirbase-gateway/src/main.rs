@@ -103,7 +103,18 @@ async fn main() -> Result<()> {
     // Replaced with persistent/key-backed log after key provider init.
     let _security_log_early = std::sync::Arc::new(SecurityEventLog::new_memory()).install();
 
-    // ── SQLite database split (CLAIM-18.1–18.4, PV-9.3) ────────────────────
+    // ── KeyProvider (CLAIM-5.2, 6.1, 6.3, 6.4, 32.5) ───────────────────────
+    // Built before DB opens so SQLCipher builds can derive key material via
+    // KeyProvider and refuse to open on KeyProvider error (PV-9.6).
+    let key_provider = build_key_provider(&config)?;
+    tracing::info!(
+        did = key_provider.did(),
+        key_type = key_provider.key_type().as_str(),
+        backend = ?config.key_backend,
+        "device key provider ready",
+    );
+
+    // ── SQLite database split (CLAIM-18.1–18.4, PV-9.3, 32.5) ─────────────
     // Open primary.db (PrimaryLedger, WAL+synchronous=FULL) and derived.db
     // (DerivedLedger, WAL+synchronous=NORMAL) through the migration framework
     // (task 32.1) before any reads/writes. Hardening pragmas are applied by
@@ -114,7 +125,8 @@ async fn main() -> Result<()> {
     let primary_db_path = config.counter_db_path.clone();
     let derived_db_path = config.effective_derived_db_path();
     {
-        let primary = match db::open_primary(&primary_db_path) {
+        let primary = match db::open_primary_with_key(&primary_db_path, Some(key_provider.as_ref()))
+        {
             Ok(conn) => conn,
             Err(action) => {
                 let action = if matches!(
@@ -172,6 +184,13 @@ async fn main() -> Result<()> {
             Err(error) => tracing::error!(%error, "single_writer_leases boot release failed"),
         }
 
+        // ── WAL PASSIVE checkpoint cadence (32.4, CLAIM-32.4, PV-9) ───────
+        // Production caller: background task in tirbase-gateway.
+        db::wal_checkpoint::spawn_wal_checkpoint_loop(
+            primary_db_path.clone(),
+            derived_db_path.clone(),
+        );
+
         // ── Ledger pruning background job (19.5, PV-5.12) ──────────────────
         // Production caller: background task in tirbase-gateway.
         {
@@ -220,7 +239,8 @@ async fn main() -> Result<()> {
             });
         }
 
-        let derived = match db::open_derived(&derived_db_path) {
+        let derived = match db::open_derived_with_key(&derived_db_path, Some(key_provider.as_ref()))
+        {
             Ok(conn) => conn,
             Err(action) => {
                 if matches!(
@@ -428,15 +448,6 @@ async fn main() -> Result<()> {
             );
         }
     }
-
-    // ── KeyProvider (CLAIM-5.2, 6.1, 6.3, 6.4) ─────────────────────────────
-    let key_provider = build_key_provider(&config)?;
-    tracing::info!(
-        did = key_provider.did(),
-        key_type = key_provider.key_type().as_str(),
-        backend = ?config.key_backend,
-        "device key provider ready",
-    );
 
     // Prove the gateway signing path goes through the provider trait and that
     // a domain-separated SignedOperation verifies end-to-end (CLAIM-6.7).

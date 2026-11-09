@@ -245,13 +245,35 @@ pub fn maintenance_integrity_check(
     Ok(())
 }
 
-/// Open `primary.db`, apply hardening + migrations (CLAIM-18.1, 18.3, 32.1).
+/// Open `primary.db`, apply hardening + migrations (CLAIM-18.1, 18.3, 32.1, 32.5).
 /// STATE-INVENTORY: PERSISTED primary.db (CLAIM-31.1, PV-9.1)
 pub fn open_primary(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAction> {
+    open_primary_with_key(path, None)
+}
+
+pub fn open_primary_with_key(
+    path: impl AsRef<Path>,
+    key_provider: Option<&dyn tirbase_core::traits::KeyProvider>,
+) -> Result<Connection, SqliteErrorAction> {
     let path = path.as_ref();
     ensure_parent(path, DbKind::Primary)?;
     let conn = Connection::open(path)
         .map_err(|e| SqliteErrorAction::from_rusqlite(DbKind::Primary, &e, "open primary.db"))?;
+    #[cfg(feature = "sqlcipher")]
+    crate::db::sqlcipher::apply_sqlcipher_key(
+        &conn,
+        key_provider.ok_or_else(|| SqliteErrorAction::EnterRestrictedCorrupt {
+            kind: DbKind::Primary,
+            detail: "sqlcipher build requires KeyProvider (CLAIM-32.5)".to_string(),
+        })?,
+        "primary.db",
+    )
+    .map_err(|e| SqliteErrorAction::EnterRestrictedCorrupt {
+        kind: DbKind::Primary,
+        detail: e.to_string(),
+    })?;
+    #[cfg(not(feature = "sqlcipher"))]
+    let _ = key_provider;
     // WAL + synchronous=FULL before migrations (CLAIM-18.1).  journal_mode is a
     // persistent DB property but we set it explicitly so a fresh or copied DB
     // is always in the required mode.
@@ -272,13 +294,35 @@ pub fn open_primary(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAct
     Ok(conn)
 }
 
-/// Open `derived.db`, apply hardening + migrations (CLAIM-18.2, 18.3, 32.1).
+/// Open `derived.db`, apply hardening + migrations (CLAIM-18.2, 18.3, 32.1, 32.5).
 /// STATE-INVENTORY: PERSISTED derived.db (CLAIM-31.1, PV-9.1)
 pub fn open_derived(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAction> {
+    open_derived_with_key(path, None)
+}
+
+pub fn open_derived_with_key(
+    path: impl AsRef<Path>,
+    key_provider: Option<&dyn tirbase_core::traits::KeyProvider>,
+) -> Result<Connection, SqliteErrorAction> {
     let path = path.as_ref();
     ensure_parent(path, DbKind::Derived)?;
     let conn = Connection::open(path)
         .map_err(|e| SqliteErrorAction::from_rusqlite(DbKind::Derived, &e, "open derived.db"))?;
+    #[cfg(feature = "sqlcipher")]
+    crate::db::sqlcipher::apply_sqlcipher_key(
+        &conn,
+        key_provider.ok_or_else(|| SqliteErrorAction::EnterRestrictedCorrupt {
+            kind: DbKind::Derived,
+            detail: "sqlcipher build requires KeyProvider (CLAIM-32.5)".to_string(),
+        })?,
+        "derived.db",
+    )
+    .map_err(|e| SqliteErrorAction::EnterRestrictedCorrupt {
+        kind: DbKind::Derived,
+        detail: e.to_string(),
+    })?;
+    #[cfg(not(feature = "sqlcipher"))]
+    let _ = key_provider;
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|e| {
             SqliteErrorAction::from_rusqlite(DbKind::Derived, &e, "set journal_mode=WAL")
@@ -694,4 +738,11 @@ mod tests {
         }
         let _ = std::fs::remove_file(db);
     }
+}
+
+/// Public test/helper wrapper around primary DB migration apply.
+pub fn apply_primary_migrations(conn: &Connection) -> Result<(), String> {
+    apply_migrations(conn, DbKind::Primary, primary_migrations())
+        .map(|_| ())
+        .map_err(|e| format!("{e:?}"))
 }
