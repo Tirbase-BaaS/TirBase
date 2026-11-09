@@ -533,6 +533,28 @@ pub struct SecurityEvent {
     pub reason_code: ReasonCode,
     /// Human-readable detail (never parsed by machine consumers).
     pub detail: Option<String>,
+    /// GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3). Plaintext is stored
+    /// in `security_event_personal_fields`; only salted commitments
+    /// `SHA-256(random_salt ‖ value)` enter the hash chain. Empty by default.
+    pub personal_fields: Vec<PersonalField>,
+}
+
+/// A personal field carried by a security event (GDPR, PV-7.7, RD-3).
+/// `value_plaintext` is never persisted in the hash-chained event row; it is
+/// stored separately in `security_event_personal_fields` alongside a random salt.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PersonalField {
+    pub field_name: String,
+    pub value_plaintext: String,
+}
+
+impl PersonalField {
+    pub fn new(field_name: impl Into<String>, value_plaintext: impl Into<String>) -> Self {
+        Self {
+            field_name: field_name.into(),
+            value_plaintext: value_plaintext.into(),
+        }
+    }
 }
 
 impl SecurityEvent {
@@ -549,6 +571,7 @@ impl SecurityEvent {
             target: None,
             reason_code,
             detail: None,
+            personal_fields: Vec::new(),
         }
     }
 
@@ -567,6 +590,19 @@ impl SecurityEvent {
     /// Attach free-form detail.
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
+        self
+    }
+
+    /// Attach a GDPR personal field (CLAIM-27.1, PV-7.7, RD-3). The plaintext
+    /// is stored in `security_event_personal_fields`; the salted commitment
+    /// enters the hash chain.
+    pub fn with_personal_field(
+        mut self,
+        field_name: impl Into<String>,
+        value_plaintext: impl Into<String>,
+    ) -> Self {
+        self.personal_fields
+            .push(PersonalField::new(field_name, value_plaintext));
         self
     }
 }

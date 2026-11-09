@@ -17,8 +17,8 @@
 
 #![allow(dead_code)] // APIs wired incrementally by 25.3 loop/admin paths.
 
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -60,25 +60,92 @@ pub struct SecurityEvent {
     /// Present only on checkpoint rows: SHA-256 of canonical checkpoint body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checkpoint_hash: Option<[u8; 32]>,
+    /// GDPR salted commitments entering the hash chain (CLAIM-27.1, PV-7.7, RD-3).
+    /// Each is `(field_name, SHA-256(random_salt ‖ value_plaintext))`.
+    /// Empty for events without personal fields.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub personal_commitments: Vec<PersonalFieldCommitment>,
+}
+
+/// GDPR personal-field commitment entering the hash chain (CLAIM-27.1).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PersonalFieldCommitment {
+    pub field_name: String,
+    /// `SHA-256(random_salt ‖ value_plaintext)` — the salted form in the chain.
+    pub commitment: [u8; 32],
 }
 
 /// Canonical body hashed into `prev_hash` / checkpoint hash (deterministic CBOR).
 #[derive(Debug, Clone, Serialize)]
-struct ChainHashBody<'a> {
-    seq: u64,
-    segment_id: u64,
-    category: &'a str,
-    severity: &'a str,
-    actor_did: Option<&'a str>,
-    target: Option<&'a str>,
-    reason_code: &'a str,
-    best_effort_wall_time: i64,
-    time_source_flag: &'a str,
-    prev_hash: &'a [u8; 32],
-    is_checkpoint: bool,
+pub struct ChainHashBody<'a> {
+    pub seq: u64,
+    pub segment_id: u64,
+    pub category: &'a str,
+    pub severity: &'a str,
+    pub actor_did: Option<&'a str>,
+    pub target: Option<&'a str>,
+    pub reason_code: &'a str,
+    pub best_effort_wall_time: i64,
+    pub time_source_flag: &'a str,
+    pub prev_hash: &'a [u8; 32],
+    pub is_checkpoint: bool,
+    /// GDPR salted commitments (CLAIM-27.1); always included (empty vec = no personal fields).
+    pub personal_commitments: &'a [PersonalFieldCommitment],
 }
 
-fn canonical_hash_bytes(body: &ChainHashBody<'_>) -> [u8; 32] {
+/// GDPR (CLAIM-27.1, PV-7.7, RD-3): salted commitment = SHA-256(random_salt || value_plaintext).
+pub fn gdpr_salted_commitment(salt: &[u8; 32], value_plaintext: &str) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(salt);
+    hasher.update(value_plaintext.as_bytes());
+    let digest = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&digest);
+    out
+}
+
+fn random_salt_32() -> Result<[u8; 32], String> {
+    let mut salt = [0u8; 32];
+    getrandom::getrandom(&mut salt).map_err(|e| format!("salt rng: {e}"))?;
+    Ok(salt)
+}
+
+fn persist_personal_fields(
+    conn: &Connection,
+    seq: u64,
+    fields: &[(String, [u8; 32], String)],
+) -> rusqlite::Result<()> {
+    for (field_name, salt, plaintext) in fields {
+        conn.execute(
+            "INSERT OR REPLACE INTO security_event_personal_fields(seq, field_name, salt, plaintext) VALUES (?1, ?2, ?3, ?4)",
+            params![seq as i64, field_name, salt.as_slice(), plaintext.as_bytes()],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn read_personal_fields_for_seq(
+    conn: &Connection,
+    seq: u64,
+) -> rusqlite::Result<Vec<(String, [u8; 32], Vec<u8>)>> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS security_event_personal_fields (seq INTEGER NOT NULL, field_name TEXT NOT NULL, salt BLOB NOT NULL, plaintext BLOB NOT NULL, PRIMARY KEY (seq, field_name));",
+    )?;
+    let mut stmt = conn.prepare(
+        "SELECT field_name, salt, plaintext FROM security_event_personal_fields WHERE seq=?1 ORDER BY field_name ASC",
+    )?;
+    let rows = stmt.query_map(params![seq as i64], |r| {
+        let salt_blob: Vec<u8> = r.get(1)?;
+        let mut salt = [0u8; 32];
+        if salt_blob.len() == 32 {
+            salt.copy_from_slice(&salt_blob);
+        }
+        Ok((r.get::<_, String>(0)?, salt, r.get::<_, Vec<u8>>(2)?))
+    })?;
+    rows.collect()
+}
+
+pub fn canonical_hash_bytes(body: &ChainHashBody<'_>) -> [u8; 32] {
     let mut buf = Vec::with_capacity(256);
     // ciborium produces deterministic CBOR for canonical map key ordering in
     // struct fields as declared; body field order is fixed.
@@ -89,7 +156,7 @@ fn canonical_hash_bytes(body: &ChainHashBody<'_>) -> [u8; 32] {
     out
 }
 
-fn event_hash(record: &SecurityEvent, is_checkpoint: bool) -> [u8; 32] {
+pub fn event_hash(record: &SecurityEvent, is_checkpoint: bool) -> [u8; 32] {
     let body = ChainHashBody {
         seq: record.seq,
         segment_id: record.segment_id,
@@ -102,10 +169,10 @@ fn event_hash(record: &SecurityEvent, is_checkpoint: bool) -> [u8; 32] {
         time_source_flag: record.time_source_flag.as_str(),
         prev_hash: &record.prev_hash,
         is_checkpoint,
+        personal_commitments: &record.personal_commitments,
     };
     canonical_hash_bytes(&body)
 }
-
 
 /// S14 (PV-7.6): per-category rate limit.
 pub const SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC: u32 = 100;
@@ -139,7 +206,12 @@ struct CategoryRateLimiter {
 }
 
 impl CategoryRateLimiter {
-    fn allow_or_suppress(&mut self, category: &str, severity: Severity, now: Instant) -> (bool, Option<u64>) {
+    fn allow_or_suppress(
+        &mut self,
+        category: &str,
+        severity: Severity,
+        now: Instant,
+    ) -> (bool, Option<u64>) {
         // S14: HIGH/CRITICAL bypass the rate limiter.
         if matches!(severity, Severity::High | Severity::Critical) {
             return (true, None);
@@ -373,6 +445,14 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
             is_checkpoint        INTEGER NOT NULL DEFAULT 0,
             checkpoint_signature BLOB,
             checkpoint_hash      BLOB
+        );
+        CREATE TABLE IF NOT EXISTS security_event_personal_fields (
+            seq        INTEGER NOT NULL,
+            field_name TEXT    NOT NULL,
+            salt       BLOB    NOT NULL,
+            plaintext  BLOB    NOT NULL,
+            PRIMARY KEY (seq, field_name),
+            FOREIGN KEY (seq) REFERENCES security_events(seq)
         );",
     )?;
     let has_col: i64 = conn.query_row(
@@ -432,12 +512,12 @@ impl Default for SecurityEventLog {
 impl SecurityEventLog {
     /// In-memory log (tests/compat). No DB persistence, no key signing.
     pub fn new_memory() -> Self {
-Self::with_options_inner(None, None, CheckpointConfig::default(), false, false)
+        Self::with_options_inner(None, None, CheckpointConfig::default(), false, false)
     }
 
     /// Compatibility: batched in-memory constructor used by legacy wrappers.
     pub(crate) fn with_options_compat(batched: bool) -> Self {
-Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false)
+        Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false)
     }
 
     /// Production constructor: persists to `primary_db` and uses `key_provider`
@@ -540,7 +620,10 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
     }
 
     fn node_mode(&self) -> Option<Arc<NodeModeState>> {
-        self.node_mode.read().unwrap_or_else(|p| p.into_inner()).clone()
+        self.node_mode
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
     }
 
     fn enter_restricted(&self, reason: &str) {
@@ -553,7 +636,10 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
     }
 
     pub fn is_restricted_by_tamper(&self) -> bool {
-        self.state.lock().unwrap_or_else(|p| p.into_inner()).restricted_by_tamper
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .restricted_by_tamper
     }
 
     /// 26.1 compatibility name.
@@ -608,6 +694,18 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
             if row.9.len() == 32 {
                 stored_prev.copy_from_slice(&row.9);
             }
+            let personal_commitments: Vec<PersonalFieldCommitment> =
+                read_personal_fields_for_seq(&conn, row.0)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(field_name, salt, plaintext_bytes)| {
+                        let plaintext = String::from_utf8_lossy(&plaintext_bytes);
+                        PersonalFieldCommitment {
+                            field_name,
+                            commitment: gdpr_salted_commitment(&salt, &plaintext),
+                        }
+                    })
+                    .collect();
             let body = ChainHashBody {
                 seq: row.0,
                 segment_id: row.1,
@@ -620,6 +718,7 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
                 time_source_flag: &row.8,
                 prev_hash: &stored_prev,
                 is_checkpoint: row.10,
+                personal_commitments: &personal_commitments,
             };
             let computed = canonical_hash_bytes(&body);
             if stored_prev != expected_prev {
@@ -683,7 +782,6 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
         ));
         self.append_payload_internal(payload, true);
     }
-
 
     fn key_provider(&self) -> Option<Arc<dyn KeyProvider>> {
         self.key_provider
@@ -771,6 +869,20 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
         if row.9.len() == 32 {
             prev.copy_from_slice(&row.9);
         }
+        // GDPR (CLAIM-27.1): reconstruct commitments from stored plaintext+salt so
+        // chain verification/hashing matches the committed form that entered the chain.
+        let personal_commitments: Vec<PersonalFieldCommitment> =
+            read_personal_fields_for_seq(conn, seq)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(field_name, salt, plaintext_bytes)| {
+                    let plaintext = String::from_utf8_lossy(&plaintext_bytes);
+                    PersonalFieldCommitment {
+                        field_name,
+                        commitment: gdpr_salted_commitment(&salt, &plaintext),
+                    }
+                })
+                .collect();
         let body = ChainHashBody {
             seq: row.0,
             segment_id: row.1,
@@ -783,6 +895,7 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
             time_source_flag: &row.8,
             prev_hash: &prev,
             is_checkpoint: row.10,
+            personal_commitments: &personal_commitments,
         };
         Some(canonical_hash_bytes(&body))
     }
@@ -866,6 +979,18 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
         TimeSourceFlag::LogicalFallback
     }
 
+    /// Emit a security event with GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3).
+    /// Production caller for personal-field events: salted commitments enter the
+    /// hash chain; plaintext is stored in `security_event_personal_fields`.
+    pub fn append_payload_with_personal_fields(
+        &self,
+        mut payload: SecurityEventPayload,
+        personal_fields: Vec<tirbase_core::events::PersonalField>,
+    ) -> SecurityEvent {
+        payload.personal_fields = personal_fields;
+        self.append_payload(payload)
+    }
+
     /// Append payload as a chained record (25.1). Returns the chained record.
     /// Applies S14 per-category rate limiting (100/sec, HIGH/CRITICAL bypass).
     pub fn append_payload(&self, payload: SecurityEventPayload) -> SecurityEvent {
@@ -878,18 +1003,18 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
         bypass_rate_limit: bool,
     ) -> SecurityEvent {
         let now = Instant::now();
-        let (suppress_summary_count, suppressed) = if !self.rate_limit_enabled.load(Ordering::Relaxed)
+        let (suppress_summary_count, suppressed) = if !self
+            .rate_limit_enabled
+            .load(Ordering::Relaxed)
             || bypass_rate_limit
             || matches!(payload.reason_code, ReasonCode::SuppressionSummary)
         {
             (None, false)
         } else {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
-            let (allow, summary) = st.rate_limiter.allow_or_suppress(
-                payload.category.as_str(),
-                payload.severity,
-                now,
-            );
+            let (allow, summary) =
+                st.rate_limiter
+                    .allow_or_suppress(payload.category.as_str(), payload.severity, now);
             (summary, !allow)
         };
 
@@ -932,13 +1057,29 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
                 prev_hash: st.prev_hash,
                 checkpoint_signature: None,
                 checkpoint_hash: None,
+                personal_commitments: Vec::new(),
             };
         }
 
-        let (rec, should_checkpoint) = {
+        let (rec, should_checkpoint, personal_rows) = {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             let seq = st.next_seq;
             st.next_seq = st.next_seq.saturating_add(1);
+            // GDPR (CLAIM-27.1, PV-7.7, RD-3): compute salted commitments for personal fields.
+            // Plaintext is stored separately in security_event_personal_fields; only commitments
+            // enter the hash chain. Wiring mutation: storing plaintext in the chain must fail tests.
+            let mut personal_commitments: Vec<PersonalFieldCommitment> = Vec::new();
+            let mut personal_rows: Vec<(String, [u8; 32], String)> = Vec::new();
+            for pf in &payload.personal_fields {
+                if let Ok(salt) = random_salt_32() {
+                    let commitment = gdpr_salted_commitment(&salt, &pf.value_plaintext);
+                    personal_commitments.push(PersonalFieldCommitment {
+                        field_name: pf.field_name.clone(),
+                        commitment,
+                    });
+                    personal_rows.push((pf.field_name.clone(), salt, pf.value_plaintext.clone()));
+                }
+            }
             let rec = SecurityEvent {
                 seq,
                 segment_id: st.segment_id,
@@ -952,6 +1093,7 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
                 prev_hash: st.prev_hash,
                 checkpoint_signature: None,
                 checkpoint_hash: None,
+                personal_commitments,
             };
             let h = event_hash(&rec, false);
             st.prev_hash = h;
@@ -960,11 +1102,14 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
             let should = st.events_since_checkpoint >= self.checkpoint.every_events
                 || elapsed >= self.checkpoint.every_secs;
             st.ring.push(rec.clone());
-            (rec, should)
+            (rec, should, personal_rows)
         };
 
         if let Ok(Some(conn)) = self.open_db() {
             let _ = self.persist_record(&conn, &rec);
+            if !personal_rows.is_empty() {
+                let _ = persist_personal_fields(&conn, rec.seq, &personal_rows);
+            }
             let _ = self.ensure_segment_row(&conn, rec.segment_id, 1, [0u8; 32], "boot");
         }
 
@@ -1002,6 +1147,7 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
                 prev_hash: st.prev_hash,
                 checkpoint_signature: None,
                 checkpoint_hash: None,
+                personal_commitments: Vec::new(),
             };
             let chash = event_hash(&rec, true);
             rec.checkpoint_hash = Some(chash);
@@ -1084,6 +1230,7 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
                 target: r.target,
                 reason_code: r.reason_code,
                 detail: None,
+                personal_fields: Vec::new(),
             })
             .collect()
     }
@@ -1110,13 +1257,21 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
         let Some(conn) = self.open_db()? else {
             return Ok(false);
         };
-        upsert_peer_checkpoint_witness(&conn, peer_did, peer_seq, &peer_checkpoint_hash, observed_at)
-            .map_err(|e| format!("upsert peer checkpoint witness: {e}"))?;
+        upsert_peer_checkpoint_witness(
+            &conn,
+            peer_did,
+            peer_seq,
+            &peer_checkpoint_hash,
+            observed_at,
+        )
+        .map_err(|e| format!("upsert peer checkpoint witness: {e}"))?;
 
-        let local = latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))?;
+        let local =
+            latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))?;
         let discrepant = match local {
             Some((local_seq, local_hash)) => {
-                (peer_seq > local_seq) || (peer_seq == local_seq && peer_checkpoint_hash != local_hash)
+                (peer_seq > local_seq)
+                    || (peer_seq == local_seq && peer_checkpoint_hash != local_hash)
             }
             None => false,
         };
@@ -1170,12 +1325,18 @@ Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false
     }
 
     pub fn latest_checkpoint_hash(&self) -> Result<Option<(u64, [u8; 32])>, String> {
-        let Some(conn) = self.open_db()? else { return Ok(None); };
+        let Some(conn) = self.open_db()? else {
+            return Ok(None);
+        };
         latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))
     }
 
-    pub fn peer_checkpoint_witnesses(&self) -> Result<Vec<crate::db::peer_checkpoint_witnesses::PeerCheckpointWitness>, String> {
-        let Some(conn) = self.open_db()? else { return Ok(vec![]); };
+    pub fn peer_checkpoint_witnesses(
+        &self,
+    ) -> Result<Vec<crate::db::peer_checkpoint_witnesses::PeerCheckpointWitness>, String> {
+        let Some(conn) = self.open_db()? else {
+            return Ok(vec![]);
+        };
         list_peer_checkpoint_witnesses(&conn).map_err(|e| format!("list witnesses: {e}"))
     }
 }
@@ -1287,6 +1448,7 @@ mod tests {
                     None
                 },
                 checkpoint_hash: None,
+                personal_commitments: Vec::new(),
             };
             ring.push(e);
         }
@@ -1325,6 +1487,7 @@ mod tests {
                     time_source_flag: rec.time_source_flag.as_str(),
                     prev_hash: &rec.prev_hash,
                     is_checkpoint: rec.checkpoint_signature.is_some(),
+                    personal_commitments: &rec.personal_commitments,
                 };
                 let computed = canonical_hash_bytes(&body);
                 if rec.prev_hash != expected_prev {
@@ -1360,6 +1523,7 @@ mod tests {
                         prev_hash: prev,
                         checkpoint_signature: None,
                         checkpoint_hash: None,
+                        personal_commitments: Vec::new(),
                     };
                     let h = event_hash(&rec, false);
                     prev = h;
@@ -1390,20 +1554,28 @@ mod tests {
             let mut prev = [0u8; 32];
             for i in 0..5u64 {
                 let rec = SecurityEvent {
-                    seq: i + 1, segment_id: 1, category: SecurityEventCategory::CommandDecision,
-                    severity: Severity::Low, actor_did: None, target: None,
-                    reason_code: ReasonCode::CommandAccepted, best_effort_wall_time: 1,
-                    time_source_flag: TimeSourceFlag::LogicalFallback, prev_hash: prev,
-                    checkpoint_signature: None, checkpoint_hash: None,
+                    seq: i + 1,
+                    segment_id: 1,
+                    category: SecurityEventCategory::CommandDecision,
+                    severity: Severity::Low,
+                    actor_did: None,
+                    target: None,
+                    reason_code: ReasonCode::CommandAccepted,
+                    best_effort_wall_time: 1,
+                    time_source_flag: TimeSourceFlag::LogicalFallback,
+                    prev_hash: prev,
+                    checkpoint_signature: None,
+                    checkpoint_hash: None,
+                    personal_commitments: Vec::new(),
                 };
                 prev = event_hash(&rec, false);
                 records.push(rec);
             }
             records[2].target = Some("evil".into()); // interior
-            assert!(verify_chain_records(&records).is_some(), "must detect interior modification");
+            assert!(
+                verify_chain_records(&records).is_some(),
+                "must detect interior modification"
+            );
         }
     }
-
-
-
 }

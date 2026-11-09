@@ -39,6 +39,10 @@ pub struct AdminState {
     pub challenge_requests_per_minute: u32,
     /// Task 21.2/21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
     pub primary_db_path: Option<std::path::PathBuf>,
+    /// Task 27: hash-chained security event log (export/GDPR production callers).
+    pub security_log: Option<std::sync::Arc<crate::security_log::SecurityEventLog>>,
+    /// Task 27: device key provider for signed exports/evidence bundles.
+    pub key_provider: Option<std::sync::Arc<dyn tirbase_core::traits::KeyProvider>>,
 }
 
 impl fmt::Debug for AdminState {
@@ -68,6 +72,8 @@ impl Default for AdminState {
             challenge_store: None,
             challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
             primary_db_path: None,
+            security_log: None,
+            key_provider: None,
         }
     }
 }
@@ -90,6 +96,8 @@ impl AdminState {
             challenge_store: None,
             challenge_requests_per_minute: DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
             primary_db_path: None,
+            security_log: None,
+            key_provider: None,
         }
     }
 }

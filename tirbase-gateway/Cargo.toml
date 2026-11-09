@@ -64,6 +64,7 @@ zeroize = { version = "1.9", features = ["derive"] }
 
 # Hex decoding for TimeAnchor public keys in the beacon trust file (task 7.4).
 hex = "0.4"
+getrandom = "0.2"
 arc-swap = "1"
 
 # Failpoint injection for kill-at-every-step ledger tests (PV-5.4, 19.6).
