@@ -18,6 +18,15 @@ hex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+tirbase_gateway = { package = "tirbase-gateway", path = "../tirbase-gateway" }
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+tirbase_gateway = { package = "tirbase-gateway", path = "../tirbase-gateway" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+sha2 = "0.10"
+
+[[bin]]
+name = "tirbase-verify-log"
+path = "src/bin/tirbase_verify_log.rs"

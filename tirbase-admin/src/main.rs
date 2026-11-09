@@ -1,13 +1,9 @@
-//! `tirbase-admin` CLI entry point (task 9.1 — CLAIM-9.1, PV-3.10).
-//!
-//! Declares `enroll`, `mint`, `rotate`, and `inspect-identities`. The
-//! production command logic lives in `cmd/`; the binary dispatches to it.
+//! `tirbase-admin` CLI entry point (tasks 9, 27).
 
 #![warn(dead_code)]
 
-use std::collections::BTreeMap;
-
 use anyhow::{bail, Result};
+use std::collections::BTreeMap;
 use tirbase_admin::{cli_commands, cmd};
 
 fn parse_flags(args: &[String]) -> BTreeMap<String, Vec<String>> {
@@ -25,11 +21,9 @@ fn parse_flags(args: &[String]) -> BTreeMap<String, Vec<String>> {
     }
     flags
 }
-
 fn one(flags: &BTreeMap<String, Vec<String>>, key: &str) -> Option<String> {
     flags.get(key).and_then(|v| v.last()).cloned()
 }
-
 fn req(flags: &BTreeMap<String, Vec<String>>, key: &str) -> Result<String> {
     one(flags, key).ok_or_else(|| anyhow::anyhow!("missing required --{key}"))
 }
@@ -91,6 +85,34 @@ fn main() -> Result<()> {
                 })?;
             cmd::inspect_identities::print_records(&records)?;
         }
+        "export-log" => {
+            cmd::export::run_export_log(&cmd::export::ExportLogArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                key_path: req(&flags, "key-path")?.into(),
+                output: req(&flags, "output")?.into(),
+                format: one(&flags, "format").unwrap_or_else(|| "json".to_string()),
+                pseudonymized: flags.contains_key("pseudonymized")
+                    || one(&flags, "pseudonymized").as_deref() == Some("true"),
+                pseudonym_salt_hex: one(&flags, "pseudonym-salt-hex"),
+            })?;
+        }
+        "export-evidence-bundle" => {
+            cmd::export::run_export_evidence_bundle(&cmd::export::ExportEvidenceBundleArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                key_path: req(&flags, "key-path")?.into(),
+                output: req(&flags, "output")?.into(),
+            })?;
+        }
+        "verify-log" | "tirbase-verify-log" => {
+            let report = cmd::verify_log::run(&cmd::verify_log::VerifyLogArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                json: flags.contains_key("json") || one(&flags, "json").as_deref() == Some("true"),
+            })?;
+            let ok = cmd::verify_log::print_report(&report, flags.contains_key("json"))?;
+            if !ok {
+                std::process::exit(1);
+            }
+        }
         "help" | "--help" | "-h" => print_usage(),
         other => {
             print_usage();
@@ -103,14 +125,15 @@ fn main() -> Result<()> {
 fn print_usage() {
     eprintln!("tirbase-admin subcommands:");
     for cmd in cli_commands() {
-        eprintln!("  {:<18} {}", cmd.name, cmd.about);
+        eprintln!("  {:<22} {}", cmd.name, cmd.about);
     }
+    eprintln!("\nAliases: tirbase-verify-log (same as verify-log)");
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
-    fn cli_declares_all_task9_subcommands() {
+    fn cli_declares_all_task9_and_27_subcommands() {
         let names: Vec<_> = tirbase_admin::cli_commands()
             .into_iter()
             .map(|c| c.name)

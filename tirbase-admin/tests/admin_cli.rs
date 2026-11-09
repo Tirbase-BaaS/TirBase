@@ -38,10 +38,16 @@ fn core_config(storage: &std::path::Path, root_public: [u8; 32]) -> InitConfig {
 
 #[test]
 fn task9_1_cli_declares_all_required_subcommands() {
-    assert_eq!(
-        REQUIRED_SUBCOMMANDS,
-        &["enroll", "mint", "rotate", "inspect-identities"]
+    assert!(
+        REQUIRED_SUBCOMMANDS.starts_with(&["enroll", "mint", "rotate", "inspect-identities"]),
+        "task 9 subcommands must remain present: {REQUIRED_SUBCOMMANDS:?}"
     );
+    for req in ["export-log", "export-evidence-bundle", "verify-log"] {
+        assert!(
+            REQUIRED_SUBCOMMANDS.contains(&req),
+            "task 27 subcommand missing: {req}"
+        );
+    }
 }
 
 #[tokio::test]
