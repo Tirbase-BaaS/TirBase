@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use crate::crdt::delta::{Did, Ed25519Signature, PriorityClass};
+use crate::migration::profile::ExecutionProfileVersion;
 use crate::schema::hash::SchemaIdentifierHash;
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +46,10 @@ pub struct MigrationDelta {
     pub priority: PriorityClass,
     /// Wall-clock creation time (UTC, microseconds).
     pub created_at: i64,
+    /// PV-8.2a: signed execution profile metadata (profile_id + fuel hash).
+    /// Absent on legacy deltas; runtime may enforce active profile match.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_profile: Option<ExecutionProfileVersion>,
 }
 
 /// A revocation delta that halts a migration that was found to be corrupted (Req 18.5).
@@ -82,6 +87,7 @@ mod tests {
             transform_sha256: [0x20u8; 32],
             priority: PriorityClass::Medium,
             created_at: 1_720_000_000_000_000,
+            execution_profile: None,
         }
     }
 

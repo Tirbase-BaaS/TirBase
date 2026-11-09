@@ -89,6 +89,34 @@ pub enum TirBaseError {
     #[error("Another migration is already in progress: {migration_id}")]
     MigrationInProgress { migration_id: String },
 
+    /// Migration module failed DeterministicWasmProfile validation (PV-8.2):
+    /// forbidden f32/f64/SIMD/threads/host-clock/randomness/imports detected.
+    /// The module is quarantined before execution.
+    #[error("Migration module violates deterministic WASM profile ({migration_id}): {reason}")]
+    MigrationDeterministicProfileViolation {
+        migration_id: String,
+        reason: String,
+    },
+
+    /// Migration execution profile (PV-8.2a) did not match the node's pinned
+    /// wasmi fuel/config profile: quarantined with ENGINE_VERSION_MISMATCH.
+    #[error("Migration execution profile mismatch ({migration_id}): expected profile={expected_profile}, fuel_hash={expected_fuel_hash}; got profile={got_profile}, fuel_hash={got_fuel_hash}")]
+    MigrationExecutionProfileMismatch {
+        migration_id: String,
+        expected_profile: String,
+        got_profile: String,
+        expected_fuel_hash: String,
+        got_fuel_hash: String,
+    },
+
+    /// Migration module exceeds wasmi StoreLimits (PV-8.1/PV-8.4): 64 MiB memory,
+    /// 1,000 tables, 10 instances, 512 KiB stack-equivalent limits. Quarantined.
+    #[error("Migration module exceeds store limits ({migration_id}): {reason}")]
+    MigrationStoreLimitExceeded {
+        migration_id: String,
+        reason: String,
+    },
+
     /// A `MigrationRevocationDelta` targeted a migration hash this device has
     /// never seen (no CA-validated `MigrationDelta` for it was received).
     /// Revocations are only accepted for known, previously-seen migration

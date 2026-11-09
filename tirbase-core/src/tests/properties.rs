@@ -13,14 +13,14 @@
 //! (both compiled to the same `native` target).  True byte-for-byte cross-build
 //! parity — comparing WASM module output against native binary output on identical
 //! input — requires running the WASM build under `wasm-bindgen-test` or
-//! `wasmtime run` and comparing serialised Local Store state against a native
+//! `wasmi` execution and comparing serialised Local Store state against a native
 //! build's output.  This cannot be done within a single `cargo test` invocation.
 //!
 //! **Mitigation:** The WASM build compiles without errors (`cargo check --no-default-features
 //! --features wasm --target wasm32-unknown-unknown`), `wasm_tests.rs` confirms the
 //! WASM in-memory store round-trips correctly, and the Automerge library's own
 //! cross-platform convergence guarantees provide the underlying correctness assurance.
-//! The Migration_Delta corpus in Property 1 explicitly exercises the `wasmi`/`wasmtime`
+//! The Migration_Delta corpus in Property 1 explicitly exercises the `wasmi`
 //! divergence risk path.
 //!
 //! ## Properties 5 / 14 — Durability via Live Quorum (Req 3.2, 14.2)
@@ -1624,6 +1624,7 @@ proptest! {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);
@@ -1991,6 +1992,7 @@ proptest! {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);

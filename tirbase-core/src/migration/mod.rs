@@ -3,6 +3,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
 pub mod migration_delta;
+pub mod profile;
 pub mod quarantine;
 pub mod revocation;
 pub mod sidecar;
@@ -22,7 +23,7 @@ use quarantine::{QuarantineEntry, QuarantineLedger, QuarantineReason};
 use revocation::RevokedMigrationRegistry;
 use sidecar::{ReplaySummary, SideCarEntry, SideCarLedger};
 use version_path::SchemaVersionPath;
-use wasm_sandbox::{execute_migration, MigrationResult};
+use wasm_sandbox::{MigrationExecutionRegistry, MigrationResult};
 
 // Re-export for tests in sub-modules
 pub use revocation::resolve_did_key_to_public_key;
@@ -46,6 +47,8 @@ pub(crate) struct PreparedMigration {
     pub(crate) transform_bytes: Vec<u8>,
     /// Epoch-interrupt timeout in seconds (Req 18.4 default: 30).
     pub(crate) timeout_secs: u64,
+    /// PV-8.2a signed execution profile metadata, if present.
+    pub(crate) execution_profile: Option<crate::migration::profile::ExecutionProfileVersion>,
 }
 
 // ─── SchemaMigrationEngine ───────────────────────────────────────────────────
@@ -347,6 +350,58 @@ impl SchemaMigrationEngine {
             });
         }
 
+        // ── 4b. PV-8.2 / PV-8.2a pre-execution profile gate (S8/S9) ─────────
+        // Validate deterministic profile and execution-profile metadata BEFORE
+        // marking the migration in-progress or handing bytes to the sandbox.
+        if let Err(e) = crate::migration::profile::DeterministicWasmProfile::validate(
+            &delta.transform_bytes,
+            delta.id,
+        ) {
+            let _ = self.quarantine_ledger.quarantine(
+                sender_did.to_string(),
+                delta.transform_bytes.clone(),
+                Some(delta.source_schema_hash),
+                QuarantineReason::DeterministicProfileViolation,
+                delta.created_at,
+            );
+            emit_migration(
+                Severity::High,
+                ReasonCode::DeterministicProfileViolation,
+                Some(hex::encode(delta.id)),
+                format!(
+                    "[migration] PV-8.2 deterministic profile violation from {sender_did}: {e}"
+                ),
+            );
+            return Err(e);
+        }
+        let active_profile = crate::migration::profile::ActiveExecutionProfile::default();
+        if let Some(ref p) = delta.execution_profile {
+            if !p.matches_active(&active_profile) {
+                let _ = self.quarantine_ledger.quarantine(
+                    sender_did.to_string(),
+                    delta.transform_bytes.clone(),
+                    Some(delta.source_schema_hash),
+                    QuarantineReason::EngineVersionMismatch,
+                    delta.created_at,
+                );
+                emit_migration(
+                    Severity::High,
+                    ReasonCode::EngineVersionMismatch,
+                    Some(hex::encode(delta.id)),
+                    format!(
+                        "[migration] PV-8.2a/S9 ENGINE_VERSION_MISMATCH from {sender_did}: profile_id/fuel_cost_table_hash mismatch"
+                    ),
+                );
+                return Err(TirBaseError::MigrationExecutionProfileMismatch {
+                    migration_id: hex::encode(delta.id),
+                    expected_profile: hex::encode(active_profile.profile_id),
+                    got_profile: hex::encode(p.profile_id),
+                    expected_fuel_hash: hex::encode(active_profile.fuel_cost_table_hash),
+                    got_fuel_hash: hex::encode(p.fuel_cost_table_hash),
+                });
+            }
+        }
+
         // ── 4a. Known-hash recording (Req 18.7) ──────────────────────────────
         // The CA signature (3) and embedded SHA-256 (4) both verified, so this
         // hash is a genuine migration this device has now seen.  Record it:
@@ -389,6 +444,7 @@ impl SchemaMigrationEngine {
             target_schema_hash: delta.target_schema_hash,
             transform_bytes: delta.transform_bytes,
             timeout_secs: 30, // Req 18.4: default 30s epoch-interrupt timeout
+            execution_profile: delta.execution_profile,
         })
     }
 
@@ -474,18 +530,22 @@ impl SchemaMigrationEngine {
         let prepared = self.prepare_migration(delta, sender_did)?;
 
         #[cfg(feature = "native")]
-        let result = execute_migration(
+        let result = crate::migration::wasm_sandbox::execute_migration_with_profile(
             &prepared.transform_bytes,
             prepared.migration_id,
             prepared.timeout_secs,
             &self.store,
+            &MigrationExecutionRegistry::default(),
+            prepared.execution_profile.as_ref(),
         );
 
         #[cfg(not(feature = "native"))]
-        let result = execute_migration(
+        let result = crate::migration::wasm_sandbox::execute_migration_wasm(
             &prepared.transform_bytes,
-            prepared.migration_id,
+            &mut crate::migration::wasm_sandbox::InMemoryStoreHandle::new(),
             prepared.timeout_secs,
+            prepared.migration_id,
+            prepared.execution_profile.as_ref(),
         );
 
         let outcome =
@@ -519,15 +579,43 @@ impl SchemaMigrationEngine {
                 })
             }
             Ok(MigrationResult::Aborted { ref reason }) => {
+                let is_profile = reason.contains("deterministic profile violation")
+                    || reason.contains("DeterministicProfileViolation");
+                let is_engine = reason.contains("ENGINE_VERSION_MISMATCH")
+                    || reason.contains("fuel_cost_table_hash");
+                let (sev, code, qreason) = if is_engine {
+                    (
+                        Severity::High,
+                        ReasonCode::EngineVersionMismatch,
+                        Some(QuarantineReason::EngineVersionMismatch),
+                    )
+                } else if is_profile {
+                    (
+                        Severity::High,
+                        ReasonCode::DeterministicProfileViolation,
+                        Some(QuarantineReason::DeterministicProfileViolation),
+                    )
+                } else {
+                    (Severity::High, ReasonCode::PostconditionFailed, None)
+                };
                 emit_migration(
-                    Severity::High,
-                    ReasonCode::PostconditionFailed,
+                    sev,
+                    code,
                     None,
                     format!(
                         "[migration] Migration {:?} aborted: {reason}",
                         prepared.migration_id
                     ),
                 );
+                if let Some(qr) = qreason {
+                    let _ = self.quarantine_ledger.quarantine(
+                        "migration-sandbox".to_string(),
+                        Vec::new(),
+                        Some(self.local_schema_hash),
+                        qr,
+                        0,
+                    );
+                }
                 Ok(MigrationResult::Aborted {
                     reason: reason.clone(),
                 })
@@ -563,7 +651,7 @@ impl SchemaMigrationEngine {
     /// has been halted.  The caller must then epoch-interrupt the running
     /// sandbox via the execution registry so it actually stops (Req 18.6) —
     /// the engine merely clears the in-progress marker here; the CoreHandle
-    /// inbound pipeline performs the wasmtime interrupt.
+    /// inbound pipeline/registry performs interrupt and the commit gate enforces revocation.
     pub fn receive_revocation_delta(
         &mut self,
         delta: MigrationRevocationDelta,
@@ -1044,6 +1132,7 @@ mod tests {
             transform_sha256: embedded_hash,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         (delta, ca_public)
@@ -1230,6 +1319,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1269,6 +1359,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1312,6 +1403,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let (mgr_secret, mgr_did) = make_manager_identity();
@@ -1427,6 +1519,7 @@ mod tests {
             transform_sha256,
             priority: crate::crdt::delta::PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1500,6 +1593,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1518,6 +1612,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let result = engine.receive_migration_delta(delta2, sender);
@@ -1655,6 +1750,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1775,6 +1871,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         let mut engine = make_engine_with_path(ca_public, source, target);
@@ -1867,6 +1964,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         }
     }
 
@@ -2383,6 +2481,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         // Native-only because SchemaMigrationEngine::new requires a store conn.
@@ -2440,6 +2539,7 @@ mod tests {
             transform_sha256: [0u8; 32],
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         // Build engine with an empty schema_definitions map — the parser

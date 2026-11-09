@@ -6,7 +6,7 @@
 //! This crate compiles identically to two targets:
 //!
 //! - **`--features native`** — native binary for the Cloud Ledger server.
-//!   Uses `wasmtime` for migration sandbox execution and `rusqlite/bundled`
+//!   Uses `wasmi` for migration sandbox execution and `rusqlite/bundled`
 //!   for SQLite.
 //!
 //! - **`--features wasm`** — WASM module loaded by the TypeScript SDK on

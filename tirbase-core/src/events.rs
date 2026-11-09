@@ -287,6 +287,8 @@ pub enum ReasonCode {
     MigrationCancelled,
     /// The module's fuel-cost table does not match the active profile.
     EngineVersionMismatch,
+    /// PV-8.2 / S8: migration WASM violated the deterministic execution profile.
+    DeterministicProfileViolation,
     /// The module contains non-deterministic instructions.
     NonDeterministicModule,
     /// A contract migration violated the expand/contract rule.
@@ -466,6 +468,7 @@ impl ReasonCode {
             ReasonCode::FuelExhausted => "FuelExhausted",
             ReasonCode::MigrationCancelled => "MigrationCancelled",
             ReasonCode::EngineVersionMismatch => "EngineVersionMismatch",
+            ReasonCode::DeterministicProfileViolation => "DeterministicProfileViolation",
             ReasonCode::NonDeterministicModule => "NonDeterministicModule",
             ReasonCode::ExpandContractViolation => "ExpandContractViolation",
             ReasonCode::FleetPreconditionMissing => "FleetPreconditionMissing",

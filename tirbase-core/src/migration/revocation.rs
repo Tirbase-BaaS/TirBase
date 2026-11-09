@@ -130,7 +130,7 @@ impl RevokedMigrationRegistry {
     /// Returns `Ok(true)` when a transform for `target_migration_id` was
     /// executing and has been halted — the caller is then responsible for
     /// actually interrupting the sandbox run (epoch interrupt via the
-    /// execution registry on the wasmtime side) so it stops before its
+    /// execution registry) so the run is interrupted/cooperatively bounded before its
     /// timeout instead of running to completion behind the revoker.
     pub fn apply_revocation(
         &mut self,

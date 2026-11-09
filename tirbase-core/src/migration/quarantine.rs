@@ -28,6 +28,10 @@ pub enum QuarantineReason {
     MissingOrMalformedHash,
     /// `start_op` deviates from causal dependencies (CRDT hardening, PV-6.1/S4).
     ClockJump,
+    /// PV-8.2 / S8: migration module violated deterministic WASM profile.
+    DeterministicProfileViolation,
+    /// PV-8.2a / S9: execution profile id or fuel-cost hash mismatch.
+    EngineVersionMismatch,
 }
 
 impl QuarantineReason {
@@ -38,6 +42,8 @@ impl QuarantineReason {
             Self::UnknownSchemaHash => "UNKNOWN_HASH",
             Self::MissingOrMalformedHash => "MISSING_HASH",
             Self::ClockJump => "CLOCK_JUMP",
+            Self::DeterministicProfileViolation => "DETERMINISTIC_PROFILE_VIOLATION",
+            Self::EngineVersionMismatch => "ENGINE_VERSION_MISMATCH",
         }
     }
 
@@ -48,6 +54,8 @@ impl QuarantineReason {
             "UNKNOWN_HASH" => Some(Self::UnknownSchemaHash),
             "MISSING_HASH" => Some(Self::MissingOrMalformedHash),
             "CLOCK_JUMP" => Some(Self::ClockJump),
+            "DETERMINISTIC_PROFILE_VIOLATION" => Some(Self::DeterministicProfileViolation),
+            "ENGINE_VERSION_MISMATCH" => Some(Self::EngineVersionMismatch),
             _ => None,
         }
     }

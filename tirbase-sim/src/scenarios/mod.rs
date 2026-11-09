@@ -15,3 +15,6 @@ pub mod s4_clock_poisoning;
 pub mod s7_policy_loosening;
 
 pub mod s14_log_flooding;
+
+pub mod s8_malicious_migration;
+pub mod s9_engine_profile_mismatch;

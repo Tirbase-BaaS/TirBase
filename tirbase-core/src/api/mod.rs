@@ -337,7 +337,7 @@ pub struct CoreHandle {
     /// in the sandbox (Req 18.6).
     ///
     /// The inbound pipeline prepares a migration under the engine lock, then
-    /// executes the transform OFF the lock with its `wasmtime::Engine`
+    /// executes the transform OFF the lock in the wasmi sandbox, registered for interrupt
     /// registered here, so a `MigrationRevocationDelta` that halts the run can
     /// epoch-interrupt it instead of queueing behind it under the shared
     /// `migration` mutex.
@@ -706,7 +706,7 @@ impl CoreHandle {
 
         // ── In-flight migration execution registry (Req 18.6) ────────────────
         //
-        // Native: holds the `wasmtime::Engine` of each sandbox transform that
+        // Native: tracks interrupt flags for each wasmi sandbox transform that
         // is currently executing off the migration lock, so a revocation can
         // epoch-interrupt it.  Lives outside `SchemaMigrationEngine` on
         // purpose — it must stay reachable while a transform runs without the
@@ -3290,7 +3290,7 @@ impl CoreHandle {
                 // Req 18.6: dispatch the transform to a background job instead
                 // of executing it inline under the `migration` mutex.  The job
                 // validates (prepare) under the engine lock, then runs the
-                // sandbox OFF the lock with its wasmtime Engine registered in
+                // sandbox OFF the lock, registered in
                 // `migration_runs` — so a MigrationRevocationDelta drained
                 // moments later can acquire the engine and epoch-interrupt the
                 // run instead of queueing behind it until the 30s timeout.
@@ -3511,17 +3511,19 @@ impl CoreHandle {
             let target_schema_hash = prepared.target_schema_hash;
             let transform_bytes = prepared.transform_bytes;
             let timeout_secs = prepared.timeout_secs;
+            let execution_profile = prepared.execution_profile.clone();
 
             // ── 2. Run the sandbox OFF the engine lock, registered in the ──
             // execution registry so a revocation can epoch-interrupt it.
             let outcome: Result<MigrationResult, TirBaseError> =
                 tokio::task::spawn_blocking(move || {
-                    execute_migration_with_registry(
+                    crate::migration::wasm_sandbox::execute_migration_with_profile(
                         &transform_bytes,
                         migration_id,
                         timeout_secs,
                         &store,
                         &runs,
+                        execution_profile.as_ref(),
                     )
                 })
                 .await
@@ -6701,6 +6703,7 @@ mod tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         }
     }
 
@@ -7010,6 +7013,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn two_core_handle_instances_execute_migration_with_wasmi() {
+        // CLAIM-29.1: two real CoreHandle instances execute migration with wasmi.
+        let p1 = tmp_path("p29_1_a");
+        let p2 = tmp_path("p29_1_b");
+        cleanup(&p1);
+        cleanup(&p2);
+        let (ca_secret, ca_public) = crate::identity::keypair::generate_keypair().expect("keygen");
+        let v1 = [0x10u8; 32];
+        let v2 = [0x11u8; 32];
+        let c1 = make_migration_config(&p1, ca_public, vec![v1, v2]);
+        let c2 = make_migration_config(&p2, ca_public, vec![v1, v2]);
+        let h1 = CoreHandle::init(c1).await.expect("init h1");
+        let h2 = CoreHandle::init(c2).await.expect("init h2");
+
+        let wasm = wat::parse_str(r#"(module (func (export "run")))"#).expect("wasm");
+        let d1 = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm.clone());
+        let d2 = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm);
+        h1.inject_inbound(GossipMessage::InboundMigrationDelta(d1))
+            .await
+            .unwrap();
+        h1.process_inbound_messages().await.unwrap();
+        h2.inject_inbound(GossipMessage::InboundMigrationDelta(d2))
+            .await
+            .unwrap();
+        h2.process_inbound_messages().await.unwrap();
+        assert!(
+            h1.await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await
+        );
+        assert!(
+            h2.await_migration_quiescence(std::time::Duration::from_secs(10))
+                .await
+        );
+
+        // Both handles advanced schema via the production inbound+wasmi path.
+        for (name, h) in [("h1", &h1), ("h2", &h2)] {
+            let mig = h.migration.lock().unwrap();
+            assert!(
+                !mig.is_blacklisted("did:key:z6MkMigSender"),
+                "{name} sender must not be blacklisted"
+            );
+            drop(mig);
+        }
+        drop(h1);
+        drop(h2);
+        cleanup(&p1);
+        cleanup(&p2);
+    }
+
+    #[tokio::test]
     async fn inbound_migration_revocation_interrupts_in_progress_transform() {
         let path = tmp_path("p54_revoke_interrupts");
         cleanup(&path);
@@ -7046,7 +7099,7 @@ mod tests {
 
         // The inbound pipeline runs the transform on a background job; wait
         // until it has genuinely started executing (engine in-progress marker
-        // set AND its wasmtime Engine registered in the execution registry, so
+        // set AND registered in the execution registry, so
         // the epoch interrupt below is guaranteed to land).
         let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
@@ -8521,6 +8574,7 @@ mod inbound_tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         }
     }
 
@@ -13270,6 +13324,7 @@ mod quarantine_sidecar_wiring_tests {
             transform_sha256,
             priority: PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         }
     }
 
@@ -14227,6 +14282,7 @@ mod migration_mid_flight_revocation_tests {
             transform_sha256,
             priority: crate::crdt::delta::PriorityClass::Medium,
             created_at: 0,
+            execution_profile: None,
         };
 
         // ── Step 1: Inject the migration into Node A and start it ─────────────

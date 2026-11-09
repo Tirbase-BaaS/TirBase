@@ -6627,7 +6627,8 @@ impl tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::interrupt(&self, &tirbase_core::migration::migration_delta::MigrationId) -> bool
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::is_in_flight(&self, &tirbase_core::migration::migration_delta::MigrationId) -> bool
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::len(&self) -> usize
-pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register(&self, tirbase_core::migration::migration_delta::MigrationId, wasmtime::engine::Engine) -> bool
+pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register(&self, tirbase_core::migration::migration_delta::MigrationId) -> alloc::sync::Arc<core::sync::atomic::AtomicBool>
+pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register_engine(&self, tirbase_core::migration::migration_delta::MigrationId, ()) -> bool
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::unregister(&self, &tirbase_core::migration::migration_delta::MigrationId)
 impl core::default::Default for tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::default() -> tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
