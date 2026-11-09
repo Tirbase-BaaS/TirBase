@@ -126,6 +126,33 @@ pub enum TirBaseError {
     #[error("Migration revocation targets an unknown migration hash: {migration_id}")]
     UnknownMigrationHash { migration_id: String },
 
+    /// Task 30.3 (PV-8.5a): Contract migration lacks verified fleet precondition.
+    #[error("Contract migration requires verified fleet precondition (task 37.5 inventory hook): {migration_id}")]
+    FleetPreconditionMissing { migration_id: String },
+
+    /// Task 30.2 (PV-8.4): signed postcondition evaluation failed on shadow output.
+    #[error("Migration postcondition failed ({migration_id}): {reason}")]
+    MigrationPostconditionFailed {
+        migration_id: String,
+        reason: String,
+    },
+
+    /// Task 30.4 (PV-8.5a): mixed add+remove migration or kind/diff mismatch.
+    #[error("Expand-then-contract violation ({migration_id}): {reason}")]
+    ExpandContractViolation {
+        migration_id: String,
+        reason: String,
+    },
+
+    /// Task 30.6 (PV-8.7): transform author DID revoked before shadow commit.
+    #[error(
+        "Migration author DID revoked before commit ({migration_id}): author_did={author_did}"
+    )]
+    MigrationAuthorRevoked {
+        migration_id: String,
+        author_did: String,
+    },
+
     // ─── Storage ──────────────────────────────────────────────────────────────
     #[error("Local store write failed: {reason}")]
     LocalStoreWriteFailed { reason: String },

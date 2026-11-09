@@ -23,6 +23,65 @@ pub struct ManagerSignature {
     pub signature: Ed25519Signature,
 }
 
+/// Migration kind for expand-then-contract (PV-8.5a, Task 30.3/30.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum MigrationKind {
+    /// Legacy/unspecified migration (pre-30.x). Engine applies without
+    /// expand/contract diff enforcement for backward compatibility.
+    #[default]
+    Legacy,
+    /// Adds ≥1 field and removes 0 fields/tables relative to source schema.
+    Expand,
+    /// Removes ≥1 field and adds 0 fields/tables relative to source schema.
+    /// Requires fleet precondition verification before approval (Task 30.3).
+    Contract,
+}
+
+/// A single postcondition check evaluated against shadow output (PV-8.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PostconditionCheck {
+    /// Row count for a projection table.
+    RowCount { table: String, expected: usize },
+    /// SHA-256 checksum (hex) over canonical `(key, field_value)` rows for a
+    /// field in real projection data.
+    FieldChecksum {
+        table: String,
+        field: String,
+        expected_sha256_hex: String,
+    },
+    /// Target schema definition is parseable and its identifier hash matches.
+    SchemaValid {
+        /// Expected schema hash; defaults to delta.target_schema_hash when None.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expected_hash: Option<SchemaIdentifierHash>,
+    },
+}
+
+/// Signed postcondition set evaluated after a shadow-copy migration run (PV-8.4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedPostconditions {
+    /// Checks evaluated in order; all must pass.
+    pub checks: Vec<PostconditionCheck>,
+    /// Ed25519 public key bytes of the postcondition signer (32 bytes) when signed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_public_key: Option<[u8; 32]>,
+    /// Ed25519 signature over [`Self::canonical_signing_bytes`].
+    #[serde(with = "serde_bytes", default)]
+    pub signature: Vec<u8>,
+}
+
+impl SignedPostconditions {
+    /// Canonical bytes signed/verified: SHA-256 of JSON checks in order.
+    /// (Deterministic enough for this control-plane artifact; production
+    /// deployments should use CBOR canonical encoding.)
+    pub fn canonical_signing_bytes(&self) -> Vec<u8> {
+        use sha2::{Digest, Sha256};
+        let json = serde_json::to_vec(&self.checks).unwrap_or_default();
+        Sha256::digest(json).to_vec()
+    }
+}
+
 /// A signed delta that distributes a schema migration transform over the mesh (Req 18).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MigrationDelta {
@@ -50,6 +109,17 @@ pub struct MigrationDelta {
     /// Absent on legacy deltas; runtime may enforce active profile match.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_profile: Option<ExecutionProfileVersion>,
+    /// Task 30.3/30.4: expand/contract migration kind.
+    #[serde(default)]
+    pub migration_kind: MigrationKind,
+    /// Task 30.3: fleet inventory precondition hash required before approving
+    /// a `Contract` migration. Verified via a fleet-precondition hook
+    /// (production inventory integration depends on task 37.5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fleet_precondition_hash: Option<[u8; 32]>,
+    /// Task 30.2/PV-8.4: signed postconditions evaluated against shadow output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postconditions: Option<SignedPostconditions>,
 }
 
 /// A revocation delta that halts a migration that was found to be corrupted (Req 18.5).
@@ -88,6 +158,9 @@ mod tests {
             priority: PriorityClass::Medium,
             created_at: 1_720_000_000_000_000,
             execution_profile: None,
+            migration_kind: MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         }
     }
 

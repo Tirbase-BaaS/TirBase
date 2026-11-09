@@ -3464,24 +3464,25 @@ impl CoreHandle {
         mig_delta: crate::migration::migration_delta::MigrationDelta,
         sender_did: String,
     ) {
+        use crate::migration::postcondition::PostconditionOutcome;
         use crate::migration::wasm_sandbox::MigrationResult;
 
         let migration = self.migration.clone();
         let store = self.store.clone();
         let crdt = self.crdt.clone();
         let runs = self.migration_runs.clone();
+        let revocation = self.revocation.clone();
         let active_jobs = self.migration_tasks_active.clone();
+        let author_did = mig_delta.author_did.clone();
+        let postconditions = mig_delta.postconditions.clone();
+        let created_at = mig_delta.created_at;
         use std::sync::atomic::Ordering;
         active_jobs.fetch_add(1, Ordering::SeqCst);
 
         let _ = tokio::spawn(async move {
-            // RAII: never leave the active-job counter raised, whatever path
-            // the job exits on (so `await_migration_quiescence` cannot hang).
             let _active_guard = ActiveMigrationJobGuard(active_jobs);
 
-            // ── 1. Prepare (validate + mark in-progress) under the engine ──
-            // lock, retrying while another transform holds the engine.
-            let prepared = loop {
+            let (prepared, target_schema) = loop {
                 let attempt = {
                     let mut mig = match migration.lock() {
                         Ok(g) => g,
@@ -3490,15 +3491,20 @@ impl CoreHandle {
                             return;
                         }
                     };
-                    mig.prepare_migration(mig_delta.clone(), &sender_did)
+                    match mig.prepare_migration(mig_delta.clone(), &sender_did) {
+                        Ok(prep) => {
+                            let ts = mig
+                                .target_schema_definition(&prep.target_schema_hash)
+                                .cloned();
+                            Ok((prep, ts))
+                        }
+                        Err(e) => Err(e),
+                    }
                 };
                 match attempt {
-                    Ok(prepared) => break prepared,
+                    Ok(v) => break v,
                     Err(TirBaseError::MigrationInProgress { .. }) => {
-                        // Another migration is executing; a schema step can
-                        // only validate once the previous one committed.
                         tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-                        continue;
                     }
                     Err(e) => {
                         eprintln!("[inbound] MigrationDelta rejected: {e}");
@@ -3509,35 +3515,106 @@ impl CoreHandle {
 
             let migration_id = prepared.migration_id;
             let target_schema_hash = prepared.target_schema_hash;
-            let transform_bytes = prepared.transform_bytes;
+            let transform_bytes = prepared.transform_bytes.clone();
             let timeout_secs = prepared.timeout_secs;
             let execution_profile = prepared.execution_profile.clone();
+            let store_for_shadow = store.clone();
+            let runs_for_shadow = runs.clone();
 
-            // ── 2. Run the sandbox OFF the engine lock, registered in the ──
-            // execution registry so a revocation can epoch-interrupt it.
-            let outcome: Result<MigrationResult, TirBaseError> =
-                tokio::task::spawn_blocking(move || {
-                    crate::migration::wasm_sandbox::execute_migration_with_profile(
-                        &transform_bytes,
-                        migration_id,
-                        timeout_secs,
-                        &store,
-                        &runs,
-                        execution_profile.as_ref(),
-                    )
-                })
-                .await
-                .map_err(|e| TirBaseError::DeltaMalformed {
-                    reason: format!("migration background task failed: {e}"),
-                })
-                .and_then(|r| r);
+            // 30.1/30.2/30.5: shadow run + postconditions (projection tables only).
+            let sr = match tokio::task::spawn_blocking(move || {
+                crate::migration::shadow::run_shadow_migration_native(
+                    &transform_bytes,
+                    migration_id,
+                    timeout_secs,
+                    &store_for_shadow,
+                    &runs_for_shadow,
+                    execution_profile.as_ref(),
+                    postconditions.as_ref(),
+                    &target_schema_hash,
+                    target_schema.as_ref(),
+                )
+            })
+            .await
+            {
+                Ok(Ok(v)) => v,
+                Ok(Err(e)) => {
+                    if let Ok(mut mig) = migration.lock() {
+                        mig.revocation_registry_clear_in_progress_public(&migration_id);
+                    }
+                    eprintln!("[inbound] MigrationDelta shadow failed: {e}");
+                    return;
+                }
+                Err(e) => {
+                    if let Ok(mut mig) = migration.lock() {
+                        mig.revocation_registry_clear_in_progress_public(&migration_id);
+                    }
+                    eprintln!("[inbound] migration background task failed: {e}");
+                    return;
+                }
+            };
 
-            // ── 3. Finish under the engine lock: the commit gate re-checks ──
-            // revocation, so a transform that was interrupted (or a revocation
-            // that landed at the completion edge) never advances the schema.
-            // The schema the device was on *before* the commit is captured
-            // here: it is the corruption-window key whose Side-Car entries the
-            // corrected migration must replay (Req 19.3).
+            if let Some(qr) = sr.quarantine_reason.clone() {
+                if let Ok(mut mig) = migration.lock() {
+                    let _ = mig.quarantine_transform(
+                        &sender_did,
+                        prepared.transform_bytes.clone(),
+                        Some(target_schema_hash),
+                        qr,
+                        created_at,
+                    );
+                }
+            }
+            if matches!(sr.postconditions, Some(PostconditionOutcome::Failed { .. })) {
+                if let Ok(mut mig) = migration.lock() {
+                    mig.revocation_registry_clear_in_progress_public(&migration_id);
+                }
+                eprintln!("[inbound] MigrationDelta {:?} postcondition failed; pre-execution state preserved (PV-8.4/30.1-30.2)", migration_id);
+                return;
+            }
+            if !matches!(sr.migration_result, MigrationResult::Success) {
+                let mut mig = match migration.lock() {
+                    Ok(g) => g,
+                    Err(_) => return,
+                };
+                let outcome = mig.finish_migration(
+                    &migration_id,
+                    &target_schema_hash,
+                    Ok(sr.migration_result),
+                );
+                eprintln!("[inbound] MigrationDelta not applied: {outcome:?}");
+                return;
+            }
+
+            // 30.6 (PV-8.7): post-execution author DID revocation check before commit.
+            let author_revoked = revocation
+                .lock()
+                .map(|r| r.is_did_revoked(&author_did))
+                .unwrap_or(false);
+            if author_revoked {
+                if let Ok(mut mig) = migration.lock() {
+                    mig.revocation_registry_clear_in_progress_public(&migration_id);
+                    let _ = mig.quarantine_transform(&sender_did, prepared.transform_bytes.clone(), Some(target_schema_hash), crate::migration::quarantine::QuarantineReason::AuthorRevocationPostExecution, created_at);
+                }
+                crate::events::emit_migration(crate::events::Severity::High, crate::events::ReasonCode::RevocationPostExecution, Some(hex::encode(migration_id)),
+                    format!("[inbound] MigrationDelta author DID revoked before commit (PV-8.7): {author_did}"));
+                eprintln!(
+                    "[inbound] MigrationDelta {:?} rejected: author DID revoked before commit",
+                    migration_id
+                );
+                return;
+            }
+
+            if let Some(projs) = sr.shadow_projections {
+                if let Err(e) = crate::migration::shadow::commit_shadow_projections(&store, projs) {
+                    if let Ok(mut mig) = migration.lock() {
+                        mig.revocation_registry_clear_in_progress_public(&migration_id);
+                    }
+                    eprintln!("[inbound] MigrationDelta shadow commit failed: {e}");
+                    return;
+                }
+            }
+
             let (normalized, source_schema_hash) = {
                 let mut mig = match migration.lock() {
                     Ok(g) => g,
@@ -3547,74 +3624,27 @@ impl CoreHandle {
                     }
                 };
                 let source_schema_hash = mig.current_schema_hash();
-                let normalized = mig.finish_migration(&migration_id, &target_schema_hash, outcome);
-                (normalized, source_schema_hash)
+                (
+                    mig.finish_migration(
+                        &migration_id,
+                        &target_schema_hash,
+                        Ok(MigrationResult::Success),
+                    ),
+                    source_schema_hash,
+                )
             };
 
             match normalized {
                 Ok(MigrationResult::Success) => {
-                    // Subphase 5.3: a successfully applied migration changes
-                    // the device's deployed schema.  Mirror it into the CRDT
-                    // engine so locally produced Deltas stamp the new hash
-                    // (Req 4.6) and the merge gate classifies inbound Deltas
-                    // against the new schema (Req 17.2–17.4).
-                    let new_current = {
-                        let mig = match migration.lock() {
-                            Ok(g) => g,
-                            Err(e) => {
-                                eprintln!("[inbound] migration mutex poisoned: {e}");
-                                return;
-                            }
-                        };
-                        mig.current_schema_hash()
-                    };
-                    let mut crdt = match crdt.lock() {
-                        Ok(g) => g,
-                        Err(e) => {
-                            eprintln!("[inbound] crdt mutex poisoned: {e}");
-                            return;
-                        }
-                    };
+                    let new_current = { let mig = match migration.lock() { Ok(g)=>g, Err(_)=>return }; mig.current_schema_hash() };
+                    let mut crdt = match crdt.lock() { Ok(g)=>g, Err(_)=>return };
                     crdt.set_current_schema(new_current);
-
-                    // Req 19.3: a corrected migration just committed — replay
-                    // the Side-Car entries captured while the pre-migration
-                    // schema was under a corruption window against the
-                    // corrected projection, in recorded-timestamp order.
-                    // Best-effort: replay conflicts are flagged (Req 19.4),
-                    // never rolled back — the migration itself stays applied.
-                    {
-                        let mut mig = match migration.lock() {
-                            Ok(g) => g,
-                            Err(e) => {
-                                eprintln!("[inbound] migration mutex poisoned: {e}");
-                                return;
-                            }
-                        };
-                        let _ = mig.replay_corrupted_windows(
-                            &source_schema_hash,
-                            new_current,
-                            &mut crdt,
-                        );
-                    }
-
-                    eprintln!(
-                        "[inbound] MigrationDelta applied; CRDT current schema advanced to {}",
-                        hex::encode(new_current)
-                    );
+                    { let mut mig = match migration.lock() { Ok(g)=>g, Err(_)=>return }; let _ = mig.replay_corrupted_windows(&source_schema_hash, new_current, &mut crdt); }
+                    eprintln!("[inbound] MigrationDelta applied (shadow+postconditions+30.6); CRDT schema -> {}", hex::encode(new_current));
                 }
-                Ok(MigrationResult::Revoked { reason }) => {
-                    eprintln!(
-                        "[inbound] MigrationDelta {:?} interrupted by revocation — NOT applied: {reason}",
-                        migration_id
-                    );
-                }
-                Ok(other) => {
-                    eprintln!("[inbound] MigrationDelta not applied: {other:?}");
-                }
-                Err(e) => {
-                    eprintln!("[inbound] MigrationDelta rejected: {e}");
-                }
+                Ok(MigrationResult::Revoked { reason }) => eprintln!("[inbound] MigrationDelta {:?} interrupted by revocation — NOT applied: {reason}", migration_id),
+                Ok(other) => eprintln!("[inbound] MigrationDelta not applied: {other:?}"),
+                Err(e) => eprintln!("[inbound] MigrationDelta finish failed: {e}"),
             }
         });
     }
@@ -4089,6 +4119,17 @@ impl CoreHandle {
             }
 
             GossipMessage::InboundMigrationDelta(mig_delta) => {
+                // Task 30.6 (PV-8.7): post-exec author revocation check is enforced by
+                // native dispatch_inbound_migration; WASM receive_migration_delta executes
+                // under engine lock (no off-lock shadow commit split yet). Reject early if
+                // author DID is revoked in the auth subsystem.
+                if let Ok(rev) = self.revocation.lock() {
+                    if rev.is_did_revoked(&mig_delta.author_did) {
+                        crate::events::emit_migration(crate::events::Severity::High, crate::events::ReasonCode::RevocationPostExecution, Some(hex::encode(mig_delta.id)),
+                            format!("[wasm-inbound] MigrationDelta author DID revoked before apply (PV-8.7): {}", mig_delta.author_did));
+                        return Ok(());
+                    }
+                }
                 let sender_did = mig_delta.author_did.clone();
                 let mut mig =
                     self.migration
@@ -6704,6 +6745,9 @@ mod tests {
             priority: PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         }
     }
 
@@ -8575,6 +8619,9 @@ mod inbound_tests {
             priority: PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         }
     }
 
@@ -13325,6 +13372,9 @@ mod quarantine_sidecar_wiring_tests {
             priority: PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         }
     }
 
@@ -14283,6 +14333,9 @@ mod migration_mid_flight_revocation_tests {
             priority: crate::crdt::delta::PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         };
 
         // ── Step 1: Inject the migration into Node A and start it ─────────────

@@ -280,6 +280,85 @@ impl LocalStore {
     ///
     /// Used by the inbound projection pipeline to run `project_table()` on
     /// the same connection as the store (Req 4.3, 3.3).
+    /// Count rows in a projection table (`proj_{table}`). Returns 0 if missing.
+    pub fn count_rows(&self, table: &str) -> Result<usize, TirBaseError> {
+        let proj_table = format!("proj_{table}");
+        let sql = format!("SELECT COUNT(*) FROM \"{proj_table}\";");
+        let res = self.conn.query_row(&sql, [], |row| row.get::<_, i64>(0));
+        match res {
+            Ok(n) => Ok(n.max(0) as usize),
+            Err(rusqlite::Error::SqliteFailure(_, Some(ref msg)))
+                if msg.contains("no such table") =>
+            {
+                Ok(0)
+            }
+            Err(e) => Err(TirBaseError::LocalStoreWriteFailed {
+                reason: format!("count_rows on {proj_table} failed: {e}"),
+            }),
+        }
+    }
+
+    pub fn read_all_rows(&self, table: &str) -> Result<Vec<(String, Value)>, TirBaseError> {
+        self.query(table, None)
+    }
+
+    pub fn list_projection_tables(&self) -> Result<Vec<String>, TirBaseError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'proj_%'")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("list_projection_tables prepare failed: {e}"),
+            })?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("list_projection_tables query failed: {e}"),
+            })?;
+        let mut out = Vec::new();
+        for r in rows {
+            let name = r.map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("list_projection_tables row failed: {e}"),
+            })?;
+            out.push(name.trim_start_matches("proj_").to_string());
+        }
+        out.sort();
+        out.dedup();
+        Ok(out)
+    }
+
+    pub fn with_projection_savepoint<F, T>(&mut self, name: &str, f: F) -> Result<T, TirBaseError>
+    where
+        F: FnOnce(&mut Self) -> Result<(bool, T), TirBaseError>,
+    {
+        let begin = format!("SAVEPOINT \"{name}\";");
+        self.conn
+            .execute_batch(&begin)
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SAVEPOINT begin failed: {e}"),
+            })?;
+        match f(self) {
+            Ok((commit, value)) => {
+                let sql = if commit {
+                    format!("RELEASE SAVEPOINT \"{name}\";")
+                } else {
+                    format!("ROLLBACK TO SAVEPOINT \"{name}\"; RELEASE SAVEPOINT \"{name}\";")
+                };
+                self.conn
+                    .execute_batch(&sql)
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("SAVEPOINT finalize failed: {e}"),
+                    })?;
+                Ok(value)
+            }
+            Err(e) => {
+                let _ = self.conn.execute_batch(&format!(
+                    "ROLLBACK TO SAVEPOINT \"{name}\"; RELEASE SAVEPOINT \"{name}\";"
+                ));
+                Err(e)
+            }
+        }
+    }
+
     pub fn raw_conn(&self) -> &rusqlite::Connection {
         &self.conn
     }

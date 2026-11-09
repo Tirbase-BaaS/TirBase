@@ -426,3 +426,31 @@ mod tests {
         assert!(s.contains("added users.email"), "{s}");
     }
 }
+
+/// Task 30.4 (PV-8.5a): classify schema diff for expand-then-contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExpandContractClass {
+    /// Adds >=1 field/table and removes 0 fields/tables/types.
+    ExpandOnly,
+    /// Removes >=1 field/table and adds 0 fields/tables.
+    ContractOnly,
+    /// No structural change relevant to migration.
+    NoChange,
+    /// Mixed add+remove/type change in a single module.
+    Mixed,
+}
+
+impl SchemaDiff {
+    pub fn expand_contract_class(&self) -> ExpandContractClass {
+        let adds = !self.added_tables.is_empty() || !self.added_fields.is_empty();
+        let removes = !self.removed_tables.is_empty()
+            || !self.removed_fields.is_empty()
+            || !self.retyped_fields.is_empty();
+        match (adds, removes) {
+            (true, false) => ExpandContractClass::ExpandOnly,
+            (false, true) => ExpandContractClass::ContractOnly,
+            (false, false) => ExpandContractClass::NoChange,
+            (true, true) => ExpandContractClass::Mixed,
+        }
+    }
+}

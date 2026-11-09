@@ -1625,6 +1625,9 @@ proptest! {
             priority: PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);
@@ -1993,6 +1996,9 @@ proptest! {
             priority: PriorityClass::Medium,
             created_at: 0,
             execution_profile: None,
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
         };
 
         let path = SchemaVersionPath::new(vec![source, target]);

@@ -32,6 +32,16 @@ pub enum QuarantineReason {
     DeterministicProfileViolation,
     /// PV-8.2a / S9: execution profile id or fuel-cost hash mismatch.
     EngineVersionMismatch,
+    /// PV-8.4 / Task 30.2,30.11: signed postcondition check failed on shadow output.
+    PostconditionFailure,
+    /// PV-8.5a / Task 30.3/30.4: expand-then-contract or fleet precondition violation.
+    ExpandContractViolation,
+    /// PV-8.5a / Task 30.3: contract migration fleet precondition missing/unverified.
+    FleetPreconditionMissing,
+    /// PV-8.6 / Task 30.5: migration cancelled at a fuel-check boundary.
+    MigrationCancelled,
+    /// PV-8.7 / Task 30.6: transform author DID revoked before shadow commit.
+    AuthorRevocationPostExecution,
 }
 
 impl QuarantineReason {
@@ -44,6 +54,11 @@ impl QuarantineReason {
             Self::ClockJump => "CLOCK_JUMP",
             Self::DeterministicProfileViolation => "DETERMINISTIC_PROFILE_VIOLATION",
             Self::EngineVersionMismatch => "ENGINE_VERSION_MISMATCH",
+            Self::PostconditionFailure => "POSTCONDITION_FAILURE",
+            Self::ExpandContractViolation => "EXPAND_CONTRACT_VIOLATION",
+            Self::FleetPreconditionMissing => "FLEET_PRECONDITION_MISSING",
+            Self::MigrationCancelled => "MIGRATION_CANCELLED",
+            Self::AuthorRevocationPostExecution => "AUTHOR_REVOCATION_POST_EXECUTION",
         }
     }
 
@@ -56,6 +71,11 @@ impl QuarantineReason {
             "CLOCK_JUMP" => Some(Self::ClockJump),
             "DETERMINISTIC_PROFILE_VIOLATION" => Some(Self::DeterministicProfileViolation),
             "ENGINE_VERSION_MISMATCH" => Some(Self::EngineVersionMismatch),
+            "POSTCONDITION_FAILURE" => Some(Self::PostconditionFailure),
+            "EXPAND_CONTRACT_VIOLATION" => Some(Self::ExpandContractViolation),
+            "FLEET_PRECONDITION_MISSING" => Some(Self::FleetPreconditionMissing),
+            "MIGRATION_CANCELLED" => Some(Self::MigrationCancelled),
+            "AUTHOR_REVOCATION_POST_EXECUTION" => Some(Self::AuthorRevocationPostExecution),
             _ => None,
         }
     }
