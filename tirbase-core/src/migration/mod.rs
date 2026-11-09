@@ -2,16 +2,27 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod author_revocation;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod fleet_precondition;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod migration_delta;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod postcondition;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod profile;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod quarantine;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod revocation;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod shadow;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod sidecar;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod version_path;
+// STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod wasm_sandbox;
 
 use std::collections::{HashMap, HashSet};

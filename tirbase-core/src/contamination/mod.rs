@@ -30,6 +30,8 @@ use resolution::DecompositionResult;
 
 /// The Causal Contamination Engine.
 ///
+/// STATE-INVENTORY: PERSISTED cce_incidents, cce_composite_incidents, cce_contaminated_rows (CLAIM-31.3, PV-9.1)
+///
 /// Holds an in-memory index of incidents (ICOs) and composite incidents.
 /// The `dag_nodes.tags_json` column in SQLite is the durable append-only tag store.
 /// ICO state is in-memory only and not persisted across process restarts;
@@ -66,17 +68,292 @@ pub struct CausalContaminationEngine {
 // ─── Native implementation ────────────────────────────────────────────────────
 
 #[cfg(feature = "native")]
+mod persistence {
+    // STATE-INVENTORY: PERSISTED cce_incidents, cce_composite_incidents, cce_contaminated_rows (CLAIM-31.3, PV-9.1)
+    use super::*;
+    use std::str::FromStr;
+
+    fn lock_err(e: impl std::fmt::Display) -> TirBaseError {
+        TirBaseError::LocalStoreWriteFailed {
+            reason: format!("CCE mutex poisoned: {e}"),
+        }
+    }
+
+    pub fn load(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+    ) -> Result<
+        (
+            HashMap<IncidentId, IncidentContextObject>,
+            HashMap<IncidentId, CompositeIncidentInstance>,
+            HashMap<(String, String), IncidentId>,
+        ),
+        TirBaseError,
+    > {
+        let lock = conn.lock().map_err(lock_err)?;
+        let mut incidents = HashMap::new();
+        let mut stmt = lock
+            .prepare("SELECT ico_json FROM cce_incidents")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("load cce_incidents: {e}"),
+            })?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("query cce_incidents: {e}"),
+            })?;
+        for row in rows {
+            let json = row.map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("read cce_incidents row: {e}"),
+            })?;
+            let ico: IncidentContextObject =
+                serde_json::from_str(&json).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("decode cce_incident: {e}"),
+                })?;
+            incidents.insert(ico.id, ico);
+        }
+
+        let mut composite_incidents = HashMap::new();
+        let mut stmt = lock
+            .prepare("SELECT composite_json FROM cce_composite_incidents")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("load cce_composite_incidents: {e}"),
+            })?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("query cce_composite_incidents: {e}"),
+            })?;
+        for row in rows {
+            let json = row.map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("read cce_composite_incidents row: {e}"),
+            })?;
+            let comp: CompositeIncidentInstance =
+                serde_json::from_str(&json).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("decode cce_composite_incident: {e}"),
+                })?;
+            composite_incidents.insert(comp.id, comp);
+        }
+
+        let mut contaminated_rows = HashMap::new();
+        let mut stmt = lock
+            .prepare("SELECT table_name, row_key, incident_id FROM cce_contaminated_rows")
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("load cce_contaminated_rows: {e}"),
+            })?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("query cce_contaminated_rows: {e}"),
+            })?;
+        for row in rows {
+            let (table, key, id_str) = row.map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("read cce_contaminated_rows row: {e}"),
+            })?;
+            let incident_id =
+                IncidentId::from_str(&id_str).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("decode cce_contaminated_rows incident_id: {e}"),
+                })?;
+            contaminated_rows.insert((table, key), incident_id);
+        }
+        Ok((incidents, composite_incidents, contaminated_rows))
+    }
+
+    pub fn save_incident(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+        ico: &IncidentContextObject,
+    ) -> Result<(), TirBaseError> {
+        let json = serde_json::to_string(ico).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("encode cce_incident: {e}"),
+        })?;
+        let lock = conn.lock().map_err(lock_err)?;
+        lock.execute(
+            "INSERT OR REPLACE INTO cce_incidents (id, ico_json) VALUES (?1, ?2)",
+            rusqlite::params![ico.id.to_string(), json],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("save cce_incident: {e}"),
+        })?;
+        Ok(())
+    }
+
+    pub fn save_composite(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+        comp: &CompositeIncidentInstance,
+    ) -> Result<(), TirBaseError> {
+        let json =
+            serde_json::to_string(comp).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("encode cce_composite_incident: {e}"),
+            })?;
+        let lock = conn.lock().map_err(lock_err)?;
+        lock.execute(
+            "INSERT OR REPLACE INTO cce_composite_incidents (id, composite_json) VALUES (?1, ?2)",
+            rusqlite::params![comp.id.to_string(), json],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("save cce_composite_incident: {e}"),
+        })?;
+        Ok(())
+    }
+
+    pub fn delete_composite(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+        id: IncidentId,
+    ) -> Result<(), TirBaseError> {
+        let lock = conn.lock().map_err(lock_err)?;
+        lock.execute(
+            "DELETE FROM cce_composite_incidents WHERE id = ?1",
+            rusqlite::params![id.to_string()],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("delete cce_composite_incident: {e}"),
+        })?;
+        Ok(())
+    }
+
+    pub fn upsert_contaminated_row(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+        table: &str,
+        row_key: &str,
+        incident_id: IncidentId,
+    ) -> Result<(), TirBaseError> {
+        let lock = conn.lock().map_err(lock_err)?;
+        lock.execute(
+            "INSERT OR REPLACE INTO cce_contaminated_rows (table_name, row_key, incident_id) VALUES (?1, ?2, ?3)",
+            rusqlite::params![table, row_key, incident_id.to_string()],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("save cce_contaminated_row: {e}"),
+        })?;
+        Ok(())
+    }
+
+    pub fn delete_contaminated_row(
+        conn: &std::sync::Mutex<rusqlite::Connection>,
+        table: &str,
+        row_key: &str,
+    ) -> Result<(), TirBaseError> {
+        let lock = conn.lock().map_err(lock_err)?;
+        lock.execute(
+            "DELETE FROM cce_contaminated_rows WHERE table_name = ?1 AND row_key = ?2",
+            rusqlite::params![table, row_key],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("delete cce_contaminated_row: {e}"),
+        })?;
+        Ok(())
+    }
+
+    pub fn save_snapshot(cce: &CausalContaminationEngine) -> Result<(), TirBaseError> {
+        let incidents_json = serde_json::to_string(&cce.incidents).map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("encode cce_incidents snapshot: {e}"),
+            }
+        })?;
+        let composites_json = serde_json::to_string(&cce.composite_incidents).map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("encode cce_composite snapshot: {e}"),
+            }
+        })?;
+        let rows: Vec<(String, String, String)> = cce
+            .contaminated_rows
+            .iter()
+            .map(|((t, k), id)| (t.clone(), k.clone(), id.to_string()))
+            .collect();
+        let lock = cce.conn.lock().map_err(lock_err)?;
+        let tx = lock
+            .unchecked_transaction()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("cce snapshot tx: {e}"),
+            })?;
+        tx.execute("DELETE FROM cce_incidents", []).map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("clear cce_incidents: {e}"),
+            }
+        })?;
+        tx.execute("DELETE FROM cce_composite_incidents", [])
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("clear cce_composite_incidents: {e}"),
+            })?;
+        tx.execute("DELETE FROM cce_contaminated_rows", [])
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("clear cce_contaminated_rows: {e}"),
+            })?;
+        for ico in cce.incidents.values() {
+            let json =
+                serde_json::to_string(ico).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("encode cce_incident: {e}"),
+                })?;
+            tx.execute(
+                "INSERT INTO cce_incidents (id, ico_json) VALUES (?1, ?2)",
+                rusqlite::params![ico.id.to_string(), json],
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("insert cce_incident: {e}"),
+            })?;
+        }
+        for comp in cce.composite_incidents.values() {
+            let json =
+                serde_json::to_string(comp).map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("encode cce_composite: {e}"),
+                })?;
+            tx.execute(
+                "INSERT INTO cce_composite_incidents (id, composite_json) VALUES (?1, ?2)",
+                rusqlite::params![comp.id.to_string(), json],
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("insert cce_composite: {e}"),
+            })?;
+        }
+        for (table, key, incident_id) in rows {
+            tx.execute(
+                "INSERT OR REPLACE INTO cce_contaminated_rows (table_name, row_key, incident_id) VALUES (?1, ?2, ?3)",
+                rusqlite::params![table, key, incident_id],
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("insert cce_contaminated_row: {e}"),
+            })?;
+        }
+        tx.commit()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("commit cce snapshot: {e}"),
+            })?;
+        let _ = (incidents_json, composites_json);
+        Ok(())
+    }
+}
+
+#[cfg(feature = "native")]
 impl CausalContaminationEngine {
     /// Create a new CCE backed by the given shared SQLite connection.
+    /// Loads persisted ICO/CCE state on construction (CLAIM-31.3, PV-9.1).
     pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
         let dag = crate::crdt::dag::ChangesetDag::new(conn.clone());
+        let (incidents, composite_incidents, contaminated_rows) =
+            persistence::load(&conn).unwrap_or_default();
         Self {
             conn,
             dag,
-            incidents: HashMap::new(),
-            composite_incidents: HashMap::new(),
-            contaminated_rows: HashMap::new(),
+            incidents,
+            composite_incidents,
+            contaminated_rows,
         }
+    }
+
+    /// Persist current ICO/CCE/index state to SQLite (CLAIM-31.3).
+    fn persist_snapshot(&self) -> Result<(), TirBaseError> {
+        persistence::save_snapshot(self)
+    }
+
+    /// Test-only: force-persist current state (CLAIM-31.3 tests).
+    #[doc(hidden)]
+    pub fn test_persist_snapshot(&self) -> Result<(), TirBaseError> {
+        self.persist_snapshot()
     }
 
     // ─── tag_contamination_root ───────────────────────────────────────────────
@@ -202,6 +479,7 @@ impl CausalContaminationEngine {
                         .insert((row.table.clone(), row.row_key.clone()), composite_id);
                 }
             }
+            self.persist_snapshot()?; // CLAIM-31.3
             return Ok(composite_id);
         }
 
@@ -215,7 +493,7 @@ impl CausalContaminationEngine {
                     .insert((row.table.clone(), row.row_key.clone()), ico_id);
             }
         }
-
+        self.persist_snapshot()?; // CLAIM-31.3
         Ok(ico_id)
     }
 
@@ -314,6 +592,7 @@ impl CausalContaminationEngine {
             });
         }
 
+        self.persist_snapshot()?; // CLAIM-31.3
         Ok(())
     }
 
@@ -335,7 +614,9 @@ impl CausalContaminationEngine {
             manager_token_expiry,
             now_secs,
             &mut self.incidents,
-        )
+        )?;
+        self.persist_snapshot()?; // CLAIM-31.3
+        Ok(())
     }
 
     // ─── Read accessors ───────────────────────────────────────────────────────
@@ -398,7 +679,7 @@ impl CausalContaminationEngine {
     /// Insert a DagNode directly into the CCE's DAG.
     /// Used by integration tests to set up causal ancestry without going through
     /// the full write pipeline.
-    #[cfg(test)]
+    #[doc(hidden)]
     pub fn test_insert_dag_node(
         &mut self,
         node: crate::crdt::dag::DagNode,
@@ -413,7 +694,7 @@ impl CausalContaminationEngine {
     /// Manually set the `contaminated_rows` entry for a `(table, row_key)` pair.
     /// Used by integration tests to simulate projection-layer contamination without
     /// requiring a full `tag_contamination_root` walk over live store rows.
-    #[cfg(test)]
+    #[doc(hidden)]
     pub fn test_set_contaminated_row(
         &mut self,
         table: &str,
@@ -433,13 +714,13 @@ impl CausalContaminationEngine {
     }
 
     /// Retrieve a snapshot of a `CompositeIncidentInstance` by ID.
-    #[cfg(test)]
+    #[doc(hidden)]
     pub fn test_get_composite_incident(&self, id: IncidentId) -> Option<CompositeIncidentInstance> {
         self.composite_incidents.get(&id).cloned()
     }
 
     /// Check whether an incident ID refers to a composite incident.
-    #[cfg(test)]
+    #[doc(hidden)]
     pub fn test_is_composite(&self, id: IncidentId) -> bool {
         self.composite_incidents.contains_key(&id)
     }

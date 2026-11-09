@@ -267,6 +267,7 @@ pub struct DurabilityTierChanged {
 
 /// The main handle to a TirBase instance.
 /// Obtained by calling [`CoreHandle::init`].
+/// STATE-INVENTORY: RECONSTRUCTIBLE runtime channels (CLAIM-31.1, PV-9.1)
 pub struct CoreHandle {
     /// Local SQLite-backed store (native) or IndexedDB-backed store (WASM,
     /// Subphase 6.3 — see `store::indexed_db`).
@@ -490,13 +491,8 @@ impl CoreHandle {
         let (store, crdt, cce) = {
             // Primary store connection (used by LocalStore).
             let store = LocalStore::open(&config.storage_path)?;
-            // Crash recovery (Subphase 7.3): if the previous process was killed
-            // mid-write (between BEGIN and COMMIT), SQLite's WAL replay rolls
-            // back the incomplete transaction automatically — verify the
-            // recovered DB is not corrupt before any reads/writes proceed
-            // (Req 3.2 atomicity).  `check_integrity` is the production caller
-            // of the store-layer recovery path; it is reached on every init,
-            // not only in tests.
+            // Boot recovery (Subphase 7.3, CLAIM-31.4): WAL replay + PRAGMA
+            // quick_check at boot (integrity_check deferred to maintenance).
             store.check_integrity()?;
             let store = Arc::new(Mutex::new(store));
 
@@ -4793,6 +4789,15 @@ impl CoreHandle {
     /// channel's ring buffer (64 events) miss the oldest transitions, so poll
     /// [`CoreHandle::durability_tier`] for authoritative current state.
     #[cfg(feature = "native")]
+    /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
+    #[doc(hidden)]
+    #[cfg(feature = "native")]
+    pub fn test_cce(
+        &self,
+    ) -> &std::sync::Arc<std::sync::Mutex<crate::contamination::CausalContaminationEngine>> {
+        &self.cce
+    }
+
     pub fn subscribe_durability_events(
         &self,
     ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {

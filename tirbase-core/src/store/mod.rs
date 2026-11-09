@@ -163,22 +163,23 @@ impl LocalStore {
         }
     }
 
-    /// Run crash-recovery verification against the underlying SQLite database.
+    /// Run boot-recovery verification against the underlying SQLite database.
     ///
     /// This folds any recovered WAL frames back into the main database file
-    /// and runs `PRAGMA integrity_check`.  It is the production recovery hook
-    /// reached from [`CoreHandle::init`](crate::api::CoreHandle::init) after
-    /// opening the store: if the previous process was killed mid-write (between
-    /// `BEGIN` and `COMMIT`), SQLite's WAL recovery rolls back the incomplete
-    /// transaction automatically — this method verifies that recovery was
-    /// clean (Subphase 7.3, Req 3.2 atomicity).
-    ///
-    /// A corrupt post-recovery database is reported as a hard
-    /// `LocalStoreWriteFailed` so `init` never returns a handle over a
-    /// poisoned store.
+    /// and runs `PRAGMA quick_check` (CLAIM-31.4, PV-9.2). Full
+    /// `PRAGMA integrity_check` is deferred to the maintenance window.
+    /// It is the production recovery hook reached from
+    /// [`CoreHandle::init`](crate::api::CoreHandle::init) after opening the
+    /// store (Subphase 7.3, Req 3.2 atomicity).
     #[cfg(feature = "native")]
     pub(crate) fn check_integrity(&self) -> Result<(), TirBaseError> {
         sqlite::recover_from_crash(&self.conn)
+    }
+
+    /// Full integrity check for maintenance window (CLAIM-31.4).
+    #[cfg(feature = "native")]
+    pub fn maintenance_integrity_check(&self) -> Result<(), TirBaseError> {
+        sqlite::maintenance_integrity_check(&self.conn)
     }
 
     /// Query records in a table with an optional filter (Req 3.3).
