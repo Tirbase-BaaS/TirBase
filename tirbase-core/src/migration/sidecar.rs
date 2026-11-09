@@ -191,6 +191,10 @@ impl SideCarLedger {
                     replayed_delta_ids.push(delta_id);
                     self.update_entry_status(&entry.id, "REPLAYED", None)?;
                 }
+                Ok(crate::crdt::merge::MergeOutcome::Pending { reason }) => {
+                    // PV-6.1: migration replay path treats pending as a transient skip.
+                    self.update_entry_status(&entry.id, "PENDING", Some(reason))?;
+                }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
                     // A quarantine during replay counts as a conflict —
                     // the corrected schema should have accepted this delta.
@@ -535,6 +539,14 @@ impl SideCarLedger {
                         &entry.id,
                         &serde_json::to_string(&ReplayStatus::Replayed)
                             .unwrap_or_else(|_| "REPLAYED".to_string()),
+                    )
+                    .await?;
+                }
+                Ok(crate::crdt::merge::MergeOutcome::Pending { reason }) => {
+                    self.update_entry_status(
+                        &entry.id,
+                        &serde_json::to_string(&ReplayStatus::Pending)
+                            .unwrap_or_else(|_| format!("PENDING:{reason}")),
                     )
                     .await?;
                 }

@@ -67,6 +67,18 @@ impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
                 Self::MissingOrMalformedHash
             }
             crate::crdt::merge::QuarantineReason::ClockJump => Self::ClockJump,
+            // PV-6 hardening reasons (tasks 23-24): map to closest legacy bucket
+            // for the migration quarantine ledger; authoritative PV-6.7 storage
+            // is the Schema_Quarantine_Ledger/rate quarantine in crdt::hardening.
+            crate::crdt::merge::QuarantineReason::MissingDependencyTimeout
+            | crate::crdt::merge::QuarantineReason::PendingQueueOverflow
+            | crate::crdt::merge::QuarantineReason::OpCountExceeded
+            | crate::crdt::merge::QuarantineReason::BatchExceeded
+            | crate::crdt::merge::QuarantineReason::HeadCountExceeded
+            | crate::crdt::merge::QuarantineReason::DepCountExceeded
+            | crate::crdt::merge::QuarantineReason::TraversalBudgetExceeded
+            | crate::crdt::merge::QuarantineReason::RateExceeded
+            | crate::crdt::merge::QuarantineReason::Oversize => Self::ClockJump,
         }
     }
 }

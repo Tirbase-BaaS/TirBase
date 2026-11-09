@@ -32,6 +32,10 @@ use crate::events::{emit_crdt, ReasonCode, Severity};
 pub enum MergeOutcome {
     /// Delta was successfully merged into the local store.
     Merged { new_lamport: u64 },
+    /// Delta is held in the bounded pending queue because one or more causal
+    /// dependencies are not yet known (PV-6.1 / task 23). It will be retried
+    /// when dependency arrival advances the merge state.
+    Pending { reason: String },
     /// Delta was placed in the Quarantine Ledger due to schema incompatibility.
     Quarantined { reason: QuarantineReason },
     /// Delta was rejected (bad signature, revoked sender, etc.).
@@ -50,6 +54,18 @@ pub enum QuarantineReason {
     /// `start_op` deviates from the value implied by the change's causal
     /// dependencies (dependency-relative clock/start_op poisoning, PV-6.1/S4).
     ClockJump,
+    /// Pending dependency not received before age-out (PV-6.1, task 23).
+    MissingDependencyTimeout,
+    /// Pending queue byte cap exceeded (PV-6.1, S33).
+    PendingQueueOverflow,
+    /// Inbound hardening cap exceeded (PV-6.3/6.4, task 23/24).
+    RateExceeded,
+    Oversize,
+    OpCountExceeded,
+    BatchExceeded,
+    HeadCountExceeded,
+    DepCountExceeded,
+    TraversalBudgetExceeded,
 }
 
 /// Classify the operation type in Automerge changeset bytes.
@@ -121,6 +137,38 @@ pub(crate) fn is_rga_operation(automerge_bytes: &[u8]) -> Option<bool> {
 /// `CrdtEngine::apply()` is the Automerge-level merge primitive and handles
 /// steps 1 and 2 as well. This function adds the observable routing layer
 /// (step 3) on top.
+
+pub(crate) fn apply_incoming_delta_no_pending_retry(
+    engine: &mut CrdtEngine,
+    delta: &Delta,
+) -> Result<MergeOutcome, TirBaseError> {
+    {
+        let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
+        match crate::crdt::hardening::validate_start_op(delta, &known) {
+            crate::crdt::hardening::StartOpValidation::Ok
+            | crate::crdt::hardening::StartOpValidation::NotAutomerge => {}
+            crate::crdt::hardening::StartOpValidation::MissingDependency => {
+                return Ok(MergeOutcome::Pending {
+                    reason: "missing causal dependency (PV-6.1)".to_string(),
+                });
+            }
+            crate::crdt::hardening::StartOpValidation::ClockJump {
+                change_hash,
+                expected,
+                actual,
+            } => {
+                return Ok(crate::crdt::hardening::quarantine_clock_jump(
+                    delta,
+                    change_hash.as_deref(),
+                    expected,
+                    actual,
+                ));
+            }
+        }
+    }
+    engine.apply(delta)
+}
+
 pub fn apply_incoming_delta(
     engine: &mut CrdtEngine,
     delta: &Delta,
@@ -133,8 +181,45 @@ pub fn apply_incoming_delta(
         let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
         match crate::crdt::hardening::validate_start_op(delta, &known) {
             crate::crdt::hardening::StartOpValidation::Ok
-            | crate::crdt::hardening::StartOpValidation::NotAutomerge
-            | crate::crdt::hardening::StartOpValidation::MissingDependency => {}
+            | crate::crdt::hardening::StartOpValidation::NotAutomerge => {
+                // proceed to normal merge path below
+            }
+            crate::crdt::hardening::StartOpValidation::MissingDependency => {
+                // PV-6.1 (task 23): defer when hardening pending queue is available.
+                // Without hardening state, preserve legacy apply behavior.
+                let pending_outcome = if let Some(engine_hardening) = engine.hardening_mut() {
+                    let now_mono = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_micros() as u64)
+                        .unwrap_or(0);
+                    let pending_ev = engine_hardening.enqueue_pending(
+                        delta.clone(),
+                        now_mono,
+                        delta.author_did.clone(),
+                    );
+                    #[cfg(feature = "native")]
+                    {
+                        for ev in &pending_ev {
+                            let _ = engine_hardening.quarantine_pending_eviction(ev);
+                        }
+                    }
+                    if !engine_hardening.pending_contains(&delta.id) {
+                        Some(Ok(MergeOutcome::Quarantined {
+                            reason: QuarantineReason::PendingQueueOverflow,
+                        }))
+                    } else {
+                        Some(Ok(MergeOutcome::Pending {
+                            reason: "missing causal dependency (PV-6.1)".to_string(),
+                        }))
+                    }
+                } else {
+                    None
+                };
+                if let Some(outcome) = pending_outcome {
+                    return outcome;
+                }
+                // legacy: fall through to normal merge/apply below
+            }
             crate::crdt::hardening::StartOpValidation::ClockJump {
                 change_hash,
                 expected,
@@ -174,7 +259,63 @@ pub fn apply_incoming_delta(
     // Delegate to CrdtEngine::apply() which handles validation + Automerge merge.
     // Both LWW and RGA paths ultimately go through the same Automerge merge step;
     // the routing classification here is for observability and future dispatch hooks.
-    engine.apply(delta)
+    let outcome = engine.apply(delta)?;
+    if matches!(outcome, MergeOutcome::Merged { .. }) {
+        // PV-6.1 / task 23: dependency arrival may unblock pending deltas.
+        // Retry drained entries in deterministic order; re-enqueue if still missing deps.
+        let mut progress = true;
+        while progress {
+            progress = false;
+            let pending = engine
+                .hardening_mut()
+                .map(|h| h.drain_pending_ordered())
+                .unwrap_or_default();
+            if pending.is_empty() {
+                break;
+            }
+            for entry in pending {
+                match apply_incoming_delta_no_pending_retry(engine, &entry.delta) {
+                    Ok(MergeOutcome::Merged { .. }) => {
+                        progress = true;
+                    }
+                    Ok(MergeOutcome::Pending { .. }) => {
+                        // still missing deps; re-enqueue preserving original mono if possible
+                        if let Some(h) = engine.hardening_mut() {
+                            let _ = h.enqueue_pending(
+                                entry.delta,
+                                entry.received_at_mono,
+                                entry.sender_did,
+                            );
+                        }
+                    }
+                    Ok(MergeOutcome::Quarantined { reason }) => {
+                        #[cfg(feature = "native")]
+                        if let Some(h) = engine.hardening_mut() {
+                            if let Some(sr) = crate::crdt::schema_quarantine::SchemaQuarantineReason::from_reason_code(match &reason {
+                                crate::crdt::merge::QuarantineReason::ClockJump => crate::events::ReasonCode::ClockJump,
+                                crate::crdt::merge::QuarantineReason::MissingDependencyTimeout => crate::events::ReasonCode::MissingDependencyTimeout,
+                                crate::crdt::merge::QuarantineReason::PendingQueueOverflow => crate::events::ReasonCode::PendingQueueOverflow,
+                                crate::crdt::merge::QuarantineReason::OpCountExceeded => crate::events::ReasonCode::OpCountExceeded,
+                                crate::crdt::merge::QuarantineReason::TraversalBudgetExceeded => crate::events::ReasonCode::TraversalBudgetExceeded,
+                                crate::crdt::merge::QuarantineReason::BatchExceeded => crate::events::ReasonCode::BatchExceeded,
+                                crate::crdt::merge::QuarantineReason::HeadCountExceeded => crate::events::ReasonCode::HeadCountExceeded,
+                                crate::crdt::merge::QuarantineReason::DepCountExceeded => crate::events::ReasonCode::DepCountExceeded,
+                                _ => crate::events::ReasonCode::UnknownSchemaHash,
+                            }) {
+                                let detail = format!("pending retry quarantined reason={reason:?}");
+                                let _ = h.record_schema_quarantine(&entry.delta, sr, &detail);
+                            }
+                        }
+                        let _ = reason;
+                    }
+                    Ok(MergeOutcome::Rejected { .. }) | Err(_) => {
+                        // drop rejected/errored pending entries
+                    }
+                }
+            }
+        }
+    }
+    Ok(outcome)
 }
 
 /// LWW (Last-Write-Wins) conflict resolution for scalar / map-key fields (Req 4.5).

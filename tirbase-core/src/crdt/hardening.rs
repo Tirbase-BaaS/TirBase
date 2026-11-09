@@ -594,3 +594,310 @@ mod task22_tests {
         }
     }
 }
+
+// ─── Task 23: bounded pending queue + quarantine stores (PV-6.1, PV-6.7) ─────
+
+use crate::crdt::pending_queue::{
+    PendingEviction, PendingQueue, DEFAULT_PENDING_AGE_OUT_MICROS, DEFAULT_PENDING_GLOBAL_BYTES,
+    DEFAULT_PENDING_PER_PEER_BYTES,
+};
+use crate::crdt::rate_quarantine::{RateQuarantineLedger, RateQuarantineReason};
+#[cfg(feature = "native")]
+use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
+
+/// Cheap-checks-first inbound validation stages (task 23.6, PV-6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CheapCheckStage {
+    RateLimit = 1,
+    Size = 2,
+    OpCount = 3,
+    DepCheck = 4,
+    StartOpValidation = 5,
+}
+
+/// A cheap-check rejection with the stage that fired first.
+#[derive(Debug, Clone)]
+pub struct CheapCheckRejection {
+    pub stage: CheapCheckStage,
+    pub reason: ReasonCode,
+    pub detail: String,
+}
+
+/// Inbound CRDT hardening state attached to a `CrdtEngine`/inbound pipeline.
+///
+/// Holds the bounded pending queue, in-memory rate quarantine counters, and the
+/// replayable `Schema_Quarantine_Ledger` (native SQLite).
+#[derive(Debug)]
+pub struct InboundHardening {
+    pending: PendingQueue,
+    rate: RateQuarantineLedger,
+    #[cfg(feature = "native")]
+    schema_quarantine: Option<SchemaQuarantineLedger>,
+    #[cfg(feature = "native")]
+    summary_db: Option<rusqlite::Connection>,
+}
+
+impl Default for InboundHardening {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InboundHardening {
+    #[cfg(test)]
+    pub(crate) fn with_pending_caps(
+        age_out_micros: u64,
+        global_bytes: usize,
+        per_peer_bytes: usize,
+    ) -> Self {
+        Self {
+            pending: PendingQueue::new(age_out_micros, global_bytes, per_peer_bytes),
+            rate: RateQuarantineLedger::new(),
+            #[cfg(feature = "native")]
+            schema_quarantine: None,
+            #[cfg(feature = "native")]
+            summary_db: None,
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            pending: PendingQueue::new(
+                DEFAULT_PENDING_AGE_OUT_MICROS,
+                DEFAULT_PENDING_GLOBAL_BYTES,
+                DEFAULT_PENDING_PER_PEER_BYTES,
+            ),
+            rate: RateQuarantineLedger::new(),
+            #[cfg(feature = "native")]
+            schema_quarantine: None,
+            #[cfg(feature = "native")]
+            summary_db: None,
+        }
+    }
+
+    #[cfg(feature = "native")]
+    pub fn with_derived_db(
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Self, crate::errors::TirBaseError> {
+        let schema = SchemaQuarantineLedger::open(path.as_ref())?;
+        let summary = RateQuarantineLedger::open_summary_db(path.as_ref()).ok();
+        Ok(Self {
+            pending: PendingQueue::default(),
+            rate: RateQuarantineLedger::new(),
+            schema_quarantine: Some(schema),
+            summary_db: summary,
+        })
+    }
+
+    pub fn pending_len(&self) -> usize {
+        self.pending.len()
+    }
+
+    pub fn pending_total_bytes(&self) -> usize {
+        self.pending.total_bytes()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn configure_pending_caps(
+        &mut self,
+        age_out_micros: u64,
+        global_bytes: usize,
+        per_peer_bytes: usize,
+    ) {
+        self.pending = PendingQueue::new(age_out_micros, global_bytes, per_peer_bytes);
+    }
+
+    pub fn pending_contains(&self, id: &crate::crdt::delta::DeltaId) -> bool {
+        self.pending.contains(id)
+    }
+
+    pub fn enqueue_pending(
+        &mut self,
+        delta: Delta,
+        now_mono: u64,
+        sender_did: crate::crdt::delta::Did,
+    ) -> Vec<PendingEviction> {
+        self.pending.enqueue(delta, now_mono, sender_did)
+    }
+
+    pub fn evict_timed_out(&mut self, now_mono: u64) -> Vec<PendingEviction> {
+        self.pending.evict_timed_out(now_mono)
+    }
+
+    pub fn drain_pending_ordered(&mut self) -> Vec<crate::crdt::pending_queue::PendingEntry> {
+        self.pending.drain_all_ordered()
+    }
+
+    #[cfg(feature = "native")]
+    pub fn quarantine_pending_eviction(
+        &mut self,
+        ev: &PendingEviction,
+    ) -> Result<(), crate::errors::TirBaseError> {
+        let reason = match ev.reason {
+            ReasonCode::PendingQueueOverflow => SchemaQuarantineReason::PendingQueueOverflow,
+            ReasonCode::MissingDependencyTimeout => {
+                SchemaQuarantineReason::MissingDependencyTimeout
+            }
+            _ => SchemaQuarantineReason::MissingDependencyTimeout,
+        };
+        let raw =
+            serde_json::to_vec(&ev.delta).unwrap_or_else(|_| ev.delta.automerge_bytes.clone());
+        if let Some(sq) = self.schema_quarantine.as_mut() {
+            sq.quarantine_raw(
+                &ev.sender_did,
+                &raw,
+                reason,
+                ev.received_at_mono as i64,
+                &ev.detail,
+            )?;
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    pub fn record_schema_quarantine(
+        &mut self,
+        delta: &Delta,
+        reason: SchemaQuarantineReason,
+        detail: &str,
+    ) -> Result<Option<[u8; 32]>, crate::errors::TirBaseError> {
+        if let Some(sq) = self.schema_quarantine.as_mut() {
+            return Ok(Some(sq.quarantine_delta(delta, reason, detail)?));
+        }
+        Ok(None)
+    }
+
+    #[cfg(feature = "native")]
+    pub fn schema_quarantine_entries(
+        &self,
+    ) -> Result<
+        Vec<crate::crdt::schema_quarantine::SchemaQuarantineRecord>,
+        crate::errors::TirBaseError,
+    > {
+        if let Some(sq) = self.schema_quarantine.as_ref() {
+            sq.entries()
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    pub fn record_rate_quarantine(
+        &mut self,
+        sender_did: &str,
+        reason: RateQuarantineReason,
+        now_mono: u64,
+        now_wall_secs: i64,
+        detail: &str,
+    ) -> Result<(), crate::errors::TirBaseError> {
+        #[cfg(feature = "native")]
+        let db = self.summary_db.as_ref();
+        #[cfg(not(feature = "native"))]
+        let db: Option<&rusqlite::Connection> = None;
+        self.rate
+            .record(sender_did, reason, now_mono, now_wall_secs, detail, db)
+    }
+
+    pub fn rate_sender_rejections(&self, did: &str) -> u32 {
+        self.rate.sender_rejections(did)
+    }
+
+    /// Cheap-checks-first ordering (task 23.6): rate limit → size → op count →
+    /// dep check → start_op validation. Stages are evaluated in that order and
+    /// the first failing stage is returned.
+    pub fn cheap_checks_first(
+        &mut self,
+        delta: &Delta,
+        rate_exceeded: bool,
+        max_bytes: usize,
+        max_ops: u64,
+        missing_dependency: bool,
+        now_mono: u64,
+        now_wall_secs: i64,
+    ) -> Result<(), CheapCheckRejection> {
+        if rate_exceeded {
+            let rej = CheapCheckRejection {
+                stage: CheapCheckStage::RateLimit,
+                reason: ReasonCode::RateExceeded,
+                detail: "pre-auth/cheap rate limit exceeded".to_string(),
+            };
+            let _ = self.record_rate_quarantine(
+                &delta.author_did,
+                RateQuarantineReason::RateExceeded,
+                now_mono,
+                now_wall_secs,
+                &rej.detail,
+            );
+            return Err(rej);
+        }
+        if delta.automerge_bytes.len() > max_bytes {
+            let rej = CheapCheckRejection {
+                stage: CheapCheckStage::Size,
+                reason: ReasonCode::Oversize,
+                detail: format!(
+                    "delta {} bytes exceeds {}",
+                    delta.automerge_bytes.len(),
+                    max_bytes
+                ),
+            };
+            let _ = self.record_rate_quarantine(
+                &delta.author_did,
+                RateQuarantineReason::Oversize,
+                now_mono,
+                now_wall_secs,
+                &rej.detail,
+            );
+            return Err(rej);
+        }
+        let op_count = decode_change_op_count(&delta.automerge_bytes).unwrap_or(0);
+        if op_count > max_ops {
+            let rej = CheapCheckRejection {
+                stage: CheapCheckStage::OpCount,
+                reason: ReasonCode::OpCountExceeded,
+                detail: format!("op_count {} exceeds {}", op_count, max_ops),
+            };
+            #[cfg(feature = "native")]
+            let _ = self.record_schema_quarantine(
+                delta,
+                SchemaQuarantineReason::OpCountExceeded,
+                &rej.detail,
+            );
+            return Err(rej);
+        }
+        if missing_dependency {
+            return Err(CheapCheckRejection {
+                stage: CheapCheckStage::DepCheck,
+                reason: ReasonCode::MissingDependency,
+                detail: "missing causal dependency".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Best-effort op count from Automerge payload (cheap-ish relative to full merge).
+pub fn decode_change_op_count(bytes: &[u8]) -> Option<u64> {
+    if bytes.is_empty() {
+        return Some(0);
+    }
+    let mut doc = automerge::AutoCommit::load(bytes).ok()?;
+    let changes = doc.get_changes(&[]);
+    if changes.is_empty() {
+        return None;
+    }
+    let mut n: u64 = 0;
+    for c in changes {
+        n = n.saturating_add(c.len() as u64);
+    }
+    Some(n)
+}
+
+/// Convenience wrapper retained for callers that only need the ClockJump record.
+#[cfg(feature = "native")]
+pub fn quarantine_structural(
+    hardening: &mut InboundHardening,
+    delta: &Delta,
+    reason: SchemaQuarantineReason,
+    detail: &str,
+) -> Result<Option<[u8; 32]>, crate::errors::TirBaseError> {
+    hardening.record_schema_quarantine(delta, reason, detail)
+}

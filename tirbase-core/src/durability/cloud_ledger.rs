@@ -150,7 +150,9 @@ impl CloudLedger {
         let outcome = self.engine.apply(delta)?;
 
         match outcome {
-            MergeOutcome::Merged { .. } | MergeOutcome::Quarantined { .. } => {
+            MergeOutcome::Merged { .. }
+            | MergeOutcome::Pending { .. }
+            | MergeOutcome::Quarantined { .. } => {
                 // Quarantined Deltas are still "received" by the Cloud Ledger
                 // (stored in the quarantine ledger) — we record them as committed
                 // to avoid re-processing. The Cloud Ledger stores them byte-for-byte

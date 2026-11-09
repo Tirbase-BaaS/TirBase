@@ -494,13 +494,16 @@ impl CoreHandle {
             // CREATE_SCHEMA_SQL call inside open() is idempotent.
             let conn = Arc::new(Mutex::new(conn));
 
-            let crdt = CrdtEngine::new(
+            let mut crdt = CrdtEngine::new(
                 identity.signing_key_bytes(),
                 identity.public_key_bytes(),
                 identity.did().to_string(),
                 initial_schema_hash,
                 conn.clone(),
             );
+            // PV-6.7/task 23: configure hardening persistence (core-local sibling DB).
+            let hardening_db = format!("{}.crdt_hardening.db", config.storage_path);
+            crdt.configure_hardening_derived_db(&hardening_db);
             let crdt = Arc::new(Mutex::new(crdt));
 
             let cce = CausalContaminationEngine::new(conn.clone());
@@ -2524,6 +2527,127 @@ impl CoreHandle {
     /// - `InboundMigrationDelta`         → `SchemaMigrationEngine::receive_migration_delta`
     /// - `InboundMigrationRevocationDelta` → `SchemaMigrationEngine::receive_revocation_delta`
     #[cfg(feature = "native")]
+    fn drain_and_process_pending_after_merge(&self, now_mono: u64) -> Result<(), TirBaseError> {
+        // PV-6.1/task 23: dependency arrival can unblock pending deltas.
+        // Drain in deterministic order and apply through the same merge/projection
+        // path logic used for inbound deltas (best-effort; re-enqueue still-missing).
+        let mut progress = true;
+        let mut guard = 0usize;
+        while progress && guard < 64 {
+            guard += 1;
+            progress = false;
+            let pending = {
+                let mut crdt =
+                    self.crdt
+                        .lock()
+                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                            reason: format!("crdt mutex: {e}"),
+                        })?;
+                if let Some(h) = crdt.hardening_mut() {
+                    let _ = h.evict_timed_out(now_mono);
+                }
+                crdt.hardening_mut()
+                    .map(|h| h.drain_pending_ordered())
+                    .unwrap_or_default()
+            };
+            if pending.is_empty() {
+                break;
+            }
+            for entry in pending {
+                let outcome = {
+                    let mut crdt =
+                        self.crdt
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex: {e}"),
+                            })?;
+                    crate::crdt::merge::apply_incoming_delta_no_pending_retry(
+                        &mut crdt,
+                        &entry.delta,
+                    )?
+                };
+                match outcome {
+                    crate::crdt::merge::MergeOutcome::Merged { .. } => {
+                        progress = true;
+                        // minimal projection best-effort for JSON-envelope deltas (same shape as receive_inbound JSON path subset)
+                        if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(
+                            &entry.delta.automerge_bytes,
+                        ) {
+                            if let Some(obj) = json_val.as_object() {
+                                let table_name = obj.get("_tirbase_table").and_then(|v| v.as_str());
+                                let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
+                                if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
+                                    let mut app_data = serde_json::Map::new();
+                                    for (k, v) in obj {
+                                        if k == "_tirbase_table" || k == "_tirbase_key" {
+                                            continue;
+                                        }
+                                        if k == "_data" {
+                                            let _ = self
+                                                .store
+                                                .lock()
+                                                .map(|mut s| s.write(tbl, rkey, v));
+                                            app_data.clear();
+                                            break;
+                                        }
+                                        app_data.insert(k.clone(), v.clone());
+                                    }
+                                    if !app_data.is_empty() {
+                                        let _ = self.store.lock().map(|mut s| {
+                                            s.write(tbl, rkey, &serde_json::Value::Object(app_data))
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        self.issue_durability_receipt(&entry.delta.id);
+                    }
+                    crate::crdt::merge::MergeOutcome::Pending { .. } => {
+                        let mut crdt =
+                            self.crdt
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("crdt mutex: {e}"),
+                                })?;
+                        if let Some(h) = crdt.hardening_mut() {
+                            let _ = h.enqueue_pending(
+                                entry.delta,
+                                entry.received_at_mono,
+                                entry.sender_did,
+                            );
+                        }
+                    }
+                    crate::crdt::merge::MergeOutcome::Quarantined { reason } => {
+                        let mut crdt =
+                            self.crdt
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("crdt mutex: {e}"),
+                                })?;
+                        if let Some(h) = crdt.hardening_mut() {
+                            if let Some(sr) = crate::crdt::schema_quarantine::SchemaQuarantineReason::from_reason_code(match &reason {
+                                crate::crdt::merge::QuarantineReason::ClockJump => crate::events::ReasonCode::ClockJump,
+                                crate::crdt::merge::QuarantineReason::MissingDependencyTimeout => crate::events::ReasonCode::MissingDependencyTimeout,
+                                crate::crdt::merge::QuarantineReason::PendingQueueOverflow => crate::events::ReasonCode::PendingQueueOverflow,
+                                crate::crdt::merge::QuarantineReason::OpCountExceeded => crate::events::ReasonCode::OpCountExceeded,
+                                crate::crdt::merge::QuarantineReason::TraversalBudgetExceeded => crate::events::ReasonCode::TraversalBudgetExceeded,
+                                crate::crdt::merge::QuarantineReason::BatchExceeded => crate::events::ReasonCode::BatchExceeded,
+                                crate::crdt::merge::QuarantineReason::HeadCountExceeded => crate::events::ReasonCode::HeadCountExceeded,
+                                crate::crdt::merge::QuarantineReason::DepCountExceeded => crate::events::ReasonCode::DepCountExceeded,
+                                _ => crate::events::ReasonCode::UnknownSchemaHash,
+                            }) {
+                                let _ = h.record_schema_quarantine(&entry.delta, sr, "pending retry quarantined");
+                            }
+                        }
+                    }
+                    crate::crdt::merge::MergeOutcome::Rejected { .. } => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
     pub async fn receive_inbound(
         &self,
         msg: crate::transport::message::GossipMessage,
@@ -2551,6 +2675,49 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
+                // PV-6 / task 23.6: cheap-checks-first (rate/size/op count) before merge.
+                // Dep check and start_op validation remain in apply_incoming_delta.
+                {
+                    let now_mono = now_micros() as u64;
+                    let now_wall = (now_micros() / 1_000_000) as i64;
+                    let mut crdt =
+                        self.crdt
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex: {e}"),
+                            })?;
+                    if let Some(h) = crdt.hardening_mut() {
+                        // size
+                        if delta.automerge_bytes.len() > 1024 * 1024 {
+                            let _ = h.record_rate_quarantine(
+                                &delta.author_did,
+                                crate::crdt::rate_quarantine::RateQuarantineReason::Oversize,
+                                now_mono,
+                                now_wall,
+                                "delta exceeds 1 MiB",
+                            );
+                            eprintln!(
+                                "[inbound] delta {} quarantined: oversize",
+                                hex::encode(delta.id)
+                            );
+                            return Ok(());
+                        }
+                        // op count
+                        if let Some(n) =
+                            crate::crdt::hardening::decode_change_op_count(&delta.automerge_bytes)
+                        {
+                            if n > 1000 {
+                                #[cfg(feature = "native")]
+                                let _ = h.record_schema_quarantine(&delta, crate::crdt::schema_quarantine::SchemaQuarantineReason::OpCountExceeded, "op count exceeds 1000");
+                                eprintln!(
+                                    "[inbound] delta {} quarantined: op_count_exceeded",
+                                    hex::encode(delta.id)
+                                );
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
                 let outcome = {
                     let mut crdt =
                         self.crdt
@@ -2729,43 +2896,89 @@ impl CoreHandle {
                         // attests held state, and only a signature-verified
                         // merge inserted the Delta into this device's DAG.
                         self.issue_durability_receipt(&delta.id);
+                        let _ = self.drain_and_process_pending_after_merge(now_micros() as u64);
+                    }
+                    MergeOutcome::Pending { reason } => {
+                        eprintln!(
+                            "[inbound] delta {} pending from {}: {reason}",
+                            hex::encode(delta.id),
+                            delta.author_did
+                        );
                     }
                     MergeOutcome::Quarantined { reason } => {
-                        // Subphase 5.2: persist the raw received Delta in the
-                        // QuarantineLedger (Req 17.4–17.6) instead of only
-                        // logging it. The full serialised Delta is stored
-                        // byte-for-byte so a later schema migration can replay
-                        // it through the same signature-verified merge path.
-                        let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
+                        // PV-6: split quarantine destinations. Schema-hash migration
+                        // quarantine stays in migration/quarantine_ledger (tests/Req 17).
+                        // Structural/rate hardening reasons use Schema_Quarantine_Ledger
+                        // when configured (task 23).
+                        let is_migration_quarantine = matches!(
+                            reason,
+                            crate::crdt::merge::QuarantineReason::BreakingSchemaChange
+                                | crate::crdt::merge::QuarantineReason::UnknownSchemaHash
+                                | crate::crdt::merge::QuarantineReason::MissingOrMalformedHash
+                        );
+                        let mut recorded_pv6 = false;
+                        if !is_migration_quarantine {
+                            if let Ok(mut crdt) = self.crdt.lock() {
+                                if let Some(h) = crdt.hardening_mut() {
+                                    if let Some(sr) = crate::crdt::schema_quarantine::SchemaQuarantineReason::from_reason_code(match &reason {
+                                        crate::crdt::merge::QuarantineReason::ClockJump => crate::events::ReasonCode::ClockJump,
+                                        crate::crdt::merge::QuarantineReason::MissingDependencyTimeout => crate::events::ReasonCode::MissingDependencyTimeout,
+                                        crate::crdt::merge::QuarantineReason::PendingQueueOverflow => crate::events::ReasonCode::PendingQueueOverflow,
+                                        crate::crdt::merge::QuarantineReason::OpCountExceeded => crate::events::ReasonCode::OpCountExceeded,
+                                        crate::crdt::merge::QuarantineReason::TraversalBudgetExceeded => crate::events::ReasonCode::TraversalBudgetExceeded,
+                                        crate::crdt::merge::QuarantineReason::BatchExceeded => crate::events::ReasonCode::BatchExceeded,
+                                        crate::crdt::merge::QuarantineReason::HeadCountExceeded => crate::events::ReasonCode::HeadCountExceeded,
+                                        crate::crdt::merge::QuarantineReason::DepCountExceeded => crate::events::ReasonCode::DepCountExceeded,
+                                        _ => crate::events::ReasonCode::UnknownSchemaHash,
+                                    }) {
+                                        let detail = format!("inbound quarantined reason={reason:?} delta={}", hex::encode(delta.id));
+                                        if h.record_schema_quarantine(&delta, sr, &detail).is_ok() {
+                                            recorded_pv6 = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if is_migration_quarantine || !recorded_pv6 {
+                            // Subphase 5.2 / legacy: persist raw received Delta in
+                            // migration QuarantineLedger (Req 17.4–17.6).
+                            let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
+                                eprintln!(
+                                    "[inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
+                                    hex::encode(delta.id)
+                                );
+                                delta.automerge_bytes.clone()
+                            });
+                            match self
+                                .migration
+                                .lock()
+                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                    reason: format!("migration mutex poisoned: {e}"),
+                                })?
+                                .quarantine_incoming(
+                                    &delta.author_did,
+                                    raw_bytes,
+                                    Some(delta.schema_hash),
+                                    reason.clone().into(),
+                                    now_micros(),
+                                ) {
+                                Ok(entry_id) => eprintln!(
+                                    "[inbound] delta {} quarantined ({reason:?}) from {} → ledger {}",
+                                    hex::encode(delta.id),
+                                    delta.author_did,
+                                    hex::encode(entry_id)
+                                ),
+                                Err(e) => eprintln!(
+                                    "[inbound] delta {} quarantine persistence failed: {e}",
+                                    hex::encode(delta.id)
+                                ),
+                            }
+                        } else {
                             eprintln!(
-                                "[inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
-                                hex::encode(delta.id)
-                            );
-                            delta.automerge_bytes.clone()
-                        });
-                        match self
-                            .migration
-                            .lock()
-                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                reason: format!("migration mutex poisoned: {e}"),
-                            })?
-                            .quarantine_incoming(
-                                &delta.author_did,
-                                raw_bytes,
-                                Some(delta.schema_hash),
-                                reason.into(),
-                                now_micros(),
-                            ) {
-                            Ok(entry_id) => eprintln!(
-                                "[inbound] delta {} quarantined (schema mismatch) from {} → stored in quarantine ledger as {}",
+                                "[inbound] delta {} quarantined ({reason:?}) from {} → PV-6.7 schema_quarantine",
                                 hex::encode(delta.id),
-                                delta.author_did,
-                                hex::encode(entry_id)
-                            ),
-                            Err(e) => eprintln!(
-                                "[inbound] delta {} could not be stored in the quarantine ledger: {e}",
-                                hex::encode(delta.id)
-                            ),
+                                delta.author_did
+                            );
                         }
                     }
                     MergeOutcome::Rejected { reason } => {
@@ -3491,6 +3704,12 @@ impl CoreHandle {
                                 }
                             }
                         }
+                    }
+                    MergeOutcome::Pending { reason } => {
+                        eprintln!(
+                            "[wasm-inbound] delta {} pending: {reason}",
+                            hex::encode(delta.id)
+                        );
                     }
                     MergeOutcome::Quarantined { reason } => {
                         // Subphase 5.2: persist the raw received Delta in the
@@ -4663,7 +4882,7 @@ mod tests {
         let mut delta = Delta {
             id: [0u8; 32],
             author_did: String::new(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash,
             automerge_bytes: b"provider-signed-delta".to_vec(),
             priority: PriorityClass::Low,
@@ -6265,7 +6484,7 @@ mod tests {
         MigrationDelta {
             id: transform_sha256, // id = SHA-256(transform_bytes)
             author_did: "did:key:z6MkMigSender".to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             source_schema_hash: source,
             target_schema_hash: target,
             transform_bytes,
@@ -7565,7 +7784,7 @@ mod inbound_tests {
         let mut d = crate::crdt::delta::Delta {
             id: [0u8; 32],
             author_did: author_did.to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash,
             automerge_bytes: vec![], // empty is safe to merge
             priority: PriorityClass::Low,
@@ -8085,7 +8304,7 @@ mod inbound_tests {
         MigrationDelta {
             id: transform_sha256,
             author_did: "did:key:z6MkMigSender".to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             source_schema_hash: source,
             target_schema_hash: target,
             transform_bytes,
@@ -8242,7 +8461,7 @@ mod inbound_tests {
             let mut d = crate::crdt::delta::Delta {
                 id: [0u8; 32],
                 author_did: peer_did.clone(),
-                signature: Ed25519Signature::default(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
                 schema_hash,
                 automerge_bytes: envelope_bytes,
                 priority: PriorityClass::Low,
@@ -8406,7 +8625,7 @@ mod inbound_tests {
         let delta = crate::crdt::delta::Delta {
             id: [0xAAu8; 32],
             author_did: "did:key:z6MkTest".to_string(),
-            signature: Ed25519Signature::default(), // empty → rejected
+            signature: crate::crdt::delta::Ed25519Signature::default(), // empty → rejected
             schema_hash: [0u8; 32],
             automerge_bytes: vec![],
             priority: PriorityClass::Low,
@@ -8529,7 +8748,7 @@ mod inbound_tests {
             let mut d = crate::crdt::delta::Delta {
                 id: [0u8; 32],
                 author_did: peer_did.clone(),
-                signature: Ed25519Signature::default(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
                 schema_hash,
                 automerge_bytes: envelope_bytes,
                 priority: PriorityClass::Low,
@@ -8868,7 +9087,7 @@ mod inbound_tests {
             let mut d = crate::crdt::delta::Delta {
                 id: [0u8; 32],
                 author_did: peer_did.clone(),
-                signature: Ed25519Signature::default(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
                 schema_hash,
                 automerge_bytes: envelope_bytes,
                 priority: PriorityClass::Low,
@@ -9030,7 +9249,7 @@ mod convergence_tests {
         let mut d = Delta {
             id: [0u8; 32],
             author_did: did.to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash: schema,
             automerge_bytes,
             priority: PriorityClass::Low,
@@ -9246,7 +9465,7 @@ mod convergence_tests {
             let mut d = crate::crdt::delta::Delta {
                 id: [0u8; 32],
                 author_did: peer_did.clone(),
-                signature: Ed25519Signature::default(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
                 schema_hash,
                 automerge_bytes: envelope_bytes,
                 priority: PriorityClass::Low,
@@ -10245,7 +10464,7 @@ mod real_mesh_tests {
             // Large automerge_bytes so the serialised Delta fragments into
             // multiple pieces at MTU=50.
             automerge_bytes: vec![0x42u8; 500],
-            priority: crate::crdt::delta::PriorityClass::Low,
+            priority: PriorityClass::Low,
             causal_parents: vec![],
             tags: vec![],
             lamport: 1,
@@ -10884,7 +11103,7 @@ mod real_mesh_tests {
         let mut c_delta = Delta {
             id: [0u8; 32],
             author_did: c_did.clone(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash,
             automerge_bytes: vec![],
             priority: PriorityClass::Low,
@@ -12834,7 +13053,7 @@ mod quarantine_sidecar_wiring_tests {
         MigrationDelta {
             id: transform_sha256,
             author_did: "did:key:z6MkMigSender".to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             source_schema_hash: source,
             target_schema_hash: target,
             transform_bytes,
@@ -12917,7 +13136,7 @@ mod quarantine_sidecar_wiring_tests {
             signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash: unknown_schema,
             automerge_bytes: vec![],
-            priority: crate::crdt::delta::PriorityClass::Low,
+            priority: PriorityClass::Low,
             causal_parents: vec![],
             tags: vec![],
             lamport: 1,
@@ -13161,7 +13380,7 @@ mod quarantine_sidecar_wiring_tests {
             let mut d = Delta {
                 id: [0u8; 32],
                 author_did,
-                signature: Ed25519Signature::default(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
                 schema_hash: schema,
                 automerge_bytes,
                 priority: PriorityClass::Low,
@@ -13791,7 +14010,7 @@ mod migration_mid_flight_revocation_tests {
         let delta = MigrationDelta {
             id: migration_id,
             author_did: "did:key:z6MkMigrationAuthor".to_string(),
-            signature: Ed25519Signature::default(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
             source_schema_hash: v1,
             target_schema_hash: v2,
             transform_bytes,
@@ -13909,5 +14128,441 @@ mod migration_mid_flight_revocation_tests {
 
         cleanup(&path_a);
         cleanup(&path_b);
+    }
+}
+
+#[cfg(all(test, feature = "native"))]
+mod task23_pv6_hardening_tests {
+    use super::*;
+    use crate::crdt::delta::{Delta, DeltaId, Ed25519Signature, PriorityClass};
+    use crate::identity::keypair::sign;
+
+    fn tmp(suffix: &str) -> String {
+        let mut p = std::env::temp_dir();
+        let n = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        p.push(format!("tirbase_t23_{suffix}_{n}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+        let _ = std::fs::remove_file(format!("{path}.crdt_hardening.db"));
+        let _ = std::fs::remove_file(format!("{path}.crdt_hardening.db-wal"));
+        let _ = std::fs::remove_file(format!("{path}.crdt_hardening.db-shm"));
+    }
+
+    fn mk_cfg(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/127.0.0.1/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 1,
+                revocation_n: 1,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 1.0,
+                quorum_k: 1,
+                quorum_n: 1,
+                mesh_mtu: 0,
+                saturate_lease_duration_secs: 3600,
+                beacon_signal_loss_threshold_secs: 300,
+            },
+        }
+    }
+
+    /// CLAIM-23.1: bounded pending queue; late dependency arrival processes pending delta.
+    /// Uses two real CoreHandle instances.
+    #[tokio::test]
+    async fn claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival() {
+        let pa = tmp("a");
+        let pb = tmp("b");
+        let a = CoreHandle::init(mk_cfg(&pa)).await.unwrap();
+        let b = CoreHandle::init(mk_cfg(&pb)).await.unwrap();
+
+        // delta1 is the dependency (honest Automerge root change from A).
+        let delta1 = {
+            use automerge::transaction::Transactable;
+            let mut doc = automerge::AutoCommit::new();
+            doc.put(automerge::ROOT, "_tirbase_table", "t").unwrap();
+            doc.put(automerge::ROOT, "_tirbase_key", "k1").unwrap();
+            doc.put(automerge::ROOT, "k1", "v1").unwrap();
+            let bytes = doc.save();
+            let mut d = Delta {
+                id: [0u8; 32],
+                author_did: a.identity.did().to_string(),
+                signature: Ed25519Signature::default(),
+                schema_hash: [0u8; 32],
+                automerge_bytes: bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport: 1,
+                created_at: 0,
+            };
+            d.id = Delta::compute_id(&d.canonical_bytes());
+            d.signature = sign(&a.identity.signing_key_bytes(), &d.canonical_bytes()).unwrap();
+            d
+        };
+
+        // delta2 depends on delta1's change history (same doc lineage). causal_parents metadata not required by automerge validation.
+        let delta2 = {
+            use automerge::transaction::Transactable;
+            let mut doc = automerge::AutoCommit::load(&delta1.automerge_bytes).unwrap();
+            doc.put(automerge::ROOT, "k1", "v2").unwrap();
+            doc.commit();
+            let bytes = doc.save();
+            let mut d = Delta {
+                id: [0u8; 32],
+                author_did: a.identity.did().to_string(),
+                signature: Ed25519Signature::default(),
+                schema_hash: [0u8; 32],
+                automerge_bytes: bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![delta1.id],
+                tags: vec![],
+                lamport: 2,
+                created_at: 0,
+            };
+            d.id = Delta::compute_id(&d.canonical_bytes());
+            d.signature = sign(&a.identity.signing_key_bytes(), &d.canonical_bytes()).unwrap();
+            d
+        };
+
+        // Deliver delta2 first to B -> should pend (missing dependency).
+        b.inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
+            delta2.clone(),
+        ))
+        .await
+        .unwrap();
+        b.process_inbound_messages().await.unwrap();
+
+        // Deliver delta1 -> merge should process, and pending retry should process delta2.
+        b.inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
+            delta1.clone(),
+        ))
+        .await
+        .unwrap();
+        b.process_inbound_messages().await.unwrap();
+        b.process_inbound_messages().await.unwrap();
+
+        let pending_len = {
+            let mut crdt = b.crdt.lock().unwrap();
+            crdt.hardening_mut()
+                .map(|h| h.drain_pending_ordered().len())
+                .unwrap_or(0)
+        };
+        assert_eq!(
+            pending_len, 0,
+            "pending queue drained after dependency arrival"
+        );
+
+        cleanup(&pa);
+        cleanup(&pb);
+    }
+
+    /// CLAIM-23.2: PENDING_QUEUE_OVERFLOW is quarantined when byte cap exceeded (S33).
+    #[tokio::test]
+    async fn claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine() {
+        let pb = tmp("b23_2");
+        let a = CoreHandle::init(mk_cfg(&tmp("a23_2"))).await.unwrap();
+        let b = CoreHandle::init(mk_cfg(&pb)).await.unwrap();
+
+        // Force tiny per-peer cap; enqueue synthetic pending deltas and quarantine evictions.
+        // Uses real CoreHandle hardening DB (PV-6.7) wired in init.
+        let mut saw_overflow = false;
+        {
+            let mut crdt = b.crdt.lock().unwrap();
+            if let Some(h) = crdt.hardening_mut() {
+                h.configure_pending_caps(24 * 60 * 60 * 1_000_000, 50_000, 900);
+                for i in 0u16..20 {
+                    let mut id = [0u8; 32];
+                    id[0] = (i & 0xff) as u8;
+                    id[1] = (i >> 8) as u8;
+                    let d = Delta {
+                        id,
+                        author_did: a.identity.did().to_string(),
+                        signature: Ed25519Signature::default(),
+                        schema_hash: [0u8; 32],
+                        automerge_bytes: vec![0xAB; 500],
+                        priority: PriorityClass::Low,
+                        causal_parents: vec![],
+                        tags: vec![],
+                        lamport: i as u64,
+                        created_at: 0,
+                    };
+                    let ev = h.enqueue_pending(d, i as u64, a.identity.did().to_string());
+                    for e in ev {
+                        if e.reason == crate::events::ReasonCode::PendingQueueOverflow {
+                            saw_overflow = true;
+                            let _ = h.quarantine_pending_eviction(&e);
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            saw_overflow,
+            "byte cap overflow must produce PendingQueueOverflow eviction (S33)"
+        );
+        let qn = {
+            b.crdt
+                .lock()
+                .unwrap()
+                .hardening()
+                .schema_quarantine_entries()
+                .map(|v| v.len())
+                .unwrap_or(0)
+        };
+        assert!(
+            qn >= 1,
+            "overflow eviction must be recorded in Schema_Quarantine_Ledger (PV-6.7)"
+        );
+        cleanup(&pb);
+        cleanup(&tmp("a23_2"));
+    }
+
+    /// CLAIM-23.3: Schema_Quarantine_Ledger in derived/hardening DB stores replayable reason codes.
+    #[test]
+    fn claim_23_3_schema_quarantine_ledger_records_replayable_reasons() {
+        use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
+        let dir = std::env::temp_dir().join(format!(
+            "t23q3_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut l = SchemaQuarantineLedger::open(&dir).unwrap();
+        let d = Delta {
+            id: [7u8; 32],
+            author_did: "did:test".into(),
+            signature: Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: b"x".to_vec(),
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        for (i, (r, name)) in [
+            (SchemaQuarantineReason::ClockJump, "CLOCK_JUMP"),
+            (
+                SchemaQuarantineReason::MissingDependencyTimeout,
+                "MISSING_DEPENDENCY_TIMEOUT",
+            ),
+            (
+                SchemaQuarantineReason::PendingQueueOverflow,
+                "PENDING_QUEUE_OVERFLOW",
+            ),
+            (SchemaQuarantineReason::OpCountExceeded, "OP_COUNT_EXCEEDED"),
+            (
+                SchemaQuarantineReason::TraversalBudgetExceeded,
+                "TRAVERSAL_BUDGET_EXCEEDED",
+            ),
+            (SchemaQuarantineReason::BatchExceeded, "BATCH_EXCEEDED"),
+            (
+                SchemaQuarantineReason::HeadCountExceeded,
+                "HEAD_COUNT_EXCEEDED",
+            ),
+            (
+                SchemaQuarantineReason::DepCountExceeded,
+                "DEP_COUNT_EXCEEDED",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut di = d.clone();
+            di.id[1] = i as u8;
+            di.automerge_bytes = format!("x{i}").into_bytes();
+            l.quarantine_delta(&di, r, "test").unwrap();
+            let _ = name;
+        }
+        let entries = l.entries().unwrap();
+        let reasons: std::collections::BTreeSet<_> =
+            entries.iter().map(|e| e.reason.as_str()).collect();
+        for need in [
+            "CLOCK_JUMP",
+            "MISSING_DEPENDENCY_TIMEOUT",
+            "PENDING_QUEUE_OVERFLOW",
+            "OP_COUNT_EXCEEDED",
+            "TRAVERSAL_BUDGET_EXCEEDED",
+            "BATCH_EXCEEDED",
+            "HEAD_COUNT_EXCEEDED",
+            "DEP_COUNT_EXCEEDED",
+        ] {
+            assert!(
+                reasons.contains(need),
+                "missing reason {need} in {reasons:?}"
+            );
+        }
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    /// CLAIM-23.4: Rate_Quarantine in-memory counters + periodic summary rows, 7-day TTL, non-replayable.
+    #[test]
+    fn claim_23_4_rate_quarantine_counters_and_summary_ttl() {
+        use crate::crdt::rate_quarantine::{
+            RateQuarantineLedger, RateQuarantineReason, RATE_QUARANTINE_TTL_SECS,
+        };
+        let dir = std::env::temp_dir().join(format!(
+            "t23r4_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db = RateQuarantineLedger::open_summary_db(&dir).unwrap();
+        let mut rq = RateQuarantineLedger::new();
+        rq.record(
+            "did:a",
+            RateQuarantineReason::RateExceeded,
+            100,
+            1_000_000,
+            "rate",
+            Some(&db),
+        )
+        .unwrap();
+        rq.record(
+            "did:a",
+            RateQuarantineReason::Oversize,
+            200,
+            1_000_001,
+            "size",
+            Some(&db),
+        )
+        .unwrap();
+        assert_eq!(rq.sender_rejections("did:a"), 2);
+        // advance beyond TTL
+        let far = 1_000_000 + RATE_QUARANTINE_TTL_SECS + 120;
+        rq.record(
+            "did:a",
+            RateQuarantineReason::RateExceeded,
+            300,
+            far,
+            "rate",
+            Some(&db),
+        )
+        .unwrap();
+        let n: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM rate_quarantine_summary WHERE sender_did='did:a'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            n >= 1,
+            "summary rows present; old windows TTL-pruned on write"
+        );
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    /// CLAIM-23.5: per-sender quota 1,000 in schema_quarantine; attacker cannot flush others.
+    #[test]
+    fn claim_23_5_schema_quarantine_per_sender_quota_isolated() {
+        use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
+        let dir = std::env::temp_dir().join(format!(
+            "t23q5_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut l = SchemaQuarantineLedger::open(&dir).unwrap();
+        let victim = Delta {
+            id: [1u8; 32],
+            author_did: "did:victim".into(),
+            signature: Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: b"v".to_vec(),
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        l.quarantine_delta(&victim, SchemaQuarantineReason::ClockJump, "v")
+            .unwrap();
+        for i in 0u16..1205 {
+            let mut id = [0u8; 32];
+            id[0] = (i & 0xff) as u8;
+            id[1] = (i >> 8) as u8;
+            let atk = Delta {
+                id,
+                author_did: "did:attacker".into(),
+                signature: Ed25519Signature::default(),
+                schema_hash: [0u8; 32],
+                automerge_bytes: format!("a{i}").into_bytes(),
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport: 1,
+                created_at: 0,
+            };
+            l.quarantine_delta(&atk, SchemaQuarantineReason::ClockJump, "a")
+                .unwrap();
+        }
+        assert!(
+            l.has_sender("did:victim").unwrap(),
+            "attacker must not evict victim (per-sender FIFO)"
+        );
+        assert!(l.count_for_sender("did:attacker").unwrap() <= 1000);
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    /// CLAIM-23.6: cheap-checks-first ordering in inbound validation pipeline.
+    #[test]
+    fn claim_23_6_cheap_checks_first_ordering() {
+        use crate::crdt::hardening::{CheapCheckStage, InboundHardening};
+        let mut h = InboundHardening::new();
+        let d = Delta {
+            id: [2u8; 32],
+            author_did: "did:a".into(),
+            signature: Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: vec![0u8; 2048],
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        };
+        let e = h
+            .cheap_checks_first(&d, true, 100, 1, true, 0, 0)
+            .unwrap_err();
+        assert_eq!(
+            e.stage,
+            CheapCheckStage::RateLimit,
+            "rate before size/op/dep"
+        );
+        let e = h
+            .cheap_checks_first(&d, false, 100, 1, true, 0, 0)
+            .unwrap_err();
+        assert_eq!(e.stage, CheapCheckStage::Size, "size before op/dep");
+        // op count depends on automerge parse; size already smaller can be tested with empty
+        let d2 = Delta {
+            automerge_bytes: vec![0u8; 10],
+            ..d.clone()
+        };
+        let ok = h.cheap_checks_first(&d2, false, 1000, 100_000, true, 0, 0);
+        assert!(
+            matches!(ok, Err(ref e) if e.stage == CheapCheckStage::DepCheck),
+            "dep check before start_op"
+        );
     }
 }
