@@ -48,6 +48,26 @@ pub struct GatewayConfig {
     #[serde(default = "default_derived_db")]
     pub derived_db_path: std::path::PathBuf,
 
+    /// Security event log on-disk retention: archive/delete oldest signed segment
+    /// when age exceeds this many days (PV-7.13, CLAIM-28.2). 0 disables age limit.
+    #[serde(default = "default_security_event_retention_days")]
+    pub security_event_retention_days: i64,
+
+    /// Security event log on-disk retention: archive/delete oldest signed segment
+    /// when total security_events payload exceeds this many bytes (PV-7.13, CLAIM-28.2).
+    /// 0 disables size limit. Default 1 GiB.
+    #[serde(default = "default_security_event_retention_bytes")]
+    pub security_event_retention_bytes: i64,
+
+    /// Directory where rotated signed security-event segments are archived before
+    /// deletion (PV-7.13, CLAIM-28.2). Defaults next to primary.db.
+    #[serde(default)]
+    pub security_event_archive_dir: Option<std::path::PathBuf>,
+
+    /// Retention/rotation background job cadence in seconds (PV-7.13, CLAIM-28.2).
+    #[serde(default = "default_security_event_rotation_interval_secs")]
+    pub security_event_rotation_interval_secs: u64,
+
     /// How often the checkpoint loop binds the software counter to the
     /// hardware counter (PV-7.3 cadence; CLAIM-6.7a).  Defaults to 60 seconds.
     #[serde(default = "default_checkpoint_interval_secs")]
@@ -234,6 +254,18 @@ fn default_admin_enabled() -> bool {
     true
 }
 
+fn default_security_event_retention_days() -> i64 {
+    90
+}
+
+fn default_security_event_retention_bytes() -> i64 {
+    1024 * 1024 * 1024
+}
+
+fn default_security_event_rotation_interval_secs() -> u64 {
+    300
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,6 +296,10 @@ mod tests {
         assert_eq!(config.enrollment_nonce_retention_secs, 72 * 60 * 60);
         assert_eq!(config.enrollment_nonce_capacity, 100_000);
         assert_eq!(config.enrollment_nonce_purge_interval_secs, 300);
+        assert_eq!(config.security_event_retention_days, 90);
+        assert_eq!(config.security_event_retention_bytes, 1024 * 1024 * 1024);
+        assert!(config.security_event_archive_dir.is_none());
+        assert_eq!(config.security_event_rotation_interval_secs, 300);
         assert!(config.epoch_bump_path.is_none());
         assert!(config.admin_enabled);
     }

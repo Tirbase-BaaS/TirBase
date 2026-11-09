@@ -18,5 +18,3 @@ pub use invariants::{
     assert_invariants_hold, InvariantChecker, InvariantId, InvariantViolation, SimState,
 };
 pub use tirbase_types;
-
-pub use scenarios::s14_log_flooding;

@@ -443,6 +443,10 @@ async fn main() -> Result<()> {
         Some(node_mode.clone()),
     );
     security_log.set_rate_limit_enabled(true); // S14/PV-7.6 production rate limiting
+                                               // 28.2 (PV-7.13): on-disk retention rotation (90 days or 1 GiB, configurable).
+    security_log.set_retention(
+        tirbase_gateway::security_log::SecurityLogRetentionConfig::from_gateway_config(&config),
+    );
     match security_log.verify_hash_chain() {
         Ok(Some(first_broken_seq)) => {
             tracing::error!(
@@ -461,9 +465,10 @@ async fn main() -> Result<()> {
     }
     security_log.install();
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
+    let _retention_handle = security_log.spawn_retention_rotation_loop(); // 28.2
     tracing::info!(
         primary_db = %primary_db_path.display(),
-        "hash-chained SecurityEventLog installed (CLAIM-25.1-26.1)"
+        "hash-chained SecurityEventLog installed (CLAIM-25.1-26.1,28.2)"
     );
 
     // ── Trust root, root CA registry, rollback protection (tasks 8.1–8.3) ──

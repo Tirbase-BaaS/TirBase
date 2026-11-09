@@ -1,13 +1,19 @@
-//! Scenario S14 (security log flooding, PV-7.6, task 26/S14).
+//! Scenario S14 (security log flooding / sync controls, PV-7.6/PV-7.12, tasks 26/28).
 //!
-//! Proves: per-category rate limiting (100 events/sec) with a single
-//! SuppressionSummary per suppression window, HIGH/CRITICAL bypass, and
-//! bounded in-memory retention (<=10,000) keeping oldest anchors + most recent.
+//! Proves:
+//! - 28.1/PV-7.6: per-category rate limiting (100 events/sec) with
+//!   `SuppressionSummary`, HIGH/CRITICAL bypass, bounded retention.
+//! - 28.3/PV-7.12 (wiring mutation for 28.3 rate limit): removing the per-peer
+//!   500 events/min security-event mesh sync limit must fail this scenario.
 
 use std::sync::Arc;
 
+use std::time::Instant;
 use tirbase_core::events::{ReasonCode, SecurityEvent as Payload, SecurityEventCategory, Severity};
 use tirbase_core::traits::SecurityEventSink;
+use tirbase_core::transport::security_event_sync::{
+    SecurityEventSyncBatch, SecurityEventSyncHandler, SecurityEventSyncRecord, SyncInboundDecision,
+};
 use tirbase_gateway::security_log::SecurityEventLog;
 
 /// Deterministic seed marker for PV-12.1 traceability.
@@ -129,6 +135,53 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
         return Err(format!(
             "seed={_seed} S14 FAIL: ring must retain oldest anchor/checkpoint events"
         ));
+    }
+
+    // 28.3/PV-7.12 wiring-mutation check: per-peer 500 events/min security-event
+    // sync rate limit must cap floods and surface rate limiting.
+    let mut sync = SecurityEventSyncHandler::new();
+    let records: Vec<SecurityEventSyncRecord> = (1..=700)
+        .map(|i| SecurityEventSyncRecord {
+            origin_did: "did:test:origin".to_string(),
+            seq: i,
+            segment_id: 1,
+            category: "CommandDecision".to_string(),
+            severity: "Low".to_string(),
+            actor_did: None,
+            target: Some(format!("sync-{i}")),
+            reason_code: "CommandAccepted".to_string(),
+            best_effort_wall_time: 0,
+            time_source_flag: "LogicalFallback".to_string(),
+            prev_hash: [0; 32],
+            is_checkpoint: false,
+            personal_commitments: vec![],
+        })
+        .collect();
+    match sync.handle_inbound(
+        SecurityEventSyncBatch {
+            sender_did: "did:test:peer".to_string(),
+            records,
+        },
+        Instant::now(),
+    ) {
+        SyncInboundDecision::RateLimited { accepted, dropped } => {
+            if accepted.len() > 500 {
+                return Err(format!(
+                    "seed={_seed} S14/28.3 FAIL: per-peer sync accepted {} > 500/min",
+                    accepted.len()
+                ));
+            }
+            if dropped == 0 {
+                return Err(format!(
+                    "seed={_seed} S14/28.3 FAIL: sync flood must drop excess events"
+                ));
+            }
+        }
+        other => {
+            return Err(format!(
+                "seed={_seed} S14/28.3 FAIL: expected per-peer sync rate limiting, got {other:?}"
+            ))
+        }
     }
 
     Ok(())

@@ -18,7 +18,9 @@
 #![allow(dead_code)] // APIs wired incrementally by 25.3 loop/admin paths.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs;
+use std::io::Write as IoWrite;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -479,6 +481,43 @@ struct LogState {
     last_witness_check_mono: Instant,
 }
 
+/// 28.2 (PV-7.13): on-disk rolling retention and archive-then-delete rotation.
+#[derive(Debug, Clone)]
+pub struct SecurityLogRetentionConfig {
+    /// 0 disables age-based retention.
+    pub max_age_secs: i64,
+    /// 0 disables size-based retention.
+    pub max_bytes: i64,
+    pub archive_dir: PathBuf,
+    pub check_interval: Duration,
+}
+
+impl SecurityLogRetentionConfig {
+    pub fn from_gateway_config(cfg: &crate::config::GatewayConfig) -> Self {
+        let archive_dir = cfg.security_event_archive_dir.clone().unwrap_or_else(|| {
+            cfg.counter_db_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("/var/lib/tirbase"))
+                .join("security-log-archive")
+        });
+        Self {
+            max_age_secs: cfg
+                .security_event_retention_days
+                .saturating_mul(24 * 60 * 60),
+            max_bytes: cfg.security_event_retention_bytes,
+            archive_dir,
+            check_interval: Duration::from_secs(cfg.security_event_rotation_interval_secs.max(1)),
+        }
+    }
+}
+
+fn rot_sig_hex(sig: &DeviceSignature) -> String {
+    match sig {
+        DeviceSignature::Ed25519(b) => hex::encode(b),
+        DeviceSignature::P256(b) => hex::encode(b),
+    }
+}
+
 /// Hash-chained, checkpoint-capable security event log (25.1–25.5).
 pub struct SecurityEventLog {
     state: Mutex<LogState>,
@@ -492,6 +531,8 @@ pub struct SecurityEventLog {
     last_emit_wall: AtomicI64,
     node_mode: RwLock<Option<Arc<NodeModeState>>>,
     rate_limit_enabled: AtomicBool,
+    retention: RwLock<Option<SecurityLogRetentionConfig>>,
+    rotation_stop: AtomicBool,
 }
 
 impl std::fmt::Debug for SecurityEventLog {
@@ -598,6 +639,8 @@ impl SecurityEventLog {
             last_emit_wall: AtomicI64::new(0),
             node_mode: RwLock::new(None),
             rate_limit_enabled: AtomicBool::new(rate_limit_enabled),
+            retention: RwLock::new(None),
+            rotation_stop: AtomicBool::new(false),
         }
     }
 
@@ -1196,6 +1239,242 @@ impl SecurityEventLog {
 
     pub fn stop_checkpoint_loop(&self) {
         self.checkpoint_stop.store(true, Ordering::Relaxed);
+    }
+
+    /// 28.2 (PV-7.13, CLAIM-28.2): configure rolling retention/rotation.
+    pub fn set_retention(&self, cfg: SecurityLogRetentionConfig) {
+        *self.retention.write().unwrap_or_else(|p| p.into_inner()) = Some(cfg);
+    }
+
+    pub fn stop_retention_rotation_loop(&self) {
+        self.rotation_stop.store(true, Ordering::Relaxed);
+    }
+
+    /// 28.2 production caller: background rotation job (PV-7.13).
+    pub fn spawn_retention_rotation_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
+        let this = Arc::clone(self);
+        tokio::spawn(async move {
+            let interval = this
+                .retention
+                .read()
+                .unwrap_or_else(|p| p.into_inner())
+                .as_ref()
+                .map(|c| c.check_interval)
+                .unwrap_or(Duration::from_secs(300));
+            let mut tick = tokio::time::interval(interval);
+            loop {
+                tick.tick().await;
+                if this.rotation_stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                if let Err(e) = this.rotate_retention_if_needed() {
+                    tracing::warn!(error = %e, "security log retention rotation failed (CLAIM-28.2)");
+                }
+            }
+        })
+    }
+
+    fn retention_cfg(&self) -> Option<SecurityLogRetentionConfig> {
+        self.retention
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
+    }
+
+    fn archive_signed_segment(
+        &self,
+        conn: &Connection,
+        segment_id: u64,
+        archive_dir: &Path,
+    ) -> Result<(), String> {
+        fs::create_dir_all(archive_dir).map_err(|e| format!("archive dir: {e}"))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT seq, segment_id, category, severity, actor_did, target, reason_code,
+                        best_effort_wall_ts, time_source_flag, prev_hash, is_checkpoint,
+                        checkpoint_signature, checkpoint_hash
+                 FROM security_events WHERE segment_id=?1 ORDER BY seq ASC",
+            )
+            .map_err(|e| format!("archive query: {e}"))?;
+        let rows = stmt
+            .query_map(params![segment_id as i64], |r| {
+                let prev: Vec<u8> = r.get(9)?;
+                let sig: Option<Vec<u8>> = r.get(11)?;
+                let ch: Option<Vec<u8>> = r.get(12)?;
+                Ok(serde_json::json!({
+                    "seq": r.get::<_, i64>(0)?,
+                    "segment_id": r.get::<_, i64>(1)?,
+                    "category": r.get::<_, String>(2)?,
+                    "severity": r.get::<_, String>(3)?,
+                    "actor_did": r.get::<_, Option<String>>(4)?,
+                    "target": r.get::<_, Option<String>>(5)?,
+                    "reason_code": r.get::<_, String>(6)?,
+                    "best_effort_wall_ts": r.get::<_, i64>(7)?,
+                    "time_source_flag": r.get::<_, String>(8)?,
+                    "prev_hash_hex": hex::encode(prev),
+                    "is_checkpoint": r.get::<_, i64>(10)? != 0,
+                    "checkpoint_signature_hex": sig.map(hex::encode),
+                    "checkpoint_hash_hex": ch.map(hex::encode),
+                }))
+            })
+            .map_err(|e| format!("archive rows: {e}"))?;
+        let events: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
+        let seg_meta: Option<(i64, Option<i64>, String)> = conn
+            .query_row(
+                "SELECT started_at_seq, ended_at_seq, reason FROM security_event_segments WHERE segment_id=?1",
+                params![segment_id as i64],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()
+            .map_err(|e| format!("segment meta: {e}"))?;
+        let manifest = serde_json::json!({
+            "format": "tirbase-security-segment-v1",
+            "segment_id": segment_id,
+            "started_at_seq": seg_meta.as_ref().map(|m| m.0),
+            "ended_at_seq": seg_meta.as_ref().and_then(|m| m.1),
+            "reason": seg_meta.as_ref().map(|m| m.2.clone()),
+            "archived_at_unix": self.wall_time_now(),
+            "events": events,
+        });
+        let mut bytes = Vec::new();
+        ciborium::ser::into_writer(&manifest, &mut bytes)
+            .map_err(|e| format!("archive cbor: {e}"))?;
+        let hash = Sha256::digest(&bytes);
+        let sig_hex = if let Some(kp) = self.key_provider() {
+            kp.sign(&hash).ok().map(|s| rot_sig_hex(&s))
+        } else {
+            None
+        };
+        let archive = serde_json::json!({
+            "manifest_cbor_hex": hex::encode(&bytes),
+            "manifest_sha256_hex": hex::encode(hash),
+            "device_signature_hex": sig_hex,
+        });
+        let out_path = archive_dir.join(format!("segment-{segment_id:016}.signed.json"));
+        let mut f = fs::File::create(&out_path).map_err(|e| format!("archive create: {e}"))?;
+        f.write_all(
+            serde_json::to_vec_pretty(&archive)
+                .map_err(|e| e.to_string())?
+                .as_slice(),
+        )
+        .map_err(|e| format!("archive write: {e}"))?;
+        f.sync_all().ok();
+        Ok(())
+    }
+
+    /// 28.2 (PV-7.13): rotate/archive oldest signed/closed segment(s) when retention
+    /// limits are exceeded (90 days or 1 GB, whichever first; configurable).
+    pub fn rotate_retention_if_needed(&self) -> Result<u64, String> {
+        let Some(cfg) = self.retention_cfg() else {
+            return Ok(0);
+        };
+        if cfg.max_age_secs <= 0 && cfg.max_bytes <= 0 {
+            return Ok(0);
+        }
+        let Some(mut conn) = self.open_db()? else {
+            return Ok(0);
+        };
+        let total_bytes: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(LENGTH(COALESCE(category,''))+LENGTH(COALESCE(severity,''))+LENGTH(COALESCE(actor_did,''))+LENGTH(COALESCE(target,''))+LENGTH(COALESCE(reason_code,''))+64),0) FROM security_events",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        let oldest_ts: Option<i64> = conn
+            .query_row(
+                "SELECT MIN(best_effort_wall_ts) FROM security_events",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap_or(None)
+            .flatten();
+        let now = self.wall_time_now();
+        let too_old = cfg.max_age_secs > 0
+            && oldest_ts
+                .map(|t| now.saturating_sub(t) > cfg.max_age_secs)
+                .unwrap_or(false);
+        let too_big = cfg.max_bytes > 0 && total_bytes > cfg.max_bytes;
+        if !too_old && !too_big {
+            return Ok(0);
+        }
+        let mut rotated = 0u64;
+        // Rotate one oldest closed segment at a time; keep current active segment.
+        loop {
+            let total_bytes_now: i64 = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(LENGTH(COALESCE(category,''))+LENGTH(COALESCE(severity,''))+LENGTH(COALESCE(actor_did,''))+LENGTH(COALESCE(target,''))+LENGTH(COALESCE(reason_code,''))+64),0) FROM security_events",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            let oldest_ts_now: Option<i64> = conn
+                .query_row(
+                    "SELECT MIN(best_effort_wall_ts) FROM security_events",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()
+                .unwrap_or(None)
+                .flatten();
+            let now2 = self.wall_time_now();
+            let need = (cfg.max_age_secs > 0
+                && oldest_ts_now
+                    .map(|t| now2.saturating_sub(t) > cfg.max_age_secs)
+                    .unwrap_or(false))
+                || (cfg.max_bytes > 0 && total_bytes_now > cfg.max_bytes);
+            if !need {
+                break;
+            }
+            let candidate: Option<(i64, i64)> = conn
+                .query_row(
+                    "SELECT s.segment_id, COALESCE(s.ended_at_seq, (SELECT MAX(seq) FROM security_events e WHERE e.segment_id=s.segment_id))
+                     FROM security_event_segments s
+                     WHERE s.segment_id < (SELECT COALESCE(MAX(segment_id),1) FROM security_event_segments)
+                     ORDER BY s.segment_id ASC LIMIT 1",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(|e| format!("candidate segment: {e}"))?;
+            let Some((seg_id, max_seq)) = candidate else {
+                break;
+            };
+            self.archive_signed_segment(&conn, seg_id as u64, &cfg.archive_dir)?;
+            conn.execute(
+                "DELETE FROM security_event_personal_fields WHERE seq IN (SELECT seq FROM security_events WHERE segment_id=?1)",
+                params![seg_id],
+            )
+            .map_err(|e| format!("delete personal fields: {e}"))?;
+            conn.execute(
+                "DELETE FROM security_events WHERE segment_id=?1",
+                params![seg_id],
+            )
+            .map_err(|e| format!("delete segment events: {e}"))?;
+            conn.execute(
+                "DELETE FROM security_event_segments WHERE segment_id=?1",
+                params![seg_id],
+            )
+            .map_err(|e| format!("delete segment meta: {e}"))?;
+            self.append_payload_internal(
+                SecurityEventPayload::new(
+                    SecurityEventCategory::SecurityLog,
+                    Severity::Low,
+                    ReasonCode::LogRotated,
+                )
+                .with_target(seg_id.to_string())
+                .with_detail(format!(
+                    "archived and removed security_event segment {seg_id} (through seq {max_seq}) (CLAIM-28.2, PV-7.13)"
+                )),
+                true,
+            );
+            rotated += 1;
+            if rotated >= 64 {
+                break;
+            }
+        }
+        Ok(rotated)
     }
 
     pub fn len(&self) -> usize {
