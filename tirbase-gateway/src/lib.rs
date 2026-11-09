@@ -20,6 +20,7 @@ pub mod health;
 pub mod hw_counter_binding;
 pub mod key_provider;
 pub mod monotonic_counter;
+pub mod profiles;
 pub mod security_log;
 pub mod security_log_export;
 pub mod security_sink;
