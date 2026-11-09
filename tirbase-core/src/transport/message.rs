@@ -56,6 +56,9 @@ pub enum GossipMessage {
         /// Best-effort observation/wall timestamp (seconds).
         observed_at: i64,
     },
+    /// Security event mesh sync (PV-7.9, PV-7.12, CLAIM-28.3): append-only
+    /// collection, compaction=none, per-peer 500 events/min, retry 30s on failure.
+    SecurityEventSync(crate::transport::security_event_sync::SecurityEventSyncBatch),
 }
 
 impl GossipMessage {

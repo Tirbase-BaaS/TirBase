@@ -296,6 +296,13 @@ pub struct CoreHandle {
 
     /// 26.3/26.4 (PV-7.10): observed peer checkpoint hashes for tail-truncation detection.
     pub(crate) checkpoint_obs_tx: tokio::sync::broadcast::Sender<(String, u64, [u8; 32], i64)>,
+    /// 28.3 (PV-7.9): accepted security-event sync records (append-only, compaction=none).
+    pub(crate) security_event_sync_tx: tokio::sync::broadcast::Sender<
+        crate::transport::security_event_sync::SecurityEventSyncRecord,
+    >,
+    /// 28.3 (PV-7.9/PV-7.12): per-peer rate limit + append-only dedupe.
+    pub(crate) security_event_sync_handler:
+        std::sync::Mutex<crate::transport::security_event_sync::SecurityEventSyncHandler>,
     /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
     pub(crate) checkpoint_provider:
         Arc<Mutex<Option<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>>>,
@@ -1164,6 +1171,10 @@ impl CoreHandle {
             capability,
             transport,
             checkpoint_obs_tx: tokio::sync::broadcast::channel(256).0,
+            security_event_sync_tx: tokio::sync::broadcast::channel(4096).0,
+            security_event_sync_handler: std::sync::Mutex::new(
+                crate::transport::security_event_sync::SecurityEventSyncHandler::new(),
+            ),
             checkpoint_provider: checkpoint_provider.clone(),
             durability,
             #[cfg(feature = "native")]
@@ -2684,6 +2695,51 @@ impl CoreHandle {
         self.checkpoint_obs_tx.subscribe()
     }
 
+    /// 28.3 (PV-7.9): subscribe to accepted security-event sync records.
+    pub fn subscribe_security_event_sync(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<
+        crate::transport::security_event_sync::SecurityEventSyncRecord,
+    > {
+        self.security_event_sync_tx.subscribe()
+    }
+
+    /// 28.3 (PV-7.9): publish a security-event sync batch to the mesh (best-effort).
+    pub fn publish_security_event_sync(
+        &self,
+        batch: crate::transport::security_event_sync::SecurityEventSyncBatch,
+    ) -> Result<(), TirBaseError> {
+        #[cfg(feature = "native")]
+        {
+            let msg = crate::transport::message::GossipMessage::SecurityEventSync(batch.clone());
+            let bytes = msg.to_bytes();
+            let transport = self
+                .transport
+                .lock()
+                .map_err(|e| TirBaseError::MeshUnavailable {
+                    reason: format!("transport lock poisoned: {e}"),
+                })?;
+            let sent = if let Some(tx) = transport.outbound_tx.as_ref() {
+                tx.try_send(bytes).is_ok()
+            } else {
+                false
+            };
+            drop(transport);
+            if !sent {
+                // 28.3 (PV-7.9): record SyncFailure locally and schedule retry after 30s.
+                let _ = self
+                    .security_event_sync_handler
+                    .lock()
+                    .map(|h| h.on_sync_failure(&batch.sender_did, "publish unavailable"));
+            }
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = batch;
+        }
+        Ok(())
+    }
+
     /// 26.3 (PV-7.10): set provider for latest local checkpoint hash gossiped on sync.
     pub fn set_checkpoint_provider<F>(&self, provider: F)
     where
@@ -3354,6 +3410,33 @@ impl CoreHandle {
                 let _ =
                     self.checkpoint_obs_tx
                         .send((reporter_did, seq, checkpoint_hash, observed_at));
+            }
+            GossipMessage::SecurityEventSync(batch) => {
+                // 28.3 (PV-7.9, PV-7.12): transport sync handler — append-only
+                // collection (compaction=none), per-peer 500 events/min, 30s retry
+                // on failure, local SyncFailure/SyncRateLimitReached emission.
+                let decision = self
+                    .security_event_sync_handler
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("security event sync handler poisoned: {e}"),
+                    })?
+                    .handle_inbound(batch, std::time::Instant::now());
+                let accepted = match decision {
+                    crate::transport::security_event_sync::SyncInboundDecision::Accepted(records) => {
+                        records
+                    }
+                    crate::transport::security_event_sync::SyncInboundDecision::RateLimited {
+                        accepted,
+                        ..
+                    } => accepted,
+                    crate::transport::security_event_sync::SyncInboundDecision::RetryScheduled { .. } => {
+                        Vec::new()
+                    }
+                };
+                for rec in accepted {
+                    let _ = self.security_event_sync_tx.send(rec);
+                }
             }
             _ => {}
         }
@@ -4128,6 +4211,31 @@ impl CoreHandle {
                 let _ =
                     self.checkpoint_obs_tx
                         .send((reporter_did, seq, checkpoint_hash, observed_at));
+                Ok(())
+            }
+            GossipMessage::SecurityEventSync(batch) => {
+                let decision = self
+                    .security_event_sync_handler
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("security event sync handler poisoned: {e}"),
+                    })?
+                    .handle_inbound(batch, std::time::Instant::now());
+                let accepted = match decision {
+                    crate::transport::security_event_sync::SyncInboundDecision::Accepted(records) => {
+                        records
+                    }
+                    crate::transport::security_event_sync::SyncInboundDecision::RateLimited {
+                        accepted,
+                        ..
+                    } => accepted,
+                    crate::transport::security_event_sync::SyncInboundDecision::RetryScheduled { .. } => {
+                        Vec::new()
+                    }
+                };
+                for rec in accepted {
+                    let _ = self.security_event_sync_tx.send(rec);
+                }
                 Ok(())
             }
 

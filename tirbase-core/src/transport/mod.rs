@@ -2175,3 +2175,10 @@ mod tests {
         }
     }
 }
+
+pub mod security_event_sync;
+pub use security_event_sync::{
+    AppendOnlySecurityEventCollection, PeerSecurityEventSyncLimiter, SecurityEventSyncBatch,
+    SecurityEventSyncHandler, SecurityEventSyncRecord, SyncInboundDecision,
+    SECURITY_EVENT_SYNC_MAX_PER_PEER_PER_MIN, SECURITY_EVENT_SYNC_RETRY_SECS,
+};

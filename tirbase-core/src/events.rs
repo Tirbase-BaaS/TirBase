@@ -342,7 +342,7 @@ pub enum ReasonCode {
     /// A bootstrap enrollment nonce was reused inside its retention window.
     NonceReused,
 
-    // SecurityLog (PV-7, task 25/26)
+    // SecurityLog (PV-7, task 25/26/28)
     /// Signed checkpoint record written to the security event log (PV-7.3).
     CheckpointWritten,
     /// Hash-chain broken; entering Restricted mode (PV-7.4).
@@ -355,6 +355,12 @@ pub enum ReasonCode {
     SuppressionSummary,
     /// No mesh peers or cloud connection; checkpoint cannot be externally witnessed (PV-7.10).
     NoWitnessAvailable,
+    /// Security event mesh sync failed; retry scheduled (PV-7.9, CLAIM-28.3).
+    SyncFailure,
+    /// Peer security-event sync rate limit (500 events/min) exceeded (PV-7.12, CLAIM-28.3).
+    SyncRateLimitReached,
+    /// Oldest signed segment archived/removed by retention rotation (PV-7.13, CLAIM-28.2).
+    LogRotated,
 
     // Startup / Diagnostic
     /// Gateway startup completed.
@@ -488,6 +494,10 @@ impl ReasonCode {
             ReasonCode::TailTruncation => "TailTruncation",
             ReasonCode::SuppressionSummary => "SuppressionSummary",
             ReasonCode::NoWitnessAvailable => "NoWitnessAvailable",
+            ReasonCode::SyncFailure => "SyncFailure",
+            ReasonCode::SyncRateLimitReached => "SyncRateLimitReached",
+            ReasonCode::LogRotated => "LogRotated",
+
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
             ReasonCode::QuickCheckFailed => "QuickCheckFailed",
