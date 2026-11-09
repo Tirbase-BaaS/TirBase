@@ -108,6 +108,9 @@ impl SqlitePendingApprovalsStore {
     }
 
     pub fn upsert(&self, row: &PendingApprovalRow) -> Result<(), String> {
+        tirbase_core::fail_crate::fail_point!("fp_pending_approvals_upsert", |_| Err(
+            "failpoint fp_pending_approvals_upsert".to_string()
+        ));
         let conn = self.lock();
         conn.execute(
             &format!(
@@ -167,6 +170,9 @@ impl SqlitePendingApprovalsStore {
     }
 
     pub fn add_signature(&self, sig: &PendingSignatureRow) -> Result<bool, String> {
+        tirbase_core::fail_crate::fail_point!("fp_pending_approvals_add_signature", |_| Err(
+            "failpoint fp_pending_approvals_add_signature".to_string()
+        ));
         let conn = self.lock();
         let changed = conn
             .execute(
@@ -203,6 +209,9 @@ impl SqlitePendingApprovalsStore {
     }
 
     pub fn set_status(&self, op_id: &str, status: &str) -> Result<(), String> {
+        tirbase_core::fail_crate::fail_point!("fp_pending_approvals_set_status", |_| Err(
+            "failpoint fp_pending_approvals_set_status".to_string()
+        ));
         let conn = self.lock();
         conn.execute(
             &format!("UPDATE {PENDING_APPROVALS_TABLE} SET status=?2 WHERE op_id=?1"),

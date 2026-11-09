@@ -100,6 +100,9 @@ pub fn acquire_tx(
             if renewals >= max_consecutive_renewals {
                 // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
                 let cooldown_until = now_mono_secs.saturating_add(lease_duration_secs);
+                tirbase_core::fail_crate::fail_point!("fp_lease_cooldown", |_| Err(
+                    LeaseAcquireError::Store("failpoint fp_lease_cooldown".to_string())
+                ));
                 tx.execute(
                     &format!("INSERT OR REPLACE INTO {SINGLE_WRITER_LEASES_TABLE} (target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono) VALUES (?1,?2,?3,?4,?5)"),
                     params![target_id, issuer_did, now_mono_secs, renewals, cooldown_until],
@@ -111,6 +114,9 @@ pub fn acquire_tx(
         }
     }
     let expires = now_mono_secs.saturating_add(lease_duration_secs);
+    tirbase_core::fail_crate::fail_point!("fp_lease_acquire", |_| Err(LeaseAcquireError::Store(
+        "failpoint fp_lease_acquire".to_string()
+    )));
     tx.execute(
         &format!("INSERT OR REPLACE INTO {SINGLE_WRITER_LEASES_TABLE} (target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono) VALUES (?1,?2,?3,?4,NULL)"),
         params![target_id, issuer_did, expires, renewals],
@@ -119,6 +125,9 @@ pub fn acquire_tx(
 }
 
 pub fn release_tx(tx: &Transaction<'_>, target_id: &str, issuer_did: &str) -> Result<(), String> {
+    tirbase_core::fail_crate::fail_point!("fp_lease_release", |_| Err(
+        "failpoint fp_lease_release".to_string()
+    ));
     tx.execute(
         &format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE} WHERE target_id=?1 AND issuer_did=?2"),
         params![target_id, issuer_did],
@@ -144,6 +153,9 @@ pub fn preempt_tx(
     now_mono_secs: i64,
     lease_duration_secs: i64,
 ) -> Result<Option<String>, String> {
+    tirbase_core::fail_crate::fail_point!("fp_lease_preempt", |_| Err(
+        "failpoint fp_lease_preempt".to_string()
+    ));
     let prior = load_tx(tx, target_id)?.map(|r| r.issuer_did);
     if let Some(issuer) = new_issuer_did {
         let expires = now_mono_secs.saturating_add(lease_duration_secs);
@@ -176,6 +188,9 @@ pub fn preempt_tx(
 
 /// Task 21.3: release all leases held by a revoked DID.
 pub fn release_all_for_issuer_did(conn: &Connection, issuer_did: &str) -> Result<usize, String> {
+    tirbase_core::fail_crate::fail_point!("fp_lease_release_all_for_issuer", |_| Err(
+        "failpoint fp_lease_release_all_for_issuer".to_string()
+    ));
     let deleted = conn
         .execute(
             &format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE} WHERE issuer_did=?1"),

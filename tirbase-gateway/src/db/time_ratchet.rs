@@ -144,6 +144,9 @@ impl TimeRatchetStore for SqliteTimeRatchetStore {
     }
 
     fn save(&self, record: &TimeRatchetRecord) -> Result<(), TimeRatchetError> {
+        tirbase_core::fail_crate::fail_point!("fp_time_ratchet_save", |_| Err(
+            TimeRatchetError::Store("failpoint fp_time_ratchet_save".to_string())
+        ));
         let conn = self.lock();
         conn.execute(
             &format!(

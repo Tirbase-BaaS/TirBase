@@ -30,6 +30,7 @@ required-features = ["native"]
 
 [features]
 default = ["native"]
+failpoints = ["fail/failpoints"]
 native  = [
     "dep:rusqlite",
     "rusqlite?/bundled",

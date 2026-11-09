@@ -135,6 +135,9 @@ impl DeviceEpochStore for SqliteDeviceEpochStore {
             .transpose()?;
 
         let conn = self.lock();
+        tirbase_core::fail_crate::fail_point!("fp_device_epoch_save", |_| Err(EpochError::Store(
+            "failpoint fp_device_epoch_save".into()
+        )));
         conn.execute(
             &format!(
                 "INSERT INTO {DEVICE_EPOCH_TABLE}

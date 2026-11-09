@@ -140,6 +140,9 @@ pub fn insert_actuating_tx(tx: &Transaction<'_>, row: &AppliedEffectRow) -> Resu
     if tirbase_core::fail_crate::eval("aef_insert_actuating", |_| ()).is_some() {
         return Err(format!("failpoint {}", "aef_insert_actuating"));
     }
+    tirbase_core::fail_crate::fail_point!("fp_applied_effect_insert_actuating", |_| Err(
+        "failpoint fp_applied_effect_insert_actuating".to_string()
+    ));
     tx.execute(
         &format!("INSERT INTO {APPLIED_EFFECTS_LEDGER_TABLE}
             (entry_id,issuer_did,target_id,param,desired_mantissa,desired_exponent,desired_unit_id,sequence_number,idempotency_key,expiry_est,policy_version,enrollment_epoch,state,actuating_ts,completion_ts,driver_response)
@@ -165,6 +168,9 @@ pub fn update_terminal_state_tx(
     if tirbase_core::fail_crate::eval("aef_update_terminal", |_| ()).is_some() {
         return Err(format!("failpoint {}", "aef_update_terminal"));
     }
+    tirbase_core::fail_crate::fail_point!("fp_applied_effect_update_terminal", |_| Err(
+        "failpoint fp_applied_effect_update_terminal".to_string()
+    ));
     tx.execute(
         &format!("UPDATE {APPLIED_EFFECTS_LEDGER_TABLE} SET state=?1, completion_ts=?2, driver_response=?3 WHERE entry_id=?4"),
         params![state.as_str(), completion_ts, driver_response, entry_id.as_slice()],

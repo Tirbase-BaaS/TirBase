@@ -47,6 +47,9 @@ impl SqliteDecidedOutcomesStore {
         }
     }
     pub fn upsert(&self, row: &DecidedOutcomeRow) -> Result<(), String> {
+        tirbase_core::fail_crate::fail_point!("fp_decided_outcomes_upsert", |_| Err(
+            "failpoint fp_decided_outcomes_upsert".to_string()
+        ));
         self.lock().execute(&format!("INSERT OR REPLACE INTO {DECIDED_OUTCOMES_TABLE} (issuer_did,target_id,sequence_number,enrollment_epoch,accepted,rejection_category,detail) VALUES (?1,?2,?3,?4,?5,?6,?7)"), params![row.issuer_did,row.target_id,row.sequence_number as i64,row.enrollment_epoch as i64,if row.accepted{1i64}else{0i64},row.rejection_category,row.detail]).map_err(|e| format!("upsert decided outcome: {e}"))?;
         Ok(())
     }

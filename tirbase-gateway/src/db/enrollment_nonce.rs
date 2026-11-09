@@ -148,6 +148,9 @@ impl EnrollmentNonceStore for SqliteEnrollmentNonceStore {
             .map_err(|error| EpochError::Store(format!("evict nonce: {error}")))?;
         }
 
+        tirbase_core::fail_crate::fail_point!("fp_enrollment_nonce_record", |_| Err(
+            EpochError::Store("failpoint fp_enrollment_nonce_record".to_string())
+        ));
         tx.execute(
             &format!(
                 "INSERT INTO {ENROLLMENT_NONCES_TABLE}

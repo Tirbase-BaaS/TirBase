@@ -40,6 +40,9 @@ pub fn upsert_tx(
     param: &str,
     value: FixedPointValue,
 ) -> Result<(), String> {
+    tirbase_core::fail_crate::fail_point!("fp_target_state_upsert", |_| Err(
+        "failpoint fp_target_state_upsert".to_string()
+    ));
     tx.execute(
         &format!(
             "INSERT OR REPLACE INTO {TARGET_STATE_TABLE}

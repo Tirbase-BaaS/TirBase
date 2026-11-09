@@ -100,6 +100,9 @@ fn ensure_summary_columns(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn upsert_summary_tx(tx: &Transaction<'_>, summary: &DriftSummaryRow) -> Result<(), String> {
+    tirbase_core::fail_crate::fail_point!("fp_drift_summary_upsert", |_| Err(
+        "failpoint fp_drift_summary_upsert".to_string()
+    ));
     tx.execute(
         &format!("INSERT INTO {DRIFT_RATE_SUMMARY_TABLE}
             (target_id,param,last_accepted_est,last_accepted_mono,last_value_mantissa,last_value_exponent,last_value_unit_id,

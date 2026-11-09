@@ -18,6 +18,9 @@ pub fn upsert_peer_checkpoint_witness(
     checkpoint_hash: &[u8; 32],
     observed_at: i64,
 ) -> rusqlite::Result<()> {
+    tirbase_core::fail_crate::fail_point!("fp_peer_checkpoint_witness_upsert", |_| Err(
+        rusqlite::Error::InvalidQuery
+    ));
     conn.execute(
         "INSERT INTO peer_checkpoint_witnesses(peer_did, seq, checkpoint_hash, observed_at)
          VALUES (?1, ?2, ?3, ?4)

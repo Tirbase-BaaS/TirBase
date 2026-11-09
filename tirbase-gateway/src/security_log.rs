@@ -982,6 +982,9 @@ impl SecurityEventLog {
     }
 
     fn persist_record(&self, conn: &Connection, rec: &SecurityEvent) -> rusqlite::Result<()> {
+        tirbase_core::fail_crate::fail_point!("fp_security_log_persist_record", |_| Err(
+            rusqlite::Error::InvalidQuery
+        ));
         let is_checkpoint = rec.checkpoint_signature.is_some();
         conn.execute(
             "INSERT INTO security_events(

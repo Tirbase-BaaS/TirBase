@@ -251,6 +251,9 @@ impl ChallengeNonceStore for SqliteChallengeNonceStore {
         mono_secs_now: i64,
         consume: bool,
     ) -> Result<bool, String> {
+        tirbase_core::fail_crate::fail_point!("fp_challenge_nonce_consume", |_| Err(
+            "failpoint fp_challenge_nonce_consume".to_string()
+        ));
         let conn = self.lock();
         let exists: Option<i64> = conn
             .query_row(

@@ -85,6 +85,9 @@ pub fn prune_expired_tx(tx: &Transaction<'_>, now_est: i64) -> Result<usize, Str
 }
 
 pub fn insert_tx(tx: &Transaction<'_>, row: &IdempotencyRow) -> Result<(), String> {
+    tirbase_core::fail_crate::fail_point!("fp_idempotency_insert", |_| Err(
+        "failpoint fp_idempotency_insert".to_string()
+    ));
     tx.execute(
         &format!("INSERT INTO {IDEMPOTENCY_KEYS_TABLE} (issuer_did,target_id,idempotency_key,original_result,recorded_at_est,expires_at_est) VALUES (?1,?2,?3,?4,?5,?6)"),
         params![row.issuer_did, row.target_id, row.idempotency_key.as_slice(), row.original_result, row.recorded_at_est, row.expires_at_est],

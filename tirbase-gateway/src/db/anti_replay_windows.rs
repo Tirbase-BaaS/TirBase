@@ -132,6 +132,9 @@ pub fn upsert_window_tx(
     seen_bitmap: u64,
     forward_gap: u64,
 ) -> Result<(), String> {
+    tirbase_core::fail_crate::fail_point!("fp_anti_replay_window_upsert", |_| Err(
+        "failpoint fp_anti_replay_window_upsert".to_string()
+    ));
     tx.execute(
         &format!("INSERT INTO {ANTI_REPLAY_WINDOWS_TABLE} (issuer_did,target_id,enrollment_epoch,highest_seen,seen_bitmap,forward_gap)
                   VALUES (?1,?2,?3,?4,?5,?6)

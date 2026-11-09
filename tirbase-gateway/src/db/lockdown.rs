@@ -60,6 +60,9 @@ impl SqliteLockdownStore {
 
     fn set_value(&self, value: i64) -> Result<(), LockdownError> {
         let conn = self.open_db()?;
+        tirbase_core::fail_crate::fail_point!("fp_lockdown_set_value", |_| Err(
+            LockdownError::Store("failpoint fp_lockdown_set_value".into())
+        ));
         conn.execute(
             "INSERT INTO monotonic_counters (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = ?2",

@@ -1,9 +1,15 @@
 [features]
+# Default: plain bundled SQLite. `sqlcipher` replaces `bundled` with
+# `bundled-sqlcipher` (mutually exclusive; CLAIM-32.5, PV-9.6).
+default = ["sqlite"]
+sqlite = ["rusqlite/bundled"]
+sqlcipher = ["rusqlite/bundled-sqlcipher"]
 # Hardware-backed key providers and counters are feature-gated (tasks 6.3,
 # 6.4, 6.6).  Both stubs compile without their SDKs present.
-default = []
 tpm2 = []
 pkcs11 = []
+# Failpoint injection for PV-9.3/CLAIM-32.2 power-loss boundary tests.
+failpoints = ["tirbase-core/failpoints"]
 
 [package]
 name = "tirbase-gateway"
@@ -52,7 +58,8 @@ axum = "0.7"
 # JSON body serialisation (used by health endpoint)
 serde_json = "1"
 wat = "1"
-rusqlite = { version = "0.40", features = ["bundled"] }
+# `default-features = false` so `sqlcipher` can replace `bundled` (PV-9.6).
+rusqlite = { version = "0.40", default-features = false, features = [] }
 
 # Hash-chained security event log (PV-7.2/7.3, task 25).
 sha2 = "0.11.0"
@@ -84,3 +91,4 @@ tirbase-guard = { workspace = true }
 tirbase-types = { workspace = true }
 serde_json = "1"
 wat = "1"
+
