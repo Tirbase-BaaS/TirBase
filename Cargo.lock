@@ -4426,6 +4426,7 @@ name = "tirbase-drivers"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "tirbase-sim",
  "tirbase-types",
 ]
 
@@ -4468,11 +4469,13 @@ dependencies = [
  "arc-swap",
  "ciborium",
  "hex",
+ "libc",
  "proptest",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "tirbase-core",
+ "tirbase-drivers",
  "tirbase-types",
  "tokio",
  "trybuild",
@@ -4486,6 +4489,7 @@ dependencies = [
  "arc-swap",
  "automerge",
  "rusqlite",
+ "serde",
  "serde_json",
  "tirbase-core",
  "tirbase-drivers",
