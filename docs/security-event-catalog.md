@@ -227,6 +227,7 @@ Events emitted by the CRDT inbound validation and quarantine system (PV-6).
 
 | Reason Code | Description | Severity | Status | PV Reference |
 |---|---|---|---|---|
+| UnknownSchemaHash | Inbound delta quarantined because schema hash is unknown or missing in the local schema path | Medium | Implemented | PV-6.1 |
 | DeltaQuarantined | Inbound delta quarantined; see reason for specific violation | Medium | Planned | PV-6.4 |
 | QuarantineReplayed | Quarantined delta replayed by PolicyAuthority-signed operation | Medium | Planned | PV-6.7 |
 | ClockJump | start_op validation failed; probable clock-jump or start_op inflation | High | Planned | PV-6.1 |
@@ -257,7 +258,8 @@ Events emitted by the schema migration engine (PV-8).
 | PostconditionFailed | Migration postcondition evaluation failed; shadow discarded | High | Planned | PV-8.4 |
 | FuelExhausted | WASM sandbox ran out of fuel; migration quarantined | High | Planned | PV-8.3 |
 | MigrationCancelled | In-progress migration cancelled at fuel-check boundary | Medium | Planned | PV-8.6 |
-| EngineVersionMismatch | Migration module's fuel_cost_table_hash does not match active profile | High | Planned | PV-8.2a |
+| EngineVersionMismatch | Migration module's fuel_cost_table_hash does not match active profile | High | Implemented | PV-8.2a, S9 |
+| DeterministicProfileViolation | Migration WASM module violated deterministic execution profile (forbidden opcodes/imports/features) and was quarantined before execution | High | Implemented | PV-8.2, S8 |
 | NonDeterministicModule | WASM module contains f32/f64 or SIMD instructions; quarantined | High | Planned | PV-8.2 |
 | ExpandContractViolation | Migration both adds and removes fields in the same module | High | Planned | PV-8.5a |
 | FleetPreconditionMissing | Contract migration submitted without fleet_precondition_hash | High | Planned | PV-8.5a |

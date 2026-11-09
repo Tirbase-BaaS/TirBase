@@ -805,8 +805,8 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 | S5 — Delta Flood / Rate Exhaustion | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S05.toml` |
 | S6 — Policy Rollback | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S06.toml` |
 | S7 — Policy Loosening Without M-of-N | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S07.toml` |
-| S8 — Malicious Migration (Float/SIMD) | Phase 6: Migration Sandbox | PLANNED | `tirbase-sim/scenarios/S08.toml` |
-| S9 — Migration Fuel-Cost Hash Mismatch | Phase 6: Migration Sandbox | PLANNED | `tirbase-sim/scenarios/S09.toml` |
+| S8 — Malicious Migration (Float/SIMD) | Phase 6: Migration Sandbox | Implemented | `tirbase-sim/src/scenarios/s8_malicious_migration.rs` (`cargo test -p tirbase-sim s8 -- --nocapture`) |
+| S9 — Migration Fuel-Cost Hash Mismatch | Phase 6: Migration Sandbox | Implemented | `tirbase-sim/src/scenarios/s9_engine_profile_mismatch.rs` (`cargo test -p tirbase-sim s9 -- --nocapture`) |
 | S10 — Revoked Delta Propagation | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S10.toml` |
 | S11 — Single-Manager Quorum (1-of-1) | Phase 1: Key Management | PLANNED | `tirbase-sim/scenarios/S11.toml` |
 | S12 — Partition and Rejoin | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S12.toml` |

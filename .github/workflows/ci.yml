@@ -551,3 +551,41 @@ jobs:
               raise SystemExit(f'total {total} exceeds 90% of {rss_baseline}')
           print('ok', total)
           PY
+
+
+  cross-arch-migration-determinism:
+    name: migration determinism (host + aarch64/QEMU, CLAIM-29.6)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install QEMU and cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user gcc-aarch64-linux-gnu
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Host deterministic migration hash-vector (wasmi/PV-8)
+        run: |
+          cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+
+      - name: aarch64 deterministic migration hash-vector (QEMU, PV-8/CLAIM-29.6)
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER: qemu-aarch64 -L /usr/aarch64-linux-gnu
+        run: |
+          cargo test -p tirbase-core --target aarch64-unknown-linux-gnu --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
