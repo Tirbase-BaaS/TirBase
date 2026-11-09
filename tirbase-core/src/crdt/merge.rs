@@ -27,6 +27,9 @@ use crate::crdt::CrdtEngine;
 use crate::errors::TirBaseError;
 use crate::events::{emit_crdt, ReasonCode, Severity};
 
+// Re-export for convenience
+pub use crate::crdt::inbound_caps::{InboundCapViolation, InboundCaps};
+
 /// Merge outcome after applying an incoming Delta.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergeOutcome {

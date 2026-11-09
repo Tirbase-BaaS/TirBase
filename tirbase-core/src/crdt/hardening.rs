@@ -36,6 +36,14 @@ use crate::crdt::delta::Delta;
 use crate::crdt::merge::QuarantineReason;
 use crate::events::{emit_crdt, ReasonCode, Severity};
 
+// Re-export inbound caps for convenience
+pub use crate::crdt::inbound_caps::{
+    InboundCapViolation, InboundCaps, INBOUND_CAP_BATCH_CHANGES, INBOUND_CAP_CONNECTIONS,
+    INBOUND_CAP_DELTA_SIZE_BYTES, INBOUND_CAP_DEPS_PER_CHANGE, INBOUND_CAP_HEADS,
+    INBOUND_CAP_OP_COUNT, INBOUND_CAP_RATE_BURST, INBOUND_CAP_RATE_OPS_PER_SEC,
+    INBOUND_CAP_TRAVERSAL_BUDGET,
+};
+
 /// Result of [`validate_start_op`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum StartOpValidation {
@@ -635,6 +643,7 @@ pub struct InboundHardening {
     schema_quarantine: Option<SchemaQuarantineLedger>,
     #[cfg(feature = "native")]
     summary_db: Option<rusqlite::Connection>,
+    pub caps: InboundCaps,
 }
 
 impl Default for InboundHardening {
@@ -657,6 +666,7 @@ impl InboundHardening {
             schema_quarantine: None,
             #[cfg(feature = "native")]
             summary_db: None,
+            caps: InboundCaps::default(),
         }
     }
 
@@ -672,6 +682,7 @@ impl InboundHardening {
             schema_quarantine: None,
             #[cfg(feature = "native")]
             summary_db: None,
+            caps: InboundCaps::default(),
         }
     }
 
@@ -686,6 +697,7 @@ impl InboundHardening {
             rate: RateQuarantineLedger::new(),
             schema_quarantine: Some(schema),
             summary_db: summary,
+            caps: InboundCaps::default(),
         })
     }
 

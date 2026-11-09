@@ -21,6 +21,10 @@ pub const RATE_QUARANTINE_GLOBAL_BYTES: usize = 256 * 1024 * 1024;
 /// Summary window size for derived.db rows.
 pub const RATE_SUMMARY_WINDOW_SECS: i64 = 60;
 
+// Per-DID rate limits (task 24.1)
+pub const PER_DID_RATE_OPS_PER_SEC: u64 = 100;
+pub const PER_DID_RATE_BURST: u64 = 500;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateQuarantineReason {
     RateExceeded,
@@ -219,5 +223,46 @@ mod tests {
             })
             .unwrap();
         assert!(n >= 1);
+    }
+}
+
+#[derive(Debug)]
+pub struct PerDidRateLimiter {
+    rate: u64,
+    burst: u64,
+    tokens: std::collections::HashMap<String, (u64, std::time::Instant)>,
+}
+
+impl Default for PerDidRateLimiter {
+    fn default() -> Self {
+        Self {
+            rate: PER_DID_RATE_OPS_PER_SEC,
+            burst: PER_DID_RATE_BURST,
+            tokens: std::collections::HashMap::new(),
+        }
+    }
+}
+
+impl PerDidRateLimiter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn check_and_consume(&mut self, did: &str, now: std::time::Instant) -> bool {
+        let entry = self
+            .tokens
+            .entry(did.to_string())
+            .or_insert((self.burst, now));
+        // refill
+        let elapsed = now.duration_since(entry.1).as_secs_f64();
+        let refill = (elapsed * self.rate as f64) as u64;
+        entry.0 = (entry.0 + refill).min(self.burst);
+        entry.1 = now;
+        if entry.0 == 0 {
+            false
+        } else {
+            entry.0 -= 1;
+            true
+        }
     }
 }

@@ -9,6 +9,8 @@
 pub mod dag;
 pub mod delta;
 pub(crate) mod hardening;
+pub mod inbound_caps;
+pub mod memory_budget;
 pub mod merge;
 #[doc(hidden)]
 pub mod pending_queue;

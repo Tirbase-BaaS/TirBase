@@ -14566,3 +14566,74 @@ mod task23_pv6_hardening_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "native"))]
+mod task24_inbound_caps_tests {
+    use crate::crdt::inbound_caps::{
+        InboundCaps, INBOUND_CAP_BATCH_CHANGES, INBOUND_CAP_CONNECTIONS,
+        INBOUND_CAP_DELTA_SIZE_BYTES, INBOUND_CAP_DEPS_PER_CHANGE, INBOUND_CAP_HEADS,
+        INBOUND_CAP_OP_COUNT, INBOUND_CAP_RATE_BURST, INBOUND_CAP_RATE_OPS_PER_SEC,
+        INBOUND_CAP_TRAVERSAL_BUDGET,
+    };
+    use crate::events::ReasonCode;
+
+    #[test]
+    fn claim_24_1_inbound_caps_defaults() {
+        let caps = InboundCaps::default();
+        assert_eq!(caps.rate_ops_per_sec, INBOUND_CAP_RATE_OPS_PER_SEC);
+        assert_eq!(caps.rate_burst, INBOUND_CAP_RATE_BURST);
+        assert_eq!(caps.delta_size_bytes, INBOUND_CAP_DELTA_SIZE_BYTES);
+        assert_eq!(caps.op_count, INBOUND_CAP_OP_COUNT);
+        assert_eq!(caps.batch_changes, INBOUND_CAP_BATCH_CHANGES);
+        assert_eq!(caps.heads, INBOUND_CAP_HEADS);
+        assert_eq!(caps.deps_per_change, INBOUND_CAP_DEPS_PER_CHANGE);
+        assert_eq!(caps.traversal_budget, INBOUND_CAP_TRAVERSAL_BUDGET);
+        assert_eq!(caps.connections, INBOUND_CAP_CONNECTIONS);
+    }
+
+    #[test]
+    fn claim_24_1_each_cap_triggers_quarantine_reason() {
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::RateExceeded
+            ),
+            ReasonCode::RateExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::Oversize
+            ),
+            ReasonCode::Oversize
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::OpCountExceeded
+            ),
+            ReasonCode::OpCountExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::BatchExceeded
+            ),
+            ReasonCode::BatchExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::HeadCountExceeded
+            ),
+            ReasonCode::HeadCountExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::DepCountExceeded
+            ),
+            ReasonCode::DepCountExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::TraversalBudgetExceeded
+            ),
+            ReasonCode::TraversalBudgetExceeded
+        );
+    }
+}
