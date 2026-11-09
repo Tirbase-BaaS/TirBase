@@ -1,0 +1,26 @@
+[package]
+name = "tirbase-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tirbase-core = { path = ".." }
+
+[[bin]]
+name = "automerge_delta_decode"
+path = "fuzz_targets/automerge_delta_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fragment_reassembly"
+path = "fuzz_targets/fragment_reassembly.rs"
+test = false
+doc = false
+bench = false
