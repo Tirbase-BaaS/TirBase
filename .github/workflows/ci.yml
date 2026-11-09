@@ -289,6 +289,15 @@ jobs:
         # in the catalog.  CI fails if any unlisted variant is found.  See PV-7.11.
         run: bash scripts/check-security-event-catalog.sh
 
+  state-inventory:
+    name: State inventory annotations (CLAIM-31.2, PV-9.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check state inventory registration
+        run: bash scripts/check-state-inventory.sh
+
   system-invariants:
     name: System invariants catalog check (CLAIM-17.1-17.8)
     runs-on: ubuntu-latest
@@ -332,7 +341,7 @@ jobs:
 
   check:
     name: cargo check (${{ matrix.target }})
-    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, system-invariants]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -460,7 +469,7 @@ jobs:
 
   test:
     name: cargo test (native) + WASM parity check + SDK tests
-    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, system-invariants]
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
