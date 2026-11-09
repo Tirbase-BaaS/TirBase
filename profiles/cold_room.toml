@@ -1,0 +1,30 @@
+# EnvelopeProfile TOML (CLAIM-34.5, PV-10.6). Validated by install-time profile
+# validation (task 10.6) via tirbase-guard::envelope::install_profile.
+profile_id = "c01d0000-0000-0000-0000-000000000001"
+version = 1
+device_class = "cold_room"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+# signature is a hex Ed25519 signature over canonical CBOR body (filled by signing tool);
+# test fixtures/gateway loader may verify or require a signed bundle in production.
+signature_alg = "ed25519"
+signature_hex = ""
+
+[[parameters]]
+name = "setpoint_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 50, exponent = -1, unit_id = 1 }
+safe_default = { mantissa = 40, exponent = -1, unit_id = 1 }
+tightening_floor = { mantissa = -300, exponent = -1, unit_id = 1 }
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = -250, exponent = -1, unit_id = 1 }
+max = { mantissa = 80, exponent = -1, unit_id = 1 }

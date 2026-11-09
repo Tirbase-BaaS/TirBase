@@ -238,3 +238,96 @@ pub fn scm_rights_device_fd_plan(device_fd: i32) -> Result<i32, IsolationError> 
     }
     Ok(device_fd)
 }
+
+/// Send a device fd to a child over a Unix socket using `SCM_RIGHTS` (CLAIM-34.8, PV-10.4).
+///
+/// Narrow `unsafe` confined to the `sendmsg` syscall boundary.
+#[cfg(unix)]
+pub fn send_fd_via_scm_rights(socket_fd: i32, device_fd: i32) -> Result<(), IsolationError> {
+    scm_rights_device_fd_plan(device_fd)?;
+    if socket_fd < 0 {
+        return Err(IsolationError::InvalidChildConfig(
+            "socket fd for SCM_RIGHTS must be non-negative".into(),
+        ));
+    }
+    let mut data = [b'F'];
+    let mut iov = libc::iovec {
+        iov_base: data.as_mut_ptr().cast(),
+        iov_len: data.len(),
+    };
+    // Control buffer for one fd.
+    let cmsg_space = unsafe { libc::CMSG_SPACE(std::mem::size_of::<i32>() as u32) } as usize;
+    let mut cbuf = vec![0u8; cmsg_space];
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cbuf.as_mut_ptr().cast();
+    msg.msg_controllen = cbuf.len() as _;
+    unsafe {
+        let cmsg = libc::CMSG_FIRSTHDR(&msg);
+        if cmsg.is_null() {
+            return Err(IsolationError::Socketpair(
+                io::ErrorKind::Other,
+                "CMSG_FIRSTHDR returned null".into(),
+            ));
+        }
+        (*cmsg).cmsg_level = libc::SOL_SOCKET;
+        (*cmsg).cmsg_type = libc::SCM_RIGHTS;
+        (*cmsg).cmsg_len = libc::CMSG_LEN(std::mem::size_of::<i32>() as u32) as _;
+        let data_ptr = libc::CMSG_DATA(cmsg).cast::<i32>();
+        std::ptr::write(data_ptr, device_fd);
+        msg.msg_controllen = (*cmsg).cmsg_len as _;
+    }
+    let rc = unsafe { libc::sendmsg(socket_fd, &msg, 0) };
+    if rc < 0 {
+        let e = io::Error::last_os_error();
+        return Err(IsolationError::Socketpair(e.kind(), e.to_string()));
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub fn send_fd_via_scm_rights(_socket_fd: i32, _device_fd: i32) -> Result<(), IsolationError> {
+    Err(IsolationError::SandboxUnavailable {
+        detail: "SCM_RIGHTS is unavailable on this target".into(),
+    })
+}
+
+/// Receive a device fd over a Unix socket using `SCM_RIGHTS` (test/helper).
+#[cfg(unix)]
+pub fn recv_fd_via_scm_rights(socket_fd: i32) -> Result<i32, IsolationError> {
+    let mut data = [0u8; 1];
+    let mut iov = libc::iovec {
+        iov_base: data.as_mut_ptr().cast(),
+        iov_len: data.len(),
+    };
+    let cmsg_space = unsafe { libc::CMSG_SPACE(std::mem::size_of::<i32>() as u32) } as usize;
+    let mut cbuf = vec![0u8; cmsg_space];
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = cbuf.as_mut_ptr().cast();
+    msg.msg_controllen = cbuf.len() as _;
+    let rc = unsafe { libc::recvmsg(socket_fd, &mut msg, 0) };
+    if rc < 0 {
+        let e = io::Error::last_os_error();
+        return Err(IsolationError::Socketpair(e.kind(), e.to_string()));
+    }
+    unsafe {
+        let cmsg = libc::CMSG_FIRSTHDR(&msg);
+        if cmsg.is_null() || (*cmsg).cmsg_type != libc::SCM_RIGHTS {
+            return Err(IsolationError::PeerCredential(
+                "missing SCM_RIGHTS control message".into(),
+            ));
+        }
+        let data_ptr = libc::CMSG_DATA(cmsg).cast::<i32>();
+        Ok(std::ptr::read(data_ptr))
+    }
+}
+
+#[cfg(not(unix))]
+pub fn recv_fd_via_scm_rights(_socket_fd: i32) -> Result<i32, IsolationError> {
+    Err(IsolationError::SandboxUnavailable {
+        detail: "SCM_RIGHTS is unavailable on this target".into(),
+    })
+}

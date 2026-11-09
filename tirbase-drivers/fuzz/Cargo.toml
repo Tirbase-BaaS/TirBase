@@ -1,0 +1,33 @@
+[package]
+name = "tirbase-drivers-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tirbase-drivers = { path = ".." }
+
+[[bin]]
+name = "modbus_frame"
+path = "fuzz_targets/modbus_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mqtt_frame"
+path = "fuzz_targets/mqtt_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "register_map_parse"
+path = "fuzz_targets/register_map_parse.rs"
+test = false
+doc = false
+bench = false

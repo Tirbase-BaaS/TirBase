@@ -1,0 +1,43 @@
+device_class = "cold_room_modbus"
+
+[[register]]
+name = "temperature_c"
+register = 0
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = false
+quantity = 1
+
+[[register]]
+name = "setpoint_c"
+register = 1
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "compressor_on"
+register = 2
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1

@@ -15,24 +15,40 @@
 // (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]
 
+pub mod cold_room_sim;
 pub mod driver_trait;
 pub mod isolation;
 pub mod lifecycle;
+pub mod modbus;
+pub mod mqtt;
+pub mod register_map;
 
+pub use cold_room_sim::{ColdRoomSimDriver, FirstOrderThermalModel};
 pub use driver_trait::{
     run_with_timeout, ActuationPermitRef, DeviceModel, DriverError, DriverHealth, DriverResult,
     DriverTrait, EmptyDeviceModelError, Frame, ParameterDescriptor, TimeoutError,
     DRIVER_OPERATION_TIMEOUT,
 };
 pub use isolation::{
-    apply_child_sandbox, create_driver_socketpair, scm_rights_device_fd_plan, verify_peercred,
-    DriverSocketPair, DriverSpawnPlan, IsolationError, KernelIsolationCaps,
-    DEGRADED_ISOLATION_OPT_IN_FLAG, DRIVER_SOCKET_FD_ARG,
+    apply_child_sandbox, create_driver_socketpair, recv_fd_via_scm_rights,
+    scm_rights_device_fd_plan, send_fd_via_scm_rights, verify_peercred, DriverSocketPair,
+    DriverSpawnPlan, IsolationError, KernelIsolationCaps, DEGRADED_ISOLATION_OPT_IN_FLAG,
+    DRIVER_SOCKET_FD_ARG,
 };
 pub use lifecycle::{
     apply_restart_decision, DriverCrashSupervisor, DriverLifecycle, DriverRestartDecision,
     LifecycleConfigError, DRIVER_RESTART_INITIAL, DRIVER_RESTART_MAX, DRIVER_RESTART_MAX_RETRIES,
 };
+pub use modbus::{
+    build_rtu_frame, crc16_rtu, decode_read_registers_response, decode_write_multiple_response,
+    decode_write_single_response, parse_exception, parse_rtu_frame, parse_tcp_adu, FunctionCode,
+    ModbusTcpAdu, ModbusTcpCodec, WireMode,
+};
+pub use mqtt::{
+    connect_tls_only, MqttBridgeCodec, MqttConnectConfig, MqttQoS, MqttSecurityError,
+    TlsValidatedEndpoint,
+};
+pub use register_map::{ModbusRegisterMap, RegisterDef, RegisterMapError, RegisterWordOrder};
 pub use tirbase_types;
 
 #[cfg(test)]

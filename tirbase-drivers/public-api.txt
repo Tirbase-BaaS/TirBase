@@ -1,8 +1,104 @@
-    Checking tirbase-types v0.1.0 (/Users/macbook/github code/TriBase/tirbase-types)
- Documenting tirbase-drivers v0.1.0 (/Users/macbook/github code/TriBase/tirbase-drivers)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.11s
 pub mod tirbase_drivers
 pub use tirbase_drivers::tirbase_types
+pub mod tirbase_drivers::cold_room_sim
+pub struct tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub tirbase_drivers::cold_room_sim::ColdRoomSimDriver::model: tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub tirbase_drivers::cold_room_sim::ColdRoomSimDriver::target_id: tirbase_types::TargetId
+impl tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::new(u64, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone(&self) -> tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::fmt::Debug for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl core::marker::Freeze for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Send for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Sync for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Unpin for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::UnsafeUnpin for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl<T, U> core::convert::Into<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::From<T>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::Into<T>
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Error = core::convert::Infallible
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: core::clone::Clone
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Owned = T
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone_into(&self, &mut T)
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::from(T) -> T
+pub struct tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::ambient_mdeg_c: i64
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::compressor_on: bool
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::cooling_mdeg_c: i64
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::setpoint_mdeg_c: i64
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::step_s: i64
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::tau_s: i64
+pub tirbase_drivers::cold_room_sim::FirstOrderThermalModel::temp_mdeg_c: i64
+impl tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::new(u64, i64, i64) -> Self
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::set_compressor(&mut self, bool)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::set_setpoint_mdeg_c(&mut self, i64)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::setpoint_fpv(&self) -> tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::step(&mut self) -> i64
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::temperature_fpv(&self) -> tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone(&self) -> tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::cmp::Eq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::cmp::PartialEq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::eq(&self, &tirbase_drivers::cold_room_sim::FirstOrderThermalModel) -> bool
+impl core::fmt::Debug for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Freeze for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Send for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Sync for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Unpin for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::UnsafeUnpin for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl<T, U> core::convert::Into<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::From<T>
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::Into<T>
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Error = core::convert::Infallible
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: core::clone::Clone
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Owned = T
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone_into(&self, &mut T)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::from(T) -> T
 pub mod tirbase_drivers::driver_trait
 pub enum tirbase_drivers::driver_trait::DriverError
 pub tirbase_drivers::driver_trait::DriverError::Capability(alloc::string::String)
@@ -322,6 +418,22 @@ pub fn tirbase_drivers::driver_trait::DriverTrait::decode_read_response(&self, &
 pub fn tirbase_drivers::driver_trait::DriverTrait::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::driver_trait::DriverTrait::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::driver_trait::DriverTrait::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::driver_trait::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
 pub type tirbase_drivers::driver_trait::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
 pub type tirbase_drivers::driver_trait::Frame = alloc::vec::Vec<u8>
@@ -496,7 +608,9 @@ pub const tirbase_drivers::isolation::DEGRADED_ISOLATION_OPT_IN_FLAG: &str
 pub const tirbase_drivers::isolation::DRIVER_SOCKET_FD_ARG: &str
 pub fn tirbase_drivers::isolation::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::recv_fd_via_scm_rights(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::send_fd_via_scm_rights(i32, i32) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
 pub mod tirbase_drivers::lifecycle
 pub enum tirbase_drivers::lifecycle::DriverRestartDecision
@@ -636,6 +750,605 @@ pub trait tirbase_drivers::lifecycle::DriverCrashSupervisor: core::marker::Send 
 pub fn tirbase_drivers::lifecycle::DriverCrashSupervisor::on_driver_escalate_lockdown(&self, u32)
 pub fn tirbase_drivers::lifecycle::DriverCrashSupervisor::on_driver_restart(&self, u32, core::time::Duration)
 pub fn tirbase_drivers::lifecycle::apply_restart_decision<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(tirbase_drivers::lifecycle::DriverRestartDecision, &S)
+pub mod tirbase_drivers::modbus
+#[repr(u8)] pub enum tirbase_drivers::modbus::FunctionCode
+pub tirbase_drivers::modbus::FunctionCode::ReadHoldingRegisters = 3
+pub tirbase_drivers::modbus::FunctionCode::ReadInputRegisters = 4
+pub tirbase_drivers::modbus::FunctionCode::WriteMultipleRegisters = 16
+pub tirbase_drivers::modbus::FunctionCode::WriteSingleRegister = 6
+impl core::clone::Clone for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::clone(&self) -> tirbase_drivers::modbus::FunctionCode
+impl core::cmp::Eq for tirbase_drivers::modbus::FunctionCode
+impl core::cmp::PartialEq for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::eq(&self, &tirbase_drivers::modbus::FunctionCode) -> bool
+impl core::convert::TryFrom<u8> for tirbase_drivers::modbus::FunctionCode
+pub type tirbase_drivers::modbus::FunctionCode::Error = tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::modbus::FunctionCode::try_from(u8) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::modbus::FunctionCode
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Freeze for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Send for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Sync for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Unpin for tirbase_drivers::modbus::FunctionCode
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::FunctionCode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::FunctionCode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::FunctionCode
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::FunctionCode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::FunctionCode::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::FunctionCode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::FunctionCode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::FunctionCode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::FunctionCode where T: core::clone::Clone
+pub type tirbase_drivers::modbus::FunctionCode::Owned = T
+pub fn tirbase_drivers::modbus::FunctionCode::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::FunctionCode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::FunctionCode where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::FunctionCode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::FunctionCode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::FunctionCode where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::FunctionCode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::from(T) -> T
+pub enum tirbase_drivers::modbus::WireMode
+pub tirbase_drivers::modbus::WireMode::Rtu
+pub tirbase_drivers::modbus::WireMode::Tcp
+impl core::clone::Clone for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::clone(&self) -> tirbase_drivers::modbus::WireMode
+impl core::cmp::Eq for tirbase_drivers::modbus::WireMode
+impl core::cmp::PartialEq for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::eq(&self, &tirbase_drivers::modbus::WireMode) -> bool
+impl core::fmt::Debug for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::modbus::WireMode
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::WireMode
+impl core::marker::Freeze for tirbase_drivers::modbus::WireMode
+impl core::marker::Send for tirbase_drivers::modbus::WireMode
+impl core::marker::Sync for tirbase_drivers::modbus::WireMode
+impl core::marker::Unpin for tirbase_drivers::modbus::WireMode
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::WireMode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::WireMode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::WireMode
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::WireMode where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::WireMode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::WireMode where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::WireMode::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::WireMode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::WireMode where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::WireMode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::WireMode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::WireMode where T: core::clone::Clone
+pub type tirbase_drivers::modbus::WireMode::Owned = T
+pub fn tirbase_drivers::modbus::WireMode::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::WireMode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::WireMode where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::WireMode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::WireMode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::WireMode where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::WireMode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::from(T) -> T
+pub struct tirbase_drivers::modbus::ModbusTcpAdu
+pub tirbase_drivers::modbus::ModbusTcpAdu::pdu: alloc::vec::Vec<u8>
+pub tirbase_drivers::modbus::ModbusTcpAdu::transaction_id: u16
+pub tirbase_drivers::modbus::ModbusTcpAdu::unit_id: u8
+impl core::clone::Clone for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::clone(&self) -> tirbase_drivers::modbus::ModbusTcpAdu
+impl core::cmp::Eq for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::cmp::PartialEq for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::eq(&self, &tirbase_drivers::modbus::ModbusTcpAdu) -> bool
+impl core::fmt::Debug for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Freeze for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Send for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Sync for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Unpin for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::ModbusTcpAdu
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::ModbusTcpAdu where T: core::clone::Clone
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Owned = T
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::ModbusTcpAdu where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::ModbusTcpAdu where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::ModbusTcpAdu where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::ModbusTcpAdu where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::ModbusTcpAdu::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::from(T) -> T
+pub struct tirbase_drivers::modbus::ModbusTcpCodec
+pub tirbase_drivers::modbus::ModbusTcpCodec::holding_register: u16
+pub tirbase_drivers::modbus::ModbusTcpCodec::input_register: u16
+pub tirbase_drivers::modbus::ModbusTcpCodec::quantity: u16
+pub tirbase_drivers::modbus::ModbusTcpCodec::scale_exponent: i8
+pub tirbase_drivers::modbus::ModbusTcpCodec::scale_mantissa: i64
+pub tirbase_drivers::modbus::ModbusTcpCodec::unit_id: u8
+pub tirbase_drivers::modbus::ModbusTcpCodec::unit_type_id: tirbase_types::UnitId
+impl tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc03(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc04(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc06(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc16(&mut self, u16, &[u16]) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::new(u8, tirbase_types::UnitId) -> Self
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::with_registers(self, u16, u16) -> Self
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::with_scale(self, i64, i8) -> Self
+impl core::clone::Clone for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::clone(&self) -> tirbase_drivers::modbus::ModbusTcpCodec
+impl core::fmt::Debug for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl core::marker::Freeze for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Send for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Sync for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Unpin for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::ModbusTcpCodec
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::ModbusTcpCodec where T: core::clone::Clone
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Owned = T
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::ModbusTcpCodec where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::ModbusTcpCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::ModbusTcpCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::ModbusTcpCodec where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::ModbusTcpCodec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::from(T) -> T
+pub fn tirbase_drivers::modbus::build_rtu_frame(u8, &[u8]) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::crc16_rtu(&[u8]) -> u16
+pub fn tirbase_drivers::modbus::decode_read_registers_response(&[u8], u8) -> tirbase_drivers::driver_trait::DriverResult<alloc::vec::Vec<u16>>
+pub fn tirbase_drivers::modbus::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::modbus::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::modbus::parse_exception(&[u8]) -> core::option::Option<(u8, u8)>
+pub fn tirbase_drivers::modbus::parse_rtu_frame(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<(u8, alloc::vec::Vec<u8>)>
+pub fn tirbase_drivers::modbus::parse_tcp_adu(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::modbus::ModbusTcpAdu>
+pub mod tirbase_drivers::mqtt
+pub enum tirbase_drivers::mqtt::MqttQoS
+pub tirbase_drivers::mqtt::MqttQoS::AtLeastOnce = 1
+pub tirbase_drivers::mqtt::MqttQoS::AtMostOnce = 0
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::clone(&self) -> tirbase_drivers::mqtt::MqttQoS
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttQoS
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::eq(&self, &tirbase_drivers::mqtt::MqttQoS) -> bool
+impl core::convert::TryFrom<u8> for tirbase_drivers::mqtt::MqttQoS
+pub type tirbase_drivers::mqtt::MqttQoS::Error = tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::mqtt::MqttQoS::try_from(u8) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Send for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttQoS
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttQoS
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttQoS
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttQoS::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttQoS::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttQoS::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttQoS::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttQoS::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttQoS where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttQoS::Owned = T
+pub fn tirbase_drivers::mqtt::MqttQoS::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttQoS::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttQoS where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttQoS where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttQoS where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttQoS where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttQoS::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::from(T) -> T
+pub enum tirbase_drivers::mqtt::MqttSecurityError
+pub tirbase_drivers::mqtt::MqttSecurityError::MissingTlsConfig
+pub tirbase_drivers::mqtt::MqttSecurityError::PlainTextRejected
+pub tirbase_drivers::mqtt::MqttSecurityError::PlainTextRejected::uri: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::clone(&self) -> tirbase_drivers::mqtt::MqttSecurityError
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttSecurityError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::eq(&self, &tirbase_drivers::mqtt::MqttSecurityError) -> bool
+impl core::error::Error for tirbase_drivers::mqtt::MqttSecurityError
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Send for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttSecurityError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttSecurityError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttSecurityError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttSecurityError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttSecurityError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttSecurityError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttSecurityError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttSecurityError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttSecurityError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttSecurityError::Owned = T
+pub fn tirbase_drivers::mqtt::MqttSecurityError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttSecurityError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::MqttSecurityError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttSecurityError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttSecurityError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttSecurityError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttSecurityError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttSecurityError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::from(T) -> T
+pub struct tirbase_drivers::mqtt::MqttBridgeCodec
+impl tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_puback(&self, &[u8]) -> core::result::Result<u16, tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>), tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_drivers::driver_trait::Frame, tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new() -> Self
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::default::Default for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default() -> tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeCodec
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttBridgeCodec where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Owned = T
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeCodec where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttBridgeCodec where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttBridgeCodec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::from(T) -> T
+pub struct tirbase_drivers::mqtt::MqttConnectConfig
+pub tirbase_drivers::mqtt::MqttConnectConfig::client_id: alloc::string::String
+pub tirbase_drivers::mqtt::MqttConnectConfig::tls_configured: bool
+pub tirbase_drivers::mqtt::MqttConnectConfig::uri: alloc::string::String
+impl tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttSecurityError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone(&self) -> tirbase_drivers::mqtt::MqttConnectConfig
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::eq(&self, &tirbase_drivers::mqtt::MqttConnectConfig) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Send for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttConnectConfig
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttConnectConfig where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Owned = T
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttConnectConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttConnectConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttConnectConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttConnectConfig where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttConnectConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::from(T) -> T
+pub struct tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub tirbase_drivers::mqtt::TlsValidatedEndpoint::client_id: alloc::string::String
+pub tirbase_drivers::mqtt::TlsValidatedEndpoint::uri: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone(&self) -> tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::cmp::Eq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::eq(&self, &tirbase_drivers::mqtt::TlsValidatedEndpoint) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Freeze for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Send for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Sync for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Unpin for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Owned = T
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::from(T) -> T
+pub fn tirbase_drivers::mqtt::connect_tls_only(&tirbase_drivers::mqtt::MqttConnectConfig) -> core::result::Result<tirbase_drivers::mqtt::TlsValidatedEndpoint, tirbase_drivers::mqtt::MqttSecurityError>
+pub mod tirbase_drivers::register_map
+pub enum tirbase_drivers::register_map::RegisterMapError
+pub tirbase_drivers::register_map::RegisterMapError::InvalidField
+pub tirbase_drivers::register_map::RegisterMapError::InvalidField::field: alloc::string::String
+pub tirbase_drivers::register_map::RegisterMapError::InvalidField::message: alloc::string::String
+pub tirbase_drivers::register_map::RegisterMapError::MissingField(alloc::string::String)
+pub tirbase_drivers::register_map::RegisterMapError::Parse(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::clone(&self) -> tirbase_drivers::register_map::RegisterMapError
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterMapError
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::eq(&self, &tirbase_drivers::register_map::RegisterMapError) -> bool
+impl core::error::Error for tirbase_drivers::register_map::RegisterMapError
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Send for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterMapError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterMapError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterMapError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterMapError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterMapError::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterMapError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterMapError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterMapError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterMapError where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterMapError::Owned = T
+pub fn tirbase_drivers::register_map::RegisterMapError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterMapError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::register_map::RegisterMapError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterMapError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterMapError where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterMapError where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterMapError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterMapError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::from(T) -> T
+pub enum tirbase_drivers::register_map::RegisterWordOrder
+pub tirbase_drivers::register_map::RegisterWordOrder::BigEndian
+pub tirbase_drivers::register_map::RegisterWordOrder::LittleEndian
+pub tirbase_drivers::register_map::RegisterWordOrder::MidBigEndian
+pub tirbase_drivers::register_map::RegisterWordOrder::MidLittleEndian
+impl tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::parse(&str) -> core::result::Result<Self, tirbase_drivers::register_map::RegisterMapError>
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::clone(&self) -> tirbase_drivers::register_map::RegisterWordOrder
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterWordOrder
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::eq(&self, &tirbase_drivers::register_map::RegisterWordOrder) -> bool
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Send for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterWordOrder
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterWordOrder
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterWordOrder
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterWordOrder::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterWordOrder::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterWordOrder::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterWordOrder::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterWordOrder::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterWordOrder where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterWordOrder::Owned = T
+pub fn tirbase_drivers::register_map::RegisterWordOrder::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterWordOrder::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterWordOrder where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterWordOrder where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterWordOrder where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterWordOrder where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterWordOrder::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::from(T) -> T
+pub struct tirbase_drivers::register_map::ModbusRegisterMap
+pub tirbase_drivers::register_map::ModbusRegisterMap::device_class: alloc::string::String
+pub tirbase_drivers::register_map::ModbusRegisterMap::registers: alloc::vec::Vec<tirbase_drivers::register_map::RegisterDef>
+impl tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::parse(&str) -> core::result::Result<Self, tirbase_drivers::register_map::RegisterMapError>
+impl core::clone::Clone for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::clone(&self) -> tirbase_drivers::register_map::ModbusRegisterMap
+impl core::cmp::Eq for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::cmp::PartialEq for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::eq(&self, &tirbase_drivers::register_map::ModbusRegisterMap) -> bool
+impl core::default::Default for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::default() -> tirbase_drivers::register_map::ModbusRegisterMap
+impl core::fmt::Debug for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Freeze for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Send for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Sync for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Unpin for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::ModbusRegisterMap
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::ModbusRegisterMap where T: core::clone::Clone
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Owned = T
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::ModbusRegisterMap where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::ModbusRegisterMap where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::ModbusRegisterMap where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::ModbusRegisterMap where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::ModbusRegisterMap::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::from(T) -> T
+pub struct tirbase_drivers::register_map::RegisterDef
+pub tirbase_drivers::register_map::RegisterDef::data_type: alloc::string::String
+pub tirbase_drivers::register_map::RegisterDef::function: u8
+pub tirbase_drivers::register_map::RegisterDef::name: alloc::string::String
+pub tirbase_drivers::register_map::RegisterDef::offset_exponent: i8
+pub tirbase_drivers::register_map::RegisterDef::offset_mantissa: i64
+pub tirbase_drivers::register_map::RegisterDef::quantity: u16
+pub tirbase_drivers::register_map::RegisterDef::register: u16
+pub tirbase_drivers::register_map::RegisterDef::scale_exponent: i8
+pub tirbase_drivers::register_map::RegisterDef::scale_mantissa: i64
+pub tirbase_drivers::register_map::RegisterDef::unit_id: u16
+pub tirbase_drivers::register_map::RegisterDef::word_order: tirbase_drivers::register_map::RegisterWordOrder
+pub tirbase_drivers::register_map::RegisterDef::writable: bool
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::clone(&self) -> tirbase_drivers::register_map::RegisterDef
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterDef
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::eq(&self, &tirbase_drivers::register_map::RegisterDef) -> bool
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Send for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterDef
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterDef
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterDef
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterDef
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterDef::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterDef::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterDef::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterDef::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterDef::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterDef where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterDef::Owned = T
+pub fn tirbase_drivers::register_map::RegisterDef::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterDef::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterDef where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterDef where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterDef where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterDef where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterDef::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::from(T) -> T
 pub enum tirbase_drivers::DriverError
 pub tirbase_drivers::DriverError::Capability(alloc::string::String)
 pub tirbase_drivers::DriverError::Codec(alloc::string::String)
@@ -732,6 +1445,52 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::DriverRestart
 pub unsafe fn tirbase_drivers::lifecycle::DriverRestartDecision::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::DriverRestartDecision
 pub fn tirbase_drivers::lifecycle::DriverRestartDecision::from(T) -> T
+#[repr(u8)] pub enum tirbase_drivers::FunctionCode
+pub tirbase_drivers::FunctionCode::ReadHoldingRegisters = 3
+pub tirbase_drivers::FunctionCode::ReadInputRegisters = 4
+pub tirbase_drivers::FunctionCode::WriteMultipleRegisters = 16
+pub tirbase_drivers::FunctionCode::WriteSingleRegister = 6
+impl core::clone::Clone for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::clone(&self) -> tirbase_drivers::modbus::FunctionCode
+impl core::cmp::Eq for tirbase_drivers::modbus::FunctionCode
+impl core::cmp::PartialEq for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::eq(&self, &tirbase_drivers::modbus::FunctionCode) -> bool
+impl core::convert::TryFrom<u8> for tirbase_drivers::modbus::FunctionCode
+pub type tirbase_drivers::modbus::FunctionCode::Error = tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::modbus::FunctionCode::try_from(u8) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::modbus::FunctionCode
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Freeze for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Send for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Sync for tirbase_drivers::modbus::FunctionCode
+impl core::marker::Unpin for tirbase_drivers::modbus::FunctionCode
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::FunctionCode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::FunctionCode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::FunctionCode
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::FunctionCode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::FunctionCode::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::FunctionCode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::FunctionCode where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::FunctionCode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::FunctionCode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::FunctionCode where T: core::clone::Clone
+pub type tirbase_drivers::modbus::FunctionCode::Owned = T
+pub fn tirbase_drivers::modbus::FunctionCode::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::FunctionCode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::FunctionCode where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::FunctionCode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::FunctionCode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::FunctionCode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::FunctionCode where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::FunctionCode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::FunctionCode
+pub fn tirbase_drivers::modbus::FunctionCode::from(T) -> T
 pub enum tirbase_drivers::IsolationError
 pub tirbase_drivers::IsolationError::Exec(core::io::error::ErrorKind, alloc::string::String)
 pub tirbase_drivers::IsolationError::InvalidChildConfig(alloc::string::String)
@@ -784,6 +1543,230 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::isolation::IsolationErro
 pub unsafe fn tirbase_drivers::isolation::IsolationError::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::isolation::IsolationError
 pub fn tirbase_drivers::isolation::IsolationError::from(T) -> T
+pub enum tirbase_drivers::MqttQoS
+pub tirbase_drivers::MqttQoS::AtLeastOnce = 1
+pub tirbase_drivers::MqttQoS::AtMostOnce = 0
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::clone(&self) -> tirbase_drivers::mqtt::MqttQoS
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttQoS
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::eq(&self, &tirbase_drivers::mqtt::MqttQoS) -> bool
+impl core::convert::TryFrom<u8> for tirbase_drivers::mqtt::MqttQoS
+pub type tirbase_drivers::mqtt::MqttQoS::Error = tirbase_drivers::driver_trait::DriverError
+pub fn tirbase_drivers::mqtt::MqttQoS::try_from(u8) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Send for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttQoS
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttQoS
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttQoS
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttQoS
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttQoS::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttQoS::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttQoS::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttQoS where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttQoS::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttQoS::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttQoS where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttQoS::Owned = T
+pub fn tirbase_drivers::mqtt::MqttQoS::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttQoS::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttQoS where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttQoS where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttQoS where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttQoS::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttQoS where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttQoS::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttQoS
+pub fn tirbase_drivers::mqtt::MqttQoS::from(T) -> T
+pub enum tirbase_drivers::MqttSecurityError
+pub tirbase_drivers::MqttSecurityError::MissingTlsConfig
+pub tirbase_drivers::MqttSecurityError::PlainTextRejected
+pub tirbase_drivers::MqttSecurityError::PlainTextRejected::uri: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::clone(&self) -> tirbase_drivers::mqtt::MqttSecurityError
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttSecurityError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::eq(&self, &tirbase_drivers::mqtt::MqttSecurityError) -> bool
+impl core::error::Error for tirbase_drivers::mqtt::MqttSecurityError
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Send for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttSecurityError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttSecurityError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttSecurityError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttSecurityError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttSecurityError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttSecurityError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttSecurityError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttSecurityError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttSecurityError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttSecurityError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttSecurityError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttSecurityError::Owned = T
+pub fn tirbase_drivers::mqtt::MqttSecurityError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttSecurityError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::MqttSecurityError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttSecurityError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttSecurityError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttSecurityError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSecurityError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttSecurityError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttSecurityError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSecurityError
+pub fn tirbase_drivers::mqtt::MqttSecurityError::from(T) -> T
+pub enum tirbase_drivers::RegisterMapError
+pub tirbase_drivers::RegisterMapError::InvalidField
+pub tirbase_drivers::RegisterMapError::InvalidField::field: alloc::string::String
+pub tirbase_drivers::RegisterMapError::InvalidField::message: alloc::string::String
+pub tirbase_drivers::RegisterMapError::MissingField(alloc::string::String)
+pub tirbase_drivers::RegisterMapError::Parse(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::clone(&self) -> tirbase_drivers::register_map::RegisterMapError
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterMapError
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::eq(&self, &tirbase_drivers::register_map::RegisterMapError) -> bool
+impl core::error::Error for tirbase_drivers::register_map::RegisterMapError
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Send for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterMapError
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterMapError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterMapError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterMapError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterMapError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterMapError::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterMapError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterMapError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterMapError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterMapError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterMapError where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterMapError::Owned = T
+pub fn tirbase_drivers::register_map::RegisterMapError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterMapError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::register_map::RegisterMapError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterMapError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterMapError where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterMapError where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterMapError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterMapError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterMapError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterMapError
+pub fn tirbase_drivers::register_map::RegisterMapError::from(T) -> T
+pub enum tirbase_drivers::RegisterWordOrder
+pub tirbase_drivers::RegisterWordOrder::BigEndian
+pub tirbase_drivers::RegisterWordOrder::LittleEndian
+pub tirbase_drivers::RegisterWordOrder::MidBigEndian
+pub tirbase_drivers::RegisterWordOrder::MidLittleEndian
+impl tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::parse(&str) -> core::result::Result<Self, tirbase_drivers::register_map::RegisterMapError>
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::clone(&self) -> tirbase_drivers::register_map::RegisterWordOrder
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterWordOrder
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::eq(&self, &tirbase_drivers::register_map::RegisterWordOrder) -> bool
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Send for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterWordOrder
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterWordOrder
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterWordOrder
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterWordOrder
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterWordOrder::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterWordOrder::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterWordOrder::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterWordOrder where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterWordOrder::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterWordOrder::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterWordOrder where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterWordOrder::Owned = T
+pub fn tirbase_drivers::register_map::RegisterWordOrder::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterWordOrder::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterWordOrder where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterWordOrder where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterWordOrder where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterWordOrder::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterWordOrder where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterWordOrder::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterWordOrder
+pub fn tirbase_drivers::register_map::RegisterWordOrder::from(T) -> T
+pub enum tirbase_drivers::WireMode
+pub tirbase_drivers::WireMode::Rtu
+pub tirbase_drivers::WireMode::Tcp
+impl core::clone::Clone for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::clone(&self) -> tirbase_drivers::modbus::WireMode
+impl core::cmp::Eq for tirbase_drivers::modbus::WireMode
+impl core::cmp::PartialEq for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::eq(&self, &tirbase_drivers::modbus::WireMode) -> bool
+impl core::fmt::Debug for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_drivers::modbus::WireMode
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::WireMode
+impl core::marker::Freeze for tirbase_drivers::modbus::WireMode
+impl core::marker::Send for tirbase_drivers::modbus::WireMode
+impl core::marker::Sync for tirbase_drivers::modbus::WireMode
+impl core::marker::Unpin for tirbase_drivers::modbus::WireMode
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::WireMode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::WireMode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::WireMode
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::WireMode where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::WireMode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::WireMode where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::WireMode::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::WireMode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::WireMode where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::WireMode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::WireMode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::WireMode where T: core::clone::Clone
+pub type tirbase_drivers::modbus::WireMode::Owned = T
+pub fn tirbase_drivers::modbus::WireMode::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::WireMode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::WireMode where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::WireMode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::WireMode where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::WireMode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::WireMode where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::WireMode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::WireMode
+pub fn tirbase_drivers::modbus::WireMode::from(T) -> T
 pub struct tirbase_drivers::ActuationPermitRef
 pub tirbase_drivers::ActuationPermitRef::entry_id: [u8; 16]
 pub tirbase_drivers::ActuationPermitRef::param: alloc::string::String
@@ -826,6 +1809,52 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ActuationP
 pub unsafe fn tirbase_drivers::driver_trait::ActuationPermitRef::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ActuationPermitRef
 pub fn tirbase_drivers::driver_trait::ActuationPermitRef::from(T) -> T
+pub struct tirbase_drivers::ColdRoomSimDriver
+pub tirbase_drivers::ColdRoomSimDriver::model: tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub tirbase_drivers::ColdRoomSimDriver::target_id: tirbase_types::TargetId
+impl tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::new(u64, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone(&self) -> tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::fmt::Debug for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl core::marker::Freeze for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Send for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Sync for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::Unpin for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::marker::UnsafeUnpin for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+impl<T, U> core::convert::Into<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::From<T>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::Into<T>
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Error = core::convert::Infallible
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: core::clone::Clone
+pub type tirbase_drivers::cold_room_sim::ColdRoomSimDriver::Owned = T
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone_into(&self, &mut T)
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::cold_room_sim::ColdRoomSimDriver where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::from(T) -> T
 pub struct tirbase_drivers::DeviceModel
 pub tirbase_drivers::DeviceModel::device_class: alloc::string::String
 pub tirbase_drivers::DeviceModel::parameters: alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>
@@ -1064,6 +2093,58 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::EmptyDevic
 pub unsafe fn tirbase_drivers::driver_trait::EmptyDeviceModelError::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::EmptyDeviceModelError
 pub fn tirbase_drivers::driver_trait::EmptyDeviceModelError::from(T) -> T
+pub struct tirbase_drivers::FirstOrderThermalModel
+pub tirbase_drivers::FirstOrderThermalModel::ambient_mdeg_c: i64
+pub tirbase_drivers::FirstOrderThermalModel::compressor_on: bool
+pub tirbase_drivers::FirstOrderThermalModel::cooling_mdeg_c: i64
+pub tirbase_drivers::FirstOrderThermalModel::setpoint_mdeg_c: i64
+pub tirbase_drivers::FirstOrderThermalModel::step_s: i64
+pub tirbase_drivers::FirstOrderThermalModel::tau_s: i64
+pub tirbase_drivers::FirstOrderThermalModel::temp_mdeg_c: i64
+impl tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::new(u64, i64, i64) -> Self
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::set_compressor(&mut self, bool)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::set_setpoint_mdeg_c(&mut self, i64)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::setpoint_fpv(&self) -> tirbase_types::fixed_point::FixedPointValue
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::step(&mut self) -> i64
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::temperature_fpv(&self) -> tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone(&self) -> tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::cmp::Eq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::cmp::PartialEq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::eq(&self, &tirbase_drivers::cold_room_sim::FirstOrderThermalModel) -> bool
+impl core::fmt::Debug for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Freeze for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Send for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Sync for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::Unpin for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::marker::UnsafeUnpin for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+impl<T, U> core::convert::Into<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::From<T>
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::Into<T>
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Error = core::convert::Infallible
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: core::clone::Clone
+pub type tirbase_drivers::cold_room_sim::FirstOrderThermalModel::Owned = T
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone_into(&self, &mut T)
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: ?core::marker::Sized
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::cold_room_sim::FirstOrderThermalModel where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::cold_room_sim::FirstOrderThermalModel
+pub fn tirbase_drivers::cold_room_sim::FirstOrderThermalModel::from(T) -> T
 pub struct tirbase_drivers::KernelIsolationCaps
 pub tirbase_drivers::KernelIsolationCaps::kernel_major: u32
 pub tirbase_drivers::KernelIsolationCaps::kernel_minor: u32
@@ -1151,6 +2232,233 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::lifecycle::LifecycleConf
 pub unsafe fn tirbase_drivers::lifecycle::LifecycleConfigError::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::lifecycle::LifecycleConfigError
 pub fn tirbase_drivers::lifecycle::LifecycleConfigError::from(T) -> T
+pub struct tirbase_drivers::ModbusRegisterMap
+pub tirbase_drivers::ModbusRegisterMap::device_class: alloc::string::String
+pub tirbase_drivers::ModbusRegisterMap::registers: alloc::vec::Vec<tirbase_drivers::register_map::RegisterDef>
+impl tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::parse(&str) -> core::result::Result<Self, tirbase_drivers::register_map::RegisterMapError>
+impl core::clone::Clone for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::clone(&self) -> tirbase_drivers::register_map::ModbusRegisterMap
+impl core::cmp::Eq for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::cmp::PartialEq for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::eq(&self, &tirbase_drivers::register_map::ModbusRegisterMap) -> bool
+impl core::default::Default for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::default() -> tirbase_drivers::register_map::ModbusRegisterMap
+impl core::fmt::Debug for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Freeze for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Send for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Sync for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::Unpin for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::ModbusRegisterMap
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::ModbusRegisterMap
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::ModbusRegisterMap where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::ModbusRegisterMap where T: core::clone::Clone
+pub type tirbase_drivers::register_map::ModbusRegisterMap::Owned = T
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::ModbusRegisterMap where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::ModbusRegisterMap where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::ModbusRegisterMap where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::ModbusRegisterMap where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::ModbusRegisterMap::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::from(T) -> T
+pub struct tirbase_drivers::ModbusTcpAdu
+pub tirbase_drivers::ModbusTcpAdu::pdu: alloc::vec::Vec<u8>
+pub tirbase_drivers::ModbusTcpAdu::transaction_id: u16
+pub tirbase_drivers::ModbusTcpAdu::unit_id: u8
+impl core::clone::Clone for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::clone(&self) -> tirbase_drivers::modbus::ModbusTcpAdu
+impl core::cmp::Eq for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::cmp::PartialEq for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::eq(&self, &tirbase_drivers::modbus::ModbusTcpAdu) -> bool
+impl core::fmt::Debug for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Freeze for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Send for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Sync for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::Unpin for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::ModbusTcpAdu
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::ModbusTcpAdu
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::ModbusTcpAdu where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::ModbusTcpAdu where T: core::clone::Clone
+pub type tirbase_drivers::modbus::ModbusTcpAdu::Owned = T
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::ModbusTcpAdu where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::ModbusTcpAdu where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::ModbusTcpAdu where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::ModbusTcpAdu where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::ModbusTcpAdu::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusTcpAdu
+pub fn tirbase_drivers::modbus::ModbusTcpAdu::from(T) -> T
+pub struct tirbase_drivers::ModbusTcpCodec
+pub tirbase_drivers::ModbusTcpCodec::holding_register: u16
+pub tirbase_drivers::ModbusTcpCodec::input_register: u16
+pub tirbase_drivers::ModbusTcpCodec::quantity: u16
+pub tirbase_drivers::ModbusTcpCodec::scale_exponent: i8
+pub tirbase_drivers::ModbusTcpCodec::scale_mantissa: i64
+pub tirbase_drivers::ModbusTcpCodec::unit_id: u8
+pub tirbase_drivers::ModbusTcpCodec::unit_type_id: tirbase_types::UnitId
+impl tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc03(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc04(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc06(&mut self, u16, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::build_fc16(&mut self, u16, &[u16]) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::new(u8, tirbase_types::UnitId) -> Self
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::with_registers(self, u16, u16) -> Self
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::with_scale(self, i64, i8) -> Self
+impl core::clone::Clone for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::clone(&self) -> tirbase_drivers::modbus::ModbusTcpCodec
+impl core::fmt::Debug for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl core::marker::Freeze for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Send for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Sync for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::Unpin for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::marker::UnsafeUnpin for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::modbus::ModbusTcpCodec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::modbus::ModbusTcpCodec
+impl<T, U> core::convert::Into<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::From<T>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::Into<T>
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Error = core::convert::Infallible
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::modbus::ModbusTcpCodec where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::modbus::ModbusTcpCodec where T: core::clone::Clone
+pub type tirbase_drivers::modbus::ModbusTcpCodec::Owned = T
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::clone_into(&self, &mut T)
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::modbus::ModbusTcpCodec where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::modbus::ModbusTcpCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::modbus::ModbusTcpCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::modbus::ModbusTcpCodec where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::modbus::ModbusTcpCodec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::from(T) -> T
+pub struct tirbase_drivers::MqttBridgeCodec
+impl tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_puback(&self, &[u8]) -> core::result::Result<u16, tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>), tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_drivers::driver_trait::Frame, tirbase_drivers::driver_trait::DriverError>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new() -> Self
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::default::Default for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default() -> tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeCodec
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeCodec
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeCodec where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttBridgeCodec where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttBridgeCodec::Owned = T
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeCodec where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeCodec where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttBridgeCodec where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttBridgeCodec::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::from(T) -> T
+pub struct tirbase_drivers::MqttConnectConfig
+pub tirbase_drivers::MqttConnectConfig::client_id: alloc::string::String
+pub tirbase_drivers::MqttConnectConfig::tls_configured: bool
+pub tirbase_drivers::MqttConnectConfig::uri: alloc::string::String
+impl tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttSecurityError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone(&self) -> tirbase_drivers::mqtt::MqttConnectConfig
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::eq(&self, &tirbase_drivers::mqtt::MqttConnectConfig) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Send for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttConnectConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttConnectConfig
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttConnectConfig where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttConnectConfig where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttConnectConfig::Owned = T
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttConnectConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttConnectConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttConnectConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttConnectConfig where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttConnectConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttConnectConfig
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::from(T) -> T
 pub struct tirbase_drivers::ParameterDescriptor
 pub tirbase_drivers::ParameterDescriptor::name: alloc::string::String
 pub tirbase_drivers::ParameterDescriptor::range: [tirbase_types::fixed_point::FixedPointValue; 2]
@@ -1194,6 +2502,56 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::ParameterD
 pub unsafe fn tirbase_drivers::driver_trait::ParameterDescriptor::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::ParameterDescriptor
 pub fn tirbase_drivers::driver_trait::ParameterDescriptor::from(T) -> T
+pub struct tirbase_drivers::RegisterDef
+pub tirbase_drivers::RegisterDef::data_type: alloc::string::String
+pub tirbase_drivers::RegisterDef::function: u8
+pub tirbase_drivers::RegisterDef::name: alloc::string::String
+pub tirbase_drivers::RegisterDef::offset_exponent: i8
+pub tirbase_drivers::RegisterDef::offset_mantissa: i64
+pub tirbase_drivers::RegisterDef::quantity: u16
+pub tirbase_drivers::RegisterDef::register: u16
+pub tirbase_drivers::RegisterDef::scale_exponent: i8
+pub tirbase_drivers::RegisterDef::scale_mantissa: i64
+pub tirbase_drivers::RegisterDef::unit_id: u16
+pub tirbase_drivers::RegisterDef::word_order: tirbase_drivers::register_map::RegisterWordOrder
+pub tirbase_drivers::RegisterDef::writable: bool
+impl core::clone::Clone for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::clone(&self) -> tirbase_drivers::register_map::RegisterDef
+impl core::cmp::Eq for tirbase_drivers::register_map::RegisterDef
+impl core::cmp::PartialEq for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::eq(&self, &tirbase_drivers::register_map::RegisterDef) -> bool
+impl core::fmt::Debug for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Freeze for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Send for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Sync for tirbase_drivers::register_map::RegisterDef
+impl core::marker::Unpin for tirbase_drivers::register_map::RegisterDef
+impl core::marker::UnsafeUnpin for tirbase_drivers::register_map::RegisterDef
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::register_map::RegisterDef
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::register_map::RegisterDef
+impl<T, U> core::convert::Into<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::From<T>
+pub fn tirbase_drivers::register_map::RegisterDef::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::Into<T>
+pub type tirbase_drivers::register_map::RegisterDef::Error = core::convert::Infallible
+pub fn tirbase_drivers::register_map::RegisterDef::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::register_map::RegisterDef where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::register_map::RegisterDef::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::register_map::RegisterDef::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::register_map::RegisterDef where T: core::clone::Clone
+pub type tirbase_drivers::register_map::RegisterDef::Owned = T
+pub fn tirbase_drivers::register_map::RegisterDef::clone_into(&self, &mut T)
+pub fn tirbase_drivers::register_map::RegisterDef::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::register_map::RegisterDef where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::register_map::RegisterDef where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::register_map::RegisterDef where T: ?core::marker::Sized
+pub fn tirbase_drivers::register_map::RegisterDef::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::register_map::RegisterDef where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::register_map::RegisterDef::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::register_map::RegisterDef
+pub fn tirbase_drivers::register_map::RegisterDef::from(T) -> T
 pub struct tirbase_drivers::TimeoutError
 pub tirbase_drivers::TimeoutError::limit_ms: u64
 pub tirbase_drivers::TimeoutError::operation: &'static str
@@ -1241,6 +2599,46 @@ impl<T> core::clone::CloneToUninit for tirbase_drivers::driver_trait::TimeoutErr
 pub unsafe fn tirbase_drivers::driver_trait::TimeoutError::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_drivers::driver_trait::TimeoutError
 pub fn tirbase_drivers::driver_trait::TimeoutError::from(T) -> T
+pub struct tirbase_drivers::TlsValidatedEndpoint
+pub tirbase_drivers::TlsValidatedEndpoint::client_id: alloc::string::String
+pub tirbase_drivers::TlsValidatedEndpoint::uri: alloc::string::String
+impl core::clone::Clone for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone(&self) -> tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::cmp::Eq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::eq(&self, &tirbase_drivers::mqtt::TlsValidatedEndpoint) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Freeze for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Send for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Sync for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::Unpin for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::TlsValidatedEndpoint
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::TlsValidatedEndpoint where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::TlsValidatedEndpoint::Owned = T
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::TlsValidatedEndpoint where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::TlsValidatedEndpoint::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::from(T) -> T
 pub const tirbase_drivers::DEGRADED_ISOLATION_OPT_IN_FLAG: &str
 pub const tirbase_drivers::DRIVER_OPERATION_TIMEOUT: core::time::Duration
 pub const tirbase_drivers::DRIVER_RESTART_INITIAL: core::time::Duration
@@ -1258,11 +2656,38 @@ pub fn tirbase_drivers::DriverTrait::decode_read_response(&self, &[u8]) -> tirba
 pub fn tirbase_drivers::DriverTrait::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::DriverTrait::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::DriverTrait::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::cold_room_sim::ColdRoomSimDriver
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::cold_room_sim::ColdRoomSimDriver::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+impl tirbase_drivers::driver_trait::DriverTrait for tirbase_drivers::modbus::ModbusTcpCodec
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::capability_discovery(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DeviceModel>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_health_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::DriverHealth>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_back(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_types::fixed_point::FixedPointValue>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
+pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::apply_restart_decision<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(tirbase_drivers::lifecycle::DriverRestartDecision, &S)
+pub fn tirbase_drivers::build_rtu_frame(u8, &[u8]) -> tirbase_drivers::driver_trait::Frame
+pub fn tirbase_drivers::connect_tls_only(&tirbase_drivers::mqtt::MqttConnectConfig) -> core::result::Result<tirbase_drivers::mqtt::TlsValidatedEndpoint, tirbase_drivers::mqtt::MqttSecurityError>
+pub fn tirbase_drivers::crc16_rtu(&[u8]) -> u16
 pub fn tirbase_drivers::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::decode_read_registers_response(&[u8], u8) -> tirbase_drivers::driver_trait::DriverResult<alloc::vec::Vec<u16>>
+pub fn tirbase_drivers::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::parse_exception(&[u8]) -> core::option::Option<(u8, u8)>
+pub fn tirbase_drivers::parse_rtu_frame(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<(u8, alloc::vec::Vec<u8>)>
+pub fn tirbase_drivers::parse_tcp_adu(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::modbus::ModbusTcpAdu>
+pub fn tirbase_drivers::recv_fd_via_scm_rights(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
 pub fn tirbase_drivers::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::send_fd_via_scm_rights(i32, i32) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
 pub type tirbase_drivers::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
 pub type tirbase_drivers::Frame = alloc::vec::Vec<u8>
