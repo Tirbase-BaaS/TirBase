@@ -113,6 +113,33 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
         }
+        "rollout" => {
+            let sub = rest.first().cloned().unwrap_or_default();
+            let subflags = parse_flags(&rest.iter().skip(1).cloned().collect::<Vec<_>>());
+            match sub.as_str() {
+                "status" => {
+                    let rollout_id = req(&subflags, "rollout-id")?;
+                    let device_ids = subflags.get("device-id").cloned().unwrap_or_default();
+                    let rows = cmd::rollout::run_status(&cmd::rollout::RolloutStatusArgs {
+                        rollout_id,
+                        state_path: one(&subflags, "state-path").map(Into::into),
+                        device_ids,
+                    })?;
+                    println!("{}", serde_json::to_string_pretty(&rows)?);
+                }
+                "signed-rollback" => {
+                    let cmdr =
+                        cmd::rollout::run_signed_rollback(&cmd::rollout::SignedRollbackArgs {
+                            rollout_id: req(&subflags, "rollout-id")?,
+                            target_migration_id_hex: req(&subflags, "target-migration-id-hex")?,
+                            signer_seed_hex: req(&subflags, "signer-seed-hex")?,
+                            output: req(&subflags, "output")?.into(),
+                        })?;
+                    println!("{}", serde_json::to_string_pretty(&cmdr)?);
+                }
+                _ => bail!("rollout requires subcommand: status|signed-rollback"),
+            }
+        }
         "help" | "--help" | "-h" => print_usage(),
         other => {
             print_usage();

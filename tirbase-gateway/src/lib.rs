@@ -23,5 +23,6 @@ pub mod monotonic_counter;
 pub mod security_log;
 pub mod security_log_export;
 pub mod security_sink;
+pub mod self_update;
 pub mod time_beacon;
 pub mod time_source;
