@@ -273,6 +273,8 @@ pub enum ReasonCode {
     RelaySelected,
     /// Fragment reassembly failed or produced an unparsable payload.
     FragmentReassemblyFailed,
+    /// Latest checkpoint hash gossiped to peer during sync (PV-7.10, CLAIM-26.3).
+    CheckpointGossiped,
 
     // Migration
     /// A migration transform was applied.
@@ -349,6 +351,10 @@ pub enum ReasonCode {
     ChainRecovery,
     /// Peer observed a higher checkpoint hash than local log (PV-7.10).
     TailTruncation,
+    /// Per-category rate limit (100/s) hit; N events suppressed (PV-7.6, S14).
+    SuppressionSummary,
+    /// No mesh peers or cloud connection; checkpoint cannot be externally witnessed (PV-7.10).
+    NoWitnessAvailable,
 
     // Startup / Diagnostic
     /// Gateway startup completed.
@@ -448,6 +454,7 @@ impl ReasonCode {
             ReasonCode::HandshakeFailed => "HandshakeFailed",
             ReasonCode::RelaySelected => "RelaySelected",
             ReasonCode::FragmentReassemblyFailed => "FragmentReassemblyFailed",
+            ReasonCode::CheckpointGossiped => "CheckpointGossiped",
             ReasonCode::MigrationApplied => "MigrationApplied",
             ReasonCode::PostconditionFailed => "PostconditionFailed",
             ReasonCode::FuelExhausted => "FuelExhausted",
@@ -479,6 +486,8 @@ impl ReasonCode {
             ReasonCode::TamperDetection => "TamperDetection",
             ReasonCode::ChainRecovery => "ChainRecovery",
             ReasonCode::TailTruncation => "TailTruncation",
+            ReasonCode::SuppressionSummary => "SuppressionSummary",
+            ReasonCode::NoWitnessAvailable => "NoWitnessAvailable",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
             ReasonCode::QuickCheckFailed => "QuickCheckFailed",

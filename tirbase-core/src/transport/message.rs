@@ -44,6 +44,18 @@ pub enum GossipMessage {
         /// The Delta payload to forward.
         delta: Delta,
     },
+    /// External checkpoint anchoring (PV-7.10, CLAIM-26.3/26.4).
+    /// Gossiped to peers on sync connections so receivers can detect tail truncation.
+    CheckpointHash {
+        /// DID of the node reporting its latest local checkpoint.
+        reporter_did: Did,
+        /// Latest checkpoint sequence number.
+        seq: u64,
+        /// SHA-256 hash of the canonical checkpoint body.
+        checkpoint_hash: [u8; 32],
+        /// Best-effort observation/wall timestamp (seconds).
+        observed_at: i64,
+    },
 }
 
 impl GossipMessage {

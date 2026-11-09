@@ -294,6 +294,12 @@ pub struct CoreHandle {
     /// Mesh transport layer (libp2p Swarm on native).
     pub(crate) transport: Arc<Mutex<MeshTransport>>,
 
+    /// 26.3/26.4 (PV-7.10): observed peer checkpoint hashes for tail-truncation detection.
+    pub(crate) checkpoint_obs_tx: tokio::sync::broadcast::Sender<(String, u64, [u8; 32], i64)>,
+    /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
+    pub(crate) checkpoint_provider:
+        Arc<Mutex<Option<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>>>,
+
     /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
 
@@ -836,6 +842,9 @@ impl CoreHandle {
                 eprintln!("[CoreHandle::init] transport.start() failed: {e} — operating offline");
             }
         }
+        let checkpoint_provider = Arc::new(Mutex::new(
+            None::<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>,
+        ));
         let transport = Arc::new(Mutex::new(transport));
 
         // ── Inbound message channel ───────────────────────────────────────────
@@ -890,10 +899,12 @@ impl CoreHandle {
                 (swarm, topic)
             };
 
+            let checkpoint_provider_for_poll = checkpoint_provider.clone();
             if let Some(mut swarm) = swarm_opt {
                 let tx_clone = inbound_tx.clone();
                 let revocation_arc = revocation.clone();
                 let transport_arc = transport.clone();
+                let checkpoint_provider = checkpoint_provider_for_poll.clone();
                 let gossip_topic = gossipsub::IdentTopic::new(&gossip_topic);
                 tokio::spawn(async move {
                     loop {
@@ -969,6 +980,23 @@ impl CoreHandle {
                                                 },
                                                 now_micros(),
                                             );
+                                            // 26.3 (PV-7.10): gossip latest checkpoint hash on sync connection.
+                                            if let Some((seq, cp_hash)) = checkpoint_provider
+                                                .lock()
+                                                .ok()
+                                                .and_then(|g| g.as_ref().and_then(|f| f()))
+                                            {
+                                                let msg = crate::transport::message::GossipMessage::CheckpointHash {
+                                                    reporter_did: t.local_did.clone(),
+                                                    seq,
+                                                    checkpoint_hash: cp_hash,
+                                                    observed_at: (now_micros() / 1_000_000) as i64,
+                                                };
+                                                let _ = swarm.behaviour_mut().gossipsub.publish(
+                                                    gossip_topic.clone(),
+                                                    msg.to_bytes(),
+                                                );
+                                            }
 
                                             // Req 6.1: initiate a Noise_IK session
                                             // with the peer now that the libp2p
@@ -1135,6 +1163,8 @@ impl CoreHandle {
             identity,
             capability,
             transport,
+            checkpoint_obs_tx: tokio::sync::broadcast::channel(256).0,
+            checkpoint_provider: checkpoint_provider.clone(),
             durability,
             #[cfg(feature = "native")]
             cloud_ledger,
@@ -2647,6 +2677,56 @@ impl CoreHandle {
         Ok(())
     }
 
+    /// 26.3/26.4 (PV-7.10): subscribe to observed peer checkpoint hashes.
+    pub fn subscribe_checkpoint_observations(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<(String, u64, [u8; 32], i64)> {
+        self.checkpoint_obs_tx.subscribe()
+    }
+
+    /// 26.3 (PV-7.10): set provider for latest local checkpoint hash gossiped on sync.
+    pub fn set_checkpoint_provider<F>(&self, provider: F)
+    where
+        F: Fn() -> Option<(u64, [u8; 32])> + Send + Sync + 'static,
+    {
+        if let Ok(mut guard) = self.checkpoint_provider.lock() {
+            *guard = Some(Arc::new(provider));
+        }
+    }
+
+    /// 26.3 (PV-7.10): publish latest local checkpoint hash to the mesh (best-effort).
+    pub fn publish_checkpoint_hash(
+        &self,
+        seq: u64,
+        checkpoint_hash: [u8; 32],
+        observed_at: i64,
+    ) -> Result<(), TirBaseError> {
+        #[cfg(feature = "native")]
+        {
+            let msg = crate::transport::message::GossipMessage::CheckpointHash {
+                reporter_did: self.identity.did().to_string(),
+                seq,
+                checkpoint_hash,
+                observed_at,
+            };
+            let bytes = msg.to_bytes();
+            let transport = self
+                .transport
+                .lock()
+                .map_err(|e| TirBaseError::MeshUnavailable {
+                    reason: format!("transport lock poisoned: {e}"),
+                })?;
+            if let Some(tx) = transport.outbound_tx.as_ref() {
+                let _ = tx.try_send(bytes); // best-effort (26.3): offline/no-subscriber is non-fatal
+            }
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = (seq, checkpoint_hash, observed_at);
+        }
+        Ok(())
+    }
+
     #[cfg(feature = "native")]
     pub async fn receive_inbound(
         &self,
@@ -3264,6 +3344,16 @@ impl CoreHandle {
                         );
                     }
                 }
+            }
+            GossipMessage::CheckpointHash {
+                reporter_did,
+                seq,
+                checkpoint_hash,
+                observed_at,
+            } => {
+                let _ =
+                    self.checkpoint_obs_tx
+                        .send((reporter_did, seq, checkpoint_hash, observed_at));
             }
             _ => {}
         }
@@ -4027,6 +4117,17 @@ impl CoreHandle {
                         eprintln!("[wasm-inbound] MigrationRevocationDelta rejected: {e}");
                     }
                 }
+                Ok(())
+            }
+            GossipMessage::CheckpointHash {
+                reporter_did,
+                seq,
+                checkpoint_hash,
+                observed_at,
+            } => {
+                let _ =
+                    self.checkpoint_obs_tx
+                        .send((reporter_did, seq, checkpoint_hash, observed_at));
                 Ok(())
             }
 
