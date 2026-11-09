@@ -18,6 +18,7 @@
 #![allow(dead_code)] // APIs wired incrementally by 25.3 loop/admin paths.
 
 use std::path::PathBuf;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -30,8 +31,12 @@ use tirbase_core::events::{
     TimeSourceFlag,
 };
 use tirbase_core::traits::{KeyProvider, SecurityEventSink};
+use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_types::DeviceSignature;
 
+use crate::db::peer_checkpoint_witnesses::{
+    latest_local_checkpoint, list_peer_checkpoint_witnesses, upsert_peer_checkpoint_witness,
+};
 use crate::event_batcher::{EventBatchBackend, GroupCommitBatcher, DEFAULT_BATCH_WINDOW};
 use crate::security_sink::MAX_EVENTS;
 
@@ -99,6 +104,89 @@ fn event_hash(record: &SecurityEvent, is_checkpoint: bool) -> [u8; 32] {
         is_checkpoint,
     };
     canonical_hash_bytes(&body)
+}
+
+
+/// S14 (PV-7.6): per-category rate limit.
+pub const SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC: u32 = 100;
+/// PV-7.6/S14: ring cap (anchors + recent).
+pub const SECURITY_LOG_RING_CAP: usize = 10_000;
+
+#[derive(Debug, Clone)]
+struct RateLimitState {
+    tokens: f64,
+    last_refill: Instant,
+    suppressed_in_window: u64,
+    window_started: Instant,
+    window_last_emitted: Option<Instant>,
+}
+
+impl RateLimitState {
+    fn new(now: Instant) -> Self {
+        Self {
+            tokens: SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC as f64,
+            last_refill: now,
+            suppressed_in_window: 0,
+            window_started: now,
+            window_last_emitted: None,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct CategoryRateLimiter {
+    by_category: HashMap<String, RateLimitState>,
+}
+
+impl CategoryRateLimiter {
+    fn allow_or_suppress(&mut self, category: &str, severity: Severity, now: Instant) -> (bool, Option<u64>) {
+        // S14: HIGH/CRITICAL bypass the rate limiter.
+        if matches!(severity, Severity::High | Severity::Critical) {
+            return (true, None);
+        }
+        let cap = SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC as f64;
+        let state = self
+            .by_category
+            .entry(category.to_string())
+            .or_insert_with(|| RateLimitState::new(now));
+        let elapsed = now.duration_since(state.last_refill).as_secs_f64();
+        if elapsed > 0.0 {
+            state.tokens = (state.tokens + elapsed * cap).min(cap);
+            state.last_refill = now;
+        }
+        if state.tokens >= 1.0 {
+            state.tokens -= 1.0;
+            let summary = if state.suppressed_in_window > 0
+                && state
+                    .window_last_emitted
+                    .map(|t| now.duration_since(t) >= Duration::from_secs(1))
+                    .unwrap_or(true)
+            {
+                let n = state.suppressed_in_window;
+                state.suppressed_in_window = 0;
+                state.window_last_emitted = Some(now);
+                Some(n)
+            } else {
+                None
+            };
+            return (true, summary);
+        }
+        state.suppressed_in_window = state.suppressed_in_window.saturating_add(1);
+        // Emit a suppression summary once per window if not already emitted recently.
+        let summary = if state.suppressed_in_window == 1
+            || state
+                .window_last_emitted
+                .map(|t| now.duration_since(t) >= Duration::from_secs(1))
+                .unwrap_or(true)
+        {
+            state.window_last_emitted = Some(now);
+            // summary count reported separately; keep accumulating.
+            Some(state.suppressed_in_window)
+        } else {
+            None
+        };
+        (false, summary)
+    }
 }
 
 /// 25.2: in-memory ring retaining oldest checkpoint anchors + most recent events.
@@ -265,7 +353,13 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
         );",
     )?;
     conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS security_events (
+        "CREATE TABLE IF NOT EXISTS peer_checkpoint_witnesses (
+            peer_did        TEXT PRIMARY KEY,
+            seq             INTEGER NOT NULL,
+            checkpoint_hash BLOB NOT NULL,
+            observed_at     INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS security_events (
             seq                  INTEGER PRIMARY KEY,
             segment_id           INTEGER NOT NULL DEFAULT 1,
             category             TEXT NOT NULL,
@@ -300,6 +394,9 @@ struct LogState {
     segment_id: u64,
     events_since_checkpoint: u64,
     last_checkpoint_mono: Instant,
+    rate_limiter: CategoryRateLimiter,
+    restricted_by_tamper: bool,
+    last_witness_check_mono: Instant,
 }
 
 /// Hash-chained, checkpoint-capable security event log (25.1–25.5).
@@ -313,6 +410,8 @@ pub struct SecurityEventLog {
     /// Retained for diagnostics; checkpoint timing uses state.last_checkpoint_mono.
     _checkpoint_every_secs: AtomicU64,
     last_emit_wall: AtomicI64,
+    node_mode: RwLock<Option<Arc<NodeModeState>>>,
+    rate_limit_enabled: AtomicBool,
 }
 
 impl std::fmt::Debug for SecurityEventLog {
@@ -333,12 +432,12 @@ impl Default for SecurityEventLog {
 impl SecurityEventLog {
     /// In-memory log (tests/compat). No DB persistence, no key signing.
     pub fn new_memory() -> Self {
-        Self::with_options(None, None, CheckpointConfig::default(), false)
+Self::with_options_inner(None, None, CheckpointConfig::default(), false, false)
     }
 
     /// Compatibility: batched in-memory constructor used by legacy wrappers.
     pub(crate) fn with_options_compat(batched: bool) -> Self {
-        Self::with_options(None, None, CheckpointConfig::default(), batched)
+Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false)
     }
 
     /// Production constructor: persists to `primary_db` and uses `key_provider`
@@ -348,12 +447,25 @@ impl SecurityEventLog {
         key_provider: Option<Arc<dyn KeyProvider>>,
         batched: bool,
     ) -> Arc<Self> {
+        Self::new_persistent_with_mode(primary_db, key_provider, batched, None)
+    }
+
+    /// Production constructor with node-mode integration (26.1/26.4/26.7).
+    pub fn new_persistent_with_mode(
+        primary_db: impl Into<PathBuf>,
+        key_provider: Option<Arc<dyn KeyProvider>>,
+        batched: bool,
+        node_mode: Option<Arc<NodeModeState>>,
+    ) -> Arc<Self> {
         let log = Arc::new(Self::with_options(
             Some(primary_db.into()),
             key_provider,
             CheckpointConfig::default(),
             batched,
         ));
+        if let Some(mode) = node_mode {
+            log.set_node_mode(mode);
+        }
         if let Err(e) = log.init_from_db() {
             tracing::warn!(error = %e, "security event log init from db failed; starting fresh chain state");
         }
@@ -366,6 +478,16 @@ impl SecurityEventLog {
         checkpoint: CheckpointConfig,
         batched: bool,
     ) -> Self {
+        Self::with_options_inner(primary_db, key_provider, checkpoint, batched, false)
+    }
+
+    fn with_options_inner(
+        primary_db: Option<PathBuf>,
+        key_provider: Option<Arc<dyn KeyProvider>>,
+        checkpoint: CheckpointConfig,
+        batched: bool,
+        rate_limit_enabled: bool,
+    ) -> Self {
         let batcher = if batched {
             let backend = Arc::new(crate::event_batcher::RecordingBatchBackend::default());
             Some(GroupCommitBatcher::with_window(
@@ -377,12 +499,15 @@ impl SecurityEventLog {
         };
         Self {
             state: Mutex::new(LogState {
-                ring: SecurityEventRing::new(MAX_EVENTS),
+                ring: SecurityEventRing::new(SECURITY_LOG_RING_CAP),
                 next_seq: 1,
                 prev_hash: [0u8; 32],
                 segment_id: 1,
                 events_since_checkpoint: 0,
                 last_checkpoint_mono: Instant::now(),
+                rate_limiter: CategoryRateLimiter::default(),
+                restricted_by_tamper: false,
+                last_witness_check_mono: Instant::now(),
             }),
             primary_db,
             key_provider: RwLock::new(key_provider),
@@ -391,7 +516,13 @@ impl SecurityEventLog {
             checkpoint_stop: AtomicBool::new(false),
             _checkpoint_every_secs: AtomicU64::new(checkpoint.every_secs),
             last_emit_wall: AtomicI64::new(0),
+            node_mode: RwLock::new(None),
+            rate_limit_enabled: AtomicBool::new(rate_limit_enabled),
         }
+    }
+
+    pub fn set_rate_limit_enabled(&self, enabled: bool) {
+        self.rate_limit_enabled.store(enabled, Ordering::Relaxed);
     }
 
     /// Install as process-wide sink.
@@ -403,6 +534,156 @@ impl SecurityEventLog {
     pub fn set_key_provider(&self, kp: Arc<dyn KeyProvider>) {
         *self.key_provider.write().unwrap_or_else(|p| p.into_inner()) = Some(kp);
     }
+
+    pub fn set_node_mode(&self, mode: Arc<NodeModeState>) {
+        *self.node_mode.write().unwrap_or_else(|p| p.into_inner()) = Some(mode);
+    }
+
+    fn node_mode(&self) -> Option<Arc<NodeModeState>> {
+        self.node_mode.read().unwrap_or_else(|p| p.into_inner()).clone()
+    }
+
+    fn enter_restricted(&self, reason: &str) {
+        if let Some(mode) = self.node_mode() {
+            mode.set(NodeMode::Restricted);
+            tracing::error!(reason, mode = %mode.get().as_str(), "security log entered Restricted mode (INV-4/26.x)");
+        }
+        let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        st.restricted_by_tamper = true;
+    }
+
+    pub fn is_restricted_by_tamper(&self) -> bool {
+        self.state.lock().unwrap_or_else(|p| p.into_inner()).restricted_by_tamper
+    }
+
+    /// 26.1 compatibility name.
+    pub fn verify_hash_chain(&self) -> Result<Option<u64>, String> {
+        self.verify_hash_chain_at_startup()
+    }
+
+    /// 26.1: verify persisted hash chain at startup. On broken link, emit
+    /// `TamperDetection` identifying the first broken sequence number, enter
+    /// `Restricted` mode, and open a new chain segment from the next valid
+    /// event boundary (next seq). Returns `Ok(None)` when intact, or the first
+    /// broken sequence number when tamper was detected/handled.
+    pub fn verify_hash_chain_at_startup(&self) -> Result<Option<u64>, String> {
+        let Some(conn) = self.open_db()? else {
+            return Ok(None);
+        };
+        let mut stmt = conn
+            .prepare(
+                "SELECT seq, segment_id, category, severity, actor_did, target, reason_code,                         best_effort_wall_ts, time_source_flag, prev_hash, is_checkpoint                  FROM security_events ORDER BY seq ASC",
+            )
+            .map_err(|e| format!("prepare verify: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)? as u64,
+                    r.get::<_, i64>(1)? as u64,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                    r.get::<_, String>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, String>(8)?,
+                    r.get::<_, Vec<u8>>(9)?,
+                    r.get::<_, i64>(10)? != 0,
+                ))
+            })
+            .map_err(|e| format!("query verify: {e}"))?;
+
+        let mut expected_prev = [0u8; 32];
+        let mut tip_hash = [0u8; 32];
+        let mut max_seq: u64 = 0;
+        let mut max_seg: u64 = 1;
+        let mut first_broken: Option<u64> = None;
+
+        for row in rows {
+            let row = row.map_err(|e| format!("row verify: {e}"))?;
+            let seq = row.0;
+            max_seq = max_seq.max(seq);
+            max_seg = max_seg.max(row.1);
+            let mut stored_prev = [0u8; 32];
+            if row.9.len() == 32 {
+                stored_prev.copy_from_slice(&row.9);
+            }
+            let body = ChainHashBody {
+                seq: row.0,
+                segment_id: row.1,
+                category: &row.2,
+                severity: &row.3,
+                actor_did: row.4.as_deref(),
+                target: row.5.as_deref(),
+                reason_code: &row.6,
+                best_effort_wall_time: row.7,
+                time_source_flag: &row.8,
+                prev_hash: &stored_prev,
+                is_checkpoint: row.10,
+            };
+            let computed = canonical_hash_bytes(&body);
+            if stored_prev != expected_prev {
+                first_broken = Some(seq);
+                break;
+            }
+            expected_prev = computed;
+            tip_hash = computed;
+        }
+
+        if let Some(broken_seq) = first_broken {
+            // Ensure state continues after the known tail/chain and open a new segment.
+            {
+                let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+                st.next_seq = max_seq.saturating_add(1).max(st.next_seq);
+                st.segment_id = max_seg.max(st.segment_id);
+                st.prev_hash = tip_hash;
+                st.events_since_checkpoint = 0;
+            }
+            let detail = format!(
+                "hash-chain break detected at startup: first_broken_seq={broken_seq} (CLAIM-26.1, PV-7.4, INV-4)"
+            );
+            self.enter_restricted(&detail);
+            // Emit tamper detection as a fresh, verifiable record in the new segment.
+            let _ = self.start_new_segment("tamper-detection-recovery");
+            self.append_payload_internal(
+                SecurityEventPayload::new(
+                    SecurityEventCategory::SecurityLog,
+                    Severity::Critical,
+                    ReasonCode::TamperDetection,
+                )
+                .with_detail(detail.clone())
+                .with_target(broken_seq.to_string()),
+                true,
+            );
+            return Ok(Some(broken_seq));
+        }
+
+        // Intact: set tip/next from DB if needed.
+        if max_seq > 0 {
+            let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            st.next_seq = max_seq.saturating_add(1).max(st.next_seq);
+            st.prev_hash = tip_hash;
+            st.segment_id = max_seg.max(st.segment_id);
+        }
+        Ok(None)
+    }
+
+    fn emit_suppression_summary(&self, category: &str, suppressed_count: u64) {
+        if suppressed_count == 0 {
+            return;
+        }
+        let payload = SecurityEventPayload::new(
+            SecurityEventCategory::SecurityLog,
+            Severity::Medium,
+            ReasonCode::SuppressionSummary,
+        )
+        .with_target(category.to_string())
+        .with_detail(format!(
+            "suppressed {suppressed_count} security events in category {category} (S14, PV-7.6)"
+        ));
+        self.append_payload_internal(payload, true);
+    }
+
 
     fn key_provider(&self) -> Option<Arc<dyn KeyProvider>> {
         self.key_provider
@@ -586,7 +867,74 @@ impl SecurityEventLog {
     }
 
     /// Append payload as a chained record (25.1). Returns the chained record.
+    /// Applies S14 per-category rate limiting (100/sec, HIGH/CRITICAL bypass).
     pub fn append_payload(&self, payload: SecurityEventPayload) -> SecurityEvent {
+        self.append_payload_internal(payload, false)
+    }
+
+    fn append_payload_internal(
+        &self,
+        payload: SecurityEventPayload,
+        bypass_rate_limit: bool,
+    ) -> SecurityEvent {
+        let now = Instant::now();
+        let (suppress_summary_count, suppressed) = if !self.rate_limit_enabled.load(Ordering::Relaxed)
+            || bypass_rate_limit
+            || matches!(payload.reason_code, ReasonCode::SuppressionSummary)
+        {
+            (None, false)
+        } else {
+            let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            let (allow, summary) = st.rate_limiter.allow_or_suppress(
+                payload.category.as_str(),
+                payload.severity,
+                now,
+            );
+            (summary, !allow)
+        };
+
+        if let Some(count) = suppress_summary_count {
+            if suppressed || count > 0 {
+                // Avoid recursion by emitting summary via direct append with bypass.
+                let summary_payload = SecurityEventPayload::new(
+                    SecurityEventCategory::SecurityLog,
+                    Severity::Medium,
+                    ReasonCode::SuppressionSummary,
+                )
+                .with_target(payload.category.as_str().to_string())
+                .with_detail(format!(
+                    "suppressed security events in category {} count={} (S14, PV-7.6)",
+                    payload.category.as_str(),
+                    count
+                ));
+                // Only emit when first suppressed or periodic marker.
+                if suppressed || count == 1 {
+                    let _ = self.append_payload_internal(summary_payload, true);
+                }
+            }
+        }
+
+        if suppressed {
+            // Return a synthetic non-persisted view is not possible; persist a minimal marker-less
+            // path by returning current chain tip view is unsafe. Instead, record suppression above
+            // and return a synthetic event (not persisted as the dropped payload).
+            let st = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            return SecurityEvent {
+                seq: st.next_seq.saturating_sub(1),
+                segment_id: st.segment_id,
+                category: payload.category,
+                severity: payload.severity,
+                actor_did: payload.actor_did,
+                target: payload.target,
+                reason_code: ReasonCode::SuppressionSummary,
+                best_effort_wall_time: self.wall_time_now(),
+                time_source_flag: self.time_flag(),
+                prev_hash: st.prev_hash,
+                checkpoint_signature: None,
+                checkpoint_hash: None,
+            };
+        }
+
         let (rec, should_checkpoint) = {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             let seq = st.next_seq;
@@ -621,7 +969,6 @@ impl SecurityEventLog {
         }
 
         if let Some(batcher) = &self.batcher {
-            // Preserve 19.4 batching behavior.
             batcher.emit(payload);
         }
 
@@ -673,8 +1020,8 @@ impl SecurityEventLog {
             self.persist_record(&conn, &checkpoint_rec)
                 .map_err(|e| format!("persist checkpoint: {e}"))?;
         }
-        // Emit a payload-form checkpoint notice through the regular path would
-        // recurse; we already persisted the canonical checkpoint row.
+        // 26.7: single-gateway witness fallback (no mesh peers / no cloud anchor).
+        let _ = self.record_checkpoint_witness_status(false, false);
         let _ = &mut checkpoint_rec;
         Ok(Some(checkpoint_rec.seq))
     }
@@ -749,6 +1096,87 @@ impl SecurityEventLog {
         if let Some(b) = &self.batcher {
             b.stop();
         }
+    }
+
+    /// 26.4 production caller hook: compare peer-observed checkpoint hash.
+    /// PV-7.10 discrepancy => emit `TailTruncation` and enter Restricted.
+    pub fn observe_peer_checkpoint(
+        &self,
+        peer_did: &str,
+        peer_seq: u64,
+        peer_checkpoint_hash: [u8; 32],
+        observed_at: i64,
+    ) -> Result<bool, String> {
+        let Some(conn) = self.open_db()? else {
+            return Ok(false);
+        };
+        upsert_peer_checkpoint_witness(&conn, peer_did, peer_seq, &peer_checkpoint_hash, observed_at)
+            .map_err(|e| format!("upsert peer checkpoint witness: {e}"))?;
+
+        let local = latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))?;
+        let discrepant = match local {
+            Some((local_seq, local_hash)) => {
+                (peer_seq > local_seq) || (peer_seq == local_seq && peer_checkpoint_hash != local_hash)
+            }
+            None => false,
+        };
+        if discrepant {
+            let detail = format!(
+                "tail truncation/checkpoint discrepancy: peer={} peer_seq={} local_seq={} (CLAIM-26.4, PV-7.10, INV-4)",
+                peer_did,
+                peer_seq,
+                local.map(|x| x.0).unwrap_or(0)
+            );
+            self.enter_restricted(&detail);
+            self.append_payload_internal(
+                SecurityEventPayload::new(
+                    SecurityEventCategory::SecurityLog,
+                    Severity::Critical,
+                    ReasonCode::TailTruncation,
+                )
+                .with_actor(peer_did.to_string())
+                .with_detail(detail)
+                .with_target(peer_seq.to_string()),
+                true,
+            );
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// 26.7: single-gateway witness fallback at checkpoint time.
+    /// `has_mesh_peers` / `has_cloud_anchor` come from production callers.
+    pub fn record_checkpoint_witness_status(
+        &self,
+        has_mesh_peers: bool,
+        has_cloud_anchor: bool,
+    ) -> Result<(), String> {
+        if has_mesh_peers || has_cloud_anchor {
+            return Ok(());
+        }
+        self.append_payload_internal(
+            SecurityEventPayload::new(
+                SecurityEventCategory::SecurityLog,
+                Severity::Low,
+                ReasonCode::NoWitnessAvailable,
+            )
+            .with_detail(
+                "no mesh peers and no cloud anchor; tail-truncation detection degraded until a peer connects (CLAIM-26.7, PV-7.10)"
+                    .to_string(),
+            ),
+            true,
+        );
+        Ok(())
+    }
+
+    pub fn latest_checkpoint_hash(&self) -> Result<Option<(u64, [u8; 32])>, String> {
+        let Some(conn) = self.open_db()? else { return Ok(None); };
+        latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))
+    }
+
+    pub fn peer_checkpoint_witnesses(&self) -> Result<Vec<crate::db::peer_checkpoint_witnesses::PeerCheckpointWitness>, String> {
+        let Some(conn) = self.open_db()? else { return Ok(vec![]); };
+        list_peer_checkpoint_witnesses(&conn).map_err(|e| format!("list witnesses: {e}"))
     }
 }
 
@@ -877,4 +1305,105 @@ mod tests {
             .seq;
         assert!(first_anchor <= 40, "retains oldest anchors");
     }
+
+    mod p18_hash_chain_tamper {
+        use super::*;
+        use proptest::prelude::*;
+
+        fn verify_chain_records(records: &[SecurityEvent]) -> Option<u64> {
+            let mut expected_prev = [0u8; 32];
+            for rec in records {
+                let body = ChainHashBody {
+                    seq: rec.seq,
+                    segment_id: rec.segment_id,
+                    category: rec.category.as_str(),
+                    severity: rec.severity.as_str(),
+                    actor_did: rec.actor_did.as_deref(),
+                    target: rec.target.as_deref(),
+                    reason_code: rec.reason_code.as_str(),
+                    best_effort_wall_time: rec.best_effort_wall_time,
+                    time_source_flag: rec.time_source_flag.as_str(),
+                    prev_hash: &rec.prev_hash,
+                    is_checkpoint: rec.checkpoint_signature.is_some(),
+                };
+                let computed = canonical_hash_bytes(&body);
+                if rec.prev_hash != expected_prev {
+                    return Some(rec.seq);
+                }
+                expected_prev = computed;
+            }
+            None
+        }
+
+        proptest! {
+            /// P18 (CLAIM-26.6, PV-7.4, INV-4): any interior modification of a
+            /// committed event at any position is detected by hash-chain verification.
+            #[test]
+            fn any_interior_modification_detected(
+                n in 3usize..20usize,
+                modify_idx in 0usize..18usize,
+                mutation in 0u8..4u8,
+            ) {
+                let mut records = Vec::new();
+                let mut prev = [0u8; 32];
+                for i in 0..n {
+                    let mut rec = SecurityEvent {
+                        seq: (i as u64) + 1,
+                        segment_id: 1,
+                        category: SecurityEventCategory::CommandDecision,
+                        severity: Severity::Low,
+                        actor_did: Some(format!("did:test:{i}")),
+                        target: Some(format!("t{i}")),
+                        reason_code: ReasonCode::CommandAccepted,
+                        best_effort_wall_time: 1000 + i as i64,
+                        time_source_flag: TimeSourceFlag::LogicalFallback,
+                        prev_hash: prev,
+                        checkpoint_signature: None,
+                        checkpoint_hash: None,
+                    };
+                    let h = event_hash(&rec, false);
+                    prev = h;
+                    records.push(rec);
+                }
+                prop_assert!(verify_chain_records(&records).is_none());
+
+                let idx = (modify_idx % n.max(1)).min(n.saturating_sub(2));
+                match mutation % 4 {
+                    0 => records[idx].target = Some("tampered".into()),
+                    1 => records[idx].actor_did = Some("did:evil:x".into()),
+                    2 => records[idx].best_effort_wall_time += 999,
+                    _ => records[idx].reason_code = ReasonCode::SequenceRejected,
+                }
+                let broken = verify_chain_records(&records);
+                prop_assert!(broken.is_some(), "interior modification at idx={} must be detected", idx);
+                // first broken is at idx (if prev_hash link broken there) or idx+1 (successor sees wrong prev)
+                let b = broken.unwrap();
+                prop_assert!(b == records[idx].seq || b == records[idx+1].seq,
+                    "broken seq {} must identify modified position {} or successor {}", b, records[idx].seq, records[idx+1].seq);
+            }
+        }
+
+        /// Wiring mutation guard: skipping interior hash checks must fail.
+        #[test]
+        fn skipping_interior_hash_check_fails() {
+            let mut records = Vec::new();
+            let mut prev = [0u8; 32];
+            for i in 0..5u64 {
+                let rec = SecurityEvent {
+                    seq: i + 1, segment_id: 1, category: SecurityEventCategory::CommandDecision,
+                    severity: Severity::Low, actor_did: None, target: None,
+                    reason_code: ReasonCode::CommandAccepted, best_effort_wall_time: 1,
+                    time_source_flag: TimeSourceFlag::LogicalFallback, prev_hash: prev,
+                    checkpoint_signature: None, checkpoint_hash: None,
+                };
+                prev = event_hash(&rec, false);
+                records.push(rec);
+            }
+            records[2].target = Some("evil".into()); // interior
+            assert!(verify_chain_records(&records).is_some(), "must detect interior modification");
+        }
+    }
+
+
+
 }

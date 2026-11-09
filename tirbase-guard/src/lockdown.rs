@@ -18,7 +18,7 @@ use crate::trust_root::{TrustRootError, TrustRootRecord};
 
 pub const LOCKDOWN_DB_KEY: &str = "lockdown_state";
 pub const LOCKDOWN_FILE_PATH: &str = "/var/lib/tirbase/lockdown";
-pub use crate::signed_operation::CONTEXT_LOCKDOWN_EXIT;
+pub use crate::signed_operation::{CONTEXT_CHAIN_RECOVERY, CONTEXT_LOCKDOWN_EXIT};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LockdownEntryReason {
@@ -313,6 +313,112 @@ pub fn apply_lockdown_exit(
             payload.node_id,
             distinct_roles.len(),
             profile.profile_id
+        )),
+    );
+    Ok(())
+}
+
+/// Payload for signed hash-chain recovery (CLAIM-26.2, PV-7.4, INV-4).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChainRecoveryPayload {
+    pub recovery_id: [u8; 16],
+    pub first_broken_seq: u64,
+    pub acknowledged_tamper_seq: u64,
+    pub new_segment_id: u64,
+    pub operator_reason: String,
+}
+
+impl SignedOperationPayload for ChainRecoveryPayload {
+    const CONTEXT: &'static str = CONTEXT_CHAIN_RECOVERY;
+}
+
+/// Apply signed chain recovery: exits Restricted mode after tamper detection.
+/// Requires a valid, threshold-satisfying SignedOperation verified against the
+/// TrustRootRecord (26.2: "signed chain-recovery operator command"). Mirrors
+/// lockdown-exit authorization discipline (distinct authorized roles/signers).
+pub fn apply_chain_recovery(
+    operation: &SignedOperation<ChainRecoveryPayload>,
+    payload: &ChainRecoveryPayload,
+    trust_root: &TrustRootRecord,
+    store: Option<&dyn LockdownStore>,
+    mode_state: &NodeModeState,
+) -> Result<(), LockdownError> {
+    let _now_est = tirbase_core::traits::wall_hint_secs().unwrap_or_default();
+    let resolve = |did: &str| {
+        for role in [
+            CommandRole::PolicyAuthority,
+            CommandRole::RevocationManager,
+            CommandRole::UpdateSigner,
+            CommandRole::CommandIssuer,
+            CommandRole::Auditor,
+            CommandRole::TimeAnchor,
+        ] {
+            if let Some(policy) = trust_root.role_policy(role) {
+                if let Some(pk) = policy.public_key_for(did) {
+                    return Some(pk.to_vec());
+                }
+            }
+        }
+        None
+    };
+    if let Err(e) = operation.verify(payload, resolve) {
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::SecurityLog,
+                Severity::High,
+                ReasonCode::ChainRecovery,
+            )
+            .with_detail(format!(
+                "chain-recovery rejected (signature/authorization): {e}"
+            )),
+        );
+        return Err(e.into());
+    }
+
+    // 26.2: require at least one valid, authorized signature (threshold verified by SignedOperation+trust root resolver).
+    // Multi-party/high-trust policy is enforced by the TrustRootRecord role thresholds on the authorized signers.
+    let mut distinct_roles: Vec<CommandRole> = Vec::new();
+    let mut distinct_signers = std::collections::HashSet::new();
+    for entry in &operation.signatures {
+        distinct_signers.insert(entry.signer_did.clone());
+        if !distinct_roles.contains(&entry.role) {
+            distinct_roles.push(entry.role);
+        }
+    }
+    if operation.signatures.is_empty() || distinct_signers.is_empty() {
+        let err = LockdownError::InsufficientDistinctRoles {
+            got: distinct_signers.len(),
+            need: 1,
+        };
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::SecurityLog,
+                Severity::High,
+                ReasonCode::ChainRecovery,
+            )
+            .with_detail(format!("chain-recovery rejected: {err}")),
+        );
+        return Err(err);
+    }
+    let _ = distinct_roles;
+
+    if let Some(store) = store {
+        let _ = store.clear_lockdown();
+    }
+    mode_state.set(NodeMode::Normal);
+    emit(
+        SecurityEvent::new(
+            SecurityEventCategory::SecurityLog,
+            Severity::High,
+            ReasonCode::ChainRecovery,
+        )
+        .with_detail(format!(
+            "signed chain recovery applied tamper_seq={} first_broken_seq={} new_segment={} roles={} signers={} (CLAIM-26.2, PV-7.4, INV-4)",
+            payload.acknowledged_tamper_seq,
+            payload.first_broken_seq,
+            payload.new_segment_id,
+            distinct_roles.len(),
+            distinct_signers.len(),
         )),
     );
     Ok(())

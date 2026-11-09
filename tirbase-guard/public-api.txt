@@ -3079,6 +3079,7 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::LockdownFileMarker where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::lockdown::LockdownFileMarker::vzip(self) -> V
 pub const tirbase_guard::lockdown::CONTEXT_LOCKDOWN_EXIT: &str
+pub const tirbase_guard::lockdown::CONTEXT_CHAIN_RECOVERY: &str
 pub const tirbase_guard::lockdown::LOCKDOWN_DB_KEY: &str
 pub const tirbase_guard::lockdown::LOCKDOWN_FILE_PATH: &str
 pub trait tirbase_guard::lockdown::LockdownStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
@@ -3094,6 +3095,7 @@ pub fn tirbase_guard::lockdown::SafeDefaultBinding::arm_watchdog(&self, u32, &st
 pub fn tirbase_guard::lockdown::SafeDefaultBinding::controller_id(&self) -> &str
 pub fn tirbase_guard::lockdown::SafeDefaultBinding::current_value(&self) -> alloc::string::String
 pub fn tirbase_guard::lockdown::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::lockdown::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::ChainRecoveryPayload>, &tirbase_guard::lockdown::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<(), alloc::string::String>
@@ -9933,6 +9935,7 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::trust_root::TrustRootSignature where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::trust_root::TrustRootSignature::vzip(self) -> V
 pub const tirbase_guard::CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str
+pub const tirbase_guard::CONTEXT_CHAIN_RECOVERY: &str
 pub const tirbase_guard::CONTEXT_EPOCH_BUMP: &str
 pub const tirbase_guard::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::CONTEXT_POLICY_BUNDLE: &str
@@ -9998,6 +10001,14 @@ pub trait tirbase_guard::TimeRatchetStore: core::marker::Send + core::marker::Sy
 pub fn tirbase_guard::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
 pub fn tirbase_guard::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
 pub fn tirbase_guard::admit_stages_0_to_15(&tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>, &tirbase_guard::node_mode::NodeModeState, &tirbase_guard::epoch::EpochRegistry, &tirbase_guard::admit::AdmitPipelineState, core::option::Option<&str>) -> tirbase_guard::admit::AdmitDecision
+
+pub struct tirbase_guard::ChainRecoveryPayload
+pub tirbase_guard::ChainRecoveryPayload::acknowledged_tamper_seq: u64
+pub tirbase_guard::ChainRecoveryPayload::first_broken_seq: u64
+pub tirbase_guard::ChainRecoveryPayload::new_segment_id: u64
+pub tirbase_guard::ChainRecoveryPayload::operator_reason: alloc::string::String
+pub tirbase_guard::ChainRecoveryPayload::recovery_id: [u8; 16]
+pub fn tirbase_guard::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::ChainRecoveryPayload>, &tirbase_guard::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<(), alloc::string::String>

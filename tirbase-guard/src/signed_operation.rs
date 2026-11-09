@@ -435,3 +435,5 @@ mod tests {
 pub const CONTEXT_ENVELOPE_PROFILE: &str = "TirBase/v1/EnvelopeProfile";
 /// Context string for `AntiReplayWindowReset` (CLAIM-20.3, PV-5.5).
 pub const CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str = "TirBase/v1/AntiReplayWindowReset";
+/// Context string for signed hash-chain recovery (CLAIM-26.2, PV-7.4, INV-4).
+pub const CONTEXT_CHAIN_RECOVERY: &str = "TirBase/v1/ChainRecovery";

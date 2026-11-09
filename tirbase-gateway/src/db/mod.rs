@@ -23,6 +23,7 @@ pub mod idempotency_keys;
 pub mod ledger_reconciliation;
 pub mod lockdown;
 pub mod migrations;
+pub mod peer_checkpoint_witnesses;
 pub mod pending_approvals;
 pub mod security_events;
 pub mod single_writer_leases;

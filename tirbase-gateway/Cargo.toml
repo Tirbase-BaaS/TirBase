@@ -74,6 +74,7 @@ fail = { workspace = true }
 # HTTP client for health endpoint integration test
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["full"] }
+proptest = "1.5"
 # TimeRatchet / TimeBeacon integration tests (task 7): build and sign beacon
 # envelopes with the real guard and identity crates.
 tirbase-core  = { workspace = true }

@@ -34,6 +34,7 @@ pub mod node_mode;
 /// LOCKDOWN entry/exit, persistence, crash-loop escalation, and safe-default
 /// arming (tasks 13.2, 13.3, 13.5, 13.6 — CLAIM-13.2/3/5/6, PV-4.13, PV-4.15).
 pub mod lockdown;
+pub use lockdown::{apply_chain_recovery, ChainRecoveryPayload};
 
 /// Envelope profile install/validation and target-to-profile hot-swap
 /// (tasks 10.4–10.6 — CLAIM-10.4…10.6, PV-4.5).

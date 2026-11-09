@@ -435,14 +435,35 @@ async fn main() -> Result<()> {
         }
     }
 
-    // ── SecurityEventLog (25.1–25.5, PV-7, INV-4) ─────────────────────────
-    let security_log =
-        SecurityEventLog::new_persistent(&primary_db_path, Some(key_provider.clone()), false);
+    // ── SecurityEventLog (25.1–25.5, 26.1, PV-7, INV-4) ─────────────────────────
+    let security_log = SecurityEventLog::new_persistent_with_mode(
+        &primary_db_path,
+        Some(key_provider.clone()),
+        false,
+        Some(node_mode.clone()),
+    );
+    security_log.set_rate_limit_enabled(true); // S14/PV-7.6 production rate limiting
+    match security_log.verify_hash_chain() {
+        Ok(Some(first_broken_seq)) => {
+            tracing::error!(
+                first_broken_seq,
+                mode = %node_mode.get().as_str(),
+                "tamper detected in security log hash chain; entered Restricted (CLAIM-26.1, INV-4)"
+            );
+        }
+        Ok(None) => {
+            tracing::info!("security log hash chain verified intact at boot (CLAIM-26.1, INV-4)");
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "security log hash chain verification failed at boot");
+            node_mode.set(tirbase_guard::node_mode::NodeMode::Restricted);
+        }
+    }
     security_log.install();
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     tracing::info!(
         primary_db = %primary_db_path.display(),
-        "hash-chained SecurityEventLog installed (CLAIM-25.1-25.5)"
+        "hash-chained SecurityEventLog installed (CLAIM-25.1-26.1)"
     );
 
     // ── Trust root, root CA registry, rollback protection (tasks 8.1–8.3) ──

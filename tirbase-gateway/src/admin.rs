@@ -11,7 +11,10 @@ use tirbase_guard::admit::{
 };
 use tirbase_guard::enrollment::{EnrollmentRequest, EnrollmentService};
 use tirbase_guard::epoch::{EpochBump, EpochRegistry};
-use tirbase_guard::lockdown::{apply_lockdown_exit, LockdownExitPayload, LockdownStore};
+use tirbase_guard::lockdown::{
+    apply_chain_recovery, apply_lockdown_exit, ChainRecoveryPayload, LockdownExitPayload,
+    LockdownStore,
+};
 use tirbase_guard::node_mode::NodeModeState;
 use tirbase_guard::signed_operation::SignedOperation;
 use tirbase_guard::trust_root::TrustRootRecord;
@@ -111,7 +114,7 @@ pub fn dispatch_admin_command_at(
         Some("challenge") => dispatch_challenge(command, state, now_est),
         Some("mode") => dispatch_mode(state),
         Some("lockdown-exit") => dispatch_lockdown_exit(command, state),
-        Some("chain-recovery") => stub_501("chain-recovery"),
+        Some("chain-recovery") => dispatch_chain_recovery(command, state),
         Some("status") => stub_501("status"),
         Some("sequence-reset") => dispatch_sequence_reset(command, state, now_est),
         Some("epoch-bump") => dispatch_epoch_bump(command, state, now_est),
@@ -184,6 +187,50 @@ fn dispatch_lockdown_exit(command: &str, state: Option<&AdminState>) -> String {
             serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"lockdown-exit"})
                 .to_string()
         }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ChainRecoveryRequest {
+    operation: SignedOperation<ChainRecoveryPayload>,
+    payload: ChainRecoveryPayload,
+}
+
+fn dispatch_chain_recovery(command: &str, state: Option<&AdminState>) -> String {
+    let Some((trust_root, mode)) =
+        state.and_then(|s| s.trust_root.as_ref().zip(s.node_mode.as_ref()))
+    else {
+        return stub_501("chain-recovery");
+    };
+    let payload_val = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("chain-recovery requires a payload object"),
+    };
+    let request: ChainRecoveryRequest = match serde_json::from_value(payload_val) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid chain-recovery: {e}")),
+    };
+    let store = state.and_then(|s| s.lockdown_store.as_deref());
+    match apply_chain_recovery(
+        &request.operation,
+        &request.payload,
+        trust_root,
+        store,
+        mode,
+    ) {
+        Ok(()) => serde_json::json!({
+            "status": 200,
+            "mode": "Normal",
+            "outcome": "chain_recovery_applied",
+            "new_segment_id": request.payload.new_segment_id
+        })
+        .to_string(),
+        Err(e) => serde_json::json!({
+            "status": 409,
+            "error": e.to_string(),
+            "endpoint": "chain-recovery"
+        })
+        .to_string(),
     }
 }
 
