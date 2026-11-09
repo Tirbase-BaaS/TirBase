@@ -184,7 +184,69 @@ fn injected_action(kind: DbKind) -> Option<SqliteErrorAction> {
     ))
 }
 
+fn record_boot_check(kind: DbKind, check: &str) {
+    if let Ok(path) = std::env::var("TIRBASE_TEST_RECORD_BOOT_CHECK") {
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "{}:{check}", kind.as_str())
+            });
+    }
+}
+
+fn boot_quick_check(conn: &Connection, kind: DbKind) -> Result<(), SqliteErrorAction> {
+    // CLAIM-31.4 wiring mutation guard: test can force the wrong boot check to
+    // prove a startup-time test fails when integrity_check runs at boot.
+    if std::env::var("TIRBASE_TEST_BOOT_USES_INTEGRITY_CHECK")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        record_boot_check(kind, "integrity_check");
+        return maintenance_integrity_check(conn, kind);
+    }
+    record_boot_check(kind, "quick_check");
+    let result: String = conn
+        .query_row("PRAGMA quick_check;", [], |row| row.get(0))
+        .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "PRAGMA quick_check"))?;
+    if result.trim() != "ok" {
+        return Err(SqliteErrorAction::EnterRestrictedCorrupt {
+            kind,
+            detail: format!(
+                "{kind} quick_check failed at boot: {result}",
+                kind = kind.as_str()
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Full integrity check for maintenance window (CLAIM-31.4). Not required within 30s at boot.
+pub fn maintenance_integrity_check(
+    conn: &Connection,
+    kind: DbKind,
+) -> Result<(), SqliteErrorAction> {
+    record_boot_check(kind, "maintenance_integrity_check");
+    let result: String = conn
+        .query_row("PRAGMA integrity_check;", [], |row| row.get(0))
+        .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "PRAGMA integrity_check"))?;
+    if result.trim() != "ok" {
+        return Err(SqliteErrorAction::EnterRestrictedCorrupt {
+            kind,
+            detail: format!(
+                "{kind} integrity_check failed: {result}",
+                kind = kind.as_str()
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// Open `primary.db`, apply hardening + migrations (CLAIM-18.1, 18.3, 32.1).
+/// STATE-INVENTORY: PERSISTED primary.db (CLAIM-31.1, PV-9.1)
 pub fn open_primary(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAction> {
     let path = path.as_ref();
     ensure_parent(path, DbKind::Primary)?;
@@ -203,6 +265,7 @@ pub fn open_primary(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAct
         })?;
     apply_hardening_pragmas(&conn, DbKind::Primary)?;
     apply_migrations(&conn, DbKind::Primary, primary_migrations())?;
+    boot_quick_check(&conn, DbKind::Primary)?; // CLAIM-31.4, PV-9.2
     if let Some(action) = injected_action(DbKind::Primary) {
         return Err(action);
     }
@@ -210,6 +273,7 @@ pub fn open_primary(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAct
 }
 
 /// Open `derived.db`, apply hardening + migrations (CLAIM-18.2, 18.3, 32.1).
+/// STATE-INVENTORY: PERSISTED derived.db (CLAIM-31.1, PV-9.1)
 pub fn open_derived(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAction> {
     let path = path.as_ref();
     ensure_parent(path, DbKind::Derived)?;
@@ -225,6 +289,7 @@ pub fn open_derived(path: impl AsRef<Path>) -> Result<Connection, SqliteErrorAct
         })?;
     apply_hardening_pragmas(&conn, DbKind::Derived)?;
     apply_migrations(&conn, DbKind::Derived, derived_migrations())?;
+    boot_quick_check(&conn, DbKind::Derived)?; // CLAIM-31.4, PV-9.2
     if let Some(action) = injected_action(DbKind::Derived) {
         return Err(action);
     }

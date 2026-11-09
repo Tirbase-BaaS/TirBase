@@ -21,6 +21,7 @@ pub mod drift_rate_history;
 pub mod enrollment_nonce;
 pub mod idempotency_keys;
 pub mod ledger_reconciliation;
+pub mod ledger_recovery;
 pub mod lockdown;
 pub mod migrations;
 pub mod peer_checkpoint_witnesses;
@@ -31,5 +32,7 @@ pub mod sqlite_errors;
 pub mod target_state;
 pub mod time_ratchet;
 
-pub use migrations::{open_derived, open_primary, schema_version, MigrationReport};
+pub use migrations::{
+    maintenance_integrity_check, open_derived, open_primary, schema_version, MigrationReport,
+};
 pub use sqlite_errors::{DbKind, SqliteErrorAction, HARDENING_PRAGMAS};

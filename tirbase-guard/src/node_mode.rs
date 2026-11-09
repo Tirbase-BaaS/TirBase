@@ -116,6 +116,7 @@ impl fmt::Display for NodeMode {
 /// `CommandGuard::admit()` reads this at Stage 1.  Gateway/runtime code updates
 /// it when entering or exiting lockdown/restricted states.
 #[derive(Debug)]
+/// STATE-INVENTORY: RECONSTRUCTIBLE node mode (CLAIM-31.1, PV-9.1)
 pub struct NodeModeState {
     mode: AtomicU8,
 }

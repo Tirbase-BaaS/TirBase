@@ -108,6 +108,7 @@ async fn main() -> Result<()> {
     // (DerivedLedger, WAL+synchronous=NORMAL) through the migration framework
     // (task 32.1) before any reads/writes. Hardening pragmas are applied by
     // the open helpers.
+    // STATE-INVENTORY: RECONSTRUCTIBLE node mode (CLAIM-31.1)
     let node_mode =
         tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Starting);
     let primary_db_path = config.counter_db_path.clone();
@@ -116,11 +117,22 @@ async fn main() -> Result<()> {
         let primary = match db::open_primary(&primary_db_path) {
             Ok(conn) => conn,
             Err(action) => {
+                let action = if matches!(
+                    action,
+                    db::SqliteErrorAction::EnterRestrictedCorrupt {
+                        kind: db::DbKind::Primary,
+                        ..
+                    }
+                ) {
+                    db::ledger_recovery::handle_primary_corruption(action, Some(node_mode.as_ref()))
+                } else {
+                    action
+                };
                 action.apply(Some(node_mode.as_ref()));
                 tracing::error!(
                     node_mode = %node_mode.get().as_str(),
                     action = %action,
-                    "primary.db open failed; SQLite error mapping applied (CLAIM-18.4)"
+                    "primary.db open failed; Restricted/operator intervention required if corrupt (CLAIM-18.4/31.5)"
                 );
                 return Err(anyhow::anyhow!(action.to_string())).context("open primary.db");
             }
@@ -211,13 +223,35 @@ async fn main() -> Result<()> {
         let derived = match db::open_derived(&derived_db_path) {
             Ok(conn) => conn,
             Err(action) => {
-                action.apply(Some(node_mode.as_ref()));
-                tracing::error!(
-                    node_mode = %node_mode.get().as_str(),
-                    action = %action,
-                    "derived.db open failed; SQLite error mapping applied (CLAIM-18.4)"
-                );
-                return Err(anyhow::anyhow!(action.to_string())).context("open derived.db");
+                if matches!(
+                    action,
+                    db::SqliteErrorAction::EnterRestrictedCorrupt {
+                        kind: db::DbKind::Derived,
+                        ..
+                    }
+                ) {
+                    tracing::warn!(action = %action, "derived.db corrupt; attempting signed-delta-log rebuild (CLAIM-31.5)");
+                    match db::ledger_recovery::recover_derived_on_corruption(
+                        &derived_db_path,
+                        None, // signed delta log source (core DAG) when configured; rebuild is safe without it
+                        Some(node_mode.as_ref()),
+                    ) {
+                        Ok(conn) => conn,
+                        Err(rebuild_action) => {
+                            tracing::error!(action = %rebuild_action, "derived.db rebuild failed; Restricted/operator intervention required (CLAIM-31.5)");
+                            return Err(anyhow::anyhow!(rebuild_action.to_string()))
+                                .context("rebuild derived.db");
+                        }
+                    }
+                } else {
+                    action.apply(Some(node_mode.as_ref()));
+                    tracing::error!(
+                        node_mode = %node_mode.get().as_str(),
+                        action = %action,
+                        "derived.db open failed; SQLite error mapping applied (CLAIM-18.4)"
+                    );
+                    return Err(anyhow::anyhow!(action.to_string())).context("open derived.db");
+                }
             }
         };
         let derived_ver = db::schema_version(&derived, db::DbKind::Derived)
