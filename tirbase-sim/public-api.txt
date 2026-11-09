@@ -1,5 +1,409 @@
 pub mod tirbase_sim
 pub use tirbase_sim::tirbase_types
+pub mod tirbase_sim::drivers
+pub mod tirbase_sim::drivers::cold_room
+pub struct tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::ambient_mdeg_c: i64
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::compressor_on: bool
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::cooling_mdeg_c: i64
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::setpoint_mdeg_c: i64
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::step_s: i64
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::tau_s: i64
+pub tirbase_sim::drivers::cold_room::ColdRoomThermalSim::temp_mdeg_c: i64
+impl tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::new(u64) -> Self
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::run_steps(&mut self, usize) -> alloc::vec::Vec<i64>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::step(&mut self) -> i64
+impl core::clone::Clone for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone(&self) -> tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::Eq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::PartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::eq(&self, &tirbase_sim::drivers::cold_room::ColdRoomThermalSim) -> bool
+impl core::fmt::Debug for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Freeze for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Send for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Sync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Unpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Owned = T
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::vzip(self) -> V
+pub mod tirbase_sim::drivers::modbus_server
+pub struct tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub tirbase_sim::drivers::modbus_server::ModbusServerHandle::addr: core::net::socket_addr::SocketAddr
+impl tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::bank(&self) -> alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_sim::drivers::modbus_server::RegisterBank>>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::stop(&self)
+impl core::clone::Clone for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone(&self) -> tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::ops::drop::Drop for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::drop(&mut self)
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Owned = T
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
+pub struct tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusSimServer where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::vzip(self) -> V
+pub struct tirbase_sim::drivers::modbus_server::RegisterBank
+pub tirbase_sim::drivers::modbus_server::RegisterBank::holding: alloc::collections::btree::map::BTreeMap<u16, u16>
+pub tirbase_sim::drivers::modbus_server::RegisterBank::input: alloc::collections::btree::map::BTreeMap<u16, u16>
+impl tirbase_sim::drivers::modbus_server::RegisterBank
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::get_holding(&self, u16) -> u16
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::get_input(&self, u16) -> u16
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::set_holding(&mut self, u16, u16)
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::set_input(&mut self, u16, u16)
+impl core::default::Default for tirbase_sim::drivers::modbus_server::RegisterBank
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::default() -> tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::fmt::Debug for tirbase_sim::drivers::modbus_server::RegisterBank
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::RegisterBank
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::RegisterBank
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::RegisterBank where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::RegisterBank where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::RegisterBank where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::RegisterBank where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::RegisterBank::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::RegisterBank where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::RegisterBank::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::RegisterBank where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::RegisterBank where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::RegisterBank where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::RegisterBank
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::RegisterBank where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::RegisterBank where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::RegisterBank
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::RegisterBank where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::RegisterBank
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::RegisterBank
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::RegisterBank
+pub type tirbase_sim::drivers::modbus_server::RegisterBank::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::RegisterBank where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::RegisterBank where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::vzip(self) -> V
+pub struct tirbase_sim::drivers::ColdRoomThermalSim
+pub tirbase_sim::drivers::ColdRoomThermalSim::ambient_mdeg_c: i64
+pub tirbase_sim::drivers::ColdRoomThermalSim::compressor_on: bool
+pub tirbase_sim::drivers::ColdRoomThermalSim::cooling_mdeg_c: i64
+pub tirbase_sim::drivers::ColdRoomThermalSim::setpoint_mdeg_c: i64
+pub tirbase_sim::drivers::ColdRoomThermalSim::step_s: i64
+pub tirbase_sim::drivers::ColdRoomThermalSim::tau_s: i64
+pub tirbase_sim::drivers::ColdRoomThermalSim::temp_mdeg_c: i64
+impl tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::new(u64) -> Self
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::run_steps(&mut self, usize) -> alloc::vec::Vec<i64>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::step(&mut self) -> i64
+impl core::clone::Clone for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone(&self) -> tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::Eq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::PartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::eq(&self, &tirbase_sim::drivers::cold_room::ColdRoomThermalSim) -> bool
+impl core::fmt::Debug for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Freeze for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Send for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Sync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Unpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Owned = T
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::vzip(self) -> V
+pub struct tirbase_sim::drivers::ModbusServerHandle
+pub tirbase_sim::drivers::ModbusServerHandle::addr: core::net::socket_addr::SocketAddr
+impl tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::bank(&self) -> alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_sim::drivers::modbus_server::RegisterBank>>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::stop(&self)
+impl core::clone::Clone for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone(&self) -> tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::ops::drop::Drop for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::drop(&mut self)
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Owned = T
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
+pub struct tirbase_sim::drivers::ModbusSimServer
+impl tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusSimServer where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::vzip(self) -> V
 pub mod tirbase_sim::invariants
 pub enum tirbase_sim::invariants::InvariantId
 pub tirbase_sim::invariants::InvariantId::Inv1
@@ -44,15 +448,12 @@ impl core::marker::Unpin for tirbase_sim::invariants::InvariantId
 impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantId
 impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantId
 impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantId
-impl<N> petgraph::graphmap::NodeTrait for tirbase_sim::invariants::InvariantId where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
 impl<Q, K> equivalent::Comparable<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 pub fn tirbase_sim::invariants::InvariantId::compare(&self, &K) -> core::cmp::Ordering
 impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -81,13 +482,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantId wher
 pub unsafe fn tirbase_sim::invariants::InvariantId::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantId
 pub fn tirbase_sim::invariants::InvariantId::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantId
-pub type tirbase_sim::invariants::InvariantId::Init = T
-pub const tirbase_sim::invariants::InvariantId::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantId::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantId::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantId::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantId::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantId where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantId::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantId::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantId::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantId::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantId where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantId::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantId
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
 impl<T> pest::RuleType for tirbase_sim::invariants::InvariantId where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
@@ -129,8 +530,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::ActuationObser
 pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::ActuationObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::ActuationObservation::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::ActuationObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -157,13 +556,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::ActuationObserva
 pub unsafe fn tirbase_sim::invariants::ActuationObservation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::ActuationObservation
 pub fn tirbase_sim::invariants::ActuationObservation::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::ActuationObservation
-pub type tirbase_sim::invariants::ActuationObservation::Init = T
-pub const tirbase_sim::invariants::ActuationObservation::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::ActuationObservation::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::ActuationObservation::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::ActuationObservation::drop(usize)
-pub unsafe fn tirbase_sim::invariants::ActuationObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::ActuationObservation where T: core::any::Any
+pub fn tirbase_sim::invariants::ActuationObservation::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::ActuationObservation::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::ActuationObservation::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::ActuationObservation::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::ActuationObservation where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::ActuationObservation::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::ActuationObservation
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::ActuationObservation where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::ActuationObservation
@@ -200,8 +599,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::AdmissionObser
 pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::AdmissionObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::AdmissionObservation::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::AdmissionObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -228,13 +625,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::AdmissionObserva
 pub unsafe fn tirbase_sim::invariants::AdmissionObservation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::AdmissionObservation
 pub fn tirbase_sim::invariants::AdmissionObservation::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::AdmissionObservation
-pub type tirbase_sim::invariants::AdmissionObservation::Init = T
-pub const tirbase_sim::invariants::AdmissionObservation::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::AdmissionObservation::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::AdmissionObservation::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::AdmissionObservation::drop(usize)
-pub unsafe fn tirbase_sim::invariants::AdmissionObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::AdmissionObservation where T: core::any::Any
+pub fn tirbase_sim::invariants::AdmissionObservation::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::AdmissionObservation::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::AdmissionObservation::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::AdmissionObservation::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::AdmissionObservation where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::AdmissionObservation::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::AdmissionObservation
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::AdmissionObservation where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::AdmissionObservation
@@ -268,8 +665,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::CacheObservati
 pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::CacheObservation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::CacheObservation::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::CacheObservation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -296,13 +691,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::CacheObservation
 pub unsafe fn tirbase_sim::invariants::CacheObservation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::CacheObservation
 pub fn tirbase_sim::invariants::CacheObservation::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::CacheObservation
-pub type tirbase_sim::invariants::CacheObservation::Init = T
-pub const tirbase_sim::invariants::CacheObservation::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::CacheObservation::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::CacheObservation::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::CacheObservation::drop(usize)
-pub unsafe fn tirbase_sim::invariants::CacheObservation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::CacheObservation where T: core::any::Any
+pub fn tirbase_sim::invariants::CacheObservation::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::CacheObservation::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::CacheObservation::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::CacheObservation::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::CacheObservation where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::CacheObservation::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::CacheObservation
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::CacheObservation where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::CacheObservation
@@ -339,8 +734,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::GovernanceFiel
 pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::GovernanceFields where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::GovernanceFields::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::GovernanceFields where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -367,13 +760,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::GovernanceFields
 pub unsafe fn tirbase_sim::invariants::GovernanceFields::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::GovernanceFields
 pub fn tirbase_sim::invariants::GovernanceFields::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::GovernanceFields
-pub type tirbase_sim::invariants::GovernanceFields::Init = T
-pub const tirbase_sim::invariants::GovernanceFields::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::GovernanceFields::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::GovernanceFields::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::GovernanceFields::drop(usize)
-pub unsafe fn tirbase_sim::invariants::GovernanceFields::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::GovernanceFields where T: core::any::Any
+pub fn tirbase_sim::invariants::GovernanceFields::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::GovernanceFields::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::GovernanceFields::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::GovernanceFields::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::GovernanceFields where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::GovernanceFields::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::GovernanceFields
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::GovernanceFields where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::GovernanceFields
@@ -441,13 +834,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantChecker
 pub unsafe fn tirbase_sim::invariants::InvariantChecker::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantChecker
-pub type tirbase_sim::invariants::InvariantChecker::Init = T
-pub const tirbase_sim::invariants::InvariantChecker::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantChecker where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantChecker::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantChecker::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantChecker::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantChecker::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantChecker where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantChecker::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantChecker
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantChecker
@@ -484,8 +877,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantViola
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -514,13 +905,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantViolati
 pub unsafe fn tirbase_sim::invariants::InvariantViolation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantViolation
 pub fn tirbase_sim::invariants::InvariantViolation::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantViolation
-pub type tirbase_sim::invariants::InvariantViolation::Init = T
-pub const tirbase_sim::invariants::InvariantViolation::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantViolation where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantViolation::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantViolation::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantViolation::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantViolation::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantViolation where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantViolation::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantViolation
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
 impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
@@ -554,8 +945,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::LooseningAppli
 pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::LooseningApplication where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::LooseningApplication::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::LooseningApplication where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -582,13 +971,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::LooseningApplica
 pub unsafe fn tirbase_sim::invariants::LooseningApplication::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::LooseningApplication
 pub fn tirbase_sim::invariants::LooseningApplication::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::LooseningApplication
-pub type tirbase_sim::invariants::LooseningApplication::Init = T
-pub const tirbase_sim::invariants::LooseningApplication::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::LooseningApplication::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::LooseningApplication::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::LooseningApplication::drop(usize)
-pub unsafe fn tirbase_sim::invariants::LooseningApplication::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::LooseningApplication where T: core::any::Any
+pub fn tirbase_sim::invariants::LooseningApplication::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::LooseningApplication::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::LooseningApplication::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::LooseningApplication::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::LooseningApplication where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::LooseningApplication::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::LooseningApplication
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::LooseningApplication where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::LooseningApplication
@@ -654,13 +1043,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::SimState where T
 pub unsafe fn tirbase_sim::invariants::SimState::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::SimState
-pub type tirbase_sim::invariants::SimState::Init = T
-pub const tirbase_sim::invariants::SimState::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::SimState::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::SimState::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::SimState::drop(usize)
-pub unsafe fn tirbase_sim::invariants::SimState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::SimState where T: core::any::Any
+pub fn tirbase_sim::invariants::SimState::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::SimState::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::SimState::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::SimState::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::SimState where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::SimState::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::SimState
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::SimState
@@ -716,15 +1105,12 @@ impl core::marker::Unpin for tirbase_sim::invariants::InvariantId
 impl core::marker::UnsafeUnpin for tirbase_sim::invariants::InvariantId
 impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::invariants::InvariantId
 impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::invariants::InvariantId
-impl<N> petgraph::graphmap::NodeTrait for tirbase_sim::invariants::InvariantId where N: core::marker::Copy + core::cmp::Ord + core::hash::Hash
 impl<Q, K> equivalent::Comparable<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 pub fn tirbase_sim::invariants::InvariantId::compare(&self, &K) -> core::cmp::Ordering
 impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantId where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantId::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantId where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -753,13 +1139,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantId wher
 pub unsafe fn tirbase_sim::invariants::InvariantId::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantId
 pub fn tirbase_sim::invariants::InvariantId::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantId
-pub type tirbase_sim::invariants::InvariantId::Init = T
-pub const tirbase_sim::invariants::InvariantId::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantId::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantId::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantId::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantId::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantId where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantId::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantId::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantId::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantId::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantId where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantId::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantId
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
 impl<T> pest::RuleType for tirbase_sim::invariants::InvariantId where T: core::marker::Copy + core::fmt::Debug + core::cmp::Eq + core::hash::Hash + core::cmp::Ord
@@ -772,6 +1158,79 @@ pub type tirbase_sim::invariants::InvariantId::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantId where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantId where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_sim::invariants::InvariantId::vzip(self) -> V
+pub struct tirbase_sim::ColdRoomThermalSim
+pub tirbase_sim::ColdRoomThermalSim::ambient_mdeg_c: i64
+pub tirbase_sim::ColdRoomThermalSim::compressor_on: bool
+pub tirbase_sim::ColdRoomThermalSim::cooling_mdeg_c: i64
+pub tirbase_sim::ColdRoomThermalSim::setpoint_mdeg_c: i64
+pub tirbase_sim::ColdRoomThermalSim::step_s: i64
+pub tirbase_sim::ColdRoomThermalSim::tau_s: i64
+pub tirbase_sim::ColdRoomThermalSim::temp_mdeg_c: i64
+impl tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::new(u64) -> Self
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::run_steps(&mut self, usize) -> alloc::vec::Vec<i64>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::step(&mut self) -> i64
+impl core::clone::Clone for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone(&self) -> tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::Eq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::cmp::PartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::eq(&self, &tirbase_sim::drivers::cold_room::ColdRoomThermalSim) -> bool
+impl core::fmt::Debug for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Freeze for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Send for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Sync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::Unpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Owned = T
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::cold_room::ColdRoomThermalSim
+pub type tirbase_sim::drivers::cold_room::ColdRoomThermalSim::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::cold_room::ColdRoomThermalSim where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::cold_room::ColdRoomThermalSim::vzip(self) -> V
 pub struct tirbase_sim::InvariantChecker
 impl tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
@@ -830,13 +1289,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantChecker
 pub unsafe fn tirbase_sim::invariants::InvariantChecker::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantChecker
-pub type tirbase_sim::invariants::InvariantChecker::Init = T
-pub const tirbase_sim::invariants::InvariantChecker::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantChecker::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantChecker where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantChecker::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantChecker::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantChecker::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantChecker::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantChecker where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantChecker::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantChecker
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantChecker where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::InvariantChecker
@@ -873,8 +1332,6 @@ impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::invariants::InvariantViola
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
 impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::invariants::InvariantViolation where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
-pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 pub fn tirbase_sim::invariants::InvariantViolation::equivalent(&self, &K) -> bool
 impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::invariants::InvariantViolation where ST: ?core::marker::Sized, DT: ?core::marker::Sized
@@ -903,13 +1360,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::InvariantViolati
 pub unsafe fn tirbase_sim::invariants::InvariantViolation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::InvariantViolation
 pub fn tirbase_sim::invariants::InvariantViolation::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::InvariantViolation
-pub type tirbase_sim::invariants::InvariantViolation::Init = T
-pub const tirbase_sim::invariants::InvariantViolation::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::drop(usize)
-pub unsafe fn tirbase_sim::invariants::InvariantViolation::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::InvariantViolation where T: core::any::Any
+pub fn tirbase_sim::invariants::InvariantViolation::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantViolation::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::InvariantViolation::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::InvariantViolation::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::InvariantViolation where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::InvariantViolation::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::InvariantViolation
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
 impl<T> smol_str::ToSmolStr for tirbase_sim::invariants::InvariantViolation where T: core::fmt::Display + ?core::marker::Sized
@@ -921,6 +1378,107 @@ pub type tirbase_sim::invariants::InvariantViolation::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::invariants::InvariantViolation where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::InvariantViolation where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_sim::invariants::InvariantViolation::vzip(self) -> V
+pub struct tirbase_sim::ModbusServerHandle
+pub tirbase_sim::ModbusServerHandle::addr: core::net::socket_addr::SocketAddr
+impl tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::bank(&self) -> alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_sim::drivers::modbus_server::RegisterBank>>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::stop(&self)
+impl core::clone::Clone for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone(&self) -> tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::ops::drop::Drop for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::drop(&mut self)
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Owned = T
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_into(&self, &mut T)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::clone::Clone
+pub unsafe fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusServerHandle
+pub type tirbase_sim::drivers::modbus_server::ModbusServerHandle::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusServerHandle where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
+pub struct tirbase_sim::ModbusSimServer
+impl tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Sync for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::Unpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::marker::UnsafeUnpin for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::drivers::modbus_server::ModbusSimServer where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::From<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::Into<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = core::convert::Infallible
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::drivers::modbus_server::ModbusSimServer where U: core::convert::TryFrom<T>
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::drivers::modbus_server::ModbusSimServer
+impl<T> typenum::type_operators::Same for tirbase_sim::drivers::modbus_server::ModbusSimServer
+pub type tirbase_sim::drivers::modbus_server::ModbusSimServer::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::modbus_server::ModbusSimServer where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::ModbusSimServer where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::vzip(self) -> V
 pub struct tirbase_sim::SimState
 pub tirbase_sim::SimState::accepted_replay_tuples: alloc::vec::Vec<tirbase_sim::invariants::ReplayTuple>
 pub tirbase_sim::SimState::actuations: alloc::vec::Vec<tirbase_sim::invariants::ActuationObservation>
@@ -977,13 +1535,13 @@ impl<T> core::clone::CloneToUninit for tirbase_sim::invariants::SimState where T
 pub unsafe fn tirbase_sim::invariants::SimState::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::from(T) -> T
-impl<T> crossbeam_epoch::atomic::Pointable for tirbase_sim::invariants::SimState
-pub type tirbase_sim::invariants::SimState::Init = T
-pub const tirbase_sim::invariants::SimState::ALIGN: usize
-pub unsafe fn tirbase_sim::invariants::SimState::deref<'a>(usize) -> &'a T
-pub unsafe fn tirbase_sim::invariants::SimState::deref_mut<'a>(usize) -> &'a mut T
-pub unsafe fn tirbase_sim::invariants::SimState::drop(usize)
-pub unsafe fn tirbase_sim::invariants::SimState::init(<T as crossbeam_epoch::atomic::Pointable>::Init) -> usize
+impl<T> downcast_rs::Downcast for tirbase_sim::invariants::SimState where T: core::any::Any
+pub fn tirbase_sim::invariants::SimState::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::SimState::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::invariants::SimState::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::invariants::SimState::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::invariants::SimState where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::invariants::SimState::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
 impl<T> either::into_either::IntoEither for tirbase_sim::invariants::SimState
 impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::invariants::SimState where T: ?core::marker::Sized
 impl<T> tracing::instrument::Instrument for tirbase_sim::invariants::SimState
