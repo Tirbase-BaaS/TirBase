@@ -160,11 +160,11 @@ Events emitted by the Security Event Log integrity subsystem (PV-7).
 | TamperDetection | Hash-chain broken at sequence number N; entering Restricted mode | Critical | Implemented | PV-7.4 |
 | ChainRecovery | Signed chain-recovery command accepted; new chain segment opened | High | Implemented | PV-7.4 |
 | TailTruncation | Peer observed a higher checkpoint hash than local log | Critical | Implemented | PV-7.10 |
-| SyncFailure | Security event sync to mesh peer failed; retry scheduled | Medium | Planned | PV-7.9 |
-| SyncRateLimitReached | Peer sync rate limit (500 events/min) exceeded | Low | Planned | PV-7.12 |
+| SyncFailure | Security event sync to mesh peer failed; retry scheduled | Medium | Implemented | PV-7.9 |
+| SyncRateLimitReached | Peer sync rate limit (500 events/min) exceeded | Low | Implemented | PV-7.12 |
 | SuppressionSummary | Per-category rate limit (100/s) hit; N events suppressed | Medium | Implemented | PV-7.6 |
 | NoWitnessAvailable | No mesh peers or cloud connection; checkpoint cannot be externally witnessed | Low | Implemented | PV-7.10 |
-| LogRotated | Oldest signed segment archived and removed by background retention job | Low | Planned | PV-7.13 |
+| LogRotated | Oldest signed segment archived and removed by background retention job | Low | Implemented | PV-7.13 |
 
 ---
 
