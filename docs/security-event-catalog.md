@@ -162,8 +162,8 @@ Events emitted by the Security Event Log integrity subsystem (PV-7).
 | TailTruncation | Peer observed a higher checkpoint hash than local log | Critical | Implemented | PV-7.10 |
 | SyncFailure | Security event sync to mesh peer failed; retry scheduled | Medium | Planned | PV-7.9 |
 | SyncRateLimitReached | Peer sync rate limit (500 events/min) exceeded | Low | Planned | PV-7.12 |
-| SuppressionSummary | Per-category rate limit (100/s) hit; N events suppressed | Medium | Planned | PV-7.6 |
-| NoWitnessAvailable | No mesh peers or cloud connection; checkpoint cannot be externally witnessed | Medium | Planned | PV-7.10 |
+| SuppressionSummary | Per-category rate limit (100/s) hit; N events suppressed | Medium | Implemented | PV-7.6 |
+| NoWitnessAvailable | No mesh peers or cloud connection; checkpoint cannot be externally witnessed | Low | Implemented | PV-7.10 |
 | LogRotated | Oldest signed segment archived and removed by background retention job | Low | Planned | PV-7.13 |
 
 ---
@@ -215,7 +215,7 @@ Events emitted by the libp2p gossipsub mesh transport layer (PV-1.13).
 | PeerDisconnected | Mesh peer disconnected | Low | Planned | PV-1.13 |
 | HandshakeSuccess | Noise IK handshake established | Low | Planned | PV-1.13 |
 | HandshakeFailed | Noise IK handshake failed | Medium | Implemented | PV-1.13 |
-| CheckpointGossiped | Latest checkpoint hash gossiped to peer during sync | Low | Planned | PV-7.10 |
+| CheckpointGossiped | Latest checkpoint hash gossiped to peer during sync | Low | Implemented | PV-7.10 |
 | RelaySelected | Delta routed through a relay peer because the destination is not a direct neighbour | Low | Implemented | PV-1.13 |
 | FragmentReassemblyFailed | Fragment reassembly failed or produced an unparsable payload | Medium | Implemented | PV-6.3 |
 

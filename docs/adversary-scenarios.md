@@ -325,7 +325,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - Memory grows without bound from unlimited event buffering.
 - No suppression summary is emitted.
 
-**Test ID:** `tirbase-guard/tests/security_log.rs::test_event_flooding_rate_limit`
+**Test ID:** `tirbase-sim/src/scenarios/s14_log_flooding.rs::s14_log_flooding_rate_limit_and_bounded_retention`
 
 ---
 
@@ -811,7 +811,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 | S11 — Single-Manager Quorum (1-of-1) | Phase 1: Key Management | PLANNED | `tirbase-sim/scenarios/S11.toml` |
 | S12 — Partition and Rejoin | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S12.toml` |
 | S13 — Crash at Every Step | Phase 3: Effects Ledger | PLANNED | `tirbase-guard/tests/kill_at_every_step.rs` |
-| S14 — Security Event Log Flooding | Phase 5: Security Event Log | PLANNED | `tirbase-guard/tests/security_log.rs::test_event_flooding_rate_limit` |
+| S14 — Security Event Log Flooding | Phase 5: Security Event Log | PASSING | `tirbase-sim/src/scenarios/s14_log_flooding.rs::s14_log_flooding_rate_limit_and_bounded_retention` |
 | S15 — Reassembly Bomb | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S15.toml` |
 | S16 — Fleet Fan-Out | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S16.toml` |
 | S17 — Cross-Role Attempt | Phase 1: Key Management | PLANNED | `tirbase-guard/tests/auth_matrix.rs` |
