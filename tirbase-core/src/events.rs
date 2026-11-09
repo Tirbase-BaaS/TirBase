@@ -129,6 +129,7 @@ pub enum ReasonCode {
     DeltaQuarantined,
     /// `start_op` validation failed.
     ClockJump,
+    UnknownSchemaHash,
     /// Delta depends on operations not yet received.
     MissingDependency,
     /// Pending delta timed out waiting for dependencies.
@@ -351,6 +352,7 @@ impl ReasonCode {
         match self {
             ReasonCode::DeltaQuarantined => "DeltaQuarantined",
             ReasonCode::ClockJump => "ClockJump",
+            ReasonCode::UnknownSchemaHash => "UnknownSchemaHash",
             ReasonCode::MissingDependency => "MissingDependency",
             ReasonCode::MissingDependencyTimeout => "MissingDependencyTimeout",
             ReasonCode::PendingQueueOverflow => "PendingQueueOverflow",

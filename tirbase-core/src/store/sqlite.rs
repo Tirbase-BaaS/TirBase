@@ -45,6 +45,25 @@ CREATE TABLE IF NOT EXISTS quarantine_ledger (
     migration_id BLOB
 );
 
+-- PV-6.7 / task 23: replayable CRDT schema quarantine (core-local mirror of derived.db shape).
+CREATE TABLE IF NOT EXISTS schema_quarantine (
+    id           BLOB PRIMARY KEY,
+    sender_did   TEXT NOT NULL,
+    raw_bytes    BLOB NOT NULL,
+    schema_hash  BLOB,
+    reason       TEXT NOT NULL,
+    received_at  INTEGER NOT NULL,
+    detail       TEXT
+);
+
+-- PV-6.7 / task 23.4: non-replayable rate/oversize quarantine summaries.
+CREATE TABLE IF NOT EXISTS rate_quarantine_summary (
+    sender_did     TEXT NOT NULL,
+    window_start   INTEGER NOT NULL,
+    rejected_count INTEGER NOT NULL,
+    PRIMARY KEY (sender_did, window_start)
+);
+
 CREATE TABLE IF NOT EXISTS sidecar_ledger (
     id            BLOB PRIMARY KEY,
     migration_id  BLOB NOT NULL,
@@ -65,6 +84,9 @@ CREATE INDEX IF NOT EXISTS idx_dag_edges_parent ON dag_edges (parent_id);
 CREATE INDEX IF NOT EXISTS idx_dag_edges_child  ON dag_edges (child_id);
 CREATE INDEX IF NOT EXISTS idx_sidecar_migration ON sidecar_ledger (migration_id, recorded_ts);
 CREATE INDEX IF NOT EXISTS idx_quarantine_schema  ON quarantine_ledger (schema_hash);
+CREATE INDEX IF NOT EXISTS idx_schema_quarantine_received ON schema_quarantine (received_at);
+CREATE INDEX IF NOT EXISTS idx_schema_quarantine_sender ON schema_quarantine (sender_did);
+CREATE INDEX IF NOT EXISTS idx_rate_quarantine_window ON rate_quarantine_summary (window_start);
 "#;
 
 /// Open (or create) the SQLite database at `path` and run schema creation.

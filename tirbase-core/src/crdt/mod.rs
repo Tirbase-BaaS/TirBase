@@ -10,7 +10,13 @@ pub mod dag;
 pub mod delta;
 pub(crate) mod hardening;
 pub mod merge;
+#[doc(hidden)]
+pub mod pending_queue;
+#[doc(hidden)]
+pub mod rate_quarantine;
 pub mod schema_hash;
+#[doc(hidden)]
+pub mod schema_quarantine;
 
 pub(crate) mod failure;
 mod verify;
@@ -138,6 +144,10 @@ pub struct CrdtEngine {
     /// ([`Self::set_rejection_listener`]).
     rejection_records: VecDeque<DeltaRejectionRecord>,
 
+    /// Inbound hardening state (PV-6): bounded pending queue, schema/rate
+    /// quarantine stores, cheap-check helpers (tasks 22-23).
+    inbound_hardening: crate::crdt::hardening::InboundHardening,
+
     /// Optional host listener invoked for every rejection record the engine
     /// emits (Subphase 6.2).
     ///
@@ -221,6 +231,7 @@ impl CrdtEngine {
             secret_key,
             revoked_dids: HashSet::new(),
             rejection_records: VecDeque::new(),
+            inbound_hardening: crate::crdt::hardening::InboundHardening::new(),
             rejection_listener: None,
             dag: ChangesetDag::new(conn),
         }
@@ -252,6 +263,7 @@ impl CrdtEngine {
             secret_key,
             revoked_dids: HashSet::new(),
             rejection_records: VecDeque::new(),
+            inbound_hardening: crate::crdt::hardening::InboundHardening::new(),
             rejection_listener: None,
         }
     }
@@ -547,6 +559,25 @@ impl CrdtEngine {
     /// dependency metadata (`start_op`/`len`) for inbound `start_op` validation
     /// before merge. Callers must not apply unvalidated peer changes through
     /// this handle except via the validated inbound path.
+    pub(crate) fn hardening_mut(
+        &mut self,
+    ) -> Option<&mut crate::crdt::hardening::InboundHardening> {
+        Some(&mut self.inbound_hardening)
+    }
+
+    pub(crate) fn hardening(&self) -> &crate::crdt::hardening::InboundHardening {
+        &self.inbound_hardening
+    }
+
+    /// Configure hardening with a derived DB path (schema/rate quarantine
+    /// persistence, PV-6.7). Best-effort; keeps defaults on failure.
+    #[cfg(feature = "native")]
+    pub fn configure_hardening_derived_db(&mut self, path: impl AsRef<std::path::Path>) {
+        if let Ok(h) = crate::crdt::hardening::InboundHardening::with_derived_db(path) {
+            self.inbound_hardening = h;
+        }
+    }
+
     pub(crate) fn doc_mut(&mut self) -> &mut automerge::AutoCommit {
         &mut self.doc
     }
