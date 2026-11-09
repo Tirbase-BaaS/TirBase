@@ -567,7 +567,8 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - Attacker's flood evicts legitimate entries from other senders.
 - Operator cannot replay critical quarantined deltas because they were flushed.
 
-**Test ID:** `tirbase-sim/scenarios/S25.toml` | `tirbase-core/tests/quarantine.rs::test_quarantine_flush`
+**Status:** PROVEN (task 23 / CLAIM-23.3,23.5)
+**Test ID:** `tirbase-sim/src/scenarios/s25_quarantine_flush.rs` (`s25_quarantine_flush_per_sender_isolation`, `s25_quarantine_flush_seeded_sweep`) | `tirbase-core/src/api/mod.rs::task23_pv6_hardening_tests::claim_23_5_schema_quarantine_per_sender_quota_isolated`
 
 ---
 
@@ -745,7 +746,8 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - Process runs out of memory and crashes (enables crash-loop LOCKDOWN via S24).
 - Legitimate pending deltas are lost without quarantine record.
 
-**Test ID:** `tirbase-sim/scenarios/S33.toml` | `tirbase-core/tests/crdt_hardening.rs::test_pending_queue_bomb`
+**Status:** PROVEN (task 23 / CLAIM-23.1,23.2)
+**Test ID:** `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` (`s33_pending_queue_bomb_bounded`, `s33_pending_queue_bomb_seeded_sweep`) | `tirbase-core/src/api/mod.rs::task23_pv6_hardening_tests::claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival`, `claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine`
 
 ---
 
@@ -820,7 +822,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 | S22 — Snapshot Restore Attack | Phase 7: Persistence | PLANNED | `tirbase-sim/scenarios/S22.toml` |
 | S23 — Time-Anchor Poisoning | Phase 18: Time Anchor | PLANNED | `tirbase-sim/scenarios/S23.toml` |
 | S24 — Crash-Loop Escalation | Phase 9: Gateway Runtime | PLANNED | `tirbase-sim/scenarios/S24.toml` |
-| S25 — Quarantine Flush | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S25.toml` |
+| S25 — Quarantine Flush | Phase 4: CRDT Hardening | PROVEN | `tirbase-sim/src/scenarios/s25_quarantine_flush.rs` |
 | S26 — Idempotency-Key Squatting | Phase 3: Effects Ledger | PLANNED | `tirbase-guard/tests/effects_ledger.rs::test_idempotency_key_squatting` |
 | S27 — Tightening Bundle Weakens Governance | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_governance_weakening_classified_as_loosening` |
 | S28 — tightening_floor in Submitted Bundle | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_tightening_floor_from_trust_root_only` |
@@ -828,7 +830,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 | S30 — Exponent-Overflow Value | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/properties.rs::test_exponent_overflow` |
 | S31 — Clock Rollback Across Reboot | Phase 18: Time Anchor | PLANNED | `tirbase-guard/tests/time_ratchet.rs::test_clock_rollback_reboot` |
 | S32 — Challenge-Nonce Flooding | Phase 18: Time Anchor | PLANNED | `tirbase-guard/tests/guard_pipeline.rs::test_s32_challenge_nonce_flood` |
-| S33 — Pending-Queue Memory Bomb | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S33.toml` |
+| S33 — Pending-Queue Memory Bomb | Phase 4: CRDT Hardening | PROVEN | `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` |
 | S34 — Partial-Signature Replay Across Commands | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_partial_sig_replay_across_commands` |
 | S35 — Driver fd Leakage | Phase 8: Driver Framework | PLANNED | `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` |
 
