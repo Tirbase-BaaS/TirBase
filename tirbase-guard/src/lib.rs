@@ -55,6 +55,7 @@ pub mod command;
 pub mod permit;
 
 /// Guard-owned dispatch to the device/driver boundary (task 11.3, CLAIM-11.3).
+pub mod device_transport;
 pub mod driver_proxy;
 
 /// Unified command admission: the only `ActuationPermit` issuer (tasks 11/13).
@@ -89,6 +90,7 @@ pub use commit::{
     stage17_rejection, CoarseRejection, EffectTerminalState, Stage16Error, Stage16Request,
     Stage16Store,
 };
+pub use device_transport::{DeviceTransport, GuardDeviceTransport};
 pub use driver_proxy::{DriverProxy, IngressSource};
 pub use guard::{
     single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission,

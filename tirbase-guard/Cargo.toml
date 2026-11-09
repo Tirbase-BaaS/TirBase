@@ -27,3 +27,9 @@ hex = "0.4"
 # (tasks 11.2/11.3, CLAIM-11.2/11.3, PV-4.3/PV-4.4).
 trybuild = "1"
 
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies.tirbase-drivers]
+path = "../tirbase-drivers"
