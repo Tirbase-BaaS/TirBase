@@ -20,6 +20,7 @@ pub mod health;
 pub mod hw_counter_binding;
 pub mod key_provider;
 pub mod monotonic_counter;
+pub mod security_log;
 pub mod security_sink;
 pub mod time_beacon;
 pub mod time_source;

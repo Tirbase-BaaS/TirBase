@@ -35,7 +35,7 @@ use key_provider::FileKeyProvider;
 use monotonic_counter::{
     default_hardware_counter, NamedMonotonicCounter, SoftwareMonotonicCounter,
 };
-use security_sink::GatewaySecurityEventLog;
+use security_log::SecurityEventLog;
 use time_source::SystemTimeSource;
 
 use serde::{Deserialize, Serialize};
@@ -98,9 +98,10 @@ async fn main() -> Result<()> {
         "TimeSource installed for all core subsystems",
     );
 
-    // ── SecurityEventSink (CLAIM-5.4) ──────────────────────────────────────
+    // ── SecurityEventSink (CLAIM-5.4, 25.1–25.3) ──────────────────────────
     // Install before anything else can emit, so boot events are recorded too.
-    let event_log = GatewaySecurityEventLog::new().install();
+    // Replaced with persistent/key-backed log after key provider init.
+    let _security_log_early = std::sync::Arc::new(SecurityEventLog::new_memory()).install();
 
     // ── SQLite database split (CLAIM-18.1–18.4, PV-9.3) ────────────────────
     // Open primary.db (PrimaryLedger, WAL+synchronous=FULL) and derived.db
@@ -434,6 +435,16 @@ async fn main() -> Result<()> {
         }
     }
 
+    // ── SecurityEventLog (25.1–25.5, PV-7, INV-4) ─────────────────────────
+    let security_log =
+        SecurityEventLog::new_persistent(&primary_db_path, Some(key_provider.clone()), false);
+    security_log.install();
+    let _checkpoint_handle = security_log.spawn_checkpoint_loop();
+    tracing::info!(
+        primary_db = %primary_db_path.display(),
+        "hash-chained SecurityEventLog installed (CLAIM-25.1-25.5)"
+    );
+
     // ── Trust root, root CA registry, rollback protection (tasks 8.1–8.3) ──
     // The trust-root version is committed to a named `MonotonicCounter` row in
     // primary.db.  Restoring an older `trust-root.json` therefore fails the
@@ -538,10 +549,7 @@ async fn main() -> Result<()> {
             ReasonCode::BootCompleted,
         )
         .with_actor(key_provider.did())
-        .with_detail(format!(
-            "gateway booted (counter={boot_counter}, events={})",
-            event_log.len()
-        )),
+        .with_detail(format!("gateway booted (counter={boot_counter})")),
     );
 
     tracing::info!(

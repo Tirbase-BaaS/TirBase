@@ -1,36 +1,25 @@
-//! Gateway security event log sink (PV-7.1, CLAIM-5.4, 19.4, INV-4).
+//! Gateway security event sink (PV-7.1, 19.4, INV-4, task 25 compatibility).
 //!
-//! The gateway installs one [`GatewaySecurityEventLog`] as the process-wide
-//! [`SecurityEventSink`] at boot.  Every typed event emitted by
-//! `tirbase-core` (CRDT hardening, revocation, transport, migration) and by
-//! the gateway itself lands in this log.
-//!
-//! Task 19.4 (PV-15.4): `High`/`Critical` severity events bypass the
-//! group-commit batcher and are flushed immediately; lower-severity events
-//! are buffered for the configured window (default 50ms) before flush.
-//! Task 25.1 replaces the backend with the hash-chained, device-signed
-//! `SecurityEventLog`.
+//! Task 25 replaces the skeleton log with [`crate::security_log::SecurityEventLog`].
+//! [`GatewaySecurityEventLog`] remains as a compatibility wrapper used by older
+//! tests and lightweight boot paths.
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use tirbase_core::events::SecurityEvent;
 use tirbase_core::traits::SecurityEventSink;
 
-use crate::event_batcher::{GroupCommitBatcher, RecordingBatchBackend, DEFAULT_BATCH_WINDOW};
+pub use crate::event_batcher::GroupCommitBatcher;
+pub use crate::security_log::SecurityEventLog;
 
-/// In-memory security event log used by the gateway.
-///
-/// Bounded by [`MAX_EVENTS`] so a flood of events cannot exhaust gateway
-/// memory before the hash-chained log from task 25.1 lands.
+/// Upper bound on retained events in in-memory views/ring.
+pub const MAX_EVENTS: usize = 10_000;
+
+/// Compatibility wrapper around the hash-chained [`SecurityEventLog`].
 #[derive(Debug)]
 pub struct GatewaySecurityEventLog {
-    events: RwLock<Vec<SecurityEvent>>,
-    /// 19.4 group-commit batcher: LOW/MEDIUM buffered, HIGH/CRITICAL bypass.
-    batcher: Option<Arc<GroupCommitBatcher>>,
+    inner: Arc<SecurityEventLog>,
 }
-
-/// Upper bound on retained events in the skeleton log.
-pub const MAX_EVENTS: usize = 10_000;
 
 impl Default for GatewaySecurityEventLog {
     fn default() -> Self {
@@ -39,92 +28,42 @@ impl Default for GatewaySecurityEventLog {
 }
 
 impl GatewaySecurityEventLog {
-    /// Construct an empty event log (immediate, non-batched) for compatibility.
+    /// Construct an immediate/in-memory chained log.
     pub fn new() -> Self {
         Self {
-            events: RwLock::new(Vec::new()),
-            batcher: None,
+            inner: Arc::new(SecurityEventLog::new_memory()),
         }
     }
 
-    /// Construct a batched event log (19.4, PV-15.4). HIGH/CRITICAL bypass.
+    /// Construct a batched log (19.4 compatibility). Persistence is not wired
+    /// through this constructor; use [`SecurityEventLog::new_persistent`].
     pub fn new_batched() -> Self {
-        let backend = Arc::new(RecordingBatchBackend::default());
-        let batcher = GroupCommitBatcher::with_window(backend, DEFAULT_BATCH_WINDOW);
         Self {
-            events: RwLock::new(Vec::new()),
-            batcher: Some(batcher),
+            inner: Arc::new(SecurityEventLog::with_options_compat(true)),
         }
     }
 
-    /// Install this log as the process-wide sink, returning a shared handle.
-    pub fn install(self) -> Arc<Self> {
-        let log = Arc::new(self);
+    /// Install this log as the process-wide sink.
+    pub fn install(self) -> Arc<SecurityEventLog> {
+        let log = self.inner.clone();
         tirbase_core::events::install_security_event_sink(log.clone());
         log
     }
 
-    /// Number of recorded events.
-    pub fn len(&self) -> usize {
-        self.read().len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Snapshot of all recorded events, oldest first.
-    pub fn events(&self) -> Vec<SecurityEvent> {
-        self.read().clone()
-    }
-
-    /// Expose batcher for tests/diagnostics (19.4).
-    pub fn batcher(&self) -> Option<&Arc<GroupCommitBatcher>> {
-        self.batcher.as_ref()
-    }
-
-    /// Flush pending batched events (test/shutdown helper).
-    pub fn flush(&self) {
-        if let Some(b) = &self.batcher {
-            b.stop();
-        }
-    }
-
-    fn read(&self) -> std::sync::RwLockReadGuard<'_, Vec<SecurityEvent>> {
-        match self.events.read() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        }
+    pub fn into_inner(self) -> Arc<SecurityEventLog> {
+        self.inner
     }
 }
 
 impl SecurityEventSink for GatewaySecurityEventLog {
     fn emit(&self, event: SecurityEvent) {
-        {
-            let mut events = match self.events.write() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            if events.len() >= MAX_EVENTS {
-                events.remove(0);
-            }
-            events.push(event.clone());
-        }
-        if let Some(batcher) = &self.batcher {
-            // 19.4 production caller path: SecurityEventLog::emit() routes through
-            // the group-commit batcher; HIGH/CRITICAL bypass inside batcher.
-            batcher.emit(event);
-        } else {
-            // Immediate path (compatibility). HIGH/CRITICAL are effectively immediate here.
-            let _ = event.severity;
-        }
+        self.inner.emit(event);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
     use tirbase_core::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
     use tirbase_core::crdt::CrdtEngine;
     use tirbase_core::events::{ReasonCode, SecurityEventCategory, Severity};
@@ -162,7 +101,7 @@ mod tests {
         let schema_hash =
             compute_schema_identifier_hash(&[("readings", &[("id", "TEXT"), ("value", "TEXT")])]);
         let conn = sqlite::open(":memory:").expect("in-memory sqlite");
-        let conn = std::sync::Arc::new(Mutex::new(conn));
+        let conn = std::sync::Arc::new(std::sync::Mutex::new(conn));
         let mut engine = CrdtEngine::new(secret, public, did.clone(), schema_hash, conn);
 
         let delta = Delta {

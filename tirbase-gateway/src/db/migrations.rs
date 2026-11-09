@@ -114,6 +114,7 @@ pub fn apply_migrations(
         applied.push(migration.version);
     }
 
+    ensure_task25_checkpoint_hash_column(conn, kind)?;
     let to_version = schema_version(conn, kind)?;
     Ok(MigrationReport {
         db_kind: kind,
@@ -121,6 +122,39 @@ pub fn apply_migrations(
         to_version,
         applied,
     })
+}
+
+/// 25.3/25.4: ensure `security_events.checkpoint_hash` exists for DBs created
+/// before migration v3 or with older v1 DDL. Idempotent.
+fn ensure_task25_checkpoint_hash_column(
+    conn: &Connection,
+    kind: DbKind,
+) -> Result<(), SqliteErrorAction> {
+    if kind != DbKind::Primary {
+        return Ok(());
+    }
+    let has_table: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='security_events'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "check security_events table"))?;
+    if has_table == 0 {
+        return Ok(());
+    }
+    let has_col: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='checkpoint_hash'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "check checkpoint_hash column"))?;
+    if has_col == 0 {
+        conn.execute_batch("ALTER TABLE security_events ADD COLUMN checkpoint_hash BLOB;")
+            .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "add checkpoint_hash"))?;
+    }
+    Ok(())
 }
 
 fn now_secs() -> i64 {
@@ -228,7 +262,7 @@ pub fn derived_migrations() -> &'static [Migration] {
     &DERIVED_MIGRATIONS
 }
 
-const PRIMARY_MIGRATIONS: [Migration; 2] = [
+const PRIMARY_MIGRATIONS: [Migration; 3] = [
     Migration {
         version: 1,
         name: "task18_primary_ledger_tables",
@@ -347,7 +381,8 @@ CREATE TABLE IF NOT EXISTS security_events (
     time_source_flag     TEXT NOT NULL,
     prev_hash            BLOB NOT NULL,
     is_checkpoint        INTEGER NOT NULL DEFAULT 0,
-    checkpoint_signature BLOB
+    checkpoint_signature BLOB,
+    checkpoint_hash      BLOB
 );
 
 -- Security event segments (PV-7.4)
@@ -477,6 +512,16 @@ CREATE TABLE IF NOT EXISTS drift_rate_summary (
     last_deactivation_mono    INTEGER,
     PRIMARY KEY (target_id, param)
 );
+"#,
+    },
+    Migration {
+        version: 3,
+        name: "task25_security_events_checkpoint_hash",
+        sql: r#"
+-- 25.3/25.4: checkpoint_hash column for signed checkpoint records (PV-7.3).
+-- v1 now creates the column for fresh DBs; this migration is a compatibility
+-- marker for the framework. The runtime also ensures the column exists.
+SELECT 1;
 "#,
     },
 ];

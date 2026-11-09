@@ -10,9 +10,9 @@
 //! # Relationship to the full log (task 25.1)
 //!
 //! This module defines the *event payload* and the emission plumbing used by
-//! task 5.4 / 5.8.  The hash-chained, device-signed [`SecurityEventLog`]
-//! (sequence numbers, `prev_hash`, checkpoints, retention) is implemented in
-//! task 25.1; it subscribes as a [`SecurityEventSink`].
+//! task 5.4 / 5.8.  The hash-chained, device-signed security event log
+//! (sequence numbers, `prev_hash`, checkpoints, retention, [`TimeSourceFlag`])
+//! is implemented in task 25.1; it subscribes as a [`SecurityEventSink`].
 //!
 //! The allowed category and reason-code names are governed by
 //! `docs/security-event-catalog.md`; `scripts/check-security-event-catalog.sh`
@@ -25,7 +25,9 @@ use crate::traits::SecurityEventSink;
 // ─── Severity ─────────────────────────────────────────────────────────────────
 
 /// Severity attached to a [`SecurityEvent`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum Severity {
     /// Informational; no operator action required.
     Low,
@@ -49,11 +51,45 @@ impl Severity {
     }
 }
 
+// ─── Time source flag (PV-7.1, CLAIM-25.1) ───────────────────────────────────
+
+/// Indicates whether a security-event timestamp came from a trusted clock or a
+/// logical fallback (PV-7.1). Carried by chained log records (task 25.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum TimeSourceFlag {
+    /// Timestamp derived from an authenticated/trusted time source.
+    TrustedClock,
+    /// Best-effort local/monotonic fallback; not authenticated.
+    LogicalFallback,
+}
+
+impl TimeSourceFlag {
+    /// Canonical string stored in `security_events.time_source_flag`.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TimeSourceFlag::TrustedClock => "TrustedClock",
+            TimeSourceFlag::LogicalFallback => "LogicalFallback",
+        }
+    }
+}
+
+impl std::str::FromStr for TimeSourceFlag {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "TrustedClock" => Ok(TimeSourceFlag::TrustedClock),
+            "LogicalFallback" => Ok(TimeSourceFlag::LogicalFallback),
+            _ => Err(()),
+        }
+    }
+}
+
 // ─── Category ────────────────────────────────────────────────────────────────
 
 /// Category of a [`SecurityEvent`] — matches the headings in
 /// `docs/security-event-catalog.md`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SecurityEventCategory {
     /// Command Guard accept/reject decisions (Stage 17).
     CommandDecision,
@@ -122,7 +158,7 @@ impl SecurityEventCategory {
 ///
 /// The variants implemented here are the ones emitted by the core paths wired
 /// in tasks 5.4 and 5.8.  Task 25.1 extends this enum to the full catalog.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ReasonCode {
     // CrdtHardening
     /// Inbound delta quarantined; `detail` carries the specific violation.
@@ -304,6 +340,16 @@ pub enum ReasonCode {
     /// A bootstrap enrollment nonce was reused inside its retention window.
     NonceReused,
 
+    // SecurityLog (PV-7, task 25/26)
+    /// Signed checkpoint record written to the security event log (PV-7.3).
+    CheckpointWritten,
+    /// Hash-chain broken; entering Restricted mode (PV-7.4).
+    TamperDetection,
+    /// Signed chain-recovery command accepted; new segment opened (PV-7.4).
+    ChainRecovery,
+    /// Peer observed a higher checkpoint hash than local log (PV-7.10).
+    TailTruncation,
+
     // Startup / Diagnostic
     /// Gateway startup completed.
     BootCompleted,
@@ -429,6 +475,10 @@ impl ReasonCode {
             ReasonCode::EpochBumped => "EpochBumped",
             ReasonCode::EpochRegression => "EpochRegression",
             ReasonCode::NonceReused => "NonceReused",
+            ReasonCode::CheckpointWritten => "CheckpointWritten",
+            ReasonCode::TamperDetection => "TamperDetection",
+            ReasonCode::ChainRecovery => "ChainRecovery",
+            ReasonCode::TailTruncation => "TailTruncation",
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
             ReasonCode::QuickCheckFailed => "QuickCheckFailed",

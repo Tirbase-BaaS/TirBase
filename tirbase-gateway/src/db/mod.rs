@@ -24,6 +24,7 @@ pub mod ledger_reconciliation;
 pub mod lockdown;
 pub mod migrations;
 pub mod pending_approvals;
+pub mod security_events;
 pub mod single_writer_leases;
 pub mod sqlite_errors;
 pub mod target_state;
