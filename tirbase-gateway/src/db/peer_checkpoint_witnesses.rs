@@ -25,7 +25,12 @@ pub fn upsert_peer_checkpoint_witness(
            seq=excluded.seq,
            checkpoint_hash=excluded.checkpoint_hash,
            observed_at=excluded.observed_at",
-        params![peer_did, seq as i64, checkpoint_hash.as_slice(), observed_at],
+        params![
+            peer_did,
+            seq as i64,
+            checkpoint_hash.as_slice(),
+            observed_at
+        ],
     )?;
     Ok(())
 }
@@ -76,9 +81,7 @@ pub fn list_peer_checkpoint_witnesses(
     rows.collect()
 }
 
-pub fn latest_local_checkpoint(
-    conn: &Connection,
-) -> rusqlite::Result<Option<(u64, [u8; 32])>> {
+pub fn latest_local_checkpoint(conn: &Connection) -> rusqlite::Result<Option<(u64, [u8; 32])>> {
     conn.query_row(
         "SELECT seq, checkpoint_hash FROM security_events WHERE is_checkpoint=1 AND checkpoint_hash IS NOT NULL ORDER BY seq DESC LIMIT 1",
         [],
