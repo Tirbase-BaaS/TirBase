@@ -82,6 +82,66 @@ impl KernelIsolationCaps {
         self.landlock_available
             && (self.kernel_major > 5 || (self.kernel_major == 5 && self.kernel_minor >= 13))
     }
+
+    /// Detect the running kernel's isolation capabilities (CLAIM-33.6).
+    ///
+    /// `landlock_available` is true only when the kernel's active LSM list
+    /// includes `landlock`.  On non-Unix targets every capability is reported
+    /// false so callers fail closed.
+    #[cfg(unix)]
+    pub fn detect() -> Self {
+        // SAFETY: `uname` writes into a zeroed `utsname`; the pointer is valid.
+        let mut uts: libc::utsname = unsafe { core::mem::zeroed() };
+        let release = if unsafe { libc::uname(&mut uts) } == 0 {
+            // SAFETY: `release` is a NUL-terminated C string owned by `uts`.
+            unsafe { std::ffi::CStr::from_ptr(uts.release.as_ptr()) }
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            String::new()
+        };
+        let mut parts = release.split('.');
+        let major = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let minor = parts
+            .next()
+            .and_then(|s| {
+                s.trim_end_matches(|c: char| !c.is_ascii_digit())
+                    .parse()
+                    .ok()
+            })
+            .unwrap_or(0);
+        let landlock_available = std::fs::read_to_string("/sys/kernel/security/lsm")
+            .map(|lsm| lsm.split(',').any(|entry| entry.trim() == "landlock"))
+            .unwrap_or(false);
+        Self {
+            kernel_major: major,
+            kernel_minor: minor,
+            landlock_available,
+        }
+    }
+
+    /// Non-Unix targets have no landlock; report every capability as absent.
+    #[cfg(not(unix))]
+    pub fn detect() -> Self {
+        Self {
+            kernel_major: 0,
+            kernel_minor: 0,
+            landlock_available: false,
+        }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod detect_tests {
+    use super::*;
+
+    #[test]
+    fn detect_reports_a_kernel_version() {
+        let caps = KernelIsolationCaps::detect();
+        assert!(caps.kernel_major > 0, "unexpected caps: {caps:?}");
+        // supports_landlock is never true unless landlock is actually present.
+        assert!(!caps.supports_landlock() || caps.landlock_available);
+    }
 }
 
 /// Creates `socketpair(AF_UNIX, SOCK_SEQPACKET)` for guard<->driver IPC.
