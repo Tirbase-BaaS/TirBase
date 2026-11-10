@@ -41,13 +41,17 @@ pub use lifecycle::{
 };
 pub use modbus::{
     build_rtu_frame, crc16_rtu, decode_read_registers_response, decode_write_multiple_response,
-    decode_write_single_response, parse_exception, parse_rtu_frame, parse_tcp_adu, FunctionCode,
-    ModbusTcpAdu, ModbusTcpCodec, WireMode,
+    decode_write_single_response, open_modbus_rtu, parse_exception, parse_rtu_frame, parse_tcp_adu,
+    read_tcp_adu_with_timeout, FunctionCode, ModbusRtuClient, ModbusRtuParity,
+    ModbusRtuSerialConfig, ModbusTcpAdu, ModbusTcpClient, ModbusTcpCodec, WireMode,
 };
+
 pub use mqtt::{
-    connect_tls_only, MqttBridgeCodec, MqttConnectConfig, MqttQoS, MqttSecurityError,
-    TlsValidatedEndpoint,
+    client_config_with_roots, connect_tls_only, install_crypto_provider, parse_mqtts_uri,
+    MqttBridgeCodec, MqttConnectConfig, MqttError, MqttQoS, MqttSecurityError, MqttTlsClient,
+    TlsTcpStream, TlsValidatedEndpoint,
 };
+
 pub use register_map::{ModbusRegisterMap, RegisterDef, RegisterMapError, RegisterWordOrder};
 pub use tirbase_types;
 

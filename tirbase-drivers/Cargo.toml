@@ -8,9 +8,15 @@ license = "MIT"
 [dependencies]
 # STRICT: tirbase-drivers MUST NOT depend on tirbase-guard or tirbase-core (design.md §Dependency edges, PV-10.3, CLAIM-33.1/33.8)
 tirbase-types = { workspace = true }
+# 34.2: real MQTT 3.1.1 bridge over rustls (external TLS deps allowed).
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+rustls-pki-types = "1"
+webpki-roots = "0.26"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+nix = { version = "0.29", default-features = false, features = ["fs", "term"] }
 
 [dev-dependencies]
 tirbase-sim = { workspace = true }
+rcgen = "0.13"

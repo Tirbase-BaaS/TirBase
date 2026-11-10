@@ -313,9 +313,17 @@ pub fn recv_fd_via_scm_rights(socket_fd: i32) -> Result<i32, IsolationError> {
         let e = io::Error::last_os_error();
         return Err(IsolationError::Socketpair(e.kind(), e.to_string()));
     }
+    if rc == 0 {
+        return Err(IsolationError::PeerCredential(
+            "socket closed before SCM_RIGHTS message".into(),
+        ));
+    }
     unsafe {
         let cmsg = libc::CMSG_FIRSTHDR(&msg);
-        if cmsg.is_null() || (*cmsg).cmsg_type != libc::SCM_RIGHTS {
+        if cmsg.is_null()
+            || (*cmsg).cmsg_level != libc::SOL_SOCKET
+            || (*cmsg).cmsg_type != libc::SCM_RIGHTS
+        {
             return Err(IsolationError::PeerCredential(
                 "missing SCM_RIGHTS control message".into(),
             ));
