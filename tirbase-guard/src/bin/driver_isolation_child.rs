@@ -10,9 +10,12 @@ fn main() {
     let mode = args.next().unwrap_or_default();
     let mut sock_fd: RawFd = -1;
     let mut close_fds: Vec<RawFd> = Vec::new();
+    let mut crash_once: Option<String> = None;
+    let mut degraded_opt_in = false;
+    let mut expect_device_fd = false;
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--socket-fd" => {
+            "--socket-fd" | "--tirbase-driver-socket-fd" => {
                 sock_fd = args
                     .next()
                     .and_then(|s| s.parse().ok())
@@ -23,6 +26,11 @@ fn main() {
                     close_fds.push(fd);
                 }
             }
+            "--crash-once" => {
+                crash_once = args.next();
+            }
+            "--degraded-isolation-opt-in" => degraded_opt_in = true,
+            "--expect-device-fd" => expect_device_fd = true,
             s if sock_fd < 0 => {
                 // back-compat positional fd
                 if let Ok(fd) = s.parse() {
@@ -45,6 +53,12 @@ fn main() {
     match mode.as_str() {
         "--recv-and-report" => recv_and_report(sock_fd),
         "--recv-apply-sandbox-attempt-scm-rights" => sandbox_then_attempt(sock_fd),
+        "--sandboxed-driver" => sandboxed_driver(
+            sock_fd,
+            expect_device_fd,
+            degraded_opt_in,
+            crash_once.as_deref(),
+        ),
         _ => {
             eprintln!("unknown mode: {mode}");
             std::process::exit(2);
@@ -235,4 +249,109 @@ fn apply_linux_sandbox_before_parse() -> String {
 #[cfg(all(unix, not(target_os = "linux")))]
 fn apply_linux_sandbox_before_parse() -> String {
     "UNAVAILABLE:linux_seccomp_landlock_not_supported_on_this_platform".to_string()
+}
+
+/// Production driver-child mode (CLAIM-33.5/33.6/33.7): receive the guard-owned
+/// device fd, apply the seccomp-BPF + landlock sandbox **before any frame is
+/// parsed**, then serve the codec loop over the inherited socket only.
+///
+/// `--crash-once <path>` is a harness for the restart integration test: the
+/// first child (marker absent) exits non-zero before sandboxing; the respawned
+/// child (marker present) runs normally.
+#[cfg(unix)]
+fn sandboxed_driver(
+    sock_fd: i32,
+    expect_device_fd: bool,
+    degraded_opt_in: bool,
+    crash_once: Option<&str>,
+) {
+    // 1) Guard-owned device fd handoff completes before the sandbox is applied;
+    // no command frame has been read at this point.
+    let device_fd = if expect_device_fd {
+        match tirbase_drivers::recv_fd_via_scm_rights(sock_fd) {
+            Ok(fd) => Some(fd),
+            Err(e) => {
+                println!("RECV_ERR:{e}");
+                std::process::exit(11);
+            }
+        }
+    } else {
+        None
+    };
+
+    if let Some(path) = crash_once {
+        if !std::path::Path::new(path).exists() {
+            let _ = std::fs::write(path, b"crashed");
+            println!("CRASH_BEFORE_SANDBOX");
+            std::process::exit(7);
+        }
+    }
+
+    // 2) Sandbox first, parse later (CLAIM-33.6).
+    #[cfg(all(
+        unix,
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
+    {
+        let caps = tirbase_drivers::isolation::KernelIsolationCaps::detect();
+        let landlock = caps.supports_landlock();
+        match tirbase_drivers::apply_child_sandbox(caps, degraded_opt_in) {
+            Ok(()) => println!("SANDBOX:APPLIED:landlock={landlock}"),
+            Err(e) => {
+                println!("SANDBOX:FAILED:{e}");
+                std::process::exit(20);
+            }
+        }
+        // Probe that the sandbox is really in force: filesystem open and
+        // socket creation must both fail after the sandbox is applied.
+        match std::fs::File::open("/etc/hostname") {
+            Ok(f) => {
+                drop(f);
+                println!("FS_PROBE:ALLOWED");
+            }
+            Err(e) => println!("FS_PROBE:BLOCKED:{e}"),
+        }
+        let rc = unsafe { libc::socket(libc::AF_INET, libc::SOCK_STREAM, 0) };
+        if rc >= 0 {
+            unsafe {
+                libc::close(rc);
+            }
+            println!("NET_PROBE:ALLOWED");
+        } else {
+            println!("NET_PROBE:BLOCKED:{}", std::io::Error::last_os_error());
+        }
+    }
+    #[cfg(not(all(
+        unix,
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )))]
+    {
+        let _ = degraded_opt_in;
+        println!("SANDBOX:UNAVAILABLE:linux_seccomp_landlock_not_supported_on_this_platform");
+    }
+
+    // 3) Codec loop over the inherited socket only.  No filesystem or network
+    // syscall is needed from here on.
+    println!("READY");
+    loop {
+        let mut buf = [0u8; 64];
+        let n = unsafe { libc::recv(sock_fd, buf.as_mut_ptr().cast(), buf.len(), 0) };
+        if n <= 0 {
+            break;
+        }
+        let n = n as usize;
+        let frame = String::from_utf8_lossy(&buf[..n]).into_owned();
+        println!("FRAME:{frame}");
+        let sent = unsafe { libc::send(sock_fd, buf.as_ptr().cast(), n, 0) };
+        if sent < 0 {
+            break;
+        }
+    }
+    if let Some(fd) = device_fd {
+        unsafe {
+            libc::close(fd);
+        }
+    }
 }

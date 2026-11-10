@@ -1125,8 +1125,13 @@ pub tirbase_guard::device_transport::DeviceTransport::ModbusTcp(std::net::tcp::T
 pub tirbase_guard::device_transport::DeviceTransport::Raw(std::os::fd::owned::OwnedFd)
 impl tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::as_raw_fd(&self) -> std::os::fd::raw::RawFd
-pub fn tirbase_guard::device_transport::DeviceTransport::connect_modbus_tcp(&str) -> core::io::error::Result<Self>
-pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::connect_modbus_tcp(&str, core::time::Duration, core::option::Option<core::time::Duration>) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::from_modbus_rtu_fd(std::os::fd::owned::OwnedFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_fd(std::os::fd::owned::OwnedFd) -> Self
+pub unsafe fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::modbus_rtu_path_unavailable(&std::path::Path) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu(&std::path::Path, u32, u8, tirbase_drivers::modbus::ModbusRtuParity, u8, u32) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce() -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 pub fn tirbase_guard::device_transport::DeviceTransport::try_clone_fd(&self) -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 impl core::fmt::Debug for tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -1175,7 +1180,7 @@ pub struct tirbase_guard::device_transport::GuardDeviceTransport
 pub tirbase_guard::device_transport::GuardDeviceTransport::transport: tirbase_guard::device_transport::DeviceTransport
 impl tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::new(tirbase_guard::device_transport::DeviceTransport) -> Self
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<()> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<()>
 impl core::fmt::Debug for tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -1221,6 +1226,61 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::device_transport::GuardDeviceTransport where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::vzip(self) -> V
 pub mod tirbase_guard::driver_proxy
+pub enum tirbase_guard::driver_proxy::DriverSupervisionError
+pub tirbase_guard::driver_proxy::DriverSupervisionError::Isolation(tirbase_drivers::isolation::IsolationError)
+pub tirbase_guard::driver_proxy::DriverSupervisionError::Spawn(core::io::error::Error)
+impl core::convert::From<tirbase_drivers::isolation::IsolationError> for tirbase_guard::driver_proxy::DriverSupervisionError
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::from(tirbase_drivers::isolation::IsolationError) -> Self
+impl core::error::Error for tirbase_guard::driver_proxy::DriverSupervisionError
+impl core::fmt::Debug for tirbase_guard::driver_proxy::DriverSupervisionError
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_guard::driver_proxy::DriverSupervisionError
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_guard::driver_proxy::DriverSupervisionError
+impl core::marker::Send for tirbase_guard::driver_proxy::DriverSupervisionError
+impl core::marker::Sync for tirbase_guard::driver_proxy::DriverSupervisionError
+impl core::marker::Unpin for tirbase_guard::driver_proxy::DriverSupervisionError
+impl core::marker::UnsafeUnpin for tirbase_guard::driver_proxy::DriverSupervisionError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::driver_proxy::DriverSupervisionError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_guard::driver_proxy::DriverSupervisionError
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::driver_proxy::DriverSupervisionError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::driver_proxy::DriverSupervisionError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::driver_proxy::DriverSupervisionError where U: core::convert::From<T>
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::driver_proxy::DriverSupervisionError where U: core::convert::Into<T>
+pub type tirbase_guard::driver_proxy::DriverSupervisionError::Error = core::convert::Infallible
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::driver_proxy::DriverSupervisionError where U: core::convert::TryFrom<T>
+pub type tirbase_guard::driver_proxy::DriverSupervisionError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_guard::driver_proxy::DriverSupervisionError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_guard::driver_proxy::DriverSupervisionError where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::driver_proxy::DriverSupervisionError where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::driver_proxy::DriverSupervisionError where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_guard::driver_proxy::DriverSupervisionError
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_guard::driver_proxy::DriverSupervisionError where T: core::any::Any
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_guard::driver_proxy::DriverSupervisionError where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_guard::driver_proxy::DriverSupervisionError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::driver_proxy::DriverSupervisionError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_guard::driver_proxy::DriverSupervisionError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_guard::driver_proxy::DriverSupervisionError
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::driver_proxy::DriverSupervisionError
+impl<T> typenum::type_operators::Same for tirbase_guard::driver_proxy::DriverSupervisionError
+pub type tirbase_guard::driver_proxy::DriverSupervisionError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::DriverSupervisionError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::DriverSupervisionError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::driver_proxy::DriverSupervisionError::vzip(self) -> V
 pub enum tirbase_guard::driver_proxy::IngressSource
 pub tirbase_guard::driver_proxy::IngressSource::CloudApi
 pub tirbase_guard::driver_proxy::IngressSource::LocalAdmin
@@ -1287,7 +1347,140 @@ pub type tirbase_guard::driver_proxy::IngressSource::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::IngressSource where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::IngressSource where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::driver_proxy::IngressSource::vzip(self) -> V
+pub struct tirbase_guard::driver_proxy::ChildDriverConfig
+pub tirbase_guard::driver_proxy::ChildDriverConfig::args: alloc::vec::Vec<alloc::string::String>
+pub tirbase_guard::driver_proxy::ChildDriverConfig::capture_output: bool
+pub tirbase_guard::driver_proxy::ChildDriverConfig::degraded_isolation_opt_in: bool
+pub tirbase_guard::driver_proxy::ChildDriverConfig::device_fd: core::option::Option<std::os::fd::raw::RawFd>
+pub tirbase_guard::driver_proxy::ChildDriverConfig::expected_peer_uid: core::option::Option<u32>
+pub tirbase_guard::driver_proxy::ChildDriverConfig::program: std::path::PathBuf
+impl core::clone::Clone for tirbase_guard::driver_proxy::ChildDriverConfig
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::clone(&self) -> tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::fmt::Debug for tirbase_guard::driver_proxy::ChildDriverConfig
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::marker::Send for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::marker::Sync for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::marker::Unpin for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::marker::UnsafeUnpin for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::driver_proxy::ChildDriverConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::driver_proxy::ChildDriverConfig
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::driver_proxy::ChildDriverConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::driver_proxy::ChildDriverConfig where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::driver_proxy::ChildDriverConfig where U: core::convert::From<T>
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::driver_proxy::ChildDriverConfig where U: core::convert::Into<T>
+pub type tirbase_guard::driver_proxy::ChildDriverConfig::Error = core::convert::Infallible
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::driver_proxy::ChildDriverConfig where U: core::convert::TryFrom<T>
+pub type tirbase_guard::driver_proxy::ChildDriverConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_guard::driver_proxy::ChildDriverConfig where T: core::clone::Clone
+pub type tirbase_guard::driver_proxy::ChildDriverConfig::Owned = T
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::clone_into(&self, &mut T)
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_guard::driver_proxy::ChildDriverConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::driver_proxy::ChildDriverConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::driver_proxy::ChildDriverConfig where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_guard::driver_proxy::ChildDriverConfig where T: core::clone::Clone
+pub unsafe fn tirbase_guard::driver_proxy::ChildDriverConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_guard::driver_proxy::ChildDriverConfig
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_guard::driver_proxy::ChildDriverConfig where T: core::any::Any
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_guard::driver_proxy::ChildDriverConfig where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_guard::driver_proxy::ChildDriverConfig
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::driver_proxy::ChildDriverConfig where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::driver_proxy::ChildDriverConfig
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::driver_proxy::ChildDriverConfig
+impl<T> typenum::type_operators::Same for tirbase_guard::driver_proxy::ChildDriverConfig
+pub type tirbase_guard::driver_proxy::ChildDriverConfig::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::ChildDriverConfig where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::ChildDriverConfig where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::driver_proxy::ChildDriverConfig::vzip(self) -> V
+pub struct tirbase_guard::driver_proxy::DriverChildSocket
+impl tirbase_guard::driver_proxy::DriverChildSocket
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::raw_fd(&self) -> std::os::fd::raw::RawFd
+impl alloc::io::read::Read for tirbase_guard::driver_proxy::DriverChildSocket
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::read(&mut self, &mut [u8]) -> core::io::error::Result<usize>
+impl core::fmt::Debug for tirbase_guard::driver_proxy::DriverChildSocket
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::io::write::Write for tirbase_guard::driver_proxy::DriverChildSocket
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::io::error::Result<()>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::write(&mut self, &[u8]) -> core::io::error::Result<usize>
+impl core::marker::Freeze for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::marker::Send for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::marker::Sync for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::marker::Unpin for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::marker::UnsafeUnpin for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::driver_proxy::DriverChildSocket
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::driver_proxy::DriverChildSocket
+impl<R> byteorder::io::ReadBytesExt for tirbase_guard::driver_proxy::DriverChildSocket where R: alloc::io::read::Read + ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::driver_proxy::DriverChildSocket where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::driver_proxy::DriverChildSocket where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::driver_proxy::DriverChildSocket where U: core::convert::From<T>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::driver_proxy::DriverChildSocket where U: core::convert::Into<T>
+pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = core::convert::Infallible
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::driver_proxy::DriverChildSocket where U: core::convert::TryFrom<T>
+pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> ciborium_io::Read for tirbase_guard::driver_proxy::DriverChildSocket where T: alloc::io::read::Read
+pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = core::io::error::Error
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::read_exact(&mut self, &mut [u8]) -> core::result::Result<(), <T as ciborium_io::Read>::Error>
+impl<T> ciborium_io::Write for tirbase_guard::driver_proxy::DriverChildSocket where T: core::io::write::Write
+pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = core::io::error::Error
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::result::Result<(), <T as ciborium_io::Write>::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::write_all(&mut self, &[u8]) -> core::result::Result<(), <T as ciborium_io::Write>::Error>
+impl<T> core::any::Any for tirbase_guard::driver_proxy::DriverChildSocket where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::driver_proxy::DriverChildSocket where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::driver_proxy::DriverChildSocket where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_guard::driver_proxy::DriverChildSocket
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_guard::driver_proxy::DriverChildSocket where T: core::any::Any
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_guard::driver_proxy::DriverChildSocket where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_guard::driver_proxy::DriverChildSocket
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::driver_proxy::DriverChildSocket where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::driver_proxy::DriverChildSocket
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::driver_proxy::DriverChildSocket
+impl<T> typenum::type_operators::Same for tirbase_guard::driver_proxy::DriverChildSocket
+pub type tirbase_guard::driver_proxy::DriverChildSocket::Output = T
+impl<T> wasmi::module::read::Read for tirbase_guard::driver_proxy::DriverChildSocket where T: alloc::io::read::Read
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::read(&mut self, &mut [u8]) -> core::result::Result<usize, wasmi::module::read::ReadError>
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::DriverChildSocket where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::DriverChildSocket where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::vzip(self) -> V
+impl<W> byteorder::io::WriteBytesExt for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write + ?core::marker::Sized
+impl<W> der::writer::Writer for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::write(&mut self, &[u8]) -> core::result::Result<(), der::error::Error>
+impl<W> quick_protobuf::writer::WriterBackend for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_all(&mut self, &[u8]) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f32(&mut self, f32) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f64(&mut self, f64) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i32(&mut self, i32) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i64(&mut self, i64) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u32(&mut self, u32) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u64(&mut self, u64) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u8(&mut self, u8) -> core::result::Result<(), quick_protobuf::errors::Error>
 pub struct tirbase_guard::driver_proxy::DriverProxy<W: core::io::write::Write + core::marker::Send>
+impl tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>
+pub fn tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>::spawn_child(&tirbase_guard::driver_proxy::ChildDriverConfig, tirbase_drivers::lifecycle::DriverLifecycle) -> core::result::Result<tirbase_guard::driver_proxy::SupervisedDriver, tirbase_guard::driver_proxy::DriverSupervisionError>
 impl<W: core::io::write::Write + core::marker::Send> tirbase_guard::driver_proxy::DriverProxy<W>
 pub fn tirbase_guard::driver_proxy::DriverProxy<W>::dispatch(&mut self, tirbase_guard::permit::ActuationPermit, &[u8]) -> core::io::error::Result<tirbase_guard::permit::ActuationPermitRef>
 pub fn tirbase_guard::driver_proxy::DriverProxy<W>::new(W) -> Self
@@ -1334,6 +1527,67 @@ pub type tirbase_guard::driver_proxy::DriverProxy<W>::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::DriverProxy<W> where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::DriverProxy<W> where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::driver_proxy::DriverProxy<W>::vzip(self) -> V
+pub struct tirbase_guard::driver_proxy::SupervisedDriver
+impl tirbase_guard::driver_proxy::SupervisedDriver
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::child_pid(&self) -> u32
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::consecutive_crashes(&self) -> u32
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::dispatch(&mut self, tirbase_guard::permit::ActuationPermit, &[u8]) -> core::io::error::Result<tirbase_guard::permit::ActuationPermitRef>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::note_stable(&mut self)
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::peer_credentials(&self) -> core::option::Option<(u32, i32)>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::proxy_mut(&mut self) -> &mut tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::receive_with_timeout(&mut self, &mut [u8], core::time::Duration) -> core::io::error::Result<usize>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::restart_after_crash<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(&mut self, &S) -> core::result::Result<tirbase_drivers::lifecycle::DriverRestartDecision, tirbase_guard::driver_proxy::DriverSupervisionError>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::start(tirbase_guard::driver_proxy::ChildDriverConfig) -> core::result::Result<Self, tirbase_guard::driver_proxy::DriverSupervisionError>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::start_with_lifecycle(tirbase_guard::driver_proxy::ChildDriverConfig, tirbase_drivers::lifecycle::DriverLifecycle) -> core::result::Result<Self, tirbase_guard::driver_proxy::DriverSupervisionError>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::take_stdout(&mut self) -> core::option::Option<std::process::ChildStdout>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::terminate(&mut self)
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::try_wait(&mut self) -> core::io::error::Result<core::option::Option<std::process::ExitStatus>>
+impl core::fmt::Debug for tirbase_guard::driver_proxy::SupervisedDriver
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::ops::drop::Drop for tirbase_guard::driver_proxy::SupervisedDriver
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::drop(&mut self)
+impl core::marker::Freeze for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::marker::Send for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::marker::Sync for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::marker::Unpin for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::marker::UnsafeUnpin for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_guard::driver_proxy::SupervisedDriver
+impl core::panic::unwind_safe::UnwindSafe for tirbase_guard::driver_proxy::SupervisedDriver
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_guard::driver_proxy::SupervisedDriver where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_guard::driver_proxy::SupervisedDriver where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_guard::driver_proxy::SupervisedDriver where U: core::convert::From<T>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_guard::driver_proxy::SupervisedDriver where U: core::convert::Into<T>
+pub type tirbase_guard::driver_proxy::SupervisedDriver::Error = core::convert::Infallible
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_guard::driver_proxy::SupervisedDriver where U: core::convert::TryFrom<T>
+pub type tirbase_guard::driver_proxy::SupervisedDriver::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_guard::driver_proxy::SupervisedDriver where T: 'static + ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_guard::driver_proxy::SupervisedDriver where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_guard::driver_proxy::SupervisedDriver where T: ?core::marker::Sized
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_guard::driver_proxy::SupervisedDriver
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_guard::driver_proxy::SupervisedDriver where T: core::any::Any
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_guard::driver_proxy::SupervisedDriver where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_guard::driver_proxy::SupervisedDriver
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_guard::driver_proxy::SupervisedDriver where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_guard::driver_proxy::SupervisedDriver
+impl<T> tracing::instrument::WithSubscriber for tirbase_guard::driver_proxy::SupervisedDriver
+impl<T> typenum::type_operators::Same for tirbase_guard::driver_proxy::SupervisedDriver
+pub type tirbase_guard::driver_proxy::SupervisedDriver::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_guard::driver_proxy::SupervisedDriver where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::SupervisedDriver where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_guard::driver_proxy::SupervisedDriver::vzip(self) -> V
+pub const tirbase_guard::driver_proxy::DRIVER_RESTART_POLL_INTERVAL: core::time::Duration
 pub mod tirbase_guard::enrollment
 pub struct tirbase_guard::enrollment::DeviceIdentity
 impl tirbase_guard::enrollment::DeviceIdentity
@@ -5728,8 +5982,13 @@ pub tirbase_guard::DeviceTransport::ModbusTcp(std::net::tcp::TcpStream)
 pub tirbase_guard::DeviceTransport::Raw(std::os::fd::owned::OwnedFd)
 impl tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::as_raw_fd(&self) -> std::os::fd::raw::RawFd
-pub fn tirbase_guard::device_transport::DeviceTransport::connect_modbus_tcp(&str) -> core::io::error::Result<Self>
-pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::connect_modbus_tcp(&str, core::time::Duration, core::option::Option<core::time::Duration>) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::from_modbus_rtu_fd(std::os::fd::owned::OwnedFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_fd(std::os::fd::owned::OwnedFd) -> Self
+pub unsafe fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
+pub fn tirbase_guard::device_transport::DeviceTransport::modbus_rtu_path_unavailable(&std::path::Path) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu(&std::path::Path, u32, u8, tirbase_drivers::modbus::ModbusRtuParity, u8, u32) -> core::io::error::Result<Self>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce() -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 pub fn tirbase_guard::device_transport::DeviceTransport::try_clone_fd(&self) -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 impl core::fmt::Debug for tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -7972,6 +8231,8 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::enrollment::DeviceIdentity where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::enrollment::DeviceIdentity::vzip(self) -> V
 pub struct tirbase_guard::DriverProxy<W: core::io::write::Write + core::marker::Send>
+impl tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>
+pub fn tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>::spawn_child(&tirbase_guard::driver_proxy::ChildDriverConfig, tirbase_drivers::lifecycle::DriverLifecycle) -> core::result::Result<tirbase_guard::driver_proxy::SupervisedDriver, tirbase_guard::driver_proxy::DriverSupervisionError>
 impl<W: core::io::write::Write + core::marker::Send> tirbase_guard::driver_proxy::DriverProxy<W>
 pub fn tirbase_guard::driver_proxy::DriverProxy<W>::dispatch(&mut self, tirbase_guard::permit::ActuationPermit, &[u8]) -> core::io::error::Result<tirbase_guard::permit::ActuationPermitRef>
 pub fn tirbase_guard::driver_proxy::DriverProxy<W>::new(W) -> Self
@@ -8507,7 +8768,7 @@ pub struct tirbase_guard::GuardDeviceTransport
 pub tirbase_guard::GuardDeviceTransport::transport: tirbase_guard::device_transport::DeviceTransport
 impl tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::new(tirbase_guard::device_transport::DeviceTransport) -> Self
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<()> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<()>
 impl core::fmt::Debug for tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result

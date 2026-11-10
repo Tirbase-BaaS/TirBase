@@ -204,14 +204,18 @@ async fn main() -> Result<()> {
                 "driver isolation: landlock unavailable; driver children stay disabled unless degraded isolation is explicitly opted into"
             );
         }
-        let lifecycle = tirbase_drivers::lifecycle::DriverLifecycle::default();
+        // The persistent driver child is spawned and supervised through the
+        // guard-owned proxy: socketpair isolation, SO_PEERCRED verification,
+        // SCM_RIGHTS device handoff, and lifecycle-driven restart decisions
+        // (CLAIM-33.5/33.6/33.7).
         tracing::info!(
-            consecutive_crashes = lifecycle.consecutive_crashes(),
             max_retries = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX_RETRIES,
             initial_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_INITIAL.as_secs(),
             max_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX.as_secs(),
-            "driver lifecycle accounting initialised"
+            "driver lifecycle policy: supervised child with exponential backoff"
         );
+        #[cfg(unix)]
+        start_driver_supervision();
     }
 
     // Prometheus metrics (CLAIM-35.5)
@@ -249,6 +253,9 @@ async fn main() -> Result<()> {
         tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Starting);
     let primary_db_path = config.counter_db_path.clone();
     let derived_db_path = config.effective_derived_db_path();
+    // Signed delta log source for derived-ledger rebuild (CLAIM-31.5, PV-9.3).
+    // CoreHandle stores the signed DAG/delta log in core.db beside primary.db.
+    let core_db_path = primary_db_path.with_file_name("core.db");
     {
         let _primary = match db::open_primary_with_key(
             &primary_db_path,
@@ -307,7 +314,7 @@ async fn main() -> Result<()> {
                     tracing::warn!(action = %action, "derived.db corrupt; attempting signed-delta-log rebuild (CLAIM-31.5)");
                     match db::ledger_recovery::recover_derived_on_corruption(
                         &derived_db_path,
-                        None,
+                        Some(core_db_path.as_path()),
                         Some(node_mode.as_ref()),
                     ) {
                         Ok(_conn) => {}
@@ -535,7 +542,6 @@ async fn main() -> Result<()> {
     // Core runtime handle installed for the process lifetime (task 35.1).  It is
     // initialised from the configured primary DB location so the CRDT/transport
     // runtime lives beside the gateway ledgers rather than in a process-local DB.
-    let core_db_path = primary_db_path.with_file_name("core.db");
     let core_root_ca_keys = trust_root
         .as_ref()
         .map(|record| {
@@ -781,6 +787,170 @@ struct CommandRuntime {
     _idempotency: Arc<SqliteIdempotencyStore>,
     _drift_rate: Arc<SqliteDriftRateHistoryStore>,
     _target_state: Arc<SqliteTargetStateStore>,
+}
+
+/// Guard-owned device transport, kept alive for the process lifetime so the fd
+/// handed to the driver child stays valid (CLAIM-34.8).
+#[cfg(unix)]
+static GUARD_DEVICE_TRANSPORT: std::sync::OnceLock<tirbase_guard::DeviceTransport> =
+    std::sync::OnceLock::new();
+
+/// Production driver-child supervision (CLAIM-33.5/33.6/33.7).
+///
+/// Both the child program (`TIRBASE_DRIVER_CHILD`) and the device endpoint
+/// (`TIRBASE_DEVICE_ADDR`, Modbus TCP) are supplied by the deployment.  The
+/// guard owns the device transport and passes its fd to the child via
+/// `SCM_RIGHTS`; without a configured device the child is not started at all,
+/// so no unblocked driver ever runs.  The child applies its seccomp/landlock
+/// sandbox itself before parsing frames.
+#[cfg(unix)]
+fn start_driver_supervision() {
+    let program = match std::env::var_os("TIRBASE_DRIVER_CHILD") {
+        Some(program) => PathBuf::from(program),
+        None => {
+            tracing::info!(
+                env = "TIRBASE_DRIVER_CHILD",
+                "driver child supervision disabled: no driver child program configured"
+            );
+            return;
+        }
+    };
+    let device_addr = match std::env::var("TIRBASE_DEVICE_ADDR") {
+        Ok(addr) if !addr.trim().is_empty() => addr,
+        _ => {
+            tracing::warn!(
+                env = "TIRBASE_DEVICE_ADDR",
+                "driver child not started: no device endpoint configured, driver stays disabled"
+            );
+            return;
+        }
+    };
+    let transport = match tirbase_guard::DeviceTransport::connect_modbus_tcp(
+        &device_addr,
+        Duration::from_secs(5),
+        Some(Duration::from_secs(5)),
+    ) {
+        Ok(transport) => transport,
+        Err(error) => {
+            tracing::error!(
+                %error,
+                addr = %device_addr,
+                "driver child not started: device transport connect failed"
+            );
+            return;
+        }
+    };
+    let device_fd = transport.as_raw_fd();
+    // The guard keeps ownership of the device fd; the child receives a dup via
+    // SCM_RIGHTS inside `SupervisedDriver::start`.
+    if GUARD_DEVICE_TRANSPORT.set(transport).is_err() {
+        tracing::error!("device transport already registered; driver child not started");
+        return;
+    }
+    let config = tirbase_guard::driver_proxy::ChildDriverConfig {
+        program,
+        args: vec!["--sandboxed-driver".to_string()],
+        device_fd: Some(device_fd),
+        degraded_isolation_opt_in: false,
+        expected_peer_uid: None,
+        capture_output: false,
+    };
+    match tirbase_guard::driver_proxy::SupervisedDriver::start(config) {
+        Ok(driver) => {
+            tracing::info!(
+                pid = driver.child_pid(),
+                peer = ?driver.peer_credentials(),
+                device_addr = %device_addr,
+                "driver child spawned over socketpair; device fd passed via SCM_RIGHTS, peer credentials checked before first write"
+            );
+            let spawned = std::thread::Builder::new()
+                .name("driver-supervision".into())
+                .spawn(move || driver_supervision_loop(driver));
+            if let Err(error) = spawned {
+                tracing::error!(%error, "failed to start driver supervision thread");
+            }
+        }
+        Err(error) => tracing::error!(
+            %error,
+            "driver child failed to start; actuation dispatch remains disabled"
+        ),
+    }
+}
+
+/// Gateway-side crash accounting hook for the driver child (CLAIM-33.7, S24).
+#[cfg(unix)]
+struct GatewayDriverCrashSupervisor;
+
+#[cfg(unix)]
+impl tirbase_drivers::lifecycle::DriverCrashSupervisor for GatewayDriverCrashSupervisor {
+    fn on_driver_restart(&self, attempt: u32, backoff: std::time::Duration) {
+        tracing::warn!(
+            attempt,
+            backoff_secs = backoff.as_secs(),
+            "driver child crash fed into supervisor accounting; scheduling restart"
+        );
+    }
+
+    fn on_driver_escalate_lockdown(&self, attempts: u32) {
+        tracing::error!(
+            attempts,
+            "driver child crash loop exceeded the retry budget; supervisor LOCKDOWN escalation required"
+        );
+    }
+}
+
+#[cfg(unix)]
+fn driver_supervision_loop(mut driver: tirbase_guard::driver_proxy::SupervisedDriver) {
+    use tirbase_drivers::lifecycle::DriverRestartDecision;
+
+    let supervisor = GatewayDriverCrashSupervisor;
+    let mut stable_ticks: u32 = 0;
+    loop {
+        std::thread::sleep(tirbase_guard::driver_proxy::DRIVER_RESTART_POLL_INTERVAL);
+        match driver.try_wait() {
+            Ok(Some(status)) => {
+                stable_ticks = 0;
+                tracing::warn!(
+                    ?status,
+                    pid = driver.child_pid(),
+                    "driver child exited; applying restart decision"
+                );
+                match driver.restart_after_crash(&supervisor) {
+                    Ok(DriverRestartDecision::Restart { attempt, backoff }) => tracing::warn!(
+                        attempt,
+                        backoff_ms = backoff.as_millis() as u64,
+                        pid = driver.child_pid(),
+                        "driver child restarted with exponential backoff"
+                    ),
+                    Ok(DriverRestartDecision::EscalateLockdown { attempts }) => {
+                        tracing::error!(
+                            attempts,
+                            "driver child crash loop escalated; driver supervision halted"
+                        );
+                        return;
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, "driver child respawn failed; driver supervision halted");
+                        return;
+                    }
+                }
+            }
+            Ok(None) => {
+                stable_ticks = stable_ticks.saturating_add(1);
+                // 60s of uninterrupted uptime (120 x 500ms) clears the crash
+                // accounting, so a later isolated crash starts at 1s again.
+                if stable_ticks >= 120 && driver.consecutive_crashes() > 0 {
+                    driver.note_stable();
+                    stable_ticks = 0;
+                    tracing::info!("driver child stable; crash accounting reset");
+                }
+            }
+            Err(error) => {
+                tracing::error!(%error, "driver child wait failed; driver supervision halted");
+                return;
+            }
+        }
+    }
 }
 
 fn build_command_runtime(
