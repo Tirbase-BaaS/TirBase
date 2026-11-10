@@ -28,6 +28,7 @@ use db::time_ratchet::SqliteTimeRatchetStore;
 use guard::SqliteStage16Store;
 use hw_counter_binding::{BootCheck, HardwareCounterBinding, DEFAULT_SW_INCREMENT_PER_HW_WRITE};
 use key_provider::FileKeyProvider;
+use key_rotation::{FileKeyRotator, KeyRotator};
 use monotonic_counter::{
     default_hardware_counter, NamedMonotonicCounter, SoftwareMonotonicCounter,
 };
@@ -660,6 +661,43 @@ async fn main() -> Result<()> {
     );
     let _pending_approvals = pending_approvals;
 
+    // Task 36.6/36.8a–36.8f: outbound-initiated cloud channel.  There is no
+    // inbound cloud listener anywhere in this binary; the connection is dialled
+    // from here and re-established with exponential backoff.
+    if config.cloud_endpoint.is_some() {
+        match (
+            command_runtime.guard.clone(),
+            command_runtime.stage16.clone(),
+        ) {
+            (Some(guard), Some(stage16)) => {
+                let runtime = tirbase_gateway::cloud::CloudRuntime {
+                    guard,
+                    stage16,
+                    time_source: time_source.clone(),
+                    key_provider: key_provider.clone(),
+                };
+                match tirbase_gateway::cloud::CloudClient::from_config(&config, runtime) {
+                    Ok(Some(client)) => {
+                        let client = Arc::new(client);
+                        tracing::info!(
+                            endpoint = client.endpoint(),
+                            "outbound cloud channel starting (task 36.8)"
+                        );
+                        tokio::spawn(client.run());
+                    }
+                    Ok(None) => {}
+                    Err(error) => tracing::error!(
+                        %error,
+                        "cloud channel disabled: invalid TLS/configuration"
+                    ),
+                }
+            }
+            _ => tracing::warn!(
+                "cloud_endpoint set but no guard/target is configured; cloud channel not started"
+            ),
+        }
+    }
+
     // Attach each handle independently: a gateway configured without an
     // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
     // handle may be dropped just because a sibling is absent.
@@ -676,13 +714,60 @@ async fn main() -> Result<()> {
     admin_state.envelope_profile = command_runtime.envelope_profile.clone();
     admin_state.guard = command_runtime.guard.clone();
     admin_state.challenge_store = command_runtime.challenge_store.clone();
+    admin_state.stage16 = command_runtime.stage16.clone();
+    admin_state.core_handle = Some(core_handle.clone());
+    admin_state.core_db_path = Some(core_db_path.clone());
+    admin_state.ratchet = Some(ratchet.clone());
+    admin_state.time_source = Some(time_source.clone());
+    admin_state.mint_root_ca_seed = match &config.enrollment_root_ca_private_key_path {
+        Some(path) => match read_hex_key(path) {
+            Ok(seed) => Some(Arc::new(seed)),
+            Err(error) => {
+                tracing::warn!(%error, "admin mint disabled: root CA seed unreadable");
+                None
+            }
+        },
+        None => None,
+    };
+    let rotator: Arc<dyn KeyRotator> = Arc::new(FileKeyRotator::new(config.key_path.clone()));
+    admin_state.key_rotator = Some(rotator);
+    admin_state.events_view_window_days = config.admin_events_view_days;
+    admin_state.events_page_size = config.admin_events_page_size;
     let admin_state = Some(Arc::new(admin_state));
+
+    // Task 36.5 (PV-11.5): deny-all until a signed EnvelopeProfile is
+    // installed.  A command ingress socket is only bound when a profile is
+    // installed; otherwise no command socket exists and every attempted command
+    // is refused by construction.  The administrative/health surfaces remain
+    // available so an operator can install a profile and observe the state.
+    let profile_installed = command_runtime.envelope_profile.is_some();
+    if !profile_installed {
+        tracing::warn!(
+            "no signed EnvelopeProfile installed: deny-all command posture active (PV-11.5); no command ingress socket will be opened"
+        );
+        tirbase_core::events::emit(
+            SecurityEvent::new(
+                SecurityEventCategory::Startup,
+                Severity::High,
+                ReasonCode::NoProfile,
+            )
+            .with_actor(key_provider.did())
+            .with_detail(
+                "gateway booted without an installed signed EnvelopeProfile; all command ingress is denied"
+                    .to_string(),
+            ),
+        );
+    }
 
     // Local-admin command transport: the only ingress transport implemented in
     // this gateway binary.  Mesh/cloud receivers are deliberately absent (see
     // the "Task 35 Blocker Note" in CLAIMS.md).
     if let Some(command_addr) = config.local_admin_command_addr {
-        if let (Some(guard), Some(stage16)) = (
+        if !profile_installed {
+            tracing::warn!(
+                "local_admin_command_addr set but no signed EnvelopeProfile is installed; command socket deliberately not opened (deny-all, PV-11.5)"
+            );
+        } else if let (Some(guard), Some(stage16)) = (
             command_runtime.guard.clone(),
             command_runtime.stage16.clone(),
         ) {
@@ -710,11 +795,44 @@ async fn main() -> Result<()> {
 
     if config.admin_enabled {
         let admin_socket = config.admin_socket.clone();
+        let admin_state = admin_state.clone();
         tokio::spawn(async move {
             if let Err(error) = admin::run_admin_listener(&admin_socket, admin_state).await {
                 tracing::warn!(%error, "admin listener unavailable");
             }
         });
+    }
+
+    // Task 36.2 (PV-11.2): optional remote admin listener, mTLS-only.  Config
+    // validation already guarantees the four settings are either all present or
+    // all absent; a TLS material load failure leaves the listener unbound
+    // (fail closed) rather than falling back to plaintext.
+    if let (Some(addr), Some(cert), Some(key), Some(client_ca)) = (
+        config.admin_remote_addr,
+        config.admin_remote_cert_path.as_ref(),
+        config.admin_remote_key_path.as_ref(),
+        config.admin_remote_client_ca_path.as_ref(),
+    ) {
+        match tirbase_gateway::admin_remote::load_server_config(cert, key, client_ca) {
+            Ok(tls) => {
+                let admin_state = admin_state.clone();
+                tokio::spawn(async move {
+                    if let Err(error) = tirbase_gateway::admin_remote::run_remote_admin_listener(
+                        addr,
+                        tls,
+                        admin_state,
+                    )
+                    .await
+                    {
+                        tracing::error!(%error, "remote admin listener unavailable");
+                    }
+                });
+            }
+            Err(error) => tracing::error!(
+                %error,
+                "remote admin disabled: mTLS material could not be loaded"
+            ),
+        }
     }
 
     // Health endpoint (CLAIM-35.4)

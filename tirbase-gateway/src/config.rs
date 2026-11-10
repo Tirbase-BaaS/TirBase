@@ -184,6 +184,73 @@ pub struct GatewayConfig {
     #[serde(default = "default_admin_enabled")]
     pub admin_enabled: bool,
 
+    /// Task 36.2 (PV-11.2): optional remote admin listener.  Remote admin is
+    /// **disabled unless all four settings below are present**; the listener is
+    /// mTLS-only and rejects any client that does not present a certificate
+    /// chaining to `admin_remote_client_ca_path`.
+    #[serde(default)]
+    pub admin_remote_addr: Option<std::net::SocketAddr>,
+
+    /// PEM server certificate chain for the remote admin listener.
+    #[serde(default)]
+    pub admin_remote_cert_path: Option<PathBuf>,
+
+    /// PEM server private key for the remote admin listener.  Never a secret
+    /// committed to the repository; the path is supplied by the deployment.
+    #[serde(default)]
+    pub admin_remote_key_path: Option<PathBuf>,
+
+    /// PEM CA bundle used to authenticate remote admin client certificates.
+    #[serde(default)]
+    pub admin_remote_client_ca_path: Option<PathBuf>,
+
+    /// Task 36.3e (PV-7.13, PV-11.2): admin event-inspection view window in
+    /// days.  Defaults to 7 days; must not exceed the security-event-log
+    /// retention window (`security_event_retention_days`).
+    #[serde(default = "default_admin_events_view_days")]
+    pub admin_events_view_days: i64,
+
+    /// Maximum number of events returned by one `/admin/events` page.
+    #[serde(default = "default_admin_events_page_size")]
+    pub admin_events_page_size: usize,
+
+    /// Task 36.8a–36.8f (PV-11.1): outbound cloud command channel endpoint.
+    /// The gateway only ever initiates this connection; there is deliberately
+    /// no inbound cloud listener setting.
+    #[serde(default)]
+    pub cloud_endpoint: Option<String>,
+
+    /// PEM CA bundle used to verify the cloud endpoint's server certificate.
+    #[serde(default)]
+    pub cloud_ca_cert_path: Option<PathBuf>,
+
+    /// PEM client certificate presented to the cloud endpoint (device
+    /// certificate authentication, task 36.8b).
+    #[serde(default)]
+    pub cloud_device_cert_path: Option<PathBuf>,
+
+    /// PEM client private key matching `cloud_device_cert_path`.
+    #[serde(default)]
+    pub cloud_device_key_path: Option<PathBuf>,
+
+    /// Offline outbound queue depth (ring buffer, task 36.8c).  Default 1024.
+    #[serde(default = "default_cloud_queue_depth")]
+    pub cloud_queue_depth: usize,
+
+    /// Per-connection inbound cloud message rate limit in messages/second
+    /// (task 36.8f).  Default 100.
+    #[serde(default = "default_cloud_rate_limit_per_sec")]
+    pub cloud_rate_limit_per_sec: u32,
+
+    /// Initial reconnect delay for the cloud channel; doubles per failed
+    /// attempt up to `cloud_max_reconnect_delay_secs` (task 36.8a).
+    #[serde(default = "default_cloud_reconnect_initial_secs")]
+    pub cloud_reconnect_initial_secs: u64,
+
+    /// Maximum backoff delay for the cloud channel reconnect loop.
+    #[serde(default = "default_cloud_max_reconnect_delay_secs")]
+    pub cloud_max_reconnect_delay_secs: u64,
+
     /// Optional signed gateway config bundle (PolicyAuthority) instead of a plain
     /// TOML file. When present, the bundle payload is validated and used.
     #[serde(default)]
@@ -289,6 +356,49 @@ impl GatewayConfig {
         if self.cloud_anchor_interval_secs == 0 {
             bail!(
                 "gateway config schema validation failed: cloud_anchor_interval_secs must be >= 1"
+            );
+        }
+        // Task 36.2: remote admin is enabled only when the listen address and
+        // all mTLS material are present.  A partially configured remote admin
+        // endpoint is a fail-closed configuration error, never a plaintext
+        // listener.
+        let remote_settings = [
+            self.admin_remote_addr.is_some(),
+            self.admin_remote_cert_path.is_some(),
+            self.admin_remote_key_path.is_some(),
+            self.admin_remote_client_ca_path.is_some(),
+        ];
+        if remote_settings.iter().any(|set| *set) && !remote_settings.iter().all(|set| *set) {
+            bail!(
+                "gateway config schema validation failed: admin_remote_addr, admin_remote_cert_path, admin_remote_key_path and admin_remote_client_ca_path must be set together (remote admin is mTLS-only)"
+            );
+        }
+        if self.admin_events_view_days <= 0 {
+            bail!("gateway config schema validation failed: admin_events_view_days must be > 0");
+        }
+        if self.admin_events_page_size == 0 {
+            bail!("gateway config schema validation failed: admin_events_page_size must be >= 1");
+        }
+        let cloud_settings = [
+            self.cloud_endpoint.is_some(),
+            self.cloud_ca_cert_path.is_some(),
+            self.cloud_device_cert_path.is_some(),
+            self.cloud_device_key_path.is_some(),
+        ];
+        if cloud_settings.iter().any(|set| *set) && !cloud_settings.iter().all(|set| *set) {
+            bail!(
+                "gateway config schema validation failed: cloud_endpoint, cloud_ca_cert_path, cloud_device_cert_path and cloud_device_key_path must be set together"
+            );
+        }
+        if self.cloud_queue_depth == 0 {
+            bail!("gateway config schema validation failed: cloud_queue_depth must be >= 1");
+        }
+        if self.cloud_reconnect_initial_secs == 0 || self.cloud_max_reconnect_delay_secs == 0 {
+            bail!("gateway config schema validation failed: cloud reconnect delays must be >= 1 second");
+        }
+        if self.cloud_reconnect_initial_secs > self.cloud_max_reconnect_delay_secs {
+            bail!(
+                "gateway config schema validation failed: cloud_reconnect_initial_secs must not exceed cloud_max_reconnect_delay_secs"
             );
         }
         let cloud_anchor_settings = [
@@ -550,6 +660,24 @@ fn default_enrollment_nonce_purge_interval_secs() -> u64 {
 }
 fn default_admin_enabled() -> bool {
     true
+}
+fn default_admin_events_view_days() -> i64 {
+    7
+}
+fn default_admin_events_page_size() -> usize {
+    100
+}
+fn default_cloud_queue_depth() -> usize {
+    1024
+}
+fn default_cloud_rate_limit_per_sec() -> u32 {
+    100
+}
+fn default_cloud_reconnect_initial_secs() -> u64 {
+    1
+}
+fn default_cloud_max_reconnect_delay_secs() -> u64 {
+    60
 }
 fn default_security_event_retention_days() -> i64 {
     90

@@ -4601,6 +4601,7 @@ dependencies = [
  "tirbase-sim",
  "tirbase-types",
  "tokio",
+ "tokio-rustls",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",

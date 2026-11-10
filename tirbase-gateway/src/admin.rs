@@ -4,7 +4,9 @@
 use std::fmt;
 use std::sync::Arc;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use tirbase_core::api::CoreHandle;
+use tirbase_core::traits::TimeSource;
 use tirbase_guard::admit::{
     ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS, DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
 };
@@ -16,6 +18,7 @@ use tirbase_guard::lockdown::{
 };
 use tirbase_guard::node_mode::NodeModeState;
 use tirbase_guard::signed_operation::SignedOperation;
+use tirbase_guard::time::TimeRatchet;
 use tirbase_guard::trust_root::TrustRootRecord;
 use tirbase_guard::PolicyBundle;
 use tirbase_types::envelope::EnvelopeProfile;
@@ -42,6 +45,27 @@ pub struct AdminState {
     pub security_log: Option<std::sync::Arc<crate::security_log::SecurityEventLog>>,
     /// Task 27: device key provider for signed exports/evidence bundles.
     pub key_provider: Option<std::sync::Arc<dyn tirbase_core::traits::KeyProvider>>,
+    /// Task 36.3k/36.7: Stage-16 store supplies anti-replay window positions
+    /// and `SingleWriterLease` state for the Guard status API.
+    pub stage16: Option<Arc<crate::guard::SqliteStage16Store>>,
+    /// Task 36.3l/36.9: live core handle used to replay quarantine entries and
+    /// (via the mesh challenge path) request nonces from peers.
+    pub core_handle: Option<Arc<CoreHandle>>,
+    /// Task 36.3l: core.db path holding the schema quarantine ledger.
+    pub core_db_path: Option<std::path::PathBuf>,
+    /// Task 36.3l: authenticated-time ratchet for `/admin/time-reset`.
+    pub ratchet: Option<Arc<std::sync::Mutex<TimeRatchet>>>,
+    /// Task 36.3l: time source used when evaluating signed operations.
+    pub time_source: Option<Arc<dyn TimeSource>>,
+    /// Task 36.3b: root CA seed used to mint scoped Biscuit tokens.  Never
+    /// serialized or logged.
+    pub mint_root_ca_seed: Option<Arc<Vec<u8>>>,
+    /// Task 36.3c: device key rotation backend.
+    pub key_rotator: Option<Arc<dyn crate::key_rotation::KeyRotator>>,
+    /// Task 36.3e/PV-7.13: event-inspection view window in days (default 7).
+    pub events_view_window_days: i64,
+    /// Task 36.3e: page size cap for a single event-inspection query.
+    pub events_page_size: usize,
 }
 
 impl fmt::Debug for AdminState {
@@ -53,6 +77,11 @@ impl fmt::Debug for AdminState {
             .field("has_policy", &self.policy.is_some())
             .field("has_node_mode", &self.node_mode.is_some())
             .field("has_lockdown", &self.lockdown_store.is_some())
+            .field("has_stage16", &self.stage16.is_some())
+            .field("has_core_handle", &self.core_handle.is_some())
+            .field("has_ratchet", &self.ratchet.is_some())
+            .field("has_mint_seed", &self.mint_root_ca_seed.is_some())
+            .field("has_key_rotator", &self.key_rotator.is_some())
             .finish()
     }
 }
@@ -73,6 +102,15 @@ impl Default for AdminState {
             primary_db_path: None,
             security_log: None,
             key_provider: None,
+            stage16: None,
+            core_handle: None,
+            core_db_path: None,
+            ratchet: None,
+            time_source: None,
+            mint_root_ca_seed: None,
+            key_rotator: None,
+            events_view_window_days: 7,
+            events_page_size: 100,
         }
     }
 }
@@ -97,6 +135,43 @@ impl AdminState {
             primary_db_path: None,
             security_log: None,
             key_provider: None,
+            stage16: None,
+            core_handle: None,
+            core_db_path: None,
+            ratchet: None,
+            time_source: None,
+            mint_root_ca_seed: None,
+            key_rotator: None,
+            events_view_window_days: 7,
+            events_page_size: 100,
+        }
+    }
+}
+
+/// Who is invoking the admin API.
+///
+/// Local calls are authenticated by the kernel (`SO_PEERCRED` / `getpeereid`),
+/// which is the PV-11.2 model for the Unix socket.  Remote calls arrive over
+/// mTLS; the transport proves the client certificate, and a scoped Biscuit
+/// token proves the caller's role for privileged operations.
+#[derive(Debug, Clone, Default)]
+pub enum AdminCaller {
+    /// Kernel-attested local process (root or the gateway's own UID).
+    #[default]
+    Local,
+    /// Client-certificate-authenticated remote caller.
+    Remote { biscuit_token_hex: Option<String> },
+}
+
+impl AdminCaller {
+    pub fn is_local(&self) -> bool {
+        matches!(self, AdminCaller::Local)
+    }
+
+    fn token(&self) -> Option<&str> {
+        match self {
+            AdminCaller::Local => None,
+            AdminCaller::Remote { biscuit_token_hex } => biscuit_token_hex.as_deref(),
         }
     }
 }
@@ -111,42 +186,123 @@ pub fn dispatch_admin_command_at(
     state: Option<&AdminState>,
     now_est: i64,
 ) -> String {
+    dispatch_admin_command_with_caller(command, state, now_est, &AdminCaller::Local)
+}
+
+pub fn dispatch_admin_command_with_caller(
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> String {
     let body = match parse_cmd_field(command).as_deref() {
-        Some("enroll") => dispatch_enroll(command, state, now_est),
-        Some("mint") => not_implemented(
-            "mint",
-            "task 36.3b",
-            "token minting needs a PolicyAuthority-scoped minting service in AdminState; no transport or state is wired for it",
-        ),
-        Some("rotate") => not_implemented(
-            "rotate",
-            "task 36.3c",
-            "key rotation needs a KeyProvider rotation handle in AdminState; the gateway only loads a static device key at boot",
-        ),
+        Some("enroll") => dispatch_enroll(command, state, now_est, caller),
+        Some("mint") => dispatch_mint(command, state, now_est, caller),
+        Some("rotate") => dispatch_rotate(state, caller),
         Some("policy") => dispatch_policy(command, state, now_est),
-        Some("events") => not_implemented(
-            "events",
-            "task 36.3e",
-            "the paginated/SSE event transport is not implemented; the security log store exists but no admin stream/query transport is wired",
-        ),
+        Some("events") => dispatch_events(command, state, now_est),
         Some("simulate") => dispatch_simulate(command, state),
         Some("challenge") => dispatch_challenge(command, state, now_est),
         Some("mode") => dispatch_mode(state),
         Some("lockdown-exit") => dispatch_lockdown_exit(command, state),
         Some("chain-recovery") => dispatch_chain_recovery(command, state),
-        Some("status") => not_implemented(
-            "status",
-            "task 36.3k",
-            "the Guard status API needs anti-replay, rate-limit and SingleWriterLease read handles on AdminState; none are exposed to the admin dispatcher",
-        ),
+        Some("status") => dispatch_status(command, state, now_est, caller),
         Some("sequence-reset") => dispatch_sequence_reset(command, state, now_est),
         Some("epoch-bump") => dispatch_epoch_bump(command, state, now_est),
         Some("lease-preempt") => dispatch_lease_preempt(command, state, now_est),
         Some("clear-unknown") => dispatch_clear_unknown(command, state, now_est),
+        Some("quarantine-replay") => dispatch_quarantine_replay(command, state, now_est),
+        Some("time-reset") => dispatch_time_reset(command, state, now_est),
+        Some("restore") => dispatch_restore(command, state, now_est),
+        Some("rollout-status") => dispatch_rollout_status(state),
         Some("revoke-issuer") => dispatch_revoke_issuer(command, state, now_est),
         _ => r#"{"status":400,"error":"unknown command"}"#.to_string(),
     };
     format!("{body}\n")
+}
+
+/// Translate an HTTP-style admin request (used by the remote mTLS listener and
+/// available to the local socket) into the canonical JSON command envelope.
+///
+/// Returns the HTTP status code and the response body (without the trailing
+/// newline used by the JSON-line transport).
+#[allow(clippy::too_many_arguments)]
+pub fn dispatch_http_request(
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> (u16, String) {
+    let (cmd, payload, path_status) = match (method.to_ascii_uppercase().as_str(), path) {
+        ("POST", "/admin/enroll") => ("enroll", None, None),
+        ("POST", "/admin/mint") => ("mint", None, None),
+        ("POST", "/admin/rotate") => ("rotate", None, None),
+        ("POST", "/admin/policy") => ("policy", None, None),
+        ("GET", "/admin/events") => ("events", None, None),
+        ("POST", "/admin/simulate") => ("simulate", None, None),
+        ("POST", "/admin/challenge") => ("challenge", None, None),
+        ("GET", "/admin/mode") => ("mode", None, None),
+        ("POST", "/admin/lockdown-exit") => ("lockdown-exit", None, None),
+        ("POST", "/admin/chain-recovery") => ("chain-recovery", None, None),
+        ("POST", "/admin/sequence-reset") => ("sequence-reset", None, None),
+        ("POST", "/admin/lease-preempt") => ("lease-preempt", None, None),
+        ("POST", "/admin/quarantine-replay") => ("quarantine-replay", None, None),
+        ("POST", "/admin/time-reset") => ("time-reset", None, None),
+        ("POST", "/admin/unknown-clear") => ("clear-unknown", None, None),
+        ("POST", "/admin/restore") => ("restore", None, None),
+        ("POST", "/admin/epoch-bump") => ("epoch-bump", None, None),
+        ("GET", "/admin/rollout-status") => ("rollout-status", None, None),
+        ("GET", p) if p.starts_with("/admin/status/") => {
+            let issuer = p.trim_start_matches("/admin/status/").to_string();
+            (
+                "status",
+                Some(serde_json::json!({"issuer_did": issuer})),
+                None,
+            )
+        }
+        ("GET", "/admin/status") => ("status", None, None),
+        _ => ("", None, Some(404u16)),
+    };
+    if let Some(code) = path_status {
+        return (
+            code,
+            serde_json::json!({"status": code, "error": "unknown admin endpoint"}).to_string(),
+        );
+    }
+
+    let mut envelope = serde_json::Map::new();
+    envelope.insert("cmd".into(), serde_json::json!(cmd));
+    let parsed_body = body
+        .map(str::trim)
+        .filter(|b| !b.is_empty())
+        .and_then(|b| serde_json::from_str::<serde_json::Value>(b).ok());
+    let mut payload = payload
+        .or(parsed_body.clone())
+        .unwrap_or_else(|| serde_json::json!({}));
+    if let (Some(parsed_body), serde_json::Value::Object(payload_obj)) =
+        (parsed_body.as_ref(), &mut payload)
+    {
+        if let serde_json::Value::Object(extra_obj) = parsed_body {
+            for (k, v) in extra_obj {
+                payload_obj.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+        }
+    }
+    envelope.insert("payload".into(), payload);
+    let response = dispatch_admin_command_with_caller(
+        &serde_json::Value::Object(envelope).to_string(),
+        state,
+        now_est,
+        caller,
+    );
+    let trimmed = response.trim();
+    let status = serde_json::from_str::<serde_json::Value>(trimmed)
+        .ok()
+        .and_then(|v| v.get("status").and_then(|s| s.as_u64()))
+        .unwrap_or(200) as u16;
+    (status, trimmed.to_string())
 }
 
 fn dispatch_mode(state: Option<&AdminState>) -> String {
@@ -263,7 +419,12 @@ fn dispatch_chain_recovery(command: &str, state: Option<&AdminState>) -> String 
     }
 }
 
-fn dispatch_enroll(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+fn dispatch_enroll(
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> String {
     let Some(service) = state.and_then(|state| state.enrollment.as_ref()) else {
         return not_configured(
             "enroll",
@@ -274,11 +435,73 @@ fn dispatch_enroll(command: &str, state: Option<&AdminState>, now_est: i64) -> S
         Some(payload) => payload,
         None => return bad_request("enroll requires a payload object"),
     };
-    let request: EnrollmentRequest = match serde_json::from_value(payload) {
+    let enrollment: EnrollmentRequest = match serde_json::from_value(payload.clone()) {
         Ok(request) => request,
         Err(error) => return bad_request(&format!("invalid enrollment request: {error}")),
     };
-    match service.enroll(&request, now_est) {
+    // Task 36.3a (PV-11.2): a remote enrollment must carry a PolicyAuthority
+    // delegation bound to this device DID, role and bootstrap nonce.  Local
+    // callers on the peer-credential socket are already trusted by the kernel,
+    // but a delegation supplied there is still verified when present.
+    let delegation = payload.get("delegation");
+    if caller.is_local() && delegation.is_none() {
+        // kernel-attested local operator: trusted path
+    } else {
+        let Some(delegation) = delegation else {
+            return serde_json::json!({
+                "status": 403,
+                "code": "PA_DELEGATION_REQUIRED",
+                "error": "remote enrollment requires a PolicyAuthority-signed delegation bound to the device DID, role and nonce",
+                "endpoint": "enroll",
+            })
+            .to_string();
+        };
+        let delegation_request: EnrollmentDelegationRequest =
+            match serde_json::from_value(delegation.clone()) {
+                Ok(request) => request,
+                Err(error) => {
+                    return bad_request(&format!("invalid enrollment delegation: {error}"))
+                }
+            };
+        if delegation_request.payload.device_did != enrollment.device_did {
+            return serde_json::json!({"status":409,"code":"PA_DELEGATION_MISMATCH","error":"delegation is bound to a different device DID","endpoint":"enroll"}).to_string();
+        }
+        if delegation_request.payload.role != enrollment.role
+            || delegation_request.payload.nonce != enrollment.nonce
+        {
+            return serde_json::json!({"status":409,"code":"PA_DELEGATION_MISMATCH","error":"delegation role/nonce does not match the bootstrap request","endpoint":"enroll"}).to_string();
+        }
+        if let Some(state) = state {
+            let trust_root = match state.trust_root.as_ref() {
+                Some(trust_root) => trust_root,
+                None => return not_configured("enroll", "trust_root_path (TrustRootRecord)"),
+            };
+            let resolve = |did: &str| -> Option<Vec<u8>> {
+                trust_root
+                    .role_thresholds
+                    .get(&tirbase_types::CommandRole::PolicyAuthority)
+                    .and_then(|policy| policy.authorized_signers.iter().find(|s| s.did == did))
+                    .map(|signer| signer.public_key.clone())
+            };
+            if let Err(error) = delegation_request
+                .operation
+                .verify(&delegation_request.payload, resolve)
+            {
+                return serde_json::json!({"status":409,"code":"PA_DELEGATION_INVALID","error":format!("PolicyAuthority delegation did not verify: {error}"),"endpoint":"enroll"}).to_string();
+            }
+            if !delegation_request
+                .operation
+                .signatures
+                .iter()
+                .any(|s| s.role == tirbase_types::CommandRole::PolicyAuthority)
+            {
+                return serde_json::json!({"status":409,"code":"PA_DELEGATION_INVALID","error":"delegation lacks a PolicyAuthority role signature","endpoint":"enroll"}).to_string();
+            }
+        } else {
+            return not_configured("enroll", "admin runtime state");
+        }
+    }
+    match service.enroll(&enrollment, now_est) {
         Ok(enrolled) => serde_json::json!({
             "status": 200, "device_id": enrolled.device_id, "epoch": enrolled.epoch,
             "token_hex": hex::encode(&enrolled.token), "token_ttl_secs": enrolled.token_ttl_secs,
@@ -362,6 +585,747 @@ fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> S
     }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Task 36 credentials and privileged-operation helpers
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Maximum admin token lifetime (PV-11.2, task 36.3b): 86,400 seconds.
+pub const MAX_ADMIN_MINT_TTL_SECS: u64 = 86_400;
+
+fn deny(status: u16, code: &str, error: &str, endpoint: &str) -> String {
+    serde_json::json!({
+        "status": status,
+        "code": code,
+        "error": error,
+        "endpoint": endpoint,
+    })
+    .to_string()
+}
+
+/// Extract a Biscuit token from the request credential field.
+///
+/// Accepted shapes:
+/// `{ "credential": { "biscuit_token_hex": "…" } }` and
+/// `{ "biscuit_token_hex": "…" }` inside the command payload.
+fn credential_token(command: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(command).ok()?;
+    let payload = value.get("payload")?;
+    payload
+        .get("credential")
+        .and_then(|credential| credential.get("biscuit_token_hex"))
+        .and_then(|token| token.as_str())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            payload
+                .get("biscuit_token_hex")
+                .and_then(|token| token.as_str())
+                .map(ToOwned::to_owned)
+        })
+}
+
+fn verify_admin_token(
+    state: &AdminState,
+    token_hex: &str,
+    now_est: i64,
+) -> Result<tirbase_core::auth::biscuit::BiscuitClaims, String> {
+    let Some(trust_root) = state.trust_root.as_ref() else {
+        return Err("no trust root configured; cannot verify admin credential".into());
+    };
+    let token = hex::decode(token_hex.trim()).map_err(|e| format!("token hex: {e}"))?;
+    let mut last_error = "no active root CA key".to_string();
+    for key in trust_root.active_root_ca_keys() {
+        match tirbase_core::auth::biscuit::verify_token(&token, key, now_est) {
+            Ok(claims) => return Ok(claims),
+            Err(error) => last_error = error.to_string(),
+        }
+    }
+    Err(format!("admin credential did not verify: {last_error}"))
+}
+
+/// Resolve the caller's credential claims.
+///
+/// `Ok(None)` means a kernel-attested local caller with no token; local callers
+/// are trusted for privileged operations.  Remote callers must present a valid
+/// token in the HTTP `Authorization: Bearer` header (mapped into the request)
+/// or the payload credential field.
+fn caller_claims(
+    state: Option<&AdminState>,
+    command: &str,
+    caller: &AdminCaller,
+    now_est: i64,
+) -> Result<Option<tirbase_core::auth::biscuit::BiscuitClaims>, String> {
+    if caller.is_local() {
+        return Ok(None);
+    }
+    let token_hex = caller
+        .token()
+        .map(ToOwned::to_owned)
+        .or_else(|| credential_token(command));
+    let Some(token_hex) = token_hex else {
+        return Err("remote admin call requires a scoped Biscuit credential".into());
+    };
+    let state = state.ok_or_else(|| "admin runtime state is unconfigured".to_string())?;
+    verify_admin_token(state, &token_hex, now_est).map(Some)
+}
+
+fn require_privileged(
+    state: Option<&AdminState>,
+    command: &str,
+    caller: &AdminCaller,
+    now_est: i64,
+    endpoint: &str,
+) -> Result<(), String> {
+    match caller_claims(state, command, caller, now_est)? {
+        None => Ok(()),
+        Some(claims) if claims.role == "Auditor" || claims.role == "PolicyAuthority" => Ok(()),
+        Some(claims) => Err(deny(
+            403,
+            "ADMIN_CREDENTIAL_INSUFFICIENT",
+            &format!(
+                "{endpoint} requires an Auditor or PolicyAuthority credential (presented role: {})",
+                claims.role
+            ),
+            endpoint,
+        )),
+    }
+}
+
+// ── Enrollment delegation (task 36.3a) ─────────────────────────────────────
+
+/// Domain-separated delegation payload signed by a PolicyAuthority.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnrollmentDelegationPayload {
+    pub device_did: String,
+    pub role: tirbase_types::CommandRole,
+    pub nonce: [u8; 32],
+}
+
+impl tirbase_guard::SignedOperationPayload for EnrollmentDelegationPayload {
+    const CONTEXT: &'static str = "TirBase/v1/EnrollmentDelegation";
+}
+
+/// Wire shape of a PolicyAuthority enrollment delegation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnrollmentDelegationRequest {
+    pub operation: SignedOperation<EnrollmentDelegationPayload>,
+    pub payload: EnrollmentDelegationPayload,
+}
+
+// ── Mint (task 36.3b) ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MintRequest {
+    did: String,
+    role: String,
+    ttl_secs: u64,
+}
+
+fn dispatch_mint(
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> String {
+    let Some(state) = state else {
+        return not_configured("mint", "admin runtime state");
+    };
+    if let Err(response) = require_privileged(Some(state), command, caller, now_est, "mint") {
+        return response;
+    }
+    let Some(seed) = state.mint_root_ca_seed.as_ref() else {
+        return not_configured(
+            "mint",
+            "enrollment_root_ca_private_key_path (root CA seed for token minting)",
+        );
+    };
+    let payload = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("mint requires a payload object"),
+    };
+    let request: MintRequest = match serde_json::from_value(payload) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid mint request: {e}")),
+    };
+    // Task 36.3b wiring-mutation guard: a TTL above 86,400 s is rejected before
+    // any token is minted.  Removing this check makes the integration test fail.
+    if request.ttl_secs > MAX_ADMIN_MINT_TTL_SECS {
+        return deny(
+            409,
+            "MINT_TTL_EXCEEDED",
+            &format!(
+                "mint rejects ttl_secs={} > {} (maximum lifetime 86400s)",
+                request.ttl_secs, MAX_ADMIN_MINT_TTL_SECS
+            ),
+            "mint",
+        );
+    }
+    if request.did.trim().is_empty() || request.role.trim().is_empty() {
+        return bad_request("mint requires did and role");
+    }
+    match tirbase_core::auth::biscuit::create_token(
+        &request.did,
+        &request.role,
+        request.ttl_secs,
+        seed.as_slice(),
+        false,
+    ) {
+        Ok(token) => serde_json::json!({
+            "status": 200,
+            "endpoint": "mint",
+            "did": request.did,
+            "role": request.role,
+            "ttl_secs": request.ttl_secs,
+            "token_hex": hex::encode(&token),
+        })
+        .to_string(),
+        Err(error) => deny(400, "MINT_FAILED", &error.to_string(), "mint"),
+    }
+}
+
+// ── Rotate (task 36.3c) ────────────────────────────────────────────────────
+
+fn dispatch_rotate(state: Option<&AdminState>, caller: &AdminCaller) -> String {
+    let Some(state) = state else {
+        return not_configured("rotate", "admin runtime state");
+    };
+    if let Err(response) = require_privileged(Some(state), "", caller, 0, "rotate") {
+        return response;
+    }
+    let Some(rotator) = state.key_rotator.as_ref() else {
+        return not_configured("rotate", "a configured device key path (FileKeyRotator)");
+    };
+    match rotator.rotate() {
+        Ok(outcome) => serde_json::json!({
+            "status": 200,
+            "endpoint": "rotate",
+            "outcome": "key_rotated",
+            "old_did": outcome.old_did,
+            "new_did": outcome.new_did,
+            "new_public_key_hex": outcome.new_public_key_hex,
+            "backup_path": outcome.backup_path,
+        })
+        .to_string(),
+        Err(error) => deny(500, "ROTATION_FAILED", &error, "rotate"),
+    }
+}
+
+// ── Events (task 36.3e) ────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+struct EventsQuery {
+    #[serde(default)]
+    since_est: Option<i64>,
+    #[serde(default)]
+    until_est: Option<i64>,
+    #[serde(default)]
+    limit: Option<usize>,
+    #[serde(default)]
+    offset: Option<usize>,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    severity: Option<String>,
+}
+
+fn dispatch_events(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(state) = state else {
+        return not_configured("events", "admin runtime state");
+    };
+    let Some(log) = state.security_log.as_ref() else {
+        return not_configured("events", "the hash-chained security event log");
+    };
+    let query: EventsQuery = payload_value(command)
+        .and_then(|value| serde_json::from_value(value).ok())
+        .unwrap_or_default();
+    // PV-7.13/PV-11.2: the view window defaults to 7 days and is always bounded
+    // by the configured security-event retention window.
+    let view_days = state.events_view_window_days.max(1);
+    let default_start = now_est.saturating_sub(view_days.saturating_mul(86_400));
+    let window_start = query.since_est.unwrap_or(default_start);
+    let window_end = query.until_est.unwrap_or(now_est);
+    let page_size = state.events_page_size.max(1);
+    let limit = query.limit.unwrap_or(page_size).min(page_size);
+    let offset = query.offset.unwrap_or(0);
+
+    let all = log.chained_events();
+    let mut filtered: Vec<serde_json::Value> = all
+        .into_iter()
+        .filter(|event| {
+            event.best_effort_wall_time >= window_start && event.best_effort_wall_time <= window_end
+        })
+        .filter(|event| {
+            query
+                .category
+                .as_deref()
+                .map(|wanted| format!("{:?}", event.category).eq_ignore_ascii_case(wanted))
+                .unwrap_or(true)
+        })
+        .filter(|event| {
+            query
+                .severity
+                .as_deref()
+                .map(|wanted| format!("{:?}", event.severity).eq_ignore_ascii_case(wanted))
+                .unwrap_or(true)
+        })
+        .map(|event| serde_json::to_value(event).unwrap_or(serde_json::Value::Null))
+        .collect();
+    let total = filtered.len();
+    let events: Vec<_> = filtered.drain(..).skip(offset).take(limit).collect();
+    serde_json::json!({
+        "status": 200,
+        "endpoint": "events",
+        "window_start_est": window_start,
+        "window_end_est": window_end,
+        "view_window_days": view_days,
+        "offset": offset,
+        "limit": limit,
+        "total": total,
+        "events": events,
+    })
+    .to_string()
+}
+
+// ── Guard status (tasks 36.3k / 36.7, PV-24.3) ─────────────────────────────
+
+fn dispatch_status(
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> String {
+    let Some(state) = state else {
+        return not_configured("status", "admin runtime state");
+    };
+    let payload = payload_value(command).unwrap_or_default();
+    let issuer_did = payload
+        .get("issuer_did")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    if issuer_did.is_empty() {
+        return bad_request("status requires an issuer_did");
+    }
+    let claims = match caller_claims(Some(state), command, caller, now_est) {
+        Ok(claims) => claims,
+        Err(error) => return deny(401, "ADMIN_CREDENTIAL_REQUIRED", &error, "status"),
+    };
+    let self_query = claims
+        .as_ref()
+        .map(|claims| claims.did == issuer_did)
+        .unwrap_or(true);
+    let privileged = if caller.is_local() {
+        true
+    } else {
+        claims
+            .as_ref()
+            .map(|claims| claims.role == "Auditor" || claims.role == "PolicyAuthority")
+            .unwrap_or(false)
+    };
+    if !self_query && !privileged {
+        return deny(
+            403,
+            "CROSS_ISSUER_STATUS_REQUIRES_AUDITOR",
+            "cross-issuer Guard status requires an Auditor or PolicyAuthority credential",
+            "status",
+        );
+    }
+
+    let mut anti_replay = Vec::new();
+    let mut leases = Vec::new();
+    if let Some(db_path) = state.primary_db_path.as_ref() {
+        if let Ok(conn) = rusqlite::Connection::open(db_path) {
+            let mut stmt = conn.prepare(
+                "SELECT target_id,enrollment_epoch,highest_seen,seen_bitmap,forward_gap
+                 FROM anti_replay_windows WHERE issuer_did=?1 ORDER BY target_id ASC",
+            );
+            if let Ok(mut rows) = stmt {
+                if let Ok(iter) = rows.query_map(rusqlite::params![issuer_did], |row| {
+                    let bitmap: Vec<u8> = row.get(3)?;
+                    Ok(serde_json::json!({
+                        "target_id": row.get::<_, String>(0)?,
+                        "enrollment_epoch": row.get::<_, i64>(1)? as u64,
+                        "highest_seen": row.get::<_, i64>(2)? as u64,
+                        "window_position": row.get::<_, i64>(2)? as u64,
+                        "seen_bitmap_u64": u64::from_le_bytes(
+                            bitmap.get(..8).and_then(|b| b.try_into().ok()).unwrap_or([0; 8])
+                        ),
+                        "forward_gap": row.get::<_, i64>(4)? as u64,
+                    }))
+                }) {
+                    anti_replay = iter.filter_map(Result::ok).collect();
+                }
+            }
+            let stmt = conn.prepare(
+                "SELECT target_id,issuer_did,expires_mono,consecutive_renewals,cooldown_until_mono
+                 FROM single_writer_leases WHERE issuer_did=?1 ORDER BY target_id ASC",
+            );
+            if let Ok(mut rows) = stmt {
+                if let Ok(iter) = rows.query_map(rusqlite::params![issuer_did], |row| {
+                    Ok(serde_json::json!({
+                        "target_id": row.get::<_, String>(0)?,
+                        "holder_issuer_did": row.get::<_, String>(1)?,
+                        "expires_mono": row.get::<_, i64>(2)?,
+                        "consecutive_renewals": row.get::<_, i64>(3)? as u32,
+                        "cooldown_until_mono": row.get::<_, Option<i64>>(4)?,
+                        "held": true,
+                    }))
+                }) {
+                    leases = iter.filter_map(Result::ok).collect();
+                }
+            }
+        }
+    }
+
+    let rate_limit = state
+        .guard
+        .as_ref()
+        .and_then(|guard| guard.pipeline())
+        .map(
+            |pipeline| match pipeline.issuer_rate_limit_snapshot(&issuer_did) {
+                Some((tokens, capacity)) => serde_json::json!({
+                    "available_tokens": tokens,
+                    "capacity": capacity,
+                    "refill_per_sec": pipeline.issuer_rate_limit_per_sec(),
+                    "bucket_initialised": true,
+                }),
+                None => serde_json::json!({
+                    "available_tokens": 0.0,
+                    "capacity": pipeline.issuer_rate_limit_per_sec() as f64,
+                    "refill_per_sec": pipeline.issuer_rate_limit_per_sec(),
+                    "bucket_initialised": false,
+                }),
+            },
+        );
+
+    serde_json::json!({
+        "status": 200,
+        "endpoint": "status",
+        "issuer_did": issuer_did,
+        "self_query": self_query,
+        "privileged": privileged,
+        "anti_replay": anti_replay,
+        "rate_limit": rate_limit,
+        "leases": leases,
+    })
+    .to_string()
+}
+
+// ── Quarantine replay (task 36.3l) ─────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuarantineReplayPayload {
+    pub entry_id_hex: String,
+    pub reason: String,
+}
+
+impl tirbase_guard::SignedOperationPayload for QuarantineReplayPayload {
+    const CONTEXT: &'static str = "TirBase/v1/QuarantineReplay";
+}
+
+#[derive(Debug, Deserialize)]
+struct QuarantineReplayRequest {
+    operation: SignedOperation<QuarantineReplayPayload>,
+    payload: QuarantineReplayPayload,
+}
+
+fn dispatch_quarantine_replay(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(state) = state else {
+        return not_configured("quarantine-replay", "admin runtime state");
+    };
+    let Some(trust_root) = state.trust_root.as_ref() else {
+        return not_configured("quarantine-replay", "trust_root_path (TrustRootRecord)");
+    };
+    let payload = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("quarantine-replay requires a payload object"),
+    };
+    let request: QuarantineReplayRequest = match serde_json::from_value(payload) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid quarantine-replay: {e}")),
+    };
+    let resolve = |did: &str| -> Option<Vec<u8>> {
+        trust_root
+            .role_thresholds
+            .get(&tirbase_types::CommandRole::PolicyAuthority)
+            .and_then(|policy| policy.authorized_signers.iter().find(|s| s.did == did))
+            .map(|signer| signer.public_key.clone())
+    };
+    if request.operation.verify(&request.payload, resolve).is_err()
+        || !request
+            .operation
+            .signatures
+            .iter()
+            .any(|s| s.role == tirbase_types::CommandRole::PolicyAuthority)
+    {
+        return deny(
+            409,
+            "QUARANTINE_REPLAY_REQUIRES_POLICY_AUTHORITY",
+            "quarantine replay requires a valid PolicyAuthority signature",
+            "quarantine-replay",
+        );
+    }
+    let entry_id = match hex_decode_32(&request.payload.entry_id_hex) {
+        Some(id) => id,
+        None => return bad_request("invalid entry_id_hex"),
+    };
+    let db_path = state
+        .core_db_path
+        .as_ref()
+        .or(state.primary_db_path.as_ref());
+    let Some(db_path) = db_path else {
+        return not_configured("quarantine-replay", "core.db / primary.db path");
+    };
+    let conn = match rusqlite::Connection::open(db_path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            return deny(
+                500,
+                "STORE_UNAVAILABLE",
+                &format!("open core db: {e}"),
+                "quarantine-replay",
+            )
+        }
+    };
+    // The core-local quarantine mirror has a `detail` column but not the
+    // derived.db replay bookkeeping; add it idempotently so replay status is
+    // durable wherever the entry lives.
+    let _ = conn.execute_batch(
+        "ALTER TABLE schema_quarantine ADD COLUMN replay_status TEXT;\n\
+         ALTER TABLE schema_quarantine ADD COLUMN replay_ts INTEGER;",
+    );
+    let row: Option<(Vec<u8>, String)> = conn
+        .query_row(
+            "SELECT raw_bytes, reason FROM schema_quarantine WHERE id=?1",
+            rusqlite::params![entry_id.as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok();
+    let Some((raw_bytes, reason)) = row else {
+        return deny(
+            404,
+            "QUARANTINE_ENTRY_NOT_FOUND",
+            "no schema_quarantine entry with that id",
+            "quarantine-replay",
+        );
+    };
+    if let Err(e) = conn.execute(
+        "UPDATE schema_quarantine SET replay_status='replayed', replay_ts=?1 WHERE id=?2",
+        rusqlite::params![now_est, entry_id.as_slice()],
+    ) {
+        return deny(
+            500,
+            "STORE_WRITE_FAILED",
+            &format!("mark replayed: {e}"),
+            "quarantine-replay",
+        );
+    }
+    let mut replayed_to_core = false;
+    if let (Some(core), Ok(delta)) = (
+        state.core_handle.as_ref(),
+        serde_json::from_slice::<tirbase_core::crdt::delta::Delta>(&raw_bytes),
+    ) {
+        let core = core.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                let message = tirbase_core::transport::message::GossipMessage::InboundDelta(delta);
+                if let Err(error) = core.receive_inbound(message).await {
+                    tracing::warn!(%error, "quarantine replay re-injection failed");
+                }
+            });
+            replayed_to_core = true;
+        }
+    }
+    serde_json::json!({
+        "status": 200,
+        "endpoint": "quarantine-replay",
+        "entry_id_hex": request.payload.entry_id_hex,
+        "reason": reason,
+        "replayed_to_core": replayed_to_core,
+        "replay_status": "replayed",
+    })
+    .to_string()
+}
+
+// ── Time reset (task 36.3l) ────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct TimeResetRequest {
+    operation: SignedOperation<tirbase_guard::time::TimeResetPayload>,
+    payload: tirbase_guard::time::TimeResetPayload,
+}
+
+fn dispatch_time_reset(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
+    let Some(state) = state else {
+        return not_configured("time-reset", "admin runtime state");
+    };
+    let Some(trust_root) = state.trust_root.as_ref() else {
+        return not_configured("time-reset", "trust_root_path (TrustRootRecord)");
+    };
+    let Some(ratchet) = state.ratchet.as_ref() else {
+        return not_configured("time-reset", "the runtime TimeRatchet");
+    };
+    let Some(time_source) = state.time_source.as_ref() else {
+        return not_configured("time-reset", "the runtime TimeSource");
+    };
+    let payload = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("time-reset requires a payload object"),
+    };
+    let request: TimeResetRequest = match serde_json::from_value(payload) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid time-reset: {e}")),
+    };
+    let policy = trust_root
+        .role_thresholds
+        .get(&tirbase_types::CommandRole::TimeAnchor);
+    let required_m = policy.map(|p| p.required_m as usize).unwrap_or(2).max(2);
+    let resolve = |did: &str| -> Option<Vec<u8>> {
+        policy
+            .and_then(|policy| policy.authorized_signers.iter().find(|s| s.did == did))
+            .map(|signer| signer.public_key.clone())
+    };
+    let mut guard = match ratchet.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    match guard.force_reset(
+        &request.operation,
+        &request.payload,
+        time_source.as_ref(),
+        resolve,
+        required_m,
+    ) {
+        Ok(record) => serde_json::json!({
+            "status": 200,
+            "endpoint": "time-reset",
+            "new_floor_secs": record.persisted_floor,
+            "required_m": required_m,
+            "anchors_verified": request.operation.signatures.len(),
+        })
+        .to_string(),
+        Err(error) => deny(409, "TIME_RESET_REJECTED", &error.to_string(), "time-reset"),
+    }
+}
+
+// ── Restore (task 36.3l) ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestorePayload {
+    pub device_id: String,
+    pub backup_id: String,
+    pub reason: String,
+}
+
+impl tirbase_guard::SignedOperationPayload for RestorePayload {
+    const CONTEXT: &'static str = "TirBase/v1/Restore";
+}
+
+#[derive(Debug, Deserialize)]
+struct RestoreRequest {
+    operation: SignedOperation<RestorePayload>,
+    payload: RestorePayload,
+}
+
+fn dispatch_restore(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+    let Some(state) = state else {
+        return not_configured("restore", "admin runtime state");
+    };
+    let (Some(trust_root), Some(epochs)) = (state.trust_root.as_ref(), state.epochs.as_ref())
+    else {
+        return not_configured(
+            "restore",
+            "trust_root_path (TrustRootRecord) and the device epoch registry",
+        );
+    };
+    let payload = match payload_value(command) {
+        Some(p) => p,
+        None => return bad_request("restore requires a payload object"),
+    };
+    let request: RestoreRequest = match serde_json::from_value(payload) {
+        Ok(r) => r,
+        Err(e) => return bad_request(&format!("invalid restore: {e}")),
+    };
+    if request.operation.verify_payload(&request.payload).is_err() {
+        return deny(
+            409,
+            "RESTORE_SIGNATURE_INVALID",
+            "restore operation does not bind the payload",
+            "restore",
+        );
+    }
+    let signing_bytes = request.operation.signing_bytes();
+    let pa: Vec<_> = request
+        .operation
+        .signatures
+        .iter()
+        .filter(|s| s.role == tirbase_types::CommandRole::PolicyAuthority)
+        .cloned()
+        .collect();
+    let rm: Vec<_> = request
+        .operation
+        .signatures
+        .iter()
+        .filter(|s| s.role == tirbase_types::CommandRole::RevocationManager)
+        .cloned()
+        .collect();
+    if trust_root
+        .verify_role_signatures(
+            tirbase_types::CommandRole::PolicyAuthority,
+            &signing_bytes,
+            &pa,
+        )
+        .is_err()
+        || trust_root
+            .verify_role_signatures(
+                tirbase_types::CommandRole::RevocationManager,
+                &signing_bytes,
+                &rm,
+            )
+            .is_err()
+    {
+        return deny(
+            409,
+            "RESTORE_REQUIRES_PA_AND_RM",
+            "restore requires valid PolicyAuthority and RevocationManager co-signatures",
+            "restore",
+        );
+    }
+    match epochs.restore_bump(&request.payload.device_id, &request.payload.reason, now_est) {
+        Ok(record) => serde_json::json!({
+            "status": 200,
+            "endpoint": "restore",
+            "device_id": record.device_id,
+            "epoch": record.epoch,
+            "backup_id": request.payload.backup_id,
+            "outcome": "restored_and_epoch_incremented",
+        })
+        .to_string(),
+        Err(error) => deny(409, "RESTORE_FAILED", &error.to_string(), "restore"),
+    }
+}
+
+// ── Rollout status (task 36.3l) ────────────────────────────────────────────
+
+fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
+    let mode = state
+        .and_then(|s| s.node_mode.as_ref())
+        .map(|m| m.get().as_str().to_string())
+        .unwrap_or_else(|| "Starting".into());
+    let profile = state.and_then(|s| s.envelope_profile.as_ref());
+    serde_json::json!({
+        "status": 200,
+        "endpoint": "rollout-status",
+        "gateway_version": env!("CARGO_PKG_VERSION"),
+        "node_mode": mode,
+        "profile_installed": profile.is_some(),
+        "profile_id": profile.map(|p| hex::encode(p.profile_id)),
+        "profile_version": profile.map(|p| p.version),
+        "device_class": profile.map(|p| p.device_class.clone()),
+        "self_update": "BLOCKED_PENDING_RFC_TUF",
+    })
+    .to_string()
+}
+
 fn payload_value(command: &str) -> Option<serde_json::Value> {
     serde_json::from_str::<serde_json::Value>(command)
         .ok()
@@ -387,20 +1351,6 @@ fn not_configured(endpoint: &str, missing: &str) -> String {
     .to_string()
 }
 
-/// Precise failure for an admin endpoint that is designed but has no
-/// implementation in the binary yet.  Records the owning task so callers and
-/// `tasks.md` carry the same blocker instead of silently reporting 501.
-fn not_implemented(endpoint: &str, task: &str, blocker: &str) -> String {
-    serde_json::json!({
-        "status": 503,
-        "code": "ENDPOINT_NOT_IMPLEMENTED",
-        "error": format!("{endpoint} is not implemented in the gateway binary ({task}): {blocker}"),
-        "endpoint": endpoint,
-        "task": task,
-        "blocker": blocker,
-    })
-    .to_string()
-}
 fn parse_cmd_field(json: &str) -> Option<String> {
     let mut parts = json.split('"');
     while let Some(segment) = parts.next() {
@@ -746,12 +1696,13 @@ pub async fn run_admin_listener(
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
-struct LeasePreemptPayload {
-    action: String,
-    target_id: String,
+pub struct LeasePreemptPayload {
+    pub action: String,
+    pub target_id: String,
     #[serde(default)]
-    new_issuer_did: Option<String>,
-    now_est: i64,
+    pub new_issuer_did: Option<String>,
+    #[serde(default)]
+    pub now_est: i64,
 }
 impl tirbase_guard::SignedOperationPayload for LeasePreemptPayload {
     const CONTEXT: &'static str = "TirBase/v1/LeasePreempt";
@@ -764,6 +1715,10 @@ struct LeasePreemptRequest {
     new_issuer_did: Option<String>,
     #[serde(default)]
     lease_duration_secs: Option<i64>,
+    /// Bound into the signed payload when the caller supplies it; falls back to
+    /// the dispatch time for callers that sign with the admin clock.
+    #[serde(default)]
+    now_est: Option<i64>,
 }
 
 /// Task 21.2 (CLAIM-21.2, PV-5.8a): M-of-N RevocationManager + PolicyAuthority
@@ -817,7 +1772,7 @@ fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i6
             action: "lease-preempt".into(),
             target_id: req.target_id.clone(),
             new_issuer_did: req.new_issuer_did.clone(),
-            now_est,
+            now_est: req.now_est.unwrap_or(now_est),
         };
         if op.verify(&binding, resolve).is_err() {
             return serde_json::json!({"status":409,"error":"lease-preempt requires valid M-of-N RevocationManager+PolicyAuthority signatures","endpoint":"lease-preempt"}).to_string();
@@ -874,9 +1829,9 @@ fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i6
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
-struct ClearUnknownPayload {
-    action: String,
-    entry_id_hex: String,
+pub struct ClearUnknownPayload {
+    pub action: String,
+    pub entry_id_hex: String,
 }
 impl tirbase_guard::SignedOperationPayload for ClearUnknownPayload {
     const CONTEXT: &'static str = "TirBase/v1/ClearUnknown";
