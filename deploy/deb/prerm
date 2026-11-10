@@ -1,0 +1,9 @@
+#!/bin/sh
+# tirbase-gateway prerm (task 37.2, PV-11.4).
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop tirbase-gateway.service >/dev/null 2>&1 || true
+fi
+
+exit 0

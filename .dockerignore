@@ -1,0 +1,10 @@
+# Build context for the OCI image (task 37.3).
+# Only the prebuilt gateway binary (staged into dist/ by the CI job) and its
+# container config are copied into the image.
+*
+!dist/
+!dist/tirbase-gateway
+!deploy/
+!deploy/Dockerfile
+!deploy/docker/
+!deploy/docker/gateway.toml

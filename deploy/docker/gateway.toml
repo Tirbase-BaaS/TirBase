@@ -1,0 +1,12 @@
+# Gateway configuration for the OCI image (task 37.3, PV-11.1).
+# Paths point at the writable directories created in deploy/Dockerfile.
+key_path = "/var/lib/tirbase/device-key.json"
+counter_db_path = "/var/lib/tirbase/primary.db"
+derived_db_path = "/var/lib/tirbase/derived.db"
+admin_socket = "/run/tirbase/admin.sock"
+health_addr = "127.0.0.1:8080"
+metrics_addr = "127.0.0.1:9090"
+# No signed EnvelopeProfile ships in the image, so command ingress stays in the
+# deny-all posture (PV-11.5); the health/metrics surfaces remain available.
+admin_enabled = false
+log_level = "info"

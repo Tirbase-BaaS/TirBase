@@ -1,0 +1,28 @@
+#!/bin/sh
+# tirbase-gateway postinst (task 37.2, PV-11.4).
+set -e
+
+if ! getent group tirbase >/dev/null 2>&1; then
+    addgroup --system tirbase
+fi
+if ! getent passwd tirbase >/dev/null 2>&1; then
+    adduser --system --ingroup tirbase --home /var/lib/tirbase \
+        --no-create-home --shell /usr/sbin/nologin tirbase
+fi
+
+install -d -o tirbase -g tirbase -m 0750 /var/lib/tirbase
+install -d -o tirbase -g tirbase -m 0750 /run/tirbase
+install -d -o root -g tirbase -m 0750 /etc/tirbase
+
+# The gateway generates /var/lib/tirbase/device-key.json on first boot; the
+# directory must merely be writable by the service account (CLAIM-6.1).
+if [ -f /var/lib/tirbase/device-key.json ]; then
+    chown tirbase:tirbase /var/lib/tirbase/device-key.json
+    chmod 0600 /var/lib/tirbase/device-key.json
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+exit 0

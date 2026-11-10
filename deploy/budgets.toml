@@ -1,0 +1,21 @@
+# Binary size and RSS budgets (PV-11.4, PV-15.2, PV-15.7 — task 37.4).
+#
+# Numerical budgets are deliberately NOT set yet: PV-15.7 defers every budget to
+# the measure-first task (44.2), which records baselines on the reference
+# hardware in docs/perf-baseline.md.  PV-15.2 then sets each budget at 120% of
+# the measured baseline (20% headroom).  A value of 0 means "not set yet" — the
+# gate records the measurement and passes; once a baseline exists, set the
+# budget here and the gate fails on regression.
+#
+# scripts/check-size-budget.sh enforces these values in CI.
+
+[binary]
+# Release `tirbase-gateway` binary size in bytes, per build target.
+x86_64_unknown_linux_gnu = 0
+aarch64_unknown_linux_gnu = 0
+armv7_unknown_linux_gnueabihf = 0
+
+[rss]
+# Peak resident set size (KiB) of a booted gateway with the PV-6.5 caches
+# loaded; measured by the CI size-budget job.
+boot_peak_kib = 0
