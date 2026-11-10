@@ -1,7 +1,8 @@
 //! Ledger corruption recovery (CLAIM-31.5, PV-9.3).
 //!
-//! - Derived ledgers (CRDT state, contamination index): rebuilt from signed
-//!   delta log / durable DAG-derived records on corruption.
+//! - Derived ledgers (CRDT state, contamination index, sidecar/quarantine
+//!   replay tables): rebuilt from signed delta log / durable DAG-derived
+//!   records on corruption.
 //! - Primary ledgers (Applied_Effects_Ledger, security events, monotonic/anti-
 //!   rollback counters): corruption triggers `Restricted` mode + operator
 //!   intervention. Primary ledgers are NEVER rebuilt from the delta log.
@@ -19,9 +20,9 @@ use super::sqlite_errors::{DbKind, SqliteErrorAction};
 ///
 /// Rebuild strategy: quarantine the corrupt derived DB (operator-visible), create
 /// a fresh derived DB via migrations, then replay signed delta log records from
-/// `dag_nodes` in the core storage DB when available. If no delta log source is
-/// available or replay fails, enter Restricted mode and require operator
-/// intervention. On success emits `LedgerRebuilt`.
+/// `dag_nodes` in the core storage DB. If the delta log source is missing or
+/// replay fails, enter Restricted mode and require operator intervention. On
+/// success emits `LedgerRebuilt`.
 pub fn recover_derived_on_corruption(
     derived_path: &Path,
     core_storage_path: Option<&Path>,
@@ -110,7 +111,10 @@ pub fn handle_primary_corruption(
 
 fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> Result<(), String> {
     if !core_path.exists() {
-        return Ok(()); // no external signed delta log source; fresh derived DB is acceptable
+        return Err(format!(
+            "signed delta log source not found at {}",
+            core_path.display()
+        ));
     }
     let core =
         Connection::open(core_path).map_err(|e| format!("open core signed delta log: {e}"))?;
@@ -122,7 +126,10 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
         )
         .unwrap_or(0);
     if has == 0 {
-        return Ok(());
+        return Err(format!(
+            "signed delta log source {} has no dag_nodes table",
+            core_path.display()
+        ));
     }
     // Replay signed delta log records (dag_nodes carry signed deltas/payload metadata).
     let mut stmt = core
@@ -184,8 +191,183 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
             .map_err(|e| format!("replay dag_edge: {e}"))?;
         }
     }
+    // Sidecar and quarantine rows carry signed delta bytes; replay them into
+    // their derived-ledger shapes so a rebuild does not lose replay work.
+    replay_derived_tables_from_core(&core, &tx)?;
+
     tx.commit()
         .map_err(|e| format!("commit derived rebuild: {e}"))?;
+    Ok(())
+}
+
+/// Replay the core store's sidecar, quarantine, and rate-quarantine tables into
+/// the derived ledger.  Rows are copied byte-for-byte (signed delta bytes are
+/// never re-serialised); derived-only replay bookkeeping columns start NULL.
+fn replay_derived_tables_from_core(core: &Connection, derived: &Connection) -> Result<(), String> {
+    replay_sidecar_ledger(core, derived)?;
+    replay_quarantine_ledgers(core, derived)?;
+    replay_rate_quarantine_summary(core, derived)?;
+    Ok(())
+}
+
+fn table_exists(conn: &Connection, name: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        [name],
+        |r| r.get::<_, i64>(0),
+    )
+    .map(|n| n > 0)
+    .unwrap_or(false)
+}
+
+fn replay_sidecar_ledger(core: &Connection, derived: &Connection) -> Result<(), String> {
+    if !table_exists(core, "sidecar_ledger") {
+        return Ok(());
+    }
+    let mut stmt = core
+        .prepare(
+            "SELECT id, migration_id, table_name, delta_bytes, recorded_ts, replay_status, conflict_info \
+             FROM sidecar_ledger ORDER BY recorded_ts ASC, rowid ASC",
+        )
+        .map_err(|e| format!("prepare sidecar_ledger replay: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, Vec<u8>>(0)?,
+                row.get::<_, Vec<u8>>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Vec<u8>>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, Option<String>>(6)?,
+            ))
+        })
+        .map_err(|e| format!("query sidecar_ledger: {e}"))?;
+    for row in rows {
+        let (id, migration_id, table_name, delta_bytes, recorded_ts, replay_status, conflict_info) =
+            row.map_err(|e| format!("read sidecar_ledger row: {e}"))?;
+        derived
+            .execute(
+                "INSERT OR IGNORE INTO sidecar_ledger \
+                 (id, migration_id, table_name, delta_bytes, recorded_ts, replay_status, conflict_info) \
+                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                rusqlite::params![
+                    id,
+                    migration_id,
+                    table_name,
+                    delta_bytes,
+                    recorded_ts,
+                    replay_status,
+                    conflict_info
+                ],
+            )
+            .map_err(|e| format!("replay sidecar into derived: {e}"))?;
+    }
+    Ok(())
+}
+
+fn replay_quarantine_ledgers(core: &Connection, derived: &Connection) -> Result<(), String> {
+    // The core store's migration quarantine keeps the raw signed Delta bytes.
+    // Map it onto derived.schema_quarantine (the replayable derived shape).
+    if table_exists(core, "quarantine_ledger") {
+        let mut stmt = core
+            .prepare(
+                "SELECT id, sender_did, raw_bytes, reason, received_at, migration_id \
+                 FROM quarantine_ledger ORDER BY received_at ASC, id ASC",
+            )
+            .map_err(|e| format!("prepare quarantine_ledger replay: {e}"))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, Option<Vec<u8>>>(5)?,
+                ))
+            })
+            .map_err(|e| format!("query quarantine_ledger: {e}"))?;
+        for row in rows {
+            let (id, sender_did, raw_bytes, reason, received_at, migration_id) =
+                row.map_err(|e| format!("read quarantine_ledger row: {e}"))?;
+            derived
+                .execute(
+                    "INSERT OR IGNORE INTO schema_quarantine \
+                     (id, sender_did, raw_bytes, reason, received_at, migration_id) \
+                     VALUES (?1,?2,?3,?4,?5,?6)",
+                    rusqlite::params![id, sender_did, raw_bytes, reason, received_at, migration_id],
+                )
+                .map_err(|e| format!("replay quarantine into derived: {e}"))?;
+        }
+    }
+
+    // Core-local CRDT schema quarantine (hardening DB shape) also feeds the
+    // derived table when present; it has no migration id.
+    if table_exists(core, "schema_quarantine") {
+        let mut stmt = core
+            .prepare(
+                "SELECT id, sender_did, raw_bytes, reason, received_at \
+                 FROM schema_quarantine ORDER BY received_at ASC, id ASC",
+            )
+            .map_err(|e| format!("prepare schema_quarantine replay: {e}"))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            })
+            .map_err(|e| format!("query schema_quarantine: {e}"))?;
+        for row in rows {
+            let (id, sender_did, raw_bytes, reason, received_at) =
+                row.map_err(|e| format!("read schema_quarantine row: {e}"))?;
+            derived
+                .execute(
+                    "INSERT OR IGNORE INTO schema_quarantine \
+                     (id, sender_did, raw_bytes, reason, received_at, migration_id) \
+                     VALUES (?1,?2,?3,?4,?5,NULL)",
+                    rusqlite::params![id, sender_did, raw_bytes, reason, received_at],
+                )
+                .map_err(|e| format!("replay schema_quarantine into derived: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn replay_rate_quarantine_summary(core: &Connection, derived: &Connection) -> Result<(), String> {
+    if !table_exists(core, "rate_quarantine_summary") {
+        return Ok(());
+    }
+    let mut stmt = core
+        .prepare(
+            "SELECT sender_did, window_start, rejected_count FROM rate_quarantine_summary \
+             ORDER BY window_start ASC, sender_did ASC",
+        )
+        .map_err(|e| format!("prepare rate_quarantine_summary replay: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })
+        .map_err(|e| format!("query rate_quarantine_summary: {e}"))?;
+    for row in rows {
+        let (sender_did, window_start, rejected_count) =
+            row.map_err(|e| format!("read rate_quarantine_summary row: {e}"))?;
+        derived
+            .execute(
+                "INSERT OR REPLACE INTO rate_quarantine_summary \
+                 (sender_did, window_start, rejected_count) VALUES (?1,?2,?3)",
+                rusqlite::params![sender_did, window_start, rejected_count],
+            )
+            .map_err(|e| format!("replay rate_quarantine_summary into derived: {e}"))?;
+    }
     Ok(())
 }
 
