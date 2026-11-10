@@ -6,8 +6,15 @@ having gained a non-test cross-crate caller.
 
 **Allowlist scope:** entries cover a named item and all paths nested under it (i.e., listing
 `tirbase_core::api` also covers `tirbase_core::api::CoreHandle` and every item inside `api`).
-The script checks each orphan FQN individually against the allowlist; an entry here covers
-its exact FQN only — to approve a subtree, add the common prefix in the first column.
+The script matches an orphan against the entry itself and any `entry::…` path, so a single
+module row approves that module's whole public surface until the module gains a non-test
+cross-crate caller.
+
+**How references are detected:** the scan builds rustdoc JSON for the library crates and then
+scans the source of every workspace crate — including the application crates `tirbase-gateway`
+and `tirbase-admin` — for `use` statements, qualified paths and parent-type references. A
+module-level row near the end of this table therefore means *no* workspace crate references
+that module at all, not merely that rustdoc could not see the reference.
 
 **When to remove an entry:** once the item has at least one non-test caller in another crate
 (e.g., `tirbase-gateway` imports `tirbase_core::api::CoreHandle`), remove the row. The script
@@ -471,3 +478,17 @@ To add an entry:
 | `tirbase_guard::envelope::validate_profile` | @tirbase-core-team | Install-time profile validation (PV-4.5, CLAIM-10.6); guard wiring in task 13 | v0.3.0 |
 | `tirbase_guard::envelope::verify_profile_signature` | @tirbase-core-team | PolicyAuthority profile signature check (PV-4.5, CLAIM-10.4); guard wiring in task 13 | v0.3.0 |
 | `tirbase_guard::signed_operation::CONTEXT_ENVELOPE_PROFILE` | @tirbase-core-team | Domain-separation context for EnvelopeProfile signatures (PV-4.5, CLAIM-10.4) | v0.3.0 |
+| `tirbase_guard::command` | @tirbase-guard-team | No source reference from any other workspace crate; guard-internal signed-command surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::commit` | @tirbase-guard-team | No source reference from any other workspace crate; commit/effects outcome surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::device_transport` | @tirbase-guard-team | No source reference from any other workspace crate; device-transport surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::guard` | @tirbase-guard-team | No source reference from any other workspace crate; CommandGuard surface is exercised through `tirbase_guard::admit` instead | v0.3.0 |
+| `tirbase_guard::permit` | @tirbase-guard-team | No source reference from any other workspace crate; sealed ActuationPermit is intentionally guard-internal (PV-4.3, CLAIM-11.2) | v0.3.0 |
+| `tirbase_guard::policy` | @tirbase-guard-team | No source reference from any other workspace crate; policy lifecycle surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::signed_operation` | @tirbase-guard-team | No source reference from any other workspace crate; domain-separated signing surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::single_writer_lease` | @tirbase-guard-team | No source reference from any other workspace crate; single-writer lease surface pending a library consumer | v0.3.0 |
+| `tirbase_sim::drivers` | @tirbase-sim-team | No source reference from any other workspace crate; simulated-driver surface is exercised only by simulator tests | v0.3.0 |
+| `tirbase_sim::invariants` | @tirbase-sim-team | No source reference from any other workspace crate; invariant catalogue is exercised only by simulator tests | v0.3.0 |
+| `tirbase_types::deserialize` | @tirbase-core-team | No source reference from any other workspace crate; helper module currently unused | v0.3.0 |
+| `tirbase_types::fixed_point` | @tirbase-core-team | No source reference from any other workspace crate; public items are re-exported at the crate root and the remaining error variants are unused | v0.3.0 |
+| `tirbase_types::units` | @tirbase-core-team | No source reference from any other workspace crate; unit constants are consumed through `UnitId`/`UnitDescriptor` rather than by name | v0.3.0 |
+| `tirbase_types::ParseCommandRoleError` | @tirbase-core-team | No source reference from any other workspace crate; public CommandRole parse error type (PV-3.1) awaiting a consumer | v0.3.0 |

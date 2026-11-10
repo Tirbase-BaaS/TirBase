@@ -1,163 +1,3 @@
-    Blocking waiting for file lock on build directory
- Documenting tirbase-core v0.1.0 (/Users/macbook/github code/TriBase/tirbase-core)
-warning: public documentation for `spatial_diversity_min` links to private item `crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct`
-    --> tirbase-core/src/api/mod.rs:4964:56
-     |
-4964 |     /// [`Tier1QuorumTracker::effective_min_distinct`](crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct)).
-     |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-     |
-     = note: this link will resolve properly if you pass `--document-private-items`
-     = note: `#[warn(rustdoc::private_intra_doc_links)]` on by default
-
-warning: unresolved link to `crate::trust_root::TrustRootManager`
-   --> tirbase-core/src/auth/root_ca.rs:127:24
-    |
-127 |     /// protected by [`crate::trust_root::TrustRootManager`].
-    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `trust_root` in module `tirbase_core`
-    |
-    = note: `#[warn(rustdoc::broken_intra_doc_links)]` on by default
-
-warning: public documentation for `merge` links to private item `merge_lww`
-  --> tirbase-core/src/crdt/merge.rs:19:7
-   |
-19 | //! [`merge_lww`] or [`merge_rga`] directly.
-   |       ^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `merge` links to private item `merge_rga`
-  --> tirbase-core/src/crdt/merge.rs:19:24
-   |
-19 | //! [`merge_lww`] or [`merge_rga`] directly.
-   |                        ^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `merge` links to private item `merge_lww`
-  --> tirbase-core/src/crdt/merge.rs:21:7
-   |
-21 | //! [`merge_lww`] and [`merge_rga`] are internal helpers that implement the
-   |       ^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `merge` links to private item `merge_rga`
-  --> tirbase-core/src/crdt/merge.rs:21:25
-   |
-21 | //! [`merge_lww`] and [`merge_rga`] are internal helpers that implement the
-   |                         ^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `produce_delta` links to private item `Self::produce_delta_with_tags`
-   --> tirbase-core/src/crdt/mod.rs:610:11
-    |
-610 |     /// [`Self::produce_delta_with_tags`] when a tag must be part of the signed
-    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `apply` links to private item `DeltaRejectionRecord`
-   --> tirbase-core/src/crdt/mod.rs:696:11
-    |
-696 |     /// [`DeltaRejectionRecord`] carrying the sender DID and a UTC timestamp
-    |           ^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `quorum` links to private item `Tier1QuorumTracker::effective_min_distinct`
-  --> tirbase-core/src/durability/quorum.rs:17:7
-   |
-17 | //! [`Tier1QuorumTracker::effective_min_distinct`]).  Because the tracker only
-   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `spatial_diversity_min` links to private item `Tier1QuorumTracker::effective_min_distinct`
-  --> tirbase-core/src/durability/quorum.rs:41:39
-   |
-41 |     /// available)` at runtime (see [`Tier1QuorumTracker::effective_min_distinct`])
-   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `register_delta` links to private item `DurabilitySubsystem::register_peer_key`
-   --> tirbase-core/src/durability/mod.rs:222:14
-    |
-222 |     ///   ([`DurabilitySubsystem::register_peer_key`]).
-    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `identity` links to private item `IdentityManager::signing_key_bytes`
-  --> tirbase-core/src/identity/mod.rs:11:7
-   |
-11 | //! [`IdentityManager::signing_key_bytes`] is crate-internal and exists only to
-   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-   |
-   = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `receive_migration_delta` links to private item `SchemaMigrationEngine::prepare_migration`
-   --> tirbase-core/src/migration/mod.rs:721:51
-    |
-721 |     /// that must satisfy Req 18.6 goes through [`SchemaMigrationEngine::prepare_migration`]
-    |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `receive_migration_delta` links to private item `SchemaMigrationEngine::finish_migration`
-   --> tirbase-core/src/migration/mod.rs:722:42
-    |
-722 |     /// → off-lock sandbox execution → [`SchemaMigrationEngine::finish_migration`]
-    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: public documentation for `receive_revocation_delta` links to private item `Self::prepare_migration`
-   --> tirbase-core/src/migration/mod.rs:913:30
-    |
-913 |     /// engine recorded in [`Self::prepare_migration`] after its CA signature
-    |                              ^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-    |
-    = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: unresolved link to `indexed_db`
-  --> tirbase-core/src/store/mod.rs:10:36
-   |
-10 | //! in a throwaway HashMap.  See [`indexed_db`] for the browser glue.
-   |                                    ^^^^^^^^^^ no item named `indexed_db` in scope
-   |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
-
-warning: public documentation for `send_receipt` links to private item `crate::api::CoreHandle::issue_durability_receipt`
-    --> tirbase-core/src/transport/mod.rs:1251:30
-     |
-1251 |     /// Production caller: [`crate::api::CoreHandle::issue_durability_receipt`]
-     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this item is private
-     |
-     = note: this link will resolve properly if you pass `--document-private-items`
-
-warning: redundant explicit link target
- --> tirbase-core/src/events.rs:6:27
-  |
-6 | //! [`SecurityEventSink`](crate::traits::SecurityEventSink).  Ad-hoc
-  |      -------------------  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ explicit target is redundant
-  |      |
-  |      because label contains path that resolves to same destination
-  |
-  = note: when a link's destination is not specified,
-          the label is used to resolve intra-doc links
-  = note: `#[warn(rustdoc::redundant_explicit_links)]` on by default
-help: remove explicit link target
-  |
-6 - //! [`SecurityEventSink`](crate::traits::SecurityEventSink).  Ad-hoc
-6 + //! [`SecurityEventSink`].  Ad-hoc
-  |
-
-warning: `tirbase-core` (lib doc) generated 18 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.05s
-warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
 pub mod tirbase_core
 pub use tirbase_core::fail_crate
 pub mod tirbase_core::api
@@ -638,6 +478,7 @@ pub fn tirbase_core::api::CoreHandle::admin_close_ico(&self, uuid::Uuid, &[u8], 
 pub fn tirbase_core::api::CoreHandle::device_revocation_status(&self, &str) -> core::result::Result<core::option::Option<tirbase_core::auth::revocation::DeviceRevocationStatus>, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::init(tirbase_core::api::InitConfig) -> core::result::Result<alloc::sync::Arc<Self>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::process_inbound_messages(&self) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
@@ -651,6 +492,7 @@ pub fn tirbase_core::api::CoreHandle::register_root_ca_key(&self, [u8; 32], core
 pub fn tirbase_core::api::CoreHandle::renew_saturate_mode(&self, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::root_ca_public_key(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn() -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
+pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::subscribe_checkpoint_observations(&self) -> tokio::sync::broadcast::Receiver<(alloc::string::String, u64, [u8; 32], i64)>
 pub fn tirbase_core::api::CoreHandle::subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::diagnostics::DiagnosticEntry>
 pub fn tirbase_core::api::CoreHandle::subscribe_durability_events(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::api::DurabilityTierChanged>
@@ -3091,6 +2933,7 @@ pub type tirbase_core::crdt::delta::SchemaIdentifierHash = [u8; 32]
 pub mod tirbase_core::crdt::inbound_caps
 pub enum tirbase_core::crdt::inbound_caps::InboundCapViolation
 pub tirbase_core::crdt::inbound_caps::InboundCapViolation::BatchExceeded
+pub tirbase_core::crdt::inbound_caps::InboundCapViolation::ConnectionsExceeded
 pub tirbase_core::crdt::inbound_caps::InboundCapViolation::DepCountExceeded
 pub tirbase_core::crdt::inbound_caps::InboundCapViolation::HeadCountExceeded
 pub tirbase_core::crdt::inbound_caps::InboundCapViolation::OpCountExceeded
@@ -3352,6 +3195,8 @@ pub tirbase_core::crdt::memory_budget::MemoryBudgetCaches::ico_index: tirbase_co
 pub tirbase_core::crdt::memory_budget::MemoryBudgetCaches::reassembly_buffers: tirbase_core::crdt::memory_budget::CacheMetricsHandle
 impl tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::new() -> Self
+impl core::clone::Clone for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
+pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::clone(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 impl core::default::Default for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::default() -> Self
 impl core::fmt::Debug for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
@@ -3373,12 +3218,18 @@ pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::try_from(U) -> cor
 impl<T, U> core::convert::TryInto<U> for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where U: core::convert::TryFrom<T>
 pub type tirbase_core::crdt::memory_budget::MemoryBudgetCaches::Error = <U as core::convert::TryFrom<T>>::Error
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: core::clone::Clone
+pub type tirbase_core::crdt::memory_budget::MemoryBudgetCaches::Owned = T
+pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::clone_into(&self, &mut T)
+pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::to_owned(&self) -> T
 impl<T> core::any::Any for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: 'static + ?core::marker::Sized
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::type_id(&self) -> core::any::TypeId
 impl<T> core::borrow::Borrow<T> for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: ?core::marker::Sized
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::borrow(&self) -> &T
 impl<T> core::borrow::BorrowMut<T> for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: ?core::marker::Sized
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: core::clone::Clone
+pub unsafe fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::from(T) -> T
 impl<T> downcast_rs::Downcast for tirbase_core::crdt::memory_budget::MemoryBudgetCaches where T: core::any::Any
@@ -3402,9 +3253,12 @@ pub const tirbase_core::crdt::memory_budget::ICO_INDEX_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::PENDING_QUEUE_GLOBAL_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::RATE_QUARANTINE_MEMORY_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::REASSEMBLY_BUFFERS_BYTES: usize
+pub const tirbase_core::crdt::memory_budget::RSS_BUDGET_BYTES: usize
+pub fn tirbase_core::crdt::memory_budget::total_configured_caps_bytes() -> usize
 pub mod tirbase_core::crdt::merge
 pub enum tirbase_core::crdt::merge::InboundCapViolation
 pub tirbase_core::crdt::merge::InboundCapViolation::BatchExceeded
+pub tirbase_core::crdt::merge::InboundCapViolation::ConnectionsExceeded
 pub tirbase_core::crdt::merge::InboundCapViolation::DepCountExceeded
 pub tirbase_core::crdt::merge::InboundCapViolation::HeadCountExceeded
 pub tirbase_core::crdt::merge::InboundCapViolation::OpCountExceeded
@@ -5052,6 +4906,7 @@ pub tirbase_core::events::ReasonCode::ClockJump
 pub tirbase_core::events::ReasonCode::CommandAccepted
 pub tirbase_core::events::ReasonCode::CommandSignatureInvalid
 pub tirbase_core::events::ReasonCode::CommitConflict
+pub tirbase_core::events::ReasonCode::ConnectionCapExceeded
 pub tirbase_core::events::ReasonCode::ConstraintViolation
 pub tirbase_core::events::ReasonCode::CrashLoopEscalation
 pub tirbase_core::events::ReasonCode::DeltaQuarantined
@@ -5079,6 +4934,7 @@ pub tirbase_core::events::ReasonCode::FuelExhausted
 pub tirbase_core::events::ReasonCode::HandshakeFailed
 pub tirbase_core::events::ReasonCode::HandshakeSuccess
 pub tirbase_core::events::ReasonCode::HeadCountExceeded
+pub tirbase_core::events::ReasonCode::IsolationFailure
 pub tirbase_core::events::ReasonCode::IssuerRevoked
 pub tirbase_core::events::ReasonCode::LeaseHeld
 pub tirbase_core::events::ReasonCode::LedgerPruned
@@ -5125,6 +4981,8 @@ pub tirbase_core::events::ReasonCode::RevocationLeaseReleased
 pub tirbase_core::events::ReasonCode::RevocationPostExecution
 pub tirbase_core::events::ReasonCode::RevocationSignatureReceived
 pub tirbase_core::events::ReasonCode::RevocationVerificationFailed
+pub tirbase_core::events::ReasonCode::SCMRightsAttempt
+pub tirbase_core::events::ReasonCode::SandboxViolation
 pub tirbase_core::events::ReasonCode::SchemaAdditiveAccepted
 pub tirbase_core::events::ReasonCode::ScopeViolation
 pub tirbase_core::events::ReasonCode::SequenceRejected

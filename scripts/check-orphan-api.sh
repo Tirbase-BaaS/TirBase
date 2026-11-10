@@ -16,22 +16,24 @@
 # Approach:
 #   1. Generate rustdoc JSON for each library crate using nightly rustdoc's
 #      --output-format json flag (--output-format json and -Z unstable-options).
-#      This produces a machine-readable listing of every public item in the
-#      crate including cross-references to types it uses from other crates.
+#      This enumerates every public item and its fully-qualified path.
 #   2. For each `pub` item in crate A, check whether ANY other crate B
-#      references that item's path in its own rustdoc JSON (either via an
-#      explicit string ref or via the external_crates re-export declaration).
-#      Items never referenced by another crate are orphan candidates.
+#      references that item.  Rustdoc JSON does not record `use` statements or
+#      type references to other crates, so this is supplemented by scanning the
+#      source of every workspace crate (library AND application crates such as
+#      tirbase-gateway/tirbase-admin) for qualified paths, `use` imports and
+#      parent-type references.  Items never referenced by another crate are
+#      orphan candidates.
 #   3. Cross-reference orphan candidates against docs/orphan-api-allowlist.md.
 #      Allowlisted items are approved orphans (skipped); others fail CI.
 #   4. Scan the allowlist for expired entries: if an entry's Expiry version
 #      is <= the current workspace version, CI fails.
 #
 # Limitations:
-#   - This is a conservative cross-crate reference check.  An item is
-#     considered non-orphan if its path appears in another crate's JSON.
-#     It may miss callers that use the item only through type aliases or
-#     fully-opaque macro expansion; such items should be added to the allowlist.
+#   - The source scan is textual.  It can miss macro-generated references and
+#     references hidden behind type aliases (add those to the allowlist), and it
+#     can over-approximate usage when a name appears only in a comment or doc
+#     example.
 #   - Items used only within their own crate (no cross-crate callers) are NOT
 #     flagged here — the dead_code lint handles those (CLAIM-2.1).
 #   - pub use re-exports of an entire crate (e.g. `pub use tirbase_types;`)
@@ -46,7 +48,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ALLOWLIST="${REPO_ROOT}/docs/orphan-api-allowlist.md"
 DOC_DIR="${REPO_ROOT}/target/doc"
 
-# Library crates with a public API manifest (binary-only crates are excluded).
+# Library crates with a public API manifest.  These are the only crates whose
+# rustdoc JSON is generated; the source-reference pass below additionally scans
+# every workspace member, including the application crates (gateway/admin).
 # Format: "crate-name:extra-flags"
 # tirbase-core has a [[bin]] target too, so we must pass --lib explicitly.
 CRATE_SPECS=(
@@ -245,7 +249,117 @@ for crate, items in pub_items.items():
         if not referenced:
             orphan_set.add(fqn)
 
-orphans = sorted(orphan_set)
+# ── source-based cross-crate references ──────────────────────────────────────
+#
+# The rustdoc-JSON pass above only sees items an external crate *re-exports*;
+# it cannot see `use` statements or type references.  Application crates
+# (tirbase-gateway, tirbase-admin) have no rustdoc entry at all.  So scan the
+# source of every workspace crate (library and application) for textual
+# references to each candidate orphan.
+repo_root = os.path.dirname(os.path.dirname(doc_dir))
+
+root_manifest = os.path.join(repo_root, "Cargo.toml")
+workspace_members = []
+if os.path.exists(root_manifest):
+    with open(root_manifest) as f:
+        root_toml = f.read()
+    m = re.search(r"members\s*=\s*\[(.*?)\]", root_toml, re.S)
+    if m:
+        workspace_members = re.findall(r'"([^"]+)"', m.group(1))
+
+PATH_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*")
+USE_RE = re.compile(r"\buse\s+([^;]+);", re.S)
+
+
+def read_crate_sources(crate):
+    src_root = os.path.join(repo_root, crate, "src")
+    chunks = []
+    for dirpath, _dirs, files in os.walk(src_root):
+        for name in files:
+            if name.endswith(".rs"):
+                path = os.path.join(dirpath, name)
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        chunks.append(f.read())
+                except OSError:
+                    pass
+    return "\n".join(chunks)
+
+
+source_refs = {}  # crate name → {paths, pairs, imported}
+for member in workspace_members:
+    text = read_crate_sources(member)
+    paths = set(PATH_RE.findall(text))
+    ws_paths = {p for p in paths if p.split("::")[0] in crate_names_u}
+    pairs = set()
+    for p in paths:
+        parts = p.split("::")
+        for i in range(len(parts) - 1):
+            pairs.add(parts[i] + "::" + parts[i + 1])
+    imported = set()
+    for stmt in USE_RE.findall(text):
+        found = PATH_RE.findall(stmt)
+        bases = [p for p in found if p.split("::")[0] in crate_names_u]
+        if not bases:
+            continue
+        base = bases[0]
+        imported.add(base)
+        for p in found:
+            imported.add(p)
+            imported.add(base + "::" + p)
+    # Every non-crate-root prefix of a referenced path names a module/type that
+    # the other crate consumes, so its whole public surface is considered used.
+    modules = set()
+    for p in ws_paths | imported:
+        parts = p.split("::")
+        for i in range(2, len(parts) + 1):
+            modules.add("::".join(parts[:i]))
+    source_refs[member] = {
+        "paths": ws_paths,
+        "pairs": pairs,
+        "imported": imported,
+        "modules": modules,
+    }
+
+
+def source_referenced(fqn):
+    """True when another workspace crate's source references `fqn`."""
+    parts = fqn.split("::")
+    crate_u = parts[0]
+    name = parts[-1]
+    parent = parts[-2] if len(parts) >= 2 else None
+    pair = f"{parent}::{name}" if parent else None
+    for member, refs in source_refs.items():
+        if member.replace("-", "_") == crate_u:
+            continue
+        # A consumed module/type covers its entire public surface (variants,
+        # fields, methods, nested items).
+        for i in range(2, len(parts) + 1):
+            if "::".join(parts[:i]) in refs["modules"]:
+                return True
+        if fqn in refs["imported"] or fqn in refs["paths"]:
+            return True
+        if any(p.startswith(fqn + "::") for p in refs["paths"]):
+            return True
+        if pair and pair in refs["pairs"]:
+            return True
+        # Enum variants, struct fields and methods are part of their parent
+        # type/module's surface: if another crate references the parent, the
+        # item is consumed API even though the member is never named alone.
+        if len(parts) >= 3:
+            parent_fqn = "::".join(parts[:-1])
+            if parent_fqn in refs["imported"] or parent_fqn in refs["paths"]:
+                return True
+            if any(p.startswith(parent_fqn + "::") for p in refs["paths"]):
+                return True
+    return False
+
+unreferenced = sorted(o for o in orphan_set if not source_referenced(o))
+print(
+    f"  rustdoc-only orphans: {len(orphan_set)}; "
+    f"after source scan of {len(workspace_members)} workspace crates: {len(unreferenced)}"
+)
+orphans = unreferenced
 
 # ── load allowlist ────────────────────────────────────────────────────────────
 allowlist = {}  # fqn → {owner, justification, expiry}
@@ -269,8 +383,20 @@ expired = [(f, e["expiry"]) for f, e in allowlist.items()
            if parse_semver(e["expiry"]) <= cur_sv]
 
 # ── classify ──────────────────────────────────────────────────────────────────
-approved   = [o for o in orphans if o in allowlist]
-unapproved = [o for o in orphans if o not in allowlist]
+# An allowlist entry covers its exact FQN and every path nested under it (the
+# documented subtree semantics in docs/orphan-api-allowlist.md).
+def matching_entry(fqn):
+    if fqn in allowlist:
+        return fqn
+    parts = fqn.split("::")
+    for i in range(1, len(parts)):
+        prefix = "::".join(parts[:i])
+        if prefix in allowlist:
+            return prefix
+    return None
+
+approved   = [o for o in orphans if matching_entry(o) is not None]
+unapproved = [o for o in orphans if matching_entry(o) is None]
 
 # ── report ────────────────────────────────────────────────────────────────────
 FAIL = 0
@@ -289,7 +415,7 @@ if expired:
 if approved:
     print(f"\nINFO: {len(approved)} allowlisted orphan(s) — approved, not yet wired:")
     for item in approved:
-        e = allowlist[item]
+        e = allowlist[matching_entry(item)]
         print(f"  OK  [{e['expiry']}]  {item}")
 
 if unapproved:
