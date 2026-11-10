@@ -61,6 +61,10 @@ use crate::signed_operation::{SignedOperation, SignedOperationError, SignedOpera
 /// Domain-separation context string for `TimeBeacon` signatures.
 pub const CONTEXT_TIME_BEACON: &str = "TirBase/v1/TimeBeacon";
 
+/// Domain-separation context string for operator time-reset operations
+/// (`POST /admin/time-reset`, task 36.3l).
+pub const CONTEXT_TIME_RESET: &str = "TirBase/v1/TimeReset";
+
 /// Max forward jump accepted from a single beacon without an anchor quorum
 /// (PV-22.5): 24 hours.
 pub const DEFAULT_MAX_FORWARD_JUMP_SECS: i64 = 86_400;
@@ -129,6 +133,26 @@ pub struct TimeBeacon {
 
 impl SignedOperationPayload for TimeBeacon {
     const CONTEXT: &'static str = CONTEXT_TIME_BEACON;
+}
+
+/// Operator time-reset payload (task 36.3l, PV-22).
+///
+/// A reset is the only operation that may move the ratchet floor backwards: it
+/// exists for recovery from a corrupted clock and therefore requires an M-of-N
+/// `TimeAnchor` quorum.  Every other path (`advance`) keeps the ratchet
+/// monotonic.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TimeResetPayload {
+    /// Authoritative wall-clock value to install as the new ratchet floor.
+    pub new_floor_secs: i64,
+    /// Operator-visible reason for the reset.
+    pub reason: String,
+    /// Unique reset identifier for audit correlation.
+    pub reset_id: [u8; 16],
+}
+
+impl SignedOperationPayload for TimeResetPayload {
+    const CONTEXT: &'static str = CONTEXT_TIME_RESET;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -481,6 +505,79 @@ impl TimeRatchet {
     /// comparison reintroduces the S19/S04 failure modes.
     pub fn is_expired(&self, expiry_est: i64, ts: &dyn TimeSource) -> bool {
         self.now_est(ts) > expiry_est
+    }
+
+    /// Apply an M-of-N `TimeAnchor`-signed operator time reset (task 36.3l).
+    ///
+    /// Unlike [`TimeRatchet::advance`], a reset may move the floor backwards; it
+    /// is the explicit recovery path for a corrupted clock and is accepted only
+    /// when at least `required_m` distinct trusted `TimeAnchor` signatures are
+    /// presented.  The new record is durably persisted before it is applied.
+    pub fn force_reset(
+        &mut self,
+        operation: &SignedOperation<TimeResetPayload>,
+        payload: &TimeResetPayload,
+        ts: &dyn TimeSource,
+        resolve: impl Fn(&str) -> Option<Vec<u8>>,
+        required_m: usize,
+    ) -> Result<TimeRatchetRecord, TimeRatchetError> {
+        operation
+            .verify_payload(payload)
+            .map_err(map_signed_operation_error)?;
+        let required_m = required_m.max(1);
+        let mut verified: BTreeSet<String> = BTreeSet::new();
+        for entry in &operation.signatures {
+            if entry.role != CommandRole::TimeAnchor {
+                return Err(TimeRatchetError::NonAnchorSignature {
+                    signer_did: entry.signer_did.clone(),
+                    role: entry.role,
+                });
+            }
+            let Some(public_key) = resolve(&entry.signer_did) else {
+                return Err(TimeRatchetError::UnknownSigner {
+                    signer_did: entry.signer_did.clone(),
+                });
+            };
+            operation.verify_entry(entry, &public_key).map_err(|_| {
+                TimeRatchetError::SignatureInvalid {
+                    signer_did: entry.signer_did.clone(),
+                }
+            })?;
+            verified.insert(entry.signer_did.clone());
+        }
+        if verified.len() < required_m {
+            return Err(TimeRatchetError::InsufficientAnchorQuorum {
+                verified: verified.len(),
+                required: required_m,
+                jump_secs: 0,
+            });
+        }
+
+        let now_mono = ts.monotonic_now();
+        let record = TimeRatchetRecord {
+            last_beacon_time: payload.new_floor_secs,
+            mono_at_beacon: now_mono,
+            persisted_floor: payload.new_floor_secs,
+            beacon_boot_id: ts.boot_id(),
+            updated_at_mono: now_mono,
+        };
+        self.store.save(&record)?;
+        self.last_beacon_time = record.last_beacon_time;
+        self.mono_at_beacon = record.mono_at_beacon;
+        self.persisted_floor = record.persisted_floor;
+        self.beacon_boot_id = record.beacon_boot_id;
+        self.updated_at_mono = record.updated_at_mono;
+        self.emit(
+            Severity::High,
+            ReasonCode::BeaconAccepted,
+            format!(
+                "operator time reset installed floor {} ({} anchor signature(s), reason: {})",
+                record.persisted_floor,
+                verified.len(),
+                payload.reason
+            ),
+        );
+        Ok(record)
     }
 
     /// Apply a signed beacon (PV-22.5, S23).

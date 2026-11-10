@@ -318,6 +318,48 @@ impl EpochRegistry {
         Ok(())
     }
 
+    /// Atomically advance the device epoch as part of an operator restore
+    /// (task 36.3l `POST /admin/restore`).
+    ///
+    /// The admin layer verifies the joint PolicyAuthority + RevocationManager
+    /// restore operation before calling this; the epoch increment itself is a
+    /// durability step (RD-2: restoring from backup increments the enrollment
+    /// epoch so prior-epoch commands can never be replayed).
+    pub fn restore_bump(
+        &self,
+        device_id: &str,
+        reason: &str,
+        now_est: i64,
+    ) -> Result<DeviceEpoch, EpochError> {
+        let current = self.store.load(device_id)?;
+        let current_epoch = current.as_ref().map(|r| r.epoch).unwrap_or(0);
+        let new_epoch = current_epoch
+            .checked_add(1)
+            .ok_or_else(|| EpochError::Store("epoch counter overflow".to_string()))?;
+        let record = DeviceEpoch {
+            device_id: device_id.to_string(),
+            epoch: new_epoch,
+            bumped_at_est: now_est,
+            co_sig_pa: None,
+            co_sig_rm: None,
+        };
+        self.store.save(&record)?;
+        self.observe_epoch(device_id, new_epoch)?;
+        emit(
+            SecurityEvent::new(
+                SecurityEventCategory::Enrollment,
+                Severity::High,
+                ReasonCode::EpochBumped,
+            )
+            .with_target(device_id.to_string())
+            .with_detail(format!(
+                "restore bumped device epoch {current_epoch} -> {new_epoch} ({reason}); \
+                 prior-epoch commands are rejected"
+            )),
+        );
+        Ok(record)
+    }
+
     /// Apply a signed epoch bump (task 8.8).
     ///
     /// Verification order:

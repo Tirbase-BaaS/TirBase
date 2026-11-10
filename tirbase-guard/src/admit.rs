@@ -296,6 +296,18 @@ impl RateLimiters {
         }
         b.try_take()
     }
+
+    /// Non-consuming snapshot of an issuer's token bucket for the Guard status
+    /// API (PV-24.3, task 36.3k/36.7).  Returns `None` when no bucket exists
+    /// yet (the issuer has not sent a command in this process).
+    pub fn issuer_tokens(&self, issuer_did: &str) -> Option<(f64, f64)> {
+        let map = match self.per_issuer.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        map.get(issuer_did)
+            .map(|bucket| (bucket.tokens, bucket.capacity))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -378,6 +390,17 @@ impl AdmitPipelineState {
         self.max_ttl_secs
             .store(secs.max(0) as u64, Ordering::Relaxed);
     }
+    /// PV-24.3 (task 36.3k/36.7): snapshot the per-issuer token bucket for the
+    /// Guard status API without consuming a token.
+    pub fn issuer_rate_limit_snapshot(&self, issuer_did: &str) -> Option<(f64, f64)> {
+        self.rate_limiters.issuer_tokens(issuer_did)
+    }
+
+    /// Configured per-issuer rate (commands/second).
+    pub fn issuer_rate_limit_per_sec(&self) -> u32 {
+        self.issuer_rps.load(Ordering::Relaxed) as u32
+    }
+
     pub fn set_challenge_requests_per_minute(&self, n: u32) {
         self.challenge_requests_per_minute
             .store(n as u64, Ordering::Relaxed);
