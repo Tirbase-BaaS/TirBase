@@ -25,6 +25,7 @@ impl std::fmt::Display for ProfileTomlError {
 impl std::error::Error for ProfileTomlError {}
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FpvToml {
     mantissa: i64,
     exponent: i8,
@@ -36,12 +37,13 @@ impl FpvToml {
     }
 }
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum KindToml {
     Range { min: FpvToml, max: FpvToml },
     Bool,
 }
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ParamToml {
     name: String,
     unit_id: UnitId,
@@ -59,6 +61,7 @@ struct ParamToml {
     critical: bool,
 }
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ProfileToml {
     profile_id: String,
     version: u64,
@@ -71,6 +74,8 @@ struct ProfileToml {
     policy_timelock_secs: u32,
     #[serde(default)]
     policy_cancel_window_secs: u32,
+    #[serde(default)]
+    signature_alg: String,
     #[serde(default)]
     signature_hex: String,
     #[serde(default)]
@@ -116,31 +121,51 @@ fn parse_signature(hex_s: &str) -> Result<DeviceSignature, ProfileTomlError> {
     Ok(DeviceSignature::Ed25519(out))
 }
 
-pub fn parse_profile_toml(input: &str) -> Result<EnvelopeProfile, ProfileTomlError> {
-    let doc: ProfileToml = toml::from_str(input).map_err(|e| {
-        // Try to surface field-level messages from toml errors.
-        let msg = e.to_string();
-        let field = msg
-            .split_whitespace()
-            .find(|w| {
-                [
-                    "profile_id",
-                    "version",
-                    "device_class",
-                    "parameters",
-                    "kind",
-                    "name",
-                    "unit_id",
-                ]
-                .contains(w)
-            })
-            .unwrap_or("toml")
-            .to_string();
-        ProfileTomlError {
-            field,
-            message: msg,
+fn toml_field_error(e: toml::de::Error) -> ProfileTomlError {
+    let message = e.to_string();
+    let mut field = "toml".to_string();
+    // toml errors often include `missing field `x`` or `unknown field `x``.
+    for pat in [
+        "missing field `",
+        "unknown field `",
+        "invalid type: ",
+        " for key `",
+    ] {
+        if let Some(i) = message.find(pat) {
+            let rest = &message[i + pat.len()..];
+            if let Some(j) = rest.find('`') {
+                field = rest[..j].to_string();
+                break;
+            }
         }
-    })?;
+    }
+    if field == "toml" {
+        if let Some(span) = e.span() {
+            let _ = span; // keep stable field fallback
+        }
+        for key in [
+            "profile_id",
+            "version",
+            "device_class",
+            "parameters",
+            "signature_alg",
+            "signature_hex",
+            "policy_loosen_m",
+            "name",
+            "kind",
+            "unit_id",
+        ] {
+            if message.contains(key) {
+                field = key.to_string();
+                break;
+            }
+        }
+    }
+    ProfileTomlError { field, message }
+}
+
+pub fn parse_profile_toml(input: &str) -> Result<EnvelopeProfile, ProfileTomlError> {
+    let doc: ProfileToml = toml::from_str(input).map_err(toml_field_error)?;
     if doc.device_class.trim().is_empty() {
         return Err(ProfileTomlError {
             field: "device_class".into(),
@@ -154,6 +179,17 @@ pub fn parse_profile_toml(input: &str) -> Result<EnvelopeProfile, ProfileTomlErr
         });
     }
     let profile_id = parse_profile_id(&doc.profile_id)?;
+    let alg = if doc.signature_alg.trim().is_empty() {
+        "ed25519"
+    } else {
+        doc.signature_alg.trim()
+    };
+    if !alg.eq_ignore_ascii_case("ed25519") {
+        return Err(ProfileTomlError {
+            field: "signature_alg".into(),
+            message: format!("unsupported signature_alg '{alg}'; expected ed25519"),
+        });
+    }
     let signature = parse_signature(&doc.signature_hex)?;
     let mut parameters = Vec::with_capacity(doc.parameters.len());
     for (i, p) in doc.parameters.into_iter().enumerate() {

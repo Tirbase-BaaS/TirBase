@@ -1,0 +1,6 @@
+{
+  "did": "did:key:z6MkvHHbrGisC4BxN9M8b95EdXTidoFjeRE3i7Qc355d6yqU",
+  "public_key_hex": "eb2cf13bf7ae3a5f614168a1fb09272d39771ec4b8523727815e466caf8ee163",
+  "seed_hex": "3434343434343434343434343434343434343434343434343434343434343434",
+  "note": "Committed Task 34.5 fixture PA key for profiles/cold_room.toml install path tests only. Not for production."
+}

@@ -301,6 +301,14 @@ pub enum ReasonCode {
     /// detected.
     MonotonicCounterRegression,
 
+    // Driver isolation (PV-10.4, S35, CLAIM-34.8)
+    /// Driver child exited abnormally or failed seccomp/landlock init.
+    IsolationFailure,
+    /// Driver child attempted or was blocked from passing an fd via SCM_RIGHTS (S35).
+    SCMRightsAttempt,
+    /// Seccomp/landlock/no_new_privs sandbox violation in driver child.
+    SandboxViolation,
+
     // PolicyLifecycle (PV-4.8–4.12, CLAIM-12.1–12.11)
     /// Tightening policy bundle applied after signature verification (PV-4.9).
     TighteningApplied,
@@ -473,6 +481,9 @@ impl ReasonCode {
             ReasonCode::ExpandContractViolation => "ExpandContractViolation",
             ReasonCode::FleetPreconditionMissing => "FleetPreconditionMissing",
             ReasonCode::MonotonicCounterRegression => "MonotonicCounterRegression",
+            ReasonCode::IsolationFailure => "IsolationFailure",
+            ReasonCode::SCMRightsAttempt => "SCMRightsAttempt",
+            ReasonCode::SandboxViolation => "SandboxViolation",
             ReasonCode::TighteningApplied => "TighteningApplied",
             ReasonCode::LooseningSignatureCollected => "LooseningSignatureCollected",
             ReasonCode::LooseningApplied => "LooseningApplied",

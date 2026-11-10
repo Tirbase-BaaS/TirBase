@@ -67,11 +67,74 @@ impl SignedOperationPayload for GatewayBootRecord {
     const CONTEXT: &'static str = "TirBase/v1/GatewayBootRecord";
 }
 
+fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
+    if args.is_empty() {
+        return None;
+    }
+    match args[0].as_str() {
+        "profile-install" => {
+            if args.len() < 3 {
+                return Some(Err(anyhow::anyhow!(
+                    "usage: tirbase-gateway profile-install <profile.toml> <pa-trust-root.json>"
+                )));
+            }
+            return Some(tirbase_gateway::task34_cli::run_profile_install(
+                &std::path::PathBuf::from(&args[1]),
+                &std::path::PathBuf::from(&args[2]),
+            ));
+        }
+        "modbus-smoke" => {
+            // modbus-smoke <addr> <op> <register> [values...]
+            if args.len() < 4 {
+                return Some(Err(anyhow::anyhow!("usage: tirbase-gateway modbus-smoke <addr> <read-holding|read-input|write-single|write-multiple> <register> [values...]")));
+            }
+            let reg: u16 = match args[3].parse() {
+                Ok(v) => v,
+                Err(e) => return Some(Err(anyhow::anyhow!("register: {e}"))),
+            };
+            let vals: Result<Vec<u16>> = args[4..]
+                .iter()
+                .map(|v| v.parse::<u16>().context("value"))
+                .collect();
+            let vals = match vals {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            };
+            return Some(tirbase_gateway::task34_cli::run_modbus_smoke(
+                &args[1], &args[2], reg, &vals,
+            ));
+        }
+        "mqtt-smoke" => {
+            // mqtt-smoke <mqtts://uri> <ca-cert.pem> <topic> <payload>
+            if args.len() < 5 {
+                return Some(Err(anyhow::anyhow!("usage: tirbase-gateway mqtt-smoke <mqtts://uri> <ca-cert.pem> <topic> <payload>")));
+            }
+            return Some(tirbase_gateway::task34_cli::run_mqtt_smoke(
+                &args[1],
+                &std::path::PathBuf::from(&args[2]),
+                &args[3],
+                &args[4],
+            ));
+        }
+        "cold-room-sim" => {
+            let seed: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(42);
+            let steps: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(256);
+            return Some(tirbase_gateway::task34_cli::run_cold_room_step(seed, steps));
+        }
+        _ => None,
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(res) = try_task34_cli(&args) {
+        return res;
+    }
     // ── Load configuration ─────────────────────────────────────────────────
-    let config_path = std::env::args()
-        .nth(1)
+    let config_path = args
+        .first()
+        .cloned()
         .unwrap_or_else(|| "/etc/tirbase/gateway.toml".to_string());
 
     let config_str = std::fs::read_to_string(&config_path)
@@ -144,7 +207,7 @@ async fn main() -> Result<()> {
                 tracing::error!(
                     node_mode = %node_mode.get().as_str(),
                     action = %action,
-                    "primary.db open failed; Restricted/operator intervention required if corrupt (CLAIM-18.4/31.5)"
+                    "primary.db open failed; SQLite error mapping applied (CLAIM-18.4/31.5); Restricted/operator intervention required if corrupt"
                 );
                 return Err(anyhow::anyhow!(action.to_string())).context("open primary.db");
             }
