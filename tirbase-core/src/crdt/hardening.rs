@@ -37,6 +37,7 @@ use crate::crdt::merge::QuarantineReason;
 use crate::events::{emit_crdt, ReasonCode, Severity};
 
 // Re-export inbound caps for convenience
+use crate::crdt::inbound_caps::InboundRateLimiter;
 pub use crate::crdt::inbound_caps::{
     InboundCapViolation, InboundCaps, INBOUND_CAP_BATCH_CHANGES, INBOUND_CAP_CONNECTIONS,
     INBOUND_CAP_DELTA_SIZE_BYTES, INBOUND_CAP_DEPS_PER_CHANGE, INBOUND_CAP_HEADS,
@@ -616,11 +617,15 @@ use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineRea
 /// Cheap-checks-first inbound validation stages (task 23.6, PV-6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CheapCheckStage {
+    Connections = 0,
     RateLimit = 1,
     Size = 2,
     OpCount = 3,
-    DepCheck = 4,
-    StartOpValidation = 5,
+    Batch = 4,
+    Heads = 5,
+    DepCheck = 6,
+    TraversalBudget = 7,
+    StartOpValidation = 8,
 }
 
 /// A cheap-check rejection with the stage that fired first.
@@ -643,6 +648,7 @@ pub struct InboundHardening {
     schema_quarantine: Option<SchemaQuarantineLedger>,
     #[cfg(feature = "native")]
     summary_db: Option<rusqlite::Connection>,
+    rate_limiter: InboundRateLimiter,
     pub caps: InboundCaps,
 }
 
@@ -666,6 +672,7 @@ impl InboundHardening {
             schema_quarantine: None,
             #[cfg(feature = "native")]
             summary_db: None,
+            rate_limiter: InboundRateLimiter::default(),
             caps: InboundCaps::default(),
         }
     }
@@ -682,6 +689,7 @@ impl InboundHardening {
             schema_quarantine: None,
             #[cfg(feature = "native")]
             summary_db: None,
+            rate_limiter: InboundRateLimiter::default(),
             caps: InboundCaps::default(),
         }
     }
@@ -697,6 +705,7 @@ impl InboundHardening {
             rate: RateQuarantineLedger::new(),
             schema_quarantine: Some(schema),
             summary_db: summary,
+            rate_limiter: InboundRateLimiter::default(),
             caps: InboundCaps::default(),
         })
     }
@@ -884,23 +893,263 @@ impl InboundHardening {
         }
         Ok(())
     }
+
+    /// Enforce every configured [`InboundCaps`] value on an inbound Delta
+    /// (PV-6.3, CLAIM-24.1/24.1a).
+    ///
+    /// This is the production receive-path gate: `CoreHandle::receive_inbound`
+    /// passes the decoded [`InboundShape`] (or `None` for a payload that is not
+    /// Automerge) and the current peer count.  The first violated cap wins and
+    /// the Delta is quarantined with the mapped reason code:
+    ///
+    /// connections → rate/burst → delta size → op count → batch changes →
+    /// heads → deps per change → traversal budget.
+    ///
+    /// Shape-based caps are skipped for non-Automerge payloads (the legacy JSON
+    /// envelope path), matching `cheap_checks_first`.
+    pub fn enforce_inbound_caps(
+        &mut self,
+        delta: &Delta,
+        shape: Option<InboundShape>,
+        active_connections: usize,
+        now_mono: u64,
+        now_wall_secs: i64,
+    ) -> Result<(), CheapCheckRejection> {
+        let caps = self.caps.clone();
+
+        if active_connections > caps.connections {
+            let detail = format!(
+                "inbound connections {active_connections} exceed cap {}",
+                caps.connections
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::ConnectionsExceeded,
+                CheapCheckStage::Connections,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+
+        let ops = shape.map(|s| s.ops).unwrap_or(1);
+        if !self.rate_limiter.check(
+            &delta.author_did,
+            ops,
+            now_mono,
+            caps.rate_ops_per_sec,
+            caps.rate_burst,
+        ) {
+            let detail = format!(
+                "rate cap exceeded: {ops} ops ({} ops/s, burst {})",
+                caps.rate_ops_per_sec, caps.rate_burst
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::RateExceeded,
+                CheapCheckStage::RateLimit,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+
+        if delta.automerge_bytes.len() > caps.delta_size_bytes {
+            let detail = format!(
+                "delta {} bytes exceeds cap {}",
+                delta.automerge_bytes.len(),
+                caps.delta_size_bytes
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::Oversize,
+                CheapCheckStage::Size,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+
+        let Some(shape) = shape else {
+            return Ok(());
+        };
+
+        if shape.ops > caps.op_count {
+            let detail = format!("op count {} exceeds cap {}", shape.ops, caps.op_count);
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::OpCountExceeded,
+                CheapCheckStage::OpCount,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+        if shape.changes > caps.batch_changes {
+            let detail = format!(
+                "batch of {} changes exceeds cap {}",
+                shape.changes, caps.batch_changes
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::BatchExceeded,
+                CheapCheckStage::Batch,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+        if shape.heads > caps.heads {
+            let detail = format!("{} DAG heads exceed cap {}", shape.heads, caps.heads);
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::HeadCountExceeded,
+                CheapCheckStage::Heads,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+        if shape.max_deps > caps.deps_per_change {
+            let detail = format!(
+                "{} deps per change exceed cap {}",
+                shape.max_deps, caps.deps_per_change
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::DepCountExceeded,
+                CheapCheckStage::DepCheck,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+        if shape.traversal_visits > caps.traversal_budget {
+            let detail = format!(
+                "{} traversal visits exceed budget {}",
+                shape.traversal_visits, caps.traversal_budget
+            );
+            return Err(self.quarantine_cap(
+                delta,
+                InboundCapViolation::TraversalBudgetExceeded,
+                CheapCheckStage::TraversalBudget,
+                detail,
+                now_mono,
+                now_wall_secs,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Build a rejection, map it to its quarantine reason, and record it in the
+    /// appropriate ledger (rate ledger for rate/size, schema quarantine ledger
+    /// for the shape caps; connection violations emit an event only because they
+    /// are not a Delta property).
+    fn quarantine_cap(
+        &mut self,
+        delta: &Delta,
+        violation: InboundCapViolation,
+        stage: CheapCheckStage,
+        detail: String,
+        now_mono: u64,
+        now_wall_secs: i64,
+    ) -> CheapCheckRejection {
+        let reason = InboundCaps::quarantine_reason_for_violation(violation);
+        let rejection = CheapCheckRejection {
+            stage,
+            reason,
+            detail: detail.clone(),
+        };
+        match reason {
+            ReasonCode::RateExceeded | ReasonCode::Oversize => {
+                let rate_reason = if reason == ReasonCode::RateExceeded {
+                    RateQuarantineReason::RateExceeded
+                } else {
+                    RateQuarantineReason::Oversize
+                };
+                let _ = self.record_rate_quarantine(
+                    &delta.author_did,
+                    rate_reason,
+                    now_mono,
+                    now_wall_secs,
+                    &detail,
+                );
+            }
+            other => {
+                #[cfg(feature = "native")]
+                {
+                    if let Some(schema_reason) = SchemaQuarantineReason::from_reason_code(other) {
+                        let _ = self.record_schema_quarantine(delta, schema_reason, &detail);
+                    } else {
+                        emit_crdt(Severity::Medium, other, Some(hex::encode(delta.id)), detail);
+                    }
+                }
+                #[cfg(not(feature = "native"))]
+                emit_crdt(Severity::Medium, other, Some(hex::encode(delta.id)), detail);
+            }
+        }
+        rejection
+    }
 }
 
-/// Best-effort op count from Automerge payload (cheap-ish relative to full merge).
-pub fn decode_change_op_count(bytes: &[u8]) -> Option<u64> {
+/// Structural facts about an inbound Automerge payload used by the cap gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct InboundShape {
+    /// Number of Automerge changes in the payload (batch size).
+    pub changes: usize,
+    /// Sum of operation counts across changes.
+    pub ops: u64,
+    /// Number of DAG heads after loading the payload.
+    pub heads: usize,
+    /// Maximum dependency count of any single change.
+    pub max_deps: usize,
+    /// Dependency-graph visits (`changes + total deps`) the `start_op`
+    /// validator performs over this payload.
+    pub traversal_visits: u64,
+}
+
+/// Decode the structural facts of an inbound Automerge payload in one parse.
+///
+/// Returns `None` when the bytes are not a loadable Automerge payload containing
+/// at least one change (legacy JSON envelopes pass `None` and skip shape caps).
+/// Empty bytes yield an all-zero shape, matching [`decode_change_op_count`].
+pub(crate) fn decode_inbound_shape(bytes: &[u8]) -> Option<InboundShape> {
     if bytes.is_empty() {
-        return Some(0);
+        return Some(InboundShape {
+            changes: 0,
+            ops: 0,
+            heads: 0,
+            max_deps: 0,
+            traversal_visits: 0,
+        });
     }
     let mut doc = automerge::AutoCommit::load(bytes).ok()?;
     let changes = doc.get_changes(&[]);
     if changes.is_empty() {
         return None;
     }
-    let mut n: u64 = 0;
-    for c in changes {
-        n = n.saturating_add(c.len() as u64);
+    let heads = doc.get_heads().len();
+    let mut ops: u64 = 0;
+    let mut max_deps: usize = 0;
+    let mut total_deps: u64 = 0;
+    for change in &changes {
+        ops = ops.saturating_add(change.len() as u64);
+        let deps = change.deps().len();
+        max_deps = max_deps.max(deps);
+        total_deps = total_deps.saturating_add(deps as u64);
     }
-    Some(n)
+    Some(InboundShape {
+        changes: changes.len(),
+        ops,
+        heads,
+        max_deps,
+        traversal_visits: (changes.len() as u64).saturating_add(total_deps),
+    })
+}
+
+/// Best-effort op count from Automerge payload (cheap-ish relative to full merge).
+pub fn decode_change_op_count(bytes: &[u8]) -> Option<u64> {
+    decode_inbound_shape(bytes).map(|shape| shape.ops)
 }
 
 /// Convenience wrapper retained for callers that only need the ClockJump record.
@@ -912,4 +1161,176 @@ pub fn quarantine_structural(
     detail: &str,
 ) -> Result<Option<[u8; 32]>, crate::errors::TirBaseError> {
     hardening.record_schema_quarantine(delta, reason, detail)
+}
+
+// ─── Task 24.1a tests: every remaining InboundCaps value quarantines ─────────
+
+#[cfg(test)]
+mod task24_cap_tests {
+    use super::*;
+    use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+
+    fn test_delta(bytes: Vec<u8>) -> Delta {
+        Delta {
+            id: [0x24; 32],
+            author_did: "did:key:z6MkCapTest".to_string(),
+            signature: Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes: bytes,
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 1,
+            created_at: 0,
+        }
+    }
+
+    fn shape(ops: u64, changes: usize, heads: usize, max_deps: usize, visits: u64) -> InboundShape {
+        InboundShape {
+            ops,
+            changes,
+            heads,
+            max_deps,
+            traversal_visits: visits,
+        }
+    }
+
+    fn reject(
+        hardening: &mut InboundHardening,
+        delta: &Delta,
+        shape: InboundShape,
+    ) -> CheapCheckRejection {
+        hardening
+            .enforce_inbound_caps(delta, Some(shape), 0, 1_000_000, 1_000)
+            .expect_err("cap violation must reject the delta")
+    }
+
+    #[test]
+    fn connections_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.connections = 1;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = h
+            .enforce_inbound_caps(&d, None, 2, 1_000_000, 1_000)
+            .expect_err("connection cap");
+        assert_eq!(rej.stage, CheapCheckStage::Connections);
+        assert_eq!(rej.reason, ReasonCode::ConnectionCapExceeded);
+    }
+
+    #[test]
+    fn rate_and_burst_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.rate_ops_per_sec = 1;
+        h.caps.rate_burst = 2;
+        let d = test_delta(vec![1, 2, 3]);
+        let s = shape(1, 1, 1, 0, 1);
+
+        // Burst of 2 operations is allowed at the same instant.
+        assert!(h.enforce_inbound_caps(&d, Some(s), 0, 5_000_000, 5).is_ok());
+        assert!(h.enforce_inbound_caps(&d, Some(s), 0, 5_000_000, 5).is_ok());
+        let rej = h
+            .enforce_inbound_caps(&d, Some(s), 0, 5_000_000, 5)
+            .expect_err("burst exhausted");
+        assert_eq!(rej.stage, CheapCheckStage::RateLimit);
+        assert_eq!(rej.reason, ReasonCode::RateExceeded);
+        assert_eq!(h.rate_sender_rejections(&d.author_did), 1);
+
+        // One second later the bucket has refilled for exactly one more op.
+        let later = 5_000_000 + 1_000_000;
+        assert!(h.enforce_inbound_caps(&d, Some(s), 0, later, 6).is_ok());
+        assert!(h.enforce_inbound_caps(&d, Some(s), 0, later, 6).is_err());
+    }
+
+    #[test]
+    fn size_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.delta_size_bytes = 2;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(0, 0, 0, 0, 0));
+        assert_eq!(rej.stage, CheapCheckStage::Size);
+        assert_eq!(rej.reason, ReasonCode::Oversize);
+    }
+
+    #[test]
+    fn op_count_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.op_count = 5;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(6, 1, 1, 0, 1));
+        assert_eq!(rej.stage, CheapCheckStage::OpCount);
+        assert_eq!(rej.reason, ReasonCode::OpCountExceeded);
+    }
+
+    #[test]
+    fn batch_changes_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.batch_changes = 2;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(3, 3, 1, 0, 3));
+        assert_eq!(rej.stage, CheapCheckStage::Batch);
+        assert_eq!(rej.reason, ReasonCode::BatchExceeded);
+    }
+
+    #[test]
+    fn heads_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.heads = 1;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(2, 2, 2, 0, 2));
+        assert_eq!(rej.stage, CheapCheckStage::Heads);
+        assert_eq!(rej.reason, ReasonCode::HeadCountExceeded);
+    }
+
+    #[test]
+    fn deps_per_change_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.deps_per_change = 1;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(2, 1, 1, 2, 3));
+        assert_eq!(rej.stage, CheapCheckStage::DepCheck);
+        assert_eq!(rej.reason, ReasonCode::DepCountExceeded);
+    }
+
+    #[test]
+    fn traversal_budget_cap_quarantines_delta() {
+        let mut h = InboundHardening::new();
+        h.caps.traversal_budget = 10;
+        let d = test_delta(vec![1, 2, 3]);
+        let rej = reject(&mut h, &d, shape(2, 1, 1, 1, 11));
+        assert_eq!(rej.stage, CheapCheckStage::TraversalBudget);
+        assert_eq!(rej.reason, ReasonCode::TraversalBudgetExceeded);
+    }
+
+    #[test]
+    fn defaults_accept_an_honest_payload() {
+        use automerge::transaction::Transactable;
+        let mut doc = automerge::AutoCommit::new();
+        doc.put(automerge::ROOT, "cap_key", "cap_value").unwrap();
+        let bytes = doc.save();
+
+        let decoded = decode_inbound_shape(&bytes).expect("automerge shape");
+        assert_eq!(decoded.changes, 1);
+        assert_eq!(decoded.ops, 1);
+        assert_eq!(decoded.heads, 1);
+        assert_eq!(decoded.max_deps, 0);
+        assert_eq!(decoded.traversal_visits, 1);
+
+        let mut h = InboundHardening::new();
+        let d = test_delta(bytes);
+        assert!(h
+            .enforce_inbound_caps(&d, Some(decoded), 0, 1_000_000, 1_000)
+            .is_ok());
+    }
+
+    #[test]
+    fn non_automerge_payload_skips_shape_caps() {
+        let mut h = InboundHardening::new();
+        h.caps.op_count = 0;
+        h.caps.batch_changes = 0;
+        let d = test_delta(b"{\"_tirbase_table\":\"t\"}".to_vec());
+        assert!(decode_inbound_shape(&d.automerge_bytes).is_none());
+        assert!(h
+            .enforce_inbound_caps(&d, None, 0, 1_000_000, 1_000)
+            .is_ok());
+    }
 }

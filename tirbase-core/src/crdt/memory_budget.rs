@@ -10,7 +10,28 @@ pub const DAG_NODE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 pub const ICO_INDEX_BYTES: usize = 8 * 1024 * 1024;
 pub const REASSEMBLY_BUFFERS_BYTES: usize = 16 * 1024 * 1024;
 pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per task 24.5
-pub const RATE_QUARANTINE_MEMORY_BYTES: usize = 256 * 1024 * 1024; // in-memory counters approx
+
+/// Cap for the in-memory rate-quarantine counters (task 24.1).
+///
+/// These are per-sender counters (`sender_did -> window state`), not payload
+/// buffers, so the cap is small: 1 MiB covers far more senders than
+/// `rate_quarantine::RATE_QUARANTINE_GLOBAL_ENTRIES` allows.
+pub const RATE_QUARANTINE_MEMORY_BYTES: usize = 1024 * 1024;
+
+/// Documented process RSS budget baseline (MiB) for a gateway process with all
+/// configured caches loaded.  Task 44.2 will replace this provisional number
+/// with a measured value; until then it is the budget the memory gate asserts
+/// against and the denominator for the 90% ledger rule.
+pub const RSS_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+
+/// Sum of every configured cache/buffer cap tracked in the memory ledger.
+pub fn total_configured_caps_bytes() -> usize {
+    DAG_NODE_CACHE_BYTES
+        + ICO_INDEX_BYTES
+        + REASSEMBLY_BUFFERS_BYTES
+        + PENDING_QUEUE_GLOBAL_BYTES
+        + RATE_QUARANTINE_MEMORY_BYTES
+}
 
 #[derive(Debug, Default)]
 pub struct CacheMetrics {
@@ -76,7 +97,7 @@ impl CacheMetricsHandle {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MemoryBudgetCaches {
     pub dag_node_cache: CacheMetricsHandle,
     pub ico_index: CacheMetricsHandle,

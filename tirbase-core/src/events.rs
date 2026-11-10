@@ -186,6 +186,8 @@ pub enum ReasonCode {
     DepCountExceeded,
     /// DAG traversal budget exceeded.
     TraversalBudgetExceeded,
+    /// Inbound mesh peer count exceeded the configured connection cap.
+    ConnectionCapExceeded,
     /// Delta accepted for merge and routed via the LWW or RGA path.
     DeltaRouted,
     /// An additive schema change was accepted and merged.
@@ -432,6 +434,7 @@ impl ReasonCode {
             ReasonCode::HeadCountExceeded => "HeadCountExceeded",
             ReasonCode::DepCountExceeded => "DepCountExceeded",
             ReasonCode::TraversalBudgetExceeded => "TraversalBudgetExceeded",
+            ReasonCode::ConnectionCapExceeded => "ConnectionCapExceeded",
             ReasonCode::DeltaRouted => "DeltaRouted",
             ReasonCode::SchemaAdditiveAccepted => "SchemaAdditiveAccepted",
             ReasonCode::MergeVerified => "MergeVerified",

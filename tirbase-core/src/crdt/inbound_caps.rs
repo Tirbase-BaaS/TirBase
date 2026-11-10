@@ -61,6 +61,7 @@ impl InboundCaps {
             InboundCapViolation::HeadCountExceeded => ReasonCode::HeadCountExceeded,
             InboundCapViolation::DepCountExceeded => ReasonCode::DepCountExceeded,
             InboundCapViolation::TraversalBudgetExceeded => ReasonCode::TraversalBudgetExceeded,
+            InboundCapViolation::ConnectionsExceeded => ReasonCode::ConnectionCapExceeded,
         }
     }
 }
@@ -74,6 +75,69 @@ pub enum InboundCapViolation {
     HeadCountExceeded,
     DepCountExceeded,
     TraversalBudgetExceeded,
+    ConnectionsExceeded,
+}
+
+/// Per-sender token bucket enforcing `rate_ops_per_sec` / `rate_burst`.
+///
+/// Tokens are tracked in thousandths of an operation so a sub-second refill is
+/// exact at microsecond resolution.  A sender's bucket is created full, so an
+/// idle sender can always burst up to `rate_burst` operations.  A configured
+/// rate or burst of zero fails closed (every delta is rejected).
+#[derive(Debug, Default)]
+pub(crate) struct InboundRateLimiter {
+    buckets: std::collections::HashMap<String, TokenBucket>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TokenBucket {
+    tokens_milli: u64,
+    last_mono_us: u64,
+}
+
+const TOKEN_MILLI: u64 = 1000;
+
+impl InboundRateLimiter {
+    /// Consume `ops` tokens for `sender`, refilling from elapsed monotonic time.
+    /// Returns `false` when the sender is over its configured rate/burst.
+    pub(crate) fn check(
+        &mut self,
+        sender: &str,
+        ops: u64,
+        now_mono_us: u64,
+        rate_ops_per_sec: u64,
+        burst: u64,
+    ) -> bool {
+        if rate_ops_per_sec == 0 || burst == 0 {
+            return false;
+        }
+        let capacity = burst.saturating_mul(TOKEN_MILLI);
+        let bucket = self
+            .buckets
+            .entry(sender.to_string())
+            .or_insert(TokenBucket {
+                tokens_milli: capacity,
+                last_mono_us: now_mono_us,
+            });
+
+        let elapsed_us = now_mono_us.saturating_sub(bucket.last_mono_us);
+        if elapsed_us > 0 {
+            let refill = elapsed_us
+                .saturating_mul(rate_ops_per_sec)
+                .saturating_mul(TOKEN_MILLI)
+                / 1_000_000;
+            bucket.tokens_milli = bucket.tokens_milli.saturating_add(refill).min(capacity);
+            bucket.last_mono_us = now_mono_us;
+        }
+
+        let cost = ops.max(1).saturating_mul(TOKEN_MILLI);
+        if bucket.tokens_milli >= cost {
+            bucket.tokens_milli -= cost;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]

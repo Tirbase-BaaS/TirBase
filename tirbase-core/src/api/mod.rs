@@ -413,6 +413,13 @@ pub struct CoreHandle {
     /// the transport never started (offline device — Req 3.3) or on wasm.
     #[cfg(feature = "native")]
     dial_tx: Option<tokio::sync::mpsc::Sender<libp2p::Multiaddr>>,
+
+    /// Per-cache memory-budget metrics (PV-6.5, CLAIM-24.2).
+    ///
+    /// Instantiated for every production `CoreHandle` so host applications can
+    /// observe cache pressure.  The inbound path accounts in-flight Delta bytes
+    /// against the DAG node cache for the duration of the merge.
+    memory_budget: crate::crdt::memory_budget::MemoryBudgetCaches,
 }
 
 impl CoreHandle {
@@ -1196,6 +1203,7 @@ impl CoreHandle {
             inbound_rx,
             #[cfg(feature = "native")]
             dial_tx,
+            memory_budget: crate::crdt::memory_budget::MemoryBudgetCaches::new(),
         });
 
         // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
@@ -2779,6 +2787,43 @@ impl CoreHandle {
         Ok(())
     }
 
+    /// Live memory-budget metrics for the CRDT caches (PV-6.5, CLAIM-24.2).
+    ///
+    /// The returned handles share their counters with the running handle, so a
+    /// caller observes live `current_bytes` / `eviction_count` / `hit_count` /
+    /// `miss_count` values rather than a snapshot.
+    pub fn memory_budget_metrics(&self) -> crate::crdt::memory_budget::MemoryBudgetCaches {
+        self.memory_budget.clone()
+    }
+
+    /// Override the inbound caps enforced by the receive path (PV-6.3, CLAIM-24.1).
+    ///
+    /// Defaults come from [`crate::crdt::inbound_caps::InboundCaps::default`].
+    /// A deployment may tighten them (for example on a low-MTU radio link); the
+    /// new values take effect on the next inbound Delta.  Uses the hardening
+    /// counters already attached to the CRDT engine, so a violation is
+    /// quarantined with the mapped reason code.
+    pub fn set_inbound_caps(
+        &self,
+        caps: crate::crdt::inbound_caps::InboundCaps,
+    ) -> Result<(), TirBaseError> {
+        let mut crdt = self
+            .crdt
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("crdt mutex: {e}"),
+            })?;
+        match crdt.hardening_mut() {
+            Some(hardening) => {
+                hardening.caps = caps;
+                Ok(())
+            }
+            None => Err(TirBaseError::LocalStoreWriteFailed {
+                reason: "inbound hardening state unavailable".to_string(),
+            }),
+        }
+    }
+
     #[cfg(feature = "native")]
     pub async fn receive_inbound(
         &self,
@@ -2807,11 +2852,18 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
-                // PV-6 / task 23.6: cheap-checks-first (rate/size/op count) before merge.
-                // Dep check and start_op validation remain in apply_incoming_delta.
+                // PV-6 / task 24.1: enforce every configured InboundCaps value
+                // before merge (connections, rate/burst, size, op count, batch,
+                // heads, deps per change, traversal budget).  Dep check and
+                // start_op validation remain in apply_incoming_delta.
                 {
                     let now_mono = now_micros() as u64;
                     let now_wall = (now_micros() / 1_000_000) as i64;
+                    // Count the mesh peers without holding the CRDT lock.
+                    let active_connections = match self.transport.lock() {
+                        Ok(transport) => transport.active_peers().len(),
+                        Err(_) => usize::MAX,
+                    };
                     let mut crdt =
                         self.crdt
                             .lock()
@@ -2819,45 +2871,51 @@ impl CoreHandle {
                                 reason: format!("crdt mutex: {e}"),
                             })?;
                     if let Some(h) = crdt.hardening_mut() {
-                        // size
-                        if delta.automerge_bytes.len() > 1024 * 1024 {
-                            let _ = h.record_rate_quarantine(
-                                &delta.author_did,
-                                crate::crdt::rate_quarantine::RateQuarantineReason::Oversize,
-                                now_mono,
-                                now_wall,
-                                "delta exceeds 1 MiB",
-                            );
+                        // Decode the Automerge shape once, and only when the
+                        // payload is within the size cap (avoids parsing an
+                        // oversized payload just to reject it).
+                        let shape = if delta.automerge_bytes.len() <= h.caps.delta_size_bytes {
+                            crate::crdt::hardening::decode_inbound_shape(&delta.automerge_bytes)
+                        } else {
+                            None
+                        };
+                        if let Err(rejection) = h.enforce_inbound_caps(
+                            &delta,
+                            shape,
+                            active_connections,
+                            now_mono,
+                            now_wall,
+                        ) {
                             eprintln!(
-                                "[inbound] delta {} quarantined: oversize",
-                                hex::encode(delta.id)
+                                "[inbound] delta {} quarantined at stage {:?}: {:?} ({})",
+                                hex::encode(delta.id),
+                                rejection.stage,
+                                rejection.reason,
+                                rejection.detail,
                             );
                             return Ok(());
                         }
-                        // op count
-                        if let Some(n) =
-                            crate::crdt::hardening::decode_change_op_count(&delta.automerge_bytes)
-                        {
-                            if n > 1000 {
-                                #[cfg(feature = "native")]
-                                let _ = h.record_schema_quarantine(&delta, crate::crdt::schema_quarantine::SchemaQuarantineReason::OpCountExceeded, "op count exceeds 1000");
-                                eprintln!(
-                                    "[inbound] delta {} quarantined: op_count_exceeded",
-                                    hex::encode(delta.id)
-                                );
-                                return Ok(());
-                            }
-                        }
                     }
                 }
-                let outcome = {
+                let inbound_bytes = delta.automerge_bytes.len() as u64;
+                self.memory_budget.dag_node_cache.allocate(inbound_bytes);
+                let outcome = match {
                     let mut crdt =
                         self.crdt
                             .lock()
                             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                                 reason: format!("crdt mutex: {e}"),
                             })?;
-                    crate::crdt::merge::apply_incoming_delta(&mut crdt, &delta)?
+                    crate::crdt::merge::apply_incoming_delta(&mut crdt, &delta)
+                } {
+                    Ok(outcome) => {
+                        self.memory_budget.dag_node_cache.free(inbound_bytes);
+                        outcome
+                    }
+                    Err(e) => {
+                        self.memory_budget.dag_node_cache.free(inbound_bytes);
+                        return Err(e);
+                    }
                 };
                 match outcome {
                     MergeOutcome::Merged { .. } => {
@@ -14891,6 +14949,236 @@ mod task23_pv6_hardening_tests {
 }
 
 #[cfg(all(test, feature = "native"))]
+mod task24_wiring_tests {
+    use super::*;
+    use crate::crdt::delta::{Delta, PriorityClass};
+    use crate::transport::message::GossipMessage;
+
+    fn make_config(path: &str) -> InitConfig {
+        InitConfig {
+            storage_path: path.to_string(),
+            listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+            deployment: DeploymentConfig {
+                revocation_m: 2,
+                revocation_n: 3,
+                biscuit_ttl_secs: 3600,
+                extended_ttl_accepted_risk: false,
+                root_ca_keys: vec![],
+                migration_ca_public_key: None,
+                schema_version_path: vec![],
+                schema_definitions: vec![],
+                anchor_attested_location: false,
+                beacon_public_keys: vec![],
+                spatial_diversity_min: 1,
+                max_single_sector_fraction: 0.7,
+                quorum_k: 1,
+                quorum_n: 1,
+                saturate_lease_duration_secs: 3600,
+                mesh_mtu: 0,
+                beacon_signal_loss_threshold_secs: 300,
+            },
+        }
+    }
+
+    fn tmp_path(suffix: &str) -> String {
+        let mut p = std::env::temp_dir();
+        p.push(format!("tirbase_task24_wiring_{suffix}.db"));
+        p.to_str().unwrap().to_string()
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(format!("{path}.identity.json"));
+        let _ = std::fs::remove_file(format!("{path}-wal"));
+        let _ = std::fs::remove_file(format!("{path}-shm"));
+    }
+    /// A signed inbound Delta carrying arbitrary Automerge bytes.
+    fn signed_peer_delta(
+        peer_secret: &[u8; 32],
+        peer_public: &[u8; 32],
+        automerge_bytes: Vec<u8>,
+    ) -> (Delta, String) {
+        let peer_did = crate::crdt::derive_did_from_public_key(peer_public);
+        let mut delta = Delta {
+            id: [0u8; 32],
+            author_did: peer_did.clone(),
+            signature: crate::crdt::delta::Ed25519Signature::default(),
+            schema_hash: [0u8; 32],
+            automerge_bytes,
+            priority: PriorityClass::Low,
+            causal_parents: vec![],
+            tags: vec![],
+            lamport: 2,
+            created_at: 0,
+        };
+        let canonical = delta.canonical_bytes();
+        delta.signature = crate::identity::keypair::sign(peer_secret, &canonical).expect("sign");
+        delta.id = Delta::compute_id(&canonical);
+        (delta, peer_did)
+    }
+
+    /// A signed inbound Delta carrying a table/key envelope plus filler data.
+    fn caps_test_delta(peer_secret: &[u8; 32], peer_public: &[u8; 32]) -> (Delta, String) {
+        let envelope = serde_json::json!({
+            "_tirbase_table": "sensors",
+            "_tirbase_key": "caps-1",
+            "filler": "x".repeat(512),
+        });
+        signed_peer_delta(
+            peer_secret,
+            peer_public,
+            serde_json::to_vec(&envelope).expect("envelope"),
+        )
+    }
+
+    /// CLAIM-24.1a: a shape cap (op count) is enforced on the real receive path.
+    ///
+    /// The payload is a genuine Automerge change that would merge under the
+    /// default caps; setting `op_count = 0` quarantines it before merge.
+    #[tokio::test]
+    async fn claim_24_1a_configured_op_count_cap_quarantines_delta() {
+        use automerge::transaction::Transactable;
+
+        let path_a = tmp_path("caps_op_A");
+        let path_b = tmp_path("caps_op_B");
+        cleanup(&path_a);
+        cleanup(&path_b);
+
+        let handle_a = CoreHandle::init(make_config(&path_a))
+            .await
+            .expect("init A");
+        let handle_b = CoreHandle::init(make_config(&path_b))
+            .await
+            .expect("init B");
+        drop(handle_a);
+
+        let mut caps = crate::crdt::inbound_caps::InboundCaps::default();
+        caps.op_count = 0;
+        handle_b.set_inbound_caps(caps).expect("set inbound caps");
+
+        let mut doc = automerge::AutoCommit::new();
+        doc.put(automerge::ROOT, "cap_op_key", "cap_op_value")
+            .expect("automerge put");
+        let payload = doc.save();
+
+        let (peer_secret, peer_public) =
+            crate::identity::keypair::generate_keypair().expect("keygen");
+        let (delta, _peer_did) = signed_peer_delta(&peer_secret, &peer_public, payload);
+
+        handle_b
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject_inbound");
+        assert_eq!(
+            handle_b
+                .process_inbound_messages()
+                .await
+                .expect("process_inbound_messages"),
+            1
+        );
+
+        let crdt = handle_b.crdt.lock().expect("crdt lock");
+        assert!(
+            crdt.doc_map_range_root()
+                .iter()
+                .all(|(k, _)| k != "cap_op_key"),
+            "op-count-quarantined delta must not be merged into the document"
+        );
+
+        cleanup(&path_a);
+        cleanup(&path_b);
+    }
+
+    /// CLAIM-24.1: a configured `InboundCaps` value changes runtime behaviour.
+    ///
+    /// Tightening `delta_size_bytes` to 64 bytes quarantines a ~550-byte Delta
+    /// that the default 1 MiB cap would have merged.  Removing the
+    /// `h.caps.delta_size_bytes` comparison from `receive_inbound` makes the
+    /// Delta merge and this test fail.
+    #[tokio::test]
+    async fn claim_24_1_configured_inbound_cap_quarantines_oversize_delta() {
+        let path_a = tmp_path("caps_A");
+        let path_b = tmp_path("caps_B");
+        cleanup(&path_a);
+        cleanup(&path_b);
+
+        let handle_a = CoreHandle::init(make_config(&path_a))
+            .await
+            .expect("init A");
+        let handle_b = CoreHandle::init(make_config(&path_b))
+            .await
+            .expect("init B");
+        drop(handle_a);
+
+        let mut caps = crate::crdt::inbound_caps::InboundCaps::default();
+        caps.delta_size_bytes = 64;
+        handle_b.set_inbound_caps(caps).expect("set inbound caps");
+
+        let (peer_secret, peer_public) =
+            crate::identity::keypair::generate_keypair().expect("keygen");
+        let (delta, peer_did) = caps_test_delta(&peer_secret, &peer_public);
+        assert!(
+            delta.automerge_bytes.len() > 64,
+            "test delta must exceed the tightened cap"
+        );
+
+        handle_b
+            .inject_inbound(GossipMessage::InboundDelta(delta))
+            .await
+            .expect("inject_inbound");
+        let processed = handle_b
+            .process_inbound_messages()
+            .await
+            .expect("process_inbound_messages");
+        assert_eq!(processed, 1);
+
+        // Quarantined at the configured size cap, not merged/projected.
+        {
+            let crdt = handle_b.crdt.lock().expect("crdt lock");
+            assert_eq!(
+                crdt.hardening().rate_sender_rejections(&peer_did),
+                1,
+                "oversize delta must be recorded against the sender"
+            );
+        }
+        assert!(
+            handle_b.read("sensors", "caps-1").await.is_err(),
+            "quarantined delta must not be projected into the store"
+        );
+
+        cleanup(&path_a);
+        cleanup(&path_b);
+    }
+
+    /// CLAIM-24.2: every production `CoreHandle` exposes live memory-budget
+    /// cache metrics (the same `Arc`-backed counters the inbound path updates).
+    #[tokio::test]
+    async fn claim_24_2_core_handle_exposes_live_memory_budget_metrics() {
+        let path = tmp_path("mem_budget");
+        cleanup(&path);
+        let handle = CoreHandle::init(make_config(&path)).await.expect("init");
+
+        let metrics = handle.memory_budget_metrics();
+        assert_eq!(metrics.dag_node_cache.current_bytes(), 0);
+        metrics.dag_node_cache.allocate(1024);
+        metrics.dag_node_cache.record_hit();
+        metrics.dag_node_cache.record_miss();
+        metrics.dag_node_cache.record_eviction(512);
+
+        // A fresh accessor call observes the same counters (shared state).
+        let observed = handle.memory_budget_metrics();
+        assert_eq!(observed.dag_node_cache.current_bytes(), 512);
+        assert_eq!(observed.dag_node_cache.hit_count(), 1);
+        assert_eq!(observed.dag_node_cache.miss_count(), 1);
+        assert_eq!(observed.dag_node_cache.eviction_count(), 1);
+        assert_eq!(observed.ico_index.current_bytes(), 0);
+        assert_eq!(observed.reassembly_buffers.current_bytes(), 0);
+
+        cleanup(&path);
+    }
+}
+
+#[cfg(all(test, feature = "native"))]
 mod task24_inbound_caps_tests {
     use crate::crdt::inbound_caps::{
         InboundCaps, INBOUND_CAP_BATCH_CHANGES, INBOUND_CAP_CONNECTIONS,
@@ -14957,6 +15245,12 @@ mod task24_inbound_caps_tests {
                 crate::crdt::inbound_caps::InboundCapViolation::TraversalBudgetExceeded
             ),
             ReasonCode::TraversalBudgetExceeded
+        );
+        assert_eq!(
+            InboundCaps::quarantine_reason_for_violation(
+                crate::crdt::inbound_caps::InboundCapViolation::ConnectionsExceeded
+            ),
+            ReasonCode::ConnectionCapExceeded
         );
     }
 }
