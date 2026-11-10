@@ -31,6 +31,9 @@ required-features = ["native"]
 [features]
 default = ["native"]
 failpoints = ["fail/failpoints"]
+# Test-only setup/inspection hooks (e.g. `CoreHandle::test_cce`).  Never enabled
+# for release builds; CI enables it only for the integration-test suite.
+test-hooks = []
 native  = [
     "dep:rusqlite",
     "rusqlite?/bundled",

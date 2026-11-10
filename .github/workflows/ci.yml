@@ -248,10 +248,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate CLAIMS.md — fail if any Proven claim lacks a test identifier (CLAIM-3.1)
+      - name: Validate CLAIMS.md — identifiers must exist and be cited (CLAIM-3.1)
         # scripts/check-claims.sh parses CLAIMS.md, finds every row whose Status
         # column is exactly "Proven", and fails CI naming each claim that has an
-        # empty Test Identifier column.  See PV-2.2 and task 3.1.
+        # empty Test Identifier column or cites a test identifier that does not
+        # resolve to a fn/mod/<name>.rs in the repo.  See PV-2.2 and task 3.1.
         run: bash scripts/check-claims.sh CLAIMS.md
 
   claim-markers:
@@ -291,7 +292,7 @@ jobs:
         run: bash scripts/check-security-event-catalog.sh
 
   state-inventory:
-    name: State inventory annotations (CLAIM-31.2, PV-9.1)
+    name: State inventory struct scan (CLAIM-31.2, PV-9.1)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -497,6 +498,9 @@ jobs:
       - name: cargo test (native) — includes parity + convergence tests
         run: cargo test --features native
 
+      - name: cargo test (native, test hooks) — test-only setup hooks (CLAIM-31.3)
+        run: cargo test -p tirbase-core --features native,test-hooks --test task31_ico_persistence
+
       - name: cargo check (WASM target) — fails CI on WASM compile error
         run: cargo check --no-default-features --features wasm --target wasm32-unknown-unknown
 
@@ -577,8 +581,12 @@ jobs:
         run: cargo test -p tirbase-core --test memory_budget_gate -- --ignored --nocapture
 
 
-  cross-arch-migration-determinism:
-    name: migration determinism (host + aarch64/QEMU, CLAIM-29.6)
+  # Both legs are native: cross-compiling to aarch64 and running the libtest
+  # binary under qemu-user hangs on a trivial `assert_eq!(1, 1)` test (libtest's
+  # worker threads deadlock under emulation), so emulation is not a usable
+  # signal. The aarch64 leg runs on GitHub's arm64 hosted runner instead.
+  cross-arch-migration-determinism-x86_64:
+    name: migration determinism x86_64 (CLAIM-29.6)
     runs-on: ubuntu-latest
     needs: [test]
     steps:
@@ -586,13 +594,11 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
 
-      - name: Install QEMU and cross toolchain
+      - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-user gcc-aarch64-linux-gnu
+          sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -601,34 +607,87 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
 
-      # Each leg executes the committed conformance corpus and asserts the
-      # resulting digest equals the committed known-good digest. If either leg
-      # diverges the test itself fails; the emitted artifacts are then diffed
-      # so a host/aarch64 mismatch is also reported explicitly.
-      - name: Host migration conformance digest (x86_64, PV-8/CLAIM-29.6)
+      # Executes the committed conformance corpus and asserts the digest equals
+      # the committed known-good digest; emits the digest for the compare job.
+      - name: Migration conformance digest (x86_64, PV-8/CLAIM-29.6)
         env:
-          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest-host.txt
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
         run: |
           cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
 
-      - name: aarch64 migration conformance digest (QEMU, PV-8/CLAIM-29.6)
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER: qemu-aarch64 -L /usr/aarch64-linux-gnu
-          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest-aarch64.txt
-        run: |
-          cargo test -p tirbase-core --target aarch64-unknown-linux-gnu --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+      - name: Upload x86_64 digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-digest-x86_64
+          path: ${{ runner.temp }}/migration-digest.txt
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Compare host and aarch64 migration output digests
+  cross-arch-migration-determinism-aarch64:
+    name: migration determinism aarch64 (CLAIM-29.6)
+    runs-on: ubuntu-24.04-arm
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Migration conformance digest (aarch64, PV-8/CLAIM-29.6)
+        env:
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
+        run: |
+          cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+
+      - name: Upload aarch64 digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-digest-aarch64
+          path: ${{ runner.temp }}/migration-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  cross-arch-migration-determinism:
+    name: migration determinism compare (x86_64 vs aarch64, CLAIM-29.6)
+    runs-on: ubuntu-latest
+    needs: [cross-arch-migration-determinism-x86_64, cross-arch-migration-determinism-aarch64]
+    steps:
+      - name: Download x86_64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-digest-x86_64
+          path: digests/x86_64
+
+      - name: Download aarch64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-digest-aarch64
+          path: digests/aarch64
+
+      - name: Compare x86_64 and aarch64 migration output digests
         run: |
           set -euo pipefail
-          host_digest="$RUNNER_TEMP/migration-digest-host.txt"
-          arm_digest="$RUNNER_TEMP/migration-digest-aarch64.txt"
-          test -s "$host_digest" || { echo "missing host digest artifact"; exit 1; }
+          host_digest=digests/x86_64/migration-digest.txt
+          arm_digest=digests/aarch64/migration-digest.txt
+          test -s "$host_digest" || { echo "missing x86_64 digest artifact"; exit 1; }
           test -s "$arm_digest" || { echo "missing aarch64 digest artifact"; exit 1; }
-          echo "host:    $(cat "$host_digest")"
+          echo "x86_64:  $(cat "$host_digest")"
           echo "aarch64: $(cat "$arm_digest")"
           diff -u "$host_digest" "$arm_digest" || {
             echo "MISMATCH: migration output digests differ between x86_64 and aarch64";
