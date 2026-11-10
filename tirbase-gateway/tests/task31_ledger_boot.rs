@@ -10,6 +10,11 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+/// Serialises tests that mutate the process-global
+/// `TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG` probe variable; without this
+/// a sibling test's `remove_var` can race the rebuild-rejection assertion.
+static REBUILD_PROBE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn tmp(tag: &str) -> PathBuf {
     let u = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -139,6 +144,7 @@ fn claim_31_4_wiring_mutation_integrity_check_at_boot_fails_startup_test() {
 #[test]
 fn claim_31_5_primary_rebuild_from_delta_log_is_rejected() {
     // Wiring mutation check: rebuilding Primary ledger from delta log must fail.
+    let _guard = REBUILD_PROBE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let r = std::panic::catch_unwind(|| {
         std::env::set_var("TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG", "1");
         let res = tirbase_gateway::db::ledger_recovery::handle_primary_corruption(
@@ -161,6 +167,7 @@ fn claim_31_5_primary_rebuild_from_delta_log_is_rejected() {
 #[test]
 fn claim_31_5_primary_corruption_sets_restricted_and_never_rebuilds() {
     // Ensure wiring-mutation env from other tests/calls does not leak.
+    let _guard = REBUILD_PROBE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     std::env::remove_var("TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG");
     let mode =
         tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Normal);

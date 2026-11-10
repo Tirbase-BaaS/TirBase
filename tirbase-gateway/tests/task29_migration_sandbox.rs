@@ -6,7 +6,8 @@
 use std::sync::{Arc, Mutex};
 
 use tirbase_core::migration::profile::{
-    pinned_fuel_cost_table_hash, ExecutionProfileVersion, DETERMINISTIC_PROFILE_ID,
+    pinned_fuel_cost_table_hash, ExecutionProfileVersion, CONFORMANCE_CORPUS_HASH,
+    DETERMINISTIC_PROFILE_ID,
 };
 use tirbase_core::migration::wasm_sandbox::{
     execute_migration, execute_migration_with_profile, MigrationExecutionRegistry, MigrationResult,
@@ -36,7 +37,7 @@ fn gateway_mismatched_profile_quarantined_engine_version_mismatch() {
     let bad = ExecutionProfileVersion {
         profile_id: DETERMINISTIC_PROFILE_ID,
         fuel_cost_table_hash: [0xABu8; 32],
-        conformance_corpus_hash: [0u8; 32],
+        conformance_corpus_hash: CONFORMANCE_CORPUS_HASH,
         update_signer_signature: Vec::new(),
     };
     let reg = MigrationExecutionRegistry::default();
@@ -68,7 +69,7 @@ fn gateway_deterministic_migration_executes_with_wasmi() {
     let good = ExecutionProfileVersion {
         profile_id: DETERMINISTIC_PROFILE_ID,
         fuel_cost_table_hash: pinned_fuel_cost_table_hash(),
-        conformance_corpus_hash: [0u8; 32],
+        conformance_corpus_hash: CONFORMANCE_CORPUS_HASH,
         update_signer_signature: Vec::new(),
     };
     let reg = MigrationExecutionRegistry::default();

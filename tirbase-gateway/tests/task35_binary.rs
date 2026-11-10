@@ -1,7 +1,8 @@
 //! Task 35 gateway binary integration tests (CLAIM-35.1-35.6).
 
-use std::io::{BufRead, BufReader};
-use std::net::TcpListener;
+use std::collections::BTreeMap;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,11 +10,17 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
+use serde_json::json;
+use tirbase_core::auth::command_token::create_command_token;
+use tirbase_core::identity::file_key_provider::{FileKeyProvider, InMemoryKeyProvider};
 use tirbase_core::traits::KeyProvider;
+use tirbase_guard::sign_command;
 use tirbase_guard::signed_operation::SignedOperation;
-use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
-use tirbase_types::CommandRole;
+use tirbase_guard::trust_root::{
+    AuthorizedRoleSigner, RolePolicy, TrustRootRecord, TrustRootSignature,
+};
+use tirbase_types::command::CommandMessage;
+use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId};
 
 static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
 
@@ -383,4 +390,174 @@ fn claim_35_3_systemd_unit_has_hardening_directives() {
     let script =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../scripts/check-systemd-security.sh");
     assert!(script.exists(), "missing systemd-analyze CI gate script");
+}
+
+fn write_command_config(
+    dir: &Path,
+    health_port: u16,
+    metrics_port: u16,
+    command_port: u16,
+    profile_path: &Path,
+) -> PathBuf {
+    let config_path = dir.join("gateway-command.toml");
+    let body = format!(
+        "key_path = {:?}\n\
+         counter_db_path = {:?}\n\
+         derived_db_path = {:?}\n\
+         admin_socket = {:?}\n\
+         health_addr = \"127.0.0.1:{health_port}\"\n\
+         metrics_addr = \"127.0.0.1:{metrics_port}\"\n\
+         log_level = \"info\"\n\
+         admin_enabled = false\n\
+         checkpoint_interval_secs = 3600\n\
+         trust_root_path = {:?}\n\
+         target_id = \"cold-room-1\"\n\
+         envelope_profile_path = {:?}\n\
+         local_admin_command_addr = \"127.0.0.1:{command_port}\"\n",
+        dir.join("device-key.json"),
+        dir.join("primary.db"),
+        dir.join("derived.db"),
+        dir.join("admin.sock"),
+        dir.join("trust-root.json"),
+        profile_path,
+    );
+    std::fs::write(&config_path, body).expect("write command config");
+    config_path
+}
+
+fn counter_sum(body: &str, name: &str) -> u64 {
+    body.lines()
+        .filter(|line| !line.starts_with('#') && line.starts_with(name))
+        .filter_map(|line| line.rsplit(' ').next()?.parse::<u64>().ok())
+        .sum()
+}
+
+/// Starts the real gateway, sends one signed command through the local-admin
+/// TCP ingress, and asserts the guard accepts it and the real Prometheus
+/// counters move.  This is the binary-level evidence for CLAIM-35.1/35.4/35.5.
+#[test]
+fn claim_35_4_local_admin_signed_command_reaches_guard_and_moves_metrics() {
+    let dir = temp_dir("35-4-cmd");
+    let _device =
+        FileKeyProvider::load_or_generate(dir.join("device-key.json")).expect("device key");
+
+    // Trust root signed by the root CA whose seed also mints the command token.
+    let ca = InMemoryKeyProvider::generate().expect("root ca");
+    let mut trust = TrustRootRecord {
+        version: 1,
+        root_ca_public_keys: vec![ca.public_key_bytes()],
+        threshold_k: 1,
+        role_thresholds: BTreeMap::new(),
+        device_class_floors: BTreeMap::new(),
+        expiry_est: i64::MAX,
+        revoked_root_ca_keys: Vec::new(),
+        signatures: Vec::new(),
+    };
+    trust.signatures.push(TrustRootSignature {
+        signer_did: ca.did().to_string(),
+        signature: ca.sign(&trust.signing_bytes()).expect("sign trust root"),
+    });
+    std::fs::write(
+        dir.join("trust-root.json"),
+        serde_json::to_string(&trust).expect("serialize trust root"),
+    )
+    .expect("write trust root");
+
+    // Reuse the shipped cold-room fixture but make the parameter non-critical so
+    // the command does not need a challenge nonce (the time ratchet is
+    // Unverified without a beacon in this isolated test).
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../profiles/cold_room.toml");
+    let fixture_body = std::fs::read_to_string(&fixture).expect("read cold_room profile");
+    let profile_body = fixture_body.replace("critical = true", "critical = false");
+    let profile_path = dir.join("cold_room_noncritical.toml");
+    std::fs::write(&profile_path, profile_body).expect("write test profile");
+
+    let health = free_port();
+    let metrics = free_port();
+    let command_port = free_port();
+    let config = write_command_config(&dir, health, metrics, command_port, &profile_path);
+    let (lines, mut child) = run_until_marker(&config, "local-admin command ingress listening");
+
+    let issuer = InMemoryKeyProvider::generate().expect("issuer");
+    let token = create_command_token(
+        issuer.did(),
+        "CommandIssuer",
+        3600,
+        "cold-room-1",
+        "setpoint_c",
+        &[],
+        &ca.secret_seed(),
+    )
+    .expect("mint command token");
+    // Without a time beacon the ratchet's now_est is the persisted floor (0),
+    // so the command TTL must stay within the guard's 3600s maximum.
+    let mut cmd = CommandMessage {
+        issuer_did: Did::new(issuer.did()),
+        role: CommandRole::CommandIssuer,
+        target_id: TargetId::new("cold-room-1"),
+        param: "setpoint_c".into(),
+        desired_state: FixedPointValue::new(40, -1, 1),
+        sequence_number: 1,
+        idempotency_key: [9u8; 16],
+        expiry_est: 1800,
+        policy_version: 1,
+        enrollment_epoch: 0,
+        challenge_nonce: None,
+        co_signatures: Vec::new(),
+        signature: DeviceSignature::Ed25519([0; 64]),
+    };
+    sign_command(&mut cmd, &issuer).expect("sign command");
+
+    let request = json!({
+        "command": cmd,
+        "biscuit_token_hex": hex::encode(&token),
+        "source_key": "task35-binary",
+    })
+    .to_string();
+
+    let mut stream = TcpStream::connect(("127.0.0.1", command_port)).expect("connect local-admin");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(15)))
+        .expect("read timeout");
+    stream
+        .write_all(format!("{request}\n").as_bytes())
+        .expect("write command");
+    stream.flush().expect("flush command");
+    let mut reader = BufReader::new(stream);
+    let mut response_line = String::new();
+    reader.read_line(&mut response_line).expect("read response");
+    let response: serde_json::Value =
+        serde_json::from_str(&response_line).expect("response is JSON");
+    assert_eq!(response["status"], "ok", "local-admin response: {response}");
+    let decision = &response["decision"];
+    assert_eq!(
+        decision["status"],
+        "accepted",
+        "guard did not accept the signed command: {response}\nlogs:\n{}",
+        lines.join("\n")
+    );
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let body = rt.block_on(async {
+        reqwest::get(format!("http://127.0.0.1:{metrics}/metrics"))
+            .await
+            .expect("metrics get")
+            .text()
+            .await
+            .expect("metrics text")
+    });
+    kill(&mut child);
+    assert!(
+        counter_sum(&body, "guard_decisions_total") >= 1,
+        "guard_decisions_total did not move: {body}"
+    );
+    assert!(
+        counter_sum(&body, "effects_ledger_writes_total") >= 1,
+        "effects_ledger_writes_total did not move: {body}"
+    );
+    assert!(
+        counter_sum(&body, "security_events_total") >= 1,
+        "security_events_total did not move: {body}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
 }

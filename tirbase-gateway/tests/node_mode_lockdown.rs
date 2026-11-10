@@ -423,7 +423,7 @@ async fn health_loop_sends_watchdog_keepalive_each_iteration_claim_13_7() {
         shutdown.clone(),
     ));
     tokio::time::sleep(Duration::from_millis(120)).await;
-    shutdown.notify_waiters();
+    shutdown.notify_one();
     let _ = task.await;
     assert!(state.ticks() >= 3);
     assert!(notifier.0.load(Ordering::SeqCst) >= 3);

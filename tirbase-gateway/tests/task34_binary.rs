@@ -222,3 +222,48 @@ fn claim_34_3_gateway_binary_cold_room_uses_canonical_model() {
     );
     assert!(stdout.contains("temp_mdeg_c="), "{stdout}");
 }
+
+#[test]
+fn claim_34_6_gateway_binary_validates_modbus_register_map() {
+    let path =
+        std::env::temp_dir().join(format!("tirbase_register_map_{}.toml", std::process::id()));
+    std::fs::write(
+        &path,
+        r#"
+device_class = "cold_room_modbus"
+
+[[register]]
+name = "temperature_c"
+register = 0
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = false
+quantity = 1
+"#,
+    )
+    .expect("write register map");
+
+    let out = gateway()
+        .args(["modbus-register-map", path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let _ = std::fs::remove_file(&path);
+
+    assert!(out.status.success(), "{stdout}\n{stderr}");
+    assert!(
+        stdout.contains("REGISTER_MAP_OK:device_class=cold_room_modbus registers=1"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("REGISTER:0 name=temperature_c function=4 type=i16 width=1 writable=false"),
+        "{stdout}"
+    );
+}

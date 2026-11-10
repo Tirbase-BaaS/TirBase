@@ -289,7 +289,7 @@ fn gateway_binary_emits_security_events_for_decisions() {
     let dir = temp_dir("gateway");
     let config = write_config(&dir);
     // Wait past sink install and boot-complete emit.
-    let lines = run_until_marker(&config, "tirbase-gateway starting");
+    let lines = run_until_marker(&config, "tirbase-gateway started");
     assert!(
         lines
             .iter()

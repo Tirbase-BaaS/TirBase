@@ -163,7 +163,7 @@ fn claim_28_1_gateway_binary_flood_triggers_suppression_summary() {
     while tirbase_core::traits::monotonic_now() < deadline_us {
         match rx.recv_timeout(Duration::from_millis(300)) {
             Ok(l) => {
-                if l.contains("tirbase-gateway starting") {
+                if l.contains("tirbase-gateway started") {
                     seen = true;
                     break;
                 }
