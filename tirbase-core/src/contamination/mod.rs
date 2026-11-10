@@ -352,6 +352,7 @@ impl CausalContaminationEngine {
 
     /// Test-only: force-persist current state (CLAIM-31.3 tests).
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_persist_snapshot(&self) -> Result<(), TirBaseError> {
         self.persist_snapshot()
     }
@@ -680,6 +681,7 @@ impl CausalContaminationEngine {
     /// Used by integration tests to set up causal ancestry without going through
     /// the full write pipeline.
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_insert_dag_node(
         &mut self,
         node: crate::crdt::dag::DagNode,
@@ -695,6 +697,7 @@ impl CausalContaminationEngine {
     /// Used by integration tests to simulate projection-layer contamination without
     /// requiring a full `tag_contamination_root` walk over live store rows.
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_set_contaminated_row(
         &mut self,
         table: &str,
@@ -708,25 +711,27 @@ impl CausalContaminationEngine {
     /// Clone the shared SQLite connection handle for direct tag reads in integration
     /// tests.  Used by tests that need to verify `DeltaTag` entries on `dag_nodes`
     /// without going through the public CCE API.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_get_conn(&self) -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
         self.conn.clone()
     }
 
     /// Retrieve a snapshot of a `CompositeIncidentInstance` by ID.
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_get_composite_incident(&self, id: IncidentId) -> Option<CompositeIncidentInstance> {
         self.composite_incidents.get(&id).cloned()
     }
 
     /// Check whether an incident ID refers to a composite incident.
     #[doc(hidden)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_is_composite(&self, id: IncidentId) -> bool {
         self.composite_incidents.contains_key(&id)
     }
 
     /// Find OPEN incidents whose `contamination_roots` contain the given root.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_open_incidents_for_root(&self, root: DeltaId) -> Vec<IncidentContextObject> {
         self.incidents
             .values()

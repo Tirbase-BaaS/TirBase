@@ -4849,7 +4849,7 @@ impl CoreHandle {
     #[cfg(feature = "native")]
     /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
     #[doc(hidden)]
-    #[cfg(feature = "native")]
+    #[cfg(all(feature = "native", any(test, feature = "test-hooks")))]
     pub fn test_cce(
         &self,
     ) -> &std::sync::Arc<std::sync::Mutex<crate::contamination::CausalContaminationEngine>> {

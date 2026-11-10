@@ -978,8 +978,12 @@ mod tests {
     fn deterministic_cross_arch_hash_vector() {
         // CLAIM-29.6 / PV-8.1: the migration output corpus must hash to the
         // committed known-good digest on every architecture. CI runs this test
-        // on x86_64 and on aarch64 (QEMU) and additionally diffs the digests
-        // each run emits via `TIRBASE_MIGRATION_DIGEST_OUT`.
+        // natively on x86_64 and on an arm64 runner, then diffs the digests each
+        // leg emits via `TIRBASE_MIGRATION_DIGEST_OUT`.
+        //
+        // Emulation is not an option here: qemu-user deadlocks libtest's worker
+        // threads on aarch64 (a trivial `assert_eq!(1, 1)` test hangs), so the
+        // arm64 leg must execute natively.
         let actual = hex::encode(compute_conformance_digest());
         println!("MIGRATION_OUTPUT_DIGEST={actual}");
         if let Some(path) = std::env::var_os("TIRBASE_MIGRATION_DIGEST_OUT") {

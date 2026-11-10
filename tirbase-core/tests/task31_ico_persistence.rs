@@ -5,7 +5,9 @@
 //! persisted ICO rows survive). The second reopens and must see all open ICOs
 //! with all fields identical to pre-crash values.
 
-#![cfg(feature = "native")]
+// Test-only setup/read hooks are compiled only with the `test-hooks` feature;
+// release builds never contain them.  CI enables the feature for this suite.
+#![cfg(all(feature = "native", feature = "test-hooks"))]
 
 use std::env;
 use std::fs;
