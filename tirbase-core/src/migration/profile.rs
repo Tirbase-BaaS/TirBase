@@ -38,11 +38,21 @@ pub const STORE_LIMIT_STACK_BYTES: usize = 512 * 1024; // 512 KiB (profile recor
 /// signed `ExecutionProfileVersion` metadata.
 pub const DETERMINISTIC_PROFILE_ID: [u8; 16] = *b"TIRBASE-WASMI-P8";
 
-/// Conformance corpus hash placeholder for the pinned migration profile.
-/// Production deployments replace this with the SHA-256 of the signed
-/// conformance vector corpus (PV-8.2a). It is included in profile matching so
-/// corpus changes are explicit.
-pub const CONFORMANCE_CORPUS_HASH: [u8; 32] = [0u8; 32];
+/// SHA-256 of the committed PV-8 migration conformance corpus, i.e. the raw
+/// bytes of `tirbase-core/testdata/migration-conformance/corpus.json`.
+///
+/// This is a real digest, not a placeholder: any change to the corpus changes
+/// this value. `conformance_corpus_hash_matches_committed_corpus` recomputes it
+/// from the file and fails if the constant and the corpus drift apart, so a
+/// corpus edit must also be a deliberate, reviewable update of the pinned
+/// profile metadata (PV-8.2a).
+///
+/// Note: the corpus itself is not yet signed by an `UpdateSigner`; see
+/// CLAIM-29.3.
+pub const CONFORMANCE_CORPUS_HASH: [u8; 32] = [
+    0x81, 0x96, 0xc6, 0x1e, 0xb8, 0x11, 0x44, 0xf0, 0x23, 0xf8, 0x85, 0x96, 0xb4, 0xcc, 0xd1, 0xa1,
+    0x8b, 0x81, 0x58, 0xb9, 0xc7, 0x15, 0xdb, 0x64, 0x92, 0xe9, 0xce, 0xbd, 0x62, 0x62, 0x98, 0x27,
+];
 
 /// Signed execution metadata embedded in/associated with a migration module
 /// (PV-8.2a, design 4.13).
@@ -399,6 +409,26 @@ mod tests {
             update_signer_signature: vec![],
         };
         assert!(meta.matches_active(&active));
+    }
+
+    #[test]
+    fn conformance_corpus_hash_matches_committed_corpus() {
+        // PV-8.2a: the pinned corpus hash must be the real SHA-256 of the
+        // committed corpus file, never a placeholder.
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/migration-conformance/corpus.json"
+        );
+        let corpus = std::fs::read(path).expect("read migration conformance corpus");
+        let computed: [u8; 32] = Sha256::digest(&corpus).into();
+        assert_ne!(
+            CONFORMANCE_CORPUS_HASH, [0u8; 32],
+            "corpus hash is a placeholder"
+        );
+        assert_eq!(
+            computed, CONFORMANCE_CORPUS_HASH,
+            "CONFORMANCE_CORPUS_HASH must be the SHA-256 of the committed corpus"
+        );
     }
 
     #[test]

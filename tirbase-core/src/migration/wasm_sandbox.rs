@@ -880,44 +880,130 @@ mod tests {
         );
     }
 
+    /// The deterministic-migration conformance corpus (WAT modules + inputs).
+    const CONFORMANCE_CORPUS_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/testdata/migration-conformance/corpus.json"
+    );
+    /// The committed known-good output digest for the corpus above.
+    const CONFORMANCE_DIGEST_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/testdata/migration-conformance/known-good-output-digest.txt"
+    );
+    const CONFORMANCE_DIGEST_DOMAIN: &[u8] = b"TirBase/PV-8/migration-conformance/v1\0";
+
+    /// Execute one corpus case in a fresh store and return the canonical bytes
+    /// of the declared output row.
+    fn run_conformance_case(case: &serde_json::Value) -> Vec<u8> {
+        use sha2::{Digest, Sha256};
+
+        let id = case["id"].as_str().expect("corpus case id");
+        let table = case["table"].as_str().expect("corpus case table");
+        let key = case["key"].as_str().expect("corpus case key");
+        let out_table = case["out_table"].as_str().expect("corpus case out_table");
+        let out_key = case["out_key"].as_str().expect("corpus case out_key");
+        let wat = case["wat"].as_str().expect("corpus case wat");
+
+        let wasm = wat::parse_str(wat).expect("parse corpus WAT");
+        let store = test_store();
+        store
+            .lock()
+            .unwrap()
+            .write(table, key, &case["input"])
+            .expect("seed corpus input");
+
+        // Stable per-case migration id so a failure names the offending case.
+        let mut id_hasher = Sha256::new();
+        id_hasher.update(b"TirBase/PV-8/migration-conformance/case\0");
+        id_hasher.update(id.as_bytes());
+        let migration_id: [u8; 32] = id_hasher.finalize().into();
+
+        let result = execute_migration(&wasm, migration_id, 30, &store).expect("sandbox call");
+        assert_eq!(
+            result,
+            MigrationResult::Success,
+            "corpus case {id} did not succeed: {result:?}"
+        );
+
+        let value = store
+            .lock()
+            .unwrap()
+            .read(out_table, out_key)
+            .expect("store read")
+            .unwrap_or_else(|| panic!("corpus case {id} wrote no {out_table}/{out_key} row"));
+        serde_json::to_vec(&value).expect("canonical output bytes")
+    }
+
+    /// SHA-256 over the migration output corpus.
+    ///
+    /// The digest input is length-prefixed and domain-separated, so it is
+    /// independent of the host's JSON map ordering and unambiguous across case
+    /// boundaries. It covers only execution output, so any architectural
+    /// divergence in wasmi integer/memory semantics changes the digest.
+    fn compute_conformance_digest() -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+
+        let corpus_bytes =
+            std::fs::read(CONFORMANCE_CORPUS_PATH).expect("read migration conformance corpus");
+        let corpus: serde_json::Value =
+            serde_json::from_slice(&corpus_bytes).expect("parse migration conformance corpus");
+        let cases = corpus["cases"].as_array().expect("corpus.cases array");
+        assert!(!cases.is_empty(), "conformance corpus must not be empty");
+
+        let mut hasher = Sha256::new();
+        hasher.update(CONFORMANCE_DIGEST_DOMAIN);
+        for case in cases {
+            let id = case["id"].as_str().expect("corpus case id");
+            let output = run_conformance_case(case);
+            hasher.update((id.len() as u64).to_le_bytes());
+            hasher.update(id.as_bytes());
+            hasher.update((output.len() as u64).to_le_bytes());
+            hasher.update(&output);
+        }
+        hasher.finalize().into()
+    }
+
+    fn compare_conformance_digest(actual_hex: &str, expected_hex: &str) -> Result<(), String> {
+        if actual_hex.eq_ignore_ascii_case(expected_hex) {
+            Ok(())
+        } else {
+            Err(format!(
+                "cross-architecture migration output digest mismatch: this target produced \
+                 {actual_hex}, committed known-good digest is {expected_hex}"
+            ))
+        }
+    }
+
     #[test]
     fn deterministic_cross_arch_hash_vector() {
-        // CLAIM-29.6 / PV-8.1: fixed migration+input produces a fixed output hash
-        // across architectures (wasmi deterministic). CI runs this on host and
-        // aarch64 (QEMU/cross) to prove byte-identical behavior.
-        let wat = r#"(module
-          (import "host" "read_row"  (func $read  (param i32 i32 i32 i32 i32 i32) (result i32)))
-          (import "host" "write_row" (func $write (param i32 i32 i32 i32 i32 i32)))
-          (memory (export "memory") 1)
-          (data (i32.const 0) "t") (data (i32.const 1) "k") (data (i32.const 2) "o")
-          (func (export "run")
-            (local $n i32)
-            (local.set $n (call $read (i32.const 0) (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 64) (i32.const 192)))
-            (call $write (i32.const 0) (i32.const 1) (i32.const 2) (i32.const 1) (i32.const 64) (local.get $n)))
-        )"#;
-        let wasm = wat::parse_str(wat).unwrap();
-        let store = test_store();
-        {
-            store
-                .lock()
-                .unwrap()
-                .write("t", "k", &serde_json::json!({"arch":"x","n":42}))
-                .unwrap();
+        // CLAIM-29.6 / PV-8.1: the migration output corpus must hash to the
+        // committed known-good digest on every architecture. CI runs this test
+        // on x86_64 and on aarch64 (QEMU) and additionally diffs the digests
+        // each run emits via `TIRBASE_MIGRATION_DIGEST_OUT`.
+        let actual = hex::encode(compute_conformance_digest());
+        println!("MIGRATION_OUTPUT_DIGEST={actual}");
+        if let Some(path) = std::env::var_os("TIRBASE_MIGRATION_DIGEST_OUT") {
+            std::fs::write(&path, format!("{actual}\n")).expect("write migration digest artifact");
         }
-        let r = execute_migration(&wasm, [0x66u8; 32], 30, &store).expect("ok");
-        assert_eq!(r, MigrationResult::Success);
-        let v = store.lock().unwrap().read("t", "o").unwrap().unwrap();
-        let bytes = serde_json::to_vec(&v).unwrap();
-        use sha2::Digest;
-        let hash: [u8; 32] = sha2::Sha256::digest(&bytes).into();
-        // Fixed expected hash for this canonical input/module on deterministic wasmi.
-        // If wasmi/profile/config changes intentionally, update together with PV-8 profile hash.
-        let expected = hash; // compute once in-test for pinned toolchain/profile in this repo state
-        assert_eq!(hash, expected);
-        // Also assert exact bytes for stronger local check.
-        assert_eq!(
-            bytes,
-            serde_json::to_vec(&serde_json::json!({"arch":"x","n":42})).unwrap()
+
+        let expected = std::fs::read_to_string(CONFORMANCE_DIGEST_PATH)
+            .expect("read committed known-good migration digest");
+        compare_conformance_digest(&actual, expected.trim()).unwrap_or_else(|e| panic!("{e}"));
+    }
+
+    #[test]
+    fn conformance_digest_comparison_detects_divergence() {
+        // Self-check for the harness: a single changed nibble must be rejected,
+        // otherwise a cross-architecture mismatch could slip through silently.
+        let actual = hex::encode(compute_conformance_digest());
+        assert!(compare_conformance_digest(&actual, &actual).is_ok());
+
+        let mut perturbed = actual.clone().into_bytes();
+        perturbed[0] = if perturbed[0] == b'0' { b'1' } else { b'0' };
+        let perturbed = String::from_utf8(perturbed).expect("hex is ASCII");
+        assert!(
+            compare_conformance_digest(&actual, &perturbed).is_err(),
+            "perturbed digest must be rejected"
         );
     }
 
