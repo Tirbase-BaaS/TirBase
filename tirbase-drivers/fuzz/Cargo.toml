@@ -1,3 +1,6 @@
+# Keep fuzz harness out of the root workspace (CLAIM-34.4 / cargo-fuzz convention).
+[workspace]
+
 [package]
 name = "tirbase-drivers-fuzz"
 version = "0.0.0"

@@ -1,0 +1,5 @@
+device_class="x"
+[[register]]
+name="t"
+register=0
+fu=4
