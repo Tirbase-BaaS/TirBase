@@ -47,6 +47,7 @@ pub mod diagnostics;
 pub mod durability;
 pub mod errors;
 pub mod events;
+pub mod fleet;
 pub mod identity;
 pub mod migration;
 pub mod schema;

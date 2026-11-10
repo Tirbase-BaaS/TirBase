@@ -153,6 +153,12 @@ pub enum TirBaseError {
         author_did: String,
     },
 
+    /// Task 37.5 (PV-11.3): a fleet-inventory mutation or inbound update was
+    /// rejected (oversized provisioning payload, revoked device, malformed
+    /// entry).
+    #[error("Fleet inventory rejected: {reason}")]
+    FleetInventoryRejected { reason: String },
+
     // ─── Storage ──────────────────────────────────────────────────────────────
     #[error("Local store write failed: {reason}")]
     LocalStoreWriteFailed { reason: String },

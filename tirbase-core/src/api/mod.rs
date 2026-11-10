@@ -111,6 +111,37 @@ fn enqueue_revocation_gossip(
     transport.enqueue_outbound(wrapper);
 }
 
+/// Wire-framing author for synthetic fleet-inventory gossip envelopes
+/// (PV-11.3, CLAIM-37.5).  Peers unwrap the embedded
+/// `GossipMessage::FleetInventoryUpdate` from `automerge_bytes` before the
+/// Delta reaches the CRDT merge gate.
+const FLEET_GOSSIP_AUTHOR: &str = "tirbase/fleet";
+
+/// Wrap a fleet-inventory delta in a HIGH-priority outbound Delta and enqueue
+/// it on the DRR scheduler (PV-11.3, CLAIM-37.5).
+///
+/// HIGH priority matches the revocation path: fleet membership changes are
+/// control-plane traffic that must not wait behind application Deltas.
+#[cfg(feature = "native")]
+fn enqueue_fleet_gossip(transport: &mut MeshTransport, update: &crate::fleet::FleetInventoryDelta) {
+    use crate::transport::message::GossipMessage;
+    let gossip_msg = GossipMessage::FleetInventoryUpdate(update.clone());
+    let gossip_bytes = gossip_msg.to_bytes();
+    let wrapper = crate::crdt::delta::Delta {
+        id: [0u8; 32],
+        author_did: FLEET_GOSSIP_AUTHOR.to_string(),
+        signature: crate::crdt::delta::Ed25519Signature::default(),
+        schema_hash: [0u8; 32],
+        automerge_bytes: gossip_bytes,
+        priority: crate::crdt::delta::PriorityClass::High,
+        causal_parents: vec![],
+        tags: vec![],
+        lamport: 0,
+        created_at: 0,
+    };
+    transport.enqueue_outbound(wrapper);
+}
+
 /// Open a Noise IK application-layer substream to a peer and drive the
 /// Noise_IK_25519 handshake to completion (Req 6.1).
 ///
@@ -307,6 +338,12 @@ pub struct CoreHandle {
     /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
     pub(crate) checkpoint_provider:
         Arc<Mutex<Option<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>>>,
+    /// 36.9 (PV-22.3): guard-side challenge nonce issuer for mesh peers.
+    pub(crate) challenge_handler:
+        Arc<Mutex<Option<Arc<dyn crate::transport::challenge::MeshChallengeHandler>>>>,
+    /// 36.9: challenge responses routed back to this guard instance.
+    pub(crate) challenge_resp_tx:
+        tokio::sync::broadcast::Sender<crate::transport::challenge::MeshChallengeResponse>,
 
     /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
@@ -363,6 +400,22 @@ pub struct CoreHandle {
     /// Revocation Subsystem (WASM build).
     #[cfg(not(feature = "native"))]
     pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
+
+    /// Fleet inventory CRDT collection (PV-11.3, CLAIM-37.5).
+    ///
+    /// Shared with the migration engine's fleet-precondition verifier, so a
+    /// Contract migration commits to the inventory snapshot hash this handle
+    /// actually holds.
+    pub(crate) fleet: Arc<Mutex<crate::fleet::FleetInventory>>,
+
+    /// Fleet-inventory updates emitted for gossip (PV-11.3, CLAIM-37.5).
+    ///
+    /// Every local fleet mutation (provision/revoke) and every inbound merge
+    /// that changed local state is published here before it is enqueued on the
+    /// mesh scheduler.  Host transports (the WASM JS bridge, or a native
+    /// gateway mesh wiring layer) can subscribe with
+    /// [`CoreHandle::subscribe_fleet_updates`].
+    fleet_update_tx: tokio::sync::broadcast::Sender<crate::fleet::FleetInventoryDelta>,
 
     /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
@@ -439,6 +492,14 @@ impl CoreHandle {
         // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
         let (rejection_records_tx, _rejection_records_rx) =
             tokio::sync::broadcast::channel::<crate::crdt::failure::DeltaRejectionRecord>(64);
+
+        // ── Fleet-inventory collection (PV-11.3, CLAIM-37.5) ──────────────────
+        //
+        // Created before the migration engine so the engine's Contract-migration
+        // precondition verifier can hold the same shared inventory.
+        let fleet = Arc::new(Mutex::new(crate::fleet::FleetInventory::new()));
+        let (fleet_update_tx, _fleet_update_rx) =
+            tokio::sync::broadcast::channel::<crate::fleet::FleetInventoryDelta>(64);
 
         // ── Identity ──────────────────────────────────────────────────────────
         let identity_path = format!("{}.identity.json", config.storage_path);
@@ -707,6 +768,21 @@ impl CoreHandle {
 
         let migration = Arc::new(Mutex::new(migration));
 
+        // ── Fleet precondition verifier (task 37.5, PV-11.3) ──────────────────
+        //
+        // Contract migrations (task 30.3) commit to the fleet inventory snapshot
+        // hash.  The live CRDT inventory is the production verifier: the hash a
+        // migration carries must equal this handle's current snapshot hash, and
+        // an empty inventory rejects every Contract migration.
+        {
+            let mut mig = migration
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("migration mutex poisoned wiring fleet verifier: {e}"),
+                })?;
+            mig.set_fleet_precondition_verifier(crate::fleet::dyn_verifier(fleet.clone()));
+        }
+
         // ── In-flight migration execution registry (Req 18.6) ────────────────
         //
         // Native: tracks interrupt flags for each wasmi sandbox transform that
@@ -880,6 +956,13 @@ impl CoreHandle {
         // into the same outbound channel and would fail every epoch otherwise.
         #[cfg(feature = "native")]
         let mut scheduler_tick_armed = false;
+
+        // Task 37.5 (PV-11.3): the Swarm polling task re-announces the full
+        // fleet inventory to every newly discovered peer.
+        #[cfg(feature = "native")]
+        let fleet_for_poll = fleet.clone();
+        #[cfg(feature = "native")]
+        let fleet_origin_did = identity.did().to_string();
 
         #[cfg(feature = "native")]
         let dial_tx = {
@@ -1078,6 +1161,27 @@ impl CoreHandle {
                                                 t.enqueue_outbound(wrapper);
                                             }
                                         }
+
+                                        // Task 37.5 (PV-11.3, CLAIM-37.5): bring newly
+                                        // joined peers up to date with the full fleet
+                                        // inventory.  The merge is idempotent, so a peer
+                                        // that is already current produces no change and
+                                        // does not re-broadcast.
+                                        let fleet_update = fleet_for_poll
+                                            .lock()
+                                            .ok()
+                                            .filter(|inventory| !inventory.is_empty())
+                                            .map(|inventory| {
+                                                inventory.full_update(
+                                                    fleet_origin_did.clone(),
+                                                    now_secs(),
+                                                )
+                                            });
+                                        if let Some(update) = fleet_update {
+                                            if let Ok(mut t) = transport_arc.lock() {
+                                                enqueue_fleet_gossip(&mut t, &update);
+                                            }
+                                        }
                                     }
                                     SwarmEvent::Behaviour(
                                         crate::transport::TirBaseBehaviourEvent::Mdns(
@@ -1179,6 +1283,8 @@ impl CoreHandle {
                 crate::transport::security_event_sync::SecurityEventSyncHandler::new(),
             ),
             checkpoint_provider: checkpoint_provider.clone(),
+            challenge_handler: Arc::new(Mutex::new(None)),
+            challenge_resp_tx: tokio::sync::broadcast::channel(256).0,
             durability,
             #[cfg(feature = "native")]
             cloud_ledger,
@@ -1190,6 +1296,8 @@ impl CoreHandle {
             revocation,
             #[cfg(not(feature = "native"))]
             revocation,
+            fleet,
+            fleet_update_tx,
             migration,
             #[cfg(feature = "native")]
             migration_runs,
@@ -2272,6 +2380,203 @@ impl CoreHandle {
         Ok(rev.device_status(device_did).cloned())
     }
 
+    // ─── Fleet inventory (PV-11.3, task 37.5) ─────────────────────────────────
+    //
+    // The fleet inventory is a CRDT collection of provisioned devices.  Local
+    // mutations publish a `FleetInventoryDelta` on `fleet_update_tx` and enqueue
+    // it on the mesh scheduler at HIGH priority; inbound deltas are merged by
+    // `apply_inbound_fleet_update`, which applies the local revocation side
+    // effects and re-broadcasts only when the merge actually changed state.
+
+    /// Provision a device into the fleet inventory (PV-11.3, CLAIM-37.5).
+    ///
+    /// The provisioning payload must serialise to at most 64 KiB.  A device
+    /// that is already revoked cannot be re-provisioned.  On success the
+    /// resulting CRDT delta is published for gossip to connected peers.
+    pub fn fleet_provision_device(
+        &self,
+        provisioning: crate::fleet::DeviceProvisioning,
+    ) -> Result<crate::fleet::FleetEntry, TirBaseError> {
+        let now = now_secs();
+        let updated_by = self.identity.did().to_string();
+        let entry = {
+            let mut fleet = self
+                .fleet
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("fleet mutex poisoned: {e}"),
+                })?;
+            fleet
+                .provision(provisioning, &updated_by, now)
+                .map_err(|e| TirBaseError::FleetInventoryRejected {
+                    reason: e.to_string(),
+                })?
+        };
+
+        self.publish_fleet_update(crate::fleet::FleetInventoryDelta {
+            origin_did: updated_by,
+            entries: vec![entry.clone()],
+            sent_at_est: now,
+        });
+        Ok(entry)
+    }
+
+    /// Revoke a device in the fleet inventory (PV-11.3, CLAIM-37.5).
+    ///
+    /// Revocation is terminal in the CRDT and takes effect locally at once:
+    /// the CRDT engine rejects future inbound Deltas authored by the revoked
+    /// DID, and if the target is this device its own write/read/query gate is
+    /// tripped.  Returns `true` when this call changed the inventory, `false`
+    /// when the device was already revoked (idempotent no-op).
+    pub fn fleet_revoke_device(&self, device_id: &str, reason: &str) -> Result<bool, TirBaseError> {
+        let now = now_secs();
+        let updated_by = self.identity.did().to_string();
+        let (changed, entry) = {
+            let mut fleet = self
+                .fleet
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("fleet mutex poisoned: {e}"),
+                })?;
+            let changed = fleet
+                .revoke(device_id, reason, &updated_by, now)
+                .map_err(|e| TirBaseError::FleetInventoryRejected {
+                    reason: e.to_string(),
+                })?;
+            (changed, fleet.get(device_id).cloned())
+        };
+
+        if !changed {
+            return Ok(false);
+        }
+
+        self.apply_fleet_revocation_side_effects(device_id)?;
+        if let Some(entry) = entry {
+            self.publish_fleet_update(crate::fleet::FleetInventoryDelta {
+                origin_did: updated_by,
+                entries: vec![entry],
+                sent_at_est: now,
+            });
+        }
+        Ok(true)
+    }
+
+    /// Snapshot of the whole fleet inventory (PV-11.3).
+    pub fn fleet_inventory_snapshot(&self) -> Vec<crate::fleet::FleetEntry> {
+        self.fleet
+            .lock()
+            .map(|fleet| fleet.snapshot())
+            .unwrap_or_default()
+    }
+
+    /// Look up one device in the fleet inventory.
+    pub fn fleet_device(&self, device_id: &str) -> Option<crate::fleet::FleetEntry> {
+        self.fleet
+            .lock()
+            .ok()
+            .and_then(|fleet| fleet.get(device_id).cloned())
+    }
+
+    /// `true` when the device is known to the fleet inventory as revoked.
+    pub fn fleet_is_revoked(&self, device_id: &str) -> bool {
+        self.fleet
+            .lock()
+            .map(|fleet| fleet.is_revoked(device_id))
+            .unwrap_or(false)
+    }
+
+    /// Current fleet inventory snapshot hash (the fleet-precondition hash a
+    /// Contract migration commits to).
+    pub fn fleet_snapshot_hash(&self) -> [u8; 32] {
+        self.fleet
+            .lock()
+            .map(|fleet| fleet.snapshot_hash())
+            .unwrap_or([0u8; 32])
+    }
+
+    /// Subscribe to fleet-inventory updates emitted for gossip (PV-11.3).
+    pub fn subscribe_fleet_updates(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::fleet::FleetInventoryDelta> {
+        self.fleet_update_tx.subscribe()
+    }
+
+    /// Publish a fleet delta for gossip: notify subscribers and enqueue it on
+    /// the mesh scheduler at HIGH priority (native).
+    fn publish_fleet_update(&self, update: crate::fleet::FleetInventoryDelta) {
+        let _ = self.fleet_update_tx.send(update.clone());
+        #[cfg(feature = "native")]
+        if let Ok(mut transport) = self.transport.lock() {
+            enqueue_fleet_gossip(&mut transport, &update);
+        }
+    }
+
+    /// Apply the local effects of a fleet revocation (PV-11.3, Req 8.5/8.6).
+    fn apply_fleet_revocation_side_effects(&self, device_id: &str) -> Result<(), TirBaseError> {
+        {
+            let mut crdt = self
+                .crdt
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned: {e}"),
+                })?;
+            crdt.mark_did_revoked(&device_id.to_string());
+        }
+        if device_id == self.identity.did() {
+            self.capability
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("capability mutex poisoned: {e}"),
+                })?
+                .apply_revocation()?;
+        }
+        Ok(())
+    }
+
+    /// Merge an inbound fleet-inventory delta from a peer (PV-11.3).
+    ///
+    /// Withdrawn entries are impossible: revocation dominates in the CRDT.
+    /// Newly revoked devices get the same local side effects as a local
+    /// revocation, and a merge that changed state is re-broadcast so the
+    /// revocation reaches peers beyond the origin's direct neighbours.
+    pub(crate) fn apply_inbound_fleet_update(
+        &self,
+        update: crate::fleet::FleetInventoryDelta,
+    ) -> crate::fleet::FleetMergeReport {
+        let (report, changed_entries) = {
+            let Ok(mut fleet) = self.fleet.lock() else {
+                return crate::fleet::FleetMergeReport::default();
+            };
+            let report = fleet.apply_update(&update);
+            let changed_entries: Vec<_> = if report.changed() {
+                update
+                    .entries
+                    .iter()
+                    .filter_map(|entry| fleet.get(&entry.device_id).cloned())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            (report, changed_entries)
+        };
+
+        for device_id in &report.newly_revoked {
+            if let Err(e) = self.apply_fleet_revocation_side_effects(device_id) {
+                eprintln!("[fleet] could not apply revocation side effects for {device_id}: {e}");
+            }
+        }
+
+        if report.changed() && !changed_entries.is_empty() {
+            self.publish_fleet_update(crate::fleet::FleetInventoryDelta {
+                origin_did: self.identity.did().to_string(),
+                entries: changed_entries,
+                sent_at_est: now_secs(),
+            });
+        }
+
+        report
+    }
+
     // ─── Manager operations — Saturate Mode (Req 13) ─────────────────────────
     //
     // Subphase 3.2: activation, heartbeat renewal, and M-of-N termination all
@@ -2787,6 +3092,82 @@ impl CoreHandle {
         Ok(())
     }
 
+    /// 36.9 (PV-22.3): register the guard-side challenge nonce issuer.
+    pub fn set_challenge_handler(
+        &self,
+        handler: Arc<dyn crate::transport::challenge::MeshChallengeHandler>,
+    ) {
+        if let Ok(mut guard) = self.challenge_handler.lock() {
+            *guard = Some(handler);
+        }
+    }
+
+    /// 36.9: subscribe to challenge responses routed back to this guard.
+    pub fn subscribe_mesh_challenge_responses(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::transport::challenge::MeshChallengeResponse> {
+        self.challenge_resp_tx.subscribe()
+    }
+
+    /// 36.9 (PV-22.3, INV-9): publish a challenge request to the mesh.
+    ///
+    /// `origin_guard_did` is always this handle's DID: the response must come
+    /// back to the guard instance that will evaluate the command, never to an
+    /// arbitrary peer.
+    pub fn request_mesh_challenge(
+        &self,
+        request_id: [u8; 32],
+        requester_did: &str,
+        issuer_did: &str,
+        target_id: &str,
+        param: &str,
+        command_hash: [u8; 32],
+    ) -> Result<(), TirBaseError> {
+        let request = crate::transport::challenge::MeshChallengeRequest {
+            request_id,
+            origin_guard_did: self.identity.did().to_string(),
+            requester_did: requester_did.to_string(),
+            issuer_did: issuer_did.to_string(),
+            target_id: target_id.to_string(),
+            param: param.to_string(),
+            command_hash,
+            requested_at_mono: (crate::traits::monotonic_now() / 1_000_000) as i64,
+        };
+        self.publish_challenge_message(crate::transport::message::GossipMessage::ChallengeRequest(
+            request,
+        ))
+    }
+
+    fn publish_challenge_message(
+        &self,
+        message: crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        #[cfg(feature = "native")]
+        {
+            let bytes = message.to_bytes();
+            let transport = self
+                .transport
+                .lock()
+                .map_err(|e| TirBaseError::MeshUnavailable {
+                    reason: format!("transport lock poisoned: {e}"),
+                })?;
+            if let Some(tx) = transport.outbound_tx.as_ref() {
+                let _ = tx.try_send(bytes);
+            }
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = message;
+        }
+        Ok(())
+    }
+
+    /// This node's DID (the guard instance identity used as `origin_guard_did`
+    /// for mesh challenge routing, task 36.9).
+    pub fn local_did(&self) -> &str {
+        self.identity.did()
+    }
+
     /// Live memory-budget metrics for the CRDT caches (PV-6.5, CLAIM-24.2).
     ///
     /// The returned handles share their counters with the running handle, so a
@@ -2852,6 +3233,27 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
+                // Task 37.5 (PV-11.3): a synthetic fleet-gossip envelope carries
+                // a nested GossipMessage in `automerge_bytes`.  Unwrap it before
+                // the CRDT merge gate (which would otherwise reject the
+                // unsigned synthetic Delta).
+                if delta.author_did == FLEET_GOSSIP_AUTHOR {
+                    if let Some(embedded) =
+                        crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
+                    {
+                        if let GossipMessage::FleetInventoryUpdate(update) = embedded {
+                            let report = self.apply_inbound_fleet_update(update);
+                            eprintln!(
+                                "[inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
+                                report.applied,
+                                report.unchanged,
+                                report.rejected,
+                                report.newly_revoked
+                            );
+                            return Ok(());
+                        }
+                    }
+                }
                 // PV-6 / task 24.1: enforce every configured InboundCaps value
                 // before merge (connections, rate/burst, size, op count, batch,
                 // heads, deps per change, traversal budget).  Dep check and
@@ -3340,6 +3742,16 @@ impl CoreHandle {
                     }
                 }
             }
+            GossipMessage::FleetInventoryUpdate(update) => {
+                let report = self.apply_inbound_fleet_update(update);
+                eprintln!(
+                    "[inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
+                    report.applied,
+                    report.unchanged,
+                    report.rejected,
+                    report.newly_revoked
+                );
+            }
             GossipMessage::InboundMigrationDelta(mig_delta) => {
                 // Req 18.6: dispatch the transform to a background job instead
                 // of executing it inline under the `migration` mutex.  The job
@@ -3490,6 +3902,58 @@ impl CoreHandle {
                 };
                 for rec in accepted {
                     let _ = self.security_event_sync_tx.send(rec);
+                }
+            }
+            GossipMessage::ChallengeRequest(request) => {
+                // 36.9 (PV-22.3): a peer asked this guard instance to issue a
+                // challenge nonce.  The response carries the request's
+                // `origin_guard_did` unchanged so only the originating guard
+                // consumes it.
+                let handler = self
+                    .challenge_handler
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("challenge handler poisoned: {e}"),
+                    })?
+                    .clone();
+                if let Some(handler) = handler {
+                    let response = match handler.issue_challenge(&request) {
+                        Ok(nonce) => crate::transport::challenge::MeshChallengeResponse {
+                            request_id: request.request_id,
+                            origin_guard_did: request.origin_guard_did.clone(),
+                            responder_guard_did: self.identity.did().to_string(),
+                            issuer_did: request.issuer_did.clone(),
+                            target_id: request.target_id.clone(),
+                            param: request.param.clone(),
+                            nonce: Some(nonce.nonce),
+                            issued_at_mono: nonce.issued_at_mono,
+                            expires_at_mono: nonce.expires_at_mono,
+                            error: None,
+                        },
+                        Err(error) => crate::transport::challenge::MeshChallengeResponse {
+                            request_id: request.request_id,
+                            origin_guard_did: request.origin_guard_did.clone(),
+                            responder_guard_did: self.identity.did().to_string(),
+                            issuer_did: request.issuer_did.clone(),
+                            target_id: request.target_id.clone(),
+                            param: request.param.clone(),
+                            nonce: None,
+                            issued_at_mono: 0,
+                            expires_at_mono: 0,
+                            error: Some(error),
+                        },
+                    };
+                    self.publish_challenge_message(
+                        crate::transport::message::GossipMessage::ChallengeResponse(response),
+                    )?;
+                }
+            }
+            GossipMessage::ChallengeResponse(response) => {
+                // Routing rule: only the originating guard instance consumes a
+                // response.  Dropping this check would deliver another peer's
+                // nonce locally (wiring mutation for CLAIM-36.9).
+                if response.origin_guard_did == self.identity.did() {
+                    let _ = self.challenge_resp_tx.send(response);
                 }
             }
             _ => {}
@@ -3789,6 +4253,25 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
+                // Task 37.5 (PV-11.3): unwrap a synthetic fleet-gossip envelope
+                // before the CRDT merge gate (see the native path).
+                if delta.author_did == FLEET_GOSSIP_AUTHOR {
+                    if let Some(embedded) =
+                        crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
+                    {
+                        if let GossipMessage::FleetInventoryUpdate(update) = embedded {
+                            let report = self.apply_inbound_fleet_update(update);
+                            eprintln!(
+                                "[wasm-inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
+                                report.applied,
+                                report.unchanged,
+                                report.rejected,
+                                report.newly_revoked
+                            );
+                            return Ok(());
+                        }
+                    }
+                }
                 // Route through the real LWW/RGA dispatch layer (Req 4.3–4.5a).
                 // apply_incoming_delta handles:
                 //   1. Schema-hash gate (unknown → Quarantined)
@@ -4172,6 +4655,18 @@ impl CoreHandle {
                 Ok(())
             }
 
+            GossipMessage::FleetInventoryUpdate(update) => {
+                let report = self.apply_inbound_fleet_update(update);
+                eprintln!(
+                    "[wasm-inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
+                    report.applied,
+                    report.unchanged,
+                    report.rejected,
+                    report.newly_revoked
+                );
+                Ok(())
+            }
+
             GossipMessage::InboundMigrationDelta(mig_delta) => {
                 // Task 30.6 (PV-8.7): post-exec author revocation check is enforced by
                 // native dispatch_inbound_migration; WASM receive_migration_delta executes
@@ -4332,6 +4827,53 @@ impl CoreHandle {
                 };
                 for rec in accepted {
                     let _ = self.security_event_sync_tx.send(rec);
+                }
+                Ok(())
+            }
+            GossipMessage::ChallengeRequest(request) => {
+                let handler = self
+                    .challenge_handler
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("challenge handler poisoned: {e}"),
+                    })?
+                    .clone();
+                if let Some(handler) = handler {
+                    let response = match handler.issue_challenge(&request) {
+                        Ok(nonce) => crate::transport::challenge::MeshChallengeResponse {
+                            request_id: request.request_id,
+                            origin_guard_did: request.origin_guard_did.clone(),
+                            responder_guard_did: self.identity.did().to_string(),
+                            issuer_did: request.issuer_did.clone(),
+                            target_id: request.target_id.clone(),
+                            param: request.param.clone(),
+                            nonce: Some(nonce.nonce),
+                            issued_at_mono: nonce.issued_at_mono,
+                            expires_at_mono: nonce.expires_at_mono,
+                            error: None,
+                        },
+                        Err(error) => crate::transport::challenge::MeshChallengeResponse {
+                            request_id: request.request_id,
+                            origin_guard_did: request.origin_guard_did.clone(),
+                            responder_guard_did: self.identity.did().to_string(),
+                            issuer_did: request.issuer_did.clone(),
+                            target_id: request.target_id.clone(),
+                            param: request.param.clone(),
+                            nonce: None,
+                            issued_at_mono: 0,
+                            expires_at_mono: 0,
+                            error: Some(error),
+                        },
+                    };
+                    self.publish_challenge_message(
+                        crate::transport::message::GossipMessage::ChallengeResponse(response),
+                    )?;
+                }
+                Ok(())
+            }
+            GossipMessage::ChallengeResponse(response) => {
+                if response.origin_guard_did == self.identity.did() {
+                    let _ = self.challenge_resp_tx.send(response);
                 }
                 Ok(())
             }

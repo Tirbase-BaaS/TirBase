@@ -492,3 +492,4 @@ To add an entry:
 | `tirbase_types::fixed_point` | @tirbase-core-team | No source reference from any other workspace crate; public items are re-exported at the crate root and the remaining error variants are unused | v0.3.0 |
 | `tirbase_types::units` | @tirbase-core-team | No source reference from any other workspace crate; unit constants are consumed through `UnitId`/`UnitDescriptor` rather than by name | v0.3.0 |
 | `tirbase_types::ParseCommandRoleError` | @tirbase-core-team | No source reference from any other workspace crate; public CommandRole parse error type (PV-3.1) awaiting a consumer | v0.3.0 |
+| `tirbase_core::fleet` | @tirbase-core-team | Fleet inventory CRDT collection (PV-11.3, CLAIM-37.5); consumed through `CoreHandle::fleet_*` and the migration fleet-precondition verifier, so the module's own public surface has no cross-crate caller yet | v0.3.0 |

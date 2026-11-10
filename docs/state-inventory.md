@@ -106,10 +106,22 @@ python3 scripts/state_inventory_scan.py --write
 | `CloudAnchorIngress` | `tirbase-gateway/src/cloud_anchor.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudAnchorRequest` | `tirbase-gateway/src/cloud_anchor.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudAnchorResponse` | `tirbase-gateway/src/cloud_anchor.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudChallengeErrorOut` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudChallengeNonceOut` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudChallengeRequest` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudChallengeRequestOut` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudClient` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudCommandMessage` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudDeviceHello` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudLedger` | `tirbase-core/src/durability/cloud_ledger.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudLedgerConnection` | `tirbase-core/src/durability/cloud_ledger.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudOutboundQueue` | `tirbase-core/src/durability/cloud_queue.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudOutbox` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudRateLimitNotice` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudResult` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudRuntime` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CloudSyncResult` | `tirbase-core/src/durability/cloud_queue.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `CloudTlsPaths` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ColdRoomSimDriver` | `tirbase-drivers/src/cold_room_sim.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CommandEnvelope` | `tirbase-guard/src/epoch.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `CommandGuard` | `tirbase-guard/src/guard.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -134,6 +146,7 @@ python3 scripts/state_inventory_scan.py --write
 | `DeviceEpoch` | `tirbase-guard/src/epoch.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `DeviceIdentity` | `tirbase-guard/src/enrollment.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `DeviceModel` | `tirbase-drivers/src/driver_trait.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `DeviceProvisioning` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `DeviceRevocationStatus` | `tirbase-core/src/auth/revocation.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `DiagnosticEntry` | `tirbase-core/src/diagnostics/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `DiscoveredPeer` | `tirbase-core/src/transport/discovery.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -154,6 +167,8 @@ python3 scripts/state_inventory_scan.py --write
 | `DurabilityTierChanged` | `tirbase-core/src/api/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EmptyDeviceModelError` | `tirbase-drivers/src/driver_trait.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EnrolledDevice` | `tirbase-guard/src/enrollment.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `EnrollmentDelegationPayload` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `EnrollmentDelegationRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EnrollmentRequest` | `tirbase-guard/src/enrollment.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EnrollmentService` | `tirbase-guard/src/enrollment.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EpochBump` | `tirbase-guard/src/epoch.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -161,6 +176,7 @@ python3 scripts/state_inventory_scan.py --write
 | `EpochBumpRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EpochCommandGuard` | `tirbase-guard/src/epoch.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `EpochRegistry` | `tirbase-guard/src/epoch.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `EventsQuery` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ExecutionProfileVersion` | `tirbase-core/src/migration/profile.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ExportedCheckpoint` | `tirbase-gateway/src/security_log_export.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ExportedEvent` | `tirbase-gateway/src/security_log_export.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -172,7 +188,13 @@ python3 scripts/state_inventory_scan.py --write
 | `FieldRef` | `tirbase-core/src/schema/diff.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `FileKeyProvider` | `tirbase-core/src/identity/file_key_provider.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `FileKeyProvider` | `tirbase-gateway/src/key_provider.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FileKeyRotator` | `tirbase-gateway/src/key_rotation.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `FirstOrderThermalModel` | `tirbase-drivers/src/cold_room_sim.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FleetEntry` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FleetInventory` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FleetInventoryDelta` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FleetInventoryVerifier` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `FleetMergeReport` | `tirbase-core/src/fleet/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `FpvToml` | `tirbase-gateway/src/profiles.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `GatewayBootRecord` | `tirbase-gateway/src/main.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `GatewayConfig` | `tirbase-gateway/src/config.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -215,6 +237,9 @@ python3 scripts/state_inventory_scan.py --write
 | `ManagerSignature` | `tirbase-core/src/auth/revocation.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ManagerSignature` | `tirbase-core/src/migration/migration_delta.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `MemoryBudgetCaches` | `tirbase-core/src/crdt/memory_budget.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `MeshChallengeNonce` | `tirbase-core/src/transport/challenge.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `MeshChallengeRequest` | `tirbase-core/src/transport/challenge.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `MeshChallengeResponse` | `tirbase-core/src/transport/challenge.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `MeshStatus` | `tirbase-core/src/api/types.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `MeshTransport` | `tirbase-core/src/transport/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `Migration` | `tirbase-gateway/src/db/migrations.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -222,6 +247,7 @@ python3 scripts/state_inventory_scan.py --write
 | `MigrationExecutionRegistry` | `tirbase-core/src/migration/wasm_sandbox.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `MigrationReport` | `tirbase-gateway/src/db/migrations.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `MigrationRevocationDelta` | `tirbase-core/src/migration/migration_delta.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `MintRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ModbusRegisterMap` | `tirbase-drivers/src/register_map.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ModbusRtuClient` | `tirbase-drivers/src/modbus.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ModbusRtuSerialConfig` | `tirbase-drivers/src/modbus.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -262,8 +288,11 @@ python3 scripts/state_inventory_scan.py --write
 | `ProfileTomlError` | `tirbase-gateway/src/profiles.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QuarantineEntry` | `tirbase-core/src/migration/quarantine.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QuarantineLedger` | `tirbase-core/src/migration/quarantine.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `QuarantineReplayPayload` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `QuarantineReplayRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QueryResult` | `tirbase-core/src/api/types.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QueueEntry` | `tirbase-core/src/durability/cloud_queue.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `QueuedCloudMessage` | `tirbase-gateway/src/cloud.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QueuedDelta` | `tirbase-core/src/transport/scheduler.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `QuorumConfig` | `tirbase-core/src/durability/quorum.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RatchetAdvance` | `tirbase-guard/src/time.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -278,6 +307,8 @@ python3 scripts/state_inventory_scan.py --write
 | `RegistryGuard` | `tirbase-core/src/migration/wasm_sandbox.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RejectionRecord` | `tirbase-core/src/durability/cloud_ledger.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ReplaySummary` | `tirbase-core/src/migration/sidecar.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `RestorePayload` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `RestoreRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ResumptionCredential` | `tirbase-core/src/transport/session.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RetryEntry` | `tirbase-core/src/transport/discovery.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RetypedField` | `tirbase-core/src/schema/diff.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -289,6 +320,7 @@ python3 scripts/state_inventory_scan.py --write
 | `RgaConflict` | `tirbase-core/src/crdt/verify.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RolePolicy` | `tirbase-guard/src/trust_root.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `RootCaRegistry` | `tirbase-core/src/auth/root_ca.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `RotationOutcome` | `tirbase-gateway/src/key_rotation.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `S` | `tirbase-core/src/migration/wasm_sandbox.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `SaturateLease` | `tirbase-core/src/transport/saturate.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `SaturateModeStateMachine` | `tirbase-core/src/transport/saturate.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -358,6 +390,8 @@ python3 scripts/state_inventory_scan.py --write
 | `TimeRatchet` | `tirbase-guard/src/time.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TimeRatchetConfig` | `tirbase-guard/src/time.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TimeRatchetRecord` | `tirbase-guard/src/time.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `TimeResetPayload` | `tirbase-guard/src/time.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `TimeResetRequest` | `tirbase-gateway/src/admin.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TimeoutError` | `tirbase-drivers/src/driver_trait.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TirBaseBehaviour` | `tirbase-core/src/transport/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TlsValidatedEndpoint` | `tirbase-drivers/src/mqtt.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |

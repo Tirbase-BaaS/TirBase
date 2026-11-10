@@ -59,6 +59,12 @@ pub enum GossipMessage {
     /// Security event mesh sync (PV-7.9, PV-7.12, CLAIM-28.3): append-only
     /// collection, compaction=none, per-peer 500 events/min, retry 30s on failure.
     SecurityEventSync(crate::transport::security_event_sync::SecurityEventSyncBatch),
+    /// Mesh challenge-nonce request (task 36.9, PV-22.3, INV-9).
+    ChallengeRequest(crate::transport::challenge::MeshChallengeRequest),
+    /// Mesh challenge-nonce response routed back to the originating guard.
+    ChallengeResponse(crate::transport::challenge::MeshChallengeResponse),
+    /// Fleet-inventory CRDT update from a peer (PV-11.3, task 37.5).
+    FleetInventoryUpdate(crate::fleet::FleetInventoryDelta),
 }
 
 impl GossipMessage {

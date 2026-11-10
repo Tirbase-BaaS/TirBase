@@ -8,6 +8,7 @@
 
 #[cfg(feature = "native")]
 pub mod ble;
+pub mod challenge;
 pub mod discovery;
 pub mod fragment;
 pub mod message;

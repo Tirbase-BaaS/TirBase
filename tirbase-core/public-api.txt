@@ -476,8 +476,15 @@ impl tirbase_core::api::CoreHandle
 pub fn tirbase_core::api::CoreHandle::activate_saturate_mode(&self, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::admin_close_ico(&self, uuid::Uuid, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::device_revocation_status(&self, &str) -> core::result::Result<core::option::Option<tirbase_core::auth::revocation::DeviceRevocationStatus>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::fleet_device(&self, &str) -> core::option::Option<tirbase_core::fleet::FleetEntry>
+pub fn tirbase_core::api::CoreHandle::fleet_inventory_snapshot(&self) -> alloc::vec::Vec<tirbase_core::fleet::FleetEntry>
+pub fn tirbase_core::api::CoreHandle::fleet_is_revoked(&self, &str) -> bool
+pub fn tirbase_core::api::CoreHandle::fleet_provision_device(&self, tirbase_core::fleet::DeviceProvisioning) -> core::result::Result<tirbase_core::fleet::FleetEntry, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::fleet_revoke_device(&self, &str, &str) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::fleet_snapshot_hash(&self) -> [u8; 32]
 pub async fn tirbase_core::api::CoreHandle::init(tirbase_core::api::InitConfig) -> core::result::Result<alloc::sync::Arc<Self>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::local_did(&self) -> &str
 pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
@@ -490,12 +497,16 @@ pub async fn tirbase_core::api::CoreHandle::receive_inbound(&self, tirbase_core:
 pub fn tirbase_core::api::CoreHandle::register_migration_ca_key(&self, [u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::register_root_ca_key(&self, [u8; 32], core::option::Option<(&[u8], i64)>) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::renew_saturate_mode(&self, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::request_mesh_challenge(&self, [u8; 32], &str, &str, &str, &str, [u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::root_ca_public_key(&self) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::api::CoreHandle::set_challenge_handler(&self, alloc::sync::Arc<dyn tirbase_core::transport::challenge::MeshChallengeHandler>)
 pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn() -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
 pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::subscribe_checkpoint_observations(&self) -> tokio::sync::broadcast::Receiver<(alloc::string::String, u64, [u8; 32], i64)>
 pub fn tirbase_core::api::CoreHandle::subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::diagnostics::DiagnosticEntry>
 pub fn tirbase_core::api::CoreHandle::subscribe_durability_events(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::api::DurabilityTierChanged>
+pub fn tirbase_core::api::CoreHandle::subscribe_fleet_updates(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::fleet::FleetInventoryDelta>
+pub fn tirbase_core::api::CoreHandle::subscribe_mesh_challenge_responses(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::transport::challenge::MeshChallengeResponse>
 pub fn tirbase_core::api::CoreHandle::subscribe_security_event_sync(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>
 pub fn tirbase_core::api::CoreHandle::terminate_saturate_mode(&self, &[u8], alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<u8>)>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::trust_level(&self) -> tirbase_core::api::types::TrustLevel
@@ -4770,6 +4781,8 @@ pub tirbase_core::errors::TirBaseError::DidResolutionFailed::reason: alloc::stri
 pub tirbase_core::errors::TirBaseError::ExpandContractViolation
 pub tirbase_core::errors::TirBaseError::ExpandContractViolation::migration_id: alloc::string::String
 pub tirbase_core::errors::TirBaseError::ExpandContractViolation::reason: alloc::string::String
+pub tirbase_core::errors::TirBaseError::FleetInventoryRejected
+pub tirbase_core::errors::TirBaseError::FleetInventoryRejected::reason: alloc::string::String
 pub tirbase_core::errors::TirBaseError::FleetPreconditionMissing
 pub tirbase_core::errors::TirBaseError::FleetPreconditionMissing::migration_id: alloc::string::String
 pub tirbase_core::errors::TirBaseError::FragmentReassemblyFailed
@@ -5474,6 +5487,589 @@ pub fn tirbase_core::events::SecurityEvent::vzip(self) -> V
 pub fn tirbase_core::events::emit(tirbase_core::events::SecurityEvent)
 pub fn tirbase_core::events::install_security_event_sink(alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>) -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
 pub fn tirbase_core::events::security_event_sink() -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
+pub mod tirbase_core::fleet
+pub enum tirbase_core::fleet::DeviceLifecycle
+pub tirbase_core::fleet::DeviceLifecycle::Provisioned
+pub tirbase_core::fleet::DeviceLifecycle::Revoked
+impl core::clone::Clone for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::clone(&self) -> tirbase_core::fleet::DeviceLifecycle
+impl core::cmp::Eq for tirbase_core::fleet::DeviceLifecycle
+impl core::cmp::PartialEq for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::eq(&self, &tirbase_core::fleet::DeviceLifecycle) -> bool
+impl core::fmt::Debug for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_core::fleet::DeviceLifecycle
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::DeviceLifecycle
+impl serde_core::ser::Serialize for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::fleet::DeviceLifecycle
+impl core::marker::Send for tirbase_core::fleet::DeviceLifecycle
+impl core::marker::Sync for tirbase_core::fleet::DeviceLifecycle
+impl core::marker::Unpin for tirbase_core::fleet::DeviceLifecycle
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::DeviceLifecycle
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::DeviceLifecycle
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::DeviceLifecycle
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::DeviceLifecycle where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceLifecycle::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::DeviceLifecycle where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::DeviceLifecycle where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceLifecycle::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::DeviceLifecycle::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::DeviceLifecycle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::DeviceLifecycle where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::DeviceLifecycle where U: core::convert::From<T>
+pub fn tirbase_core::fleet::DeviceLifecycle::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::DeviceLifecycle where U: core::convert::Into<T>
+pub type tirbase_core::fleet::DeviceLifecycle::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::DeviceLifecycle::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::DeviceLifecycle where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::DeviceLifecycle::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::DeviceLifecycle::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::DeviceLifecycle where T: core::clone::Clone
+pub type tirbase_core::fleet::DeviceLifecycle::Owned = T
+pub fn tirbase_core::fleet::DeviceLifecycle::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::DeviceLifecycle::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::DeviceLifecycle where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceLifecycle::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::DeviceLifecycle where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceLifecycle::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::DeviceLifecycle where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceLifecycle::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::DeviceLifecycle where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::DeviceLifecycle::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::DeviceLifecycle
+pub fn tirbase_core::fleet::DeviceLifecycle::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::DeviceLifecycle where T: core::any::Any
+pub fn tirbase_core::fleet::DeviceLifecycle::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::DeviceLifecycle::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::DeviceLifecycle::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::DeviceLifecycle::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::DeviceLifecycle where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::DeviceLifecycle::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::DeviceLifecycle
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::DeviceLifecycle where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::fleet::DeviceLifecycle where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::DeviceLifecycle
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::DeviceLifecycle
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::DeviceLifecycle
+pub type tirbase_core::fleet::DeviceLifecycle::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::DeviceLifecycle where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::DeviceLifecycle where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::DeviceLifecycle::vzip(self) -> V
+pub enum tirbase_core::fleet::FleetError
+pub tirbase_core::fleet::FleetError::DeviceRevoked
+pub tirbase_core::fleet::FleetError::DeviceRevoked::device_id: tirbase_core::crdt::delta::Did
+pub tirbase_core::fleet::FleetError::InvalidProvisioning
+pub tirbase_core::fleet::FleetError::InvalidProvisioning::reason: alloc::string::String
+pub tirbase_core::fleet::FleetError::ProvisioningPayloadTooLarge
+pub tirbase_core::fleet::FleetError::ProvisioningPayloadTooLarge::max: usize
+pub tirbase_core::fleet::FleetError::ProvisioningPayloadTooLarge::size: usize
+pub tirbase_core::fleet::FleetError::Serialisation
+pub tirbase_core::fleet::FleetError::Serialisation::reason: alloc::string::String
+pub tirbase_core::fleet::FleetError::TooManyEntries
+pub tirbase_core::fleet::FleetError::TooManyEntries::count: usize
+pub tirbase_core::fleet::FleetError::TooManyEntries::max: usize
+impl core::clone::Clone for tirbase_core::fleet::FleetError
+pub fn tirbase_core::fleet::FleetError::clone(&self) -> tirbase_core::fleet::FleetError
+impl core::cmp::Eq for tirbase_core::fleet::FleetError
+impl core::cmp::PartialEq for tirbase_core::fleet::FleetError
+pub fn tirbase_core::fleet::FleetError::eq(&self, &tirbase_core::fleet::FleetError) -> bool
+impl core::error::Error for tirbase_core::fleet::FleetError
+impl core::fmt::Debug for tirbase_core::fleet::FleetError
+pub fn tirbase_core::fleet::FleetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_core::fleet::FleetError
+pub fn tirbase_core::fleet::FleetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetError
+impl core::marker::Freeze for tirbase_core::fleet::FleetError
+impl core::marker::Send for tirbase_core::fleet::FleetError
+impl core::marker::Sync for tirbase_core::fleet::FleetError
+impl core::marker::Unpin for tirbase_core::fleet::FleetError
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetError
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::FleetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetError where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::FleetError::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetError where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetError where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetError where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetError::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetError where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::FleetError where T: core::clone::Clone
+pub type tirbase_core::fleet::FleetError::Owned = T
+pub fn tirbase_core::fleet::FleetError::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::FleetError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_core::fleet::FleetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_core::fleet::FleetError where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetError where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetError where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::FleetError where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::FleetError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetError
+pub fn tirbase_core::fleet::FleetError::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetError where T: core::any::Any
+pub fn tirbase_core::fleet::FleetError::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetError::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetError::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetError::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetError where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetError::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetError
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetError where T: ?core::marker::Sized
+impl<T> smol_str::ToSmolStr for tirbase_core::fleet::FleetError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetError::to_smolstr(&self) -> smol_str::SmolStr
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetError
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetError
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetError
+pub type tirbase_core::fleet::FleetError::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetError where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetError where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetError::vzip(self) -> V
+pub struct tirbase_core::fleet::DeviceProvisioning
+pub tirbase_core::fleet::DeviceProvisioning::device_class: alloc::string::String
+pub tirbase_core::fleet::DeviceProvisioning::device_id: tirbase_core::crdt::delta::Did
+pub tirbase_core::fleet::DeviceProvisioning::enrolled_at_est: i64
+pub tirbase_core::fleet::DeviceProvisioning::labels: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+pub tirbase_core::fleet::DeviceProvisioning::profile_id: [u8; 16]
+pub tirbase_core::fleet::DeviceProvisioning::public_key: alloc::vec::Vec<u8>
+impl tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::new(impl core::convert::Into<tirbase_core::crdt::delta::Did>, impl core::convert::Into<alloc::string::String>, [u8; 16], [u8; 32], i64) -> Self
+pub fn tirbase_core::fleet::DeviceProvisioning::payload_len(&self) -> core::result::Result<usize, tirbase_core::fleet::FleetError>
+pub fn tirbase_core::fleet::DeviceProvisioning::validate_size(&self) -> core::result::Result<(), tirbase_core::fleet::FleetError>
+impl core::clone::Clone for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::clone(&self) -> tirbase_core::fleet::DeviceProvisioning
+impl core::cmp::Eq for tirbase_core::fleet::DeviceProvisioning
+impl core::cmp::PartialEq for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::eq(&self, &tirbase_core::fleet::DeviceProvisioning) -> bool
+impl core::fmt::Debug for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::DeviceProvisioning
+impl serde_core::ser::Serialize for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::fleet::DeviceProvisioning
+impl core::marker::Send for tirbase_core::fleet::DeviceProvisioning
+impl core::marker::Sync for tirbase_core::fleet::DeviceProvisioning
+impl core::marker::Unpin for tirbase_core::fleet::DeviceProvisioning
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::DeviceProvisioning
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::DeviceProvisioning
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::DeviceProvisioning
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::DeviceProvisioning where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceProvisioning::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::DeviceProvisioning where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::DeviceProvisioning where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceProvisioning::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::DeviceProvisioning::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::DeviceProvisioning where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::DeviceProvisioning where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::DeviceProvisioning where U: core::convert::From<T>
+pub fn tirbase_core::fleet::DeviceProvisioning::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::DeviceProvisioning where U: core::convert::Into<T>
+pub type tirbase_core::fleet::DeviceProvisioning::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::DeviceProvisioning::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::DeviceProvisioning where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::DeviceProvisioning::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::DeviceProvisioning::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::DeviceProvisioning where T: core::clone::Clone
+pub type tirbase_core::fleet::DeviceProvisioning::Owned = T
+pub fn tirbase_core::fleet::DeviceProvisioning::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::DeviceProvisioning::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::DeviceProvisioning where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceProvisioning::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::DeviceProvisioning where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceProvisioning::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::DeviceProvisioning where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::DeviceProvisioning::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::DeviceProvisioning where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::DeviceProvisioning::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::DeviceProvisioning
+pub fn tirbase_core::fleet::DeviceProvisioning::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::DeviceProvisioning where T: core::any::Any
+pub fn tirbase_core::fleet::DeviceProvisioning::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::DeviceProvisioning::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::DeviceProvisioning::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::DeviceProvisioning::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::DeviceProvisioning where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::DeviceProvisioning::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::DeviceProvisioning
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::DeviceProvisioning where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::fleet::DeviceProvisioning where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::DeviceProvisioning
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::DeviceProvisioning
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::DeviceProvisioning
+pub type tirbase_core::fleet::DeviceProvisioning::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::DeviceProvisioning where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::DeviceProvisioning where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::DeviceProvisioning::vzip(self) -> V
+pub struct tirbase_core::fleet::FleetEntry
+pub tirbase_core::fleet::FleetEntry::device_id: tirbase_core::crdt::delta::Did
+pub tirbase_core::fleet::FleetEntry::lifecycle: tirbase_core::fleet::DeviceLifecycle
+pub tirbase_core::fleet::FleetEntry::provisioning: core::option::Option<tirbase_core::fleet::DeviceProvisioning>
+pub tirbase_core::fleet::FleetEntry::revocation_reason: core::option::Option<alloc::string::String>
+pub tirbase_core::fleet::FleetEntry::updated_at_est: i64
+pub tirbase_core::fleet::FleetEntry::updated_by: tirbase_core::crdt::delta::Did
+pub tirbase_core::fleet::FleetEntry::version: u64
+impl tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::is_revoked(&self) -> bool
+impl core::clone::Clone for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::clone(&self) -> tirbase_core::fleet::FleetEntry
+impl core::cmp::Eq for tirbase_core::fleet::FleetEntry
+impl core::cmp::PartialEq for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::eq(&self, &tirbase_core::fleet::FleetEntry) -> bool
+impl core::fmt::Debug for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetEntry
+impl serde_core::ser::Serialize for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::fleet::FleetEntry
+impl core::marker::Send for tirbase_core::fleet::FleetEntry
+impl core::marker::Sync for tirbase_core::fleet::FleetEntry
+impl core::marker::Unpin for tirbase_core::fleet::FleetEntry
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetEntry
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetEntry
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetEntry
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::FleetEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetEntry::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetEntry where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetEntry::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::FleetEntry::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetEntry where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetEntry where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetEntry::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetEntry where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetEntry::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetEntry::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetEntry where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetEntry::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetEntry::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::FleetEntry where T: core::clone::Clone
+pub type tirbase_core::fleet::FleetEntry::Owned = T
+pub fn tirbase_core::fleet::FleetEntry::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::FleetEntry::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::FleetEntry where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetEntry::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetEntry where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetEntry::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetEntry where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetEntry::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::FleetEntry where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::FleetEntry::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetEntry
+pub fn tirbase_core::fleet::FleetEntry::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetEntry where T: core::any::Any
+pub fn tirbase_core::fleet::FleetEntry::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetEntry::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetEntry::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetEntry::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetEntry where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetEntry::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetEntry
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetEntry where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::fleet::FleetEntry where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetEntry
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetEntry
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetEntry
+pub type tirbase_core::fleet::FleetEntry::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetEntry where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetEntry where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetEntry::vzip(self) -> V
+pub struct tirbase_core::fleet::FleetInventory
+impl tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::apply_update(&mut self, &tirbase_core::fleet::FleetInventoryDelta) -> tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetInventory::entries(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tirbase_core::fleet::FleetEntry>
+pub fn tirbase_core::fleet::FleetInventory::full_update(&self, impl core::convert::Into<tirbase_core::crdt::delta::Did>, i64) -> tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventory::get(&self, &str) -> core::option::Option<&tirbase_core::fleet::FleetEntry>
+pub fn tirbase_core::fleet::FleetInventory::is_empty(&self) -> bool
+pub fn tirbase_core::fleet::FleetInventory::is_revoked(&self, &str) -> bool
+pub fn tirbase_core::fleet::FleetInventory::lamport(&self) -> u64
+pub fn tirbase_core::fleet::FleetInventory::len(&self) -> usize
+pub fn tirbase_core::fleet::FleetInventory::merge(&mut self, &tirbase_core::fleet::FleetInventory) -> tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetInventory::new() -> Self
+pub fn tirbase_core::fleet::FleetInventory::provision(&mut self, tirbase_core::fleet::DeviceProvisioning, &str, i64) -> core::result::Result<tirbase_core::fleet::FleetEntry, tirbase_core::fleet::FleetError>
+pub fn tirbase_core::fleet::FleetInventory::revoke(&mut self, &str, &str, &str, i64) -> core::result::Result<bool, tirbase_core::fleet::FleetError>
+pub fn tirbase_core::fleet::FleetInventory::revoked_device_ids(&self) -> alloc::vec::Vec<tirbase_core::crdt::delta::Did>
+pub fn tirbase_core::fleet::FleetInventory::snapshot(&self) -> alloc::vec::Vec<tirbase_core::fleet::FleetEntry>
+pub fn tirbase_core::fleet::FleetInventory::snapshot_hash(&self) -> [u8; 32]
+impl core::clone::Clone for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::clone(&self) -> tirbase_core::fleet::FleetInventory
+impl core::cmp::Eq for tirbase_core::fleet::FleetInventory
+impl core::cmp::PartialEq for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::eq(&self, &tirbase_core::fleet::FleetInventory) -> bool
+impl core::default::Default for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::default() -> tirbase_core::fleet::FleetInventory
+impl core::fmt::Debug for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetInventory
+impl serde_core::ser::Serialize for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::fleet::FleetInventory
+impl core::marker::Send for tirbase_core::fleet::FleetInventory
+impl core::marker::Sync for tirbase_core::fleet::FleetInventory
+impl core::marker::Unpin for tirbase_core::fleet::FleetInventory
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetInventory
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetInventory
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetInventory
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::FleetInventory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventory::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetInventory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetInventory where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventory::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::FleetInventory::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetInventory where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetInventory where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetInventory where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetInventory::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetInventory where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetInventory::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetInventory::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetInventory where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetInventory::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetInventory::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::FleetInventory where T: core::clone::Clone
+pub type tirbase_core::fleet::FleetInventory::Owned = T
+pub fn tirbase_core::fleet::FleetInventory::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::FleetInventory::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::FleetInventory where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventory::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetInventory where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventory::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetInventory where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventory::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::FleetInventory where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::FleetInventory::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetInventory where T: core::any::Any
+pub fn tirbase_core::fleet::FleetInventory::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventory::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventory::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetInventory::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetInventory where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetInventory::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetInventory
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetInventory where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::fleet::FleetInventory where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetInventory
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetInventory
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetInventory
+pub type tirbase_core::fleet::FleetInventory::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetInventory where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetInventory where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetInventory::vzip(self) -> V
+pub struct tirbase_core::fleet::FleetInventoryDelta
+pub tirbase_core::fleet::FleetInventoryDelta::entries: alloc::vec::Vec<tirbase_core::fleet::FleetEntry>
+pub tirbase_core::fleet::FleetInventoryDelta::origin_did: tirbase_core::crdt::delta::Did
+pub tirbase_core::fleet::FleetInventoryDelta::sent_at_est: i64
+impl tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::from_inventory(&tirbase_core::fleet::FleetInventory, impl core::convert::Into<tirbase_core::crdt::delta::Did>, &[tirbase_core::crdt::delta::Did], i64) -> Self
+impl core::clone::Clone for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::clone(&self) -> tirbase_core::fleet::FleetInventoryDelta
+impl core::cmp::Eq for tirbase_core::fleet::FleetInventoryDelta
+impl core::cmp::PartialEq for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::eq(&self, &tirbase_core::fleet::FleetInventoryDelta) -> bool
+impl core::fmt::Debug for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetInventoryDelta
+impl serde_core::ser::Serialize for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::fleet::FleetInventoryDelta
+impl core::marker::Send for tirbase_core::fleet::FleetInventoryDelta
+impl core::marker::Sync for tirbase_core::fleet::FleetInventoryDelta
+impl core::marker::Unpin for tirbase_core::fleet::FleetInventoryDelta
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetInventoryDelta
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetInventoryDelta
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetInventoryDelta
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::FleetInventoryDelta where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryDelta::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetInventoryDelta where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetInventoryDelta where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryDelta::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::FleetInventoryDelta::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetInventoryDelta where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetInventoryDelta where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetInventoryDelta where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetInventoryDelta::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetInventoryDelta where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetInventoryDelta::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetInventoryDelta::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetInventoryDelta where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetInventoryDelta::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetInventoryDelta::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::FleetInventoryDelta where T: core::clone::Clone
+pub type tirbase_core::fleet::FleetInventoryDelta::Owned = T
+pub fn tirbase_core::fleet::FleetInventoryDelta::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::FleetInventoryDelta::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::FleetInventoryDelta where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryDelta::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetInventoryDelta where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryDelta::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetInventoryDelta where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryDelta::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::FleetInventoryDelta where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::FleetInventoryDelta::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetInventoryDelta
+pub fn tirbase_core::fleet::FleetInventoryDelta::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetInventoryDelta where T: core::any::Any
+pub fn tirbase_core::fleet::FleetInventoryDelta::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventoryDelta::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventoryDelta::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetInventoryDelta::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetInventoryDelta where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetInventoryDelta::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetInventoryDelta
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetInventoryDelta where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::fleet::FleetInventoryDelta where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetInventoryDelta
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetInventoryDelta
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetInventoryDelta
+pub type tirbase_core::fleet::FleetInventoryDelta::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetInventoryDelta where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetInventoryDelta where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetInventoryDelta::vzip(self) -> V
+pub struct tirbase_core::fleet::FleetInventoryVerifier
+impl tirbase_core::fleet::FleetInventoryVerifier
+pub fn tirbase_core::fleet::FleetInventoryVerifier::new(alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::fleet::FleetInventory>>) -> Self
+impl core::fmt::Debug for tirbase_core::fleet::FleetInventoryVerifier
+pub fn tirbase_core::fleet::FleetInventoryVerifier::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::fleet::FleetInventoryVerifier
+pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+impl core::marker::Freeze for tirbase_core::fleet::FleetInventoryVerifier
+impl core::marker::Send for tirbase_core::fleet::FleetInventoryVerifier
+impl core::marker::Sync for tirbase_core::fleet::FleetInventoryVerifier
+impl core::marker::Unpin for tirbase_core::fleet::FleetInventoryVerifier
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetInventoryVerifier
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetInventoryVerifier
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetInventoryVerifier
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetInventoryVerifier where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetInventoryVerifier where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetInventoryVerifier where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetInventoryVerifier::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetInventoryVerifier where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetInventoryVerifier::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetInventoryVerifier::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetInventoryVerifier where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetInventoryVerifier::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetInventoryVerifier::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_core::fleet::FleetInventoryVerifier where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryVerifier::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetInventoryVerifier where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryVerifier::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetInventoryVerifier where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetInventoryVerifier::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetInventoryVerifier
+pub fn tirbase_core::fleet::FleetInventoryVerifier::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetInventoryVerifier where T: core::any::Any
+pub fn tirbase_core::fleet::FleetInventoryVerifier::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventoryVerifier::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetInventoryVerifier::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetInventoryVerifier::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetInventoryVerifier where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetInventoryVerifier::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetInventoryVerifier
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetInventoryVerifier where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetInventoryVerifier
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetInventoryVerifier
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetInventoryVerifier
+pub type tirbase_core::fleet::FleetInventoryVerifier::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetInventoryVerifier where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetInventoryVerifier where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetInventoryVerifier::vzip(self) -> V
+pub struct tirbase_core::fleet::FleetMergeReport
+pub tirbase_core::fleet::FleetMergeReport::applied: usize
+pub tirbase_core::fleet::FleetMergeReport::newly_revoked: alloc::vec::Vec<tirbase_core::crdt::delta::Did>
+pub tirbase_core::fleet::FleetMergeReport::rejected: usize
+pub tirbase_core::fleet::FleetMergeReport::unchanged: usize
+impl tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::changed(&self) -> bool
+impl core::clone::Clone for tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::clone(&self) -> tirbase_core::fleet::FleetMergeReport
+impl core::cmp::Eq for tirbase_core::fleet::FleetMergeReport
+impl core::cmp::PartialEq for tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::eq(&self, &tirbase_core::fleet::FleetMergeReport) -> bool
+impl core::default::Default for tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::default() -> tirbase_core::fleet::FleetMergeReport
+impl core::fmt::Debug for tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetMergeReport
+impl core::marker::Freeze for tirbase_core::fleet::FleetMergeReport
+impl core::marker::Send for tirbase_core::fleet::FleetMergeReport
+impl core::marker::Sync for tirbase_core::fleet::FleetMergeReport
+impl core::marker::Unpin for tirbase_core::fleet::FleetMergeReport
+impl core::marker::UnsafeUnpin for tirbase_core::fleet::FleetMergeReport
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::fleet::FleetMergeReport
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::fleet::FleetMergeReport
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::fleet::FleetMergeReport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetMergeReport::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetMergeReport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::fleet::FleetMergeReport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetMergeReport::equivalent(&self, &K) -> bool
+pub fn tirbase_core::fleet::FleetMergeReport::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::fleet::FleetMergeReport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::fleet::FleetMergeReport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::fleet::FleetMergeReport where U: core::convert::From<T>
+pub fn tirbase_core::fleet::FleetMergeReport::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::fleet::FleetMergeReport where U: core::convert::Into<T>
+pub type tirbase_core::fleet::FleetMergeReport::Error = core::convert::Infallible
+pub fn tirbase_core::fleet::FleetMergeReport::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::fleet::FleetMergeReport where U: core::convert::TryFrom<T>
+pub type tirbase_core::fleet::FleetMergeReport::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::fleet::FleetMergeReport::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::fleet::FleetMergeReport where T: core::clone::Clone
+pub type tirbase_core::fleet::FleetMergeReport::Owned = T
+pub fn tirbase_core::fleet::FleetMergeReport::clone_into(&self, &mut T)
+pub fn tirbase_core::fleet::FleetMergeReport::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::fleet::FleetMergeReport where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetMergeReport::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::fleet::FleetMergeReport where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetMergeReport::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::fleet::FleetMergeReport where T: ?core::marker::Sized
+pub fn tirbase_core::fleet::FleetMergeReport::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::fleet::FleetMergeReport where T: core::clone::Clone
+pub unsafe fn tirbase_core::fleet::FleetMergeReport::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::fleet::FleetMergeReport where T: core::any::Any
+pub fn tirbase_core::fleet::FleetMergeReport::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetMergeReport::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::fleet::FleetMergeReport::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::fleet::FleetMergeReport::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::fleet::FleetMergeReport where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::fleet::FleetMergeReport::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::fleet::FleetMergeReport
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::fleet::FleetMergeReport where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::fleet::FleetMergeReport
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::fleet::FleetMergeReport
+impl<T> typenum::type_operators::Same for tirbase_core::fleet::FleetMergeReport
+pub type tirbase_core::fleet::FleetMergeReport::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::fleet::FleetMergeReport where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::fleet::FleetMergeReport where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::fleet::FleetMergeReport::vzip(self) -> V
+pub const tirbase_core::fleet::MAX_ENTRIES_PER_UPDATE: usize
+pub const tirbase_core::fleet::MAX_PROVISIONING_PAYLOAD_BYTES: usize
+pub fn tirbase_core::fleet::dyn_verifier(alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::fleet::FleetInventory>>) -> tirbase_core::migration::fleet_precondition::DynFleetPreconditionVerifier
 pub mod tirbase_core::identity
 pub mod tirbase_core::identity::did
 pub fn tirbase_core::identity::did::derive_did(&[u8; 32]) -> tirbase_core::identity::did::Did
@@ -5848,6 +6444,8 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::migration::fleet_precond
 pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::vzip(self) -> V
 pub trait tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::fleet::FleetInventoryVerifier
+pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
@@ -8358,6 +8956,227 @@ pub const tirbase_core::transport::ble::TIRBASE_BLE_SERVICE_UUID: uuid::Uuid
 pub fn tirbase_core::transport::ble::fragment_for_ble([u8; 32], &[u8]) -> alloc::vec::Vec<alloc::vec::Vec<u8>>
 pub fn tirbase_core::transport::ble::parse_ble_chunk(&[u8]) -> core::result::Result<tirbase_core::transport::fragment::DeltaFragment, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::ble::reassemble_ble_chunks(alloc::vec::Vec<alloc::vec::Vec<u8>>, &tirbase_core::crdt::delta::Did) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
+pub mod tirbase_core::transport::challenge
+pub struct tirbase_core::transport::challenge::MeshChallengeNonce
+pub tirbase_core::transport::challenge::MeshChallengeNonce::expires_at_mono: i64
+pub tirbase_core::transport::challenge::MeshChallengeNonce::issued_at_mono: i64
+pub tirbase_core::transport::challenge::MeshChallengeNonce::nonce: [u8; 32]
+impl core::clone::Clone for tirbase_core::transport::challenge::MeshChallengeNonce
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::clone(&self) -> tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::cmp::Eq for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::cmp::PartialEq for tirbase_core::transport::challenge::MeshChallengeNonce
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::eq(&self, &tirbase_core::transport::challenge::MeshChallengeNonce) -> bool
+impl core::fmt::Debug for tirbase_core::transport::challenge::MeshChallengeNonce
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::marker::Freeze for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::marker::Send for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::marker::Sync for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::marker::Unpin for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::marker::UnsafeUnpin for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::challenge::MeshChallengeNonce
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::challenge::MeshChallengeNonce
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeNonce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::equivalent(&self, &K) -> bool
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::challenge::MeshChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::challenge::MeshChallengeNonce where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::challenge::MeshChallengeNonce where U: core::convert::From<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::challenge::MeshChallengeNonce where U: core::convert::Into<T>
+pub type tirbase_core::transport::challenge::MeshChallengeNonce::Error = core::convert::Infallible
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::challenge::MeshChallengeNonce where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::challenge::MeshChallengeNonce::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::transport::challenge::MeshChallengeNonce where T: core::clone::Clone
+pub type tirbase_core::transport::challenge::MeshChallengeNonce::Owned = T
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::clone_into(&self, &mut T)
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::transport::challenge::MeshChallengeNonce where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::challenge::MeshChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::challenge::MeshChallengeNonce where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::transport::challenge::MeshChallengeNonce where T: core::clone::Clone
+pub unsafe fn tirbase_core::transport::challenge::MeshChallengeNonce::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::transport::challenge::MeshChallengeNonce
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::challenge::MeshChallengeNonce where T: core::any::Any
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::challenge::MeshChallengeNonce where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::challenge::MeshChallengeNonce
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::challenge::MeshChallengeNonce where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::challenge::MeshChallengeNonce
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::challenge::MeshChallengeNonce
+impl<T> typenum::type_operators::Same for tirbase_core::transport::challenge::MeshChallengeNonce
+pub type tirbase_core::transport::challenge::MeshChallengeNonce::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::challenge::MeshChallengeNonce where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::challenge::MeshChallengeNonce where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeNonce::vzip(self) -> V
+pub struct tirbase_core::transport::challenge::MeshChallengeRequest
+pub tirbase_core::transport::challenge::MeshChallengeRequest::command_hash: [u8; 32]
+pub tirbase_core::transport::challenge::MeshChallengeRequest::issuer_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeRequest::origin_guard_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeRequest::param: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeRequest::request_id: [u8; 32]
+pub tirbase_core::transport::challenge::MeshChallengeRequest::requested_at_mono: i64
+pub tirbase_core::transport::challenge::MeshChallengeRequest::requester_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeRequest::target_id: alloc::string::String
+impl core::clone::Clone for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::clone(&self) -> tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::cmp::Eq for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::cmp::PartialEq for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::eq(&self, &tirbase_core::transport::challenge::MeshChallengeRequest) -> bool
+impl core::fmt::Debug for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::transport::challenge::MeshChallengeRequest
+impl serde_core::ser::Serialize for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::marker::Send for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::marker::Sync for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::marker::Unpin for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::marker::UnsafeUnpin for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::challenge::MeshChallengeRequest
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::challenge::MeshChallengeRequest
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeRequest where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeRequest where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeRequest where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::equivalent(&self, &K) -> bool
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::challenge::MeshChallengeRequest where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::challenge::MeshChallengeRequest where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::challenge::MeshChallengeRequest where U: core::convert::From<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::challenge::MeshChallengeRequest where U: core::convert::Into<T>
+pub type tirbase_core::transport::challenge::MeshChallengeRequest::Error = core::convert::Infallible
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::challenge::MeshChallengeRequest where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::challenge::MeshChallengeRequest::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::transport::challenge::MeshChallengeRequest where T: core::clone::Clone
+pub type tirbase_core::transport::challenge::MeshChallengeRequest::Owned = T
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::clone_into(&self, &mut T)
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::transport::challenge::MeshChallengeRequest where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::challenge::MeshChallengeRequest where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::challenge::MeshChallengeRequest where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::transport::challenge::MeshChallengeRequest where T: core::clone::Clone
+pub unsafe fn tirbase_core::transport::challenge::MeshChallengeRequest::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::transport::challenge::MeshChallengeRequest
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::challenge::MeshChallengeRequest where T: core::any::Any
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::challenge::MeshChallengeRequest where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::challenge::MeshChallengeRequest
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::challenge::MeshChallengeRequest where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::transport::challenge::MeshChallengeRequest where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::challenge::MeshChallengeRequest
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::challenge::MeshChallengeRequest
+impl<T> typenum::type_operators::Same for tirbase_core::transport::challenge::MeshChallengeRequest
+pub type tirbase_core::transport::challenge::MeshChallengeRequest::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::challenge::MeshChallengeRequest where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::challenge::MeshChallengeRequest where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeRequest::vzip(self) -> V
+pub struct tirbase_core::transport::challenge::MeshChallengeResponse
+pub tirbase_core::transport::challenge::MeshChallengeResponse::error: core::option::Option<alloc::string::String>
+pub tirbase_core::transport::challenge::MeshChallengeResponse::expires_at_mono: i64
+pub tirbase_core::transport::challenge::MeshChallengeResponse::issued_at_mono: i64
+pub tirbase_core::transport::challenge::MeshChallengeResponse::issuer_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeResponse::nonce: core::option::Option<[u8; 32]>
+pub tirbase_core::transport::challenge::MeshChallengeResponse::origin_guard_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeResponse::param: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeResponse::request_id: [u8; 32]
+pub tirbase_core::transport::challenge::MeshChallengeResponse::responder_guard_did: alloc::string::String
+pub tirbase_core::transport::challenge::MeshChallengeResponse::target_id: alloc::string::String
+impl core::clone::Clone for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::clone(&self) -> tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::cmp::Eq for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::cmp::PartialEq for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::eq(&self, &tirbase_core::transport::challenge::MeshChallengeResponse) -> bool
+impl core::fmt::Debug for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_core::transport::challenge::MeshChallengeResponse
+impl serde_core::ser::Serialize for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::marker::Send for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::marker::Sync for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::marker::Unpin for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::marker::UnsafeUnpin for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::challenge::MeshChallengeResponse
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::challenge::MeshChallengeResponse
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeResponse where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeResponse where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::challenge::MeshChallengeResponse where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::equivalent(&self, &K) -> bool
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::challenge::MeshChallengeResponse where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::challenge::MeshChallengeResponse where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::challenge::MeshChallengeResponse where U: core::convert::From<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::challenge::MeshChallengeResponse where U: core::convert::Into<T>
+pub type tirbase_core::transport::challenge::MeshChallengeResponse::Error = core::convert::Infallible
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::challenge::MeshChallengeResponse where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::challenge::MeshChallengeResponse::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::transport::challenge::MeshChallengeResponse where T: core::clone::Clone
+pub type tirbase_core::transport::challenge::MeshChallengeResponse::Owned = T
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::clone_into(&self, &mut T)
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::transport::challenge::MeshChallengeResponse where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::challenge::MeshChallengeResponse where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::challenge::MeshChallengeResponse where T: ?core::marker::Sized
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::transport::challenge::MeshChallengeResponse where T: core::clone::Clone
+pub unsafe fn tirbase_core::transport::challenge::MeshChallengeResponse::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::transport::challenge::MeshChallengeResponse
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::challenge::MeshChallengeResponse where T: core::any::Any
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::challenge::MeshChallengeResponse where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::challenge::MeshChallengeResponse
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::challenge::MeshChallengeResponse where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_core::transport::challenge::MeshChallengeResponse where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::challenge::MeshChallengeResponse
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::challenge::MeshChallengeResponse
+impl<T> typenum::type_operators::Same for tirbase_core::transport::challenge::MeshChallengeResponse
+pub type tirbase_core::transport::challenge::MeshChallengeResponse::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::challenge::MeshChallengeResponse where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::challenge::MeshChallengeResponse where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::challenge::MeshChallengeResponse::vzip(self) -> V
+pub const tirbase_core::transport::challenge::MESH_CHALLENGE_CONTEXT: &str
+pub trait tirbase_core::transport::challenge::MeshChallengeHandler: core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::challenge::MeshChallengeHandler::issue_challenge(&self, &tirbase_core::transport::challenge::MeshChallengeRequest) -> core::result::Result<tirbase_core::transport::challenge::MeshChallengeNonce, alloc::string::String>
 pub mod tirbase_core::transport::discovery
 pub mod tirbase_core::transport::discovery::ble_adapter
 pub const tirbase_core::transport::discovery::ble_adapter::TIRBASE_BLE_SERVICE_UUID: uuid::Uuid
@@ -8777,11 +9596,14 @@ pub fn tirbase_core::transport::fragment::fragment([u8; 32], &[u8], usize) -> al
 pub fn tirbase_core::transport::fragment::reassemble(alloc::vec::Vec<tirbase_core::transport::fragment::DeltaFragment>, &tirbase_core::crdt::delta::Did) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
 pub mod tirbase_core::transport::message
 pub enum tirbase_core::transport::message::GossipMessage
+pub tirbase_core::transport::message::GossipMessage::ChallengeRequest(tirbase_core::transport::challenge::MeshChallengeRequest)
+pub tirbase_core::transport::message::GossipMessage::ChallengeResponse(tirbase_core::transport::challenge::MeshChallengeResponse)
 pub tirbase_core::transport::message::GossipMessage::CheckpointHash
 pub tirbase_core::transport::message::GossipMessage::CheckpointHash::checkpoint_hash: [u8; 32]
 pub tirbase_core::transport::message::GossipMessage::CheckpointHash::observed_at: i64
 pub tirbase_core::transport::message::GossipMessage::CheckpointHash::reporter_did: tirbase_core::crdt::delta::Did
 pub tirbase_core::transport::message::GossipMessage::CheckpointHash::seq: u64
+pub tirbase_core::transport::message::GossipMessage::FleetInventoryUpdate(tirbase_core::fleet::FleetInventoryDelta)
 pub tirbase_core::transport::message::GossipMessage::InboundDelta(tirbase_core::crdt::delta::Delta)
 pub tirbase_core::transport::message::GossipMessage::InboundDeltaFragment(tirbase_core::transport::fragment::DeltaFragment)
 pub tirbase_core::transport::message::GossipMessage::InboundDurabilityReceipt(tirbase_core::durability::receipt::DurabilityReceipt)
