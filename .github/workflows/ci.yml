@@ -509,42 +509,62 @@ jobs:
         run: npm test
 
   fuzz-smoke:
-    name: cargo-fuzz smoke (24.3)
+    name: cargo-fuzz smoke (24.3/34.4)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked || true
+        run: cargo install cargo-fuzz --locked
+      - name: Build tirbase-core fuzz targets
+        working-directory: tirbase-core
+        run: cargo +nightly fuzz build
       - name: Smoke test automerge_delta_decode (<=60s)
         working-directory: tirbase-core
-        run: timeout 60 cargo +nightly fuzz run automerge_delta_decode -- -runs=1000 || true
+        run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
       - name: Smoke test fragment_reassembly (<=60s)
         working-directory: tirbase-core
-        run: timeout 60 cargo +nightly fuzz run fragment_reassembly -- -runs=1000 || true
+        run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
+      - name: Build tirbase-drivers fuzz targets (CLAIM-34.4)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz build
+      - name: Smoke test modbus_frame (<=60s, CLAIM-34.4)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run modbus_frame -- -max_total_time=55 -runs=1000000
+      - name: Smoke test mqtt_frame (<=60s, CLAIM-34.4)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run mqtt_frame -- -max_total_time=55 -runs=1000000
+      - name: Smoke test register_map_parse (<=60s, CLAIM-34.4)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run register_map_parse -- -max_total_time=55 -runs=1000000
 
   fuzz-target-registry:
-    name: fuzz target registry rule (24.4)
+    name: fuzz target registry rule (24.4/34.4)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check untrusted parsers have fuzz targets
         run: |
-          python3 -c "
-          import os,sys
-          # Simple check - ensure registered fuzz targets exist
-          required = ['automerge_delta_decode', 'fragment_reassembly']
-          for r in required:
-              found=False
-              for root, dirs, files in os.walk('.'):
-                  if r in root or r+'.rs' in ' '.join(files):
-                      found=True
-              if not found and not os.path.exists(f'fuzz/fuzz_targets/{r}.rs') and not os.path.exists(f'tirbase-core/fuzz/fuzz_targets/{r}.rs'):
-                  print('missing',r)
-                  sys.exit(1)
+          python3 - << 'PY'
+          import os, sys
+          required = [
+              ('tirbase-core', 'automerge_delta_decode'),
+              ('tirbase-core', 'fragment_reassembly'),
+              ('tirbase-drivers', 'modbus_frame'),
+              ('tirbase-drivers', 'mqtt_frame'),
+              ('tirbase-drivers', 'register_map_parse'),
+          ]
+          missing = []
+          for crate, target in required:
+              path = os.path.join(crate, 'fuzz', 'fuzz_targets', f'{target}.rs')
+              if not os.path.exists(path):
+                  missing.append(path)
+          if missing:
+              print('missing fuzz targets:', *missing, sep='\n  ')
+              sys.exit(1)
           print('ok')
-          " || true
+          PY
 
   memory-budget-check:
     name: memory budget ledger check (24.5)
