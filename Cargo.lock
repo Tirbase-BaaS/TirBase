@@ -4519,6 +4519,7 @@ dependencies = [
  "hex",
  "idb",
  "js-sys",
+ "libc",
  "libp2p",
  "lru",
  "pest",

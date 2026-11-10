@@ -159,7 +159,7 @@ Events emitted by the Security Event Log integrity subsystem (PV-7).
 | CheckpointWritten | Signed checkpoint record written to security_events table | Low | Implemented | PV-7.3 |
 | TamperDetection | Hash-chain broken at sequence number N; entering Restricted mode | Critical | Implemented | PV-7.4 |
 | ChainRecovery | Signed chain-recovery command accepted; new chain segment opened | High | Implemented | PV-7.4 |
-| TailTruncation | Peer observed a higher checkpoint hash than local log | Critical | Implemented | PV-7.10 |
+| TailTruncation | Peer or cloud anchor observed a higher checkpoint sequence/hash than the local log tail | Critical | Implemented | PV-7.10 |
 | SyncFailure | Security event sync to mesh peer failed; retry scheduled | Medium | Implemented | PV-7.9 |
 | SyncRateLimitReached | Peer sync rate limit (500 events/min) exceeded | Low | Implemented | PV-7.12 |
 | SuppressionSummary | Per-category rate limit (100/s) hit; N events suppressed | Medium | Implemented | PV-7.6 |
@@ -241,6 +241,7 @@ Events emitted by the CRDT inbound validation and quarantine system (PV-6).
 | HeadCountExceeded | DAG heads exceed max_concurrent_heads limit | Medium | Planned | PV-6.3 |
 | DepCountExceeded | Change has more than max_deps_per_change dependencies | Medium | Planned | PV-6.3 |
 | TraversalBudgetExceeded | DAG traversal exceeded max_traversal_nodes budget | Medium | Planned | PV-6.3 |
+| ConnectionCapExceeded | Active inbound mesh peers exceed the configured connections cap | Medium | Implemented | PV-6.3 |
 | DeltaRouted | Inbound delta accepted for merge and routed via the LWW or RGA path | Low | Implemented | PV-6.4 |
 | SchemaAdditiveAccepted | Additive schema change accepted and merged against the local schema | Low | Implemented | PV-6.4 |
 | MergeVerified | Post-merge LWW/RGA read-back verification completed | Medium | Implemented | PV-6.4 |
