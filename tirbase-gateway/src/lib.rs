@@ -19,6 +19,7 @@ pub mod guard;
 pub mod health;
 pub mod hw_counter_binding;
 pub mod key_provider;
+pub mod metrics;
 pub mod monotonic_counter;
 pub mod profiles;
 pub mod security_log;

@@ -95,3 +95,18 @@ pub fn diff_summary(
         lines.join("\n")
     }
 }
+
+/// Best-effort logical dump export for a corrupt/unopenable primary DB path.
+/// Writes a JSON snapshot next to the DB for operator forensics (CLAIM-31.5).
+pub fn export_primary_corruption_snapshot(
+    db_path: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    let export_path = db_path.with_extension("corrupt.logical-dump.json");
+    let conn = Connection::open(db_path).map_err(|e| format!("open for logical dump: {e}"))?;
+    let dump = logical_dump(&conn)?;
+    let json =
+        serde_json::to_string_pretty(&dump).map_err(|e| format!("serialize logical dump: {e}"))?;
+    std::fs::write(&export_path, json)
+        .map_err(|e| format!("write {}: {e}", export_path.display()))?;
+    Ok(export_path)
+}

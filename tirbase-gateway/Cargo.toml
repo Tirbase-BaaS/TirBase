@@ -40,6 +40,9 @@ toml = "0.8"
 # Serialisation / deserialization for GatewayConfig
 serde = { version = "1", features = ["derive"] }
 
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
 # Error handling in the binary
 anyhow = "1"
 
@@ -50,7 +53,7 @@ libc = "0.2"
 
 # Logging / tracing
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # HTTP server for health endpoint (PV-30.3 / CLAIM-4.9.3)
 axum = "0.7"
