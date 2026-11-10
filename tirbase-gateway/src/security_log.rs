@@ -33,6 +33,9 @@ use tirbase_core::events::{
     TimeSourceFlag,
 };
 use tirbase_core::traits::{KeyProvider, SecurityEventSink};
+use tirbase_core::transport::security_event_sync::{
+    SecurityEventSyncBatch, SecurityEventSyncRecord,
+};
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_types::DeviceSignature;
 
@@ -180,6 +183,21 @@ pub fn event_hash(record: &SecurityEvent, is_checkpoint: bool) -> [u8; 32] {
 pub const SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC: u32 = 100;
 /// PV-7.6/S14: ring cap (anchors + recent).
 pub const SECURITY_LOG_RING_CAP: usize = 10_000;
+
+/// 28.3 (PV-7.12): max local records per outbound sync batch. The mesh sync
+/// ingress accepts 500 events/minute per peer; flushing one batch per second
+/// at this size stays below that limit.
+pub const SECURITY_EVENT_SYNC_BATCH_MAX: usize = 8;
+/// 28.3: outbound sync flush period.
+pub const SECURITY_EVENT_SYNC_FLUSH: Duration = Duration::from_secs(1);
+/// 28.3: bounded outbound sync backlog (oldest records dropped on overflow).
+pub const SECURITY_EVENT_SYNC_OUTBOX_CAP: usize = 4_096;
+
+/// 28.3 production publisher installed by [`crate::mesh_wiring`].
+struct SyncPublisher {
+    sender_did: String,
+    publish: Arc<dyn Fn(SecurityEventSyncBatch) + Send + Sync>,
+}
 
 #[derive(Debug, Clone)]
 struct RateLimitState {
@@ -457,6 +475,36 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
             FOREIGN KEY (seq) REFERENCES security_events(seq)
         );",
     )?;
+    // 26.7a (PV-7.10): cloud-anchor checkpoint acknowledgements, one row per
+    // anchor, recording the chain position the anchor has witnessed.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS cloud_anchor_witness (
+            anchor_did      TEXT PRIMARY KEY,
+            seq             INTEGER NOT NULL,
+            checkpoint_hash BLOB NOT NULL,
+            observed_at     INTEGER NOT NULL
+        );",
+    )?;
+    // 28.3 (PV-7.9): received mesh security-event records are merged into an
+    // append-only table keyed by their origin chain position.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS synced_security_events (
+            origin_did         TEXT    NOT NULL,
+            segment_id         INTEGER NOT NULL,
+            seq                INTEGER NOT NULL,
+            category           TEXT    NOT NULL,
+            severity           TEXT    NOT NULL,
+            actor_did          TEXT,
+            target             TEXT,
+            reason_code        TEXT    NOT NULL,
+            best_effort_wall_ts INTEGER NOT NULL,
+            time_source_flag   TEXT    NOT NULL,
+            prev_hash          BLOB    NOT NULL,
+            is_checkpoint      INTEGER NOT NULL,
+            received_at        INTEGER NOT NULL,
+            PRIMARY KEY (origin_did, segment_id, seq)
+        );",
+    )?;
     let has_col: i64 = conn.query_row(
         "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='checkpoint_hash'",
         [],
@@ -533,6 +581,15 @@ pub struct SecurityEventLog {
     rate_limit_enabled: AtomicBool,
     retention: RwLock<Option<SecurityLogRetentionConfig>>,
     rotation_stop: AtomicBool,
+    /// 26.7: real mesh-peer witness source (`true` when a mesh peer is connected).
+    witness_source: RwLock<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
+    /// 26.7a: set once a verified cloud-anchor acknowledgement has been
+    /// ingested, so checkpoints stop reporting `NoWitnessAvailable`.
+    cloud_anchor_seen: AtomicBool,
+    /// 28.3: production publisher for local security-event sync batches.
+    sync_publisher: RwLock<Option<SyncPublisher>>,
+    /// 28.3: bounded outbound backlog drained by `spawn_security_event_sync_loop`.
+    sync_outbox: Mutex<Vec<SecurityEventSyncRecord>>,
 }
 
 impl std::fmt::Debug for SecurityEventLog {
@@ -641,6 +698,10 @@ impl SecurityEventLog {
             rate_limit_enabled: AtomicBool::new(rate_limit_enabled),
             retention: RwLock::new(None),
             rotation_stop: AtomicBool::new(false),
+            witness_source: RwLock::new(None),
+            cloud_anchor_seen: AtomicBool::new(false),
+            sync_publisher: RwLock::new(None),
+            sync_outbox: Mutex::new(Vec::new()),
         }
     }
 
@@ -1159,6 +1220,10 @@ impl SecurityEventLog {
             let _ = self.ensure_segment_row(&conn, rec.segment_id, 1, [0u8; 32], "boot");
         }
 
+        // 28.3 (PV-7.9): every appended record is offered to the mesh sync
+        // publisher so peers receive the security-event stream.
+        self.enqueue_security_event_sync(&rec);
+
         if let Some(batcher) = &self.batcher {
             batcher.emit(payload);
         }
@@ -1212,8 +1277,13 @@ impl SecurityEventLog {
             self.persist_record(&conn, &checkpoint_rec)
                 .map_err(|e| format!("persist checkpoint: {e}"))?;
         }
-        // 26.7: single-gateway witness fallback (no mesh peers / no cloud anchor).
-        let _ = self.record_checkpoint_witness_status(false, false);
+        // 28.3 (PV-7.9): checkpoint rows propagate to peers like any other record.
+        self.enqueue_security_event_sync(&checkpoint_rec);
+        // 26.7: record the real observed witness state; the source is wired
+        // from the live mesh peer table in `CoreHandle` startup
+        // (`set_witness_source`). Cloud-anchor gossip (task 36.8) is absent.
+        let (has_mesh_peers, has_cloud_anchor) = self.witness_state();
+        let _ = self.record_checkpoint_witness_status(has_mesh_peers, has_cloud_anchor);
         let _ = &mut checkpoint_rec;
         Ok(Some(checkpoint_rec.seq))
     }
@@ -1548,20 +1618,32 @@ impl SecurityEventLog {
         )
         .map_err(|e| format!("upsert peer checkpoint witness: {e}"))?;
 
-        let local =
-            latest_local_checkpoint(&conn).map_err(|e| format!("latest checkpoint: {e}"))?;
+        self.detect_checkpoint_discrepancy(&conn, peer_did, peer_seq, peer_checkpoint_hash)
+    }
+
+    /// 26.4/26.7a: shared PV-7.10 discrepancy check against the local tail.
+    /// A witness that has seen a higher sequence number, or a different hash at
+    /// the same sequence number, means the local log was truncated or forked.
+    fn detect_checkpoint_discrepancy(
+        &self,
+        conn: &Connection,
+        witness_id: &str,
+        witness_seq: u64,
+        witness_hash: [u8; 32],
+    ) -> Result<bool, String> {
+        let local = latest_local_checkpoint(conn).map_err(|e| format!("latest checkpoint: {e}"))?;
         let discrepant = match local {
             Some((local_seq, local_hash)) => {
-                (peer_seq > local_seq)
-                    || (peer_seq == local_seq && peer_checkpoint_hash != local_hash)
+                (witness_seq > local_seq)
+                    || (witness_seq == local_seq && witness_hash != local_hash)
             }
             None => false,
         };
         if discrepant {
             let detail = format!(
-                "tail truncation/checkpoint discrepancy: peer={} peer_seq={} local_seq={} (CLAIM-26.4, PV-7.10, INV-4)",
-                peer_did,
-                peer_seq,
+                "tail truncation/checkpoint discrepancy: witness={} witness_seq={} local_seq={} (CLAIM-26.4, PV-7.10, INV-4)",
+                witness_id,
+                witness_seq,
                 local.map(|x| x.0).unwrap_or(0)
             );
             self.enter_restricted(&detail);
@@ -1571,14 +1653,53 @@ impl SecurityEventLog {
                     Severity::Critical,
                     ReasonCode::TailTruncation,
                 )
-                .with_actor(peer_did.to_string())
+                .with_actor(witness_id.to_string())
                 .with_detail(detail)
-                .with_target(peer_seq.to_string()),
+                .with_target(witness_seq.to_string()),
                 true,
             );
             return Ok(true);
         }
         Ok(false)
+    }
+
+    /// 26.7a (PV-7.10) production caller: ingest a verified cloud-anchor
+    /// acknowledgement. `acknowledged` is the `(seq, checkpoint_hash)` the
+    /// anchor has now witnessed; `previously_witnessed` is the anchor's prior
+    /// view of this device's chain, which is compared against the local tail so
+    /// a single gateway can detect tail truncation without mesh peers.
+    ///
+    /// Returns `true` when truncation was detected.
+    pub fn note_cloud_anchor_witness(
+        &self,
+        anchor_did: &str,
+        acknowledged: (u64, [u8; 32]),
+        previously_witnessed: Option<(u64, [u8; 32])>,
+        observed_at: i64,
+    ) -> Result<bool, String> {
+        self.cloud_anchor_seen.store(true, Ordering::Relaxed);
+        let Some(conn) = self.open_db()? else {
+            return Ok(false);
+        };
+        conn.execute(
+            "INSERT INTO cloud_anchor_witness(anchor_did, seq, checkpoint_hash, observed_at)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(anchor_did) DO UPDATE SET
+               seq=excluded.seq,
+               checkpoint_hash=excluded.checkpoint_hash,
+               observed_at=excluded.observed_at",
+            params![
+                anchor_did,
+                acknowledged.0 as i64,
+                acknowledged.1.as_slice(),
+                observed_at
+            ],
+        )
+        .map_err(|e| format!("upsert cloud anchor witness: {e}"))?;
+        match previously_witnessed {
+            Some((seq, hash)) => self.detect_checkpoint_discrepancy(&conn, anchor_did, seq, hash),
+            None => Ok(false),
+        }
     }
 
     /// 26.7: single-gateway witness fallback at checkpoint time.
@@ -1606,6 +1727,169 @@ impl SecurityEventLog {
         Ok(())
     }
 
+    /// 26.7 production caller hook: install the real mesh-peer witness source.
+    /// The closure returns `true` when a mesh peer is connected; the gateway
+    /// wires it from the live mesh peer table (see [`crate::mesh_wiring`]).
+    /// The cloud-anchor half of the witness state is maintained by
+    /// [`Self::note_cloud_anchor_witness`].
+    pub fn set_witness_source<F>(&self, source: F)
+    where
+        F: Fn() -> bool + Send + Sync + 'static,
+    {
+        *self
+            .witness_source
+            .write()
+            .unwrap_or_else(|p| p.into_inner()) = Some(Arc::new(source));
+    }
+
+    /// 26.7: observed witness state at checkpoint time. Without a wired source
+    /// the device is assumed isolated (degraded detection, not bricked).
+    fn witness_state(&self) -> (bool, bool) {
+        let has_mesh_peers = self
+            .witness_source
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_ref()
+            .map(|source| source())
+            .unwrap_or(false);
+        let has_cloud_anchor = self.cloud_anchor_seen.load(Ordering::Relaxed);
+        (has_mesh_peers, has_cloud_anchor)
+    }
+
+    /// 28.3 production caller hook: install the mesh publisher for local
+    /// security-event sync batches (the gateway wires
+    /// `CoreHandle::publish_security_event_sync`).
+    pub fn set_security_event_sync_publisher<F>(&self, sender_did: impl Into<String>, publisher: F)
+    where
+        F: Fn(SecurityEventSyncBatch) + Send + Sync + 'static,
+    {
+        *self
+            .sync_publisher
+            .write()
+            .unwrap_or_else(|p| p.into_inner()) = Some(SyncPublisher {
+            sender_did: sender_did.into(),
+            publish: Arc::new(publisher),
+        });
+    }
+
+    /// 28.3: queue an appended local record for mesh sync (no-op until a
+    /// publisher is installed). The outbox is bounded; oldest records are
+    /// dropped on overflow so a slow link cannot grow memory without limit.
+    fn enqueue_security_event_sync(&self, rec: &SecurityEvent) {
+        let publisher_installed = self
+            .sync_publisher
+            .read()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false);
+        if !publisher_installed {
+            return;
+        }
+        let origin_did = self
+            .key_provider()
+            .map(|kp| kp.did().to_string())
+            .unwrap_or_else(|| "did:unknown".to_string());
+        let record = SecurityEventSyncRecord {
+            origin_did,
+            seq: rec.seq,
+            segment_id: rec.segment_id,
+            category: rec.category.as_str().to_string(),
+            severity: rec.severity.as_str().to_string(),
+            actor_did: rec.actor_did.clone(),
+            target: rec.target.clone(),
+            reason_code: rec.reason_code.as_str().to_string(),
+            best_effort_wall_time: rec.best_effort_wall_time,
+            time_source_flag: rec.time_source_flag.as_str().to_string(),
+            prev_hash: rec.prev_hash,
+            is_checkpoint: rec.checkpoint_signature.is_some(),
+            personal_commitments: rec
+                .personal_commitments
+                .iter()
+                .map(|c| (c.field_name.clone(), c.commitment))
+                .collect(),
+        };
+        let mut outbox = self.sync_outbox.lock().unwrap_or_else(|p| p.into_inner());
+        if outbox.len() >= SECURITY_EVENT_SYNC_OUTBOX_CAP {
+            outbox.remove(0);
+        }
+        outbox.push(record);
+    }
+
+    /// 28.3 receive-path merge: persist a synced peer record append-only.
+    /// Returns `true` when the record was new (dedupe key is the origin
+    /// chain position), matching the core collection's `compaction=none`
+    /// semantics.
+    pub fn persist_synced_event(&self, record: &SecurityEventSyncRecord) -> Result<bool, String> {
+        let Some(conn) = self.open_db()? else {
+            return Ok(false);
+        };
+        let inserted = conn
+            .execute(
+                "INSERT OR IGNORE INTO synced_security_events(
+                    origin_did, segment_id, seq, category, severity, actor_did, target,
+                    reason_code, best_effort_wall_ts, time_source_flag, prev_hash,
+                    is_checkpoint, received_at
+                 ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                params![
+                    record.origin_did,
+                    record.segment_id as i64,
+                    record.seq as i64,
+                    record.category,
+                    record.severity,
+                    record.actor_did.as_deref(),
+                    record.target.as_deref(),
+                    record.reason_code,
+                    record.best_effort_wall_time,
+                    record.time_source_flag,
+                    record.prev_hash.as_slice(),
+                    if record.is_checkpoint { 1i64 } else { 0i64 },
+                    self.wall_time_now(),
+                ],
+            )
+            .map_err(|e| format!("persist synced security event: {e}"))?;
+        Ok(inserted > 0)
+    }
+
+    /// 28.3: drain up to [`SECURITY_EVENT_SYNC_BATCH_MAX`] queued records to
+    /// the installed publisher. Returns the number of records published.
+    pub fn flush_security_event_sync(&self) -> usize {
+        let Some((sender_did, publish)) = self
+            .sync_publisher
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .as_ref()
+            .map(|p| (p.sender_did.clone(), p.publish.clone()))
+        else {
+            return 0;
+        };
+        let records = {
+            let mut outbox = self.sync_outbox.lock().unwrap_or_else(|p| p.into_inner());
+            if outbox.is_empty() {
+                return 0;
+            }
+            let take = outbox.len().min(SECURITY_EVENT_SYNC_BATCH_MAX);
+            outbox.drain(..take).collect::<Vec<_>>()
+        };
+        let published = records.len();
+        publish(SecurityEventSyncBatch {
+            sender_did,
+            records,
+        });
+        published
+    }
+
+    /// 28.3 production caller: background mesh sync publisher for appended
+    /// security events.
+    pub fn spawn_security_event_sync_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
+        let this = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(SECURITY_EVENT_SYNC_FLUSH);
+            loop {
+                tick.tick().await;
+                this.flush_security_event_sync();
+            }
+        })
+    }
+
     pub fn latest_checkpoint_hash(&self) -> Result<Option<(u64, [u8; 32])>, String> {
         let Some(conn) = self.open_db()? else {
             return Ok(None);
@@ -1625,6 +1909,14 @@ impl SecurityEventLog {
 
 impl SecurityEventSink for SecurityEventLog {
     fn emit(&self, event: SecurityEventPayload) {
+        // Real decision-point metrics (CLAIM-35.5): every security event that
+        // reaches the gateway sink increments its severity counter, and Delta
+        // quarantine events increment the quarantine-entry counter.
+        let metrics = crate::metrics::global_metrics();
+        metrics.inc_security_event(event.severity.as_str());
+        if matches!(event.reason_code, ReasonCode::DeltaQuarantined) {
+            metrics.inc_quarantine_entry("delta");
+        }
         let _ = self.append_payload(event);
     }
 }

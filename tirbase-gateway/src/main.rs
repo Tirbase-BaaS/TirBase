@@ -5,16 +5,27 @@
 
 use tirbase_gateway::*;
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
+use arc_swap::ArcSwap;
 use clap::Parser;
 use config::{GatewayConfig, KeyBackend};
+use db::anti_replay_windows::SqliteAntiReplayStore;
+use db::applied_effects_ledger::SqliteAppliedEffectsStore;
+use db::challenge_nonces::SqliteChallengeNonceStore;
 use db::device_epoch::SqliteDeviceEpochStore;
+use db::drift_rate_history::SqliteDriftRateHistoryStore;
 use db::enrollment_nonce::SqliteEnrollmentNonceStore;
+use db::idempotency_keys::SqliteIdempotencyStore;
+use db::lockdown::SqliteLockdownStore;
+use db::pending_approvals::SqlitePendingApprovalsStore;
+use db::target_state::SqliteTargetStateStore;
 use db::time_ratchet::SqliteTimeRatchetStore;
+use guard::SqliteStage16Store;
 use hw_counter_binding::{BootCheck, HardwareCounterBinding, DEFAULT_SW_INCREMENT_PER_HW_WRITE};
 use key_provider::FileKeyProvider;
 use monotonic_counter::{
@@ -24,15 +35,23 @@ use security_log::SecurityEventLog;
 use time_source::SystemTimeSource;
 
 use serde::{Deserialize, Serialize};
+use tirbase_core::api::{CoreHandle, DeploymentConfig, InitConfig};
 use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
-use tirbase_core::traits::{KeyProvider, MonotonicCounterTrait};
+use tirbase_core::traits::{KeyProvider, MonotonicCounterTrait, TimeSource};
+use tirbase_guard::admit::{AdmitPipelineState, ChallengeNonceStore, DriftHistoryStore};
 use tirbase_guard::enrollment::EnrollmentService;
+use tirbase_guard::envelope::ProfileMap;
 use tirbase_guard::epoch::{EnrollmentNonceStore, EpochBump, EpochRegistry};
+use tirbase_guard::lockdown::LockdownStore;
+use tirbase_guard::node_mode::{NodeMode, NodeModeState};
+use tirbase_guard::policy::{make_bundle, PolicyLifecycle};
 use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_guard::time::{FreshnessState, TimeRatchet, TimeRatchetConfig};
 use tirbase_guard::trust_root::{TrustRootError, TrustRootManager, TrustRootRecord};
-use tirbase_types::{CommandRole, DeviceSignature};
+use tirbase_guard::{CommandGuard, GuardConfig, TargetAdmission};
+use tirbase_types::envelope::EnvelopeProfile;
+use tirbase_types::{CommandRole, DeviceSignature, TargetId};
 
 #[cfg(test)]
 pub(crate) static EVENT_SINK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -129,6 +148,16 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
             let steps: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(256);
             Some(tirbase_gateway::task34_cli::run_cold_room_step(seed, steps))
         }
+        "modbus-register-map" => {
+            if args.len() < 2 {
+                return Some(Err(anyhow::anyhow!(
+                    "usage: tirbase-gateway modbus-register-map <register-map.toml>"
+                )));
+            }
+            Some(tirbase_gateway::task34_cli::run_register_map_check(
+                &PathBuf::from(&args[1]),
+            ))
+        }
         _ => None,
     }
 }
@@ -156,6 +185,35 @@ async fn main() -> Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::new(filter))
         .init();
 
+    // ── Driver runtime posture ────────────────────────────────────────────────
+    // Report the kernel isolation capabilities the driver child will run under
+    // (CLAIM-33.6, PV-10.4) and initialise crash/restart accounting (CLAIM-33.7).
+    {
+        let caps = tirbase_drivers::isolation::KernelIsolationCaps::detect();
+        if caps.supports_landlock() {
+            tracing::info!(
+                kernel_major = caps.kernel_major,
+                kernel_minor = caps.kernel_minor,
+                "driver isolation: landlock available for driver children"
+            );
+        } else {
+            tracing::warn!(
+                kernel_major = caps.kernel_major,
+                kernel_minor = caps.kernel_minor,
+                opt_in_flag = tirbase_drivers::isolation::DEGRADED_ISOLATION_OPT_IN_FLAG,
+                "driver isolation: landlock unavailable; driver children stay disabled unless degraded isolation is explicitly opted into"
+            );
+        }
+        let lifecycle = tirbase_drivers::lifecycle::DriverLifecycle::default();
+        tracing::info!(
+            consecutive_crashes = lifecycle.consecutive_crashes(),
+            max_retries = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX_RETRIES,
+            initial_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_INITIAL.as_secs(),
+            max_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX.as_secs(),
+            "driver lifecycle accounting initialised"
+        );
+    }
+
     // Prometheus metrics (CLAIM-35.5)
     let metrics = tirbase_gateway::metrics::global_metrics();
     let metrics_addr = config.metrics_addr;
@@ -172,7 +230,9 @@ async fn main() -> Result<()> {
     tracing::info!(
         boot_id = time_source.boot_id(),
         monotonic_now_us = time_source.monotonic_now(),
-        "TimeSource installed for all core subsystems",
+        "TimeSource installed for all core subsystems (boot_id={}, monotonic_now_us={})",
+        time_source.boot_id(),
+        time_source.monotonic_now(),
     );
 
     let _security_log_early = std::sync::Arc::new(SecurityEventLog::new_memory()).install();
@@ -225,8 +285,17 @@ async fn main() -> Result<()> {
                 return Err(anyhow::anyhow!(action.to_string())).context("open primary.db");
             }
         };
+        tracing::info!(
+            path = %primary_db_path.display(),
+            "primary.db ready (journal_mode=WAL, synchronous=FULL)"
+        );
         match db::open_derived_with_key(&derived_db_path, Some(key_provider.as_ref())) {
-            Ok(_conn) => {}
+            Ok(_conn) => {
+                tracing::info!(
+                    path = %derived_db_path.display(),
+                    "derived.db ready (journal_mode=WAL, synchronous=NORMAL)"
+                );
+            }
             Err(action) => {
                 if matches!(
                     action,
@@ -279,10 +348,14 @@ async fn main() -> Result<()> {
     .context("failed to load the TimeRatchet from primary.db")?;
 
     let freshness_before_beacon = ratchet.freshness(time_source.as_ref());
+    let now_est_at_load = ratchet.now_est(time_source.as_ref());
     tracing::info!(
         persisted_floor = ratchet.persisted_floor(),
         freshness = freshness_before_beacon.as_str(),
-        "TimeRatchet loaded"
+        "TimeRatchet loaded (persisted_floor={}, now_est={}, freshness={})",
+        ratchet.persisted_floor(),
+        now_est_at_load,
+        freshness_before_beacon.as_str()
     );
 
     if freshness_before_beacon == FreshnessState::Unverified {
@@ -302,13 +375,24 @@ async fn main() -> Result<()> {
             .as_ref()
             .context("time_beacon_path requires time_anchor_keys_path")?;
         let anchors = time_beacon::load_trust_anchors(anchors_path)?;
-        time_beacon::ingest_time_beacon_file(
+        match time_beacon::ingest_time_beacon_file(
             beacon_path,
             &anchors,
             &mut ratchet,
             time_source.as_ref(),
-        )
-        .context("time beacon was rejected at boot")?;
+        ) {
+            Ok(advance) => tracing::info!(
+                "Beacon accepted (new_floor={}, previous_floor={}, jump_secs={}, anchor_signatures={})",
+                advance.new_floor,
+                advance.previous_floor,
+                advance.jump_secs,
+                advance.anchor_signatures
+            ),
+            Err(error) => {
+                tracing::error!("Beacon rejected: {error}");
+                return Err(error).context("time beacon was rejected at boot");
+            }
+        }
     }
 
     let now_est = ratchet.now_est(time_source.as_ref());
@@ -388,8 +472,25 @@ async fn main() -> Result<()> {
     security_log.set_retention(
         tirbase_gateway::security_log::SecurityLogRetentionConfig::from_gateway_config(&config),
     );
-    let _ = security_log.verify_hash_chain();
+    // CLAIM-26.1: verify the persisted hash chain at startup.  The log itself
+    // emits TamperDetection and enters Restricted on a broken link; the boot
+    // diagnostic makes the outcome observable to operators.
+    match security_log.verify_hash_chain() {
+        Ok(None) => tracing::info!("security log hash chain verified intact at boot"),
+        Ok(Some(first_broken_seq)) => tracing::error!(
+            first_broken_seq,
+            "security log hash chain tamper detected (CLAIM-26.1); entered Restricted mode"
+        ),
+        Err(error) => tracing::error!(
+            %error,
+            "security log hash chain verification error (CLAIM-26.1); entered Restricted mode"
+        ),
+    }
     security_log.install();
+    tracing::info!(
+        path = %primary_db_path.display(),
+        "hash-chained SecurityEventLog installed and routed to primary.db (CLAIM-25.1-25.5)"
+    );
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     let _retention_handle = security_log.spawn_retention_rotation_loop();
 
@@ -411,12 +512,17 @@ async fn main() -> Result<()> {
             .context("epoch_bump_path requires trust_root_path")?;
         let file = std::fs::read_to_string(path)?;
         let request: EpochBumpFile = serde_json::from_str(&file)?;
-        let _ = epochs.apply_bump(
+        let bumped = epochs.apply_bump(
             &request.operation,
             &request.payload,
             record,
             ratchet.now_est(time_source.as_ref()),
         )?;
+        tracing::info!(
+            device_id = %bumped.device_id,
+            "signed epoch bump applied (epoch={})",
+            bumped.epoch
+        );
     }
 
     let enrollment_service = build_enrollment_service(
@@ -426,23 +532,175 @@ async fn main() -> Result<()> {
         ratchet.now_est(time_source.as_ref()),
     )?;
 
-    let admin_state = match (&enrollment_service, trust_root.as_ref()) {
-        (Some(service), Some(record)) => {
-            let mut st =
-                admin::AdminState::new(service.clone(), epochs.clone(), Arc::clone(record));
-            st.primary_db_path = Some(primary_db_path.clone());
-            st.security_log = Some(security_log.clone());
-            st.key_provider = Some(key_provider.clone());
-            Some(Arc::new(st))
+    // Core runtime handle installed for the process lifetime (task 35.1).  It is
+    // initialised from the configured primary DB location so the CRDT/transport
+    // runtime lives beside the gateway ledgers rather than in a process-local DB.
+    let core_db_path = primary_db_path.with_file_name("core.db");
+    let core_root_ca_keys = trust_root
+        .as_ref()
+        .map(|record| {
+            record
+                .active_root_ca_keys()
+                .into_iter()
+                .filter_map(|key| key.try_into().ok())
+                .collect::<Vec<[u8; 32]>>()
+        })
+        .unwrap_or_default();
+    let core_handle = CoreHandle::init(InitConfig {
+        storage_path: core_db_path.to_string_lossy().into_owned(),
+        deployment: DeploymentConfig {
+            root_ca_keys: core_root_ca_keys,
+            ..DeploymentConfig::default()
+        },
+        listen_addr: "127.0.0.1:0".to_string(),
+    })
+    .await
+    .context("CoreHandle::init from the configured primary db path")?;
+    tracing::info!(
+        db_path = %core_db_path.display(),
+        "CoreHandle installed"
+    );
+
+    // 26.3/26.4/26.7 + 28.3: wire the security log to the core mesh. This
+    // installs the checkpoint provider gossiped on peer connection, feeds peer
+    // checkpoint observations into tail-truncation detection, supplies the real
+    // witness state at checkpoint time, and publishes/merges security events.
+    tirbase_gateway::mesh_wiring::wire_security_log_to_mesh(
+        &core_handle,
+        &security_log,
+        key_provider.did().to_string(),
+        {
+            let core = Arc::clone(&core_handle);
+            move |batch| {
+                if let Err(error) = core.publish_security_event_sync(batch) {
+                    tracing::warn!(%error, "security event mesh sync publish failed (CLAIM-28.3)");
+                }
+            }
+        },
+    );
+    tracing::info!("security log wired to core mesh (CLAIM-26.3, 26.4, 26.7, 28.3)");
+
+    // 26.7a (PV-7.10): when a trusted cloud anchor is configured, report the
+    // latest checkpoint upstream and ingest its signed acknowledgement so tail
+    // truncation stays detectable without mesh peers.
+    match tirbase_gateway::cloud_anchor::CloudAnchorClient::from_config(
+        &config,
+        key_provider.clone(),
+    ) {
+        Ok(Some(client)) => {
+            let cloud_log = security_log.clone();
+            let interval = Duration::from_secs(config.cloud_anchor_interval_secs.max(1));
+            tokio::spawn(tirbase_gateway::cloud_anchor::run_cloud_anchor_loop(
+                client, cloud_log, interval,
+            ));
+            tracing::info!(
+                endpoint = ?config.cloud_anchor_endpoint,
+                anchor = ?config.cloud_anchor_did,
+                "cloud anchor checkpoint ingress started (CLAIM-26.7a)"
+            );
         }
-        _ => {
-            let mut st = admin::AdminState::default();
-            st.primary_db_path = Some(primary_db_path.clone());
-            st.security_log = Some(security_log.clone());
-            st.key_provider = Some(key_provider.clone());
-            Some(Arc::new(st))
+        Ok(None) => {}
+        Err(error) => tracing::warn!(
+            %error,
+            "cloud anchor configuration rejected; cloud anchoring disabled (CLAIM-26.7a)"
+        ),
+    }
+
+    // CommandGuard / Stage 16 runtime for the configured local target (task 35.1).
+    let ratchet = Arc::new(Mutex::new(ratchet));
+    let pipeline_time_source: Arc<dyn TimeSource> = time_source.clone();
+    let command_runtime = build_command_runtime(
+        &config,
+        &primary_db_path,
+        &key_provider.did().to_string(),
+        node_mode.clone(),
+        epochs.clone(),
+        ratchet.clone(),
+        trust_root.as_deref(),
+        root_ca_registry.unwrap_or_else(|| RootCaRegistry::new(Vec::new())),
+        pipeline_time_source,
+        now_est,
+    )?;
+
+    // Persisted lockdown wins; otherwise leave boot mode and enter Normal.
+    let lockdown_marker = primary_db_path.with_file_name("lockdown");
+    let lockdown_store: Arc<dyn LockdownStore> =
+        Arc::new(SqliteLockdownStore::new(&primary_db_path, &lockdown_marker));
+    match lockdown_store.is_lockdown() {
+        Ok(true) => {
+            node_mode.set(NodeMode::Lockdown);
         }
-    };
+        Ok(false) => {
+            if node_mode.get() == NodeMode::Starting {
+                node_mode.set(NodeMode::Normal);
+            }
+        }
+        Err(error) => tracing::warn!(%error, "lockdown state unreadable at boot"),
+    }
+
+    let pending_approvals = Arc::new(
+        SqlitePendingApprovalsStore::open(&primary_db_path)
+            .map_err(anyhow::Error::msg)
+            .context("failed to open pending_approvals store")?,
+    );
+    tracing::info!(
+        target = command_runtime
+            .target_id
+            .as_deref()
+            .unwrap_or("<unconfigured>"),
+        guard = command_runtime.guard.is_some(),
+        pending_approvals = true,
+        "command runtime constructed"
+    );
+    let _pending_approvals = pending_approvals;
+
+    // Attach each handle independently: a gateway configured without an
+    // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
+    // handle may be dropped just because a sibling is absent.
+    let mut admin_state = admin::AdminState::default();
+    admin_state.primary_db_path = Some(primary_db_path.clone());
+    admin_state.security_log = Some(security_log.clone());
+    admin_state.key_provider = Some(key_provider.clone());
+    admin_state.enrollment = enrollment_service.clone();
+    admin_state.epochs = Some(epochs.clone());
+    admin_state.trust_root = trust_root.clone();
+    admin_state.policy = command_runtime.policy.clone();
+    admin_state.node_mode = Some(node_mode.clone());
+    admin_state.lockdown_store = Some(lockdown_store.clone());
+    admin_state.envelope_profile = command_runtime.envelope_profile.clone();
+    admin_state.guard = command_runtime.guard.clone();
+    admin_state.challenge_store = command_runtime.challenge_store.clone();
+    let admin_state = Some(Arc::new(admin_state));
+
+    // Local-admin command transport: the only ingress transport implemented in
+    // this gateway binary.  Mesh/cloud receivers are deliberately absent (see
+    // the "Task 35 Blocker Note" in CLAIMS.md).
+    if let Some(command_addr) = config.local_admin_command_addr {
+        if let (Some(guard), Some(stage16)) = (
+            command_runtime.guard.clone(),
+            command_runtime.stage16.clone(),
+        ) {
+            tokio::spawn(async move {
+                if let Err(error) =
+                    tirbase_gateway::command_ingress::local_admin::run_local_admin_command_listener(
+                        command_addr,
+                        guard,
+                        stage16,
+                    )
+                    .await
+                {
+                    tracing::warn!(%error, "local-admin command receiver unavailable");
+                }
+            });
+        } else {
+            tracing::warn!(
+                "local_admin_command_addr set but no target/envelope profile is configured; receiver not started"
+            );
+        }
+    }
+
+    // Keep the CoreHandle alive for the process lifetime (installed runtime).
+    let _core_handle = core_handle;
 
     if config.admin_enabled {
         let admin_socket = config.admin_socket.clone();
@@ -503,6 +761,159 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Command runtime constructed in `main` for the configured local target.
+///
+/// Every handle is a real production store; nothing here is a stub.  When no
+/// target/envelope profile is configured the guard is still built (so the
+/// decision pipeline and metrics are live) but policy/envelope admin endpoints
+/// report the explicit unconfigured state.
+#[allow(dead_code)]
+struct CommandRuntime {
+    guard: Option<Arc<CommandGuard>>,
+    stage16: Option<Arc<SqliteStage16Store>>,
+    policy: Option<Arc<Mutex<PolicyLifecycle>>>,
+    envelope_profile: Option<Arc<EnvelopeProfile>>,
+    challenge_store: Option<Arc<dyn ChallengeNonceStore>>,
+    target_id: Option<String>,
+    _pending_approvals: Arc<SqlitePendingApprovalsStore>,
+    _applied_effects: Arc<SqliteAppliedEffectsStore>,
+    _anti_replay: Arc<SqliteAntiReplayStore>,
+    _idempotency: Arc<SqliteIdempotencyStore>,
+    _drift_rate: Arc<SqliteDriftRateHistoryStore>,
+    _target_state: Arc<SqliteTargetStateStore>,
+}
+
+fn build_command_runtime(
+    config: &GatewayConfig,
+    primary_db_path: &std::path::Path,
+    device_id: &str,
+    node_mode: Arc<NodeModeState>,
+    epochs: Arc<EpochRegistry>,
+    ratchet: Arc<Mutex<TimeRatchet>>,
+    trust_root: Option<&TrustRootRecord>,
+    root_ca_registry: RootCaRegistry,
+    time_source: Arc<dyn TimeSource>,
+    now_est: i64,
+) -> Result<CommandRuntime> {
+    // Stage 16–19 durable store (single atomic SQLite transaction per command).
+    let stage16 = Arc::new(SqliteStage16Store::open(primary_db_path).map_err(anyhow::Error::msg)?);
+
+    // Explicitly constructed decision-state stores (task 35.3).
+    let applied_effects =
+        Arc::new(SqliteAppliedEffectsStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let anti_replay =
+        Arc::new(SqliteAntiReplayStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let idempotency =
+        Arc::new(SqliteIdempotencyStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let drift_rate =
+        Arc::new(SqliteDriftRateHistoryStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let target_state =
+        Arc::new(SqliteTargetStateStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let pending_approvals =
+        Arc::new(SqlitePendingApprovalsStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+    let challenge_store: Arc<dyn ChallengeNonceStore> =
+        Arc::new(SqliteChallengeNonceStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
+
+    // Envelope profile + policy snapshot for the configured local target.
+    let mut envelope_profiles = BTreeMap::new();
+    let mut policy_lifecycle = None;
+    let mut envelope_profile = None;
+    let mut policy_bundle = None;
+    if let Some(target_id) = config.target_id.clone() {
+        let profile_path = config.envelope_profile_path.as_ref().context(
+            "target_id is configured but envelope_profile_path is not; refusing to run an unguarded target",
+        )?;
+        let profile = profiles::load_profile_from_path(profile_path)
+            .map_err(|error| anyhow::anyhow!("invalid envelope profile: {error}"))?;
+        let target = TargetId::new(&target_id);
+        envelope_profiles.insert(
+            target.clone(),
+            Arc::new(ArcSwap::from_pointee(profile.clone())),
+        );
+        envelope_profile = Some(Arc::new(profile.clone()));
+
+        let bundle = make_bundle(profile.version, [0u8; 32], profile.clone(), Vec::new());
+        policy_bundle = Some(bundle.clone());
+
+        let policy_counter = NamedMonotonicCounter::open(primary_db_path, "policy_version", 0)
+            .context("failed to open the policy anti-rollback counter")?;
+        let profile_map = Arc::new(ProfileMap::from_profiles([(
+            target.clone(),
+            profile.clone(),
+        )]));
+        let policy_trust_root = trust_root.cloned().unwrap_or_else(|| TrustRootRecord {
+            version: 1,
+            root_ca_public_keys: Vec::new(),
+            threshold_k: 1,
+            role_thresholds: BTreeMap::new(),
+            device_class_floors: BTreeMap::new(),
+            expiry_est: i64::MAX,
+            revoked_root_ca_keys: Vec::new(),
+            signatures: Vec::new(),
+        });
+        policy_lifecycle = Some(Arc::new(Mutex::new(
+            PolicyLifecycle::new(
+                target.clone(),
+                bundle,
+                Arc::new(policy_counter),
+                profile_map,
+                Arc::new(ArcSwap::from_pointee(policy_trust_root)),
+            )
+            .map_err(anyhow::Error::msg)?,
+        )));
+    } else if config.envelope_profile_path.is_some() {
+        bail!("envelope_profile_path is set but target_id is missing");
+    }
+
+    let envelope_profiles = Arc::new(envelope_profiles);
+    let policy_snapshot = Arc::new(ArcSwap::from_pointee(policy_bundle));
+    let pipeline = Arc::new(AdmitPipelineState::new(
+        envelope_profiles.clone(),
+        policy_snapshot.clone(),
+        Arc::new(RwLock::new(root_ca_registry)),
+        ratchet,
+        time_source,
+    ));
+    pipeline.set_drift_store(drift_rate.clone() as Arc<dyn DriftHistoryStore>);
+    pipeline.set_challenge_store(challenge_store.clone());
+    guard::hydrate_task21_runtime(primary_db_path, &pipeline).map_err(anyhow::Error::msg)?;
+
+    // Register the local device at epoch 0 before the guard admits commands.
+    epochs.ensure_enrolled(device_id, now_est)?;
+
+    let mut targets = BTreeMap::new();
+    if let Some(target_id) = &config.target_id {
+        targets.insert(
+            TargetId::new(target_id),
+            TargetAdmission {
+                device_id: device_id.to_string(),
+            },
+        );
+    }
+    let guard = Arc::new(
+        CommandGuard::with_mode(epochs, GuardConfig { targets }, node_mode).with_pipeline(
+            pipeline,
+            envelope_profiles,
+            policy_snapshot,
+        ),
+    );
+
+    Ok(CommandRuntime {
+        guard: Some(guard),
+        stage16: Some(stage16),
+        policy: policy_lifecycle,
+        envelope_profile,
+        challenge_store: Some(challenge_store),
+        target_id: config.target_id.clone(),
+        _pending_approvals: pending_approvals,
+        _applied_effects: applied_effects,
+        _anti_replay: anti_replay,
+        _idempotency: idempotency,
+        _drift_rate: drift_rate,
+        _target_state: target_state,
+    })
+}
+
 #[derive(Debug, Deserialize)]
 struct EpochBumpFile {
     operation: SignedOperation<EpochBump>,
@@ -525,10 +936,17 @@ fn install_trust_root(
     let counter = NamedMonotonicCounter::open(&config.counter_db_path, "trust_root_version", 0)
         .context("failed to open the trust-root version counter")?;
     let now_est = ratchet.now_est(time_source);
+    let installed_version = record.version;
+    let installed_k = record.threshold_k;
     let mut manager = match TrustRootManager::install(record, Arc::new(counter), now_est) {
         Ok(manager) => manager,
         Err(error) => return Err(trust_root_failure("install", error)),
     };
+    tracing::info!(
+        version = installed_version,
+        threshold_k = installed_k,
+        "trust root installed with rollback protection (version={installed_version}, k={installed_k})"
+    );
     if let Some(rotation_path) = &config.trust_root_rotation_path {
         let rotated = read_trust_root(rotation_path)?;
         rotated
@@ -559,6 +977,9 @@ fn trust_root_failure(stage: &str, error: TrustRootError) -> anyhow::Error {
             .with_detail(format!(
                 "trust-root {stage} rejected: incoming version {incoming} is not greater than committed version {current}"
             )),
+        );
+        return anyhow::anyhow!(
+            "trust root rollback rejected at {stage}: incoming version {incoming} <= committed version {current}"
         );
     }
     anyhow::anyhow!("trust root {stage} rejected: {error}")
@@ -594,12 +1015,14 @@ fn run_root_ca_self_test(
     if before.is_ok() {
         bail!("root CA self-test failed: token verified before root CA registration");
     }
+    tracing::info!("root CA self-test: token rejected before CA registration");
     for key in registered.active_keys() {
         registry.register(key);
     }
     registry
         .verify_against_first(|key| tirbase_core::auth::biscuit::verify_token(&token, key, now_est))
         .context("root CA self-test failed: token rejected after CA registration")?;
+    tracing::info!("root CA self-test: token verified after CA registration");
     Ok(())
 }
 

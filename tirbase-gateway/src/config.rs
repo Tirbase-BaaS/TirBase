@@ -188,6 +188,42 @@ pub struct GatewayConfig {
     /// TOML file. When present, the bundle payload is validated and used.
     #[serde(default)]
     pub config_bundle_path: Option<PathBuf>,
+
+    /// Local command target served by this gateway (task 35.1).  When set together
+    /// with `envelope_profile_path`, the gateway builds a real `CommandGuard`
+    /// pipeline for this target instead of leaving the admin guard endpoints at 501.
+    #[serde(default)]
+    pub target_id: Option<String>,
+
+    /// EnvelopeProfile TOML installed for `target_id` at boot (task 35.1).
+    #[serde(default)]
+    pub envelope_profile_path: Option<PathBuf>,
+
+    /// Loopback address for the local-admin command receiver (task 35.4).
+    /// When unset, no local-admin command transport is started.
+    #[serde(default)]
+    pub local_admin_command_addr: Option<std::net::SocketAddr>,
+
+    /// Cloud-anchor endpoint that receives checkpoint-hash reports and returns
+    /// signed acknowledgements (26.7a, PV-7.10). `None` disables cloud
+    /// anchoring. Must be set together with `cloud_anchor_did` and
+    /// `cloud_anchor_public_key_hex`.
+    #[serde(default)]
+    pub cloud_anchor_endpoint: Option<std::net::SocketAddr>,
+
+    /// DID of the trusted cloud anchor that signs checkpoint acknowledgements.
+    #[serde(default)]
+    pub cloud_anchor_did: Option<String>,
+
+    /// Hex-encoded 32-byte Ed25519 public key of the trusted cloud anchor.
+    /// The key is never inlined as private material; it is a public trust root.
+    #[serde(default)]
+    pub cloud_anchor_public_key_hex: Option<String>,
+
+    /// How often the gateway reports its latest checkpoint to the cloud anchor
+    /// and ingests the signed acknowledgement (26.7a; default 60 s).
+    #[serde(default = "default_cloud_anchor_interval_secs")]
+    pub cloud_anchor_interval_secs: u64,
 }
 
 impl GatewayConfig {
@@ -249,6 +285,48 @@ impl GatewayConfig {
         }
         if self.enrollment_nonce_retention_secs <= 0 {
             bail!("gateway config schema validation failed: enrollment_nonce_retention_secs must be > 0");
+        }
+        if self.cloud_anchor_interval_secs == 0 {
+            bail!(
+                "gateway config schema validation failed: cloud_anchor_interval_secs must be >= 1"
+            );
+        }
+        let cloud_anchor_settings = [
+            self.cloud_anchor_endpoint.is_some(),
+            self.cloud_anchor_did.is_some(),
+            self.cloud_anchor_public_key_hex.is_some(),
+        ];
+        if cloud_anchor_settings.iter().any(|set| *set) {
+            if !cloud_anchor_settings.iter().all(|set| *set) {
+                bail!(
+                    "gateway config schema validation failed: cloud_anchor_endpoint, cloud_anchor_did and cloud_anchor_public_key_hex must be set together"
+                );
+            }
+            if self
+                .cloud_anchor_did
+                .as_deref()
+                .unwrap_or_default()
+                .is_empty()
+            {
+                bail!(
+                    "gateway config schema validation failed: cloud_anchor_did must not be empty"
+                );
+            }
+            let public_key = hex::decode(
+                self.cloud_anchor_public_key_hex
+                    .as_deref()
+                    .unwrap_or_default()
+                    .trim(),
+            )
+            .context(
+                "gateway config schema validation failed: cloud_anchor_public_key_hex is not hex",
+            )?;
+            if public_key.len() != 32 {
+                bail!(
+                    "gateway config schema validation failed: cloud_anchor_public_key_hex must decode to a 32-byte Ed25519 key (got {} bytes)",
+                    public_key.len()
+                );
+            }
         }
         if let Some(level) = &self.log_level {
             let ok = matches!(
@@ -460,6 +538,10 @@ fn default_enrollment_token_ttl_secs() -> u64 {
 fn default_enrollment_nonce_retention_secs() -> i64 {
     72 * 60 * 60
 }
+fn default_cloud_anchor_interval_secs() -> u64 {
+    60
+}
+
 fn default_enrollment_nonce_capacity() -> usize {
     100_000
 }

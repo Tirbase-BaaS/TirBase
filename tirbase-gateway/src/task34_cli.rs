@@ -9,9 +9,11 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
-use tirbase_drivers::{
-    client_config_with_roots, ColdRoomSimDriver, ModbusTcpClient, MqttTlsClient,
-};
+use tirbase_drivers::cold_room_sim::ColdRoomSimDriver;
+use tirbase_drivers::driver_trait::DriverTrait;
+use tirbase_drivers::modbus::ModbusTcpClient;
+use tirbase_drivers::mqtt::{client_config_with_roots, install_crypto_provider, MqttTlsClient};
+use tirbase_drivers::register_map::ModbusRegisterMap;
 use tirbase_guard::envelope::install_profile;
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
 use tirbase_types::CommandRole;
@@ -114,7 +116,7 @@ pub fn run_mqtt_smoke(
     topic: &str,
     payload: &str,
 ) -> Result<()> {
-    tirbase_drivers::install_crypto_provider();
+    install_crypto_provider();
     let pem = std::fs::read(ca_cert_pem_path)?;
     let mut reader = std::io::BufReader::new(pem.as_slice());
     let certs: Vec<_> = rustls_pemfile::certs(&mut reader)
@@ -136,13 +138,60 @@ pub fn run_mqtt_smoke(
 
 pub fn run_cold_room_step(seed: u64, steps: usize) -> Result<()> {
     let mut driver = ColdRoomSimDriver::new(seed, "cold_room#1");
+
+    // Exercise the canonical DriverTrait codec, not just the model internals:
+    // capability discovery, the health-check codec and a read request/response.
+    let model = driver
+        .capability_discovery()
+        .map_err(|e| anyhow::anyhow!("driver capability discovery: {e}"))?;
+    let _read_request = driver
+        .encode_read("temperature_c")
+        .map_err(|e| anyhow::anyhow!("driver encode_read: {e}"))?;
+    let health = driver
+        .decode_health_response(b"HEALTH:OK")
+        .map_err(|e| anyhow::anyhow!("driver decode_health_response: {e}"))?;
+
     let mut last = 0i64;
     for _ in 0..steps {
         last = driver.model.step();
     }
     println!(
-        "COLD_ROOM_OK:seed={seed} steps={steps} temp_mdeg_c={last} compressor_on={}",
-        driver.model.compressor_on
+        "COLD_ROOM_OK:seed={seed} steps={steps} temp_mdeg_c={last} compressor_on={} device_class={} params={} health={}",
+        driver.model.compressor_on,
+        model.device_class,
+        model.parameters.len(),
+        health.healthy
     );
+    Ok(())
+}
+
+/// Parse and validate a Modbus register map document (CLAIM-33.x / task 34).
+///
+/// Exposes the real `tirbase_drivers::register_map` parser from the gateway
+/// binary so operators can validate a map before deploying it.
+pub fn run_register_map_check(path: &PathBuf) -> Result<()> {
+    let body = std::fs::read_to_string(path)
+        .with_context(|| format!("read register map {}", path.display()))?;
+    let map = ModbusRegisterMap::parse(&body)
+        .map_err(|e| anyhow::anyhow!("register map rejected: {e}"))?;
+    println!(
+        "REGISTER_MAP_OK:device_class={} registers={}",
+        map.device_class,
+        map.registers.len()
+    );
+    for reg in &map.registers {
+        let width = reg
+            .registers_per_value()
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        println!(
+            "REGISTER:{} name={} function={} type={} width={} writable={}",
+            reg.register,
+            reg.name,
+            reg.function,
+            reg.data_type_normalized(),
+            width,
+            reg.writable
+        );
+    }
     Ok(())
 }

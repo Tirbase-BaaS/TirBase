@@ -6,8 +6,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use tirbase_guard::admit::{
-    ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS,
-    DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
+    ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS, DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
 };
 use tirbase_guard::enrollment::{EnrollmentRequest, EnrollmentService};
 use tirbase_guard::epoch::{EpochBump, EpochRegistry};
@@ -114,16 +113,32 @@ pub fn dispatch_admin_command_at(
 ) -> String {
     let body = match parse_cmd_field(command).as_deref() {
         Some("enroll") => dispatch_enroll(command, state, now_est),
-        Some("mint") => stub_501("mint"),
-        Some("rotate") => stub_501("rotate"),
+        Some("mint") => not_implemented(
+            "mint",
+            "task 36.3b",
+            "token minting needs a PolicyAuthority-scoped minting service in AdminState; no transport or state is wired for it",
+        ),
+        Some("rotate") => not_implemented(
+            "rotate",
+            "task 36.3c",
+            "key rotation needs a KeyProvider rotation handle in AdminState; the gateway only loads a static device key at boot",
+        ),
         Some("policy") => dispatch_policy(command, state, now_est),
-        Some("events") => stub_501("events"),
+        Some("events") => not_implemented(
+            "events",
+            "task 36.3e",
+            "the paginated/SSE event transport is not implemented; the security log store exists but no admin stream/query transport is wired",
+        ),
         Some("simulate") => dispatch_simulate(command, state),
         Some("challenge") => dispatch_challenge(command, state, now_est),
         Some("mode") => dispatch_mode(state),
         Some("lockdown-exit") => dispatch_lockdown_exit(command, state),
         Some("chain-recovery") => dispatch_chain_recovery(command, state),
-        Some("status") => stub_501("status"),
+        Some("status") => not_implemented(
+            "status",
+            "task 36.3k",
+            "the Guard status API needs anti-replay, rate-limit and SingleWriterLease read handles on AdminState; none are exposed to the admin dispatcher",
+        ),
         Some("sequence-reset") => dispatch_sequence_reset(command, state, now_est),
         Some("epoch-bump") => dispatch_epoch_bump(command, state, now_est),
         Some("lease-preempt") => dispatch_lease_preempt(command, state, now_est),
@@ -136,7 +151,7 @@ pub fn dispatch_admin_command_at(
 
 fn dispatch_mode(state: Option<&AdminState>) -> String {
     let Some(mode_state) = state.and_then(|s| s.node_mode.as_ref()) else {
-        return stub_501("mode");
+        return not_configured("mode", "node mode state (NodeModeState)");
     };
     let mode = mode_state.get();
     let lockdown = state
@@ -168,7 +183,10 @@ fn dispatch_lockdown_exit(command: &str, state: Option<&AdminState>) -> String {
             s.node_mode.as_ref()?,
         ))
     }) else {
-        return stub_501("lockdown-exit");
+        return not_configured(
+            "lockdown-exit",
+            "trust_root_path (TrustRootRecord), the lockdown store, and node mode",
+        );
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -208,7 +226,10 @@ fn dispatch_chain_recovery(command: &str, state: Option<&AdminState>) -> String 
     let Some((trust_root, mode)) =
         state.and_then(|s| s.trust_root.as_ref().zip(s.node_mode.as_ref()))
     else {
-        return stub_501("chain-recovery");
+        return not_configured(
+            "chain-recovery",
+            "trust_root_path (TrustRootRecord) and node mode",
+        );
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -244,7 +265,10 @@ fn dispatch_chain_recovery(command: &str, state: Option<&AdminState>) -> String 
 
 fn dispatch_enroll(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let Some(service) = state.and_then(|state| state.enrollment.as_ref()) else {
-        return stub_501("enroll");
+        return not_configured(
+            "enroll",
+            "enrollment_root_ca_private_key_path (EnrollmentService)",
+        );
     };
     let payload = match payload_value(command) {
         Some(payload) => payload,
@@ -281,7 +305,10 @@ fn dispatch_epoch_bump(command: &str, state: Option<&AdminState>, now_est: i64) 
     let Some((epochs, trust_root)) =
         state.and_then(|s| s.epochs.as_ref().zip(s.trust_root.as_ref()))
     else {
-        return stub_501("epoch-bump");
+        return not_configured(
+            "epoch-bump",
+            "device epoch registry and trust_root_path (TrustRootRecord)",
+        );
     };
     let payload = match payload_value(command) {
         Some(p) => p,
@@ -305,7 +332,10 @@ fn dispatch_epoch_bump(command: &str, state: Option<&AdminState>, now_est: i64) 
 
 fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let Some(policy) = state.and_then(|s| s.policy.as_ref()) else {
-        return stub_501("policy");
+        return not_configured(
+            "policy",
+            "a configured target_id plus envelope_profile_path (PolicyLifecycle)",
+        );
     };
     let payload = match payload_value(command) {
         Some(p) => p,
@@ -340,8 +370,36 @@ fn payload_value(command: &str) -> Option<serde_json::Value> {
 fn bad_request(message: &str) -> String {
     serde_json::json!({"status": 400, "error": message}).to_string()
 }
-fn stub_501(endpoint: &str) -> String {
-    format!(r#"{{"status":501,"error":"not implemented","endpoint":"{endpoint}"}}"#)
+/// Precise failure for an endpoint whose runtime state was not configured in
+/// this process (e.g. no `target_id`/envelope profile).  Never a 501: a 501
+/// claims the endpoint does not exist, which is false — it is wired and will
+/// serve as soon as the required state is supplied.
+fn not_configured(endpoint: &str, missing: &str) -> String {
+    serde_json::json!({
+        "status": 503,
+        "code": "ADMIN_STATE_UNCONFIGURED",
+        "error": format!(
+            "{endpoint} requires runtime state that this gateway process has not configured: {missing}"
+        ),
+        "endpoint": endpoint,
+        "missing": missing,
+    })
+    .to_string()
+}
+
+/// Precise failure for an admin endpoint that is designed but has no
+/// implementation in the binary yet.  Records the owning task so callers and
+/// `tasks.md` carry the same blocker instead of silently reporting 501.
+fn not_implemented(endpoint: &str, task: &str, blocker: &str) -> String {
+    serde_json::json!({
+        "status": 503,
+        "code": "ENDPOINT_NOT_IMPLEMENTED",
+        "error": format!("{endpoint} is not implemented in the gateway binary ({task}): {blocker}"),
+        "endpoint": endpoint,
+        "task": task,
+        "blocker": blocker,
+    })
+    .to_string()
 }
 fn parse_cmd_field(json: &str) -> Option<String> {
     let mut parts = json.split('"');
@@ -358,9 +416,88 @@ fn parse_cmd_field(json: &str) -> Option<String> {
     None
 }
 
-#[cfg(target_os = "linux")]
-mod linux {
-    use super::{dispatch_admin_command, AdminState};
+/// Resolve the peer's effective UID from an accepted Unix-domain socket.
+///
+/// Linux/Android use `SO_PEERCRED`; the BSD family (macOS included) uses
+/// `getpeereid(2)`.  Both return the kernel-attested UID of the connecting
+/// process — the authentication property is identical, only the syscall differs.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn peer_uid(fd: std::os::unix::io::RawFd) -> std::io::Result<u32> {
+    let mut cred = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+    let rc = unsafe {
+        libc::getsockopt(
+            fd,
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            &mut cred as *mut libc::ucred as *mut libc::c_void,
+            &mut len,
+        )
+    };
+    if rc != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(cred.uid)
+}
+
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly"
+))]
+fn peer_uid(fd: std::os::unix::io::RawFd) -> std::io::Result<u32> {
+    let mut uid: libc::uid_t = 0;
+    let mut gid: libc::gid_t = 0;
+    let rc = unsafe { libc::getpeereid(fd, &mut uid, &mut gid) };
+    if rc != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(uid as u32)
+}
+
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly"
+    ))
+))]
+fn peer_uid(_fd: std::os::unix::io::RawFd) -> std::io::Result<u32> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "no peer-credential syscall available on this platform",
+    ))
+}
+
+#[cfg(all(
+    unix,
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly"
+    )
+))]
+mod unix_socket {
+    use super::{dispatch_admin_command, peer_uid, AdminState};
+    use std::os::unix::io::AsRawFd;
     use std::path::Path;
     use std::sync::Arc;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -391,9 +528,8 @@ mod linux {
         stream: UnixStream,
         state: Option<Arc<AdminState>>,
     ) -> anyhow::Result<()> {
-        let peer_cred = stream.peer_cred()?;
+        let peer_uid = peer_uid(stream.as_raw_fd())?;
         let gateway_uid = unsafe { libc::getuid() };
-        let peer_uid = peer_cred.uid();
         if peer_uid != 0 && peer_uid != gateway_uid {
             tracing::warn!(
                 peer_uid,
@@ -436,9 +572,9 @@ struct ChallengeRequest {
 ///   nonce used exactly once through the durable store; second use is rejected.
 /// GET/POST path variants from specs map to this JSON command in the Unix-socket
 /// admin dispatcher.
-fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
+fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
     let Some(st) = state else {
-        return stub_501("challenge");
+        return not_configured("challenge", "admin runtime state");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -467,7 +603,15 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
             let Some(nonce) = hex_decode_32(nonce_hex) else {
                 return bad_request("invalid nonce_hex");
             };
-            match store.consume_if_valid(&nonce, issuer_did, &target_id, &param, now_est, true) {
+            // Nonce expiry is monotonic, so consumption must use the guard's
+            // monotonic clock, not the authenticated wall estimate.
+            let mono_now = st
+                .guard
+                .as_ref()
+                .and_then(|guard| guard.pipeline())
+                .map(|pipeline| pipeline.mono_secs_now())
+                .unwrap_or_else(|| (tirbase_core::traits::monotonic_now() / 1_000_000) as i64);
+            match store.consume_if_valid(&nonce, issuer_did, &target_id, &param, mono_now, true) {
                 Ok(true) => {
                     return serde_json::json!({"status":200,"outcome":"challenge_consumed","nonce_hex":nonce_hex,"one_time_use":true}).to_string();
                 }
@@ -480,15 +624,15 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, now_est: i64) -
                 }
             }
         }
-        return stub_501("challenge");
+        return not_configured("challenge", "challenge nonce store");
     }
 
     // Issuance path (Task 16.3): only for Unverified + critical parameter.
     let Some(guard) = st.guard.as_ref() else {
-        return stub_501("challenge");
+        return not_configured("challenge", "CommandGuard with a decision pipeline");
     };
     let Some(pipeline) = guard.pipeline() else {
-        return stub_501("challenge");
+        return not_configured("challenge", "CommandGuard decision pipeline");
     };
     if pipeline.freshness_state() != tirbase_guard::time::FreshnessState::Unverified {
         return serde_json::json!({"status":409,"error":"challenge nonce issuance requires FreshnessState::Unverified","code":"FRESHNESS_NOT_UNVERIFIED","endpoint":"challenge"}).to_string();
@@ -564,14 +708,40 @@ pub async fn run_admin_listener(
     sock_path: &std::path::Path,
     state: Option<Arc<AdminState>>,
 ) -> anyhow::Result<()> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(
+        unix,
+        any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        )
+    ))]
     {
-        linux::run_admin_listener(sock_path, state).await
+        unix_socket::run_admin_listener(sock_path, state).await
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(
+        unix,
+        any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd",
+            target_os = "dragonfly"
+        )
+    )))]
     {
         let _ = (sock_path, state);
-        anyhow::bail!("admin Unix-socket listener is Linux-only (SO_PEERCRED); not supported on this platform")
+        anyhow::bail!(
+            "admin Unix-socket listener needs a kernel peer-credential syscall; not supported on this platform"
+        )
     }
 }
 
@@ -601,13 +771,13 @@ struct LeasePreemptRequest {
 /// caller: gateway admin Unix-socket path.
 fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let Some(st) = state else {
-        return stub_501("lease-preempt");
+        return not_configured("lease-preempt", "admin runtime state");
     };
     let Some(db_path) = st.primary_db_path.as_ref() else {
-        return stub_501("lease-preempt");
+        return not_configured("lease-preempt", "primary DB path");
     };
     let Some(trust_root) = st.trust_root.as_ref() else {
-        return stub_501("lease-preempt");
+        return not_configured("lease-preempt", "trust_root_path (TrustRootRecord)");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -721,13 +891,13 @@ struct ClearUnknownRequest {
 /// Unknown -> Failed.
 fn dispatch_clear_unknown(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let Some(st) = state else {
-        return stub_501("clear-unknown");
+        return not_configured("clear-unknown", "admin runtime state");
     };
     let Some(db_path) = st.primary_db_path.as_ref() else {
-        return stub_501("clear-unknown");
+        return not_configured("clear-unknown", "primary DB path");
     };
     let Some(trust_root) = st.trust_root.as_ref() else {
-        return stub_501("clear-unknown");
+        return not_configured("clear-unknown", "trust_root_path (TrustRootRecord)");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -830,7 +1000,7 @@ struct RevokeIssuerRequest {
 /// Task 21.3 (CLAIM-21.3): release leases held by revoked issuer DID.
 fn dispatch_revoke_issuer(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
     let Some(st) = state else {
-        return stub_501("revoke-issuer");
+        return not_configured("revoke-issuer", "admin runtime state");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -970,7 +1140,7 @@ struct SimulateRequest {
 /// Skips Stage 0/9 nonce consumption/14 token consumption and Stages 16–19.
 fn dispatch_simulate(command: &str, state: Option<&AdminState>) -> String {
     let Some(guard) = state.and_then(|s| s.guard.as_ref()) else {
-        return stub_501("simulate");
+        return not_configured("simulate", "CommandGuard");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,
@@ -1023,10 +1193,10 @@ struct SequenceResetRequest {
 /// for issuer re-enrollment or wrap-around.
 fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
     let Some(st) = state else {
-        return stub_501("sequence-reset");
+        return not_configured("sequence-reset", "admin runtime state");
     };
     let Some(trust_root) = st.trust_root.as_ref() else {
-        return stub_501("sequence-reset");
+        return not_configured("sequence-reset", "trust_root_path (TrustRootRecord)");
     };
     let payload_val = match payload_value(command) {
         Some(p) => p,

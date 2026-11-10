@@ -156,7 +156,7 @@ mod tests {
             shutdown.clone(),
         ));
         tokio::time::sleep(Duration::from_millis(120)).await;
-        shutdown.notify_waiters();
+        shutdown.notify_one();
         let _ = task.await;
         assert!(
             state.ticks() >= 3,
@@ -187,7 +187,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(70)).await;
         let before = notifier.count();
         // "Stall" by stopping the loop (simulates a stalled forward-progress task).
-        shutdown.notify_waiters();
+        shutdown.notify_one();
         let _ = task.await;
         tokio::time::sleep(Duration::from_millis(80)).await;
         assert_eq!(
