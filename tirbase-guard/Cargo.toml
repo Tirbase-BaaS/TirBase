@@ -30,6 +30,13 @@ trybuild = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+tirbase-drivers = { workspace = true }
 
 [dev-dependencies.tirbase-drivers]
 path = "../tirbase-drivers"
+
+[[bin]]
+name = "driver-isolation-child"
+path = "src/bin/driver_isolation_child.rs"
+test = false
+doc = false

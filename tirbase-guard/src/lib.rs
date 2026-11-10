@@ -4,7 +4,9 @@
 //! TimeRatchet, ActuationPermit, and SecurityEventLog.
 //! Full implementation in tasks 7–16.
 
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+// Narrow `unsafe` is allowed only in modules that explicitly opt in for
+// OS fd ownership boundaries (e.g. `device_transport`).
 // Warn on dead private code across this crate. `pub` items are naturally exempt
 // (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]

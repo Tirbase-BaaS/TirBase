@@ -1,15 +1,16 @@
 //! `DeviceTransport` — parent/guard-owned connection to the physical device
 //! (CLAIM-34.8, PV-10.4, PV-10.7, S35).
 //!
-//! The guard owns the device fd. The actual `SCM_RIGHTS` syscall is provided by
-//! the runtime wiring (e.g. `tirbase_drivers::send_fd_via_scm_rights` or an
-//! equivalent platform sender) so this crate remains `forbid(unsafe_code)`.
+//! Narrow `unsafe` is confined to Unix fd ownership boundaries (OwnedFd/raw fd).
+#![allow(unsafe_code)]
 
 use std::io;
 use std::net::TcpStream;
+use std::path::Path;
+use std::time::Duration;
 
 #[cfg(unix)]
-use std::os::unix::io::{AsRawFd, IntoRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 
 /// Parent-owned physical device transport.
 #[derive(Debug)]
@@ -25,23 +26,84 @@ pub enum DeviceTransport {
 }
 
 impl DeviceTransport {
-    pub fn connect_modbus_tcp(addr: &str) -> io::Result<Self> {
-        let stream = TcpStream::connect(addr)?;
+    pub fn connect_modbus_tcp(
+        addr: &str,
+        connect_timeout: Duration,
+        io_timeout: Option<Duration>,
+    ) -> io::Result<Self> {
+        let addr: std::net::SocketAddr = addr.parse().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("invalid socket addr: {e}"),
+            )
+        })?;
+        let stream = TcpStream::connect_timeout(&addr, connect_timeout)?;
         stream.set_nodelay(true)?;
+        stream.set_read_timeout(io_timeout)?;
+        stream.set_write_timeout(io_timeout)?;
         Ok(DeviceTransport::ModbusTcp(stream))
     }
 
+    /// Open/configure a Modbus RTU serial device. Real termios configuration is
+    /// performed by the platform opener (typically `tirbase-drivers`); the guard
+    /// takes ownership of the resulting fd.
     #[cfg(unix)]
+    pub fn open_modbus_rtu_with<F>(opener: F) -> io::Result<Self>
+    where
+        F: FnOnce() -> io::Result<OwnedFd>,
+    {
+        Ok(DeviceTransport::ModbusRtu(opener()?))
+    }
+
+    #[cfg(unix)]
+    pub fn from_modbus_rtu_fd(fd: OwnedFd) -> Self {
+        DeviceTransport::ModbusRtu(fd)
+    }
+
+    #[cfg(unix)]
+    pub fn from_raw_fd(fd: OwnedFd) -> Self {
+        DeviceTransport::Raw(fd)
+    }
+
+    /// Legacy unsafe-shaped API retained for compatibility; callers should prefer
+    /// `from_modbus_rtu_fd(OwnedFd)`.
+    ///
     /// # Safety
     /// `fd` must be a valid, open file descriptor not owned elsewhere.
-    /// # Safety
-    /// `fd` must be a valid, open file descriptor not owned elsewhere.
-    pub fn from_raw_modbus_rtu(fd: RawFd) -> Self {
-        // Safety requirement documented; construction uses safe OwnedFd only when
-        // provided via IntoRawFd/OwnedFd paths in practice. Kept for API parity.
-        // Callers on Unix should prefer `DeviceTransport::Raw(fd.into())`.
-        let _ = fd;
-        panic!("use DeviceTransport::Raw(OwnedFd) or safe constructors on this target")
+    #[cfg(unix)]
+    pub unsafe fn from_raw_modbus_rtu(fd: RawFd) -> Self {
+        DeviceTransport::ModbusRtu(OwnedFd::from_raw_fd(fd))
+    }
+
+    /// Real Modbus RTU serial open/config via platform opener (CLAIM-34.8).
+    /// Production callers pass `tirbase_drivers::open_modbus_rtu` with a
+    /// `ModbusRtuSerialConfig` (termios-configured fd); the guard owns the fd.
+    #[cfg(unix)]
+    pub fn open_modbus_rtu(
+        path: &Path,
+        baud_rate: u32,
+        data_bits: u8,
+        parity: tirbase_drivers::ModbusRtuParity,
+        stop_bits: u8,
+        read_timeout_ms: u32,
+    ) -> io::Result<Self> {
+        let cfg = tirbase_drivers::ModbusRtuSerialConfig {
+            baud_rate,
+            data_bits,
+            parity,
+            stop_bits,
+            read_timeout_ms,
+        };
+        Self::open_modbus_rtu_with(|| tirbase_drivers::open_modbus_rtu(path, cfg))
+    }
+
+    /// Placeholder path-based RTU open for non-Unix or when no platform opener is
+    /// supplied. Production callers must use `open_modbus_rtu_with` / `open_modbus_rtu`.
+    pub fn modbus_rtu_path_unavailable(_path: &Path) -> io::Result<Self> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "real Modbus RTU open requires a Unix platform opener (open_modbus_rtu_with)",
+        ))
     }
 
     #[cfg(unix)]
@@ -55,7 +117,7 @@ impl DeviceTransport {
     #[cfg(unix)]
     pub fn try_clone_fd(&self) -> io::Result<OwnedFd> {
         match self {
-            DeviceTransport::ModbusTcp(s) => s.try_clone().map(|c| c.into()),
+            DeviceTransport::ModbusTcp(s) => s.try_clone().map(OwnedFd::from),
             DeviceTransport::ModbusRtu(fd) | DeviceTransport::Raw(fd) => fd.try_clone(),
         }
     }
@@ -75,8 +137,8 @@ impl GuardDeviceTransport {
     /// Pass the device fd to the child using the provided SCM_RIGHTS sender.
     ///
     /// `send_fd(socket_fd, device_fd)` must transfer `device_fd` via SCM_RIGHTS on
-    /// `socket_fd` and take ownership/close semantics as the platform requires.
-    /// Wiring mutation check (34.8): omitting SCM_RIGHTS passing must fail tests.
+    /// `socket_fd`. Wiring mutation check (34.8): omitting SCM_RIGHTS passing must
+    /// fail tests.
     #[cfg(unix)]
     pub fn pass_device_fd_with<F>(&self, socket_fd: RawFd, send_fd: F) -> io::Result<()>
     where
@@ -85,37 +147,25 @@ impl GuardDeviceTransport {
         let dup = self.transport.try_clone_fd()?;
         let device_fd = dup.into_raw_fd();
         let res = send_fd(socket_fd, device_fd);
-        // Best-effort close of our duplicate; sender may have consumed semantics vary,
-        // but we avoid leaking in common success path by closing if still valid.
-        // On Unix, double-close of an fd we no longer own is unsafe to guess; the
-        // provided sender is responsible for closing the transferred copy.
-        let _ = res.as_ref();
-        // If sender failed before consuming, close our dup.
         if res.is_err() {
-            let _ = nixless_close(device_fd);
+            // Reclaim the dup on sender failure; sender owns on success.
+            // SAFETY: `device_fd` came from `into_raw_fd()` above and sender did not take it.
+            drop(unsafe { OwnedFd::from_raw_fd(device_fd) });
         }
         res
     }
 
     #[cfg(unix)]
-    /// Convenience: pass fd using `tirbase_drivers`-style raw sender signature
-    /// `(socket_fd, device_fd) -> Result<(), E>`.
+    /// Convenience: pass fd using a sender with a typed error.
     pub fn pass_device_fd_result<E, F>(&self, socket_fd: RawFd, send_fd: F) -> Result<(), E>
     where
         F: FnOnce(RawFd, RawFd) -> Result<(), E>,
+        E: From<io::Error> + std::fmt::Display,
     {
-        let dup = self
-            .transport
-            .try_clone_fd()
-            .map_err(|_| unsafe_err::<E>())?;
-        let device_fd = dup.into_raw_fd();
-        match send_fd(socket_fd, device_fd) {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                let _ = nixless_close(device_fd);
-                Err(e)
-            }
-        }
+        self.pass_device_fd_with(socket_fd, |sock, dev| {
+            send_fd(sock, dev).map_err(|e| io::Error::other(e.to_string()))
+        })
+        .map_err(E::from)
     }
 
     #[cfg(not(unix))]
@@ -128,17 +178,4 @@ impl GuardDeviceTransport {
             "SCM_RIGHTS unavailable",
         ))
     }
-}
-
-#[cfg(unix)]
-fn nixless_close(_fd: RawFd) -> io::Result<()> {
-    // Guard crate forbids unsafe; leaked dup on rare error path is acceptable for
-    // process-lifetime guard wiring. Runtime senders close on success.
-    Ok(())
-}
-
-#[cfg(unix)]
-fn unsafe_err<E>() -> E {
-    // Unreachable in normal typed usage; callers use pass_device_fd_with for io::Result.
-    panic!("device fd clone failed")
 }
