@@ -237,12 +237,25 @@ pub fn verify_peercred(
 /// **before any parsing begins** (CLAIM-33.6, PV-10.4, S35).
 ///
 /// Fail-closed: if landlock is unavailable (kernel < 5.13 or not exposed) and
-/// `degraded_isolation_opt_in_signed` is `false`, loading/sandboxing is refused.
+/// `degraded_isolation_opt_in_signed` is `false`, the child is refused.  When
+/// the signed opt-in is present the child still installs `no_new_privs` and the
+/// seccomp-BPF filter, and only the landlock layer is skipped.
 ///
-/// Note: full BPF filter compilation/installation is platform-specific and may
-/// be provided by the production gateway's child-init runtime. This function
-/// enforces the required pre-parse ordering contract and fail-closed policy;
-/// it returns an error when a mandatory sandbox step cannot be applied.
+/// On Linux this performs the real syscalls, in order:
+///
+/// 1. `prctl(PR_SET_NO_NEW_PRIVS, 1)` — required before seccomp and landlock.
+/// 2. `seccomp(SECCOMP_SET_MODE_FILTER)` — a deny-list filter that stops the
+///    child from creating/connecting sockets, passing fds (`sendmsg`/
+///    `sendmmsg`/`sendto`), tracing or executing another process.  Denied
+///    calls fail with `EPERM`.
+/// 3. `landlock_create_ruleset` + `landlock_restrict_self` with an empty
+///    ruleset, i.e. every handled filesystem access is denied.  The driver is
+///    a pure codec over the inherited socket/device fds and needs no
+///    filesystem access after init.
+///
+/// The caller must invoke this in the driver child process, before parsing any
+/// untrusted frame.  Any step that cannot be applied returns an error so the
+/// child can exit rather than run unsandboxed.
 pub fn apply_child_sandbox(
     caps: KernelIsolationCaps,
     degraded_isolation_opt_in_signed: bool,
@@ -256,9 +269,218 @@ pub fn apply_child_sandbox(
         });
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     {
-        // 1) no-new-privs must be set before seccomp install.
+        linux_sandbox::install(caps.supports_landlock())
+    }
+
+    #[cfg(not(all(
+        target_os = "linux",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )))]
+    {
+        let _ = (caps, degraded_isolation_opt_in_signed);
+        Err(IsolationError::SandboxUnavailable {
+            detail: "seccomp-bpf/no-new-privs/landlock child sandbox is only implemented for Linux x86_64/aarch64".into(),
+        })
+    }
+}
+
+/// Linux child-init sandbox implementation for [`apply_child_sandbox`].
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+mod linux_sandbox {
+    use super::IsolationError;
+    use core::mem::size_of;
+    use std::io;
+
+    // ── seccomp-BPF constants ────────────────────────────────────────────────
+    const BPF_LD_W_ABS: u16 = 0x20;
+    const BPF_JMP_JEQ_K: u16 = 0x15;
+    const BPF_RET_K: u16 = 0x06;
+    const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000;
+    const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
+    const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
+    const EPERM_ERRNO: u32 = 1;
+    /// `offsetof(struct seccomp_data, arch)`
+    const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
+    /// `offsetof(struct seccomp_data, nr)`
+    const SECCOMP_DATA_NR_OFFSET: u32 = 0;
+
+    #[cfg(target_arch = "x86_64")]
+    const AUDIT_ARCH: u32 = 0xc000_003e;
+    #[cfg(target_arch = "aarch64")]
+    const AUDIT_ARCH: u32 = 0xc000_00b7;
+
+    // ── landlock constants ───────────────────────────────────────────────────
+    const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1;
+    /// `LANDLOCK_ACCESS_FS_{EXECUTE,WRITE_FILE,READ_FILE,READ_DIR,REMOVE_DIR,
+    /// REMOVE_FILE,MAKE_CHAR,MAKE_DIR,MAKE_REG,MAKE_SOCK,MAKE_FIFO,MAKE_BLOCK,
+    /// MAKE_SYM}` — the ABI-1 rights.
+    const LANDLOCK_ACCESS_FS_ABI1: u64 = (1 << 13) - 1;
+    const LANDLOCK_ACCESS_FS_REFER: u64 = 1 << 13; // ABI 2
+    const LANDLOCK_ACCESS_FS_TRUNCATE: u64 = 1 << 14; // ABI 3
+    const LANDLOCK_ACCESS_FS_IOCTL_DEV: u64 = 1 << 15; // ABI 5
+
+    #[repr(C)]
+    struct LandlockRulesetAttr {
+        handled_access_fs: u64,
+    }
+
+    fn stmt(code: u16, k: u32) -> libc::sock_filter {
+        libc::sock_filter {
+            code,
+            jt: 0,
+            jf: 0,
+            k,
+        }
+    }
+
+    fn jump(k: u32, jt: u8, jf: u8) -> libc::sock_filter {
+        libc::sock_filter {
+            code: BPF_JMP_JEQ_K,
+            jt,
+            jf,
+            k,
+        }
+    }
+
+    /// Syscalls the driver child never needs after init.  Denying them stops
+    /// network egress, fd passing via `SCM_RIGHTS`, process tracing and
+    /// re-exec, so a compromised codec cannot escape its inherited fds.
+    fn denied_syscalls() -> Vec<libc::c_long> {
+        vec![
+            libc::SYS_socket,
+            libc::SYS_socketpair,
+            libc::SYS_connect,
+            libc::SYS_bind,
+            libc::SYS_listen,
+            libc::SYS_accept,
+            libc::SYS_accept4,
+            libc::SYS_sendto,
+            libc::SYS_sendmsg,
+            libc::SYS_sendmmsg,
+            libc::SYS_ptrace,
+            libc::SYS_execve,
+            libc::SYS_execveat,
+            libc::SYS_process_vm_readv,
+            libc::SYS_process_vm_writev,
+        ]
+    }
+
+    /// Installs the deny-list seccomp-BPF filter (CLAIM-33.6).
+    fn install_seccomp() -> Result<(), IsolationError> {
+        let denied = denied_syscalls();
+        let mut filter = Vec::with_capacity(4 + denied.len() * 2);
+        // Reject a filter evaluated against a different ABI: kill the child
+        // instead of silently matching the wrong syscall numbers.
+        filter.push(stmt(BPF_LD_W_ABS, SECCOMP_DATA_ARCH_OFFSET));
+        filter.push(jump(AUDIT_ARCH, 1, 0));
+        filter.push(stmt(BPF_RET_K, SECCOMP_RET_KILL_PROCESS));
+        filter.push(stmt(BPF_LD_W_ABS, SECCOMP_DATA_NR_OFFSET));
+        for nr in denied {
+            let nr = nr as u32;
+            filter.push(jump(nr, 0, 1));
+            filter.push(stmt(BPF_RET_K, SECCOMP_RET_ERRNO | EPERM_ERRNO));
+        }
+        filter.push(stmt(BPF_RET_K, SECCOMP_RET_ALLOW));
+
+        let prog = libc::sock_fprog {
+            len: filter.len() as u16,
+            filter: filter.as_mut_ptr(),
+        };
+        // SAFETY: PR_SET_SECCOMP copies the `sock_fprog`/filter into the kernel;
+        // both live on this stack frame for the duration of the call.
+        let rc = unsafe {
+            libc::prctl(
+                libc::PR_SET_SECCOMP,
+                libc::SECCOMP_MODE_FILTER,
+                &prog as *const libc::sock_fprog,
+            )
+        };
+        if rc != 0 {
+            let e = io::Error::last_os_error();
+            return Err(IsolationError::SandboxApply(format!(
+                "seccomp filter install failed: {e}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Restricts the child to zero filesystem access (CLAIM-33.6).
+    fn install_landlock() -> Result<(), IsolationError> {
+        // SAFETY: querying the ABI version uses a null attribute pointer and a
+        // zero size, which is the documented version-probe form.
+        let abi = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                core::ptr::null::<LandlockRulesetAttr>(),
+                0usize,
+                LANDLOCK_CREATE_RULESET_VERSION,
+            )
+        };
+        if abi < 1 {
+            let e = io::Error::last_os_error();
+            return Err(IsolationError::SandboxApply(format!(
+                "landlock ABI probe failed: {e}"
+            )));
+        }
+        let abi = abi as u64;
+        let mut handled = LANDLOCK_ACCESS_FS_ABI1;
+        if abi >= 2 {
+            handled |= LANDLOCK_ACCESS_FS_REFER;
+        }
+        if abi >= 3 {
+            handled |= LANDLOCK_ACCESS_FS_TRUNCATE;
+        }
+        if abi >= 5 {
+            handled |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
+        }
+
+        let attr = LandlockRulesetAttr {
+            handled_access_fs: handled,
+        };
+        // SAFETY: `attr` is a valid `landlock_ruleset_attr` for the stated size;
+        // the syscall only reads it.
+        let ruleset_fd = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                &attr as *const LandlockRulesetAttr,
+                size_of::<LandlockRulesetAttr>(),
+                0u32,
+            )
+        };
+        if ruleset_fd < 0 {
+            let e = io::Error::last_os_error();
+            return Err(IsolationError::SandboxApply(format!(
+                "landlock_create_ruleset failed: {e}"
+            )));
+        }
+        let ruleset_fd = ruleset_fd as libc::c_int;
+        // No LANDLOCK_RULE_PATH_BENEATH rules are added: every handled access
+        // is denied.  Inherited fds keep working.
+        // SAFETY: `ruleset_fd` is an owned ruleset fd from the call above.
+        let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, ruleset_fd, 0u32) };
+        let err = io::Error::last_os_error();
+        // SAFETY: closing the ruleset fd; it is not used afterwards.
+        unsafe {
+            libc::close(ruleset_fd);
+        }
+        if rc != 0 {
+            return Err(IsolationError::SandboxApply(format!(
+                "landlock_restrict_self failed: {err}"
+            )));
+        }
+        Ok(())
+    }
+
+    pub(super) fn install(expect_landlock: bool) -> Result<(), IsolationError> {
+        // 1) no-new-privs must be set before seccomp/landlock install.
         // SAFETY: prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) is a process-local syscall.
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
         if rc != 0 {
@@ -267,21 +489,13 @@ pub fn apply_child_sandbox(
                 "no_new_privs failed: {e}"
             )));
         }
-        // 2) seccomp-BPF and 3) landlock application are performed by the
-        // production child-init path. Fail closed if the runtime reports they are
-        // not installed before parsing begins.
-        return Err(IsolationError::SandboxUnavailable {
-            detail: "seccomp-BPF/landlock child-init runtime hook is required before parsing"
-                .into(),
-        });
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = (caps, degraded_isolation_opt_in_signed);
-        Err(IsolationError::SandboxUnavailable {
-            detail: "seccomp-bpf/no-new-privs/landlock child sandbox is Linux-specific".into(),
-        })
+        // 2) seccomp-BPF deny-list.
+        install_seccomp()?;
+        // 3) landlock, unless the signed opt-in accepted a degraded posture.
+        if expect_landlock {
+            install_landlock()?;
+        }
+        Ok(())
     }
 }
 
