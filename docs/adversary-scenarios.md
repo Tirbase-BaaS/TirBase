@@ -832,7 +832,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 | S32 — Challenge-Nonce Flooding | Phase 18: Time Anchor | PLANNED | `tirbase-guard/tests/guard_pipeline.rs::test_s32_challenge_nonce_flood` |
 | S33 — Pending-Queue Memory Bomb | Phase 4: CRDT Hardening | PROVEN | `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` |
 | S34 — Partial-Signature Replay Across Commands | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_partial_sig_replay_across_commands` |
-| S35 — Driver fd Leakage | Phase 8: Driver Framework | PLANNED | `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` |
+| S35 — Driver fd Leakage | Phase 8: Driver Framework | Implemented | `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` |
 
 ---
 

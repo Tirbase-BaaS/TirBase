@@ -7,10 +7,10 @@ policy_loosen_m = 2
 policy_loosen_n = 3
 policy_timelock_secs = 3600
 policy_cancel_window_secs = 600
-# signature is a hex Ed25519 signature over canonical CBOR body (filled by signing tool);
-# test fixtures/gateway loader may verify or require a signed bundle in production.
+# Committed test fixture signature (PA seed [0x34;32], did:key:z6MkvHHbrGisC4BxN9M8b95EdXTidoFjeRE3i7Qc355d6yqU).
+# Production deployments must replace with an offline-ceremony PA-signed profile.
 signature_alg = "ed25519"
-signature_hex = ""
+signature_hex = "22b5c0fca9901ca356082bd50217003391394a2b254771fce64d8dc41a5d41d523f5dfc4639fa74e050653279c2d9ada394473405450cfaf0e958389d41de90c"
 
 [[parameters]]
 name = "setpoint_c"

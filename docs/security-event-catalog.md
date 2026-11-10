@@ -274,7 +274,9 @@ Events emitted by the driver proxy and out-of-process driver lifecycle (PV-10).
 |---|---|---|---|---|
 | DriverError | Driver process returned an error or timed out | High | Planned | PV-10 |
 | DriverRestarted | Driver process restarted after crash; exponential backoff applied | Medium | Planned | PV-10 |
-| IsolationFailure | Driver child exited abnormally or failed seccomp/landlock init | High | Planned | PV-10.4 |
+| IsolationFailure | Driver child exited abnormally or failed seccomp/landlock init | High | Implemented | PV-10.4, S35 |
+| SCMRightsAttempt | Driver child attempted or was blocked from passing an fd via `SCM_RIGHTS` | High | Implemented | PV-10.4, S35 |
+| SandboxViolation | Driver child seccomp/landlock/no_new_privs sandbox violation or blocked syscall | High | Implemented | PV-10.4, S35 |
 
 ---
 
