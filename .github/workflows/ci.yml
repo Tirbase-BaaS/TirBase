@@ -567,20 +567,14 @@ jobs:
           PY
 
   memory-budget-check:
-    name: memory budget ledger check (24.5)
+    name: memory budget measurement gate (24.5)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check memory budget sums
-        run: |
-          python3 << 'PY'
-          # DAG 32 + ICO 8 + reassembly 16 + pending queue 64 + rate quarantine (in-memory) accounted
-          total = 32+8+16+64 + 32  # include overhead
-          rss_baseline = 200  # MiB baseline
-          if total > 0.90 * rss_baseline:
-              raise SystemExit(f'total {total} exceeds 90% of {rss_baseline}')
-          print('ok', total)
-          PY
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Load configured caches and assert peak RSS stays under the budget
+        run: cargo test -p tirbase-core --test memory_budget_gate -- --ignored --nocapture
 
 
   cross-arch-migration-determinism:
@@ -609,13 +603,35 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Host deterministic migration hash-vector (wasmi/PV-8)
+      # Each leg executes the committed conformance corpus and asserts the
+      # resulting digest equals the committed known-good digest. If either leg
+      # diverges the test itself fails; the emitted artifacts are then diffed
+      # so a host/aarch64 mismatch is also reported explicitly.
+      - name: Host migration conformance digest (x86_64, PV-8/CLAIM-29.6)
+        env:
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest-host.txt
         run: |
           cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
 
-      - name: aarch64 deterministic migration hash-vector (QEMU, PV-8/CLAIM-29.6)
+      - name: aarch64 migration conformance digest (QEMU, PV-8/CLAIM-29.6)
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER: qemu-aarch64 -L /usr/aarch64-linux-gnu
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest-aarch64.txt
         run: |
           cargo test -p tirbase-core --target aarch64-unknown-linux-gnu --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+
+      - name: Compare host and aarch64 migration output digests
+        run: |
+          set -euo pipefail
+          host_digest="$RUNNER_TEMP/migration-digest-host.txt"
+          arm_digest="$RUNNER_TEMP/migration-digest-aarch64.txt"
+          test -s "$host_digest" || { echo "missing host digest artifact"; exit 1; }
+          test -s "$arm_digest" || { echo "missing aarch64 digest artifact"; exit 1; }
+          echo "host:    $(cat "$host_digest")"
+          echo "aarch64: $(cat "$arm_digest")"
+          diff -u "$host_digest" "$arm_digest" || {
+            echo "MISMATCH: migration output digests differ between x86_64 and aarch64";
+            exit 1;
+          }
+          echo "OK: x86_64 and aarch64 produced the same migration output digest"
