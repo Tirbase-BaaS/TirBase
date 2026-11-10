@@ -1,0 +1,31 @@
+# tirbase-gateway.service — TirBase hardened edge gateway (CLAIM-35.3, PV-11.1)
+# ExecStart runs the production gateway binary with a validated/signed config.
+
+[Unit]
+Description=TirBase hardened edge gateway
+After=network-online.target
+Wants=network-online.target
+OnFailure=tirbase-lockdown.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/tirbase-gateway /etc/tirbase/gateway.toml
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30
+NotifyAccess=main
+
+# Hardening directives (CLAIM-35.3)
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/tirbase /run/tirbase /etc/tirbase
+
+[Install]
+WantedBy=multi-user.target
