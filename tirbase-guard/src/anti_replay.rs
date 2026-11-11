@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 
 use crate::signed_operation::{
-    SignatureEntry, SignedOperation, SignedOperationError, SignedOperationPayload,
+    SignedOperation, SignedOperationError, SignedOperationPayload,
 };
 
 /// Domain-separation context for PolicyAuthority-signed anti-replay window reset

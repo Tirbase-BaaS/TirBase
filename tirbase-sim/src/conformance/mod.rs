@@ -35,6 +35,7 @@ struct ProfileToml {
     policy_timelock_secs: u32,
     policy_cancel_window_secs: u32,
     #[serde(default)]
+    #[allow(dead_code)]
     signature_alg: Option<String>,
     #[serde(default)]
     signature_hex: Option<String>,

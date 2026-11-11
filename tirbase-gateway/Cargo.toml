@@ -10,6 +10,8 @@ tpm2 = []
 pkcs11 = []
 # Failpoint injection for PV-9.3/CLAIM-32.2 power-loss boundary tests.
 failpoints = ["tirbase-core/failpoints"]
+# Test utilities exported for integration tests (CountingNotifier etc.).
+test-util = []
 
 [package]
 name = "tirbase-gateway"

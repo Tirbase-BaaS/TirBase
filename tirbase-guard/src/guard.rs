@@ -130,6 +130,7 @@ pub struct CommandGuard {
     /// Active policy bundle snapshot (hot-swappable); `None` before first install.
     pub(crate) policy_bundle: Arc<ArcSwap<Option<PolicyBundle>>>,
     /// Guard-owned actuator handles (not accessible outside this crate).
+    #[allow(dead_code)]
     pub(crate) actuator_handles: ActuatorHandles,
     epochs: Arc<EpochRegistry>,
     config: RwLock<GuardConfig>,
@@ -229,6 +230,7 @@ impl CommandGuard {
             .unwrap_or(false)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn actuator_handles(&self) -> &ActuatorHandles {
         &self.actuator_handles
     }

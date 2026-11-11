@@ -43,7 +43,6 @@ use crate::db::peer_checkpoint_witnesses::{
     latest_local_checkpoint, list_peer_checkpoint_witnesses, upsert_peer_checkpoint_witness,
 };
 use crate::event_batcher::{EventBatchBackend, GroupCommitBatcher, DEFAULT_BATCH_WINDOW};
-use crate::security_sink::MAX_EVENTS;
 
 /// 25.1: chained security event record (PV-7.1, PV-7.2).
 /// No per-event device signature; checkpoints carry `checkpoint_signature`.
@@ -1444,7 +1443,7 @@ impl SecurityEventLog {
         if cfg.max_age_secs <= 0 && cfg.max_bytes <= 0 {
             return Ok(0);
         }
-        let Some(mut conn) = self.open_db()? else {
+        let Some(conn) = self.open_db()? else {
             return Ok(0);
         };
         let total_bytes: i64 = conn

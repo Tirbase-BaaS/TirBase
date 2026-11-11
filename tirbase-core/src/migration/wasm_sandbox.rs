@@ -295,7 +295,7 @@ fn execute_migration_inner(
         .func_wrap(
             "host",
             "read_row",
-            |mut caller: wasmi::Caller<'_, HostState>,
+            |caller: wasmi::Caller<'_, HostState>,
              table_ptr: i32,
              table_len: i32,
              key_ptr: i32,
@@ -360,7 +360,7 @@ fn execute_migration_inner(
         .func_wrap(
             "host",
             "write_row",
-            |mut caller: wasmi::Caller<'_, HostState>,
+            |caller: wasmi::Caller<'_, HostState>,
              table_ptr: i32,
              table_len: i32,
              key_ptr: i32,
@@ -439,7 +439,7 @@ fn execute_migration_inner(
     let timeout = timeout_secs.max(1);
     let total_fuel = timeout.saturating_mul(FUEL_PER_SEC).max(FUEL_CHUNK);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout);
-    let mut spent: u64 = 0;
+    let _spent: u64 = 0;
     // wasmi 0.38 executes typed calls to completion; true mid-loop preemption is
     // limited. We run with the full fuel budget (traps on exhaustion via
     // ConsumeFuel metering) and preserve the G1.9 registry contract for callers.

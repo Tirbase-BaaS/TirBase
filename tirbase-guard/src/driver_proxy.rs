@@ -83,6 +83,7 @@ impl<W: Write + Send> DriverProxy<W> {
     }
 
     /// Access the underlying device writer (crate-internal tests/diagnostics).
+    #[allow(dead_code)]
     pub(crate) fn device_mut(&mut self) -> &mut W {
         &mut self.device
     }

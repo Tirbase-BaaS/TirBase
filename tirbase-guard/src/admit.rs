@@ -325,6 +325,7 @@ pub struct DriftRecord {
 #[derive(Debug)]
 pub struct AdmitPipelineState {
     pub(crate) profiles: Arc<BTreeMap<TargetId, Arc<ArcSwap<EnvelopeProfile>>>>,
+    #[allow(dead_code)]
     pub(crate) policy: Arc<ArcSwap<Option<PolicyBundle>>>,
     pub(crate) root_ca_registry: Arc<RwLock<RootCaRegistry>>,
     pub(crate) revoked_dids: Arc<RwLock<BTreeSet<String>>>,
@@ -1357,9 +1358,11 @@ fn abs_scaled_diff(a: &FixedPointValue, b: &FixedPointValue) -> i128 {
     (scale_to(a.mantissa, a.exponent, common) - scale_to(b.mantissa, b.exponent, common))
         .unsigned_abs() as i128
 }
+#[allow(dead_code)]
 fn value_at_common(v: &FixedPointValue, common_exp: i8) -> i128 {
     scale_to(v.mantissa, v.exponent, common_exp)
 }
+#[allow(dead_code)]
 fn linear_term(v: &FixedPointValue, coeff: &FixedPointValue) -> i128 {
     // compute (v * coeff) approximately in common exponent space: (m1*m2) * 10^(e1+e2-common)
     let common = v.exponent.min(coeff.exponent);
