@@ -295,7 +295,7 @@ fn execute_migration_inner(
         .func_wrap(
             "host",
             "read_row",
-            |caller: wasmi::Caller<'_, HostState>,
+            |mut caller: wasmi::Caller<'_, HostState>,
              table_ptr: i32,
              table_len: i32,
              key_ptr: i32,

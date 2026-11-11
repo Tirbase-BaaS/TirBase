@@ -6,7 +6,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 pub const ANTI_REPLAY_WINDOWS_TABLE: &str = "anti_replay_windows";
 pub const DEFAULT_WINDOW_W: u64 = 64;
