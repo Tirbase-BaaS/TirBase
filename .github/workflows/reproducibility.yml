@@ -1,0 +1,140 @@
+name: Release Reproducibility Attestation (CLAIM-42.3)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to attest (workflow_dispatch only)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Reproducibility-friendly build settings (same inputs => comparable outputs).
+  SOURCE_DATE_EPOCH: "0"
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  build-a:
+    name: Independent build A
+    runs-on: ubuntu-latest
+    outputs:
+      hash: ${{ steps.hash.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build A
+        run: cargo build --release -p tirbase-gateway --locked
+      - name: Record hash A
+        id: hash
+        run: |
+          set -euo pipefail
+          HASH=$(sha256sum target/release/tirbase-gateway | awk '{print $1}')
+          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
+          mkdir -p out && echo "${HASH}  tirbase-gateway" > out/build-a.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducibility-build-a
+          path: out/build-a.sha256
+
+  build-b:
+    name: Independent build B
+    runs-on: ubuntu-latest
+    outputs:
+      hash: ${{ steps.hash.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build B (clean independent environment)
+        run: cargo build --release -p tirbase-gateway --locked
+      - name: Record hash B
+        id: hash
+        run: |
+          set -euo pipefail
+          HASH=$(sha256sum target/release/tirbase-gateway | awk '{print $1}')
+          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
+          mkdir -p out && echo "${HASH}  tirbase-gateway" > out/build-b.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducibility-build-b
+          path: out/build-b.sha256
+
+  compare-and-attest:
+    name: Compare hashes and publish attestation
+    runs-on: ubuntu-latest
+    needs: [build-a, build-b]
+    steps:
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: reproducibility-build-a
+          path: repro
+      - uses: actions/download-artifact@v4
+        with:
+          name: reproducibility-build-b
+          path: repro
+
+      - name: Compare build hashes and write attestation (CLAIM-42.3)
+        shell: bash
+        run: |
+          set -euo pipefail
+          HASH_A="${{ needs.build-a.outputs.hash }}"
+          HASH_B="${{ needs.build-b.outputs.hash }}"
+          MATCH=false
+          if [ "$HASH_A" = "$HASH_B" ]; then MATCH=true; fi
+          cat > "repro/reproducibility-attestation-${{ steps.tag.outputs.tag }}.json" <<JSON
+          {
+            "release_tag": "${{ steps.tag.outputs.tag }}",
+            "source_date_epoch": "${SOURCE_DATE_EPOCH}",
+            "artifact": "tirbase-gateway",
+            "build_a_sha256": "${HASH_A}",
+            "build_b_sha256": "${HASH_B}",
+            "hashes_match": ${MATCH},
+            "runner_image_a": "${{ runner.os }}",
+            "runner_image_b": "${{ runner.os }}"
+          }
+          JSON
+          echo "Build A: ${HASH_A}"
+          echo "Build B: ${HASH_B}"
+          echo "Hashes match: ${MATCH}"
+          if [ "$MATCH" != "true" ]; then
+            echo "ERROR: Reproducibility check failed - independent build hashes differ" >&2
+            exit 1
+          fi
+
+      - name: Upload attestation to GitHub Release
+        if: ${{ github.event_name == 'release' || inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            repro/reproducibility-attestation-${{ steps.tag.outputs.tag }}.json
+            repro/build-a.sha256
+            repro/build-b.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproducibility-attestation-${{ steps.tag.outputs.tag }}
+          path: repro/
+          retention-days: 90

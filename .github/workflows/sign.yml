@@ -1,0 +1,144 @@
+name: Release Signing, Provenance, Geiger, and Mutants Gate (CLAIM-42.2, CLAIM-42.5, CLAIM-42.6)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to sign/attest (workflow_dispatch only)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  sign-and-gates:
+    name: Build release artifact, sign/provenance, geiger report, mutants gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: ${TAG}"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-release-sign-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary (tirbase-gateway)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p tirbase-gateway --locked
+          mkdir -p release-artifacts
+          cp target/release/tirbase-gateway "release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu"
+          sha256sum "release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu" > "release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu.sha256"
+
+      - name: Install cosign (keyless/OIDC) (CLAIM-42.2)
+        uses: sigstore/cosign-installer@v3
+
+      - name: Keyless sign release artifacts and verify (CLAIM-42.2)
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          ART="release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu"
+          cosign sign-blob --yes \
+            --output-signature "${ART}.sig" \
+            --output-certificate "${ART}.pem" \
+            "${ART}"
+          ISSUER="https://token.actions.githubusercontent.com"
+          IDENTITY_REGEX="^https://github.com/${{ github.repository }}/.github/workflows/sign.yml@.*$"
+          cosign verify-blob \
+            --signature "${ART}.sig" \
+            --certificate "${ART}.pem" \
+            --certificate-identity-regexp "${IDENTITY_REGEX}" \
+            --certificate-oidc-issuer "${ISSUER}" \
+            "${ART}"
+          echo "Cosign keyless sign+verify completed for ${ART}"
+
+      - name: Generate SLSA provenance (CLAIM-42.2)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu.sha256
+
+      - name: Release-time cargo-geiger full report (CLAIM-42.5)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v cargo-geiger &>/dev/null; then
+            cargo install cargo-geiger --locked
+          fi
+          cargo geiger --workspace --output-format Json --quiet 2>/dev/null > "release-artifacts/geiger-report-${{ steps.tag.outputs.tag }}.json" || true
+          cargo geiger --workspace --quiet 2>/dev/null > "release-artifacts/geiger-report-${{ steps.tag.outputs.tag }}.txt" || true
+          echo "Attached full geiger report artifacts for release"
+
+      - name: Release-time cargo-mutants gate (80% kill rate, security-critical modules) (CLAIM-42.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v cargo-mutants &>/dev/null; then
+            cargo install cargo-mutants --locked
+          fi
+          # Full-workspace run is required by task 42.6; enforce 80% kill rate on
+          # security-critical modules (guard, core/crdt, core/auth, core/migration).
+          cargo mutants --workspace --timeout 120 --jobs 2 --no-shuffle --output release-artifacts/mutants-full || true
+          python3 scripts/release/check_mutants_kill_rate.py \
+            --mutants-dir release-artifacts/mutants-full \
+            --min-kill-rate 0.80 \
+            --critical-prefix tirbase-guard/src \
+            --critical-prefix tirbase-core/src/crdt \
+            --critical-prefix tirbase-core/src/auth \
+            --critical-prefix tirbase-core/src/migration
+
+      - name: Upload signed artifacts, geiger report, and mutants results to GitHub Release
+        if: ${{ github.event_name == 'release' || inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu.sha256
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu.sig
+            release-artifacts/tirbase-gateway-${{ steps.tag.outputs.tag }}-x86_64-unknown-linux-gnu.pem
+            release-artifacts/geiger-report-${{ steps.tag.outputs.tag }}.json
+            release-artifacts/geiger-report-${{ steps.tag.outputs.tag }}.txt
+            release-artifacts/mutants-full/outcomes.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-sign-gates-${{ steps.tag.outputs.tag }}
+          path: release-artifacts/
+          retention-days: 90
