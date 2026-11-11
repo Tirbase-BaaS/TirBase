@@ -379,9 +379,15 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             features: native
             no_default_features: ""
+            packages: --workspace
+          # Only `tirbase-core` (with `tirbase-types`) is compiled to WASM. Every
+          # other workspace member links SQLite, libp2p, rustls/ring or tokio's
+          # net stack, none of which build for wasm32-unknown-unknown, so the
+          # wasm row must be package-scoped rather than workspace-wide.
           - target: wasm32-unknown-unknown
             features: wasm
             no_default_features: "--no-default-features"
+            packages: -p tirbase-core
 
     steps:
       - uses: actions/checkout@v4
@@ -402,7 +408,7 @@ jobs:
 
       - name: cargo check
         run: |
-          cargo check ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
+          cargo check ${{ matrix.packages }} ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
 
       - name: Check dead_code warnings (CLAIM-2.1)
         # Promote dead_code warnings to errors so CI fails if any private symbol
@@ -534,8 +540,31 @@ jobs:
       - name: cargo test (native, test hooks) — test-only setup hooks (CLAIM-31.3)
         run: cargo test -p tirbase-core --features native,test-hooks --test task31_ico_persistence
 
+      # `tirbase-core` is the only WASM-capable crate; the gateway, guard, sim,
+      # drivers, admin and demo crates link native-only dependencies (SQLite,
+      # libp2p, rustls/ring, tokio net), so the check is package-scoped.
       - name: cargo check (WASM target) — fails CI on WASM compile error
-        run: cargo check --no-default-features --features wasm --target wasm32-unknown-unknown
+        run: cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown
+
+      # The WASM build is type-checked above; these tests actually execute it in
+      # a headless browser, which is the only place IndexedDB, the browser clock
+      # and the `wasm_exports` entry points (`core_init`/`core_write`/
+      # `core_receive_peer_message`) exist.  `scripts/wasm-test.sh` explains the
+      # tooling it needs and fails loudly if it is missing.
+      - name: Install wasm-bindgen CLI matching Cargo.lock
+        run: |
+          set -euo pipefail
+          version="$(awk '/^name = "wasm-bindgen"$/ { getline; print $3 }' Cargo.lock | tr -d '"' | head -n1)"
+          have="$(wasm-bindgen --version 2>/dev/null | awk '{print $2}' || true)"
+          if [ "${have}" != "${version}" ]; then
+            cargo install "wasm-bindgen-cli@${version}" --locked
+          fi
+
+      - name: Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: cargo test (WASM, headless Chrome) — IndexedDB store + WASM inbound
+        run: ./scripts/wasm-test.sh
 
       - name: Build WASM for SDK tests
         working-directory: tirbase-sdk

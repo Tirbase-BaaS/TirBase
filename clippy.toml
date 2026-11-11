@@ -12,8 +12,9 @@ disallowed-methods = [
 # "No HashMap in the guard or simulator" policy (task 38.7, PV-12):
 # HashMap iteration order is not deterministic, which breaks simulator
 # reproducibility. The guard and simulator must use BTreeMap (ordered) or
-# IndexMap (insertion-ordered). CI denies this lint for those two crates; other
-# crates that legitimately use HashMap carry a crate-level allow.
+# IndexMap (insertion-ordered). No crate carries an allow: `tirbase-core` and
+# `tirbase-gateway` were migrated to BTreeMap as well, so the lint is enforced
+# workspace-wide.
 disallowed-types = [
     { path = "std::collections::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },
     { path = "std::collections::hash_map::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },

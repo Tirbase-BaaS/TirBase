@@ -400,27 +400,28 @@ to the claim text, its current status, and the integration test or CI gate that 
 | CLAIM-55.7 | Each runbook procedure is verified by running it against `tirbase-sim` with a simulated fault before the runbook is committed | Proven | `tirbase-sim/tests/runbook_fault_verification.rs::runbook_lockdown_exit_requires_m_of_n_and_clears_lockdown`, `tirbase-sim/tests/runbook_fault_verification.rs::runbook_tamper_detection_and_chain_recovery`, `tirbase-sim/tests/runbook_fault_verification.rs::runbook_restore_bumps_epoch_and_rejects_prior_epoch`, `tirbase-sim/tests/runbook_fault_verification.rs::runbook_key_compromise_revocation_rejects_revoked_issuer`, `tirbase-sim/tests/runbook_fault_verification.rs::runbook_crash_loop_escalates_to_lockdown`, `tirbase-sim/tests/runbook_fault_verification.rs::runbook_time_anchor_failure_unverified_and_recovery` |
 | CLAIM-56.1 | Table-driven `AUTHORIZATION_MATRIX` constant is implemented in `tirbase-guard`; negative tests are auto-generated for every `—` cell; property test (P19) verifies every `—` cell rejects the wrong role with a typed authorization error | Proven | `tirbase-guard/src/auth_matrix.rs::AUTHORIZATION_MATRIX`, `tirbase-guard/tests/auth_matrix.rs::auto_generated_negative_tests_for_every_denied_cell`, `tirbase-guard/tests/auth_matrix.rs::p19_every_denied_cell_rejects_wrong_role_with_typed_error` |
 | CLAIM-56.2 | `docs/traceability-matrix.md` maps each PV requirement to its design section, test type, and test file location; CI script verifies all named test file paths exist | Proven | `docs/traceability-matrix.md`, `scripts/check-traceability-matrix.sh`, `.github/workflows/traceability.yml` |
-| CLAIM-57.0 | `docs/audits/phase-0.md` is committed with VERIFIED-BY-TRACE evidence for Phase 0; no ASSUMED rows | Planned | |
-| CLAIM-57.1 | `docs/audits/phase-1.md` is committed with VERIFIED-BY-TRACE evidence for Phase 1; no ASSUMED rows | Planned | |
-| CLAIM-57.2 | `docs/audits/phase-2.md` is committed with VERIFIED-BY-TRACE evidence for Phase 2; no ASSUMED rows | Planned | |
-| CLAIM-57.3 | `docs/audits/phase-3.md` is committed with VERIFIED-BY-TRACE evidence for Phase 3; no ASSUMED rows | Planned | |
-| CLAIM-57.4 | `docs/audits/phase-4.md` is committed with VERIFIED-BY-TRACE evidence for Phase 4; no ASSUMED rows | Planned | |
-| CLAIM-57.5 | `docs/audits/phase-5.md` is committed with VERIFIED-BY-TRACE evidence for Phase 5; no ASSUMED rows | Planned | |
-| CLAIM-57.6 | `docs/audits/phase-6.md` is committed with VERIFIED-BY-TRACE evidence for Phase 6; no ASSUMED rows | Planned | |
-| CLAIM-57.7 | `docs/audits/phase-7.md` is committed with VERIFIED-BY-TRACE evidence for Phase 7; no ASSUMED rows | Planned | |
-| CLAIM-57.8 | `docs/audits/phase-8.md` is committed with VERIFIED-BY-TRACE evidence for Phase 8; no ASSUMED rows | Planned | |
-| CLAIM-57.9 | `docs/audits/phase-9.md` is committed with VERIFIED-BY-TRACE evidence for Phase 9; no ASSUMED rows | Planned | |
-| CLAIM-57.10 | `docs/audits/phase-10.md` is committed with VERIFIED-BY-TRACE evidence for Phase 10; no ASSUMED rows | Planned | |
-| CLAIM-57.11 | `docs/audits/phase-11.md` is committed with VERIFIED-BY-TRACE evidence for Phase 11; no ASSUMED rows | Planned | |
-| CLAIM-57.12 | `docs/audits/phase-12.md` is committed with VERIFIED-BY-TRACE evidence for Phase 12; no ASSUMED rows | Planned | |
-| CLAIM-57.13 | `docs/audits/phase-13.md` is committed with VERIFIED-BY-TRACE evidence for Phase 13; no ASSUMED rows | Planned | |
-| CLAIM-57.14 | `docs/audits/phase-14.md` is committed with VERIFIED-BY-TRACE evidence for Phase 14; no ASSUMED rows | Planned | |
-| CLAIM-57.15 | `docs/audits/phase-15.md` is committed with VERIFIED-BY-TRACE evidence for Phase 15; no ASSUMED rows | Planned | |
-| CLAIM-57.16 | `docs/audits/phase-16.md` is committed with VERIFIED-BY-TRACE evidence for Phase 16; no ASSUMED rows | Planned | |
-| CLAIM-57.17 | `docs/audits/phase-17.md` is committed with VERIFIED-BY-TRACE evidence for Phase 17; no ASSUMED rows | Planned | |
-| CLAIM-57.18 | `docs/audits/phase-18.md` is committed with VERIFIED-BY-TRACE evidence for Phase 18; no ASSUMED rows | Planned | |
-| CLAIM-57.19 | `docs/audits/phase-19.md` is committed with VERIFIED-BY-TRACE evidence for Phase 19; no ASSUMED rows | Planned | |
-| CLAIM-57.20 | `docs/audits/phase-20.md` is committed with VERIFIED-BY-TRACE evidence for Phase 20; no ASSUMED rows | Planned | |
+| CLAIM-57.0 | `docs/audits/phase-0.md` is committed with a traced evidence row for every Phase 0 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-0.md` |
+| CLAIM-57.1 | `docs/audits/phase-1.md` is committed with a traced evidence row for every Phase 1 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-1.md` |
+| CLAIM-57.2 | `docs/audits/phase-2.md` is committed with a traced evidence row for every Phase 2 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-2.md` |
+| CLAIM-57.3 | `docs/audits/phase-3.md` is committed with a traced evidence row for every Phase 3 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-3.md` |
+| CLAIM-57.4 | `docs/audits/phase-4.md` is committed with a traced evidence row for every Phase 4 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-4.md` |
+| CLAIM-57.5 | `docs/audits/phase-5.md` is committed with a traced evidence row for every Phase 5 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-5.md` |
+| CLAIM-57.6 | `docs/audits/phase-6.md` is committed with a traced evidence row for every Phase 6 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-6.md` |
+| CLAIM-57.7 | `docs/audits/phase-7.md` is committed with a traced evidence row for every Phase 7 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-7.md` |
+| CLAIM-57.8 | `docs/audits/phase-8.md` is committed with a traced evidence row for every Phase 8 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-8.md` |
+| CLAIM-57.9 | `docs/audits/phase-9.md` is committed with a traced evidence row for every Phase 9 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-9.md` |
+| CLAIM-57.10 | `docs/audits/phase-10.md` is committed with a traced evidence row for every Phase 10 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-10.md` |
+| CLAIM-57.11 | `docs/audits/phase-11.md` is committed with a traced evidence row for every Phase 11 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-11.md` |
+| CLAIM-57.12 | `docs/audits/phase-12.md` is committed with a traced evidence row for every Phase 12 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-12.md` |
+| CLAIM-57.13 | `docs/audits/phase-13.md` is committed with a traced evidence row for every Phase 13 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-13.md` |
+| CLAIM-57.14 | `docs/audits/phase-14.md` is committed with a traced evidence row for every Phase 14 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-14.md` |
+| CLAIM-57.15 | `docs/audits/phase-15.md` is committed with a traced evidence row for every Phase 15 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-15.md` |
+| CLAIM-57.16 | `docs/audits/phase-16.md` is committed with a traced evidence row for every Phase 16 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-16.md` |
+| CLAIM-57.17 | `docs/audits/phase-17.md` is committed with a traced evidence row for every Phase 17 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-17.md` |
+| CLAIM-57.18 | `docs/audits/phase-18.md` is committed with a traced evidence row for every Phase 18 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-18.md` |
+| CLAIM-57.19 | `docs/audits/phase-19.md` is committed with a traced evidence row for every Phase 19 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-19.md` |
+| CLAIM-57.20 | `docs/audits/phase-20.md` is committed with a traced evidence row for every Phase 20 task (production call site, test/suite evidence, and explicit status); no ASSUMED rows | Proven | `docs/audits/phase-20.md` |
+| CLAIM-58.1 | No workspace crate or test/bench target contains an unallowed direct clock read under the `clippy.toml` policy; `cargo clippy --workspace --all-targets -- -D warnings` passes | Proven | `clippy.toml` |
 
 ## Task 35 Blocker Note
 
