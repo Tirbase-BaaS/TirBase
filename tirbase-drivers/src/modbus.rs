@@ -11,12 +11,18 @@
 //! ## RTU framing
 //! `unit_id(u8) | PDU | crc16(u16 LE)` — CRC over `unit_id + PDU`.
 
+use std::sync::Arc;
+
 use tirbase_types::{FixedPointValue, UnitId};
 
 use crate::driver_trait::{
     ActuationPermitRef, DeviceModel, DriverError, DriverHealth, DriverResult, DriverTrait, Frame,
     ParameterDescriptor, TimeoutError,
 };
+
+/// Caller-supplied monotonic millisecond clock (PV-3.12): drivers never read a
+/// clock, because they may not depend on `tirbase-core`'s `TimeSource`.
+pub type MonotonicMillisFn = Arc<dyn Fn() -> u64 + Send + Sync>;
 
 /// Modbus function codes supported by this reference driver.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -283,7 +289,7 @@ pub fn decode_read_registers_response(pdu: &[u8], expected_fc: u8) -> DriverResu
         )));
     }
     let byte_count = pdu[1] as usize;
-    if pdu.len() < 2 + byte_count || byte_count % 2 != 0 {
+    if pdu.len() < 2 + byte_count || !byte_count.is_multiple_of(2) {
         return Err(DriverError::InvalidFrame(
             "invalid Modbus read-register byte count".into(),
         ));
@@ -536,15 +542,22 @@ pub struct ModbusTcpClient<T: std::io::Read + std::io::Write> {
     pub unit_id: u8,
     next_transaction: u16,
     io_timeout: std::time::Duration,
+    clock: MonotonicMillisFn,
 }
 
 impl<T: std::io::Read + std::io::Write> ModbusTcpClient<T> {
-    pub fn new(transport: T, unit_id: u8, io_timeout: std::time::Duration) -> Self {
+    pub fn new(
+        transport: T,
+        unit_id: u8,
+        io_timeout: std::time::Duration,
+        clock: MonotonicMillisFn,
+    ) -> Self {
         Self {
             transport,
             unit_id,
             next_transaction: 1,
             io_timeout,
+            clock,
         }
     }
 
@@ -571,7 +584,7 @@ impl<T: std::io::Read + std::io::Write> ModbusTcpClient<T> {
             .write_all(&out)
             .and_then(|_| self.transport.flush())
             .map_err(|e| DriverError::Codec(format!("modbus write: {e}")))?;
-        let adu = read_tcp_adu_with_timeout(&mut self.transport, self.io_timeout)?;
+        let adu = read_tcp_adu_with_timeout(&mut self.transport, self.io_timeout, &*self.clock)?;
         if adu.transaction_id != tid {
             return Err(DriverError::InvalidFrame(format!(
                 "transaction id mismatch: expected {tid}, got {}",
@@ -645,15 +658,21 @@ impl<T: std::io::Read + std::io::Write> ModbusTcpClient<T> {
     }
 }
 
+/// Reads until `buf` is full, enforcing `timeout` against the caller-supplied
+/// monotonic clock. Drivers must not depend on `tirbase-core` (layer
+/// isolation, CLAIM-1.3), so the process-wide `TimeSource` is injected instead
+/// of being read here (PV-3.12).
 fn read_exact_timeout<R: std::io::Read>(
     r: &mut R,
     buf: &mut [u8],
     timeout: std::time::Duration,
+    clock: &dyn Fn() -> u64,
 ) -> DriverResult<()> {
-    let start = std::time::Instant::now();
+    let start = clock();
+    let timeout_millis = timeout.as_millis() as u64;
     let mut off = 0;
     while off < buf.len() {
-        if start.elapsed() > timeout {
+        if clock().saturating_sub(start) > timeout_millis {
             return Err(DriverError::Timeout(TimeoutError {
                 operation: "modbus_read",
                 limit_ms: timeout.as_millis() as u64,
@@ -669,10 +688,10 @@ fn read_exact_timeout<R: std::io::Read>(
                     std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
                 ) =>
             {
-                if start.elapsed() > timeout {
+                if clock().saturating_sub(start) > timeout_millis {
                     return Err(DriverError::Timeout(TimeoutError {
                         operation: "modbus_read",
-                        limit_ms: timeout.as_millis() as u64,
+                        limit_ms: timeout_millis,
                     }));
                 }
                 std::thread::sleep(std::time::Duration::from_millis(1));
@@ -686,24 +705,30 @@ fn read_exact_timeout<R: std::io::Read>(
 pub fn read_tcp_adu_with_timeout<R: std::io::Read>(
     r: &mut R,
     timeout: std::time::Duration,
+    clock: &dyn Fn() -> u64,
 ) -> DriverResult<ModbusTcpAdu> {
     let mut mbap = [0u8; 7];
-    read_exact_timeout(r, &mut mbap, timeout)?;
+    read_exact_timeout(r, &mut mbap, timeout, clock)?;
     let len = u16::from_be_bytes([mbap[4], mbap[5]]) as usize;
-    if len < 2 || len > 260 {
+    if !(2..=260).contains(&len) {
         return Err(DriverError::InvalidFrame(format!(
             "invalid MBAP length {len}"
         )));
     }
     let mut rest = vec![0u8; len - 1];
-    read_exact_timeout(r, &mut rest, timeout)?;
+    read_exact_timeout(r, &mut rest, timeout, clock)?;
     let mut frame = mbap.to_vec();
     frame.extend_from_slice(&rest);
     parse_tcp_adu(&frame)
 }
 
 impl ModbusTcpClient<std::net::TcpStream> {
-    pub fn connect(addr: &str, unit_id: u8, timeout: std::time::Duration) -> DriverResult<Self> {
+    pub fn connect(
+        addr: &str,
+        unit_id: u8,
+        timeout: std::time::Duration,
+        clock: MonotonicMillisFn,
+    ) -> DriverResult<Self> {
         let addr: std::net::SocketAddr = addr
             .parse()
             .map_err(|e| DriverError::Codec(format!("addr: {e}")))?;
@@ -712,7 +737,7 @@ impl ModbusTcpClient<std::net::TcpStream> {
         stream.set_nodelay(true).ok();
         stream.set_read_timeout(Some(timeout)).ok();
         stream.set_write_timeout(Some(timeout)).ok();
-        Ok(Self::new(stream, unit_id, timeout))
+        Ok(Self::new(stream, unit_id, timeout, clock))
     }
 }
 
@@ -893,14 +918,21 @@ pub struct ModbusRtuClient<T: std::io::Read + std::io::Write> {
     transport: T,
     pub unit_id: u8,
     io_timeout: std::time::Duration,
+    clock: MonotonicMillisFn,
 }
 
 impl<T: std::io::Read + std::io::Write> ModbusRtuClient<T> {
-    pub fn new(transport: T, unit_id: u8, io_timeout: std::time::Duration) -> Self {
+    pub fn new(
+        transport: T,
+        unit_id: u8,
+        io_timeout: std::time::Duration,
+        clock: MonotonicMillisFn,
+    ) -> Self {
         Self {
             transport,
             unit_id,
             io_timeout,
+            clock,
         }
     }
 
@@ -912,7 +944,7 @@ impl<T: std::io::Read + std::io::Write> ModbusRtuClient<T> {
             .map_err(|e| DriverError::Codec(format!("rtu write: {e}")))?;
         // RTU response: unit + pdu + crc(2). resp_len includes unit+pdu+crc.
         let mut buf = vec![0u8; resp_len];
-        read_exact_timeout(&mut self.transport, &mut buf, self.io_timeout)?;
+        read_exact_timeout(&mut self.transport, &mut buf, self.io_timeout, &*self.clock)?;
         let (uid, resp_pdu) = parse_rtu_frame(&buf)?;
         if uid != self.unit_id {
             return Err(DriverError::InvalidFrame(format!(

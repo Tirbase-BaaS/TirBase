@@ -2,7 +2,7 @@
 //! fail-closed sandbox policy, and lifecycle restart/backoff/escalation.
 
 #[cfg(unix)]
-use tirbase_drivers::{create_driver_socketpair, verify_peercred};
+use tirbase_drivers::create_driver_socketpair;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

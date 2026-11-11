@@ -524,7 +524,7 @@ pub fn send_fd_via_scm_rights(socket_fd: i32, device_fd: i32) -> Result<(), Isol
             "socket fd for SCM_RIGHTS must be non-negative".into(),
         ));
     }
-    let mut data = [b'F'];
+    let mut data = *b"F";
     let mut iov = libc::iovec {
         iov_base: data.as_mut_ptr().cast(),
         iov_len: data.len(),

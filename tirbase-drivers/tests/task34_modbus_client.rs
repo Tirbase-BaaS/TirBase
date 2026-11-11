@@ -5,7 +5,28 @@
 use std::io::{Read, Write};
 use std::time::Duration;
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use tirbase_drivers::{DriverError, ModbusRtuClient, ModbusTcpClient};
+
+/// Clock that never advances: reads complete without timing out.
+fn zero_clock() -> Arc<dyn Fn() -> u64 + Send + Sync> {
+    Arc::new(|| 0)
+}
+
+/// Clock that expires immediately after the first reading: exercises the
+/// deadline branch deterministically without reading a real clock.
+fn expiring_clock() -> Arc<dyn Fn() -> u64 + Send + Sync> {
+    let calls = Arc::new(AtomicU64::new(0));
+    Arc::new(move || {
+        if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            0
+        } else {
+            1_000_000
+        }
+    })
+}
 
 #[test]
 fn claim_34_1_modbus_tcp_client_fc03_fc04_fc06_fc16() {
@@ -17,7 +38,12 @@ fn claim_34_1_modbus_tcp_client_fc03_fc04_fc06_fc16() {
         b.set_holding(11, 5678);
         b.set_input(20, 0xFF9C);
     }
-    let mut client = ModbusTcpClient::connect(&server.addr.to_string(), 1, Duration::from_secs(5))
+    let mut client = ModbusTcpClient::connect(
+        &server.addr.to_string(),
+        1,
+        Duration::from_secs(5),
+        zero_clock(),
+    )
         .expect("connect modbus tcp client");
 
     let regs = client.read_holding_registers(10, 2).expect("FC03");
@@ -44,7 +70,12 @@ fn claim_34_1_modbus_tcp_client_times_out_within_5s() {
         let (_s, _) = listener.accept().unwrap();
         std::thread::sleep(Duration::from_secs(10));
     });
-    let mut client = ModbusTcpClient::connect(&addr.to_string(), 1, Duration::from_millis(200))
+    let mut client = ModbusTcpClient::connect(
+        &addr.to_string(),
+        1,
+        Duration::from_millis(200),
+        expiring_clock(),
+    )
         .expect("connect");
     let err = client.read_holding_registers(0, 1).unwrap_err();
     assert!(
@@ -156,7 +187,7 @@ fn claim_34_1_modbus_rtu_client_fc03_fc04_fc06_fc16() {
         }
     });
 
-    let mut client = ModbusRtuClient::new(transport, 1, Duration::from_secs(5));
+    let mut client = ModbusRtuClient::new(transport, 1, Duration::from_secs(5), zero_clock());
     assert_eq!(client.read_holding_registers(1, 1).unwrap(), vec![55]);
     assert_eq!(client.read_input_registers(2, 1).unwrap()[0] as i16, -2);
     client.write_single_register(1, 77).unwrap();

@@ -118,7 +118,7 @@ impl RegisterDef {
     /// as integer fixed-point components `(mantissa, exponent)` normalized to scale.
     pub fn decode_to_scaled_i64(&self, words: &[u16]) -> Result<i64, RegisterMapError> {
         let raw = self.decode_raw_i128(words)?;
-        let scaled = (raw as i128)
+        let scaled = raw
             .checked_mul(self.scale_mantissa as i128)
             .ok_or_else(|| RegisterMapError::InvalidField {
                 field: "scale_mantissa".into(),

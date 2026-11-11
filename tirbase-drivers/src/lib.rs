@@ -156,7 +156,15 @@ mod tests {
     // [CLAIM-33.2] each operation returns within 5,000 ms or TimeoutError.
     #[test]
     fn driver_timeout_error_is_typed() {
-        let e = run_with_timeout("slow_op", || {
+        let calls = std::sync::atomic::AtomicU64::new(0);
+        let clock = || {
+            if calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                0
+            } else {
+                5_001
+            }
+        };
+        let e = run_with_timeout("slow_op", &clock, || {
             std::thread::sleep(std::time::Duration::from_millis(5_050));
             Ok::<_, DriverError>(())
         })
@@ -172,7 +180,7 @@ mod tests {
 
     #[test]
     fn run_with_timeout_passes_fast_ops() {
-        let v = run_with_timeout("fast", || Ok::<_, DriverError>(7_u8)).unwrap();
+        let v = run_with_timeout("fast", &|| 0, || Ok::<_, DriverError>(7_u8)).unwrap();
         assert_eq!(v, 7);
     }
 

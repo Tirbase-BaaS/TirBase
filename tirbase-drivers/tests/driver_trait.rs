@@ -114,7 +114,15 @@ fn empty_device_model_is_never_accepted() {
 
 #[test]
 fn timeout_error_is_typed() {
-    let err = tirbase_drivers::run_with_timeout("op", || {
+    let calls = std::sync::atomic::AtomicU64::new(0);
+    let clock = || {
+        if calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            0
+        } else {
+            5_001
+        }
+    };
+    let err = tirbase_drivers::run_with_timeout("op", &clock, || {
         std::thread::sleep(std::time::Duration::from_millis(5_010));
         Ok::<_, DriverError>(())
     })

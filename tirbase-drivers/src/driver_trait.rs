@@ -91,16 +91,20 @@ pub type DriverResult<T> = Result<T, DriverError>;
 /// [`DRIVER_OPERATION_TIMEOUT`]. Codec operations are expected to be pure/fast;
 /// callers (guard/gateway executors) may also enforce wall-clock deadlines.
 ///
-/// `Instant::now` is used only for this bounded local deadline check; the
-/// production guard/runtime enforces authoritative timeouts via its time model.
-#[allow(clippy::disallowed_methods)]
-pub fn run_with_timeout<T, F>(operation: &'static str, op: F) -> DriverResult<T>
+/// `clock` is the caller-supplied monotonic millisecond clock: drivers never
+/// read a clock themselves (PV-3.12), because they may not depend on
+/// `tirbase-core`'s `TimeSource`.
+pub fn run_with_timeout<T, F>(
+    operation: &'static str,
+    clock: &dyn Fn() -> u64,
+    op: F,
+) -> DriverResult<T>
 where
     F: FnOnce() -> DriverResult<T>,
 {
-    let start = std::time::Instant::now();
+    let start = clock();
     let out = op()?;
-    if start.elapsed() > DRIVER_OPERATION_TIMEOUT {
+    if clock().saturating_sub(start) > DRIVER_OPERATION_TIMEOUT.as_millis() as u64 {
         return Err(DriverError::Timeout(TimeoutError {
             operation,
             limit_ms: DRIVER_OPERATION_TIMEOUT.as_millis() as u64,
