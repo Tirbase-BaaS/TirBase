@@ -53,6 +53,10 @@ pub mod trust_root;
 /// 8.5–8.8 — CLAIM-8.5…CLAIM-8.8, PV-3.11, PV-3.13, PV-5.5, PV-9.8).
 pub mod epoch;
 
+/// Table-driven authorization matrix and typed role-authorization checks
+/// (PV-3.3, CLAIM-56.1).
+pub mod auth_matrix;
+
 /// `CommandMessage` signing/verification (task 11.1, CLAIM-11.1, PV-4.1/4.2).
 pub mod command;
 
@@ -101,6 +105,10 @@ pub use guard::{
     single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission,
 };
 pub use permit::{ActuationPermit, ActuationPermitRef};
+pub use auth_matrix::{
+    check_role_authorization, denied_cells, role_index, AuthOperation, MatrixAuthorizationError,
+    MatrixCell, MatrixRow, AUTHORIZATION_MATRIX, MATRIX_ROLES,
+};
 pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
 
 pub use lockdown::{
