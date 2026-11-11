@@ -97,35 +97,87 @@ pub fn run_s19(seed: u64) -> Result<(), String> {
     Ok(())
 }
 
-/// S23 — a far-future beacon with only one TimeAnchor signature is rejected and
-/// the persisted ratchet floor is unchanged.
+/// S23 — time-anchor poisoning (PV-28.4, CLAIM-53.3).
+///
+/// Exercises `TimeAnchorService` multi-peer beacon selection/production:
+/// - Multiple peers produce signed COSE_Sign1 beacons; the authenticated estimate
+///   selects the most recent valid beacon within the max-forward-jump constraint.
+/// - A far-future (poisoning) peer beacon is not selectable without satisfying
+///   jump/quorum constraints and must not advance the persisted ratchet floor.
+/// - A large jump is admitted only with the required M-of-N TimeAnchor quorum.
 pub fn run_s23(seed: u64) -> Result<(), String> {
+    use std::time::Duration;
+    use tirbase_gateway::time_anchor::{
+        select_authenticated_beacon, sign_cose_beacon, NoopBeaconSink, PeerBeacon, TimeAnchorService,
+    };
+
     let anchor_a = InMemoryKeyProvider::generate().map_err(|e| format!("S23 anchor A: {e}"))?;
     let anchor_b = InMemoryKeyProvider::generate().map_err(|e| format!("S23 anchor B: {e}"))?;
     let anchors = [&anchor_a, &anchor_b];
-    let clock = FixedTimeSource::new(1, BASE_WALL, 1);
+    let clock: Arc<dyn tirbase_core::traits::TimeSource> = Arc::new(FixedTimeSource::new(1, BASE_WALL, 1));
 
     let store = Arc::new(MemoryRatchetStore::default());
     let mut ratchet =
         TimeRatchet::open(store, TimeRatchetConfig::default()).expect("open time ratchet");
 
+    // Bootstrap with a quorum-signed beacon at BASE_WALL.
     let bootstrap = beacon(BASE_WALL);
     ratchet
         .advance(
             &signed_beacon(&anchors, &bootstrap),
             &bootstrap,
-            &clock,
+            clock.as_ref(),
             resolver(&anchors),
         )
         .map_err(|error| format!("S23 bootstrap rejected: {error}"))?;
     let floor_before = ratchet.persisted_floor();
     let beacon_before = ratchet.last_beacon_time();
-
     let max_jump = ratchet.max_forward_jump_secs();
+
+    // --- TimeAnchorService active (PV-28.1/28.3): multiple peers broadcast COSE_Sign1 beacons ---
+    let sink = Arc::new(NoopBeaconSink);
+    let peer_key_a: Arc<dyn tirbase_core::traits::KeyProvider> = Arc::new(InMemoryKeyProvider::generate().map_err(|e| format!("S23 peer A: {e}"))?);
+    let peer_key_b: Arc<dyn tirbase_core::traits::KeyProvider> = Arc::new(InMemoryKeyProvider::generate().map_err(|e| format!("S23 peer B: {e}"))?);
+    let svc_a = Arc::new(TimeAnchorService::new(
+        peer_key_a.clone(),
+        clock.clone(),
+        Duration::from_secs(60),
+        300,
+        sink.clone(),
+    ));
+    let svc_b = Arc::new(TimeAnchorService::new(
+        peer_key_b.clone(),
+        clock.clone(),
+        Duration::from_secs(60),
+        300,
+        sink,
+    ));
+    let cose_a = svc_a
+        .produce_beacon()
+        .map_err(|e| format!("S23 service beacon A: {e}"))?;
+    let cose_b = svc_b
+        .produce_beacon()
+        .map_err(|e| format!("S23 service beacon B: {e}"))?;
+    let peers = vec![
+        PeerBeacon { beacon: cose_a, anchor_public_key: peer_key_a.public_key_bytes() },
+        PeerBeacon { beacon: cose_b, anchor_public_key: peer_key_b.public_key_bytes() },
+    ];
+    // With TimeAnchorService active, authenticated estimate uses the most recent
+    // valid beacon satisfying the max-forward-jump constraint.
+    let _selected = select_authenticated_beacon(&peers, floor_before, max_jump);
+    // Service beacons at current wall (== floor) are valid/non-poisoning; ensure
+    // selection never yields a jump beyond the constraint.
+    if let Some((p, _)) = select_authenticated_beacon(&peers, floor_before, max_jump) {
+        if p.wall_time_secs > floor_before + max_jump {
+            return Err("S23 FAIL: service selection admitted a max-jump-violating beacon".into());
+        }
+    }
+
+    // --- Poisoning attempt: forged far-future beacon with insufficient quorum ---
     let forged_time = BASE_WALL + max_jump + 1 + (seed % 100) as i64;
     let forged = beacon(forged_time);
     let single = signed_beacon(&[&anchor_a], &forged);
-    match ratchet.advance(&single, &forged, &clock, resolver(&anchors)) {
+    match ratchet.advance(&single, &forged, clock.as_ref(), resolver(&anchors)) {
         Err(TimeRatchetError::InsufficientAnchorQuorum { verified, .. }) => {
             if verified != 1 {
                 return Err(format!(
@@ -144,10 +196,18 @@ pub fn run_s23(seed: u64) -> Result<(), String> {
         return Err("S23 FAIL: rejected beacon changed ratchet state".to_string());
     }
 
-    // The same jump with the required quorum is accepted.
+    // TimeAnchorService multi-peer COSE selection must also reject the poisoning jump.
+    let poison_cose = sign_cose_beacon(&anchor_a, forged_time, 999, 300)
+        .map_err(|e| format!("S23 poison cose: {e}"))?;
+    let poison_peer = PeerBeacon { beacon: poison_cose, anchor_public_key: anchor_a.public_key_bytes() };
+    if select_authenticated_beacon(&[poison_peer], floor_before, max_jump).is_some() {
+        return Err("S23 FAIL: COSE peer selection accepted a jump beyond max_forward_jump".into());
+    }
+
+    // The same jump with the required quorum is accepted (legitimate multi-anchor advance).
     let quorum = signed_beacon(&anchors, &forged);
     ratchet
-        .advance(&quorum, &forged, &clock, resolver(&anchors))
+        .advance(&quorum, &forged, clock.as_ref(), resolver(&anchors))
         .map_err(|error| format!("S23 FAIL: quorum-signed beacon rejected: {error}"))?;
     if ratchet.persisted_floor() != forged_time {
         return Err("S23 FAIL: quorum beacon did not advance the floor".to_string());

@@ -33,5 +33,6 @@ pub mod security_log_export;
 pub mod security_sink;
 pub mod self_update;
 pub mod task34_cli;
+pub mod time_anchor;
 pub mod time_beacon;
 pub mod time_source;

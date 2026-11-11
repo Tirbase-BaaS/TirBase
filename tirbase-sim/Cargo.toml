@@ -26,6 +26,7 @@ toml            = "0.8"
 hex             = "0.4"
 wat             = "1"
 arc-swap        = "1"
+ciborium        = "0.2"
 # The scenario runner executes adversarial scenarios against the real gateway
 # stores (Stage-16 ledger, security-event log, boot reconciliation).  This was
 # a dev-dependency while scenarios were unit-test-only (task 39 promotes the
