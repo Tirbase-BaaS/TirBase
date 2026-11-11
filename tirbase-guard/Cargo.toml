@@ -17,6 +17,7 @@ arc-swap = "1"
 zeroize = { version = "1.9", features = ["derive"] }
 
 [dev-dependencies]
+rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
 # Property test for ratchet monotonicity (task 7.7, CLAIM-7.7).
 proptest = "1.11.0"
 # Async runtime for the two-CoreHandle enrollment integration test (task 8.6).
@@ -40,3 +41,20 @@ name = "driver-isolation-child"
 path = "src/bin/driver_isolation_child.rs"
 test = false
 doc = false
+
+
+[[bench]]
+name = "guard_bench"
+harness = false
+
+[dev-dependencies.criterion]
+version = "0.5"
+features = ["html_reports"]
+
+[dev-dependencies.iai-callgrind]
+version = "0.14"
+
+
+[[bench]]
+name = "guard_iai"
+harness = false

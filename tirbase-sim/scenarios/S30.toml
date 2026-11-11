@@ -1,0 +1,8 @@
+# Adversary scenario 30 — Exponent-Overflow Value
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S30"
+title = "Exponent-Overflow Value"
+seeds = 32
+ticks = 4
+requirements = ["PV-21"]
+guards = ["fixed_point_i128_bounds"]

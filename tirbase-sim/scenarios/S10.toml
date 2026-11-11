@@ -1,0 +1,8 @@
+# Adversary scenario 10 — Revoked Delta Propagation
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S10"
+title = "Revoked Delta Propagation"
+seeds = 32
+ticks = 16
+requirements = ["PV-6.1"]
+guards = ["revocation_gate"]

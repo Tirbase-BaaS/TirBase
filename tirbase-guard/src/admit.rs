@@ -10,7 +10,10 @@
 //! consumption for Stage 0, Stage 9 nonce consumption, and Stage 14 per-issuer
 //! consumption (PV-4.17, CLAIM-14.10, CLAIM-14.16).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+// `HashMap` is banned in tirbase-guard and tirbase-sim (clippy::disallowed_types,
+// task 38.7): hash iteration order is not deterministic, which breaks simulator
+// reproducibility. `BTreeMap` keeps deterministic order and is sufficient here.
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
@@ -259,8 +262,8 @@ impl TokenBucket {
 
 #[derive(Debug, Default)]
 pub(crate) struct RateLimiters {
-    pre_auth: Mutex<HashMap<String, TokenBucket>>,
-    per_issuer: Mutex<HashMap<String, TokenBucket>>,
+    pre_auth: Mutex<BTreeMap<String, TokenBucket>>,
+    per_issuer: Mutex<BTreeMap<String, TokenBucket>>,
 }
 
 impl RateLimiters {
@@ -325,11 +328,12 @@ pub struct AdmitPipelineState {
     pub(crate) policy: Arc<ArcSwap<Option<PolicyBundle>>>,
     pub(crate) root_ca_registry: Arc<RwLock<RootCaRegistry>>,
     pub(crate) revoked_dids: Arc<RwLock<BTreeSet<String>>>,
-    pub(crate) decided_outcomes: Arc<Mutex<HashMap<(String, String, u64, u64), AdmitDecision>>>,
+    pub(crate) decided_outcomes: Arc<Mutex<BTreeMap<(String, String, u64, u64), AdmitDecision>>>,
     pub(crate) unknown_targets: Arc<RwLock<BTreeSet<String>>>,
-    pub(crate) challenge_nonces: Arc<Mutex<HashMap<[u8; 32], ChallengeNonce>>>,
-    pub(crate) challenge_issue_counts: Arc<Mutex<HashMap<(String, String, String), VecDeque<i64>>>>, // (device_id,target,param)
-    pub(crate) drift_history: Arc<Mutex<HashMap<(String, String, String), VecDeque<DriftRecord>>>>, // (issuer,target,param)
+    pub(crate) challenge_nonces: Arc<Mutex<BTreeMap<[u8; 32], ChallengeNonce>>>,
+    pub(crate) challenge_issue_counts:
+        Arc<Mutex<BTreeMap<(String, String, String), VecDeque<i64>>>>, // (device_id,target,param)
+    pub(crate) drift_history: Arc<Mutex<BTreeMap<(String, String, String), VecDeque<DriftRecord>>>>, // (issuer,target,param)
     pub(crate) rate_limiters: Arc<RateLimiters>,
     pub(crate) pre_auth_rps: AtomicU64,
     pub(crate) issuer_rps: AtomicU64,
@@ -358,11 +362,11 @@ impl AdmitPipelineState {
             policy,
             root_ca_registry,
             revoked_dids: Arc::new(RwLock::new(BTreeSet::new())),
-            decided_outcomes: Arc::new(Mutex::new(HashMap::new())),
+            decided_outcomes: Arc::new(Mutex::new(BTreeMap::new())),
             unknown_targets: Arc::new(RwLock::new(BTreeSet::new())),
-            challenge_nonces: Arc::new(Mutex::new(HashMap::new())),
-            challenge_issue_counts: Arc::new(Mutex::new(HashMap::new())),
-            drift_history: Arc::new(Mutex::new(HashMap::new())),
+            challenge_nonces: Arc::new(Mutex::new(BTreeMap::new())),
+            challenge_issue_counts: Arc::new(Mutex::new(BTreeMap::new())),
+            drift_history: Arc::new(Mutex::new(BTreeMap::new())),
             rate_limiters: Arc::new(RateLimiters::default()),
             pre_auth_rps: AtomicU64::new(DEFAULT_PRE_AUTH_RPS as u64),
             issuer_rps: AtomicU64::new(DEFAULT_ISSUER_RPS as u64),

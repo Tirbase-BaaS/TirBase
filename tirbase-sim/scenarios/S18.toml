@@ -1,0 +1,8 @@
+# Adversary scenario 18 — Guard Bypass Attempt
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S18"
+title = "Guard Bypass Attempt"
+seeds = 32
+ticks = 4
+requirements = ["PV-4.3", "PV-4.4"]
+guards = ["sealed_actuation_permit"]

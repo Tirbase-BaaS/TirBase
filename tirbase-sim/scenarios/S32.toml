@@ -1,0 +1,8 @@
+# Adversary scenario 32 — Challenge-Nonce Flooding
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S32"
+title = "Challenge-Nonce Flooding"
+seeds = 32
+ticks = 8
+requirements = ["PV-22.3"]
+guards = ["challenge_issue_rate_limit"]

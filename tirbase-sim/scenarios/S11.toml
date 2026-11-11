@@ -1,0 +1,8 @@
+# Adversary scenario 11 — Single-Manager Quorum (1-of-1)
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S11"
+title = "Single-Manager Quorum (1-of-1)"
+seeds = 32
+ticks = 4
+requirements = ["PV-3.4", "PV-20.4"]
+guards = ["startup_diagnostics"]

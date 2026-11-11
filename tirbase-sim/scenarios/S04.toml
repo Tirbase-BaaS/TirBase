@@ -1,0 +1,8 @@
+# Adversary scenario 4 — Clock Poisoning (CRDT start_op)
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S4"
+title = "Clock Poisoning (CRDT start_op)"
+seeds = 32
+ticks = 32
+requirements = ["PV-6.1", "PV-6.2"]
+guards = ["start_op_validation"]

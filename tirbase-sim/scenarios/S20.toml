@@ -1,0 +1,8 @@
+# Adversary scenario 20 — Sequence-Number Poisoning
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S20"
+title = "Sequence-Number Poisoning"
+seeds = 32
+ticks = 8
+requirements = ["PV-5.5", "PV-12.8"]
+guards = ["anti_replay_window"]

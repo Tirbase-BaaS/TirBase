@@ -136,7 +136,6 @@ fn sign_bundle(
 /// Scenario S7: a single PA submits a loosening bundle while active policy
 /// requires M=2 and a 600s time-lock.  The bundle MUST NOT be applied; only a
 /// pending co-signature collection is started.
-#[cfg(test)]
 pub fn run_s7() {
     let pa = InMemoryKeyProvider::generate().unwrap();
     let tr = Arc::new(ArcSwap::from_pointee(trust_root(&pa)));

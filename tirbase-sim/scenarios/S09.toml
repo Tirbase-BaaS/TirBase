@@ -1,0 +1,8 @@
+# Adversary scenario 9 — Migration Fuel-Cost Hash Mismatch
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S9"
+title = "Migration Fuel-Cost Hash Mismatch"
+seeds = 32
+ticks = 8
+requirements = ["PV-8.2a"]
+guards = ["execution_profile_pin"]

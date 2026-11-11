@@ -1,0 +1,8 @@
+# Adversary scenario 13 — Crash at Every Step
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S13"
+title = "Crash at Every Step"
+seeds = 32
+ticks = 8
+requirements = ["PV-5.3", "PV-5.4"]
+guards = ["ledger_reconciliation"]

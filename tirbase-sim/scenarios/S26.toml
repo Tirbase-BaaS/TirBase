@@ -1,0 +1,8 @@
+# Adversary scenario 26 — Idempotency-Key Squatting
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S26"
+title = "Idempotency-Key Squatting"
+seeds = 32
+ticks = 8
+requirements = ["PV-5.6"]
+guards = ["issuer_scoped_idempotency"]

@@ -488,6 +488,12 @@ To add an entry:
 | `tirbase_guard::single_writer_lease` | @tirbase-guard-team | No source reference from any other workspace crate; single-writer lease surface pending a library consumer | v0.3.0 |
 | `tirbase_sim::drivers` | @tirbase-sim-team | No source reference from any other workspace crate; simulated-driver surface is exercised only by simulator tests | v0.3.0 |
 | `tirbase_sim::invariants` | @tirbase-sim-team | No source reference from any other workspace crate; invariant catalogue is exercised only by simulator tests | v0.3.0 |
+| `tirbase_sim::models` | @tirbase-sim-team | Deterministic thermal/battery models (CLAIM-38.4/38.5) are consumed by the sim runtime and integration tests; no cross-crate caller yet | v0.3.0 |
+| `tirbase_sim::network` | @tirbase-sim-team | Fault-injecting virtual network (CLAIM-38.3) is consumed by the sim runtime and integration tests; no cross-crate caller yet | v0.3.0 |
+| `tirbase_sim::sim` | @tirbase-sim-team | SimClock/SimNode/scenario harness (CLAIM-38.2) is consumed by `TirBaseSim` and integration tests; no cross-crate caller yet | v0.3.0 |
+| `tirbase_sim::TirBaseSim` | @tirbase-sim-team | Seeded simulator entry point (CLAIM-38.1) is exercised by `tirbase-sim` integration tests only | v0.3.0 |
+| `tirbase_sim::DEFAULT_SCENARIO_NODES` | @tirbase-sim-team | Default scenario sizing constant (CLAIM-38.1) belongs to the simulator's own test harness | v0.3.0 |
+| `tirbase_sim::DEFAULT_SCENARIO_MESSAGES_PER_TICK` | @tirbase-sim-team | Default scenario traffic constant (CLAIM-38.1) belongs to the simulator's own test harness | v0.3.0 |
 | `tirbase_types::deserialize` | @tirbase-core-team | No source reference from any other workspace crate; helper module currently unused | v0.3.0 |
 | `tirbase_types::fixed_point` | @tirbase-core-team | No source reference from any other workspace crate; public items are re-exported at the crate root and the remaining error variants are unused | v0.3.0 |
 | `tirbase_types::units` | @tirbase-core-team | No source reference from any other workspace crate; unit constants are consumed through `UnitId`/`UnitDescriptor` rather than by name | v0.3.0 |

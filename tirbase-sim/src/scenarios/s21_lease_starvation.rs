@@ -1,7 +1,8 @@
 //! Scenario S21 — Lease starvation (Task 21.14, CLAIM-21.14, PV-5.8a, INV-13).
 
-#[test]
-fn s21_consecutive_renewal_cap_cooldown_preemption_and_revocation_release() {
+/// S21 — the consecutive-renewal cap triggers cooldown, another issuer can
+/// acquire the lease, and revocation releases all of the issuer's leases.
+pub fn run_s21(_seed: u64) -> Result<(), String> {
     use rusqlite::Connection;
     use tirbase_gateway::db::single_writer_leases::{
         acquire_tx, create_table, preempt_tx, release_all_for_issuer_did,
@@ -76,4 +77,15 @@ fn s21_consecutive_renewal_cap_cooldown_preemption_and_revocation_release() {
         release_all_for_issuer_did(&c, "did:replacement").unwrap(),
         1
     );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn s21_lease_starvation_cooldown() {
+        run_s21(1).expect("S21");
+    }
 }

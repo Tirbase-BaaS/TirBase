@@ -1,0 +1,8 @@
+# Adversary scenario 23 — Time-Anchor Poisoning
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S23"
+title = "Time-Anchor Poisoning"
+seeds = 32
+ticks = 16
+requirements = ["PV-22.5", "PV-12.8"]
+guards = ["max_forward_jump_quorum"]

@@ -1,0 +1,8 @@
+# Adversary scenario 31 — Clock Rollback Across Reboot
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S31"
+title = "Clock Rollback Across Reboot"
+seeds = 32
+ticks = 16
+requirements = ["PV-22.4"]
+guards = ["boot_id_ratchet_floor"]

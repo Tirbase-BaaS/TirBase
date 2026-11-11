@@ -9,6 +9,55 @@
 pub mod dag;
 pub mod delta;
 pub(crate) mod hardening;
+#[doc(hidden)]
+pub use hardening::{CheapCheckRejection, CheapCheckStage};
+
+/// Narrow driver around the production inbound hardening gate.
+///
+/// The adversary simulator (task 39) must exercise the real receive-path gate
+/// rather than a reimplementation.  Only the cheap-check entry point and its
+/// per-sender rejection counter are exposed here; the rest of
+/// [`hardening::InboundHardening`] stays crate-private.
+#[doc(hidden)]
+pub struct InboundGate(hardening::InboundHardening);
+
+impl Default for InboundGate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InboundGate {
+    pub fn new() -> Self {
+        Self(hardening::InboundHardening::new())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn cheap_checks_first(
+        &mut self,
+        delta: &delta::Delta,
+        sender_over_budget: bool,
+        max_bytes: usize,
+        max_ops: u64,
+        is_batch: bool,
+        now_mono: u64,
+        now_wall: i64,
+    ) -> Result<(), CheapCheckRejection> {
+        self.0.cheap_checks_first(
+            delta,
+            sender_over_budget,
+            max_bytes,
+            max_ops,
+            is_batch,
+            now_mono,
+            now_wall,
+        )
+    }
+
+    pub fn rate_sender_rejections(&self, sender: &str) -> u32 {
+        self.0.rate_sender_rejections(sender)
+    }
+}
 pub mod inbound_caps;
 pub mod memory_budget;
 pub mod merge;
@@ -395,7 +444,7 @@ impl CrdtEngine {
     /// Idempotent. Called by the inbound revocation pipeline when a validated
     /// `RevocationDelta` crosses its M-of-N threshold
     /// (`CoreHandle::receive_inbound` / `receive_inbound_wasm`).
-    pub(crate) fn mark_did_revoked(&mut self, did: &Did) {
+    pub fn mark_did_revoked(&mut self, did: &Did) {
         self.revoked_dids.insert(did.clone());
     }
 

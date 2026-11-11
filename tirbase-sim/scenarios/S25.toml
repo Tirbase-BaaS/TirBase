@@ -1,0 +1,8 @@
+# Adversary scenario 25 — Quarantine Flush
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S25"
+title = "Quarantine Flush"
+seeds = 32
+ticks = 16
+requirements = ["PV-6.7", "PV-12.8"]
+guards = ["per_sender_quarantine_quota"]

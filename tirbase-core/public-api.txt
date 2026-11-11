@@ -3562,6 +3562,7 @@ pub fn tirbase_core::crdt::CrdtEngine::apply(&mut self, &tirbase_core::crdt::del
 pub fn tirbase_core::crdt::CrdtEngine::configure_hardening_derived_db(&mut self, impl core::convert::AsRef<std::path::Path>)
 pub fn tirbase_core::crdt::CrdtEngine::doc_map_range_root(&self) -> alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>
 pub fn tirbase_core::crdt::CrdtEngine::lamport(&self) -> u64
+pub fn tirbase_core::crdt::CrdtEngine::mark_did_revoked(&mut self, &tirbase_core::crdt::delta::Did)
 pub fn tirbase_core::crdt::CrdtEngine::new([u8; 32], [u8; 32], tirbase_core::crdt::delta::Did, tirbase_core::schema::hash::SchemaIdentifierHash, alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
 pub fn tirbase_core::crdt::CrdtEngine::produce_delta(&mut self, alloc::vec::Vec<u8>, tirbase_core::crdt::delta::PriorityClass, alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>) -> core::result::Result<tirbase_core::crdt::delta::Delta, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::CrdtEngine::project_table_to_store(&self, &str, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>

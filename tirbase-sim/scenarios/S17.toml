@@ -1,0 +1,8 @@
+# Adversary scenario 17 — Cross-Role Attempt
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S17"
+title = "Cross-Role Attempt"
+seeds = 32
+ticks = 8
+requirements = ["PV-3.2", "PV-3.3"]
+guards = ["token_role_binding"]

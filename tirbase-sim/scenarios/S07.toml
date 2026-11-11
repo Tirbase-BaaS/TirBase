@@ -1,0 +1,8 @@
+# Adversary scenario 7 — Policy Loosening Without M-of-N
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S7"
+title = "Policy Loosening Without M-of-N"
+seeds = 32
+ticks = 8
+requirements = ["PV-4.10"]
+guards = ["policy_quorum_timelock"]

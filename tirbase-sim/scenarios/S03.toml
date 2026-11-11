@@ -1,0 +1,8 @@
+# Adversary scenario 3 — Replay Attack
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S3"
+title = "Replay Attack"
+seeds = 32
+ticks = 16
+requirements = ["PV-5.5"]
+guards = ["anti_replay/idempotency"]

@@ -1,0 +1,8 @@
+# Adversary scenario 35 — Driver fd Leakage
+# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+id = "S35"
+title = "Driver fd Leakage"
+seeds = 32
+ticks = 4
+requirements = ["PV-4.21", "PV-10.4"]
+guards = ["seccomp_scm_rights_deny"]
