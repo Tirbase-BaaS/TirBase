@@ -1,0 +1,1012 @@
+openapi: 3.1.0
+info:
+  title: TirBase Gateway Admin API
+  version: "1.0.0"
+  description: |
+    Administrative API for a TirBase edge gateway (PV-11.2, task 36).
+
+    ## Transports and authentication
+
+    * **Local listener** — `/run/tirbase/admin.sock` (configurable via
+      `admin_socket`). Authenticated by kernel peer credentials
+      (`SO_PEERCRED` on Linux/Android, `getpeereid(2)` on the BSD family):
+      only root or the gateway's own UID may connect. Local callers are
+      trusted for privileged operations. No mTLS is used on the local socket,
+      because kernel peer credentials are strictly stronger than a local TLS
+      handshake.
+    * **Remote listener** — optional, explicitly configured via
+      `admin_remote_addr` plus `admin_remote_cert_path`, `admin_remote_key_path`
+      and `admin_remote_client_ca_path`. Remote admin is **mTLS-only**: a client
+      that does not present a certificate chaining to the configured client CA
+      is rejected during the TLS handshake. Remote callers must additionally
+      present a scoped Biscuit token (`Authorization: Bearer <hex>`), because a
+      client certificate proves transport identity but not an admin role.
+
+    ## Responses
+
+    Every endpoint returns a JSON object with a `status` field mirroring the
+    HTTP status and, on error, a stable `code` plus human-readable `error`.
+    An endpoint whose runtime state is not configured in this process returns
+    `503` with code `ADMIN_STATE_UNCONFIGURED`; it never returns `501`.
+
+    ## Remote-only credential requirements
+
+    | Caller | Requirement |
+    |---|---|
+    | Local socket | Kernel peer credential (root or gateway UID) |
+    | Remote | Valid mTLS client certificate **and** a Bearer Biscuit token |
+    | Cross-issuer status details | `Auditor` or `PolicyAuthority` role |
+    | Mint / rotate / restore / time-reset / quarantine-replay | `Auditor` or `PolicyAuthority` (remote) |
+
+    ## Cloud ingress
+
+    The gateway never accepts inbound cloud connections. Task 36.6 is enforced
+    by configuration: there is no inbound cloud listener setting; the gateway
+    dials `cloud_endpoint` outbound over TLS only.
+servers:
+  - url: http://localhost
+    description: Remote admin mTLS listener (HTTP/1.1 over TLS)
+security:
+  - LocalPeerCredential: []
+  - RemoteAdminCredential: []
+tags:
+  - name: enrollment
+  - name: tokens
+  - name: keys
+  - name: policy
+  - name: events
+  - name: commands
+  - name: mode
+  - name: recovery
+  - name: status
+  - name: operations
+paths:
+  /admin/enroll:
+    post:
+      tags: [enrollment]
+      operationId: enrollDevice
+      summary: Enroll a device (task 36.3a)
+      description: |
+        Delegates to the device enrollment flow (task 8.6). Remote callers must
+        include a PolicyAuthority-signed `delegation` bound to the device DID,
+        requested role and bootstrap nonce. The bootstrap itself must carry a
+        fresh one-time nonce and a signature by the device key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentRequest'
+      responses:
+        '200':
+          description: Device enrolled and a scoped token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: Remote enrollment without a PolicyAuthority delegation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Nonce reuse, invalid identity, or an invalid/mismatched delegation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/mint:
+    post:
+      tags: [tokens]
+      operationId: mintToken
+      summary: Mint a scoped Biscuit token (task 36.3b)
+      description: |
+        Maximum lifetime is 86,400 seconds. A request with `ttl_secs > 86400`
+        is rejected with `409 MINT_TTL_EXCEEDED` before any token is minted.
+        Remote callers require an Auditor or PolicyAuthority credential.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [did, role, ttl_secs]
+              properties:
+                did: { type: string }
+                role:
+                  type: string
+                  enum: [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
+                ttl_secs:
+                  type: integer
+                  minimum: 3600
+                  maximum: 86400
+      responses:
+        '200':
+          description: Token minted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  token_hex: { type: string, description: Hex-encoded Biscuit token }
+                  did: { type: string }
+                  role: { type: string }
+                  ttl_secs: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: TTL exceeds 86,400 seconds or minting failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/rotate:
+    post:
+      tags: [keys]
+      operationId: rotateKey
+      summary: Rotate the device identity key (task 36.3c)
+      description: |
+        Delegates to the configured KeyProvider rotation backend. The previous
+        identity is backed up; the running process keeps serving until the next
+        reload/restart. Remote callers require an Auditor or PolicyAuthority
+        credential.
+      responses:
+        '200':
+          description: Key rotated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  outcome: { type: string, const: key_rotated }
+                  old_did: { type: [string, 'null'] }
+                  new_did: { type: string }
+                  new_public_key_hex: { type: string }
+                  backup_path: { type: [string, 'null'] }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500':
+          description: Rotation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/policy:
+    post:
+      tags: [policy]
+      operationId: pushPolicy
+      summary: Push a policy bundle (task 36.3d)
+      description: |
+        Delegates to the policy lifecycle (task 12.x). Tightening and loosening
+        are both accepted only when signed by the PolicyAuthority; the guard
+        always re-computes classification and never trusts the bundle's declared
+        `kind`. Unsigned bundles are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bundle: { $ref: '#/components/schemas/PolicyBundle' }
+      responses:
+        '200':
+          description: Tightening applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  outcome: { type: string, const: tightening_applied }
+                  version: { type: integer }
+        '202':
+          description: Loosening accepted and pending its timelock/M-of-N
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Unsigned or rejected bundle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/events:
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: Inspect security events (task 36.3e)
+      description: |
+        Paginated query over the hash-chained security event log. The view
+        window defaults to 7 days (`admin_events_view_days`) and is bounded by
+        the configured retention window (PV-7.13). `limit` is capped by
+        `admin_events_page_size`.
+      parameters:
+        - { in: query, name: since_est, schema: { type: integer }, description: Inclusive lower bound (Unix seconds) }
+        - { in: query, name: until_est, schema: { type: integer }, description: Inclusive upper bound (Unix seconds) }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: offset, schema: { type: integer, minimum: 0 } }
+        - { in: query, name: category, schema: { type: string } }
+        - { in: query, name: severity, schema: { type: string, enum: [Low, Medium, High, Critical] } }
+      responses:
+        '200':
+          description: Events in the requested window
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  window_start_est: { type: integer }
+                  window_end_est: { type: integer }
+                  view_window_days: { type: integer, const: 7 }
+                  offset: { type: integer }
+                  limit: { type: integer }
+                  total: { type: integer }
+                  events:
+                    type: array
+                    items: { $ref: '#/components/schemas/SecurityEvent' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/simulate:
+    post:
+      tags: [commands]
+      operationId: simulateCommand
+      summary: Dry-run a command (task 36.3f)
+      description: |
+        Runs the guard pipeline without actuation and without consuming Stage 0
+        rate-limit tokens, Stage 9 nonce state, or Stage 14 token state. Returns
+        the rejection reason when the command would be rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command: { $ref: '#/components/schemas/CommandMessage' }
+                biscuit_token_hex: { type: string }
+                source_key: { type: string }
+                now_est_secs: { type: integer }
+      responses:
+        '200':
+          description: Simulation result (`simulated` is always true)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  simulated: { type: boolean, const: true }
+                  would_accept: { type: boolean }
+                  code: { type: string }
+                  detail: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/challenge:
+    post:
+      tags: [commands]
+      operationId: challengeNonce
+      summary: Issue or consume a challenge nonce (task 36.3g, INV-9)
+      description: |
+        Issues a single-use nonce for a critical parameter while freshness is
+        `Unverified`. Multiple outstanding nonces are allowed, one per unique
+        command hash; issuance is rate-limited per device/target/param/minute.
+        Supplying `nonce_hex` and `issuer_did` consumes the nonce exactly once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [param]
+              properties:
+                target_id: { type: string }
+                target: { type: string, description: Alias for target_id }
+                param: { type: string }
+                issuer_did: { type: string }
+                nonce_hex: { type: string, description: Supply to consume an issued nonce }
+      responses:
+        '200':
+          description: Nonce issued or consumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  outcome: { type: string, enum: [challenge_issued, challenge_consumed] }
+                  nonce_hex: { type: string }
+                  one_time_use: { type: boolean }
+        '409':
+          description: Freshness is not Unverified, parameter is not critical, or nonce invalid/consumed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: Challenge issuance rate limited
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/mode:
+    get:
+      tags: [mode]
+      operationId: getMode
+      summary: Current NodeMode (task 36.3h)
+      responses:
+        '200':
+          description: Current operational mode
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  mode:
+                    type: string
+                    enum: [Starting, Normal, Degraded, Restricted, Lockdown]
+                  allows_commands: { type: boolean }
+                  allows_mesh_sync: { type: boolean }
+                  allows_log_export: { type: boolean }
+                  lockdown_persisted: { type: boolean }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/lockdown-exit:
+    post:
+      tags: [recovery]
+      operationId: exitLockdown
+      summary: Exit LOCKDOWN with M-of-N co-signatures (task 36.3i, INV-5)
+      description: |
+        Requires a domain-separated SignedOperation carrying co-signatures from
+        at least two distinct roles; M below 2 is rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload: { $ref: '#/components/schemas/LockdownExitPayload' }
+      responses:
+        '200':
+          description: LOCKDOWN exited; mode is Normal
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Missing, invalid, or insufficient co-signatures
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/chain-recovery:
+    post:
+      tags: [recovery]
+      operationId: chainRecovery
+      summary: Recover from a broken hash chain (task 36.3j, INV-4)
+      description: Exits Restricted mode only with a valid PolicyAuthority signature over the recovery payload.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload: { $ref: '#/components/schemas/ChainRecoveryPayload' }
+      responses:
+        '200':
+          description: Recovery applied
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Unsigned or invalid recovery
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/status/{issuer_did}:
+    get:
+      tags: [status]
+      operationId: issuerStatus
+      summary: Guard status for an issuer (tasks 36.3k / 36.7, PV-24.3)
+      description: |
+        Returns the issuer's anti-replay window positions, per-issuer rate-limit
+        token state, and SingleWriterLease state for each target held by that
+        issuer. An issuer may always query its own state. Fine-grained details
+        for another issuer require an Auditor or PolicyAuthority credential.
+      parameters:
+        - in: path
+          name: issuer_did
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Current status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  issuer_did: { type: string }
+                  self_query: { type: boolean }
+                  privileged: { type: boolean }
+                  anti_replay:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        target_id: { type: string }
+                        enrollment_epoch: { type: integer }
+                        highest_seen: { type: integer }
+                        window_position: { type: integer }
+                        seen_bitmap_u64: { type: integer }
+                        forward_gap: { type: integer }
+                  rate_limit:
+                    type: [object, 'null']
+                    properties:
+                      available_tokens: { type: number }
+                      capacity: { type: number }
+                      refill_per_sec: { type: integer }
+                      bucket_initialised: { type: boolean }
+                  leases:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        target_id: { type: string }
+                        holder_issuer_did: { type: string }
+                        expires_mono: { type: integer }
+                        consecutive_renewals: { type: integer }
+                        cooldown_until_mono: { type: [integer, 'null'] }
+                        held: { type: boolean }
+        '401':
+          description: Remote caller without a scoped credential
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Cross-issuer details without an Auditor/PolicyAuthority credential
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/sequence-reset:
+    post:
+      tags: [operations]
+      operationId: sequenceReset
+      summary: Reset an anti-replay window baseline (task 36.3l)
+      description: PolicyAuthority-signed reset for issuer re-enrollment or sequence wrap-around.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload:
+                  type: object
+                  required: [issuer_did, target_id]
+                  properties:
+                    issuer_did: { type: string }
+                    target_id: { type: string }
+                    enrollment_epoch: { type: integer }
+                    new_baseline_sequence: { type: integer }
+                    requested_at_est: { type: integer }
+                    reason: { type: string }
+      responses:
+        '200':
+          description: Baseline verified and applied
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Missing or invalid PolicyAuthority signature
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/lease-preempt:
+    post:
+      tags: [operations]
+      operationId: leasePreempt
+      summary: Force-release/reassign a SingleWriterLease (task 36.3l)
+      description: Joint RevocationManager + PolicyAuthority operation (PV-5.8a).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, request]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                request:
+                  type: object
+                  required: [target_id]
+                  properties:
+                    target_id: { type: string }
+                    new_issuer_did: { type: string }
+                    lease_duration_secs: { type: integer }
+      responses:
+        '200':
+          description: Lease preempted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Missing PA/RM co-signature
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/quarantine-replay:
+    post:
+      tags: [operations]
+      operationId: quarantineReplay
+      summary: Replay a quarantined delta (task 36.3l)
+      description: PolicyAuthority-signed replay of a `schema_quarantine` entry. Marks the entry replayed and re-injects the delta into the core pipeline when it parses.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload:
+                  type: object
+                  required: [entry_id_hex, reason]
+                  properties:
+                    entry_id_hex: { type: string }
+                    reason: { type: string }
+      responses:
+        '200':
+          description: Entry replayed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '404':
+          description: No such quarantine entry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Missing or invalid PolicyAuthority signature
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/time-reset:
+    post:
+      tags: [operations]
+      operationId: timeReset
+      summary: Operator time reset with M-of-N TimeAnchors (task 36.3l)
+      description: |
+        The only operation that may move the authenticated-time ratchet
+        backwards (e.g. recovery from a corrupted clock). Requires at least two
+        distinct TimeAnchor signatures; the new record is durable before it is
+        applied.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload:
+                  type: object
+                  required: [new_floor_secs, reason, reset_id]
+                  properties:
+                    new_floor_secs: { type: integer }
+                    reason: { type: string }
+                    reset_id:
+                      type: array
+                      minItems: 16
+                      maxItems: 16
+                      items: { type: integer }
+      responses:
+        '200':
+          description: Reset installed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Missing TimeAnchor quorum or invalid signature
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/unknown-clear:
+    post:
+      tags: [operations]
+      operationId: clearUnknown
+      summary: Clear an Unknown ledger entry (task 36.3l)
+      description: PolicyAuthority-signed operator clear; advances Unknown to Failed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, request]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                request:
+                  type: object
+                  required: [entry_id_hex]
+                  properties:
+                    entry_id_hex: { type: string }
+      responses:
+        '200':
+          description: Entry cleared to Failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '404':
+          description: No Unknown entry with that id
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Missing or invalid PolicyAuthority signature
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/restore:
+    post:
+      tags: [operations]
+      operationId: restoreDevice
+      summary: Restore a device state and increment its epoch (task 36.3l)
+      description: |
+        Joint PolicyAuthority + RevocationManager operation. Restoring from a
+        backup increments the enrollment epoch so prior-epoch commands are
+        rejected (RD-2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload:
+                  type: object
+                  required: [device_id, backup_id, reason]
+                  properties:
+                    device_id: { type: string }
+                    backup_id: { type: string }
+                    reason: { type: string }
+      responses:
+        '200':
+          description: Restored and epoch incremented
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  epoch: { type: integer }
+                  outcome: { type: string, const: restored_and_epoch_incremented }
+        '409':
+          description: Missing PA/RM co-signature or epoch sequence mismatch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/epoch-bump:
+    post:
+      tags: [operations]
+      operationId: epochBump
+      summary: Bump a device enrollment epoch (task 36.3l)
+      description: Joint PolicyAuthority + RevocationManager operation (task 8.8); prior-epoch commands are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operation, payload]
+              properties:
+                operation: { $ref: '#/components/schemas/SignedOperation' }
+                payload:
+                  type: object
+                  required: [device_id, previous_epoch, new_epoch, reason]
+                  properties:
+                    device_id: { type: string }
+                    previous_epoch: { type: integer }
+                    new_epoch: { type: integer }
+                    reason: { type: string }
+      responses:
+        '200':
+          description: Epoch bumped
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOutcome' }
+        '409':
+          description: Missing co-signature or epoch sequence mismatch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/Unconfigured' }
+
+  /admin/rollout-status:
+    get:
+      tags: [operations]
+      operationId: rolloutStatus
+      summary: Fleet rollout / self-update status (task 36.3l)
+      description: Reports the running gateway version, installed profile, node mode, and the self-update posture (currently BLOCKED on RD-6/RFC-tuf.md).
+      responses:
+        '200':
+          description: Rollout status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: integer, const: 200 }
+                  gateway_version: { type: string }
+                  node_mode:
+                    type: string
+                    enum: [Starting, Normal, Degraded, Restricted, Lockdown]
+                  profile_installed: { type: boolean }
+                  profile_id: { type: [string, 'null'] }
+                  profile_version: { type: [integer, 'null'] }
+                  device_class: { type: [string, 'null'] }
+                  self_update: { type: string, const: BLOCKED_PENDING_RFC_TUF }
+
+components:
+  securitySchemes:
+    LocalPeerCredential:
+      type: apiKey
+      in: header
+      name: X-TirBase-Local-Peer-Credential
+      description: |
+        Not a client-supplied header. The local Unix-socket listener
+        authenticates the connecting process with the kernel peer-credential
+        syscall (`SO_PEERCRED` on Linux/Android, `getpeereid(2)` on BSD/macOS)
+        and rejects any UID other than root or the gateway's own UID before
+        reading a request.
+    RemoteAdminCredential:
+      type: mutualTLS
+      description: |
+        Remote admin is mTLS-only. The TLS handshake requires a client
+        certificate chaining to `admin_remote_client_ca_path`. The caller must
+        also send `Authorization: Bearer <hex>` carrying a scoped Biscuit token
+        whose DID identifies the issuer and whose role governs privileged
+        operations.
+  responses:
+    BadRequest:
+      description: Malformed request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Credential present but insufficient for this operation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unconfigured:
+      description: Endpoint is wired but the required runtime state is absent in this process
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        status: { type: integer }
+        code: { type: string }
+        error: { type: string }
+        endpoint: { type: string }
+    OkOutcome:
+      type: object
+      properties:
+        status: { type: integer, const: 200 }
+        endpoint: { type: string }
+        outcome: { type: string }
+    SignedOperation:
+      type: object
+      description: Domain-separated, multi-signature wrapper (task 6.7).
+      required: [context_string, payload_hash, signatures, created_est]
+      properties:
+        context_string: { type: string }
+        payload_hash:
+          type: array
+          minItems: 32
+          maxItems: 32
+          items: { type: integer }
+        signatures:
+          type: array
+          items:
+            type: object
+            required: [signer_did, role, signature]
+            properties:
+              signer_did: { type: string }
+              role:
+                type: string
+                enum: [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
+              signature: { $ref: '#/components/schemas/DeviceSignature' }
+        created_est: { type: integer }
+        expires_est: { type: [integer, 'null'] }
+    DeviceSignature:
+      oneOf:
+        - type: object
+          required: [Ed25519]
+          properties:
+            Ed25519:
+              type: array
+              minItems: 64
+              maxItems: 64
+              items: { type: integer }
+        - type: object
+          required: [P256]
+          properties:
+            P256:
+              type: array
+              items: { type: integer }
+    CommandMessage:
+      type: object
+      required:
+        [issuer_did, role, target_id, param, desired_state, sequence_number,
+         idempotency_key, expiry_est, policy_version, enrollment_epoch, signature]
+      properties:
+        issuer_did: { type: string }
+        role:
+          type: string
+          enum: [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
+        target_id: { type: string }
+        param: { type: string }
+        desired_state: { $ref: '#/components/schemas/FixedPointValue' }
+        sequence_number: { type: integer, minimum: 0 }
+        idempotency_key:
+          type: array
+          minItems: 16
+          maxItems: 16
+          items: { type: integer }
+        expiry_est: { type: integer }
+        policy_version: { type: integer }
+        enrollment_epoch: { type: integer }
+        challenge_nonce:
+          type: [array, 'null']
+          minItems: 32
+          maxItems: 32
+          items: { type: integer }
+        co_signatures:
+          type: array
+          items:
+            type: object
+            properties:
+              signer_did: { type: string }
+              role: { type: string }
+              signature: { $ref: '#/components/schemas/DeviceSignature' }
+        signature: { $ref: '#/components/schemas/DeviceSignature' }
+    FixedPointValue:
+      type: object
+      required: [mantissa, exponent, unit_id]
+      properties:
+        mantissa: { type: integer, format: int64 }
+        exponent: { type: integer }
+        unit_id: { type: integer }
+    EnrollmentRequest:
+      type: object
+      required: [device_did, device_public_key, nonce, role, signature]
+      properties:
+        device_did: { type: string }
+        device_public_key:
+          type: array
+          minItems: 32
+          maxItems: 32
+          items: { type: integer }
+        nonce:
+          type: array
+          minItems: 32
+          maxItems: 32
+          items: { type: integer }
+        role:
+          type: string
+          enum: [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
+        signature: { $ref: '#/components/schemas/DeviceSignature' }
+        delegation:
+          type: object
+          description: Required for remote enrollment; PolicyAuthority-signed and bound to device DID + role + nonce.
+          required: [operation, payload]
+          properties:
+            operation: { $ref: '#/components/schemas/SignedOperation' }
+            payload:
+              type: object
+              required: [device_did, role, nonce]
+              properties:
+                device_did: { type: string }
+                role: { type: string }
+                nonce:
+                  type: array
+                  minItems: 32
+                  maxItems: 32
+                  items: { type: integer }
+    EnrollmentResponse:
+      type: object
+      properties:
+        status: { type: integer, const: 200 }
+        device_id: { type: string }
+        epoch: { type: integer }
+        token_hex: { type: string }
+        token_ttl_secs: { type: integer }
+    PolicyBundle:
+      type: object
+      description: Opaque policy bundle (task 12.1); signed by PolicyAuthority co-signatures.
+      additionalProperties: true
+    SecurityEvent:
+      type: object
+      properties:
+        seq: { type: integer }
+        segment_id: { type: integer }
+        category: { type: string }
+        severity: { type: string }
+        actor_did: { type: [string, 'null'] }
+        target: { type: [string, 'null'] }
+        reason_code: { type: string }
+        best_effort_wall_time: { type: integer }
+        time_source_flag: { type: string }
+        prev_hash:
+          type: array
+          items: { type: integer }
+        checkpoint_signature: { $ref: '#/components/schemas/DeviceSignature' }
+        checkpoint_hash:
+          type: array
+          items: { type: integer }
+    LockdownExitPayload:
+      type: object
+      required: [node_id, issued_at_est, reason, envelope_profile_id]
+      properties:
+        node_id: { type: string }
+        issued_at_est: { type: integer }
+        reason: { type: string }
+        envelope_profile_id:
+          type: array
+          minItems: 16
+          maxItems: 16
+          items: { type: integer }
+    ChainRecoveryPayload:
+      type: object
+      required: [recovery_id, first_broken_seq, acknowledged_tamper_seq, new_segment_id, operator_reason]
+      properties:
+        recovery_id:
+          type: array
+          minItems: 16
+          maxItems: 16
+          items: { type: integer }
+        first_broken_seq: { type: integer }
+        acknowledged_tamper_seq: { type: integer }
+        new_segment_id: { type: integer }
+        operator_reason: { type: string }

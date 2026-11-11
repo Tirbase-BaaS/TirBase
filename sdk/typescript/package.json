@@ -1,0 +1,22 @@
+{
+  "name": "@tirbase/gateway-admin-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK generated from TirBase gateway admin OpenAPI 3.1 definition (CLAIM-49.1/49.2).",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "src/",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "generate": "node ../../scripts/generate-gateway-sdk.mjs",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}
