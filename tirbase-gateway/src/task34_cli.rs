@@ -195,3 +195,24 @@ pub fn run_register_map_check(path: &PathBuf) -> Result<()> {
     }
     Ok(())
 }
+
+
+/// Report 7-day rolling average and projected durable write bytes/day at the
+/// Linux block layer (PV-15.4, CLAIM-44.6).
+pub fn run_flash_wear_estimate(data_path: &PathBuf, budget_bytes_per_day: u64) -> Result<()> {
+    let est = crate::flash_budget::estimate_for_data_path(data_path.as_path(), budget_bytes_per_day);
+    println!(
+        "FLASH_WEAR_ESTIMATE:block_device={} supported={} budget_bytes_per_day={} today_bytes={} projected_bytes_per_day={} rolling_7d_avg_bytes_per_day={} throttling_active={} group_commit_window_ms={} high_critical_bypass={}",
+        est.block_device.as_deref().unwrap_or("none"),
+        est.block_layer_supported,
+        est.budget_bytes_per_day,
+        est.today_bytes,
+        est.projected_bytes_per_day,
+        est.rolling_7d_avg_bytes_per_day,
+        est.throttling_active,
+        est.group_commit_window_ms,
+        est.high_critical_bypass
+    );
+    println!("{}", serde_json::to_string_pretty(&est).context("serialize flash-wear estimate")?);
+    Ok(())
+}

@@ -59,6 +59,8 @@ pub mod network;
 pub mod runner;
 /// Adversary scenarios S1–S35 (tasks 39.2–39.4, CLAIM-39.2/39.3/39.4).
 pub mod scenarios;
+/// Virtual-time soak harness (72h simulated, fault injection — CLAIM-45.1).
+pub mod soak;
 /// Simulation runtime: `SimClock`, `SimNode`, scenario harness (CLAIM-38.2).
 pub mod sim;
 
@@ -81,6 +83,10 @@ pub use runner::{
 pub use sim::{
     install_faults, seeded_rng, ScenarioReport, SimClock, SimError, SimNode, TickGuard,
     DEFAULT_TICK_MS, SIM_EPOCH_SECS,
+};
+pub use soak::{
+    run_ci_72h_soak, run_soak, SoakConfig, SoakError, SoakReport, DEFAULT_SOAK_TICK_MS,
+    SOAK_DURATION_SECS,
 };
 
 /// Number of nodes in a default seeded scenario.

@@ -152,6 +152,16 @@ fn main() -> Result<()> {
             })?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
+        "flash-wear-estimate" => {
+            let data_path = one(&flags, "data-path")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::path::PathBuf::from("/var/lib/tirbase/primary.db"));
+            let budget: u64 = one(&flags, "budget-bytes-per-day")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(tirbase_gateway::flash_budget::DEFAULT_FLASH_BUDGET_BYTES_PER_DAY);
+            let est = tirbase_gateway::flash_budget::estimate_for_data_path(&data_path, budget);
+            println!("{}", serde_json::to_string_pretty(&est)?);
+        }
         "help" | "--help" | "-h" => print_usage(),
         other => {
             print_usage();

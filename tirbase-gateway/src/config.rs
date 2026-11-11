@@ -271,6 +271,17 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub local_admin_command_addr: Option<std::net::SocketAddr>,
 
+    /// PV-15.4 (CLAIM-44.5/44.6): daily flash-write budget measured at the Linux
+    /// block layer for the device backing durable gateway data. Default 100 MB/day.
+    /// `HIGH` and `CRITICAL` SecurityEvents always bypass budget/throttling.
+    #[serde(default = "default_flash_budget_bytes_per_day")]
+    pub flash_budget_bytes_per_day: u64,
+
+    /// PV-15.4: path whose backing block device is sampled for flash-write
+    /// accounting (defaults to `counter_db_path` / primary data location).
+    #[serde(default)]
+    pub flash_budget_data_path: Option<PathBuf>,
+
     /// Cloud-anchor endpoint that receives checkpoint-hash reports and returns
     /// signed acknowledgements (26.7a, PV-7.10). `None` disables cloud
     /// anchoring. Must be set together with `cloud_anchor_did` and
@@ -400,6 +411,9 @@ impl GatewayConfig {
             bail!(
                 "gateway config schema validation failed: cloud_reconnect_initial_secs must not exceed cloud_max_reconnect_delay_secs"
             );
+        }
+        if self.flash_budget_bytes_per_day == 0 {
+            bail!("gateway config schema validation failed: flash_budget_bytes_per_day must be >= 1");
         }
         let cloud_anchor_settings = [
             self.cloud_anchor_endpoint.is_some(),
@@ -650,6 +664,10 @@ fn default_enrollment_nonce_retention_secs() -> i64 {
 }
 fn default_cloud_anchor_interval_secs() -> u64 {
     60
+}
+
+fn default_flash_budget_bytes_per_day() -> u64 {
+    100 * 1024 * 1024
 }
 
 fn default_enrollment_nonce_capacity() -> usize {

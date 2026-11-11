@@ -374,6 +374,12 @@ pub enum ReasonCode {
     /// Oldest signed segment archived/removed by retention rotation (PV-7.13, CLAIM-28.2).
     LogRotated,
 
+    // Flash budget / storage wear (PV-15.4, CLAIM-44.5/44.6)
+    /// Non-critical write throttling activated because projected daily block writes exceed budget.
+    FlashBudgetThrottlingActivated,
+    /// Flash-wear throttling deactivated (within budget).
+    FlashBudgetThrottlingDeactivated,
+
     // Startup / Diagnostic
     /// Gateway startup completed.
     BootCompleted,
@@ -514,6 +520,8 @@ impl ReasonCode {
             ReasonCode::SyncFailure => "SyncFailure",
             ReasonCode::SyncRateLimitReached => "SyncRateLimitReached",
             ReasonCode::LogRotated => "LogRotated",
+            ReasonCode::FlashBudgetThrottlingActivated => "FlashBudgetThrottlingActivated",
+            ReasonCode::FlashBudgetThrottlingDeactivated => "FlashBudgetThrottlingDeactivated",
 
             ReasonCode::BootCompleted => "BootCompleted",
             ReasonCode::LockdownFlagFound => "LockdownFlagFound",
@@ -843,3 +851,6 @@ mod tests {
         assert_eq!(Severity::High.as_str(), "HIGH");
     }
 }
+
+// Additional reason codes used by flash-wear budget/throttle (PV-15.4, CLAIM-44.5/44.6).
+// NOTE: variants appended via source edit below in separate patch; keep marker.

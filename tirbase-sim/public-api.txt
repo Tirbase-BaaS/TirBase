@@ -4594,3 +4594,12 @@ pub fn tirbase_sim::install_faults(&mut tirbase_sim::network::SimNetwork, &[tirb
 pub fn tirbase_sim::load_scenario_dir(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::load_scenario_file(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_sim::runner::ScenarioSpec, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::seeded_rng(u64) -> rand_chacha::chacha::ChaCha8Rng
+
+pub mod tirbase_sim::soak
+pub use tirbase_sim::run_ci_72h_soak
+pub use tirbase_sim::run_soak
+pub use tirbase_sim::SoakConfig
+pub use tirbase_sim::SoakError
+pub use tirbase_sim::SoakReport
+pub use tirbase_sim::DEFAULT_SOAK_TICK_MS
+pub use tirbase_sim::SOAK_DURATION_SECS

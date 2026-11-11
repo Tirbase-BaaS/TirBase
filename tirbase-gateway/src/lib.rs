@@ -18,6 +18,7 @@ pub mod command_ingress;
 pub mod config;
 pub mod db;
 pub mod event_batcher;
+pub mod flash_budget;
 pub mod guard;
 pub mod health;
 pub mod hw_counter_binding;

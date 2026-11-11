@@ -4742,6 +4742,10 @@ dependencies = [
 name = "tirbase-demo"
 version = "0.1.0"
 dependencies = [
+ "tempfile",
+ "tirbase-core",
+ "tirbase-gateway",
+ "tirbase-guard",
  "tirbase-sim",
  "tirbase-types",
 ]

@@ -319,5 +319,6 @@ Non-security informational events and startup warnings (PV-4.15, PV-3.4).
 | SingleRootCaKey | Only one root CA key configured (k=1); startup warning emitted | Medium | Planned | PV-3.4 |
 | SingleRevocationManager | M=1 revocation configured; startup warning emitted | Medium | Planned | PV-20.4 |
 | LongLivedToken | Token with TTL > recommended maximum detected at mint time | Low | Planned | PV-20.5 |
-| FlashBudgetExceeded | Projected daily flash writes exceed configured budget; throttling enabled | Medium | Planned | PV-15.4 |
+| FlashBudgetThrottlingActivated | Non-critical write throttling activated: projected daily block-layer writes exceed configured budget | Medium | Implemented | PV-15.4 |
+| FlashBudgetThrottlingDeactivated | Flash-wear throttling deactivated: projected writes within budget | Low | Implemented | PV-15.4 |
 | WatchdogKeepalive | Dedicated health-loop task sent sd_notify WATCHDOG=1 | Low | Planned | PV-4.15 |

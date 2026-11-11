@@ -502,6 +502,27 @@ async fn main() -> Result<()> {
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     let _retention_handle = security_log.spawn_retention_rotation_loop();
 
+    // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
+    // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
+    // throttling and are written immediately.
+    let flash_budget_path = config
+        .flash_budget_data_path
+        .clone()
+        .unwrap_or_else(|| config.counter_db_path.clone());
+    let flash_budget = tirbase_gateway::flash_budget::FlashBudgetController::new(
+        flash_budget_path,
+        config.flash_budget_bytes_per_day,
+    );
+    flash_budget.attach_security_log(security_log.clone());
+    let flash_budget = flash_budget.install_global();
+    let _flash_budget_handle = flash_budget.spawn();
+    tracing::info!(
+        block_device = ?flash_budget.estimate().block_device,
+        block_layer_supported = flash_budget.estimate().block_layer_supported,
+        budget_bytes_per_day = flash_budget.budget_bytes_per_day(),
+        "flash-write budget tracker started (CLAIM-44.5/44.6)"
+    );
+
     let trust_root = install_trust_root(&config, &mut ratchet, time_source.as_ref())?;
     let root_ca_registry = build_root_ca_registry(trust_root.as_deref())?;
     if let (Some(registry), Some(token_path)) =

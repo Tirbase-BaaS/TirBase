@@ -21,6 +21,7 @@ pub const REQUIRED_SUBCOMMANDS: &[&str] = &[
     "verify-log",
     "rollout",
     "restore",
+    "flash-wear-estimate",
 ];
 
 pub fn cli_commands() -> Vec<CommandSpec> {
@@ -34,5 +35,6 @@ pub fn cli_commands() -> Vec<CommandSpec> {
         CommandSpec { name: "verify-log", about: "Verify hash-chained security log; exit 0 intact, non-zero with broken ranges (CLAIM-27.4)" },
         CommandSpec { name: "rollout", about: "Staged rollout status and signed rollback (CLAIM-30.8, PV-8.9)" },
         CommandSpec { name: "restore", about: "Restore primary DB from backup, replay delta log, signed epoch bump, enter LOCKDOWN (CLAIM-32.3, S22)" },
+        CommandSpec { name: "flash-wear-estimate", about: "Report 7-day rolling average/projected durable writes at Linux block layer (CLAIM-44.6, PV-15.4)" },
     ]
 }
