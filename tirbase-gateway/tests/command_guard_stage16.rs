@@ -13,7 +13,8 @@ use tirbase_core::traits::{KeyProvider, TimeSource};
 use tirbase_gateway::guard::SqliteStage16Store;
 use tirbase_guard::admit::{AdmitContext, AdmitPipelineState};
 use tirbase_guard::commit::{
-    commit_dispatch_finalize, stage17_rejection, Stage16Error, Stage16Request, Stage16Store,
+    commit_dispatch_finalize, stage17_rejection, FinalizeContext, Stage16Error, Stage16Request,
+    Stage16Store,
 };
 use tirbase_guard::driver_proxy::{DriverProxy, IngressSource};
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
@@ -44,7 +45,7 @@ impl TimeRatchetStore for S {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -61,10 +62,7 @@ fn tmpdb(name: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!(
         "tg15-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
@@ -219,14 +217,16 @@ fn claim_15_4_15_5_stage18_dispatch_after_commit_stage19_finalize_releases_lease
     let v = commit_dispatch_finalize(
         &store,
         &cmd,
-        entry_id,
-        100,
-        1000,
-        100,
+        FinalizeContext {
+            entry_id,
+            actuating_ts: 100,
+            now_est: 1000,
+            now_mono_secs: 100,
+            completion_ts: 101,
+        },
         &mut proxy,
         b"ACT",
         &mut driver,
-        101,
     );
     assert_eq!(v["status"], "accepted");
     assert_eq!(v["terminal_state"], "Complete");
@@ -253,14 +253,16 @@ fn claim_15_5_driver_timeout_results_in_unknown() {
     let v = commit_dispatch_finalize(
         &store,
         &cmd,
-        entry_id,
-        100,
-        1000,
-        100,
+        FinalizeContext {
+            entry_id,
+            actuating_ts: 100,
+            now_est: 1000,
+            now_mono_secs: 100,
+            completion_ts: 101,
+        },
         &mut proxy,
         b"ACT",
         &mut driver,
-        101,
     );
     assert_eq!(v["terminal_state"], "Unknown");
     assert_eq!(

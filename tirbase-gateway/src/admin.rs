@@ -226,7 +226,6 @@ pub fn dispatch_admin_command_with_caller(
 ///
 /// Returns the HTTP status code and the response body (without the trailing
 /// newline used by the JSON-line transport).
-#[allow(clippy::too_many_arguments)]
 pub fn dispatch_http_request(
     method: &str,
     path: &str,
@@ -281,13 +280,11 @@ pub fn dispatch_http_request(
     let mut payload = payload
         .or(parsed_body.clone())
         .unwrap_or_else(|| serde_json::json!({}));
-    if let (Some(parsed_body), serde_json::Value::Object(payload_obj)) =
+    if let (Some(serde_json::Value::Object(extra_obj)), serde_json::Value::Object(payload_obj)) =
         (parsed_body.as_ref(), &mut payload)
     {
-        if let serde_json::Value::Object(extra_obj) = parsed_body {
-            for (k, v) in extra_obj {
-                payload_obj.entry(k.clone()).or_insert_with(|| v.clone());
-            }
+        for (k, v) in extra_obj {
+            payload_obj.entry(k.clone()).or_insert_with(|| v.clone());
         }
     }
     envelope.insert("payload".into(), payload);
@@ -934,7 +931,7 @@ fn dispatch_status(
     let mut leases = Vec::new();
     if let Some(db_path) = state.primary_db_path.as_ref() {
         if let Ok(conn) = rusqlite::Connection::open(db_path) {
-            let mut stmt = conn.prepare(
+            let stmt = conn.prepare(
                 "SELECT target_id,enrollment_epoch,highest_seen,seen_bitmap,forward_gap
                  FROM anti_replay_windows WHERE issuer_did=?1 ORDER BY target_id ASC",
             );
@@ -1515,11 +1512,9 @@ struct ChallengeRequest {
 
 /// Task 16.3/16.4 (CLAIM-16.3/16.4, PV-22.3, S32): issue or consume a
 /// challenge nonce for a critical parameter when freshness is `Unverified`.
-/// - Issue: payload `{target_id|target, param, [issuer_did]}`. Requires
-///   `critical: true` in the target's envelope profile and Unverified
-///   freshness. Enforces one-per-device/target/param/minute issuance limit.
-/// - Consume (admin/test hook): payload `{..., nonce_hex, issuer_did}` marks the
-///   nonce used exactly once through the durable store; second use is rejected.
+/// - Issue: payload `{target_id|target, param, [issuer_did]}`. Requires `critical: true` in the target's envelope profile and Unverified freshness. Enforces one-per-device/target/param/minute issuance limit.
+/// - Consume (admin/test hook): payload `{..., nonce_hex, issuer_did}` marks the nonce used exactly once through the durable store; second use is rejected.
+///
 /// GET/POST path variants from specs map to this JSON command in the Unix-socket
 /// admin dispatcher.
 fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
@@ -1910,10 +1905,10 @@ fn dispatch_clear_unknown(command: &str, state: Option<&AdminState>, now_est: i6
                 return None;
             }
             let mut id = [0u8; 16];
-            for i in 0..16 {
+            for (i, byte) in id.iter_mut().enumerate() {
                 let hi = (s.as_bytes()[i * 2] as char).to_digit(16)? as u8;
                 let lo = (s.as_bytes()[i * 2 + 1] as char).to_digit(16)? as u8;
-                id[i] = (hi << 4) | lo;
+                *byte = (hi << 4) | lo;
             }
             Some(id)
         })

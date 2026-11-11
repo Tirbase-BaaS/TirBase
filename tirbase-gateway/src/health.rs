@@ -108,7 +108,6 @@ async fn health_handler() -> impl axum::response::IntoResponse {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicU64;
-    use std::time::Instant;
 
     #[derive(Debug, Default)]
     struct CountingNotifier(AtomicU64);
@@ -134,12 +133,12 @@ mod tests {
             axum::serve(listener, app).await.unwrap();
         });
         tokio::time::sleep(Duration::from_millis(10)).await;
-        let start = Instant::now();
+        let start = tirbase_core::traits::monotonic_now();
         let resp = reqwest::get(format!("http://{addr}/health"))
             .await
             .expect("GET");
         assert_eq!(resp.status(), 200);
-        assert!(start.elapsed() < Duration::from_millis(500));
+        assert!(tirbase_core::traits::monotonic_now().saturating_sub(start) < 500_000);
         let body: serde_json::Value = resp.json().await.unwrap();
         assert_eq!(body["status"], "ok");
     }

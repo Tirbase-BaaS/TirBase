@@ -1,7 +1,7 @@
 //! S35 / CLAIM-34.8: real child-process driver isolation test.
 //!
-//! Production caller: guard-owned DeviceTransport + tirbase-drivers SCM_RIGHTS
-//! + driver child sandbox init. This test spawns a real child process, inherits
+//! Production caller: guard-owned DeviceTransport + tirbase-drivers SCM_RIGHTS,
+//! plus driver child sandbox init. This test spawns a real child process, inherits
 //! a socketpair fd, passes a device fd via SCM_RIGHTS, and verifies the child
 //! receives it. On Linux it also verifies post-sandbox SCM_RIGHTS is blocked and
 //! the child reports a `SecurityEvent(SandboxViolation/SCMRightsAttempt)`-shaped
@@ -10,7 +10,6 @@
 #![cfg(unix)]
 
 use std::net::TcpListener;
-use std::os::unix::io::AsRawFd;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -42,7 +41,7 @@ fn test_scm_rights_blocked() {
     let transport = make_device_transport();
     assert!(transport.as_raw_fd() >= 0);
     let pair = create_driver_socketpair().expect("socketpair");
-    let mut child = Command::new(child_bin())
+    let child = Command::new(child_bin())
         .arg("--recv-apply-sandbox-attempt-scm-rights")
         .arg("--socket-fd")
         .arg(pair.child_fd.to_string())
@@ -119,7 +118,7 @@ fn test_scm_rights_blocked() {
 #[test]
 fn wiring_mutation_not_passing_scm_rights_breaks_child_receive() {
     let pair = create_driver_socketpair().expect("socketpair");
-    let mut child = Command::new(child_bin())
+    let child = Command::new(child_bin())
         .arg("--recv-and-report")
         .arg("--socket-fd")
         .arg(pair.child_fd.to_string())

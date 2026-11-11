@@ -1,7 +1,7 @@
 //! Task 21 integration tests (21.10/21.11): Stage 10 Enum/Bool VALUE_INVALID,
 //! Stage 13 dwell/min-off interlocks.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
 
 use arc_swap::ArcSwap;
@@ -41,7 +41,7 @@ impl TimeRatchetStore for S {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -63,9 +63,7 @@ impl tirbase_guard::admit::DriftHistoryStore for TimingStore {
         _: &str,
         _: &str,
         _: i64,
-        _: i64,
-        _: i8,
-        _: u16,
+        _: tirbase_types::FixedPointValue,
     ) -> Result<(), String> {
         Ok(())
     }

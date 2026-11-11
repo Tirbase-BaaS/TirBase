@@ -6,7 +6,7 @@ use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_gateway::profiles::{
     cold_room_device_model, install_profile_toml, load_profile_from_path, pa_trust_root,
-    parse_profile_toml, sign_parsed_profile, ProfileTomlError,
+    parse_profile_toml, sign_parsed_profile,
 };
 
 #[test]

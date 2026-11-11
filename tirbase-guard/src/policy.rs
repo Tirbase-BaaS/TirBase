@@ -880,45 +880,8 @@ pub fn make_bundle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use tirbase_core::errors::TirBaseError;
-    use tirbase_core::traits::AssuranceLevel;
     use tirbase_types::envelope::{EnvelopeProfile, ParameterKind, ParameterSpec};
     use tirbase_types::{DeviceSignature, ProfileId, UNIT_DEG_C};
-
-    #[derive(Debug)]
-    struct MemCounter(AtomicU64);
-    impl MemCounter {
-        fn new(v: u64) -> Self {
-            MemCounter(AtomicU64::new(v))
-        }
-    }
-    impl MonotonicCounterTrait for MemCounter {
-        fn read(&self) -> Result<u64, TirBaseError> {
-            Ok(self.0.load(Ordering::SeqCst))
-        }
-        fn increment(&self) -> Result<u64, TirBaseError> {
-            Ok(self.0.fetch_add(1, Ordering::SeqCst) + 1)
-        }
-        fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
-            let mut cur = self.0.load(Ordering::SeqCst);
-            loop {
-                if value <= cur {
-                    return Ok(cur);
-                }
-                match self
-                    .0
-                    .compare_exchange(cur, value, Ordering::SeqCst, Ordering::SeqCst)
-                {
-                    Ok(_) => return Ok(value),
-                    Err(o) => cur = o,
-                }
-            }
-        }
-        fn assurance_level(&self) -> AssuranceLevel {
-            AssuranceLevel::Level1
-        }
-    }
 
     fn fp(m: i64, e: i8) -> FixedPointValue {
         FixedPointValue::new(m, e, UNIT_DEG_C)

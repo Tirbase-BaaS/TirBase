@@ -5,7 +5,7 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rusqlite::{params, Connection};
 use tirbase_core::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
@@ -30,7 +30,7 @@ const FAILPOINTS: &[&str] = &[
 
 fn clear_failpoints() {
     for name in FAILPOINTS {
-        let _ = tirbase_core::fail_crate::remove(name);
+        tirbase_core::fail_crate::remove(name);
     }
 }
 
@@ -46,10 +46,7 @@ fn tmpdb(name: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!(
         "tg19-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
@@ -347,7 +344,7 @@ fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actu
 
 #[derive(Debug)]
 struct CountingBackend {
-    flushes: Mutex<Vec<(Instant, Vec<SecurityEvent>)>>,
+    flushes: Mutex<Vec<(u64, Vec<SecurityEvent>)>>,
     calls: AtomicUsize,
 }
 impl CountingBackend {
@@ -361,7 +358,10 @@ impl CountingBackend {
 impl EventBatchBackend for CountingBackend {
     fn flush(&self, batch: Vec<SecurityEvent>) {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        self.flushes.lock().unwrap().push((Instant::now(), batch));
+        self.flushes
+            .lock()
+            .unwrap()
+            .push((tirbase_core::traits::monotonic_now(), batch));
     }
 }
 
@@ -375,7 +375,7 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
     let backend = Arc::new(CountingBackend::new());
     let batcher = GroupCommitBatcher::with_window(backend.clone(), Duration::from_millis(50));
 
-    let t0 = Instant::now();
+    let t0 = tirbase_core::traits::monotonic_now();
     batcher.emit(SecurityEvent::new(
         SecurityEventCategory::EffectsLedger,
         Severity::Low,
@@ -384,16 +384,16 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
     // Low event should not force an immediate flush.
     std::thread::sleep(Duration::from_millis(5));
     let pre_high = backend.calls.load(Ordering::SeqCst);
-    let high_t = Instant::now();
+    let high_t = tirbase_core::traits::monotonic_now();
     batcher.emit(SecurityEvent::new(
         SecurityEventCategory::EffectsLedger,
         Severity::High,
         ReasonCode::ReconciliationTimeout,
     ));
     // HIGH bypasses: a flush containing the high event must occur promptly.
-    let deadline = Instant::now() + Duration::from_millis(40);
+    let deadline = tirbase_core::traits::monotonic_now() + 40_000;
     let mut saw_high = false;
-    while Instant::now() < deadline {
+    while tirbase_core::traits::monotonic_now() < deadline {
         let flushes = backend.flushes.lock().unwrap();
         if flushes
             .iter()
@@ -406,9 +406,9 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
         std::thread::sleep(Duration::from_millis(2));
     }
     assert!(
-        saw_high && high_t.elapsed() < Duration::from_millis(40),
+        saw_high && tirbase_core::traits::monotonic_now().saturating_sub(high_t) < 40_000,
         "HIGH event must bypass 50ms batcher and flush immediately (pre_high_flushes={pre_high}, elapsed={:?}, calls={})",
-        t0.elapsed(),
+        Duration::from_micros(tirbase_core::traits::monotonic_now().saturating_sub(t0)),
         backend.calls.load(Ordering::SeqCst)
     );
 
@@ -560,6 +560,6 @@ fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
     for name in scenarios {
-        let _ = tirbase_core::fail_crate::remove(name);
+        tirbase_core::fail_crate::remove(name);
     }
 }

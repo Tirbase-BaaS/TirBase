@@ -8,7 +8,7 @@
 //! (`publish_checkpoint_hash`, `receive_inbound`) and observes the effects
 //! through the logs' persisted state, never through internal test hooks.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,7 +55,7 @@ async fn wait_for(mut check: impl FnMut() -> bool) -> bool {
     false
 }
 
-fn core_config(dir: &PathBuf) -> InitConfig {
+fn core_config(dir: &Path) -> InitConfig {
     InitConfig {
         storage_path: dir.join("core.db").to_string_lossy().into_owned(),
         listen_addr: "/ip4/127.0.0.1/tcp/0".to_string(),

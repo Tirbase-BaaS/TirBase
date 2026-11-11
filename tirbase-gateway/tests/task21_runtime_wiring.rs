@@ -3,7 +3,7 @@
 //! admin path (signed PolicyAuthority), lease-preempt admin path (joint M-of-N),
 //! revoke-issuer releases leases, target_state/drift hydration into pipeline.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
 
 use arc_swap::ArcSwap;
@@ -23,7 +23,7 @@ use tirbase_gateway::guard::{hydrate_task21_runtime, open_drift_timing_store};
 use tirbase_guard::admit::{AdmitDecision, AdmitPipelineState, AdmitRejection};
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::node_mode::NodeModeState;
-use tirbase_guard::signed_operation::{SignatureEntry, SignedOperation, SignedOperationPayload};
+use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_guard::time::{TimeRatchet, TimeRatchetConfig, TimeRatchetStore};
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
 use tirbase_guard::{sign_command, CommandGuard, GuardConfig, TargetAdmission};
@@ -51,7 +51,7 @@ impl TimeRatchetStore for S {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -66,10 +66,7 @@ fn tmpdb(name: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!(
         "tg21rt-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
@@ -150,7 +147,7 @@ fn sign_op<T: SignedOperationPayload + serde::Serialize>(
     created_est: i64,
 ) -> serde_json::Value {
     let mut op =
-        SignedOperation::new(payload.clone(), created_est, Some(created_est + 3600)).unwrap();
+        SignedOperation::new(payload, created_est, Some(created_est + 3600)).unwrap();
     op.sign_with(signer, role).unwrap();
     serde_json::to_value(op).unwrap()
 }
@@ -306,10 +303,12 @@ fn claim_21_9_unknown_target_blocks_then_operator_clear_unblocks_runtime() {
     // Operator clear via admin path (signed PolicyAuthority) + runtime sync.
     let pa = InMemoryKeyProvider::generate().unwrap();
     let rm = InMemoryKeyProvider::generate().unwrap();
-    let mut st = AdminState::default();
-    st.primary_db_path = Some(db.clone());
-    st.trust_root = Some(Arc::new(trust_root(&pa, &rm)));
-    st.guard = Some(Arc::new(guard));
+    let st = AdminState {
+        primary_db_path: Some(db.clone()),
+        trust_root: Some(Arc::new(trust_root(&pa, &rm))),
+        guard: Some(Arc::new(guard)),
+        ..Default::default()
+    };
     let binding = ClearPayload {
         action: "clear-unknown".into(),
         entry_id_hex: hex::encode(entry_id),
@@ -320,13 +319,10 @@ fn claim_21_9_unknown_target_blocks_then_operator_clear_unblocks_runtime() {
         serde_json::from_str(dispatch_admin_command_at(&req, Some(&st), 100).trim()).unwrap();
     assert_eq!(v["status"], 200, "{v}");
     let d2 = st.guard.as_ref().unwrap().simulate(&cmd, &ctx);
-    match d2 {
-        AdmitDecision::Rejected {
+    if let AdmitDecision::Rejected {
             category: AdmitRejection::TargetBusy,
             ..
-        } => panic!("still blocked after clear"),
-        _ => {}
-    }
+        } = d2 { panic!("still blocked after clear") }
 }
 
 #[test]
@@ -421,9 +417,11 @@ fn claim_21_2_3_admin_lease_preempt_and_revoke_issuer() {
     let pa = InMemoryKeyProvider::generate().unwrap();
     let rm = InMemoryKeyProvider::generate().unwrap();
     let tr = trust_root(&pa, &rm);
-    let mut st = AdminState::default();
-    st.primary_db_path = Some(db.clone());
-    st.trust_root = Some(Arc::new(tr));
+    let st = AdminState {
+        primary_db_path: Some(db.clone()),
+        trust_root: Some(Arc::new(tr)),
+        ..Default::default()
+    };
     let binding = PreemptPayload {
         action: "lease-preempt".into(),
         target_id: "pump-1".into(),

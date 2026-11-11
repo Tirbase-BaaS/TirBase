@@ -5,7 +5,6 @@
 #![cfg(unix)]
 
 use std::net::TcpListener;
-use std::os::unix::io::AsRawFd;
 use std::thread;
 
 use tirbase_drivers::{create_driver_socketpair, recv_fd_via_scm_rights, send_fd_via_scm_rights};
@@ -35,7 +34,7 @@ fn claim_34_8_guard_passes_device_fd_to_child_via_scm_rights() {
         .pass_device_fd_with(parent_end, |sock, devfd| {
             // Wiring mutation target (34.8): SCM_RIGHTS must be used.
             send_fd_via_scm_rights(sock, devfd)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                .map_err(|e| std::io::Error::other(e.to_string()))
         })
         .expect("pass device fd via SCM_RIGHTS");
 

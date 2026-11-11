@@ -371,7 +371,7 @@ pub fn best_authenticated_time(
 mod tests {
     use super::*;
     use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
-    use tirbase_core::traits::SystemTimeSource;
+    
 
     #[test]
     fn cose_sign1_beacon_roundtrip_sign_verify_encode_decode() {

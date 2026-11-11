@@ -203,12 +203,15 @@ impl DriverProxy<DriverChildSocket> {
     }
 }
 
+/// Parent proxy, child handle, and optional `(uid, pid)` attributed by SCM_CREDENTIALS.
+#[cfg(unix)]
+type ChildParts = (DriverProxy<DriverChildSocket>, Child, Option<(u32, i32)>);
+
 /// Builds the socketpair, child, peer credential check and fd handoff.
 #[cfg(unix)]
-#[allow(clippy::type_complexity)]
 fn spawn_child_parts(
     config: &ChildDriverConfig,
-) -> Result<(DriverProxy<DriverChildSocket>, Child, Option<(u32, i32)>), DriverSupervisionError> {
+) -> Result<ChildParts, DriverSupervisionError> {
     let pair = create_driver_socketpair()?;
     // SAFETY: both fds were just returned by socketpair and are owned here.
     let parent_end = unsafe { OwnedFd::from_raw_fd(pair.parent_fd) };

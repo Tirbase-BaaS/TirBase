@@ -128,7 +128,7 @@ impl SqliteIdempotencyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::Connection;
+    
 
     #[test]
     fn clamp_retention_bounds() {

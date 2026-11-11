@@ -8,7 +8,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::json;
 use tirbase_core::auth::command_token::create_command_token;
@@ -74,16 +74,16 @@ fn run_until_marker(config: &Path, needle: &str) -> (Vec<String>, Child) {
     let stdout = child.stdout.take().expect("stdout");
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             if tx.send(line).is_err() {
                 break;
             }
         }
     });
     let mut lines = Vec::new();
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = tirbase_core::traits::monotonic_now() + 30_000_000;
     let found = loop {
-        if Instant::now() >= deadline {
+        if tirbase_core::traits::monotonic_now() >= deadline {
             break false;
         }
         match rx.recv_timeout(Duration::from_millis(300)) {
@@ -120,9 +120,9 @@ fn claim_35_1_gateway_binary_starts_and_passes_health_check() {
     let (_lines, mut child) = run_until_marker(&config, "SignedOperation boot record verified");
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = tirbase_core::traits::monotonic_now() + 5_000_000;
     let mut ok = false;
-    while Instant::now() < deadline {
+    while tirbase_core::traits::monotonic_now() < deadline {
         if let Ok(resp) = rt.block_on(reqwest::get(format!("http://127.0.0.1:{health}/health"))) {
             if resp.status().is_success() {
                 ok = true;
@@ -258,14 +258,14 @@ fn claim_35_2_signed_config_bundle_validated_by_policy_authority() {
     let stdout = child.stdout.take().unwrap();
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(line);
         }
     });
     let mut lines = Vec::new();
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = tirbase_core::traits::monotonic_now() + 30_000_000;
     let found = loop {
-        if Instant::now() >= deadline {
+        if tirbase_core::traits::monotonic_now() >= deadline {
             break false;
         }
         match rx.recv_timeout(Duration::from_millis(300)) {
@@ -297,16 +297,16 @@ fn claim_35_4_health_endpoint_responds_within_500ms() {
     let config = write_config(&dir, health, metrics);
     let (_lines, mut child) = run_until_marker(&config, "SignedOperation boot record verified");
     std::thread::sleep(Duration::from_millis(100));
-    let start = Instant::now();
+    let start = tirbase_core::traits::monotonic_now();
     let rt = tokio::runtime::Runtime::new().unwrap();
     let resp = rt
         .block_on(reqwest::get(format!("http://127.0.0.1:{health}/health")))
         .expect("health get");
     assert!(resp.status().is_success());
     assert!(
-        start.elapsed() < Duration::from_millis(500),
+        tirbase_core::traits::monotonic_now().saturating_sub(start) < 500_000,
         "health took {:?}",
-        start.elapsed()
+        Duration::from_micros(tirbase_core::traits::monotonic_now().saturating_sub(start))
     );
     kill(&mut child);
     let _ = std::fs::remove_dir_all(dir);

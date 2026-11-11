@@ -54,8 +54,6 @@ use tirbase_guard::{CommandGuard, GuardConfig, TargetAdmission};
 use tirbase_types::envelope::EnvelopeProfile;
 use tirbase_types::{CommandRole, DeviceSignature, TargetId};
 
-#[cfg(test)]
-pub(crate) static EVENT_SINK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Payload signed at boot to exercise the domain-separated multi-party wrapper.
 #[derive(Debug, Serialize, Deserialize)]
@@ -638,15 +636,17 @@ async fn main() -> Result<()> {
     let ratchet = Arc::new(Mutex::new(ratchet));
     let pipeline_time_source: Arc<dyn TimeSource> = time_source.clone();
     let command_runtime = build_command_runtime(
-        &config,
-        &primary_db_path,
-        &key_provider.did().to_string(),
-        node_mode.clone(),
-        epochs.clone(),
-        ratchet.clone(),
-        trust_root.as_deref(),
-        root_ca_registry.unwrap_or_else(|| RootCaRegistry::new(Vec::new())),
-        pipeline_time_source,
+        CommandRuntimeSetup {
+            config: &config,
+            primary_db_path: &primary_db_path,
+            device_id: key_provider.did(),
+            node_mode: node_mode.clone(),
+            epochs: epochs.clone(),
+            ratchet: ratchet.clone(),
+            trust_root: trust_root.as_deref(),
+            root_ca_registry: root_ca_registry.unwrap_or_else(|| RootCaRegistry::new(Vec::new())),
+            time_source: pipeline_time_source,
+        },
         now_est,
     )?;
 
@@ -722,25 +722,7 @@ async fn main() -> Result<()> {
     // Attach each handle independently: a gateway configured without an
     // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
     // handle may be dropped just because a sibling is absent.
-    let mut admin_state = admin::AdminState::default();
-    admin_state.primary_db_path = Some(primary_db_path.clone());
-    admin_state.security_log = Some(security_log.clone());
-    admin_state.key_provider = Some(key_provider.clone());
-    admin_state.enrollment = enrollment_service.clone();
-    admin_state.epochs = Some(epochs.clone());
-    admin_state.trust_root = trust_root.clone();
-    admin_state.policy = command_runtime.policy.clone();
-    admin_state.node_mode = Some(node_mode.clone());
-    admin_state.lockdown_store = Some(lockdown_store.clone());
-    admin_state.envelope_profile = command_runtime.envelope_profile.clone();
-    admin_state.guard = command_runtime.guard.clone();
-    admin_state.challenge_store = command_runtime.challenge_store.clone();
-    admin_state.stage16 = command_runtime.stage16.clone();
-    admin_state.core_handle = Some(core_handle.clone());
-    admin_state.core_db_path = Some(core_db_path.clone());
-    admin_state.ratchet = Some(ratchet.clone());
-    admin_state.time_source = Some(time_source.clone());
-    admin_state.mint_root_ca_seed = match &config.enrollment_root_ca_private_key_path {
+    let mint_root_ca_seed = match &config.enrollment_root_ca_private_key_path {
         Some(path) => match read_hex_key(path) {
             Ok(seed) => Some(Arc::new(seed)),
             Err(error) => {
@@ -751,9 +733,30 @@ async fn main() -> Result<()> {
         None => None,
     };
     let rotator: Arc<dyn KeyRotator> = Arc::new(FileKeyRotator::new(config.key_path.clone()));
-    admin_state.key_rotator = Some(rotator);
-    admin_state.events_view_window_days = config.admin_events_view_days;
-    admin_state.events_page_size = config.admin_events_page_size;
+    let admin_state = admin::AdminState {
+        primary_db_path: Some(primary_db_path.clone()),
+        security_log: Some(security_log.clone()),
+        key_provider: Some(key_provider.clone()),
+        enrollment: enrollment_service.clone(),
+        epochs: Some(epochs.clone()),
+        trust_root: trust_root.clone(),
+        policy: command_runtime.policy.clone(),
+        node_mode: Some(node_mode.clone()),
+        lockdown_store: Some(lockdown_store.clone()),
+        envelope_profile: command_runtime.envelope_profile.clone(),
+        guard: command_runtime.guard.clone(),
+        challenge_store: command_runtime.challenge_store.clone(),
+        stage16: command_runtime.stage16.clone(),
+        core_handle: Some(core_handle.clone()),
+        core_db_path: Some(core_db_path.clone()),
+        ratchet: Some(ratchet.clone()),
+        time_source: Some(time_source.clone()),
+        mint_root_ca_seed,
+        key_rotator: Some(rotator),
+        events_view_window_days: config.admin_events_view_days,
+        events_page_size: config.admin_events_page_size,
+        ..Default::default()
+    };
     let admin_state = Some(Arc::new(admin_state));
 
     // Task 36.5 (PV-11.5): deny-all until a signed EnvelopeProfile is
@@ -1092,18 +1095,34 @@ fn driver_supervision_loop(mut driver: tirbase_guard::driver_proxy::SupervisedDr
     }
 }
 
-fn build_command_runtime(
-    config: &GatewayConfig,
-    primary_db_path: &std::path::Path,
-    device_id: &str,
+/// Boot inputs consumed when constructing the command runtime.
+struct CommandRuntimeSetup<'a> {
+    config: &'a GatewayConfig,
+    primary_db_path: &'a std::path::Path,
+    device_id: &'a str,
     node_mode: Arc<NodeModeState>,
     epochs: Arc<EpochRegistry>,
     ratchet: Arc<Mutex<TimeRatchet>>,
-    trust_root: Option<&TrustRootRecord>,
+    trust_root: Option<&'a TrustRootRecord>,
     root_ca_registry: RootCaRegistry,
     time_source: Arc<dyn TimeSource>,
+}
+
+fn build_command_runtime(
+    setup: CommandRuntimeSetup<'_>,
     now_est: i64,
 ) -> Result<CommandRuntime> {
+    let CommandRuntimeSetup {
+        config,
+        primary_db_path,
+        device_id,
+        node_mode,
+        epochs,
+        ratchet,
+        trust_root,
+        root_ca_registry,
+        time_source,
+    } = setup;
     // Stage 16–19 durable store (single atomic SQLite transaction per command).
     let stage16 = Arc::new(SqliteStage16Store::open(primary_db_path).map_err(anyhow::Error::msg)?);
 

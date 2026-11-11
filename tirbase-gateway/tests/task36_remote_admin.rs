@@ -18,7 +18,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rcgen::{BasicConstraints, CertificateParams, IsCa, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName};
@@ -51,10 +51,10 @@ struct TestPki {
     ca_pem: String,
     server_cert_pem: String,
     server_key_pem: String,
-    client_cert_pem: String,
-    client_key_pem: String,
-    other_client_cert_pem: String,
-    other_client_key_pem: String,
+    _client_cert_pem: String,
+    _client_key_pem: String,
+    _other_client_cert_pem: String,
+    _other_client_key_pem: String,
     ca_der: CertificateDer<'static>,
     client_cert_der: CertificateDer<'static>,
     client_key_der: PrivateKeyDer<'static>,
@@ -96,10 +96,10 @@ fn build_pki() -> TestPki {
         ca_pem: ca_cert.pem(),
         server_cert_pem: server_cert.pem(),
         server_key_pem: server_key.serialize_pem(),
-        client_cert_pem: client_cert.pem(),
-        client_key_pem: client_key.serialize_pem(),
-        other_client_cert_pem: other_client_cert.pem(),
-        other_client_key_pem: other_client_key.serialize_pem(),
+        _client_cert_pem: client_cert.pem(),
+        _client_key_pem: client_key.serialize_pem(),
+        _other_client_cert_pem: other_client_cert.pem(),
+        _other_client_key_pem: other_client_key.serialize_pem(),
         ca_der: ca_cert.der().clone(),
         client_cert_der: client_cert.der().clone(),
         client_key_der: PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(client_key.serialize_der())),
@@ -145,7 +145,6 @@ struct Gateway {
     socket: PathBuf,
     remote_addr: std::net::SocketAddr,
     pki: TestPki,
-    logs: Arc<Mutex<Vec<String>>>,
 }
 
 impl Gateway {
@@ -222,8 +221,8 @@ impl Gateway {
             }
         });
         let socket = dir.join("admin.sock");
-        let deadline = Instant::now() + Duration::from_secs(40);
-        while Instant::now() < deadline {
+        let deadline = tirbase_core::traits::monotonic_now() + 40_000_000;
+        while tirbase_core::traits::monotonic_now() < deadline {
             if socket.exists()
                 && logs
                     .lock()
@@ -248,7 +247,6 @@ impl Gateway {
             socket,
             remote_addr: format!("127.0.0.1:{remote_port}").parse().unwrap(),
             pki,
-            logs,
         }
     }
 

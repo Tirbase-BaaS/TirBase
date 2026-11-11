@@ -81,12 +81,12 @@ fn run_until_marker(config: &Path, needle: &str) -> Vec<String> {
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(line);
         }
     });
     thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().flatten() {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
             let _ = tx2.send(line);
         }
     });

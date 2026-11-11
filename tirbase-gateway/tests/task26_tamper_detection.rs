@@ -23,7 +23,7 @@ use tirbase_guard::lockdown::{ChainRecoveryPayload, LockdownStore};
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_guard::signed_operation::SignedOperation;
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
-use tirbase_types::{CommandRole, DeviceSignature};
+use tirbase_types::CommandRole;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
@@ -76,12 +76,12 @@ fn run_until_marker(config: &Path, needle: &str) -> (Vec<String>, i32) {
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
     thread::spawn(move || {
-        for l in BufReader::new(stdout).lines().flatten() {
+        for l in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(l);
         }
     });
     thread::spawn(move || {
-        for l in BufReader::new(stderr).lines().flatten() {
+        for l in BufReader::new(stderr).lines().map_while(Result::ok) {
             let _ = tx2.send(l);
         }
     });
@@ -464,7 +464,7 @@ async fn claim_26_3_26_4_two_corehandles_exchange_checkpoint_and_detect_tail_tru
     // 26.4: tail truncation detection in security log (production caller path).
     let dir = tmp("264mesh");
     let primary = dir.join("primary.db");
-    let mode = NodeModeState::new(NodeMode::Restricted); // will be set Restricted by detection too
+    let _mode = NodeModeState::new(NodeMode::Restricted); // will be set Restricted by detection too
     let kp = Arc::new(InMemoryKeyProvider::generate().unwrap());
     let log = SecurityEventLog::new_persistent_with_mode(
         &primary,

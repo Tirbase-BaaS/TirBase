@@ -44,7 +44,7 @@ impl TimeRatchetStore for MemRatchetStore {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -145,10 +145,7 @@ fn tmp_db(tag: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "tirbase-challenge-{tag}-{}-{}.db",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ))
 }
 
@@ -180,8 +177,10 @@ fn claim_16_3_admin_challenge_issues_only_for_unverified_critical_param() {
         FreshnessState::Unverified,
         "test precondition: no beacon => Unverified"
     );
-    let mut state = AdminState::default();
-    state.guard = Some(Arc::new(guard));
+    let state = AdminState {
+        guard: Some(Arc::new(guard)),
+        ..Default::default()
+    };
     let cmd = serde_json::json!({"cmd":"challenge","payload":{"target_id":"pump-1","param":"speed","issuer_did":"did:key:issuer"}}).to_string();
     let resp = dispatch_admin_command_at(&cmd, Some(&state), 1_000);
     let v: serde_json::Value = serde_json::from_str(resp.trim()).unwrap();
@@ -195,8 +194,10 @@ fn claim_16_3_admin_challenge_issues_only_for_unverified_critical_param() {
 
     // Non-critical parameter must be rejected.
     let (guard_nc, _, _, _reg) = mk_guard(false);
-    let mut st_nc = AdminState::default();
-    st_nc.guard = Some(Arc::new(guard_nc));
+    let st_nc = AdminState {
+        guard: Some(Arc::new(guard_nc)),
+        ..Default::default()
+    };
     let resp_nc = dispatch_admin_command_at(&cmd, Some(&st_nc), 1_000);
     let v_nc: serde_json::Value = serde_json::from_str(resp_nc.trim()).unwrap();
     assert_eq!(v_nc["status"], 409, "{v_nc}");
@@ -209,9 +210,11 @@ fn claim_16_1_16_3_nonce_is_one_time_use() {
     let store = Arc::new(SqliteChallengeNonceStore::open(&db).unwrap());
     let (guard, pipeline, _ts, _reg) = mk_guard(true);
     pipeline.set_challenge_store(store.clone());
-    let mut state = AdminState::default();
-    state.guard = Some(Arc::new(guard));
-    state.challenge_store = Some(store.clone());
+    let state = AdminState {
+        guard: Some(Arc::new(guard)),
+        challenge_store: Some(store.clone()),
+        ..Default::default()
+    };
     let issue = serde_json::json!({"cmd":"challenge","payload":{"target":"pump-1","param":"speed","issuer_did":"did:key:issuer"}}).to_string();
     let v: serde_json::Value =
         serde_json::from_str(dispatch_admin_command_at(&issue, Some(&state), 1_000).trim())
@@ -235,9 +238,11 @@ fn claim_16_1_16_3_nonce_is_one_time_use() {
 fn claim_16_4_s32_challenge_nonce_flood_rate_limited() {
     let (guard, pipeline, _ts, _reg) = mk_guard(true);
     pipeline.set_challenge_requests_per_minute(5);
-    let mut state = AdminState::default();
-    state.guard = Some(Arc::new(guard));
-    state.challenge_requests_per_minute = 5;
+    let state = AdminState {
+        guard: Some(Arc::new(guard)),
+        challenge_requests_per_minute: 5,
+        ..Default::default()
+    };
     let mut accepted = 0usize;
     let mut limited = 0usize;
     for n in 0..9 {

@@ -16,8 +16,7 @@ use tirbase_gateway::health::{run_health_loop, HealthLoopState, WatchdogNotifier
 use tirbase_guard::driver_proxy::{DriverProxy, IngressSource};
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::lockdown::{
-    apply_crash_decision, apply_lockdown_exit, arm_controller_watchdogs, enter_lockdown,
-    CrashLoopEscalation, CrashLoopTracker, LockdownEntryReason, LockdownExitPayload, LockdownStore,
+    apply_crash_decision, apply_lockdown_exit, arm_controller_watchdogs, enter_lockdown, CrashLoopTracker, LockdownEntryReason, LockdownExitPayload, LockdownStore,
     SafeDefaultBinding,
 };
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
@@ -275,11 +274,13 @@ fn admin_lockdown_exit_endpoint_requires_valid_m_of_n_claim_13_3() {
         envelope_profile_id: profile.profile_id,
     };
 
-    let mut state = AdminState::default();
-    state.trust_root = Some(tr);
-    state.lockdown_store = Some(store.clone());
-    state.node_mode = Some(mode.clone());
-    state.envelope_profile = Some(profile);
+    let state = AdminState {
+        trust_root: Some(tr),
+        lockdown_store: Some(store.clone()),
+        node_mode: Some(mode.clone()),
+        envelope_profile: Some(profile),
+        ..Default::default()
+    };
 
     let mut op_bad = SignedOperation::new(&payload, 1_000, None).unwrap();
     op_bad.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
@@ -391,8 +392,10 @@ fn n_crashes_within_window_escalates_to_security_lockdown_claim_13_6_s24() {
 #[test]
 fn admin_mode_endpoint_reports_lockdown_claim_13_1() {
     let mode = NodeModeState::new(NodeMode::Lockdown);
-    let mut state = AdminState::default();
-    state.node_mode = Some(mode);
+    let state = AdminState {
+        node_mode: Some(mode),
+        ..Default::default()
+    };
     let resp = dispatch_admin_command_at(r#"{"cmd":"mode"}"#, Some(&state), 0);
     let v: serde_json::Value = serde_json::from_str(resp.trim()).unwrap();
     assert_eq!(v["status"], 200);

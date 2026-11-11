@@ -21,7 +21,7 @@ use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
@@ -122,13 +122,14 @@ fn collect_stdout(driver: &mut SupervisedDriver) -> Receiver<String> {
 }
 
 fn wait_for(rx: &Receiver<String>, needle: &str, timeout: Duration) -> Vec<String> {
-    let deadline = Instant::now() + timeout;
+    let deadline = tirbase_core::traits::monotonic_now() + timeout.as_micros() as u64;
     let mut seen = Vec::new();
     loop {
-        let left = deadline.saturating_duration_since(Instant::now());
-        if left.is_zero() {
+        let left_micros = deadline.saturating_sub(tirbase_core::traits::monotonic_now());
+        if left_micros == 0 {
             panic!("timed out waiting for {needle:?}; child output so far: {seen:#?}");
         }
+        let left = Duration::from_micros(left_micros);
         match rx.recv_timeout(left.min(Duration::from_millis(200))) {
             Ok(line) => {
                 let found = line.contains(needle);
@@ -267,9 +268,9 @@ fn crashed_child_is_restarted_with_backoff() {
     let rx = collect_stdout(&mut driver);
 
     // The first child exits non-zero before applying its sandbox.
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = tirbase_core::traits::monotonic_now() + 10_000_000;
     let mut status = None;
-    while Instant::now() < deadline {
+    while tirbase_core::traits::monotonic_now() < deadline {
         if let Some(exit) = driver.try_wait().expect("try_wait") {
             status = Some(exit);
             break;

@@ -565,6 +565,10 @@ pub trait EnrollmentNonceStore: Send + Sync + fmt::Debug {
     fn contains(&self, nonce: &[u8; 32]) -> Result<bool, EpochError>;
     /// Number of currently retained nonces.
     fn len(&self) -> Result<usize, EpochError>;
+    /// Whether no nonces are currently retained.
+    fn is_empty(&self) -> Result<bool, EpochError> {
+        Ok(self.len()? == 0)
+    }
 }
 
 /// In-memory bounded nonce store used by tests and small deployments.

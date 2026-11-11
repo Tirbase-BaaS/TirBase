@@ -279,18 +279,16 @@ impl tirbase_guard::admit::DriftHistoryStore for SqliteDriftRateHistoryStore {
         target_id: &str,
         param: &str,
         mono_secs: i64,
-        value_mantissa: i64,
-        exponent: i8,
-        unit_id: u16,
+        value: tirbase_types::FixedPointValue,
     ) -> Result<(), String> {
         self.record(&DriftHistoryRow {
             issuer_did: issuer_did.to_string(),
             target_id: target_id.to_string(),
             param: param.to_string(),
             mono_secs,
-            value_mantissa,
-            exponent,
-            unit_id,
+            value_mantissa: value.mantissa,
+            exponent: value.exponent,
+            unit_id: value.unit_id,
         })
     }
 

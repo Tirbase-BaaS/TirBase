@@ -15,7 +15,6 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
 
-use sha2::{Digest, Sha256};
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::envelope::{
@@ -350,12 +349,14 @@ fn profile_map_hot_swap_visible_across_threads_within_one_second() {
     let reader_barrier = barrier.clone();
     let reader = thread::spawn(move || {
         reader_barrier.wait();
-        let start = std::time::Instant::now();
+        let start_micros = tirbase_core::traits::monotonic_now();
         loop {
+            let elapsed =
+                tirbase_core::traits::monotonic_now().saturating_sub(start_micros);
             if reader_map.load(&reader_target).unwrap().version == 99 {
-                return start.elapsed();
+                return Duration::from_micros(elapsed);
             }
-            if start.elapsed() > Duration::from_secs(1) {
+            if elapsed > 1_000_000 {
                 panic!("hot-swap not observed within 1 second");
             }
             thread::yield_now();

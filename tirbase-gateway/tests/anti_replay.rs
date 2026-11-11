@@ -12,7 +12,8 @@ use tirbase_gateway::db::anti_replay_windows::{
 use tirbase_gateway::guard::SqliteStage16Store;
 use tirbase_guard::anti_replay::{AntiReplayDecision, AntiReplayWindow};
 use tirbase_guard::commit::{
-    clamp_idempotency_retention_secs, commit_dispatch_finalize, Stage16Error, Stage16Request,
+    clamp_idempotency_retention_secs, commit_dispatch_finalize, FinalizeContext, Stage16Error,
+    Stage16Request,
     Stage16Store, DEFAULT_IDEMPOTENCY_RETENTION_SECS, MAX_IDEMPOTENCY_RETENTION_SECS,
     MIN_IDEMPOTENCY_RETENTION_SECS,
 };
@@ -27,10 +28,7 @@ fn tmpdb(name: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!(
         "tg20-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
@@ -101,7 +99,7 @@ fn claim_20_2_duplicate_sequence_rejected_atomically_no_actuation() {
     let mut p1 = DriverProxy::new(Cursor::new(&mut w1));
     let mut d1 = Cursor::new(b"OK".to_vec());
     let v1 = commit_dispatch_finalize(
-        &store, &cmd, [1u8; 16], 100, 1000, 100, &mut p1, b"A", &mut d1, 101,
+        &store, &cmd, FinalizeContext { entry_id: [1u8; 16], actuating_ts: 100, now_est: 1000, now_mono_secs: 100, completion_ts: 101 }, &mut p1, b"A", &mut d1,
     );
     assert_eq!(v1["status"], "accepted");
     assert!(!w1.is_empty());
@@ -185,7 +183,7 @@ fn claim_20_4_anti_replay_window_persists_across_restart() {
         let mut p = DriverProxy::new(Cursor::new(&mut w));
         let mut d = Cursor::new(b"OK".to_vec());
         let v = commit_dispatch_finalize(
-            &store, &cmd, [1u8; 16], 100, 1000, 100, &mut p, b"A", &mut d, 101,
+            &store, &cmd, FinalizeContext { entry_id: [1u8; 16], actuating_ts: 100, now_est: 1000, now_mono_secs: 100, completion_ts: 101 }, &mut p, b"A", &mut d,
         );
         assert_eq!(v["status"], "accepted");
         assert_eq!(
@@ -197,7 +195,7 @@ fn claim_20_4_anti_replay_window_persists_across_restart() {
     }
     // Restart: reopen store and verify replay of seq 42 is rejected.
     {
-        let store = SqliteStage16Store::open(&db).unwrap();
+        let _store = SqliteStage16Store::open(&db).unwrap();
         let issuer2 = InMemoryKeyProvider::generate().unwrap(); // different object, same test not directly possible; check persisted highest
                                                                 // Use raw DB check for same logical window by scanning table.
         let conn = rusqlite::Connection::open(&db).unwrap();
@@ -223,7 +221,7 @@ fn claim_20_5_duplicate_idempotency_key_returns_original_result_no_second_actuat
     let mut p1 = DriverProxy::new(Cursor::new(&mut w1));
     let mut d1 = Cursor::new(b"OK".to_vec());
     let v1 = commit_dispatch_finalize(
-        &store, &cmd, [1u8; 16], 100, 1000, 100, &mut p1, b"A", &mut d1, 101,
+        &store, &cmd, FinalizeContext { entry_id: [1u8; 16], actuating_ts: 100, now_est: 1000, now_mono_secs: 100, completion_ts: 101 }, &mut p1, b"A", &mut d1,
     );
     assert_eq!(v1["status"], "accepted");
     assert!(!w1.is_empty());
@@ -231,7 +229,7 @@ fn claim_20_5_duplicate_idempotency_key_returns_original_result_no_second_actuat
     let mut p2 = DriverProxy::new(Cursor::new(&mut w2));
     let mut d2 = Cursor::new(b"OK".to_vec());
     let v2 = commit_dispatch_finalize(
-        &store, &cmd, [2u8; 16], 102, 1000, 102, &mut p2, b"A", &mut d2, 103,
+        &store, &cmd, FinalizeContext { entry_id: [2u8; 16], actuating_ts: 102, now_est: 1000, now_mono_secs: 102, completion_ts: 103 }, &mut p2, b"A", &mut d2,
     );
     assert_eq!(v2["idempotency_cache_hit"], true);
     assert!(v2.get("original_result").is_some());

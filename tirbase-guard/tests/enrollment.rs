@@ -67,10 +67,7 @@ fn config(storage: &std::path::Path, root_public: [u8; 32]) -> InitConfig {
 }
 
 fn now_secs() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
+    tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
 #[tokio::test]

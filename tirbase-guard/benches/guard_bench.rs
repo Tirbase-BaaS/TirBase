@@ -5,10 +5,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 
 fn temp_dir(name: &str) -> std::path::PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let nanos = tirbase_core::traits::monotonic_now();
     let p = std::env::temp_dir().join(format!("tb-bench-{name}-{nanos}-{}", std::process::id()));
     std::fs::create_dir_all(&p).unwrap();
     p

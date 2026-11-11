@@ -346,6 +346,12 @@ impl EnrollmentService {
     }
 }
 
+impl Drop for EnrollmentService {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.root_ca_private_key);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,10 +410,7 @@ mod tests {
     }
 
     fn token_verifies(token: &[u8], root_public: &[u8; 32], did: &str) -> bool {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let now = tirbase_core::traits::wall_hint_secs().unwrap_or(0);
         let claims = biscuit::verify_token(token, root_public, now).unwrap();
         claims.did == did
     }
@@ -511,11 +514,5 @@ mod tests {
         service
             .decommission("did:key:zDevice", &good)
             .expect("RevocationManager credential is accepted");
-    }
-}
-
-impl Drop for EnrollmentService {
-    fn drop(&mut self) {
-        zeroize::Zeroize::zeroize(&mut self.root_ca_private_key);
     }
 }

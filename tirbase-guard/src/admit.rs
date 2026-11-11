@@ -16,7 +16,6 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Instant;
 
 use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
@@ -78,9 +77,7 @@ pub trait DriftHistoryStore: Send + Sync + std::fmt::Debug {
         target_id: &str,
         param: &str,
         mono_secs: i64,
-        value_mantissa: i64,
-        exponent: i8,
-        unit_id: u16,
+        value: tirbase_types::FixedPointValue,
     ) -> Result<(), String>;
     fn recent(
         &self,
@@ -231,7 +228,8 @@ pub struct AdmitContext<'a> {
 #[derive(Debug)]
 struct TokenBucket {
     tokens: f64,
-    last: Instant,
+    /// Last refill in the injected monotonic domain, microseconds (PV-3.12).
+    last_micros: u64,
     capacity: f64,
     refill_per_sec: f64,
 }
@@ -241,15 +239,15 @@ impl TokenBucket {
         let cap = (rate_per_sec.max(1)) as f64;
         TokenBucket {
             tokens: cap,
-            last: Instant::now(),
+            last_micros: tirbase_core::traits::monotonic_now(),
             capacity: cap,
             refill_per_sec: cap,
         }
     }
     fn try_take(&mut self) -> bool {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last).as_secs_f64();
-        self.last = now;
+        let now = tirbase_core::traits::monotonic_now();
+        let elapsed = now.saturating_sub(self.last_micros) as f64 / 1_000_000.0;
+        self.last_micros = now;
         self.tokens = (self.tokens + elapsed * self.refill_per_sec).min(self.capacity);
         if self.tokens >= 1.0 {
             self.tokens -= 1.0;
@@ -321,20 +319,27 @@ pub struct DriftRecord {
     pub unit_id: u16,
 }
 
+/// `(issuer, target, param, epoch)` → cached admission decision.
+type DecidedOutcomes = Arc<Mutex<BTreeMap<(String, String, u64, u64), AdmitDecision>>>;
+/// `(device_id, target, param)` → issue timestamps (per-minute rate limit).
+type ChallengeIssueCounts = Arc<Mutex<BTreeMap<(String, String, String), VecDeque<i64>>>>;
+/// `(issuer, target, param)` → recent drift records.
+type DriftHistory = Arc<Mutex<BTreeMap<(String, String, String), VecDeque<DriftRecord>>>>;
+
 /// Pipeline state held by `CommandGuard` for Task 14 stages.
 #[derive(Debug)]
+
 pub struct AdmitPipelineState {
     pub(crate) profiles: Arc<BTreeMap<TargetId, Arc<ArcSwap<EnvelopeProfile>>>>,
     #[allow(dead_code)]
     pub(crate) policy: Arc<ArcSwap<Option<PolicyBundle>>>,
     pub(crate) root_ca_registry: Arc<RwLock<RootCaRegistry>>,
     pub(crate) revoked_dids: Arc<RwLock<BTreeSet<String>>>,
-    pub(crate) decided_outcomes: Arc<Mutex<BTreeMap<(String, String, u64, u64), AdmitDecision>>>,
+    pub(crate) decided_outcomes: DecidedOutcomes,
     pub(crate) unknown_targets: Arc<RwLock<BTreeSet<String>>>,
     pub(crate) challenge_nonces: Arc<Mutex<BTreeMap<[u8; 32], ChallengeNonce>>>,
-    pub(crate) challenge_issue_counts:
-        Arc<Mutex<BTreeMap<(String, String, String), VecDeque<i64>>>>, // (device_id,target,param)
-    pub(crate) drift_history: Arc<Mutex<BTreeMap<(String, String, String), VecDeque<DriftRecord>>>>, // (issuer,target,param)
+    pub(crate) challenge_issue_counts: ChallengeIssueCounts,
+    pub(crate) drift_history: DriftHistory,
     pub(crate) rate_limiters: Arc<RateLimiters>,
     pub(crate) pre_auth_rps: AtomicU64,
     pub(crate) issuer_rps: AtomicU64,
@@ -1175,8 +1180,8 @@ pub fn admit_stages_0_to_15(
                 if window > 0 {
                     let mut cum: i128 = 0;
                     let mut prev = last_v;
-                    let mut iter = q.iter();
-                    while let Some(r) = iter.next() {
+                    let iter = q.iter();
+                    for r in iter {
                         let v = FixedPointValue::new(r.value_mantissa, r.exponent, r.unit_id);
                         cum = cum.saturating_add(abs_scaled_diff(&v, &prev));
                         prev = v;
@@ -1214,9 +1219,7 @@ pub fn admit_stages_0_to_15(
                             cmd.target_id.as_str(),
                             &cmd.param,
                             mono_secs,
-                            canonical.mantissa,
-                            canonical.exponent,
-                            canonical.unit_id,
+                            canonical,
                         );
                     }
                 }

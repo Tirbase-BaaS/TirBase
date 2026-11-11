@@ -31,10 +31,10 @@ impl TimeSource for FixedTime {
 struct MemStore(std::sync::Mutex<Option<TimeRatchetRecord>>);
 impl TimeRatchetStore for MemStore {
     fn load(&self) -> Result<Option<TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError> {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(&self, record: &TimeRatchetRecord) -> Result<(), tirbase_guard::time::TimeRatchetError> {
-        *self.0.lock().unwrap() = Some(record.clone());
+        *self.0.lock().unwrap() = Some(*record);
         Ok(())
     }
 }

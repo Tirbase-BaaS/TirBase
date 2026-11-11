@@ -10,7 +10,7 @@ use tirbase_core::auth::command_token::create_command_token;
 use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::{KeyProvider, TimeSource};
-use tirbase_guard::admit::{AdmitContext, AdmitDecision, AdmitPipelineState, AdmitRejection};
+use tirbase_guard::admit::{AdmitContext, AdmitPipelineState, AdmitRejection};
 use tirbase_guard::driver_proxy::{DriverProxy, IngressSource};
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::node_mode::NodeModeState;
@@ -43,7 +43,7 @@ impl TimeRatchetStore for MemRatchetStore {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -283,7 +283,7 @@ fn claim_14_12_canonical_exponent_enforced() {
 fn claim_14_15_drift_exceeded() {
     let h = Harness::new(false);
     h.pipeline.set_issuer_rps(1000);
-    let tok = h.token();
+    let _tok = h.token();
     // make a restrictive drift profile
     let mut p = profile(false);
     p.parameters[0].drift_window_secs = 3600;

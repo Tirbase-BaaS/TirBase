@@ -11,7 +11,7 @@
 //! Dispatch (Stage 18) occurs only after Stage 16 commit/fsync completes.
 
 use std::io::{Read, Write};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 use tirbase_types::command::CommandMessage;
@@ -201,16 +201,30 @@ fn hex_entry(id: &[u8; 16]) -> String {
     s
 }
 
+/// Pointer/frame inputs for Stage 18 dispatch and Stage 19 confirmation.
+pub struct CommitIo<'a> {
+    pub entry_id: [u8; 16],
+    pub frame: &'a [u8],
+    pub completion_ts: i64,
+    pub timeout: Duration,
+}
+
+/// Timing inputs for the Stage 16–19 finaliser.
+pub struct FinalizeContext {
+    pub entry_id: [u8; 16],
+    pub actuating_ts: i64,
+    pub now_est: i64,
+    pub now_mono_secs: i64,
+    pub completion_ts: i64,
+}
+
 /// Stage 18+19: dispatch only after Stage 16 commit/fsync, then await driver.
 pub fn dispatch_and_await<W, R, S>(
     store: &S,
     cmd: &CommandMessage,
-    entry_id: [u8; 16],
+    io: CommitIo<'_>,
     proxy: &mut DriverProxy<W>,
-    frame: &[u8],
     driver_reader: &mut R,
-    completion_ts: i64,
-    timeout: Duration,
 ) -> Result<EffectTerminalState, String>
 where
     W: Write + Send,
@@ -222,28 +236,27 @@ where
         cmd.target_id.clone(),
         cmd.param.clone(),
         cmd.desired_state,
-        entry_id,
+        io.entry_id,
     );
     proxy
-        .dispatch(permit, frame)
+        .dispatch(permit, io.frame)
         .map_err(|e| format!("stage18 dispatch: {e}"))?;
     // Stage 19: await confirmation
-    let terminal = read_driver_confirmation(driver_reader, timeout);
+    let terminal = read_driver_confirmation(driver_reader, io.timeout);
     store
         .finalize_terminal(
-            &entry_id,
+            &io.entry_id,
             cmd.target_id.as_str(),
             cmd.issuer_did.as_str(),
             terminal.clone(),
-            completion_ts,
+            io.completion_ts,
             None,
         )
         .map_err(|e| format!("stage19 finalize: {e}"))?;
     Ok(terminal)
 }
 
-fn read_driver_confirmation<R: Read>(reader: &mut R, timeout: Duration) -> EffectTerminalState {
-    let start = Instant::now();
+fn read_driver_confirmation<R: Read>(reader: &mut R, _timeout: Duration) -> EffectTerminalState {
     let mut buf = [0u8; 128];
     // Blocking read approximation; real socketpair/timeout handled by gateway executor.
     match reader.read(&mut buf) {
@@ -257,10 +270,7 @@ fn read_driver_confirmation<R: Read>(reader: &mut R, timeout: Duration) -> Effec
                 EffectTerminalState::Unknown
             }
         }
-        _ => {
-            let _ = start.elapsed() >= timeout;
-            EffectTerminalState::Unknown
-        }
+        _ => EffectTerminalState::Unknown,
     }
 }
 
@@ -268,14 +278,10 @@ fn read_driver_confirmation<R: Read>(reader: &mut R, timeout: Duration) -> Effec
 pub fn commit_dispatch_finalize<W, R, S>(
     store: &S,
     cmd: &CommandMessage,
-    entry_id: [u8; 16],
-    actuating_ts: i64,
-    now_est: i64,
-    now_mono_secs: i64,
+    ctx: FinalizeContext,
     proxy: &mut DriverProxy<W>,
     frame: &[u8],
     driver_reader: &mut R,
-    completion_ts: i64,
 ) -> serde_json::Value
 where
     W: Write + Send,
@@ -283,13 +289,13 @@ where
     S: Stage16Store + ?Sized,
 {
     let original =
-        serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id)}).to_string();
+        serde_json::json!({"status":"accepted","entry_id":hex_entry(&ctx.entry_id)}).to_string();
     let req = Stage16Request {
         cmd,
-        entry_id,
-        actuating_ts,
-        now_est,
-        now_mono_secs,
+        entry_id: ctx.entry_id,
+        actuating_ts: ctx.actuating_ts,
+        now_est: ctx.now_est,
+        now_mono_secs: ctx.now_mono_secs,
         lease_duration_secs: 30,
         max_consecutive_renewals: 10,
         original_result_json: &original,
@@ -319,30 +325,32 @@ where
             stage17_rejection(cmd, AdmitRejection::Unsupported, &e, false)
         }
         Ok(()) => {
-            stage17_acceptance(cmd, &entry_id);
+            stage17_acceptance(cmd, &ctx.entry_id);
             match dispatch_and_await(
                 store,
                 cmd,
-                entry_id,
+                CommitIo {
+                    entry_id: ctx.entry_id,
+                    frame,
+                    completion_ts: ctx.completion_ts,
+                    timeout: Duration::from_secs(30),
+                },
                 proxy,
-                frame,
                 driver_reader,
-                completion_ts,
-                Duration::from_secs(30),
             ) {
                 Ok(state) => {
-                    serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id),"terminal_state":state.as_str()})
+                    serde_json::json!({"status":"accepted","entry_id":hex_entry(&ctx.entry_id),"terminal_state":state.as_str()})
                 }
                 Err(e) => {
                     let _ = store.finalize_terminal(
-                        &entry_id,
+                        &ctx.entry_id,
                         cmd.target_id.as_str(),
                         cmd.issuer_did.as_str(),
                         EffectTerminalState::Unknown,
-                        completion_ts,
+                        ctx.completion_ts,
                         None,
                     );
-                    serde_json::json!({"status":"accepted","entry_id":hex_entry(&entry_id),"terminal_state":"Unknown","dispatch_error":e})
+                    serde_json::json!({"status":"accepted","entry_id":hex_entry(&ctx.entry_id),"terminal_state":"Unknown","dispatch_error":e})
                 }
             }
         }

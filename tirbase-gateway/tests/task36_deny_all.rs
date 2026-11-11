@@ -13,7 +13,7 @@ use std::os::unix::net::UnixStream;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -90,8 +90,8 @@ fn no_profile_means_no_command_socket_and_a_deny_all_boot_event() {
     });
 
     let socket = dir.join("admin.sock");
-    let deadline = Instant::now() + Duration::from_secs(40);
-    while Instant::now() < deadline {
+    let deadline = tirbase_core::traits::monotonic_now() + 40_000_000;
+    while tirbase_core::traits::monotonic_now() < deadline {
         if logs
             .lock()
             .unwrap()

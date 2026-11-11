@@ -25,36 +25,6 @@ fn optional_env(name: &str) -> Option<String> {
     env::var(name).ok().filter(|v| !v.trim().is_empty())
 }
 
-fn hex_or_plain_payload(s: &str) -> Vec<u8> {
-    let t = s.trim();
-    if let Some(hex) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
-        // best-effort hex decode; fall back to bytes if odd/invalid
-        let mut out = Vec::with_capacity(hex.len() / 2);
-        let bytes = hex.as_bytes();
-        let mut i = 0;
-        while i + 1 < bytes.len() {
-            if let (Some(a), Some(b)) = (chr(bytes[i]), chr(bytes[i + 1])) {
-                out.push((a << 4) | b);
-                i += 2;
-            } else {
-                return t.as_bytes().to_vec();
-            }
-        }
-        if i == bytes.len() {
-            return out;
-        }
-    }
-    t.as_bytes().to_vec()
-}
-
-fn chr(b: u8) -> Option<u8> {
-    match b {
-        b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'f' => Some(b - b'a' + 10),
-        b'A'..=b'F' => Some(b - b'A' + 10),
-        _ => None,
-    }
-}
 
 /// Executes a configured Modbus/HIL harness command for a single function-code
 /// scenario. The lab runner provides a hardware-backed harness endpoint so the

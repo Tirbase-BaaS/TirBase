@@ -159,10 +159,7 @@ fn ensure_task25_checkpoint_hash_column(
 
 fn now_secs() -> i64 {
     // Best-effort wall hint; migration bookkeeping is not security-critical.
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+    tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
 fn injected_action(kind: DbKind) -> Option<SqliteErrorAction> {
@@ -708,6 +705,13 @@ CREATE TABLE IF NOT EXISTS device_identity (
 "#,
 }];
 
+/// Public test/helper wrapper around primary DB migration apply.
+pub fn apply_primary_migrations(conn: &Connection) -> Result<(), String> {
+    apply_migrations(conn, DbKind::Primary, primary_migrations())
+        .map(|_| ())
+        .map_err(|e| format!("{e:?}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -738,11 +742,4 @@ mod tests {
         }
         let _ = std::fs::remove_file(db);
     }
-}
-
-/// Public test/helper wrapper around primary DB migration apply.
-pub fn apply_primary_migrations(conn: &Connection) -> Result<(), String> {
-    apply_migrations(conn, DbKind::Primary, primary_migrations())
-        .map(|_| ())
-        .map_err(|e| format!("{e:?}"))
 }

@@ -28,7 +28,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::{json, Value};
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
@@ -171,7 +171,7 @@ impl Gateway {
         let primary_db = dir.join("primary.db");
         if lockdown {
             let store =
-                SqliteLockdownStore::new(&primary_db, &primary_db.with_file_name("lockdown"));
+                SqliteLockdownStore::new(&primary_db, primary_db.with_file_name("lockdown"));
             store
                 .set_lockdown(LockdownEntryReason::GuardDecision)
                 .expect("pre-seed lockdown");
@@ -223,8 +223,8 @@ impl Gateway {
         });
 
         let socket = dir.join("admin.sock");
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while Instant::now() < deadline {
+        let deadline = tirbase_core::traits::monotonic_now() + 30_000_000;
+        while tirbase_core::traits::monotonic_now() < deadline {
             if socket.exists()
                 && logs
                     .lock()
@@ -931,9 +931,9 @@ fn admin_endpoints_do_not_return_501_when_target_state_is_unconfigured() {
     });
     let mut logs = Vec::new();
     let socket = dir.join("admin.sock");
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = tirbase_core::traits::monotonic_now() + 30_000_000;
     let mut ready = false;
-    while Instant::now() < deadline {
+    while tirbase_core::traits::monotonic_now() < deadline {
         match rx.recv_timeout(Duration::from_millis(200)) {
             Ok(line) => {
                 let started = line.contains("tirbase-gateway started");

@@ -308,10 +308,7 @@ mod tests {
         std::env::temp_dir().join(format!(
             "tirbase-challenge-{tag}-{}-{}.db",
             std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            tirbase_core::traits::monotonic_now()
         ))
     }
 

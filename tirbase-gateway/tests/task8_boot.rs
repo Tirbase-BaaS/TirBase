@@ -122,9 +122,9 @@ fn run_until_marker(config: &Path, needle: &str) -> Vec<String> {
     drop(tx);
 
     let mut lines = Vec::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    let deadline = tirbase_core::traits::monotonic_now() + 30_000_000;
     let mut found = false;
-    while std::time::Instant::now() < deadline {
+    while tirbase_core::traits::monotonic_now() < deadline {
         match rx.recv_timeout(Duration::from_millis(250)) {
             Ok(line) => {
                 let hit = line.contains(needle);

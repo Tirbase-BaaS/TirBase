@@ -71,12 +71,12 @@ fn run_until_marker(config: &Path, env: &[(&str, &str)], needle: &str) -> Vec<St
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(line);
         }
     });
     thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().flatten() {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
             let _ = tx2.send(line);
         }
     });
@@ -128,12 +128,12 @@ fn run_until_exit(config: &Path, env: &[(&str, &str)]) -> (std::process::ExitSta
     let (tx, rx) = mpsc::channel();
     let tx2 = tx.clone();
     thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().flatten() {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(line);
         }
     });
     thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().flatten() {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
             let _ = tx2.send(line);
         }
     });
@@ -169,18 +169,6 @@ fn pragma_str_via_open(path: &Path, kind_primary: bool, pragma: &str) -> String 
     };
     conn.query_row(&format!("PRAGMA {pragma}"), [], |r| r.get(0))
         .unwrap_or_else(|e| panic!("PRAGMA {pragma} on {}: {e}", path.display()))
-}
-
-fn pragma_i64(db: &Path, pragma: &str) -> i64 {
-    let conn = rusqlite::Connection::open(db).expect("open db");
-    conn.query_row(&format!("PRAGMA {pragma}"), [], |r| r.get(0))
-        .unwrap_or_else(|e| panic!("PRAGMA {pragma} on {}: {e}", db.display()))
-}
-
-fn pragma_str(db: &Path, pragma: &str) -> String {
-    let conn = rusqlite::Connection::open(db).expect("open db");
-    conn.query_row(&format!("PRAGMA {pragma}"), [], |r| r.get(0))
-        .unwrap_or_else(|e| panic!("PRAGMA {pragma} on {}: {e}", db.display()))
 }
 
 fn has_table(db: &Path, name: &str) -> bool {

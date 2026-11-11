@@ -1,13 +1,9 @@
 use rusqlite::Connection;
-use sha2::Digest;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 fn unique_temp_dir(label: &str) -> PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let nanos = tirbase_core::traits::monotonic_now();
     let dir = std::env::temp_dir().join(format!(
         "tirbase_task27_{label}_{}_{}",
         std::process::id(),

@@ -17,13 +17,13 @@
 
 #![allow(dead_code)] // APIs wired incrementally by 25.3 loop/admin paths.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -128,10 +128,15 @@ fn persist_personal_fields(
     Ok(())
 }
 
+/// Persisted personal field: `(field_name, salt, ciphertext)`.
+type PersonalFieldRow = (String, [u8; 32], Vec<u8>);
+/// Persisted security-event row: `(seq, segment_id, is_checkpoint, checkpoint_hash)`.
+type SecurityEventRow = (u64, u64, i64, Option<Vec<u8>>);
+
 pub fn read_personal_fields_for_seq(
     conn: &Connection,
     seq: u64,
-) -> rusqlite::Result<Vec<(String, [u8; 32], Vec<u8>)>> {
+) -> rusqlite::Result<Vec<PersonalFieldRow>> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS security_event_personal_fields (seq INTEGER NOT NULL, field_name TEXT NOT NULL, salt BLOB NOT NULL, plaintext BLOB NOT NULL, PRIMARY KEY (seq, field_name));",
     )?;
@@ -201,14 +206,14 @@ struct SyncPublisher {
 #[derive(Debug, Clone)]
 struct RateLimitState {
     tokens: f64,
-    last_refill: Instant,
+    last_refill: u64,
     suppressed_in_window: u64,
-    window_started: Instant,
-    window_last_emitted: Option<Instant>,
+    window_started: u64,
+    window_last_emitted: Option<u64>,
 }
 
 impl RateLimitState {
-    fn new(now: Instant) -> Self {
+    fn new(now: u64) -> Self {
         Self {
             tokens: SECURITY_LOG_RATE_LIMIT_PER_CATEGORY_PER_SEC as f64,
             last_refill: now,
@@ -221,7 +226,7 @@ impl RateLimitState {
 
 #[derive(Debug, Default)]
 struct CategoryRateLimiter {
-    by_category: HashMap<String, RateLimitState>,
+    by_category: BTreeMap<String, RateLimitState>,
 }
 
 impl CategoryRateLimiter {
@@ -229,7 +234,7 @@ impl CategoryRateLimiter {
         &mut self,
         category: &str,
         severity: Severity,
-        now: Instant,
+        now: u64,
     ) -> (bool, Option<u64>) {
         // S14: HIGH/CRITICAL bypass the rate limiter.
         if matches!(severity, Severity::High | Severity::Critical) {
@@ -240,7 +245,7 @@ impl CategoryRateLimiter {
             .by_category
             .entry(category.to_string())
             .or_insert_with(|| RateLimitState::new(now));
-        let elapsed = now.duration_since(state.last_refill).as_secs_f64();
+        let elapsed = now.saturating_sub(state.last_refill) as f64 / 1_000_000.0;
         if elapsed > 0.0 {
             state.tokens = (state.tokens + elapsed * cap).min(cap);
             state.last_refill = now;
@@ -250,7 +255,7 @@ impl CategoryRateLimiter {
             let summary = if state.suppressed_in_window > 0
                 && state
                     .window_last_emitted
-                    .map(|t| now.duration_since(t) >= Duration::from_secs(1))
+                    .map(|t| now.saturating_sub(t) >= 1_000_000)
                     .unwrap_or(true)
             {
                 let n = state.suppressed_in_window;
@@ -267,7 +272,7 @@ impl CategoryRateLimiter {
         let summary = if state.suppressed_in_window == 1
             || state
                 .window_last_emitted
-                .map(|t| now.duration_since(t) >= Duration::from_secs(1))
+                .map(|t| now.saturating_sub(t) >= 1_000_000)
                 .unwrap_or(true)
         {
             state.window_last_emitted = Some(now);
@@ -522,10 +527,10 @@ struct LogState {
     prev_hash: [u8; 32],
     segment_id: u64,
     events_since_checkpoint: u64,
-    last_checkpoint_mono: Instant,
+    last_checkpoint_mono: u64,
     rate_limiter: CategoryRateLimiter,
     restricted_by_tamper: bool,
-    last_witness_check_mono: Instant,
+    last_witness_check_mono: u64,
 }
 
 /// 28.2 (PV-7.13): on-disk rolling retention and archive-then-delete rotation.
@@ -681,10 +686,10 @@ impl SecurityEventLog {
                 prev_hash: [0u8; 32],
                 segment_id: 1,
                 events_since_checkpoint: 0,
-                last_checkpoint_mono: Instant::now(),
+                last_checkpoint_mono: tirbase_core::traits::monotonic_now(),
                 rate_limiter: CategoryRateLimiter::default(),
                 restricted_by_tamper: false,
-                last_witness_check_mono: Instant::now(),
+                last_witness_check_mono: tirbase_core::traits::monotonic_now(),
             }),
             primary_db,
             key_provider: RwLock::new(key_provider),
@@ -1072,10 +1077,7 @@ impl SecurityEventLog {
     }
 
     fn wall_time_now(&self) -> i64 {
-        let secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
+        let secs = tirbase_core::traits::wall_hint_secs().unwrap_or(0);
         self.last_emit_wall.store(secs, Ordering::Relaxed);
         secs
     }
@@ -1108,7 +1110,7 @@ impl SecurityEventLog {
         payload: SecurityEventPayload,
         bypass_rate_limit: bool,
     ) -> SecurityEvent {
-        let now = Instant::now();
+        let now = tirbase_core::traits::monotonic_now();
         let (suppress_summary_count, suppressed) = if !self
             .rate_limit_enabled
             .load(Ordering::Relaxed)
@@ -1204,7 +1206,7 @@ impl SecurityEventLog {
             let h = event_hash(&rec, false);
             st.prev_hash = h;
             st.events_since_checkpoint = st.events_since_checkpoint.saturating_add(1);
-            let elapsed = st.last_checkpoint_mono.elapsed().as_secs();
+            let elapsed = tirbase_core::traits::monotonic_now().saturating_sub(st.last_checkpoint_mono) / 1_000_000;
             let should = st.events_since_checkpoint >= self.checkpoint.every_events
                 || elapsed >= self.checkpoint.every_secs;
             st.ring.push(rec.clone());
@@ -1268,7 +1270,7 @@ impl SecurityEventLog {
             let row_hash = event_hash(&rec, true);
             st.prev_hash = row_hash;
             st.events_since_checkpoint = 0;
-            st.last_checkpoint_mono = Instant::now();
+            st.last_checkpoint_mono = tirbase_core::traits::monotonic_now();
             st.ring.push(rec.clone());
             (rec, self.open_db()?)
         };
@@ -1300,7 +1302,7 @@ impl SecurityEventLog {
                 let should = {
                     let st = this.state.lock().unwrap_or_else(|p| p.into_inner());
                     st.events_since_checkpoint >= this.checkpoint.every_events
-                        || st.last_checkpoint_mono.elapsed().as_secs() >= this.checkpoint.every_secs
+                        || tirbase_core::traits::monotonic_now().saturating_sub(st.last_checkpoint_mono) / 1_000_000 >= this.checkpoint.every_secs
                 };
                 if should {
                     let _ = this.try_checkpoint();
@@ -1930,7 +1932,7 @@ fn sig_to_bytes(sig: &DeviceSignature) -> Option<Vec<u8>> {
 /// Read security_events rows for inspection/tests (25.4).
 pub fn read_security_events(
     conn: &Connection,
-) -> rusqlite::Result<Vec<(u64, u64, i64, Option<Vec<u8>>)>> {
+) -> rusqlite::Result<Vec<SecurityEventRow>> {
     let mut stmt = conn.prepare(
         "SELECT seq, segment_id, is_checkpoint, checkpoint_hash FROM security_events ORDER BY seq ASC",
     )?;
@@ -2083,7 +2085,7 @@ mod tests {
                 let mut records = Vec::new();
                 let mut prev = [0u8; 32];
                 for i in 0..n {
-                    let mut rec = SecurityEvent {
+                    let rec = SecurityEvent {
                         seq: (i as u64) + 1,
                         segment_id: 1,
                         category: SecurityEventCategory::CommandDecision,

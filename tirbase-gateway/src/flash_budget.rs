@@ -16,7 +16,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
 
@@ -206,10 +206,7 @@ fn trim_partition_suffix(name: &str) -> String {
 }
 
 fn now_unix_secs() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+    tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
 fn day_start(unix: i64) -> i64 {

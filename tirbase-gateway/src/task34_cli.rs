@@ -4,7 +4,7 @@
 //! `CARGO_BIN_EXE_tirbase-gateway`. They use real driver clients/models and the
 //! real profile install path.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
@@ -26,7 +26,7 @@ struct PaFixture {
     public_key_hex: String,
 }
 
-fn load_trust_root(path: &PathBuf) -> Result<TrustRootRecord> {
+fn load_trust_root(path: &Path) -> Result<TrustRootRecord> {
     let body = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     let fx: PaFixture = serde_json::from_str(&body).context("parse PA fixture json")?;
     let pk = hex::decode(fx.public_key_hex.trim()).context("decode PA public key hex")?;
@@ -53,7 +53,7 @@ fn load_trust_root(path: &PathBuf) -> Result<TrustRootRecord> {
     })
 }
 
-pub fn run_profile_install(profile_path: &PathBuf, trust_root_path: &PathBuf) -> Result<()> {
+pub fn run_profile_install(profile_path: &Path, trust_root_path: &Path) -> Result<()> {
     let profile = load_profile_from_path(profile_path).map_err(|e| anyhow::anyhow!(e))?;
     let trust = load_trust_root(trust_root_path)?;
     let model = crate::profiles::cold_room_device_model();
@@ -72,7 +72,12 @@ pub fn run_profile_install(profile_path: &PathBuf, trust_root_path: &PathBuf) ->
 }
 
 pub fn run_modbus_smoke(addr: &str, op: &str, register: u16, values: &[u16]) -> Result<()> {
-    let mut client = ModbusTcpClient::connect(addr, 1, Duration::from_secs(5))
+    let mut client = ModbusTcpClient::connect(
+        addr,
+        1,
+        Duration::from_secs(5),
+        std::sync::Arc::new(tirbase_core::traits::monotonic_now),
+    )
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     match op {
         "read-holding" => {
@@ -199,8 +204,8 @@ pub fn run_register_map_check(path: &PathBuf) -> Result<()> {
 
 /// Report 7-day rolling average and projected durable write bytes/day at the
 /// Linux block layer (PV-15.4, CLAIM-44.6).
-pub fn run_flash_wear_estimate(data_path: &PathBuf, budget_bytes_per_day: u64) -> Result<()> {
-    let est = crate::flash_budget::estimate_for_data_path(data_path.as_path(), budget_bytes_per_day);
+pub fn run_flash_wear_estimate(data_path: &Path, budget_bytes_per_day: u64) -> Result<()> {
+    let est = crate::flash_budget::estimate_for_data_path(data_path, budget_bytes_per_day);
     println!(
         "FLASH_WEAR_ESTIMATE:block_device={} supported={} budget_bytes_per_day={} today_bytes={} projected_bytes_per_day={} rolling_7d_avg_bytes_per_day={} throttling_active={} group_commit_window_ms={} high_critical_bypass={}",
         est.block_device.as_deref().unwrap_or("none"),

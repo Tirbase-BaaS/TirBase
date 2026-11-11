@@ -55,7 +55,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::config::GatewayConfig;
-use crate::guard::{admit_and_dispatch_blocking, SqliteStage16Store};
+use crate::guard::{AdmitRequest, DispatchTarget, admit_and_dispatch_blocking, SqliteStage16Store};
 
 /// Domain separation for the cloud device hello signature.
 pub const CLOUD_DEVICE_HELLO_CONTEXT: &str = "TirBase/v1/CloudDeviceHello";
@@ -215,7 +215,7 @@ struct CloudChallengeRequest {
 #[serde(tag = "type")]
 enum CloudInbound {
     #[serde(rename = "command")]
-    Command(CloudCommandMessage),
+    Command(Box<CloudCommandMessage>),
     #[serde(rename = "challenge_request")]
     Challenge(CloudChallengeRequest),
     #[serde(rename = "challenge_nonce")]
@@ -490,7 +490,7 @@ impl CloudClient {
 
             match serde_json::from_str::<CloudInbound>(&line) {
                 Ok(CloudInbound::Command(command)) => {
-                    let response = self.handle_command(command).await;
+                    let response = self.handle_command(*command).await;
                     if let Ok(body) = serde_json::to_string(&response) {
                         let _ = tx.send(body);
                     }
@@ -579,17 +579,21 @@ impl CloudClient {
             .unwrap_or_else(|| (self.runtime.time_source.monotonic_now() / 1_000_000) as i64);
         let decision = admit_and_dispatch_blocking(
             self.runtime.guard.clone(),
-            message.command,
             source_key,
-            token,
-            IngressSource::CloudApi,
-            now_est,
-            false,
-            self.runtime.stage16.clone(),
-            DriverProxy::new(Vec::new()),
-            frame,
-            std::io::Cursor::new(Vec::new()),
-            now_mono,
+            AdmitRequest {
+                cmd: message.command,
+                token,
+                ingress: IngressSource::CloudApi,
+                now_est,
+                simulate: false,
+            },
+            DispatchTarget {
+                store: self.runtime.stage16.clone(),
+                proxy: DriverProxy::new(Vec::new()),
+                frame,
+                driver_reader: std::io::Cursor::new(Vec::new()),
+                now_mono_secs: now_mono,
+            },
         )
         .await;
         let status = decision

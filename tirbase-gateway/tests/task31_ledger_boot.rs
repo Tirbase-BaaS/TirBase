@@ -16,10 +16,7 @@ use std::time::Duration;
 static REBUILD_PROBE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn tmp(tag: &str) -> PathBuf {
-    let u = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let u = tirbase_core::traits::monotonic_now();
     let p = std::env::temp_dir().join(format!("tirbase-task31-{tag}-{u}"));
     let _ = std::fs::create_dir_all(&p);
     p
@@ -55,9 +52,9 @@ fn run_gateway(config: &PathBuf, extra_env: &[(&str, &str)]) -> (bool, String) {
         cmd.env(k, v);
     }
     let mut child = cmd.spawn().expect("spawn gateway");
-    let start = std::time::Instant::now();
+    let start = tirbase_core::traits::monotonic_now();
     loop {
-        if start.elapsed() > Duration::from_secs(25) {
+        if tirbase_core::traits::monotonic_now().saturating_sub(start) > 25_000_000 {
             let _ = child.kill();
             let out = child.wait_with_output().expect("wait");
             let mut s = String::from_utf8_lossy(&out.stdout).to_string();
@@ -72,7 +69,7 @@ fn run_gateway(config: &PathBuf, extra_env: &[(&str, &str)]) -> (bool, String) {
         }
         // gateway may keep running; look for boot marker by waiting a bit then killing
         std::thread::sleep(Duration::from_millis(150));
-        if start.elapsed() > Duration::from_millis(2200) {
+        if tirbase_core::traits::monotonic_now().saturating_sub(start) > 2_200_000 {
             let _ = child.kill();
             let out = child.wait_with_output().expect("wait");
             let mut s = String::from_utf8_lossy(&out.stdout).to_string();
@@ -262,17 +259,10 @@ fn seed_derived_schema_quarantine(conn: &rusqlite::Connection) {
     .expect("seed derived schema quarantine");
 }
 
-fn read_sidecar_ledger(
-    conn: &rusqlite::Connection,
-) -> Vec<(
-    Vec<u8>,
-    Vec<u8>,
-    String,
-    Vec<u8>,
-    i64,
-    Option<String>,
-    Option<String>,
-)> {
+type SidecarRow = (Vec<u8>, Vec<u8>, String, Vec<u8>, i64, Option<String>, Option<String>);
+type DerivedSchemaQuarantineRow = (Vec<u8>, String, Vec<u8>, String, i64, Option<Vec<u8>>);
+
+fn read_sidecar_ledger(conn: &rusqlite::Connection) -> Vec<SidecarRow> {
     let mut stmt = conn
         .prepare(
             "SELECT id, migration_id, table_name, delta_bytes, recorded_ts, replay_status, \
@@ -297,7 +287,7 @@ fn read_sidecar_ledger(
 
 fn read_derived_schema_quarantine(
     conn: &rusqlite::Connection,
-) -> Vec<(Vec<u8>, String, Vec<u8>, String, i64, Option<Vec<u8>>)> {
+) -> Vec<DerivedSchemaQuarantineRow> {
     let mut stmt = conn
         .prepare(
             "SELECT id, sender_did, raw_bytes, reason, received_at, migration_id \

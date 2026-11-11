@@ -11,7 +11,7 @@ use tirbase_guard::admit::AdmitContext;
 use tirbase_guard::{AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource};
 use tirbase_types::command::CommandMessage;
 
-use crate::guard::{admit_and_dispatch_blocking, SqliteStage16Store};
+use crate::guard::{AdmitRequest, DispatchTarget, admit_and_dispatch_blocking, SqliteStage16Store};
 
 /// Admit a command received over the local admin API and dispatch via the
 /// guard-owned proxy (legacy path; no Biscuit/pipeline context).
@@ -159,17 +159,21 @@ async fn process_local_admin_request(
 
     let decision = admit_and_dispatch_blocking(
         guard,
-        request.command,
         source_key,
-        token,
-        IngressSource::LocalAdmin,
-        now_est,
-        request.simulate,
-        stage16,
-        DriverProxy::new(Vec::new()),
-        frame,
-        Cursor::new(Vec::new()),
-        now_mono_secs,
+        AdmitRequest {
+            cmd: request.command,
+            token,
+            ingress: IngressSource::LocalAdmin,
+            now_est,
+            simulate: request.simulate,
+        },
+        DispatchTarget {
+            store: stage16,
+            proxy: DriverProxy::new(Vec::new()),
+            frame,
+            driver_reader: Cursor::new(Vec::new()),
+            now_mono_secs,
+        },
     )
     .await;
 

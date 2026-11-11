@@ -268,6 +268,13 @@ fn payload_hash<T: Serialize>(payload: &T) -> Result<[u8; 32], SignedOperationEr
     Ok(Sha256::digest(&bytes).into())
 }
 
+/// Context string for `EnvelopeProfile` policy documents (CLAIM-10.4, PV-4.5).
+pub const CONTEXT_ENVELOPE_PROFILE: &str = "TirBase/v1/EnvelopeProfile";
+/// Context string for `AntiReplayWindowReset` (CLAIM-20.3, PV-5.5).
+pub const CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str = "TirBase/v1/AntiReplayWindowReset";
+/// Context string for signed hash-chain recovery (CLAIM-26.2, PV-7.4, INV-4).
+pub const CONTEXT_CHAIN_RECOVERY: &str = "TirBase/v1/ChainRecovery";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,10 +437,3 @@ mod tests {
         assert_eq!(&bytes[CONTEXT_POLICY_BUNDLE.len() + 1..], &a.payload_hash);
     }
 }
-
-/// Context string for `EnvelopeProfile` policy documents (CLAIM-10.4, PV-4.5).
-pub const CONTEXT_ENVELOPE_PROFILE: &str = "TirBase/v1/EnvelopeProfile";
-/// Context string for `AntiReplayWindowReset` (CLAIM-20.3, PV-5.5).
-pub const CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str = "TirBase/v1/AntiReplayWindowReset";
-/// Context string for signed hash-chain recovery (CLAIM-26.2, PV-7.4, INV-4).
-pub const CONTEXT_CHAIN_RECOVERY: &str = "TirBase/v1/ChainRecovery";

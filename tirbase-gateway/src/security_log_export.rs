@@ -325,10 +325,7 @@ pub fn export_log(
     };
     let mut export = ExportedLog {
         format_version: 1,
-        export_timestamp_unix: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64,
+        export_timestamp_unix: tirbase_core::traits::wall_hint_secs().unwrap_or(0),
         device_did: key.did().to_string(),
         device_public_key_hex: hex::encode(key.public_key_bytes()),
         pseudonymized: pseudonymize_fields,
@@ -375,7 +372,7 @@ pub fn export_evidence_bundle(
         .collect();
     let manifest = serde_json::json!({
         "format_version": 1,
-        "export_timestamp_unix": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+        "export_timestamp_unix": tirbase_core::traits::wall_hint_secs().unwrap_or(0),
         "device_did": device_did, "device_public_key_hex": device_pk,
         "contents": ["log.json","checkpoints.json","device_public_key.txt","verify_report.json","manifest.json","signature.hex"],
     });

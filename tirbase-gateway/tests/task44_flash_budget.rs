@@ -26,10 +26,7 @@ fn flash_budget_measured_at_linux_block_layer_api_reports_device() {
     let dir = std::env::temp_dir().join(format!(
         "tb44-flash-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let db = dir.join("primary.db");
@@ -97,10 +94,7 @@ fn security_log_persists_high_severity_immediately_even_when_batched() {
     let dir = std::env::temp_dir().join(format!(
         "tb44-log-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let db = dir.join("primary.db");
@@ -116,7 +110,7 @@ fn security_log_persists_high_severity_immediately_even_when_batched() {
         .with_detail("ENOSPC test"),
     );
     // Immediate persistence path appends synchronously in SecurityEventLog.
-    assert!(log.len() >= 1);
+    assert!(!log.is_empty());
     let conn = rusqlite::Connection::open(&db).unwrap();
     let count: i64 = conn
         .query_row("SELECT COUNT(*) FROM security_events", [], |r| r.get(0))

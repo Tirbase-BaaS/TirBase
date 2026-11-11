@@ -9,7 +9,7 @@
 //! 3. Emit `ReconciliationComplete` or `ReconciliationTimeout`.
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rusqlite::Connection;
 use tirbase_core::events::{emit, ReasonCode, SecurityEvent, SecurityEventCategory, Severity};
@@ -66,9 +66,12 @@ pub fn reconcile_on_boot(
 
     // 19.2: resolve Actuating entries via driver read-back (30s timeout each).
     let actuating = applied_effects_ledger::list_actuating(conn)?;
-    let started = Instant::now();
+    let started_micros = tirbase_core::traits::monotonic_now();
     for entry in actuating {
-        let remaining = RECONCILE_READBACK_TIMEOUT.saturating_sub(started.elapsed());
+        let elapsed = std::time::Duration::from_micros(
+            tirbase_core::traits::monotonic_now().saturating_sub(started_micros),
+        );
+        let remaining = RECONCILE_READBACK_TIMEOUT.saturating_sub(elapsed);
         let outcome = if remaining.is_zero() {
             summary.timed_out = true;
             ReadBackOutcome::Timeout

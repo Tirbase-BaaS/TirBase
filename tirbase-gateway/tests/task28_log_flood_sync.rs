@@ -149,12 +149,12 @@ fn claim_28_1_gateway_binary_flood_triggers_suppression_summary() {
     let (tx, rx) = mpsc::channel::<String>();
     let tx2 = tx.clone();
     thread::spawn(move || {
-        for l in BufReader::new(stdout).lines().flatten() {
+        for l in BufReader::new(stdout).lines().map_while(Result::ok) {
             let _ = tx.send(l);
         }
     });
     thread::spawn(move || {
-        for l in BufReader::new(stderr).lines().flatten() {
+        for l in BufReader::new(stderr).lines().map_while(Result::ok) {
             let _ = tx2.send(l);
         }
     });

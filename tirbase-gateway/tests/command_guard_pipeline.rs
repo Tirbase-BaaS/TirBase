@@ -43,7 +43,7 @@ impl TimeRatchetStore for S {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -58,7 +58,7 @@ fn fpv(m: i64) -> FixedPointValue {
 }
 fn mk(
     ca: &InMemoryKeyProvider,
-    issuer: &InMemoryKeyProvider,
+    _issuer: &InMemoryKeyProvider,
     profile: EnvelopeProfile,
 ) -> (CommandGuard, Arc<AdmitPipelineState>) {
     let target = TargetId::new("pump-1");
@@ -630,10 +630,7 @@ fn claim_14_13_14_15_db_backed_stores_exercised() {
     let dir = std::env::temp_dir().join(format!(
         "tg14-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let drift = tirbase_gateway::db::drift_rate_history::SqliteDriftRateHistoryStore::open(

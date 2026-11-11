@@ -21,7 +21,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rcgen::{BasicConstraints, CertificateParams, IsCa, KeyPair};
 use rustls::pki_types::CertificateDer;
@@ -224,11 +224,11 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
 
     let mut buffer = String::new();
     let mut chunk = [0u8; 8192];
-    let started = Instant::now();
+    let started = tirbase_core::traits::monotonic_now();
     let mut scripted = false;
     let mut hello_seen = false;
 
-    while started.elapsed() < Duration::from_secs(8) {
+    while tirbase_core::traits::monotonic_now().saturating_sub(started) < 8_000_000 {
         match tls.read(&mut chunk) {
             Ok(0) => break,
             Ok(n) => {
@@ -339,7 +339,7 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
         }
 
         // Connection 0 is deliberately short-lived so the gateway reconnects.
-        if index == 0 && started.elapsed() > Duration::from_secs(2) {
+        if index == 0 && tirbase_core::traits::monotonic_now().saturating_sub(started) > 2_000_000 {
             break;
         }
     }
@@ -378,7 +378,7 @@ struct Gateway {
     child: Child,
     dir: PathBuf,
     logs: Arc<Mutex<Vec<String>>>,
-    cloud_port: u16,
+
 }
 
 impl Gateway {
@@ -456,8 +456,8 @@ impl Gateway {
             }
         });
 
-        let deadline = Instant::now() + Duration::from_secs(40);
-        while Instant::now() < deadline {
+        let deadline = tirbase_core::traits::monotonic_now() + 40_000_000;
+        while tirbase_core::traits::monotonic_now() < deadline {
             if logs
                 .lock()
                 .unwrap()
@@ -478,7 +478,6 @@ impl Gateway {
             child,
             dir,
             logs,
-            cloud_port,
         }
     }
 
@@ -496,8 +495,8 @@ impl Drop for Gateway {
 }
 
 fn wait_until(deadline: Duration, mut check: impl FnMut() -> bool) -> bool {
-    let start = Instant::now();
-    while start.elapsed() < deadline {
+    let start = tirbase_core::traits::monotonic_now();
+    while tirbase_core::traits::monotonic_now().saturating_sub(start) < deadline.as_micros() as u64 {
         if check() {
             return true;
         }

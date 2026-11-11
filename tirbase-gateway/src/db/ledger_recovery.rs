@@ -28,10 +28,7 @@ pub fn recover_derived_on_corruption(
     core_storage_path: Option<&Path>,
     node_mode: Option<&NodeModeState>,
 ) -> Result<Connection, SqliteErrorAction> {
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let ts = tirbase_core::traits::wall_hint_secs().unwrap_or(0).max(0) as u64;
     let quarantine = quarantine_path(derived_path, ts);
     let _ = std::fs::rename(derived_path, &quarantine);
     let _ = std::fs::remove_file(format!("{}-wal", derived_path.display()));

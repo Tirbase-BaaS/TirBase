@@ -10,7 +10,7 @@ use std::io::Cursor;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::commit::{
-    clamp_idempotency_retention_secs, commit_dispatch_finalize, EffectTerminalState, Stage16Error,
+    clamp_idempotency_retention_secs, FinalizeContext, commit_dispatch_finalize, EffectTerminalState, Stage16Error,
     Stage16Request, Stage16Store, DEFAULT_IDEMPOTENCY_RETENTION_SECS,
 };
 use tirbase_guard::{sign_command, DriverProxy};
@@ -21,12 +21,15 @@ fn fpv(m: i64) -> FixedPointValue {
     FixedPointValue::new(m, -1, UNIT_PERCENT)
 }
 
+type IdemMap = Mutex<BTreeMap<(String, String, [u8; 16]), (String, i64)>>;
+type ReplayMap = Mutex<BTreeMap<(String, String, u64), (u64, u64)>>;
+
 #[derive(Debug, Default)]
 struct MemStore {
     // (issuer,target,key) -> original_result
-    idem: Mutex<BTreeMap<(String, String, [u8; 16]), (String, i64)>>,
+    idem: IdemMap,
     // (issuer,target,epoch) -> (highest, bitmap)
-    replay: Mutex<BTreeMap<(String, String, u64), (u64, u64)>>,
+    replay: ReplayMap,
     leases: Mutex<BTreeMap<String, String>>,
     effects: Mutex<HashSet<[u8; 16]>>,
 }
@@ -141,7 +144,20 @@ proptest! {
         sign_command(&mut cmd, &issuer).unwrap();
         let store = MemStore::default();
         let mut w1 = Vec::new(); let mut p1 = DriverProxy::new(Cursor::new(&mut w1)); let mut d1 = Cursor::new(b"OK".to_vec());
-        let v1 = commit_dispatch_finalize(&store, &cmd, [1u8;16], now_est, now_est, now_est, &mut p1, b"A", &mut d1, now_est+1);
+        let v1 = commit_dispatch_finalize(
+            &store,
+            &cmd,
+            FinalizeContext {
+                entry_id: [1u8; 16],
+                actuating_ts: now_est,
+                now_est,
+                now_mono_secs: now_est,
+                completion_ts: now_est + 1,
+            },
+            &mut p1,
+            b"A",
+            &mut d1,
+        );
         prop_assert_eq!(v1["status"].as_str(), Some("accepted"));
         prop_assert!(!w1.is_empty(), "first must actuate");
         // Same key+issuer+target, within retention.

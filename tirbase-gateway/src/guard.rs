@@ -271,9 +271,9 @@ impl Stage16Store for SqliteStage16Store {
             .map_err(Stage16Error::Store)?;
 
         // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
-        let prev = drift_rate_history::load_summary_conn(&*tx, cmd.target_id.as_str(), &cmd.param)
+        let prev = drift_rate_history::load_summary_conn(&tx, cmd.target_id.as_str(), &cmd.param)
             .map_err(Stage16Error::Store)?;
-        let prev_target = target_state::get(&*tx, cmd.target_id.as_str(), &cmd.param)
+        let prev_target = target_state::get(&tx, cmd.target_id.as_str(), &cmd.param)
             .map_err(Stage16Error::Store)?
             .or_else(|| prev.as_ref().map(|p| p.last_value));
         let value_changed = prev_target
@@ -358,26 +358,50 @@ impl Stage16Store for SqliteStage16Store {
     }
 }
 
+/// Admit-phase inputs for an ingress command.
+pub struct AdmitRequest {
+    pub cmd: tirbase_types::command::CommandMessage,
+    pub token: Vec<u8>,
+    pub ingress: tirbase_guard::IngressSource,
+    pub now_est: i64,
+    pub simulate: bool,
+}
+
+/// Stage 16–19 execution inputs (effects store, driver I/O, timestamps).
+pub struct DispatchTarget<W: std::io::Write + Send + 'static, R: std::io::Read + Send + 'static> {
+    pub store: std::sync::Arc<SqliteStage16Store>,
+    pub proxy: tirbase_guard::DriverProxy<W>,
+    pub frame: Vec<u8>,
+    pub driver_reader: R,
+    pub now_mono_secs: i64,
+}
+
 /// Stage 15.6 executor split helper: evaluate Stages 0–15 (spawn_blocking-safe)
 /// then run 16–19. DB reads in admit are allowed on a blocking pool.
 pub async fn admit_and_dispatch_blocking<W, R>(
     guard: std::sync::Arc<tirbase_guard::CommandGuard>,
-    cmd: tirbase_types::command::CommandMessage,
     ctx_source_key: String,
-    token: Vec<u8>,
-    ingress: tirbase_guard::IngressSource,
-    now_est: i64,
-    simulate: bool,
-    store: std::sync::Arc<SqliteStage16Store>,
-    mut proxy: tirbase_guard::DriverProxy<W>,
-    frame: Vec<u8>,
-    mut driver_reader: R,
-    now_mono_secs: i64,
+    req: AdmitRequest,
+    io: DispatchTarget<W, R>,
 ) -> serde_json::Value
 where
     W: std::io::Write + Send + 'static,
     R: std::io::Read + Send + 'static,
 {
+    let AdmitRequest {
+        cmd,
+        token,
+        ingress,
+        now_est,
+        simulate,
+    } = req;
+    let DispatchTarget {
+        store,
+        mut proxy,
+        frame,
+        mut driver_reader,
+        now_mono_secs,
+    } = io;
     let metrics = crate::metrics::global_metrics();
     if simulate {
         let sim_ctx = tirbase_guard::admit::AdmitContext {
@@ -477,14 +501,16 @@ where
                 tirbase_guard::commit_dispatch_finalize(
                     &*store2,
                     &cmd3,
-                    entry_id,
-                    now_est,
-                    now_est,
-                    now_mono_secs,
+                    tirbase_guard::commit::FinalizeContext {
+                        entry_id,
+                        actuating_ts: now_est,
+                        now_est,
+                        now_mono_secs,
+                        completion_ts: now_est,
+                    },
                     &mut proxy,
                     &frame,
                     &mut driver_reader,
-                    now_est,
                 )
             })
             .await
