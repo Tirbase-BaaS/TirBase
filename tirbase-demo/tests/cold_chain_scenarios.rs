@@ -5,7 +5,7 @@
 //! with observable ACCEPT/REJECT output demonstrating the defended attack.
 
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tirbase_sim::scenarios::s1_s2_s3::{
     scenario_s1_envelope_violation_rejected, scenario_s2_slow_ramp_drift_rejected,
@@ -37,13 +37,14 @@ fn cold_chain_run_sh_produces_observable_output_within_120s() {
         .join("run.sh");
     assert!(script.exists(), "run.sh must exist at {}", script.display());
 
-    let start = Instant::now();
+    let start = tirbase_core::traits::monotonic_now();
     let output = Command::new("bash")
         .arg(&script)
         .env("TIRBASE_DEMO_INNER", "0")
         .output()
         .expect("run cold-chain run.sh");
-    let elapsed = start.elapsed();
+    let elapsed =
+        Duration::from_micros(tirbase_core::traits::monotonic_now().saturating_sub(start));
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

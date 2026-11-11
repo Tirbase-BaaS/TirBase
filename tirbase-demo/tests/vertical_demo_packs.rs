@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tirbase_sim::scenarios::s1_s2_s3::{
     scenario_s1_envelope_violation_rejected, scenario_s2_slow_ramp_drift_rejected,
@@ -53,13 +53,14 @@ fn run_pack_script(pack: &str, expected_scenarios: &[&str]) {
     let script = workspace_root()
         .join(format!("tirbase-demo/{pack}/run.sh"));
     assert!(script.exists(), "run.sh must exist for pack {pack}");
-    let start = Instant::now();
+    let start = tirbase_core::traits::monotonic_now();
     let output = Command::new("bash")
         .arg(&script)
         .env("TIRBASE_DEMO_INNER", "0")
         .output()
         .unwrap_or_else(|e| panic!("run {pack} run.sh: {e}"));
-    let elapsed = start.elapsed();
+    let elapsed =
+        Duration::from_micros(tirbase_core::traits::monotonic_now().saturating_sub(start));
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(

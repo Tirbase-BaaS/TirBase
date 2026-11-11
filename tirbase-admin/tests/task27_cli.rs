@@ -1,13 +1,10 @@
 //! Task 27 CLI integration tests (CLAIM-27.2, 27.3, 27.4).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn unique_temp_dir(label: &str) -> PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let nanos = tirbase_core::traits::monotonic_now();
     let dir = std::env::temp_dir().join(format!(
         "tirbase_admin27_{label}_{}_{}",
         std::process::id(),
@@ -24,12 +21,12 @@ fn verify_bin() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_tirbase-verify-log"))
 }
 
-fn make_key(dir: &PathBuf) -> PathBuf {
+fn make_key(dir: &Path) -> PathBuf {
     let path = dir.join("device.key.json");
     tirbase_core::identity::file_key_provider::FileKeyProvider::generate(&path).unwrap();
     path
 }
-fn make_db(dir: &PathBuf) -> PathBuf {
+fn make_db(dir: &Path) -> PathBuf {
     let db = dir.join("primary.db");
     let log =
         tirbase_gateway::security_log::SecurityEventLog::new_persistent(db.clone(), None, false);
