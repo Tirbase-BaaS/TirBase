@@ -1,0 +1,18 @@
+# Summary
+
+- [Introduction](introduction.md)
+- [Architecture Overview](architecture/overview.md)
+- [Threat Model](threat-model/overview.md)
+- [Operator Guide](operator-guide/overview.md)
+- [Deployment Hardening](deployment-hardening/overview.md)
+- [Vertical Pages](verticals/overview.md)
+  - [Cold Chain (Flagship)](verticals/cold-chain.md)
+  - [Energy Edge](verticals/energy-edge.md)
+  - [Water / Pumping Station](verticals/water-pumping.md)
+  - [Logistics Node](verticals/logistics-node.md)
+  - [Buildings / BMS](verticals/buildings-bms.md)
+  - [Remote-Ops Mesh](verticals/remote-ops-mesh.md)
+  - [Defense Logistics](verticals/defense-logistics.md)
+- [Public API Reference](api/public-api.md)
+- [Configuration Reference](config/reference.md)
+- [Operational Procedures](procedures/index.md)
