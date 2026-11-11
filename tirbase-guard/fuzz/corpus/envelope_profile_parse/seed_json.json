@@ -1,0 +1,1 @@
+{"profile_id":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],"version":1,"device_class":"cold_room","parameters":[],"cross_constraints":[],"policy_loosen_m":2,"policy_loosen_n":3,"timelock_secs":60,"cancel_window_secs":30,"signature":{"Ed25519":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}
