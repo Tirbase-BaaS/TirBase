@@ -8,3 +8,13 @@ disallowed-methods = [
     { path = "std::time::SystemTime::now", reason = "Use TimeSource::wall_hint() instead (PV-3.12)" },
     { path = "tokio::time::Instant::now", reason = "Use TimeSource::monotonic_now() instead (PV-3.12)" },
 ]
+
+# "No HashMap in the guard or simulator" policy (task 38.7, PV-12):
+# HashMap iteration order is not deterministic, which breaks simulator
+# reproducibility. The guard and simulator must use BTreeMap (ordered) or
+# IndexMap (insertion-ordered). CI denies this lint for those two crates; other
+# crates that legitimately use HashMap carry a crate-level allow.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },
+    { path = "std::collections::hash_map::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },
+]

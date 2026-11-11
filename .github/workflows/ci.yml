@@ -341,6 +341,33 @@ jobs:
       - name: Clippy with disallowed-methods as error
         run: cargo clippy --workspace -- -D clippy::disallowed_methods
 
+  clippy-no-hashmap:
+    name: clippy — no HashMap in guard/sim (CLAIM-38.7, PV-12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-hashmap-${{ hashFiles('**/Cargo.lock') }}
+
+      # clippy.toml declares `std::collections::HashMap` a disallowed type
+      # (task 38.7). `tirbase-guard` and `tirbase-sim` enable the lint with
+      # `#![deny(clippy::disallowed_types)]`, so any HashMap use in either
+      # crate is a hard CI failure. `--all-targets` also covers tests.
+      - name: Clippy — HashMap disallowed in guard and sim
+        run: cargo clippy -p tirbase-guard -p tirbase-sim --all-targets
+
   check:
     name: cargo check (${{ matrix.target }})
     needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
@@ -498,6 +525,12 @@ jobs:
       - name: cargo test (native) — includes parity + convergence tests
         run: cargo test --features native
 
+      # Task 39.1 / CLAIM-39.1: the TOML catalog S1–S35 executes 1,120 seeded
+      # scenarios per run (>= 1,000 required).  A failing scenario prints its
+      # seed before the runner exits.
+      - name: Adversary scenario runner — ≥1,000 seeded scenarios (task 39.1)
+        run: cargo test -p tirbase-sim --test scenario_runner -- --nocapture
+
       - name: cargo test (native, test hooks) — test-only setup hooks (CLAIM-31.3)
         run: cargo test -p tirbase-core --features native,test-hooks --test task31_ico_persistence
 
@@ -513,7 +546,7 @@ jobs:
         run: npm test
 
   fuzz-smoke:
-    name: cargo-fuzz smoke (24.3/34.4)
+    name: cargo-fuzz smoke (CLAIM-40.1, PV-12.6)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -521,6 +554,21 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
+      - name: Verify fuzz targets and committed seed corpora (CLAIM-40.1)
+        run: bash scripts/check-fuzz-targets.sh
+
+      # Root fuzz workspace (production caller: fuzz/fuzz_targets/)
+      - name: Build root fuzz targets
+        working-directory: fuzz
+        run: cargo +nightly fuzz build
+      - name: Smoke test root automerge_delta_decode (<=60s)
+        working-directory: fuzz
+        run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
+      - name: Smoke test root fragment_reassembly (<=60s)
+        working-directory: fuzz
+        run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
+
+      # tirbase-core
       - name: Build tirbase-core fuzz targets
         working-directory: tirbase-core
         run: cargo +nightly fuzz build
@@ -530,45 +578,106 @@ jobs:
       - name: Smoke test fragment_reassembly (<=60s)
         working-directory: tirbase-core
         run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
-      - name: Build tirbase-drivers fuzz targets (CLAIM-34.4)
+
+      # tirbase-drivers
+      - name: Build tirbase-drivers fuzz targets
         working-directory: tirbase-drivers
         run: cargo +nightly fuzz build
-      - name: Smoke test modbus_frame (<=60s, CLAIM-34.4)
+      - name: Smoke test modbus_frame (<=60s)
         working-directory: tirbase-drivers
         run: cargo +nightly fuzz run modbus_frame -- -max_total_time=55 -runs=1000000
-      - name: Smoke test mqtt_frame (<=60s, CLAIM-34.4)
+      - name: Smoke test mqtt_frame (<=60s)
         working-directory: tirbase-drivers
         run: cargo +nightly fuzz run mqtt_frame -- -max_total_time=55 -runs=1000000
-      - name: Smoke test register_map_parse (<=60s, CLAIM-34.4)
+      - name: Smoke test register_map_parse (<=60s)
         working-directory: tirbase-drivers
         run: cargo +nightly fuzz run register_map_parse -- -max_total_time=55 -runs=1000000
 
+      # tirbase-guard (envelope/command parsers)
+      - name: Build tirbase-guard fuzz targets
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz build
+      - name: Smoke test envelope_profile_parse (<=60s)
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz run envelope_profile_parse -- -max_total_time=55 -runs=1000000
+      - name: Smoke test command_message_parse (<=60s)
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz run command_message_parse -- -max_total_time=55 -runs=1000000
+
   fuzz-target-registry:
-    name: fuzz target registry rule (24.4/34.4)
+    name: fuzz target registry rule (CLAIM-40.1, PV-6.8, PV-12.6)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check untrusted parsers have fuzz targets
+      - name: Check untrusted parsers have fuzz targets and seed corpora
+        run: bash scripts/check-fuzz-targets.sh
+
+  cargo-mutants-gate:
+    name: cargo-mutants kill-rate gate (CLAIM-40.2, PV-12.7)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-mutants-gate-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cargo-mutants
         run: |
-          python3 - << 'PY'
-          import os, sys
-          required = [
-              ('tirbase-core', 'automerge_delta_decode'),
-              ('tirbase-core', 'fragment_reassembly'),
-              ('tirbase-drivers', 'modbus_frame'),
-              ('tirbase-drivers', 'mqtt_frame'),
-              ('tirbase-drivers', 'register_map_parse'),
-          ]
-          missing = []
-          for crate, target in required:
-              path = os.path.join(crate, 'fuzz', 'fuzz_targets', f'{target}.rs')
-              if not os.path.exists(path):
-                  missing.append(path)
-          if missing:
-              print('missing fuzz targets:', *missing, sep='\n  ')
-              sys.exit(1)
-          print('ok')
-          PY
+          if ! command -v cargo-mutants &>/dev/null; then
+            cargo install cargo-mutants --locked
+          fi
+      - name: Enforce >=80% mutation kill rate on guard/ledger/replay/validation modules
+        run: python3 scripts/check-mutants-threshold.sh --timeout 120
+      - name: Upload mutants gate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-gate-outcomes
+          path: mutants.out/
+          retention-days: 14
+
+  iai-bench:
+    name: iai-callgrind instruction-count gate (CLAIM-40.3, PV-15.3)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install system dependencies (valgrind for iai-callgrind)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-iai-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install iai-callgrind runner
+        run: |
+          if ! command -v iai-callgrind-runner &>/dev/null; then
+            cargo install iai-callgrind-runner --version 0.14.0 --locked
+          fi
+      - name: Check criterion/iai benches compile (tirbase-guard)
+        run: cargo bench -p tirbase-guard --no-run
+      - name: Check criterion/iai benches compile (tirbase-core)
+        run: cargo bench -p tirbase-core --no-run
+      - name: Instruction-count gate (tirbase-guard)
+        run: bash scripts/check-iai-regression.sh tirbase-guard tirbase-guard/iai-baseline.txt
+      - name: Instruction-count gate (tirbase-core)
+        run: bash scripts/check-iai-regression.sh tirbase-core tirbase-core/iai-baseline.txt
 
   memory-budget-check:
     name: memory budget measurement gate (24.5)
@@ -694,6 +803,107 @@ jobs:
             exit 1;
           }
           echo "OK: x86_64 and aarch64 produced the same migration output digest"
+
+  # Bit-identical model determinism across architectures (CLAIM-38.4/38.5,
+  # PV-12.3). Both legs run natively: the aarch64 leg uses GitHub's arm64
+  # hosted runner because libtest deadlocks under qemu-user emulation.
+  sim-determinism-x86_64:
+    name: sim determinism x86_64 (CLAIM-38.4/38.5)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Sim determinism digest (x86_64, PV-12.3)
+        env:
+          TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
+        run: |
+          cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
+
+      - name: Upload x86_64 sim digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-digest-x86_64
+          path: ${{ runner.temp }}/sim-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  sim-determinism-aarch64:
+    name: sim determinism aarch64 (CLAIM-38.4/38.5)
+    runs-on: ubuntu-24.04-arm
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Sim determinism digest (aarch64, PV-12.3)
+        env:
+          TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
+        run: |
+          cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
+
+      - name: Upload aarch64 sim digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-digest-aarch64
+          path: ${{ runner.temp }}/sim-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  sim-determinism:
+    name: sim determinism compare (x86_64 vs aarch64, CLAIM-38.4/38.5)
+    runs-on: ubuntu-latest
+    needs: [sim-determinism-x86_64, sim-determinism-aarch64]
+    steps:
+      - name: Download x86_64 sim digest
+        uses: actions/download-artifact@v4
+        with:
+          name: sim-digest-x86_64
+          path: digests/sim-x86_64
+
+      - name: Download aarch64 sim digest
+        uses: actions/download-artifact@v4
+        with:
+          name: sim-digest-aarch64
+          path: digests/sim-aarch64
+
+      - name: Compare x86_64 and aarch64 simulator digests
+        run: |
+          set -euo pipefail
+          host_digest=digests/sim-x86_64/sim-digest.txt
+          arm_digest=digests/sim-aarch64/sim-digest.txt
+          test -s "$host_digest" || { echo "missing x86_64 sim digest artifact"; exit 1; }
+          test -s "$arm_digest" || { echo "missing aarch64 sim digest artifact"; exit 1; }
+          echo "x86_64:  $(cat "$host_digest")"
+          echo "aarch64: $(cat "$arm_digest")"
+          diff -u "$host_digest" "$arm_digest" || {
+            echo "MISMATCH: thermal/battery/scenario output differs between x86_64 and aarch64";
+            exit 1;
+          }
+          echo "OK: x86_64 and aarch64 produced bit-identical simulator output"
 
   # ── Packaging and fleet inventory (task 37, PV-11.3/PV-11.4) ───────────────
   #

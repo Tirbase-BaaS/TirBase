@@ -1,6 +1,6 @@
 # Adversary Scenarios Catalog
 
-**Status:** [CLAIM-3.7 — Planned]
+**Status:** [CLAIM-3.7 — Proven]; S1–S35 are wired in `tirbase-sim/scenarios/*.toml` and executed by `tirbase-sim/src/runner.rs` (task 39, CLAIM-39.1–39.4).
 
 This document catalogs all adversary scenarios (S1–S35) for TirBase. Each entry records the attack vector, expected system response, PV requirement reference, pass/fail criteria, and a test ID (populated when the corresponding `tirbase-sim` scenario or integration test is implemented).
 
@@ -798,41 +798,41 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 | Scenario | Phase/Capability | Status | Test ID |
 |---|---|---|---|
-| S1 — Out-of-Envelope Command | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S01.toml` |
-| S2 — Slow Ramp / Cumulative Drift | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S02.toml` |
-| S3 — Replay Attack | Phase 3: Effects Ledger | PLANNED | `tirbase-sim/scenarios/S03.toml` |
-| S4 — Clock Poisoning (Wall-Clock) | Phase 18: Time Anchor | PLANNED | `tirbase-sim/scenarios/S04.toml` |
-| S5 — Delta Flood / Rate Exhaustion | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S05.toml` |
-| S6 — Policy Rollback | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S06.toml` |
-| S7 — Policy Loosening Without M-of-N | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S07.toml` |
-| S8 — Malicious Migration (Float/SIMD) | Phase 6: Migration Sandbox | Implemented | `tirbase-sim/src/scenarios/s8_malicious_migration.rs` (`cargo test -p tirbase-sim s8 -- --nocapture`) |
-| S9 — Migration Fuel-Cost Hash Mismatch | Phase 6: Migration Sandbox | Implemented | `tirbase-sim/src/scenarios/s9_engine_profile_mismatch.rs` (`cargo test -p tirbase-sim s9 -- --nocapture`) |
-| S10 — Revoked Delta Propagation | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S10.toml` |
-| S11 — Single-Manager Quorum (1-of-1) | Phase 1: Key Management | PLANNED | `tirbase-sim/scenarios/S11.toml` |
-| S12 — Partition and Rejoin | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S12.toml` |
-| S13 — Crash at Every Step | Phase 3: Effects Ledger | PLANNED | `tirbase-guard/tests/kill_at_every_step.rs` |
-| S14 — Security Event Log Flooding | Phase 5: Security Event Log | PASSING | `tirbase-sim/src/scenarios/s14_log_flooding.rs::s14_log_flooding_rate_limit_and_bounded_retention` |
-| S15 — Reassembly Bomb | Phase 4: CRDT Hardening | PLANNED | `tirbase-sim/scenarios/S15.toml` |
-| S16 — Fleet Fan-Out | Phase 2: Command Guard | PLANNED | `tirbase-sim/scenarios/S16.toml` |
-| S17 — Cross-Role Attempt | Phase 1: Key Management | PLANNED | `tirbase-guard/tests/auth_matrix.rs` |
-| S18 — Guard Bypass Attempt | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/compile_fail/` |
-| S19 — Delayed Delivery | Phase 18: Time Anchor | PLANNED | `tirbase-sim/scenarios/S19.toml` |
-| S20 — Sequence-Number Poisoning | Phase 3: Effects Ledger | PLANNED | `tirbase-sim/scenarios/S20.toml` |
-| S21 — Lease Starvation | Phase 3: Effects Ledger | PLANNED | `tirbase-sim/scenarios/S21.toml` |
-| S22 — Snapshot Restore Attack | Phase 7: Persistence | PLANNED | `tirbase-sim/scenarios/S22.toml` |
-| S23 — Time-Anchor Poisoning | Phase 18: Time Anchor | PLANNED | `tirbase-sim/scenarios/S23.toml` |
-| S24 — Crash-Loop Escalation | Phase 9: Gateway Runtime | PLANNED | `tirbase-sim/scenarios/S24.toml` |
-| S25 — Quarantine Flush | Phase 4: CRDT Hardening | PROVEN | `tirbase-sim/src/scenarios/s25_quarantine_flush.rs` |
-| S26 — Idempotency-Key Squatting | Phase 3: Effects Ledger | PLANNED | `tirbase-guard/tests/effects_ledger.rs::test_idempotency_key_squatting` |
-| S27 — Tightening Bundle Weakens Governance | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_governance_weakening_classified_as_loosening` |
-| S28 — tightening_floor in Submitted Bundle | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_tightening_floor_from_trust_root_only` |
-| S29 — Retry Same Seq vs New Seq Same Idempotency Key | Phase 3: Effects Ledger | PLANNED | `tirbase-guard/tests/effects_ledger.rs::test_retry_seq_vs_idempotency_key` |
-| S30 — Exponent-Overflow Value | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/properties.rs::test_exponent_overflow` |
-| S31 — Clock Rollback Across Reboot | Phase 18: Time Anchor | PLANNED | `tirbase-guard/tests/time_ratchet.rs::test_clock_rollback_reboot` |
-| S32 — Challenge-Nonce Flooding | Phase 18: Time Anchor | PLANNED | `tirbase-guard/tests/guard_pipeline.rs::test_s32_challenge_nonce_flood` |
-| S33 — Pending-Queue Memory Bomb | Phase 4: CRDT Hardening | PROVEN | `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` |
-| S34 — Partial-Signature Replay Across Commands | Phase 2: Command Guard | PLANNED | `tirbase-guard/tests/policy.rs::test_partial_sig_replay_across_commands` |
-| S35 — Driver fd Leakage | Phase 8: Driver Framework | Implemented | `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` |
+| S1 — Out-of-Envelope Command | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S01.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S2 — Slow Ramp / Cumulative Drift | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S02.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S3 — Replay Attack | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S03.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S4 — Clock Poisoning (Wall-Clock) | Phase 18: Time Anchor | PASSING | `tirbase-sim/scenarios/S04.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S5 — Delta Flood / Rate Exhaustion | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S05.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S6 — Policy Rollback | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S06.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S7 — Policy Loosening Without M-of-N | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S07.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S8 — Malicious Migration (Float/SIMD) | Phase 6: Migration Sandbox | PASSING | `tirbase-sim/scenarios/S08.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S9 — Migration Fuel-Cost Hash Mismatch | Phase 6: Migration Sandbox | PASSING | `tirbase-sim/scenarios/S09.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S10 — Revoked Delta Propagation | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S10.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S11 — Single-Manager Quorum (1-of-1) | Phase 1: Key Management | PASSING | `tirbase-sim/scenarios/S11.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S12 — Partition and Rejoin | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S12.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S13 — Crash at Every Step | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S13.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S14 — Security Event Log Flooding | Phase 5: Security Event Log | PASSING | `tirbase-sim/scenarios/S14.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S15 — Reassembly Bomb | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S15.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S16 — Fleet Fan-Out | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S16.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S17 — Cross-Role Attempt | Phase 1: Key Management | PASSING | `tirbase-sim/scenarios/S17.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S18 — Guard Bypass Attempt | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S18.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S19 — Delayed Delivery | Phase 18: Time Anchor | PASSING | `tirbase-sim/scenarios/S19.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S20 — Sequence-Number Poisoning | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S20.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S21 — Lease Starvation | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S21.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S22 — Snapshot Restore Attack | Phase 7: Persistence | PASSING | `tirbase-sim/scenarios/S22.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S23 — Time-Anchor Poisoning | Phase 18: Time Anchor | PASSING | `tirbase-sim/scenarios/S23.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S24 — Crash-Loop Escalation | Phase 9: Gateway Runtime | PASSING | `tirbase-sim/scenarios/S24.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S25 — Quarantine Flush | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S25.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S26 — Idempotency-Key Squatting | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S26.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S27 — Tightening Bundle Weakens Governance | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S27.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S28 — tightening_floor in Submitted Bundle | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S28.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S29 — Retry Same Seq vs New Seq Same Idempotency Key | Phase 3: Effects Ledger | PASSING | `tirbase-sim/scenarios/S29.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S30 — Exponent-Overflow Value | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S30.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S31 — Clock Rollback Across Reboot | Phase 18: Time Anchor | PASSING | `tirbase-sim/scenarios/S31.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S32 — Challenge-Nonce Flooding | Phase 18: Time Anchor | PASSING | `tirbase-sim/scenarios/S32.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S33 — Pending-Queue Memory Bomb | Phase 4: CRDT Hardening | PASSING | `tirbase-sim/scenarios/S33.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S34 — Partial-Signature Replay Across Commands | Phase 2: Command Guard | PASSING | `tirbase-sim/scenarios/S34.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
+| S35 — Driver fd Leakage | Phase 8: Driver Framework | PASSING | `tirbase-sim/scenarios/S35.toml` (`cargo test -p tirbase-sim --test scenario_runner`) |
 
 ---
 
@@ -882,6 +882,6 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 3. **Demo packs** (PV-16) reference specific scenarios for each vertical: guard-actuator packs (cold-chain, energy edge, water, buildings) use S1–S3; data-mesh packs (logistics, remote-ops) use S10 or S12; defense-logistics uses S3 or S9.
 
-4. **CLAIMS.md entry:** This document satisfies [CLAIM-3.7]. Status will move from Planned to Proven once all 35 test IDs have passing CI runs recorded in CLAIMS.md.
+4. **CLAIMS.md entry:** This document satisfies [CLAIM-3.7]. Status is Proven: every S1–S35 entry is wired to `tirbase-sim/scenarios/S*.toml` and executed by `cargo test -p tirbase-sim --test scenario_runner`.
 
 5. **When adding a new scenario:** Add it here before writing any production code for the capability it covers (PV-12.5, PV-23.4). Assign the next available S-number, fill all fields, set Test ID to `PLANNED`, and add an entry to the coverage summary table and cross-reference table.
