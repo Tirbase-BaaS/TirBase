@@ -16,6 +16,18 @@ ciborium = "0.2"
 arc-swap = "1"
 zeroize = { version = "1.9", features = ["derive"] }
 
+[features]
+loom = ["dep:loom"]
+shuttle = ["dep:shuttle"]
+
+[dependencies.loom]
+version = "0.7"
+optional = true
+
+[dependencies.shuttle]
+version = "0.8"
+optional = true
+
 [dev-dependencies]
 rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
 # Property test for ratchet monotonicity (task 7.7, CLAIM-7.7).
