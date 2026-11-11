@@ -1,0 +1,6 @@
+# Water/pumping demo — S1: Out-of-Envelope Command (CLAIM-48.2)
+id = "S1"
+title = "Out-of-Envelope Command"
+pack = "water-pumping"
+defended = true
+guards = ["envelope_bounds"]

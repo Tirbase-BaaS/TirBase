@@ -1,0 +1,6 @@
+# Logistics node demo — S10: Revoked Delta Propagation (CLAIM-48.3)
+id = "S10"
+title = "Revoked Delta Propagation"
+pack = "logistics-node"
+defended = true
+guards = ["revocation_gate"]

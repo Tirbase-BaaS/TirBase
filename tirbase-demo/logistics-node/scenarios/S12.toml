@@ -1,0 +1,6 @@
+# Logistics node demo — S12: Partition and Rejoin (CLAIM-48.3)
+id = "S12"
+title = "Partition and Rejoin"
+pack = "logistics-node"
+defended = true
+guards = ["crdt_convergence"]

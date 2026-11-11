@@ -1,0 +1,6 @@
+# Energy edge demo — S1: Out-of-Envelope Command (CLAIM-48.1)
+id = "S1"
+title = "Out-of-Envelope Command"
+pack = "energy-edge"
+defended = true
+guards = ["envelope_bounds"]

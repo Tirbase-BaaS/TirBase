@@ -1,0 +1,45 @@
+# Water/pumping station demo EnvelopeProfile (CLAIM-48.2, PV-16.2).
+profile_id = "0a7e70a1-0000-0000-0000-000000000482"
+version = 1
+device_class = "water_pumping"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+# Committed test-fixture signature (PolicyAuthority seed [0x48; 32] placeholder re-signed in install path).
+signature_alg = "ed25519"
+signature_hex = "9f70d4b19f8e1536457d2e6b8d4c0ce353a31363e8b6d4f4b9f6df8e2bf6d6b1f6e9f2c6f52f1e2c5f4f4e6e0ab4c7f6d4f0a2b1c3d4e5f60718293a4b5c60e"
+
+[[parameters]]
+name = "pump_speed_rpm"
+unit_id = 3          # rpm
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 50, exponent = 0, unit_id = 3 } # 50 rpm/s
+dwell_secs = 15
+min_off_secs = 30
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 500, exponent = 0, unit_id = 3 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 3 }
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 3 }
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = 0, exponent = 0, unit_id = 3 }
+max = { mantissa = 3000, exponent = 0, unit_id = 3 }
+
+[[parameters]]
+name = "discharge_pressure_kpa"
+unit_id = 8          # kPa
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 10, exponent = 0, unit_id = 8 }
+dwell_secs = 10
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 100, exponent = 0, unit_id = 8 }
+safe_default = { mantissa = 200, exponent = 0, unit_id = 8 }
+tightening_floor = { mantissa = 50, exponent = 0, unit_id = 8 }
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = 50, exponent = 0, unit_id = 8 }
+max = { mantissa = 800, exponent = 0, unit_id = 8 }

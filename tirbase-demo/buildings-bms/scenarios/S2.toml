@@ -1,0 +1,6 @@
+# Buildings/BMS demo — S2: Slow Ramp / Cumulative Drift (CLAIM-48.4)
+id = "S2"
+title = "Slow Ramp / Cumulative Drift"
+pack = "buildings-bms"
+defended = true
+guards = ["drift_window", "rate_limit"]

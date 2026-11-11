@@ -1,0 +1,13 @@
+# Demo simulator configuration (CLAIM-48.x, PV-16.2).
+[sim]
+seed = 48001
+ticks = 120
+tick_ms = 1000
+nodes = 1
+
+[faults]
+partition = false
+delay_ms = 0
+drop_rate = 0.0
+reorder = false
+duplicate = 1

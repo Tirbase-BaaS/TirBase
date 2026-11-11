@@ -1,0 +1,6 @@
+# Buildings/BMS demo — S1: Out-of-Envelope Command (CLAIM-48.4)
+id = "S1"
+title = "Out-of-Envelope Command"
+pack = "buildings-bms"
+defended = true
+guards = ["envelope_bounds"]

@@ -1,0 +1,6 @@
+# Water/pumping demo — S3: Replay Attack (CLAIM-48.2)
+id = "S3"
+title = "Replay Attack"
+pack = "water-pumping"
+defended = true
+guards = ["anti_replay", "idempotency"]

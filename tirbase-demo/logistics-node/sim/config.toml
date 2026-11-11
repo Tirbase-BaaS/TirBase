@@ -1,0 +1,16 @@
+# Logistics node CRDT BaaS demo simulator configuration (CLAIM-48.3, PV-16.2).
+[sim]
+seed = 48003
+ticks = 120
+tick_ms = 1000
+nodes = 2
+
+[faults]
+partition = true
+delay_ms = 50
+drop_rate = 0.0
+reorder = false
+duplicate = 1
+
+[scenarios]
+include = ["S10", "S12"]

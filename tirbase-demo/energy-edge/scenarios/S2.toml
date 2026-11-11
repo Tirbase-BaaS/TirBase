@@ -1,0 +1,6 @@
+# Energy edge demo — S2: Slow Ramp / Cumulative Drift (CLAIM-48.1)
+id = "S2"
+title = "Slow Ramp / Cumulative Drift"
+pack = "energy-edge"
+defended = true
+guards = ["drift_window", "rate_limit"]

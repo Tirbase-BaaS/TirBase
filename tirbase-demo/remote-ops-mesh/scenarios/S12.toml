@@ -1,0 +1,6 @@
+# Remote-ops mesh demo — S12: Partition and Rejoin (CLAIM-48.5)
+id = "S12"
+title = "Partition and Rejoin"
+pack = "remote-ops-mesh"
+defended = true
+guards = ["crdt_convergence"]

@@ -1,0 +1,6 @@
+# Defense-logistics demo — S3: Replay Attack / M-of-N movement orders (CLAIM-48.6)
+id = "S3"
+title = "Replay Attack"
+pack = "defense-logistics"
+defended = true
+guards = ["anti_replay", "idempotency"]

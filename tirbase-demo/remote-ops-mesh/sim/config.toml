@@ -1,0 +1,16 @@
+# Remote-ops mesh demo simulator configuration (CLAIM-48.5, PV-16.2).
+[sim]
+seed = 48005
+ticks = 120
+tick_ms = 1000
+nodes = 2
+
+[faults]
+partition = true
+delay_ms = 100
+drop_rate = 0.0
+reorder = true
+duplicate = 1
+
+[scenarios]
+include = ["S12"]
