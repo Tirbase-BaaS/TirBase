@@ -162,7 +162,7 @@ fn maybe_inject_faults(
     // Refresh the fault set every 300 simulated ticks and otherwise leave the
     // network in its current (possibly faulted) state so scenarios exercise
     // sustained partitions/delays as well as churn.
-    if tick % 300 != 0 {
+    if !tick.is_multiple_of(300) {
         return;
     }
     let node_count = sim.nodes().len();
@@ -258,9 +258,11 @@ mod tests {
         // with fault injection, completing well within the 2-hour CI wall-clock
         // limit.  A 1-second virtual tick keeps 259,200 steps fast in release
         // and comfortably under budget in debug on CI hardware.
-        let start = std::time::Instant::now();
+        let start = tirbase_core::traits::monotonic_now();
         let report = run_ci_72h_soak(0xCAFE_BABE).expect("72h virtual soak must pass");
-        let elapsed = start.elapsed();
+        let elapsed = std::time::Duration::from_micros(
+            tirbase_core::traits::monotonic_now().saturating_sub(start),
+        );
         assert_eq!(report.simulated_secs, SOAK_DURATION_SECS);
         assert_eq!(report.ticks, SOAK_DURATION_SECS);
         assert!(report.faults_injected > 0, "fault injection must be active");

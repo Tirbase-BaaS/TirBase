@@ -39,7 +39,7 @@ impl TimeRatchetStore for S {
         &self,
     ) -> Result<Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
     {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(*self.0.lock().unwrap())
     }
     fn save(
         &self,
@@ -424,7 +424,7 @@ pub fn scenario_s3_replay_returns_cached_no_second_actuation() {
 pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
     use std::io::Cursor as IoCursor;
     use tirbase_gateway::guard::SqliteStage16Store;
-    use tirbase_guard::commit::commit_dispatch_finalize;
+    use tirbase_guard::commit::{commit_dispatch_finalize, FinalizeContext};
 
     let issuer = InMemoryKeyProvider::generate().unwrap();
     let mut cmd = CommandMessage {
@@ -446,10 +446,7 @@ pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
     let dir = std::env::temp_dir().join(format!(
         "tg-s3-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -461,14 +458,16 @@ pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
     let v1 = commit_dispatch_finalize(
         &store,
         &cmd,
-        [1u8; 16],
-        100,
-        1000,
-        100,
+        FinalizeContext {
+            entry_id: [1u8; 16],
+            actuating_ts: 100,
+            now_est: 1000,
+            now_mono_secs: 100,
+            completion_ts: 101,
+        },
         &mut proxy1,
         b"ACT",
         &mut drv1,
-        101,
     );
     assert_eq!(v1["status"], "accepted");
     assert!(!wire1.is_empty(), "first command must actuate");
@@ -480,14 +479,16 @@ pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
     let v2 = commit_dispatch_finalize(
         &store,
         &cmd,
-        [2u8; 16],
-        102,
-        1000,
-        102,
+        FinalizeContext {
+            entry_id: [2u8; 16],
+            actuating_ts: 102,
+            now_est: 1000,
+            now_mono_secs: 102,
+            completion_ts: 103,
+        },
         &mut proxy2,
         b"ACT",
         &mut drv2,
-        103,
     );
     assert_eq!(v2["status"], "accepted");
     assert_eq!(

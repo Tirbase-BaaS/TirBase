@@ -119,7 +119,7 @@ fn handle_conn(
             Err(e) => return Err(e),
         }
         let len = u16::from_be_bytes([mbap[4], mbap[5]]) as usize;
-        if len < 2 || len > 260 {
+        if !(2..=260).contains(&len) {
             return Ok(());
         }
         let mut rest = vec![0u8; len.saturating_sub(1)];

@@ -8,7 +8,6 @@
 
 use std::sync::Arc;
 
-use std::time::Instant;
 use tirbase_core::events::{ReasonCode, SecurityEvent as Payload, SecurityEventCategory, Severity};
 use tirbase_core::traits::SecurityEventSink;
 use tirbase_core::transport::security_event_sync::{
@@ -162,7 +161,7 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
             sender_did: "did:test:peer".to_string(),
             records,
         },
-        Instant::now(),
+        tirbase_core::traits::monotonic_now(),
     ) {
         SyncInboundDecision::RateLimited { accepted, dropped } => {
             if accepted.len() > 500 {

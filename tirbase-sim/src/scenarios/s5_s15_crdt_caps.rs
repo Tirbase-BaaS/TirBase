@@ -48,10 +48,12 @@ pub fn run_s5(seed: u64) -> Result<(), String> {
         let attack = delta(attacker.clone(), 64 + round);
         match hardening.cheap_checks_first(
             &attack,
-            true, // production caller's per-sender token bucket is exhausted
-            max_bytes,
-            max_ops,
-            false,
+            tirbase_core::crdt::CheapCheckLimits {
+                rate_exceeded: true, // production caller's per-sender bucket is exhausted
+                max_bytes,
+                max_ops,
+                missing_dependency: false,
+            },
             1_000 + round as u64,
             1_700_000_000,
         ) {
@@ -80,10 +82,12 @@ pub fn run_s5(seed: u64) -> Result<(), String> {
     hardening
         .cheap_checks_first(
             &honest,
-            false,
-            max_bytes,
-            max_ops,
-            false,
+            tirbase_core::crdt::CheapCheckLimits {
+                rate_exceeded: false,
+                max_bytes,
+                max_ops,
+                missing_dependency: false,
+            },
             2_000,
             1_700_000_001,
         )
@@ -108,7 +112,17 @@ pub fn run_s15(seed: u64) -> Result<(), String> {
     let oversize = max_bytes + 1 + (seed as usize % 128);
     let bomb = delta(attacker.clone(), oversize);
 
-    match hardening.cheap_checks_first(&bomb, false, max_bytes, 1_000, false, 5_000, 1_700_000_000)
+    match hardening.cheap_checks_first(
+        &bomb,
+        tirbase_core::crdt::CheapCheckLimits {
+            rate_exceeded: false,
+            max_bytes,
+            max_ops: 1_000,
+            missing_dependency: false,
+        },
+        5_000,
+        1_700_000_000,
+    )
     {
         Err(rejection)
             if rejection.stage == CheapCheckStage::Size
@@ -132,7 +146,17 @@ pub fn run_s15(seed: u64) -> Result<(), String> {
     // A within-cap delta from the same sender is still accepted.
     let small = delta(attacker, 128);
     hardening
-        .cheap_checks_first(&small, false, max_bytes, 1_000, false, 5_001, 1_700_000_001)
+        .cheap_checks_first(
+            &small,
+            tirbase_core::crdt::CheapCheckLimits {
+                rate_exceeded: false,
+                max_bytes,
+                max_ops: 1_000,
+                missing_dependency: false,
+            },
+            5_001,
+            1_700_000_001,
+        )
         .map_err(|rejection| {
             format!(
                 "S15 FAIL: within-cap delta rejected at {:?}",

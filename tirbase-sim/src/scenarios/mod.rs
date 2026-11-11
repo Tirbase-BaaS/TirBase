@@ -201,10 +201,13 @@ fn s35(seed: u64) -> Result<(), String> {
 /// `S*.toml` loader verifies the ID set; the runner verifies each spec resolves
 /// here, so a deleted or unregistered scenario fails CI rather than silently
 /// shrinking coverage.
-pub fn registry() -> BTreeMap<String, fn(u64) -> Result<(), String>> {
-    let mut registry: BTreeMap<String, fn(u64) -> Result<(), String>> = BTreeMap::new();
+/// A scenario entry point keyed by `S<n>` in the registry.
+type ScenarioFn = fn(u64) -> Result<(), String>;
+
+pub fn registry() -> BTreeMap<String, ScenarioFn> {
+    let mut registry: BTreeMap<String, ScenarioFn> = BTreeMap::new();
     for (id, scenario) in [
-        ("S1", s1 as fn(u64) -> Result<(), String>),
+        ("S1", s1 as ScenarioFn),
         ("S2", s2),
         ("S3", s3),
         ("S4", s4),

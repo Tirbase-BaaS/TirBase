@@ -4,7 +4,7 @@
 //! deterministic fault injection and must complete within the 2-hour CI
 //! wall-clock budget.
 
-use std::time::Instant;
+use std::time::Duration;
 
 use tirbase_sim::soak::{
     run_ci_72h_soak, run_soak, SoakConfig, SOAK_DURATION_SECS,
@@ -26,9 +26,10 @@ fn soak_api_covers_required_duration() {
 
 #[test]
 fn virtual_time_soak_runs_72h_with_fault_injection_within_budget() {
-    let start = Instant::now();
+    let start = tirbase_core::traits::monotonic_now();
     let report = run_ci_72h_soak(0x5072_45A1).expect("72h virtual-time soak must pass");
-    let elapsed = start.elapsed();
+    let elapsed =
+        Duration::from_micros(tirbase_core::traits::monotonic_now().saturating_sub(start));
 
     assert_eq!(
         report.simulated_secs, SOAK_DURATION_SECS,

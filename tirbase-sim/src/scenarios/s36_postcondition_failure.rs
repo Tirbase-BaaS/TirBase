@@ -9,7 +9,7 @@ use tirbase_core::migration::migration_delta::{
     MigrationKind, PostconditionCheck, SignedPostconditions,
 };
 use tirbase_core::migration::postcondition::field_checksum_hex;
-use tirbase_core::migration::shadow::{run_shadow_migration_native, ShadowRunOutcome};
+use tirbase_core::migration::shadow::{run_shadow_migration_native, ShadowInputs, ShadowRunOutcome};
 use tirbase_core::migration::wasm_sandbox::{MigrationExecutionRegistry, MigrationResult};
 
 fn test_store() -> Arc<Mutex<tirbase_core::store::LocalStore>> {
@@ -53,10 +53,12 @@ pub fn scenario_s36_postcondition_failure_preserves_pre_execution_state() {
         30,
         &store,
         &MigrationExecutionRegistry::default(),
-        None,
-        Some(&pc),
-        &[0x36u8; 32],
-        None,
+        ShadowInputs {
+            execution_profile: None,
+            postconditions: Some(&pc),
+            target_schema_hash: &[0x36u8; 32],
+            target_schema: None,
+        },
     )
     .expect("shadow run");
     assert!(
@@ -103,7 +105,7 @@ pub fn scenario_s36_postcondition_pass_produces_shadow_projections() {
             .unwrap();
     }
     let wasm = wat::parse_str(r#"(module (func (export "run")))"#).unwrap();
-    let expected = field_checksum_hex(&*store.lock().unwrap(), "mig_test", "value").unwrap();
+    let expected = field_checksum_hex(&store.lock().unwrap(), "mig_test", "value").unwrap();
     let pc = SignedPostconditions {
         checks: vec![PostconditionCheck::FieldChecksum {
             table: "mig_test".to_string(),
@@ -119,10 +121,12 @@ pub fn scenario_s36_postcondition_pass_produces_shadow_projections() {
         30,
         &store,
         &MigrationExecutionRegistry::default(),
-        None,
-        Some(&pc),
-        &[0x37u8; 32],
-        None,
+        ShadowInputs {
+            execution_profile: None,
+            postconditions: Some(&pc),
+            target_schema_hash: &[0x37u8; 32],
+            target_schema: None,
+        },
     )
     .unwrap();
     assert!(

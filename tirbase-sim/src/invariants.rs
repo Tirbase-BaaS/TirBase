@@ -9,8 +9,6 @@
 //! This module is the production caller registered in
 //! `docs/system-invariants.md` for INV-1..INV-16.
 
-#![allow(clippy::too_many_arguments)]
-
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
@@ -231,7 +229,7 @@ fn fpv_le(a: &FixedPointValue, b: &FixedPointValue) -> bool {
     }
     let scale = |v: &FixedPointValue| -> i128 {
         let base = v.mantissa as i128;
-        let diff = (v.exponent as i32).abs() as u32;
+        let diff = (v.exponent as i32).unsigned_abs();
         let pow10 = 10_i128.pow(diff.min(38));
         if v.exponent >= 0 {
             base.saturating_mul(pow10)

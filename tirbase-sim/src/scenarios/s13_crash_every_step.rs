@@ -18,7 +18,7 @@ use tirbase_gateway::db::applied_effects_ledger::{
 };
 use tirbase_gateway::db::ledger_reconciliation::{reconcile_on_boot, LedgerReadBack};
 use tirbase_gateway::guard::SqliteStage16Store;
-use tirbase_guard::commit::commit_dispatch_finalize;
+use tirbase_guard::commit::{commit_dispatch_finalize, FinalizeContext};
 use tirbase_guard::driver_proxy::DriverProxy;
 use tirbase_guard::sign_command;
 use tirbase_types::command::CommandMessage;
@@ -104,14 +104,16 @@ fn run_s13_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
     let accepted = commit_dispatch_finalize(
         &store,
         &cmd,
-        [1u8; 16],
-        1_000,
-        1_000,
-        1_000,
+        FinalizeContext {
+            entry_id: [1u8; 16],
+            actuating_ts: 1_000,
+            now_est: 1_000,
+            now_mono_secs: 1_000,
+            completion_ts: 1_001,
+        },
         &mut proxy,
         b"ACT",
         &mut driver,
-        1_001,
     );
     if accepted["status"] != "accepted" || wire.is_empty() {
         return Err(format!(
@@ -127,14 +129,16 @@ fn run_s13_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
     let retried = commit_dispatch_finalize(
         &store,
         &cmd,
-        [2u8; 16],
-        1_002,
-        1_000,
-        1_002,
+        FinalizeContext {
+            entry_id: [2u8; 16],
+            actuating_ts: 1_002,
+            now_est: 1_000,
+            now_mono_secs: 1_002,
+            completion_ts: 1_003,
+        },
         &mut retry_proxy,
         b"ACT",
         &mut retry_driver,
-        1_003,
     );
     if retried["idempotency_cache_hit"] != true || !retry_wire.is_empty() {
         return Err(format!(

@@ -117,16 +117,6 @@ impl CommandRole {
         }
     }
 
-    /// Parses a [`CommandRole`] from a Biscuit token fact string, returning `None`
-    /// for unknown roles.
-    ///
-    /// Unknown role strings MUST be treated as authorization failures by the guard
-    /// pipeline. For the standard trait implementation see [`FromStr`].
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        s.parse().ok()
-    }
-
     /// Returns `true` only for [`CommandRole::CommandIssuer`].
     ///
     /// Used in the Authorization Matrix to gate the "Submit command" operation.
@@ -428,7 +418,7 @@ mod command_role_tests {
         ];
         for role in &variants {
             assert_eq!(
-                CommandRole::from_str(role.as_str()),
+                role.as_str().parse::<CommandRole>().ok(),
                 Some(*role),
                 "round-trip failed for {:?}",
                 role
@@ -439,10 +429,10 @@ mod command_role_tests {
     // Unknown string returns None
     #[test]
     fn from_str_unknown_returns_none() {
-        assert_eq!(CommandRole::from_str(""), None);
-        assert_eq!(CommandRole::from_str("RootKey"), None);
-        assert_eq!(CommandRole::from_str("commandissuer"), None); // case-sensitive
-        assert_eq!(CommandRole::from_str("COMMANDISSUER"), None);
+        assert_eq!("".parse::<CommandRole>().ok(), None);
+        assert_eq!("RootKey".parse::<CommandRole>().ok(), None);
+        assert_eq!("commandissuer".parse::<CommandRole>().ok(), None); // case-sensitive
+        assert_eq!("COMMANDISSUER".parse::<CommandRole>().ok(), None);
         assert!("RootKey".parse::<CommandRole>().is_err());
     }
 

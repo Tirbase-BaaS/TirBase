@@ -31,10 +31,7 @@ pub fn run_s25(seed: u64) -> Result<(), String> {
     let dir = std::env::temp_dir().join(format!(
         "tirbase_s25_{seed}_{}_{}.db",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        tirbase_core::traits::monotonic_now()
     ));
     let mut l = SchemaQuarantineLedger::open(&dir).map_err(|e| format!("seed={seed} open: {e}"))?;
 

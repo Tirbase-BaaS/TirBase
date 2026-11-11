@@ -9,7 +9,7 @@ use std::io::Cursor;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_gateway::guard::SqliteStage16Store;
-use tirbase_guard::commit::commit_dispatch_finalize;
+use tirbase_guard::commit::{commit_dispatch_finalize, FinalizeContext};
 use tirbase_guard::driver_proxy::DriverProxy;
 use tirbase_guard::sign_command;
 use tirbase_types::command::CommandMessage;
@@ -57,14 +57,16 @@ fn commit(
     let value = commit_dispatch_finalize(
         store,
         command,
-        [entry_byte; 16],
-        now,
-        now,
-        now,
+        FinalizeContext {
+            entry_id: [entry_byte; 16],
+            actuating_ts: now,
+            now_est: now,
+            now_mono_secs: now,
+            completion_ts: now + 1,
+        },
         &mut proxy,
         b"ACT",
         &mut driver,
-        now + 1,
     );
     Outcome {
         value,

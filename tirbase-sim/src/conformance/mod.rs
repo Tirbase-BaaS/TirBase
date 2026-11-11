@@ -205,22 +205,22 @@ fn device_model_for(device_class: &str, profile: &EnvelopeProfile) -> DeviceMode
                 let hi = variants.iter().map(|(_, v)| *v).max().unwrap_or(1).max(1);
                 DeviceParameter {
                     name: p.name.clone(),
-                    unit_id: p.unit_id.into(),
+                    unit_id: p.unit_id,
                     unit_label: format!("unit{}", p.unit_id),
                     range: [
-                        FixedPointValue::new(0, p.canonical_exponent, p.unit_id.into()),
-                        FixedPointValue::new(hi, p.canonical_exponent, p.unit_id.into()),
+                        FixedPointValue::new(0, p.canonical_exponent, p.unit_id),
+                        FixedPointValue::new(hi, p.canonical_exponent, p.unit_id),
                     ],
                     writable: true,
                 }
             }
             ParameterKind::Bool => DeviceParameter {
                 name: p.name.clone(),
-                unit_id: p.unit_id.into(),
+                unit_id: p.unit_id,
                 unit_label: format!("unit{}", p.unit_id),
                 range: [
-                    FixedPointValue::new(0, p.canonical_exponent, p.unit_id.into()),
-                    FixedPointValue::new(1, p.canonical_exponent, p.unit_id.into()),
+                    FixedPointValue::new(0, p.canonical_exponent, p.unit_id),
+                    FixedPointValue::new(1, p.canonical_exponent, p.unit_id),
                 ],
                 writable: true,
             },

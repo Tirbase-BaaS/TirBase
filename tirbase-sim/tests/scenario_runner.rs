@@ -61,7 +61,8 @@ fn failing(_seed: u64) -> Result<(), String> {
 
 #[test]
 fn failing_scenario_prints_its_seed_before_exit() {
-    let mut registry: BTreeMap<String, fn(u64) -> Result<(), String>> = BTreeMap::new();
+    type ScenarioFn = fn(u64) -> Result<(), String>;
+    let mut registry: BTreeMap<String, ScenarioFn> = BTreeMap::new();
     registry.insert("S1".to_string(), failing);
     let spec = ScenarioSpec {
         id: "S1".to_string(),

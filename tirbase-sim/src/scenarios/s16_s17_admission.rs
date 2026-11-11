@@ -42,7 +42,10 @@ pub fn run_s16(seed: u64) -> Result<(), String> {
         let command = fixture.command(10 + index as i64, index as u8, index as u64 + 1)?;
         match fixture.admit(&command) {
             Ok(()) => accepted += 1,
-            Err(AdmitError::Pipeline { category, .. }) if category == AdmitRejection::RateLimit => {
+            Err(AdmitError::Pipeline {
+                category: AdmitRejection::RateLimit,
+                ..
+            }) => {
                 rate_limited += 1
             }
             Err(other) => {

@@ -75,7 +75,7 @@ fn inflate_start_op(automerge_bytes: &[u8], offset: u64) -> Vec<u8> {
     for change in changes {
         let mut expanded = change.decode();
         expanded.start_op = std::num::NonZeroU64::new(expanded.start_op.get() + offset).unwrap();
-        inflated.push(automerge::Change::try_from(expanded).expect("recode"));
+        inflated.push(automerge::Change::from(expanded));
     }
     let mut out = Vec::new();
     for ch in &mut inflated {
