@@ -6,8 +6,11 @@ description = "TirBase vertical demo packs (cold-chain, energy-edge, water, logi
 license = "MIT"
 
 [dependencies]
-tirbase-sim   = { workspace = true }
-# tirbase-gateway is a binary crate; we depend on it as a lib
-# by referencing the path directly rather than via workspace dep.
-# When tirbase-gateway has a [lib] section, switch to workspace dep.
 tirbase-types = { workspace = true }
+
+[dev-dependencies]
+tirbase-sim = { workspace = true }
+tirbase-gateway = { workspace = true }
+tirbase-guard = { workspace = true }
+tirbase-core = { workspace = true }
+tempfile = "3"

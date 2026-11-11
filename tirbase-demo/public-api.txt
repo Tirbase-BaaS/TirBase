@@ -1,2 +1,6 @@
 pub mod tirbase_demo
 pub use tirbase_demo::tirbase_types
+pub const tirbase_demo::COLD_CHAIN_PACK_DIR: &str
+pub const tirbase_demo::COLD_CHAIN_PACK_FORMAT: &[&str]
+pub const tirbase_demo::DEMO_PACK_FORMAT: &[&str]
+pub fn tirbase_demo::pack_has_required_layout(std::path::Path, &[&str]) -> bool

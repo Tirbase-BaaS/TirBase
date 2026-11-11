@@ -1,0 +1,6 @@
+# Cold-chain demo pack — S1: Out-of-Envelope Command (CLAIM-47.2, PV-16.1)
+id = "S1"
+title = "Out-of-Envelope Command"
+pack = "cold-chain"
+defended = true
+guards = ["envelope_bounds", "drift_window", "anti_replay/idempotency"]

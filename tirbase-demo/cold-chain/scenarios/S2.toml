@@ -1,0 +1,6 @@
+# Cold-chain demo pack — S2: Slow Ramp / Cumulative Drift (CLAIM-47.2, PV-16.1)
+id = "S2"
+title = "Slow Ramp / Cumulative Drift"
+pack = "cold-chain"
+defended = true
+guards = ["envelope_bounds", "drift_window", "anti_replay/idempotency"]

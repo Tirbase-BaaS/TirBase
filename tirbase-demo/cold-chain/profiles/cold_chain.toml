@@ -1,0 +1,46 @@
+# Cold-chain flagship demo EnvelopeProfile (CLAIM-47.1, PV-16.1).
+# Temperature setpoint, compressor on/off (Bool), and rate-of-change limit.
+# Validated by tirbase-gateway::profiles::load_profile_from_path and
+# tirbase-guard::envelope::install_profile against the cold_chain device model.
+profile_id = "c01dc4a1-0000-0000-0000-000000000047"
+version = 1
+device_class = "cold_chain"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+# Committed test-fixture signature (PolicyAuthority seed [0x47; 32]).
+signature_alg = "ed25519"
+signature_hex = "a9bde1636964509576e4e9d726c71444e13a0532d40b2e7403c823aa4e703eec8506c6fc22fd17c95df0b046d61bd98d73c2eecfb8a29276d480800c258ac105"
+
+[[parameters]]
+name = "temperature_setpoint_c"
+unit_id = 1          # degC (docs/unit-registry.md)
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 } # 0.5 °C/s rate-of-change limit
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 20, exponent = -1, unit_id = 1 } # 2.0 °C cumulative drift window
+safe_default = { mantissa = 40, exponent = -1, unit_id = 1 }       # +4.0 °C
+tightening_floor = { mantissa = -300, exponent = -1, unit_id = 1 }
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = -250, exponent = -1, unit_id = 1 }  # -25.0 °C
+max = { mantissa = 80, exponent = -1, unit_id = 1 }    # +8.0 °C
+
+[[parameters]]
+name = "compressor_on"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 0
+min_off_secs = 60
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 1, exponent = 0, unit_id = 7 } # compressor on by default
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"

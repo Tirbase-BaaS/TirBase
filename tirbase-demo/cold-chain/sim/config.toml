@@ -1,0 +1,23 @@
+# Cold-chain demo simulator configuration (CLAIM-46.1, PV-16).
+[sim]
+seed = 47001
+ticks = 120
+tick_ms = 1000
+nodes = 1
+
+[device]
+class = "cold_chain"
+profile = "profiles/cold_chain.toml"
+register_map = "docs/modbus-register-map.md"
+
+[faults]
+# Deterministic fault injection used by the demo scenarios.
+partition = false
+delay_ms = 0
+drop_rate = 0.0
+reorder = false
+duplicate = 1
+
+[scenarios]
+# Guard-focused adversary scenarios defended by this pack (PV-16.3).
+include = ["S1", "S2", "S3"]

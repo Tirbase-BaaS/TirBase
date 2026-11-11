@@ -1,0 +1,6 @@
+# Cold-chain demo pack — S3: Replay Attack (CLAIM-47.2, PV-16.1)
+id = "S3"
+title = "Replay Attack"
+pack = "cold-chain"
+defended = true
+guards = ["envelope_bounds", "drift_window", "anti_replay/idempotency"]
