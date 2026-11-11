@@ -176,8 +176,8 @@ pub fn clear_row_contamination(table: &str, row_key: &str) -> Result<(), TirBase
 #[cfg(not(feature = "native"))]
 thread_local! {
     pub(crate) static WASM_DELTA_INDEX: std::cell::RefCell<
-        std::collections::HashMap<crate::crdt::delta::DeltaId, Vec<(String, String)>>
-    > = std::cell::RefCell::new(std::collections::HashMap::new());
+        std::collections::BTreeMap<crate::crdt::delta::DeltaId, Vec<(String, String)>>
+    > = std::cell::RefCell::new(std::collections::BTreeMap::new());
 }
 
 /// Record that `delta_id` wrote `(table, row_key)` into the WASM in-memory

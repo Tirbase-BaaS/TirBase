@@ -292,7 +292,7 @@ fn current_timestamp_micros() -> i64 {
     crate::traits::wall_hint().unwrap_or_default()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -406,10 +406,7 @@ mod tests {
                 .expect("create_token should succeed");
 
         use std::time::{SystemTime, UNIX_EPOCH};
-        let now_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let now_secs = crate::traits::wall_hint_secs().unwrap_or(0);
 
         let level = mgr
             .verify_token(&token_bytes, now_secs)
@@ -437,10 +434,7 @@ mod tests {
                 .expect("create_token should succeed");
 
         use std::time::{SystemTime, UNIX_EPOCH};
-        let now_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let now_secs = crate::traits::wall_hint_secs().unwrap_or(0);
 
         let level = mgr
             .present_token(&token_bytes, now_secs)
@@ -469,10 +463,7 @@ mod tests {
                 .expect("create_token should succeed");
 
         use std::time::{SystemTime, UNIX_EPOCH};
-        let now_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let now_secs = crate::traits::wall_hint_secs().unwrap_or(0);
 
         let expired_secs = now_secs + 25 * 3600; // 25 hours in the future
         let level = mgr

@@ -44,7 +44,7 @@ pub enum MigrationResult {
 /// flag; the runner observes it at fuel-chunk boundaries and host-call points.
 #[derive(Debug, Default)]
 pub struct MigrationExecutionRegistry {
-    inner: Mutex<std::collections::HashMap<MigrationId, Arc<AtomicBool>>>,
+    inner: Mutex<std::collections::BTreeMap<MigrationId, Arc<AtomicBool>>>,
 }
 
 impl MigrationExecutionRegistry {
@@ -77,6 +77,10 @@ impl MigrationExecutionRegistry {
 
     pub fn len(&self) -> usize {
         self.inner.lock().map(|g| g.len()).unwrap_or(0)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn interrupt(&self, migration_id: &MigrationId) -> bool {
@@ -438,7 +442,8 @@ fn execute_migration_inner(
 
     let timeout = timeout_secs.max(1);
     let total_fuel = timeout.saturating_mul(FUEL_PER_SEC).max(FUEL_CHUNK);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout);
+    // Monotonic deadline in the injected TimeSource domain (PV-3.12).
+    let deadline_micros = crate::traits::monotonic_now().saturating_add(timeout * 1_000_000);
     let _spent: u64 = 0;
     // wasmi 0.38 executes typed calls to completion; true mid-loop preemption is
     // limited. We run with the full fuel budget (traps on exhaustion via
@@ -475,7 +480,7 @@ fn execute_migration_inner(
                     reason: "migration interrupted by revocation".to_string(),
                 });
             }
-            if out_of_fuel || std::time::Instant::now() >= deadline {
+            if out_of_fuel || crate::traits::monotonic_now() >= deadline_micros {
                 emit_migration(
                     Severity::Medium,
                     ReasonCode::MigrationCancelled,
@@ -497,14 +502,14 @@ fn execute_migration_inner(
 
 #[cfg(all(feature = "wasm", not(feature = "native")))]
 pub struct InMemoryStoreHandle {
-    tables: std::collections::HashMap<String, std::collections::HashMap<String, Vec<u8>>>,
+    tables: std::collections::BTreeMap<String, std::collections::BTreeMap<String, Vec<u8>>>,
 }
 
 #[cfg(all(feature = "wasm", not(feature = "native")))]
 impl InMemoryStoreHandle {
     pub fn new() -> Self {
         Self {
-            tables: std::collections::HashMap::new(),
+            tables: std::collections::BTreeMap::new(),
         }
     }
     pub fn read(&self, table: &str, key: &str) -> Option<&[u8]> {
@@ -800,9 +805,9 @@ mod tests {
             execute_migration_with_registry(&wasm, migration_id, 2, &store, &reg)
         });
 
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let deadline = crate::traits::monotonic_now() + 10_000_000;
         while !registry.is_in_flight(&migration_id) {
-            assert!(std::time::Instant::now() < deadline, "run never registered");
+            assert!(crate::traits::monotonic_now() < deadline, "run never registered");
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
         assert!(registry.interrupt(&migration_id), "interrupt must find run");

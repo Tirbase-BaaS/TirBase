@@ -426,14 +426,13 @@ pub(crate) fn make_disaster_alert_token_for_test(ttl_secs: u64) -> (Vec<u8>, Vec
     let private_bytes = kp.private().to_bytes().to_vec();
     let public_bytes = kp.public().to_bytes().to_vec();
 
-    let now = SystemTime::now();
-    let expiry = now + Duration::from_secs(ttl_secs);
-    let issued_secs = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
+    let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl_secs));
 
     let token = Biscuit::builder()
-        .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+        .fact("did(\"did:key:z6MkManager\")")
         .unwrap()
-        .fact(format!("role(\"manager\")").as_str())
+        .fact("role(\"manager\")")
         .unwrap()
         .fact(format!("issued_at({issued_secs})").as_str())
         .unwrap()
@@ -459,16 +458,13 @@ pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<
     let private_bytes = kp.private().to_bytes().to_vec();
     let public_bytes = kp.public().to_bytes().to_vec();
 
-    let issued_secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-    let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
+    let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
+    let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl_secs));
 
     let token = Biscuit::builder()
-        .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+        .fact("did(\"did:key:z6MkManager\")")
         .unwrap()
-        .fact(format!("role(\"manager\")").as_str())
+        .fact("role(\"manager\")")
         .unwrap()
         .fact(format!("issued_at({issued_secs})").as_str())
         .unwrap()
@@ -484,7 +480,7 @@ pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -507,14 +503,13 @@ mod tests {
         use biscuit_auth::{builder_ext::BuilderExt, macros::*, Biscuit};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-        let now = SystemTime::now();
-        let expiry = now + Duration::from_secs(ttl_secs);
-        let issued_secs = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
+        let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl_secs));
 
         let token = Biscuit::builder()
-            .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+            .fact("did(\"did:key:z6MkManager\")")
             .unwrap()
-            .fact(format!("role(\"manager\")").as_str())
+            .fact("role(\"manager\")")
             .unwrap()
             .fact(format!("issued_at({issued_secs})").as_str())
             .unwrap()
@@ -542,17 +537,14 @@ mod tests {
         use biscuit_auth::Biscuit;
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-        let issued_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
 
-        let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
+        let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl_secs));
 
         let token = Biscuit::builder()
-            .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+            .fact("did(\"did:key:z6MkManager\")")
             .unwrap()
-            .fact(format!("role(\"manager\")").as_str())
+            .fact("role(\"manager\")")
             .unwrap()
             .fact(format!("issued_at({issued_secs})").as_str())
             .unwrap()
@@ -569,10 +561,7 @@ mod tests {
 
     fn now_secs() -> i64 {
         use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
+        crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
     // ── Activation tests ─────────────────────────────────────────────────────
@@ -685,15 +674,12 @@ mod tests {
         let ca_pub = kp.public().to_bytes().to_vec();
 
         let make_token = |priv_bytes: &[u8], ttl: u64| -> Vec<u8> {
-            let issued_secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
-            let expiry = SystemTime::now() + Duration::from_secs(ttl);
+            let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
+            let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl));
             biscuit_auth::Biscuit::builder()
-                .fact(format!("did(\"did:key:z6MkManager\")").as_str())
+                .fact("did(\"did:key:z6MkManager\")")
                 .unwrap()
-                .fact(format!("role(\"manager\")").as_str())
+                .fact("role(\"manager\")")
                 .unwrap()
                 .fact(format!("issued_at({issued_secs})").as_str())
                 .unwrap()

@@ -20,17 +20,17 @@ use crate::errors::TirBaseError;
 use crate::identity::{did, keypair};
 use crate::traits::KeyProvider;
 
-/// Counts explicit `zeroize()` invocations in test builds.
-///
-/// The wiring-mutation check for CLAIM-6.1 removes the `self.zeroize()` call
-/// from `Drop` and requires at least one test to fail: `dropping_provider_
-/// invokes_zeroize_on_the_seed` reads this counter around a drop.
+// Counts explicit `zeroize()` invocations in test builds.
+//
+// The wiring-mutation check for CLAIM-6.1 removes the `self.zeroize()` call
+// from `Drop` and requires at least one test to fail: `dropping_provider_
+// invokes_zeroize_on_the_seed` reads this counter around a drop.
 #[cfg(test)]
 thread_local! {
     // Per-test-thread counter: each `#[test]` runs on its own thread, so
     // concurrently dropping providers in other tests cannot perturb it.
     pub(crate) static ZEROIZE_INVOCATIONS: std::cell::Cell<usize> =
-        std::cell::Cell::new(0);
+        const { std::cell::Cell::new(0) };
 }
 
 #[inline]
@@ -312,7 +312,7 @@ pub(crate) fn temp_identity_path(tag: &str) -> PathBuf {
     std::env::temp_dir().join(format!("tirbase-key-{tag}-{unique}.json"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::identity::keypair;

@@ -38,10 +38,7 @@ fn rec(origin: &str, seq: u64) -> SecurityEventSyncRecord {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn claim_28_3_two_corehandles_sync_security_events_append_only() {
-    let n = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let n = tirbase_core::traits::monotonic_now();
     let a_path = std::env::temp_dir().join(format!("tirbase-28sync-a-{n}.db"));
     let b_path = std::env::temp_dir().join(format!("tirbase-28sync-b-{n}.db"));
     let a = CoreHandle::init(cfg(&a_path)).await.expect("init a");
@@ -90,10 +87,7 @@ async fn claim_28_3_two_corehandles_sync_security_events_append_only() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn claim_28_3_per_peer_rate_limit_emits_sync_rate_limit_reached_and_drops_excess() {
-    let n = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let n = tirbase_core::traits::monotonic_now();
     let b_path = std::env::temp_dir().join(format!("tirbase-28rate-b-{n}.db"));
     let b = CoreHandle::init(cfg(&b_path)).await.expect("init b");
     let mut rx = b.subscribe_security_event_sync();

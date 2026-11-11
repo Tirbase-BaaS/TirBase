@@ -30,7 +30,7 @@ pub mod quorum;
 pub mod receipt;
 pub mod spatial;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod integration_tests;
 
 use crate::api::types::DurabilityTier;
@@ -40,7 +40,7 @@ use anchor::{AnchorAttestedLocation, AnchorMode};
 use cloud_queue::{CloudOutboundQueue, QueueEntry};
 use quorum::{QuorumConfig, Tier1QuorumTracker};
 use receipt::{verify_receipt, DurabilityReceipt};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // ─── Tier record ──────────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ struct DeltaDurabilityState {
     /// from an issuer whose self-certifying `did:key:` DID resolves to its
     /// public key (Subphase 4.5 — see
     /// [`DurabilitySubsystem::register_peer_key`]).
-    peer_public_keys: HashMap<Did, [u8; 32]>,
+    peer_public_keys: BTreeMap<Did, [u8; 32]>,
     /// Tier-1 quorum tracker.
     quorum: Tier1QuorumTracker,
     /// Whether this Delta may be compacted from the hot path (set when Tier-1 reached).
@@ -69,7 +69,7 @@ impl DeltaDurabilityState {
     fn new(
         state_hash: [u8; 32],
         quorum_config: QuorumConfig,
-        peer_public_keys: HashMap<Did, [u8; 32]>,
+        peer_public_keys: BTreeMap<Did, [u8; 32]>,
     ) -> Self {
         Self {
             state_hash,
@@ -89,7 +89,7 @@ pub struct DurabilitySubsystem {
     /// Quorum configuration applied to all Delta sets.
     quorum_config: QuorumConfig,
     /// Per-Delta durability states.
-    states: HashMap<DeltaId, DeltaDurabilityState>,
+    states: BTreeMap<DeltaId, DeltaDurabilityState>,
     /// Optional Anchor_Attested_Location verifier (Req 15).
     ///
     /// Subphase 4.3: when a deployment enables `anchor_attested_location`,
@@ -145,7 +145,7 @@ impl DurabilitySubsystem {
     ) -> Self {
         Self {
             quorum_config,
-            states: HashMap::new(),
+            states: BTreeMap::new(),
             anchor,
             cloud_queue: CloudOutboundQueue::new(),
             tier_changed_listener: None,
@@ -228,7 +228,7 @@ impl DurabilitySubsystem {
         state_hash: [u8; 32],
         serialised_bytes: Vec<u8>,
         causal_parents: Vec<DeltaId>,
-        peer_public_keys: HashMap<Did, [u8; 32]>,
+        peer_public_keys: BTreeMap<Did, [u8; 32]>,
     ) -> Result<(), TirBaseError> {
         let state =
             DeltaDurabilityState::new(state_hash, self.quorum_config.clone(), peer_public_keys);
@@ -498,7 +498,7 @@ fn notify_tier_changed(delta_id: DeltaId, tier: DurabilityTier) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::api::types::DurabilityTier;
@@ -605,7 +605,7 @@ mod tests {
         let (s1, p1) = generate_keypair().unwrap();
         let (s2, p2) = generate_keypair().unwrap();
 
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:p1".to_string(), p1);
         peers.insert("did:key:p2".to_string(), p2);
 
@@ -633,7 +633,7 @@ mod tests {
         let state_hash = [0x22; 32];
 
         let (s1, p1) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:p1".to_string(), p1);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2()); // K=2
@@ -654,7 +654,7 @@ mod tests {
         let state_hash = [0x44; 32];
 
         let (s1, p1) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:p1".to_string(), p1);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
@@ -677,7 +677,7 @@ mod tests {
 
         let (s_unknown, _) = generate_keypair().unwrap();
         let (_s_registered, p_registered) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:registered".to_string(), p_registered);
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
@@ -698,7 +698,7 @@ mod tests {
         let state_hash = [0x88; 32];
 
         let mut sys = DurabilitySubsystem::new(make_quorum_k2());
-        sys.register_delta(delta_id, state_hash, vec![1, 2, 3], vec![], HashMap::new())
+        sys.register_delta(delta_id, state_hash, vec![1, 2, 3], vec![], BTreeMap::new())
             .unwrap();
 
         assert_eq!(sys.cloud_queue_depth(), 1);
@@ -726,7 +726,7 @@ mod tests {
             calls_clone.lock().unwrap().push((id, prev, new));
         }));
 
-        sys.register_delta(delta_id, state_hash, vec![], vec![], HashMap::new())
+        sys.register_delta(delta_id, state_hash, vec![], vec![], BTreeMap::new())
             .unwrap();
         sys.on_cloud_ack(&delta_id).unwrap();
 
@@ -752,7 +752,7 @@ mod tests {
         let (s1, p1) = generate_keypair().unwrap();
         let (s2, p2) = generate_keypair().unwrap();
 
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:t1".to_string(), p1);
         peers.insert("did:key:t2".to_string(), p2);
 
@@ -789,7 +789,7 @@ mod tests {
         let delta_id = [0xCC; 32];
         let state_hash = [0xDD; 32];
 
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         let mut secrets = vec![];
         for i in 0..3u8 {
             let (s, p) = generate_keypair().unwrap();
@@ -825,14 +825,14 @@ mod tests {
                 arr[..bytes.len()].copy_from_slice(&bytes);
                 arr
             };
-            sys.register_delta(id, [0u8; 32], vec![], vec![], HashMap::new())
+            sys.register_delta(id, [0u8; 32], vec![], vec![], BTreeMap::new())
                 .unwrap();
         }
         assert_eq!(sys.cloud_queue_depth(), cloud_queue::MAX_QUEUE_DEPTH);
 
         // One more must fail.
         let overflow_id = [0xFF; 32];
-        let result = sys.register_delta(overflow_id, [0u8; 32], vec![], vec![], HashMap::new());
+        let result = sys.register_delta(overflow_id, [0u8; 32], vec![], vec![], BTreeMap::new());
         assert!(
             matches!(result, Err(TirBaseError::CloudQueueFull { .. })),
             "overflow must return CloudQueueFull"
@@ -870,7 +870,7 @@ mod tests {
 
         let (s1, p1) = generate_keypair().unwrap();
         let (s2, p2) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:peer1".to_string(), p1);
         peers.insert("did:key:peer2".to_string(), p2);
 
@@ -931,7 +931,7 @@ mod tests {
         );
 
         let (s_peer, p_peer) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:peer".to_string(), p_peer);
         sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
             .unwrap();
@@ -1017,7 +1017,7 @@ mod tests {
         let (b_secret, b_public) = generate_keypair().unwrap();
         let beacon_did = derive_did(&b_public);
 
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         let mut secrets = Vec::new();
         for i in 0..3u8 {
             let (s, p) = generate_keypair().unwrap();
@@ -1074,7 +1074,7 @@ mod tests {
 
         let (s1, p1) = generate_keypair().unwrap();
         let (s2, p2) = generate_keypair().unwrap();
-        let mut peers = HashMap::new();
+        let mut peers = BTreeMap::new();
         peers.insert("did:key:peer1".to_string(), p1);
         peers.insert("did:key:peer2".to_string(), p2);
 

@@ -175,7 +175,7 @@ pub fn composite_merge(
     (composite_id, composite)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

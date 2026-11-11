@@ -13,14 +13,25 @@ use crate::schema::Schema;
 use crate::store::LocalStore;
 use std::sync::{Arc, Mutex};
 
+/// Projection tables emitted by a shadow run: table → rows of `(column, value)`.
+pub type ShadowProjections = Vec<(String, Vec<(String, serde_json::Value)>)>;
+
 #[derive(Debug)]
 pub struct ShadowRunOutcome {
     pub migration_result: MigrationResult,
     pub postconditions: Option<PostconditionOutcome>,
-    pub shadow_projections: Option<Vec<(String, Vec<(String, serde_json::Value)>)>>,
+    pub shadow_projections: Option<ShadowProjections>,
     /// Quarantine to record if present (caller records under engine lock).
     pub quarantine_reason: Option<QuarantineReason>,
     pub quarantine_detail: Option<String>,
+}
+
+/// Profile/postcondition/schema inputs for a shadow migration run.
+pub struct ShadowInputs<'a> {
+    pub execution_profile: Option<&'a crate::migration::profile::ExecutionProfileVersion>,
+    pub postconditions: Option<&'a SignedPostconditions>,
+    pub target_schema_hash: &'a SchemaIdentifierHash,
+    pub target_schema: Option<&'a Schema>,
 }
 
 #[cfg(feature = "native")]
@@ -30,10 +41,7 @@ pub fn run_shadow_migration_native(
     timeout_secs: u64,
     real_store: &Arc<Mutex<LocalStore>>,
     registry: &MigrationExecutionRegistry,
-    execution_profile: Option<&crate::migration::profile::ExecutionProfileVersion>,
-    postconditions: Option<&SignedPostconditions>,
-    target_schema_hash: &SchemaIdentifierHash,
-    target_schema: Option<&Schema>,
+    inputs: ShadowInputs<'_>,
 ) -> Result<ShadowRunOutcome, TirBaseError> {
     let mid_hex = hex::encode(migration_id);
     let (proj_tables, snapshot) = {
@@ -62,7 +70,7 @@ pub fn run_shadow_migration_native(
         timeout_secs,
         &shadow_arc,
         registry,
-        execution_profile,
+        inputs.execution_profile,
     )?;
     match &migration_result.clone() {
         MigrationResult::Success => {}
@@ -109,7 +117,7 @@ pub fn run_shadow_migration_native(
             });
         }
     }
-    let pc_outcome = if let Some(pc) = postconditions {
+    let pc_outcome = if let Some(pc) = inputs.postconditions {
         let shadow_guard = shadow_arc
             .lock()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -120,8 +128,8 @@ pub fn run_shadow_migration_native(
         let outcome = evaluate_postconditions(
             pc,
             &shadow_guard,
-            target_schema_hash,
-            target_schema,
+            inputs.target_schema_hash,
+            inputs.target_schema,
             &mid_hex,
             allow_unsigned,
         )?;

@@ -15,7 +15,7 @@ pub mod incident;
 pub mod resolution;
 pub mod taint;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::crdt::delta::{DeltaId, DeltaTag, Did, Ed25519Signature};
 use crate::errors::TirBaseError;
@@ -25,6 +25,14 @@ use incident::{
 };
 use resolution::now_micros;
 use resolution::DecompositionResult;
+
+/// In-memory contamination state: incident contexts, composite instances, and
+/// the `(target, param)` → incident index.
+type IncidentSnapshot = (
+    BTreeMap<IncidentId, IncidentContextObject>,
+    BTreeMap<IncidentId, CompositeIncidentInstance>,
+    BTreeMap<(String, String), IncidentId>,
+);
 
 // ─── CausalContaminationEngine ────────────────────────────────────────────────
 
@@ -43,26 +51,26 @@ pub struct CausalContaminationEngine {
     /// SQLite-backed Changeset DAG — used for BFS walks.
     dag: crate::crdt::dag::ChangesetDag,
     /// In-memory incident registry.
-    incidents: HashMap<IncidentId, IncidentContextObject>,
+    incidents: BTreeMap<IncidentId, IncidentContextObject>,
     /// In-memory composite incident registry.
-    composite_incidents: HashMap<IncidentId, CompositeIncidentInstance>,
-    /// O(1) lookup index: (table_name, row_key) → active IncidentId.
+    composite_incidents: BTreeMap<IncidentId, CompositeIncidentInstance>,
+    /// Keyed lookup index: (table_name, row_key) → active IncidentId.
     ///
     /// Populated when `tag_contamination_root` resolves affected rows.
     /// Pruned when `verify_data` appends `DeltaTag::Decontaminated` to a fully
     /// resolved incident.  This map is the fast path for `CoreHandle::write()`
     /// to check whether the current row is contaminated (Req 19.5).
-    contaminated_rows: HashMap<(String, String), IncidentId>,
+    contaminated_rows: BTreeMap<(String, String), IncidentId>,
 }
 
 #[cfg(not(feature = "native"))]
 pub struct CausalContaminationEngine {
-    incidents: HashMap<IncidentId, IncidentContextObject>,
-    composite_incidents: HashMap<IncidentId, CompositeIncidentInstance>,
+    incidents: BTreeMap<IncidentId, IncidentContextObject>,
+    composite_incidents: BTreeMap<IncidentId, CompositeIncidentInstance>,
     /// In-memory DAG for WASM builds (mirrors the native SQLite-backed DAG).
     dag: crate::crdt::dag::ChangesetDag,
-    /// O(1) lookup index: (table_name, row_key) → active IncidentId.
-    contaminated_rows: HashMap<(String, String), IncidentId>,
+    /// Keyed lookup index: (table_name, row_key) → active IncidentId.
+    contaminated_rows: BTreeMap<(String, String), IncidentId>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -81,16 +89,9 @@ mod persistence {
 
     pub fn load(
         conn: &std::sync::Mutex<rusqlite::Connection>,
-    ) -> Result<
-        (
-            HashMap<IncidentId, IncidentContextObject>,
-            HashMap<IncidentId, CompositeIncidentInstance>,
-            HashMap<(String, String), IncidentId>,
-        ),
-        TirBaseError,
-    > {
+    ) -> Result<IncidentSnapshot, TirBaseError> {
         let lock = conn.lock().map_err(lock_err)?;
-        let mut incidents = HashMap::new();
+        let mut incidents = BTreeMap::new();
         let mut stmt = lock
             .prepare("SELECT ico_json FROM cce_incidents")
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -112,7 +113,7 @@ mod persistence {
             incidents.insert(ico.id, ico);
         }
 
-        let mut composite_incidents = HashMap::new();
+        let mut composite_incidents = BTreeMap::new();
         let mut stmt = lock
             .prepare("SELECT composite_json FROM cce_composite_incidents")
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -134,7 +135,7 @@ mod persistence {
             composite_incidents.insert(comp.id, comp);
         }
 
-        let mut contaminated_rows = HashMap::new();
+        let mut contaminated_rows = BTreeMap::new();
         let mut stmt = lock
             .prepare("SELECT table_name, row_key, incident_id FROM cce_contaminated_rows")
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -518,9 +519,11 @@ impl CausalContaminationEngine {
 
         let decomposition = resolution::verify_data(
             root_delta_id,
-            manager_did,
-            manager_sig,
-            manager_token_expiry,
+            resolution::ManagerAuth {
+                did: manager_did,
+                sig: manager_sig,
+                token_expiry: manager_token_expiry,
+            },
             now_secs,
             &conn_guard,
             &self.dag,
@@ -749,10 +752,10 @@ impl CausalContaminationEngine {
 impl CausalContaminationEngine {
     pub fn new() -> Self {
         Self {
-            incidents: HashMap::new(),
-            composite_incidents: HashMap::new(),
+            incidents: BTreeMap::new(),
+            composite_incidents: BTreeMap::new(),
             dag: crate::crdt::dag::ChangesetDag::new(),
-            contaminated_rows: HashMap::new(),
+            contaminated_rows: BTreeMap::new(),
         }
     }
 

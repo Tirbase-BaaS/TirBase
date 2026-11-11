@@ -129,7 +129,7 @@ fn wasm_exports_match_core_handle_methods() {
     //    `assert_method_exists!` macro below performs a trait-bound check that
     //    the method is present on `CoreHandle`.
     for (_, method) in EXPORT_TO_METHOD {
-        assert_method_exists::<crate::api::CoreHandle>(method);
+        assert_method_exists(method);
     }
 }
 
@@ -140,7 +140,7 @@ fn all_corehandle_public_io_methods_are_exported() {
     // the SDK can drive them through the WASM bridge (Req 2.1–2.6).
     let required_methods: &[&str] = &["write", "read", "query", "trust_level", "mesh_status"];
     for m in required_methods {
-        assert_method_exists::<crate::api::CoreHandle>(m);
+        assert_method_exists(m);
     }
 }
 
@@ -149,7 +149,7 @@ fn all_corehandle_public_io_methods_are_exported() {
 /// Uses a trait with a blanket impl to verify the method exists at compile
 /// time without actually calling it.  If the method is removed from `CoreHandle`,
 /// this fails to compile, surfacing the drift immediately.
-fn assert_method_exists<T>(method_name: &str) {
+fn assert_method_exists(method_name: &str) {
     // We can't do true compile-time method-name reflection, but we can call a
     // helper that exercises the delegation mapping.  The test framework
     // ensures the mapping is consistent with WASM_EXPORT_NAMES above.

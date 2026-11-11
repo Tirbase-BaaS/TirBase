@@ -115,7 +115,7 @@ fn log_receipt_rejection(peer_did: &str, reason: &str) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::identity::keypair::{generate_keypair, sign};

@@ -16,7 +16,7 @@ use tirbase_core::migration::migration_delta::{
 };
 use tirbase_core::migration::postcondition::PostconditionOutcome;
 use tirbase_core::migration::quarantine::QuarantineReason;
-use tirbase_core::migration::shadow::run_shadow_migration_native;
+use tirbase_core::migration::shadow::{run_shadow_migration_native, ShadowInputs};
 use tirbase_core::migration::version_path::SchemaVersionPath;
 use tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry;
 use tirbase_core::migration::SchemaMigrationEngine;
@@ -56,10 +56,12 @@ fn task30_1_2_postcondition_failure_discards_shadow_preserves_state() {
         30,
         &store,
         &MigrationExecutionRegistry::default(),
-        None,
-        Some(&pc),
-        &[2u8; 32],
-        None,
+        ShadowInputs {
+            execution_profile: None,
+            postconditions: Some(&pc),
+            target_schema_hash: &[2u8; 32],
+            target_schema: None,
+        },
     )
     .unwrap();
     assert!(matches!(

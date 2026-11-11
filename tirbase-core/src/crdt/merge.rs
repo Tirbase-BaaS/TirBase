@@ -140,7 +140,6 @@ pub(crate) fn is_rga_operation(automerge_bytes: &[u8]) -> Option<bool> {
 /// `CrdtEngine::apply()` is the Automerge-level merge primitive and handles
 /// steps 1 and 2 as well. This function adds the observable routing layer
 /// (step 3) on top.
-
 pub(crate) fn apply_incoming_delta_no_pending_retry(
     engine: &mut CrdtEngine,
     delta: &Delta,
@@ -191,10 +190,7 @@ pub fn apply_incoming_delta(
                 // PV-6.1 (task 23): defer when hardening pending queue is available.
                 // Without hardening state, preserve legacy apply behavior.
                 let pending_outcome = if let Some(engine_hardening) = engine.hardening_mut() {
-                    let now_mono = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_micros() as u64)
-                        .unwrap_or(0);
+                    let now_mono = crate::traits::monotonic_now();
                     let pending_ev = engine_hardening.enqueue_pending(
                         delta.clone(),
                         now_mono,
@@ -366,7 +362,7 @@ pub(crate) fn merge_rga(
     )
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

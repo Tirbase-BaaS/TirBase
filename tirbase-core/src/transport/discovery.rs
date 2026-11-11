@@ -9,7 +9,7 @@
 
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // ─── DiscoveredPeer ───────────────────────────────────────────────────────────
 
@@ -82,7 +82,7 @@ pub struct PeerDiscovery {
     /// Maximum entries in the retry queue (Req 5.6).
     pub max_retry_queue: usize,
     /// Active peer table: DID → PeerState.
-    peers: HashMap<Did, PeerState>,
+    peers: BTreeMap<Did, PeerState>,
 }
 
 impl PeerDiscovery {
@@ -99,7 +99,7 @@ impl PeerDiscovery {
             retry_interval_secs,
             retry_queue: std::collections::VecDeque::new(),
             max_retry_queue,
-            peers: HashMap::new(),
+            peers: BTreeMap::new(),
         }
     }
 
@@ -289,11 +289,7 @@ pub mod ble_adapter {
                             })?;
 
                     if let Some(props) = props {
-                        if props
-                            .services
-                            .iter()
-                            .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
-                        {
+                        if props.services.contains(&TIRBASE_BLE_SERVICE_UUID) {
                             let peer_did = format!("did:key:ble-{}", props.address);
                             let bridge_did = peer_did.clone();
                             found.push((peer_did, bridge_did));
@@ -381,7 +377,7 @@ pub mod mdns_adapter {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

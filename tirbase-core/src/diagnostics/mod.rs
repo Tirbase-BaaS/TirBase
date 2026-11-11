@@ -118,7 +118,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
     entries
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::api::{DeploymentConfig, InitConfig};

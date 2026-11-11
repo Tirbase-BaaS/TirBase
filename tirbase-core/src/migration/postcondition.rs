@@ -185,7 +185,7 @@ pub fn field_checksum_hex(
     Ok(hex::encode(hasher.finalize()))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use serde_json::json;

@@ -25,7 +25,7 @@ pub mod version_path;
 // STATE-INVENTORY: RECONSTRUCTIBLE schema state (CLAIM-31.1, PV-9.1)
 pub mod wasm_sandbox;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 #[cfg(feature = "native")]
 use std::sync::{Arc, Mutex};
@@ -125,7 +125,7 @@ pub struct SchemaMigrationEngine {
     /// Migration hash → target schema hash, recorded at prepare time so a
     /// revocation can identify which schema a corrupted migration produced
     /// (Req 19.1/19.2 corruption-window scoping).
-    migration_targets: HashMap<MigrationId, crate::schema::hash::SchemaIdentifierHash>,
+    migration_targets: BTreeMap<MigrationId, crate::schema::hash::SchemaIdentifierHash>,
 
     /// Schema hashes currently under a corruption window → the migration IDs
     /// whose revocations opened them (Req 19.1/19.2).  A window opens when a
@@ -134,7 +134,7 @@ pub struct SchemaMigrationEngine {
     /// Side-Car Ledger and the window's entries are replayed onto the
     /// corrected projection when a migration off that schema commits (Req
     /// 19.3).
-    corrupted_schema_windows: HashMap<crate::schema::hash::SchemaIdentifierHash, Vec<MigrationId>>,
+    corrupted_schema_windows: BTreeMap<crate::schema::hash::SchemaIdentifierHash, Vec<MigrationId>>,
 
     /// Registered schema definitions keyed by their `SchemaIdentifierHash`,
     /// enabling parser-backed validation of version-path entries (Req 20).
@@ -143,7 +143,7 @@ pub struct SchemaMigrationEngine {
     /// entry maps a version-path hash to its parseable `Schema` document so
     /// `verify_version_path` can confirm that the source and target hashes
     /// correspond to real, well-formed schemas — not just opaque byte values.
-    schema_definitions: HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
+    schema_definitions: BTreeMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
 }
 
 impl SchemaMigrationEngine {
@@ -165,7 +165,7 @@ impl SchemaMigrationEngine {
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
         #[cfg(not(feature = "native"))] db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
-        schema_definitions: HashMap<
+        schema_definitions: BTreeMap<
             crate::schema::hash::SchemaIdentifierHash,
             crate::schema::Schema,
         >,
@@ -196,8 +196,8 @@ impl SchemaMigrationEngine {
             store,
             quarantine_ledger,
             sidecar_ledger,
-            migration_targets: HashMap::new(),
-            corrupted_schema_windows: HashMap::new(),
+            migration_targets: BTreeMap::new(),
+            corrupted_schema_windows: BTreeMap::new(),
             schema_definitions,
         }
     }
@@ -256,10 +256,12 @@ impl SchemaMigrationEngine {
             prepared.timeout_secs,
             &self.store,
             registry,
-            prepared.execution_profile.as_ref(),
-            prepared.postconditions.as_ref(),
-            &prepared.target_schema_hash,
-            target_schema.as_ref(),
+            shadow::ShadowInputs {
+                execution_profile: prepared.execution_profile.as_ref(),
+                postconditions: prepared.postconditions.as_ref(),
+                target_schema_hash: &prepared.target_schema_hash,
+                target_schema: target_schema.as_ref(),
+            },
         )
     }
 
@@ -272,6 +274,10 @@ impl SchemaMigrationEngine {
         self.revocation_registry.clear_in_progress(migration_id);
     }
 
+    /// Native-only: the WASM `QuarantineLedger::quarantine` is async (IndexedDB
+    /// transactions must be awaited), so the synchronous migration helper has
+    /// no WASM counterpart; the WASM pipeline awaits the ledger directly.
+    #[cfg(feature = "native")]
     pub(crate) fn quarantine_transform(
         &mut self,
         sender_did: &str,
@@ -372,13 +378,9 @@ impl SchemaMigrationEngine {
     /// 2. Migration not already revoked.
     /// 3. CA signature over transform_bytes is valid.
     /// 4. SHA-256 of transform_bytes matches embedded hash.
-    /// 4a. Record the migration hash as **known / previously-seen** (Req 18.7)
-    ///     — once the CA signature and hash integrity cleared, this is a real
-    ///     migration this device has seen, and the only kind a manager-signed
-    ///     `MigrationRevocationDelta` may target.  Recorded even when a later
-    ///     gate below rejects the delta (e.g. version-path mismatch), so a
-    ///     corrupt-but-CA-signed migration can be revoked before it becomes
-    ///     applicable.
+    ///
+    /// Step 4a: Record the migration hash as known / previously-seen (Req 18.7): once the CA signature and hash integrity cleared, this is a real migration this device has seen, and the only kind a manager-signed `MigrationRevocationDelta` may target. Recorded even when a later gate below rejects the delta (e.g. version-path mismatch), so a corrupt-but-CA-signed migration can be revoked before it becomes applicable.
+    ///
     /// 5. source_schema_hash == local current schema.
     /// 6. target_schema_hash == next step in registered version path.
     /// 7. No other transform is currently executing (migrations are strictly
@@ -616,9 +618,7 @@ impl SchemaMigrationEngine {
             .insert(delta.id, delta.target_schema_hash);
 
         // ── 5 & 6. Version path validation ───────────────────────────────────
-        if let Err(e) = self.verify_version_path(&delta) {
-            return Err(e);
-        }
+        self.verify_version_path(&delta)?;
 
         // ── 7. Serialisation gate ────────────────────────────────────────────
         // At most one transform may execute at a time: schema steps are
@@ -745,10 +745,12 @@ impl SchemaMigrationEngine {
                 prepared.timeout_secs,
                 &self.store,
                 &MigrationExecutionRegistry::default(),
-                prepared.execution_profile.as_ref(),
-                postconditions.as_ref(),
-                &prepared.target_schema_hash,
-                target_schema.as_ref(),
+                shadow::ShadowInputs {
+                    execution_profile: prepared.execution_profile.as_ref(),
+                    postconditions: postconditions.as_ref(),
+                    target_schema_hash: &prepared.target_schema_hash,
+                    target_schema: target_schema.as_ref(),
+                },
             )?;
             if let Some(qr) = sr.quarantine_reason {
                 let _ = self.quarantine_ledger.quarantine(
@@ -1350,7 +1352,7 @@ impl SchemaMigrationEngine {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::contamination::CausalContaminationEngine;
@@ -1463,7 +1465,7 @@ mod tests {
                     .expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
-            std::collections::HashMap::new(),
+            std::collections::BTreeMap::new(),
         )
     }
 
@@ -2285,7 +2287,7 @@ mod tests {
             1, // revocation_threshold_m = 1 (single manager)
             store,
             shared_conn,
-            std::collections::HashMap::new(),
+            std::collections::BTreeMap::new(),
         )
     }
 
@@ -2757,10 +2759,10 @@ mod tests {
         let source = [0x10u8; 32];
         let path = SchemaVersionPath::new(vec![source, target_hash]);
 
-        let mut schema_defs: HashMap<
+        let mut schema_defs: BTreeMap<
             crate::schema::hash::SchemaIdentifierHash,
             crate::schema::Schema,
-        > = HashMap::new();
+        > = BTreeMap::new();
         schema_defs.insert(target_hash, schema.clone());
 
         let (ca_secret, ca_public) = generate_keypair().expect("keygen");
@@ -2865,7 +2867,7 @@ mod tests {
                         .expect("create schema");
                     std::sync::Arc::new(std::sync::Mutex::new(conn))
                 },
-                HashMap::new(),
+                BTreeMap::new(),
             );
 
             // verify_version_path succeeds with hash-based validation only.

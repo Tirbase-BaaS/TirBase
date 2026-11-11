@@ -30,7 +30,7 @@ pub enum GossipMessage {
     /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
     InboundRevocationDelta(RevocationDelta),
     /// A schema-migration Delta from a peer (Req 18).
-    InboundMigrationDelta(MigrationDelta),
+    InboundMigrationDelta(Box<MigrationDelta>),
     /// A migration-revocation Delta from a peer (Req 18.5).
     InboundMigrationRevocationDelta(MigrationRevocationDelta),
     /// A Delta routed through a multi-hop relay peer (Req 5.5).
@@ -81,7 +81,7 @@ impl GossipMessage {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Ed25519Signature, PriorityClass};

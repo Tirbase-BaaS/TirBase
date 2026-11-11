@@ -55,7 +55,10 @@ pub mod store;
 pub mod traits;
 pub mod transport;
 
-// ─── Property-based test suite (Task 15) ─────────────────────────────────────
+// ─── Test suites ─────────────────────────────────────────────────────────────
+// `src/tests/mod.rs` gates its own submodules by target: the property and
+// parity suites need the native crates (SQLite, sockets, `proptest`), while
+// `wasm_tests` is the in-browser `#[wasm_bindgen_test]` suite.
 #[cfg(test)]
 mod tests;
 
@@ -168,7 +171,10 @@ mod wasm_exports {
         // `Arc` because `api::CoreHandle::init` now returns a shared handle:
         // the production inbound drain loop spawned by init holds a clone
         // (native builds).  On WASM the handle is owned solely by this slot.
-        static CORE: std::cell::RefCell<Option<std::sync::Arc<api::CoreHandle>>>
+        //
+        // `pub(crate)` so the in-browser suite (`src/tests/wasm_tests.rs`) can
+        // inspect the live handle after driving the public JS entry points.
+        pub(crate) static CORE: std::cell::RefCell<Option<std::sync::Arc<api::CoreHandle>>>
             = std::cell::RefCell::new(None);
     }
 

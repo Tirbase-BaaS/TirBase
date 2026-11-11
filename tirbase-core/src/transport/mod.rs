@@ -262,7 +262,7 @@ pub struct MeshTransport {
 
     /// Active Noise_IK sessions keyed by remote DID (Req 6.1).
     pub(crate) active_sessions:
-        std::collections::HashMap<Did, crate::transport::session::NoiseSession>,
+        std::collections::BTreeMap<Did, crate::transport::session::NoiseSession>,
 
     /// Saturate_Mode state machine (Req 13): owns the lease lifecycle
     /// (activate / renew / M-of-N terminate / expiry tick) and verifies
@@ -322,7 +322,7 @@ impl MeshTransport {
             config,
             gossip_topic: "tirbase/v1".to_string(),
             scheduler: DrrScheduler::new(DEFAULT_LINK_CAPACITY_BYTES),
-            active_sessions: std::collections::HashMap::new(),
+            active_sessions: std::collections::BTreeMap::new(),
             saturate,
             #[cfg(feature = "native")]
             swarm: None,
@@ -920,8 +920,8 @@ impl MeshTransport {
                 };
 
                 let reassembly = ReassemblyBuffer::default();
-                let mut pending_chunks: std::collections::HashMap<[u8; 32], Vec<Vec<u8>>> =
-                    std::collections::HashMap::new();
+                let mut pending_chunks: std::collections::BTreeMap<[u8; 32], Vec<Vec<u8>>> =
+                    std::collections::BTreeMap::new();
 
                 loop {
                     tokio::select! {
@@ -1340,11 +1340,7 @@ impl MeshTransport {
             return;
         };
 
-        loop {
-            let msg = match rx.try_recv() {
-                Ok(msg) => msg,
-                Err(_) => break,
-            };
+        while let Ok(msg) = rx.try_recv() {
             let processed = self.process_wire_message(msg);
             if let Some(dispatch_msg) = processed {
                 #[cfg(test)]
@@ -1393,7 +1389,7 @@ impl MeshTransport {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::transport::discovery::PeerTransport;
@@ -1696,11 +1692,7 @@ mod tests {
     // never set by a bare boolean.
 
     fn now_secs() -> i64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64
+        crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
     /// Sign `message` with a fresh Ed25519 key derived from `seed` and return
@@ -2052,9 +2044,8 @@ mod tests {
         // would carry.  A's mDNS service reports this exact (peer, address)
         // pair when it discovers B.
         let b_listen_addr: Multiaddr = loop {
-            match swarm_b.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => break address,
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = swarm_b.select_next_some().await {
+                break address;
             }
         };
 

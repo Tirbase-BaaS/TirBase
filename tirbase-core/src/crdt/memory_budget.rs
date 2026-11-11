@@ -120,7 +120,7 @@ impl MemoryBudgetCaches {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -138,7 +138,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod task24_tests {
     use super::*;
 

@@ -25,7 +25,7 @@
 //! (`crdt/mod.rs`) imports [`diff_schemas`] through the schema hash gate.
 
 use crate::schema::Schema;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 /// A table-qualified field reference, used to name exactly what changed.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -125,9 +125,9 @@ impl SchemaDiff {
 pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
     let mut diff = SchemaDiff::default();
 
-    let base_tables: HashMap<&str, &crate::schema::TableDef> =
+    let base_tables: BTreeMap<&str, &crate::schema::TableDef> =
         base.tables.iter().map(|t| (t.name.as_str(), t)).collect();
-    let incoming_tables: HashMap<&str, &crate::schema::TableDef> = incoming
+    let incoming_tables: BTreeMap<&str, &crate::schema::TableDef> = incoming
         .tables
         .iter()
         .map(|t| (t.name.as_str(), t))
@@ -161,9 +161,9 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
         let base_fields = &base_tables[name].fields;
         let incoming_fields = &incoming_tables[name].fields;
 
-        let base_field_map: HashMap<&str, &crate::schema::FieldDef> =
+        let base_field_map: BTreeMap<&str, &crate::schema::FieldDef> =
             base_fields.iter().map(|f| (f.name.as_str(), f)).collect();
-        let incoming_field_map: HashMap<&str, &crate::schema::FieldDef> = incoming_fields
+        let incoming_field_map: BTreeMap<&str, &crate::schema::FieldDef> = incoming_fields
             .iter()
             .map(|f| (f.name.as_str(), f))
             .collect();
@@ -214,7 +214,7 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
     diff
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::schema::{FieldDef, FieldType, TableDef};

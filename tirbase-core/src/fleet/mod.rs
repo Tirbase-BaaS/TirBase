@@ -525,7 +525,7 @@ pub fn dyn_verifier(inventory: Arc<Mutex<FleetInventory>>) -> DynFleetPreconditi
     Arc::new(FleetInventoryVerifier::new(inventory))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

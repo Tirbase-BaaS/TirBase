@@ -131,7 +131,7 @@ fn print_constraint(constraint: &Constraint) -> String {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::schema::{FieldDef, FieldType, Schema, TableDef};
@@ -172,11 +172,11 @@ mod tests {
             name: "score".to_string(),
             field_type: FieldType::Real,
             nullable: true,
-            default: Some(DefaultValue::Real(3.14)),
+            default: Some(DefaultValue::Real(2.5)),
         };
         let s = print_field(&f);
         assert!(s.starts_with("score REAL"));
-        assert!(s.contains("DEFAULT 3.14") || s.contains("DEFAULT 3.1400"));
+        assert!(s.contains("DEFAULT 2.5") || s.contains("DEFAULT 2.500"));
     }
 
     #[test]
@@ -220,8 +220,8 @@ mod tests {
         assert_eq!(print_default_value(&DefaultValue::Real(0.0)), "0.0");
         // 1.0 also formats as "1" — should become "1.0"
         assert_eq!(print_default_value(&DefaultValue::Real(1.0)), "1.0");
-        // 3.14 already has a decimal — left as-is
-        let s = print_default_value(&DefaultValue::Real(3.14));
+        // 2.5 already has a decimal — left as-is
+        let s = print_default_value(&DefaultValue::Real(2.5));
         assert!(s.contains('.'), "should have decimal: {}", s);
     }
 }

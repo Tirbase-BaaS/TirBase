@@ -86,7 +86,7 @@ pub enum InboundCapViolation {
 /// rate or burst of zero fails closed (every delta is rejected).
 #[derive(Debug, Default)]
 pub(crate) struct InboundRateLimiter {
-    buckets: std::collections::HashMap<String, TokenBucket>,
+    buckets: std::collections::BTreeMap<String, TokenBucket>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,7 +140,7 @@ impl InboundRateLimiter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

@@ -11,7 +11,7 @@
 //! update never arrives and the wait below times out.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tirbase_core::api::{CoreHandle, DeploymentConfig, InitConfig};
 use tirbase_core::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
@@ -123,7 +123,7 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
 
     // Subscribe before revoking so the emitted gossip delta cannot be missed.
     let mut updates = a.subscribe_fleet_updates();
-    let started = Instant::now();
+    let started = tirbase_core::traits::monotonic_now();
     assert!(
         a.fleet_revoke_device(&device_did, "decommissioned")
             .expect("revoke device"),
@@ -149,11 +149,11 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
     b.receive_inbound(GossipMessage::FleetInventoryUpdate(update))
         .await
         .expect("B merges fleet update");
-    let elapsed = started.elapsed();
+    let elapsed_micros = tirbase_core::traits::monotonic_now().saturating_sub(started);
 
     assert!(
-        elapsed < Duration::from_secs(60),
-        "revocation must reach the peer within 60 seconds (took {elapsed:?})"
+        elapsed_micros < 60_000_000,
+        "revocation must reach the peer within 60 seconds (took {elapsed_micros} µs)"
     );
     assert!(
         b.fleet_is_revoked(&device_did),

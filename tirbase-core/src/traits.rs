@@ -15,7 +15,11 @@
 //! * [`SecurityEventSink`] — typed security event emission (PV-7.1).
 
 use std::sync::{Arc, OnceLock, RwLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+// `Instant` is unimplemented on wasm32-unknown-unknown; the WASM clock reads
+// `performance.now()` instead (see `SystemTimeSource::monotonic_now`).
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
+use std::time::Instant;
 
 use tirbase_types::{DeviceKeyType, DeviceSignature};
 
@@ -82,18 +86,41 @@ impl SystemTimeSource {
 
 /// Process-relative monotonic offset.  Captured once so
 /// [`SystemTimeSource::monotonic_now`] is a cheap subtraction.
+///
+/// wasm32-unknown-unknown stores the origin in the browser's
+/// `performance.now()` domain (milliseconds, `f64`) because `std::time::Instant`
+/// is unimplemented there.
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
 static MONOTONIC_ORIGIN: OnceLock<Instant> = OnceLock::new();
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+static MONOTONIC_ORIGIN: OnceLock<f64> = OnceLock::new();
 
 /// Cached default boot identifier.
 static DEFAULT_BOOT_ID: OnceLock<u64> = OnceLock::new();
 
 impl TimeSource for SystemTimeSource {
-    // `Instant::now` is the platform primitive this *implementation* is allowed
-    // to use; every other crate must go through the trait (PV-3.12).
+    // This is the clock boundary the `clippy::disallowed_methods` clock ban
+    // (PV-3.12) exists to funnel everything through: `SystemTimeSource` is the
+    // one implementation permitted to read the platform primitive, and the
+    // allow cannot be removed without making the trait unimplementable.  Every
+    // other crate must obtain time through `TimeSource`.
+    #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
     #[allow(clippy::disallowed_methods)]
     fn monotonic_now(&self) -> u64 {
         let origin = MONOTONIC_ORIGIN.get_or_init(Instant::now);
         origin.elapsed().as_micros() as u64
+    }
+
+    // wasm32-unknown-unknown has no OS clock: `Instant::now()` panics with
+    // "time not implemented on this platform".  `performance.now()` is the
+    // browser's monotonic, high-resolution clock, so the WASM build uses it
+    // (falling back to `Date.now()` when there is no `window.performance`,
+    // e.g. inside a worker).
+    #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+    fn monotonic_now(&self) -> u64 {
+        let origin = MONOTONIC_ORIGIN.get_or_init(browser_monotonic_ms);
+        let elapsed_ms = browser_monotonic_ms() - origin;
+        (elapsed_ms.max(0.0) * 1_000.0) as u64
     }
 
     fn wall_hint(&self) -> Option<i64> {
@@ -107,9 +134,37 @@ impl TimeSource for SystemTimeSource {
 }
 
 /// Single place in the crate permitted to read the wall clock (PV-3.12).
+///
+/// As with `monotonic_now`, the `disallowed_methods` allow is intrinsic to this
+/// boundary: the lint bans `SystemTime::now` everywhere *except* the one
+/// implementation that supplies it to the rest of the workspace.
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
 #[allow(clippy::disallowed_methods)]
 fn wall_clock_now() -> Option<SystemTime> {
     Some(SystemTime::now())
+}
+
+/// WASM wall clock: `SystemTime::now()` panics on `wasm32-unknown-unknown`, so
+/// the browser clock (`Date.now()`, milliseconds since the epoch) is converted
+/// into a `SystemTime` instead.  The result is still only ever surfaced as the
+/// untrusted `wall_hint`; monotonic time comes from `performance.now()`.
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+fn wall_clock_now() -> Option<SystemTime> {
+    let millis = js_sys::Date::now();
+    if !millis.is_finite() || millis < 0.0 {
+        return None;
+    }
+    Some(UNIX_EPOCH + Duration::from_millis(millis as u64))
+}
+
+/// Browser monotonic clock in milliseconds: `performance.now()` when a
+/// `window`/worker exposes it, otherwise `Date.now()`.
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+fn browser_monotonic_ms() -> f64 {
+    web_sys::window()
+        .and_then(|w| w.performance())
+        .map(|p| p.now())
+        .unwrap_or_else(js_sys::Date::now)
 }
 
 /// Derive a stable boot identifier: kernel `boot_id` on Linux, otherwise a
@@ -121,13 +176,27 @@ fn default_boot_id() -> u64 {
             return fnv1a64(raw.trim().as_bytes());
         }
     }
+    // A browser page load is the WASM analogue of a boot, and both
+    // `std::process::id()` and `SystemTime::now()` panic on
+    // wasm32-unknown-unknown, so the identifier is derived from the browser
+    // clock instead.
+    #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+    {
+        let mut bytes = Vec::with_capacity(16);
+        bytes.extend_from_slice(&js_sys::Date::now().to_le_bytes());
+        bytes.extend_from_slice(&js_sys::Math::random().to_le_bytes());
+        return fnv1a64(&bytes);
+    }
     // Non-Linux fallback: the process id plus the monotonic origin.  This is
     // stable for the process but not across reboots; the production gateway
     // overrides `boot_id` with a kernel-derived value (task 7.1).
-    let mut bytes = Vec::with_capacity(16);
-    bytes.extend_from_slice(&std::process::id().to_le_bytes());
-    bytes.extend_from_slice(&SystemTimeSource::new().monotonic_now().to_le_bytes());
-    fnv1a64(&bytes)
+    #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
+    {
+        let mut bytes = Vec::with_capacity(16);
+        bytes.extend_from_slice(&std::process::id().to_le_bytes());
+        bytes.extend_from_slice(&SystemTimeSource::new().monotonic_now().to_le_bytes());
+        fnv1a64(&bytes)
+    }
 }
 
 /// FNV-1a 64-bit hash (small, dependency-free, non-cryptographic).
@@ -301,7 +370,7 @@ pub trait SecurityEventSink: Send + Sync + std::fmt::Debug {
     fn emit(&self, event: SecurityEvent);
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::events::{ReasonCode, SecurityEvent, SecurityEventCategory, Severity};

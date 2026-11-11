@@ -178,7 +178,7 @@ struct CanonicalDeltaPayload<'a> {
     created_at: i64,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use uuid::Uuid;

@@ -190,7 +190,7 @@ pub fn load_identity_from(path: &str) -> Result<Option<(Did, Vec<u8>)>, TirBaseE
         let mut keypair = secret_key_bytes;
         keypair.extend_from_slice(&public_key_bytes);
 
-        return Ok(Some((stored.did.clone(), keypair)));
+        Ok(Some((stored.did.clone(), keypair)))
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -199,7 +199,7 @@ pub fn load_identity_from(path: &str) -> Result<Option<(Did, Vec<u8>)>, TirBaseE
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

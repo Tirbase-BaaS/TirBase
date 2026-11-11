@@ -174,7 +174,7 @@ pub enum TirBaseError {
     SpatialDiversityDegraded { available: usize, required: usize },
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::contamination::incident::IncidentState;

@@ -160,6 +160,10 @@ wasm-bindgen = { version = "0.2.127", optional = true }
 js-sys       = { version = "0.3.104", optional = true }
 web-sys      = { version = "0.3.104", optional = true, features = [
     "Window",
+    # `window.performance.now()` — the browser's monotonic clock, used by
+    # `traits::SystemTimeSource` because `std::time::Instant` is unimplemented
+    # on wasm32-unknown-unknown.
+    "Performance",
     "Navigator",
     "console",
     # IndexedDB persistence for the WASM LocalStore (Subphase 6.3) — the
@@ -195,27 +199,56 @@ getrandom02  = { package = "getrandom", version = "0.2", features = ["js"] }
 
 
 # ─── Dev dependencies ──────────────────────────────────────────────────────────
+#
+# Dev dependencies are split by target because the WASM test suite
+# (`scripts/wasm-test.sh`) compiles the same crate for wasm32-unknown-unknown,
+# where several test-only crates cannot build at all:
+#   * `proptest` → `wait-timeout` has no wasm32 backend;
+#   * `criterion` / `iai-callgrind` are native benchmark harnesses (and the
+#     benches themselves are native targets);
+#   * `libc` is used to read peak RSS for the native memory gate;
+#   * `tokio`'s `rt-multi-thread` / `test-util` / `net` features are rejected
+#     on wasm (only `rt`, `macros`, `sync`, `time`, `io-util` are supported).
 [dev-dependencies]
+# WAT (WebAssembly text format) parser used in sandbox tests — pure Rust, so it
+# builds on both targets.
+wat = "1.229.0"
+# The in-browser test harness itself (`#[wasm_bindgen_test]`).
+wasm-bindgen-test = "0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 proptest = "1.11.0"
 # Peak-RSS measurement for the task 24.5 memory gate (tests/memory_budget_gate.rs).
-libc     = "0.2"
-tokio    = { version = "1.53.1", features = ["full", "test-util"] }
-# WAT (WebAssembly text format) parser used in sandbox tests
-wat      = "1.229.0"
-wasm-bindgen-test = "0.3"
+libc = "0.2"
+tokio = { version = "1.53.1", features = [
+    "rt", "rt-multi-thread", "macros", "sync", "time", "io-util", "test-util",
+] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies.criterion]
+version = "0.5"
+features = ["html_reports"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies.iai-callgrind]
+version = "0.14"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+# Async in-browser tests: `#[tokio::test]` is unavailable on wasm, so the wasm
+# tests drive futures through `wasm_bindgen_futures`, but the runtime pieces
+# below are still needed for the sync primitives the library uses under test.
+tokio = { version = "1.53.1", features = [
+    "rt", "macros", "sync", "time", "io-util",
+] }
+# `proptest` (native-only) pulls `getrandom` 0.3 through `rand` 0.9, and
+# getrandom 0.3 refuses to build for wasm32-unknown-unknown unless the `wasm_js`
+# backend is enabled *and* `--cfg getrandom_backend="wasm_js"` is passed (see
+# `scripts/wasm-test.sh`).  Declaring the feature here unifies it into the
+# shared 0.3 build; native builds are untouched.
+getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 
 
 [[bench]]
 name = "core_bench"
 harness = false
-
-[dev-dependencies.criterion]
-version = "0.5"
-features = ["html_reports"]
-
-[dev-dependencies.iai-callgrind]
-version = "0.14"
-
 
 [[bench]]
 name = "core_iai"

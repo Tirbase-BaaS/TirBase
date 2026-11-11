@@ -639,10 +639,7 @@ mod tests {
     }
 
     fn now_secs() -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
+        crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
     #[test]
@@ -765,16 +762,13 @@ mod tests {
         use biscuit_auth::{builder_ext::BuilderExt, Biscuit};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-        let issued_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-        let expiry = SystemTime::now() + Duration::from_secs(ttl_secs);
+        let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0);
+        let expiry = UNIX_EPOCH + Duration::from_secs((issued_secs.max(0) as u64).saturating_add(ttl_secs));
 
         let mut builder = Biscuit::builder()
-            .fact(format!("did(\"did:key:z6MkTest\")").as_str())
+            .fact("did(\"did:key:z6MkTest\")")
             .unwrap()
-            .fact(format!("role(\"manager\")").as_str())
+            .fact("role(\"manager\")")
             .unwrap()
             .fact(format!("issued_at({issued_secs})").as_str())
             .unwrap()

@@ -63,7 +63,7 @@ impl QuarantineReason {
     }
 
     /// Parse from the text value stored in SQLite.
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_storage_str(s: &str) -> Option<Self> {
         match s {
             "BREAKING_CHANGE" => Some(Self::BreakingSchemaChange),
             "UNKNOWN_HASH" => Some(Self::UnknownSchemaHash),
@@ -238,7 +238,7 @@ impl QuarantineLedger {
                         schema_bytes.and_then(|b| b.try_into().ok());
                     let migration_id: Option<[u8; 32]> =
                         migration_bytes.and_then(|b| b.try_into().ok());
-                    let reason = QuarantineReason::from_str(&reason_str)?;
+                    let reason = QuarantineReason::from_storage_str(&reason_str)?;
                     Some(QuarantineEntry {
                         id,
                         sender_did,
@@ -304,7 +304,7 @@ impl QuarantineLedger {
                         schema_bytes.and_then(|b| b.try_into().ok());
                     let migration_id: Option<[u8; 32]> =
                         migration_bytes.and_then(|b| b.try_into().ok());
-                    let reason = QuarantineReason::from_str(&reason_str)?;
+                    let reason = QuarantineReason::from_storage_str(&reason_str)?;
                     Some(QuarantineEntry {
                         id,
                         sender_did,

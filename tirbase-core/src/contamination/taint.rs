@@ -16,16 +16,16 @@ use crate::errors::TirBaseError;
 #[cfg(not(feature = "native"))]
 thread_local! {
     static WASM_TAG_STORE: std::cell::RefCell<
-        std::collections::HashMap<DeltaId, Vec<DeltaTag>>
-    > = std::cell::RefCell::new(std::collections::HashMap::new());
+        std::collections::BTreeMap<DeltaId, Vec<DeltaTag>>
+    > = std::cell::RefCell::new(std::collections::BTreeMap::new());
 }
 
 // WASM in-memory projection contamination store (table → key → contaminated flag).
 #[cfg(not(feature = "native"))]
 thread_local! {
     pub(crate) static WASM_PROJ_STORE: std::cell::RefCell<
-        std::collections::HashMap<String, std::collections::HashMap<String, bool>>
-    > = std::cell::RefCell::new(std::collections::HashMap::new());
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, bool>>
+    > = std::cell::RefCell::new(std::collections::BTreeMap::new());
 }
 
 // ─── SQLite tag-append helper ─────────────────────────────────────────────────
@@ -95,7 +95,7 @@ pub(crate) fn read_tags_from_db(
 /// This operation is **append-only** — existing tags are never modified (Req 10.4).
 ///
 /// On native this writes directly to `dag_nodes.tags_json`.  On WASM this stores
-/// tags in a thread-local HashMap so the signature stays compatible with how the
+/// tags in a thread-local BTreeMap so the signature stays compatible with how the
 /// CCE calls it.
 #[cfg(feature = "native")]
 pub(crate) fn append_tag(
@@ -404,10 +404,10 @@ pub(crate) fn resolve_affected_rows(
     root_delta_id: DeltaId,
 ) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
     use crate::contamination::incident::AffectedRow;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     // Map (table, row_key) -> most-recent delta_id for deduplication.
-    let mut seen: HashMap<(String, String), DeltaId> = HashMap::new();
+    let mut seen: BTreeMap<(String, String), DeltaId> = BTreeMap::new();
 
     for &delta_id in delta_ids {
         let rows = crate::store::projection::rows_by_delta_id(&delta_id);

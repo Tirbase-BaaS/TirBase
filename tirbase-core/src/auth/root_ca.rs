@@ -198,7 +198,7 @@ impl RootCaRegistry {
             }
             let Some(key) = active
                 .iter()
-                .find(|key| derive_did(key).to_string() == *signer_did)
+                .find(|key| derive_did(key) == *signer_did)
             else {
                 continue;
             };
@@ -264,7 +264,7 @@ fn verify_root_signature(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::identity::file_key_provider::InMemoryKeyProvider;

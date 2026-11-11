@@ -273,9 +273,7 @@ impl SessionManager {
     ///
     /// `rotation_interval_secs` is clamped to `[60, 86400]` per Req 6.4.
     pub fn new(local_did: Did, rotation_interval_secs: u64) -> Self {
-        let interval = rotation_interval_secs
-            .max(MIN_ROTATION_INTERVAL_SECS)
-            .min(MAX_ROTATION_INTERVAL_SECS);
+        let interval = rotation_interval_secs.clamp(MIN_ROTATION_INTERVAL_SECS, MAX_ROTATION_INTERVAL_SECS);
         Self {
             resumption_cache: LruCache::new(NonZeroUsize::new(MAX_RESUMPTION_CACHE).unwrap()),
             failure_records: Vec::new(),
@@ -510,9 +508,9 @@ impl SessionManager {
             // real libp2p transport stream (Req 6.1).  The stream must be
             // provided — without it the handshake cannot complete.
             let stream = stream.ok_or_else(|| {
-                let reason = format!(
+                let reason =
                     "full_ik_handshake requires a stream for the production Noise IK wire exchange"
-                );
+                        .to_string();
                 self.record_failure(peer_did.clone(), reason.clone(), now_secs);
                 make_err(reason)
             })?;
@@ -603,7 +601,7 @@ impl Default for SessionManager {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -870,7 +868,7 @@ mod tests {
         let n = i_transport
             .write_message(b"hello after rekey", &mut ciphertext)
             .unwrap();
-        let mut plaintext = vec![0u8; 65535];
+        let plaintext = vec![0u8; 65535];
         // Note: after rekey, nonces are out of sync between the two sides in a
         // stateless test like this (both rekeyed independently). The important
         // invariant tested here is that rekey_outgoing/incoming don't panic.

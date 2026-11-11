@@ -233,7 +233,7 @@ fn drain_queue(
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};

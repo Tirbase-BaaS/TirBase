@@ -71,7 +71,7 @@ pub fn verify(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

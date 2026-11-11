@@ -7,7 +7,7 @@
 //! (Req 3.1, Subphase 6.3): `write()` persists each row through an awaited
 //! IndexedDB transaction before returning, and `open()` eagerly reloads every
 //! row into an in-memory view, so data survives page reloads instead of living
-//! in a throwaway HashMap.  See [`indexed_db`] for the browser glue.
+//! in a throwaway BTreeMap.  See [`indexed_db`] for the browser glue.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -40,16 +40,16 @@ pub struct LocalStore {
     conn: rusqlite::Connection,
     /// IndexedDB-backed persistent store for WASM builds (Req 3.1, Subphase 6.3).
     ///
-    /// Replaces the previous in-memory `HashMap` — all writes go through
+    /// Replaces the previous in-memory `BTreeMap` — all writes go through
     /// IndexedDB so data survives page reloads.  The special `":memory:"`
-    /// path keeps a pure in-memory `HashMap` with no IndexedDB backing (tests
+    /// path keeps a pure in-memory `BTreeMap` with no IndexedDB backing (tests
     /// / throwaway stores).
     #[cfg(not(feature = "native"))]
     db: Option<std::rc::Rc<IdbStore>>,
     /// In-memory fallback for the `":memory:"` ephemeral store (WASM only).
     /// When `db` is `None`, reads and writes go through this map directly.
     #[cfg(not(feature = "native"))]
-    tables: std::collections::HashMap<String, std::collections::HashMap<String, Value>>,
+    tables: std::collections::BTreeMap<String, std::collections::BTreeMap<String, Value>>,
 }
 
 // ─── Native implementation ────────────────────────────────────────────────────
@@ -481,7 +481,7 @@ impl LocalStore {
     pub async fn open(path: &str) -> Result<Self, TirBaseError> {
         if path == ":memory:" {
             return Ok(LocalStore {
-                tables: std::collections::HashMap::new(),
+                tables: std::collections::BTreeMap::new(),
                 db: None,
             });
         }
@@ -552,6 +552,20 @@ impl LocalStore {
             .collect();
 
         Ok(results)
+    }
+
+    /// Number of rows in `table` (0 when the table has never been written).
+    pub fn count_rows(&self, table: &str) -> Result<usize, TirBaseError> {
+        Ok(self.tables.get(table).map(|t| t.len()).unwrap_or(0))
+    }
+
+    /// All `(key, row)` pairs in `table`, in key order.
+    pub fn read_all_rows(&self, table: &str) -> Result<Vec<(String, Value)>, TirBaseError> {
+        Ok(self
+            .tables
+            .get(table)
+            .map(|t| t.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default())
     }
 
     /// Borrow the underlying `IdbStore`, if this store is IndexedDB-backed

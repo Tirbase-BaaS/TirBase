@@ -26,7 +26,7 @@
 //!   (per-key write Lamports are not tracked), so the read-back is logged for
 //!   observability but never overridden — an override here could corrupt data.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::events::{emit_crdt, ReasonCode, Severity};
 
@@ -119,7 +119,7 @@ fn capture_lww(local: &AutoCommit, incoming: &AutoCommit) -> Vec<LwwConflict> {
 }
 
 /// ROOT-level scalar entries of a doc as `key → (element ID, value)`.
-fn root_scalars(doc: &AutoCommit) -> HashMap<String, (ObjId, automerge::ScalarValue)> {
+fn root_scalars(doc: &AutoCommit) -> BTreeMap<String, (ObjId, automerge::ScalarValue)> {
     doc.map_range(ROOT, ..)
         .filter_map(|item| match item.value {
             automerge::ValueRef::Scalar(ref sv) => {
@@ -289,11 +289,14 @@ pub(crate) fn verify_and_override(
     // Post-merge element index per ROOT-level list object, keyed by the
     // element's `(counter, actor)` identity so decoded insert ops can be
     // matched to their position in the merged sequence.
-    let mut index_maps: Vec<(String, ObjId, HashMap<(u64, Vec<u8>), usize>)> = Vec::new();
+    /// `(list_key, object_id, (counter, actor) → position)` for one ROOT-level list.
+type ObjectElementIndex = (String, ObjId, BTreeMap<(u64, Vec<u8>), usize>);
+
+let mut index_maps: Vec<ObjectElementIndex> = Vec::new();
     for item in doc.map_range(ROOT, ..) {
         if let automerge::ValueRef::Object(ObjType::List) = item.value {
             let item_id = item.id();
-            let mut map = HashMap::new();
+            let mut map = BTreeMap::new();
             for (i, li) in doc.list_range(&item_id, ..).enumerate() {
                 if let Some(parts) = exid_parts(&li.id()) {
                     map.insert(parts, i);
@@ -427,7 +430,7 @@ fn leb128_u64(b: &[u8], pos: &mut usize) -> Option<u64> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use automerge::transaction::Transactable;

@@ -17,7 +17,7 @@
 
 #![allow(dead_code)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::crdt::delta::{Delta, DeltaId, Did};
@@ -249,7 +249,7 @@ fn log_ledger_rejection(delta_id: &str, reason: &str) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 #[cfg(feature = "native")]
 mod tests {
     use super::*;

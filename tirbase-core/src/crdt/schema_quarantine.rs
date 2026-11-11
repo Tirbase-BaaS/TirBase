@@ -157,10 +157,8 @@ impl SchemaQuarantineLedger {
     }
 
     fn now_micros() -> i64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_micros() as i64)
-            .unwrap_or(0)
+        // Untrusted wall-clock hint, read through the injected TimeSource (PV-3.12).
+        crate::traits::wall_hint().unwrap_or(0)
     }
 
     fn delta_raw_bytes(delta: &Delta) -> Vec<u8> {
@@ -387,7 +385,7 @@ impl SchemaQuarantineLedger {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Ed25519Signature, PriorityClass};

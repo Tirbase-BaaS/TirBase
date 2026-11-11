@@ -31,7 +31,7 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::{DeltaId, Did, Ed25519Signature};
@@ -133,7 +133,7 @@ pub struct DeviceRevocationStatus {
 /// are rejected (Req 9.4).
 #[derive(Debug, Default)]
 pub struct PendingRevocationStore {
-    pending: HashMap<Did, PendingRevocation>,
+    pending: BTreeMap<Did, PendingRevocation>,
 }
 
 impl PendingRevocationStore {
@@ -298,7 +298,7 @@ pub struct RevocationSubsystem {
     /// Accumulates partial signature contributions.
     store: PendingRevocationStore,
     /// Per-DID device status — last known TrustLevel + last receipt timestamp.
-    device_status: HashMap<Did, DeviceRevocationStatus>,
+    device_status: BTreeMap<Did, DeviceRevocationStatus>,
     /// M threshold.
     threshold_m: usize,
     /// N threshold.
@@ -319,7 +319,7 @@ impl RevocationSubsystem {
     ) -> Self {
         Self {
             store: PendingRevocationStore::default(),
-            device_status: HashMap::new(),
+            device_status: BTreeMap::new(),
             threshold_m,
             threshold_n,
             revoked_dids: Vec::new(),
@@ -396,7 +396,7 @@ impl RevocationSubsystem {
         // If we have never seen any signature yet, threshold not met.
         let current_status = last_status
             .or_else(|| self.store.status(&delta.target_did))
-            .ok_or_else(|| TirBaseError::ThresholdNotMet {
+            .ok_or(TirBaseError::ThresholdNotMet {
                 got: 0,
                 need: self.threshold_m,
             })?;
@@ -602,7 +602,7 @@ impl RevocationSubsystem {
 #[cfg(not(feature = "native"))]
 pub struct RevocationSubsystem {
     store: PendingRevocationStore,
-    device_status: HashMap<Did, DeviceRevocationStatus>,
+    device_status: BTreeMap<Did, DeviceRevocationStatus>,
     threshold_m: usize,
     threshold_n: usize,
     revoked_dids: Vec<Did>,
@@ -614,7 +614,7 @@ pub struct RevocationSubsystem {
     /// signed Delta) and `CoreHandle::receive_inbound_wasm` (a peer Delta
     /// passed signature verification and merged).  The CCE trigger for a
     /// revoked DID (Req 10.1) is fed from this index instead of an empty list.
-    authored_deltas: HashMap<Did, std::collections::HashSet<DeltaId>>,
+    authored_deltas: BTreeMap<Did, std::collections::HashSet<DeltaId>>,
 }
 
 #[cfg(not(feature = "native"))]
@@ -622,11 +622,11 @@ impl RevocationSubsystem {
     pub fn new(threshold_m: usize, threshold_n: usize) -> Self {
         Self {
             store: PendingRevocationStore::default(),
-            device_status: HashMap::new(),
+            device_status: BTreeMap::new(),
             threshold_m,
             threshold_n,
             revoked_dids: Vec::new(),
-            authored_deltas: HashMap::new(),
+            authored_deltas: BTreeMap::new(),
         }
     }
 
@@ -695,7 +695,7 @@ impl RevocationSubsystem {
 
         let current_status = last_status
             .or_else(|| self.store.status(&delta.target_did))
-            .ok_or_else(|| TirBaseError::ThresholdNotMet {
+            .ok_or(TirBaseError::ThresholdNotMet {
                 got: 0,
                 need: self.threshold_m,
             })?;

@@ -78,7 +78,7 @@ pub fn classify_with_flags(flags: &[PayloadFlag]) -> PriorityClass {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};

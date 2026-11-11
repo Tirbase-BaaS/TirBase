@@ -8,7 +8,7 @@
 
 pub mod types;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use crate::errors::TirBaseError;
@@ -142,55 +142,6 @@ fn enqueue_fleet_gossip(transport: &mut MeshTransport, update: &crate::fleet::Fl
     transport.enqueue_outbound(wrapper);
 }
 
-/// Open a Noise IK application-layer substream to a peer and drive the
-/// Noise_IK_25519 handshake to completion (Req 6.1).
-///
-/// This helper is `async` so it can await the bidirectional message exchange
-/// over the libp2p transport stream.  It is spawned as a `tokio::task` from the
-/// Swarm poll loop on every `ConnectionEstablished` event (Subphase 1.2) so the
-/// main poll loop is never blocked on the handshake exchange.
-///
-/// If the peer's DID cannot be resolved (e.g. a libp2p PeerId-derived pseudo-DID),
-/// `initiate_session` falls back to `register_session` internally.
-#[cfg(feature = "native")]
-async fn initiate_noise_session(
-    transport_arc: std::sync::Arc<std::sync::Mutex<crate::transport::MeshTransport>>,
-    peer_did: crate::crdt::delta::Did,
-    local_static_privkey: &[u8],
-    now_secs: i64,
-) {
-    // Open a Noise IK application-layer substream.
-    let mut stream = match transport_arc.lock() {
-        Ok(t) => t.open_noise_substream(),
-        Err(e) => {
-            eprintln!("[transport-loop] transport mutex poisoned opening substream: {e}");
-            return;
-        }
-    };
-
-    // Drive the Noise IK handshake over the substream.
-    let mut t = match transport_arc.lock() {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("[transport-loop] transport mutex poisoned during initiate_session: {e}");
-            return;
-        }
-    };
-    if let Err(e) = t
-        .initiate_session(
-            peer_did,
-            crate::api::types::TrustLevel::Verified,
-            local_static_privkey,
-            &[],
-            Some(&mut stream),
-            now_secs,
-        )
-        .await
-    {
-        eprintln!("[transport-loop] initiate_session failed: {e}");
-    }
-}
-
 /// Production cadence (ms) of the inbound drain loop spawned by
 /// `CoreHandle::init` (Subphase 1.3): every 50 ms the task calls
 /// `process_inbound_messages()` to drain `inbound_rx`.
@@ -298,6 +249,10 @@ pub struct DurabilityTierChanged {
 
 /// The main handle to a TirBase instance.
 /// Obtained by calling [`CoreHandle::init`].
+/// 26.3: provider returning the latest `(seq, checkpoint_hash)` to gossip on sync.
+type CheckpointProvider =
+    Arc<Mutex<Option<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>>>;
+
 /// STATE-INVENTORY: RECONSTRUCTIBLE runtime channels (CLAIM-31.1, PV-9.1)
 pub struct CoreHandle {
     /// Local SQLite-backed store (native) or IndexedDB-backed store (WASM,
@@ -336,8 +291,7 @@ pub struct CoreHandle {
     pub(crate) security_event_sync_handler:
         std::sync::Mutex<crate::transport::security_event_sync::SecurityEventSyncHandler>,
     /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
-    pub(crate) checkpoint_provider:
-        Arc<Mutex<Option<Arc<dyn Fn() -> Option<(u64, [u8; 32])> + Send + Sync>>>>,
+    pub(crate) checkpoint_provider: CheckpointProvider,
     /// 36.9 (PV-22.3): guard-side challenge nonce issuer for mesh peers.
     pub(crate) challenge_handler:
         Arc<Mutex<Option<Arc<dyn crate::transport::challenge::MeshChallengeHandler>>>>,
@@ -593,7 +547,7 @@ impl CoreHandle {
         //
         // `storage_path` now names the IndexedDB database the store persists
         // to — previously the WASM store ignored the path and opened a
-        // throwaway HashMap that lost all data on reload.
+        // throwaway BTreeMap that lost all data on reload.
         #[cfg(not(feature = "native"))]
         let (store, store_db_rc) = {
             let store = LocalStore::open(&config.storage_path).await?;
@@ -1083,7 +1037,7 @@ impl CoreHandle {
                                                     reporter_did: t.local_did.clone(),
                                                     seq,
                                                     checkpoint_hash: cp_hash,
-                                                    observed_at: (now_micros() / 1_000_000) as i64,
+                                                    observed_at: now_micros() / 1_000_000,
                                                 };
                                                 let _ = swarm.behaviour_mut().gossipsub.publish(
                                                     gossip_topic.clone(),
@@ -1435,14 +1389,14 @@ impl CoreHandle {
 
     // ─── Schema definition map builder ─────────────────────────────────────────
     //
-    // Build the `HashMap<SchemaIdentifierHash, Schema>` that the
+    // Build the `BTreeMap<SchemaIdentifierHash, Schema>` that the
     // SchemaMigrationEngine uses for parser-backed version-path validation
     // (Req 20).  This is the production caller of `schema::parser::parse`
     // and `schema::Schema::identifier_hash` — each deployed schema definition
     // is round-tripped through print → parse → re-hash to confirm it is
     // well-formed and its hash is consistent with the version path.
 
-    /// Build a `HashMap` mapping each schema's `identifier_hash()` to the
+    /// Build a `BTreeMap` mapping each schema's `identifier_hash()` to the
     /// `Schema` itself, for use by `SchemaMigrationEngine::verify_version_path`.
     ///
     /// Each definition is validated by round-tripping through
@@ -1451,9 +1405,9 @@ impl CoreHandle {
     /// hash is self-consistent (Req 20).
     fn build_schema_def_map(
         defs: &[crate::schema::Schema],
-    ) -> std::collections::HashMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>
+    ) -> std::collections::BTreeMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>
     {
-        let mut map = std::collections::HashMap::new();
+        let mut map = std::collections::BTreeMap::new();
         for def in defs {
             // Round-trip validation: print → parse → re-hash.
             let printed = crate::schema::printer::print(def);
@@ -1791,7 +1745,7 @@ impl CoreHandle {
                 delta.id, // state_hash = delta.id for v1
                 delta_bytes.clone(),
                 delta.causal_parents.clone(),
-                HashMap::new(),
+                BTreeMap::new(),
             )?;
 
         // 5a. If compaction ran during this write, mark the just-registered
@@ -3238,10 +3192,10 @@ impl CoreHandle {
                 // the CRDT merge gate (which would otherwise reject the
                 // unsigned synthetic Delta).
                 if delta.author_did == FLEET_GOSSIP_AUTHOR {
-                    if let Some(embedded) =
+                    if let Some(GossipMessage::FleetInventoryUpdate(update)) =
                         crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
                     {
-                        if let GossipMessage::FleetInventoryUpdate(update) = embedded {
+                        {
                             let report = self.apply_inbound_fleet_update(update);
                             eprintln!(
                                 "[inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
@@ -3260,7 +3214,7 @@ impl CoreHandle {
                 // start_op validation remain in apply_incoming_delta.
                 {
                     let now_mono = now_micros() as u64;
-                    let now_wall = (now_micros() / 1_000_000) as i64;
+                    let now_wall = now_micros() / 1_000_000;
                     // Count the mesh peers without holding the CRDT lock.
                     let active_connections = match self.transport.lock() {
                         Ok(transport) => transport.active_peers().len(),
@@ -3301,7 +3255,7 @@ impl CoreHandle {
                 }
                 let inbound_bytes = delta.automerge_bytes.len() as u64;
                 self.memory_budget.dag_node_cache.allocate(inbound_bytes);
-                let outcome = match {
+                let merge_result = {
                     let mut crdt =
                         self.crdt
                             .lock()
@@ -3309,7 +3263,8 @@ impl CoreHandle {
                                 reason: format!("crdt mutex: {e}"),
                             })?;
                     crate::crdt::merge::apply_incoming_delta(&mut crdt, &delta)
-                } {
+                };
+                let outcome = match merge_result {
                     Ok(outcome) => {
                         self.memory_budget.dag_node_cache.free(inbound_bytes);
                         outcome
@@ -3761,7 +3716,7 @@ impl CoreHandle {
                 // moments later can acquire the engine and epoch-interrupt the
                 // run instead of queueing behind it until the 30s timeout.
                 let sender_did = mig_delta.author_did.clone();
-                self.dispatch_inbound_migration(mig_delta, sender_did);
+                self.dispatch_inbound_migration(*mig_delta, sender_did);
             }
             GossipMessage::InboundMigrationRevocationDelta(mig_rev) => {
                 let target_migration_id = mig_rev.target_migration_id;
@@ -3887,7 +3842,7 @@ impl CoreHandle {
                     .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                         reason: format!("security event sync handler poisoned: {e}"),
                     })?
-                    .handle_inbound(batch, std::time::Instant::now());
+                    .handle_inbound(batch, crate::traits::monotonic_now());
                 let accepted = match decision {
                     crate::transport::security_event_sync::SyncInboundDecision::Accepted(records) => {
                         records
@@ -3948,13 +3903,13 @@ impl CoreHandle {
                     )?;
                 }
             }
-            GossipMessage::ChallengeResponse(response) => {
+            GossipMessage::ChallengeResponse(response)
+                if response.origin_guard_did == self.identity.did() =>
+            {
                 // Routing rule: only the originating guard instance consumes a
-                // response.  Dropping this check would deliver another peer's
+                // response.  Dropping the guard would deliver another peer's
                 // nonce locally (wiring mutation for CLAIM-36.9).
-                if response.origin_guard_did == self.identity.did() {
-                    let _ = self.challenge_resp_tx.send(response);
-                }
+                let _ = self.challenge_resp_tx.send(response);
             }
             _ => {}
         }
@@ -3997,7 +3952,7 @@ impl CoreHandle {
         use std::sync::atomic::Ordering;
         active_jobs.fetch_add(1, Ordering::SeqCst);
 
-        let _ = tokio::spawn(async move {
+        tokio::spawn(async move {
             let _active_guard = ActiveMigrationJobGuard(active_jobs);
 
             let (prepared, target_schema) = loop {
@@ -4047,10 +4002,12 @@ impl CoreHandle {
                     timeout_secs,
                     &store_for_shadow,
                     &runs_for_shadow,
-                    execution_profile.as_ref(),
-                    postconditions.as_ref(),
-                    &target_schema_hash,
-                    target_schema.as_ref(),
+                    crate::migration::shadow::ShadowInputs {
+                        execution_profile: execution_profile.as_ref(),
+                        postconditions: postconditions.as_ref(),
+                        target_schema_hash: &target_schema_hash,
+                        target_schema: target_schema.as_ref(),
+                    },
                 )
             })
             .await
@@ -4256,10 +4213,10 @@ impl CoreHandle {
                 // Task 37.5 (PV-11.3): unwrap a synthetic fleet-gossip envelope
                 // before the CRDT merge gate (see the native path).
                 if delta.author_did == FLEET_GOSSIP_AUTHOR {
-                    if let Some(embedded) =
+                    if let Some(GossipMessage::FleetInventoryUpdate(update)) =
                         crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
                     {
-                        if let GossipMessage::FleetInventoryUpdate(update) = embedded {
+                        {
                             let report = self.apply_inbound_fleet_update(update);
                             eprintln!(
                                 "[wasm-inbound] fleet inventory merged: applied={} unchanged={} rejected={} newly_revoked={:?}",
@@ -4515,7 +4472,7 @@ impl CoreHandle {
                         delta.id,
                         delta_bytes,
                         delta.causal_parents.clone(),
-                        std::collections::HashMap::new(),
+                        std::collections::BTreeMap::new(),
                     );
 
                 Ok(())
@@ -4690,7 +4647,7 @@ impl CoreHandle {
                 // corruption-window key whose Side-Car entries a corrected
                 // migration must replay (Req 19.3).
                 let source_schema_hash = mig.current_schema_hash();
-                match mig.receive_migration_delta(mig_delta, &sender_did) {
+                match mig.receive_migration_delta(*mig_delta, &sender_did) {
                     Ok(result) => {
                         if matches!(
                             result,
@@ -4812,7 +4769,7 @@ impl CoreHandle {
                     .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                         reason: format!("security event sync handler poisoned: {e}"),
                     })?
-                    .handle_inbound(batch, std::time::Instant::now());
+                    .handle_inbound(batch, crate::traits::monotonic_now());
                 let accepted = match decision {
                     crate::transport::security_event_sync::SyncInboundDecision::Accepted(records) => {
                         records
@@ -4899,6 +4856,21 @@ impl CoreHandle {
                         MergeOutcome::Merged { .. } => {
                             if let Ok(mut rev) = self.revocation.lock() {
                                 rev.record_authored_delta(delta.author_did.clone(), delta.id);
+                            }
+                        }
+                        MergeOutcome::Pending { .. } => {
+                            // Missing causal dependencies: hold the Delta in the
+                            // bounded pending queue so the retry drain can merge
+                            // it once the dependencies arrive (PV-6.1).
+                            if let Ok(mut crdt) = self.crdt.lock() {
+                                if let Some(h) = crdt.hardening_mut() {
+                                    let sender_did = delta.author_did.clone();
+                                    let _ = h.enqueue_pending(
+                                        delta,
+                                        crate::traits::monotonic_now(),
+                                        sender_did,
+                                    );
+                                }
                             }
                         }
                         MergeOutcome::Quarantined { .. } => {}
@@ -5272,7 +5244,7 @@ impl CoreHandle {
                             let affected_dids: Vec<Did> = lost_beacons
                                 .iter()
                                 .filter_map(|pk| {
-                                    anchor.beacon_did_for_key(pk).map(|did| did.clone())
+                                    anchor.beacon_did_for_key(pk).cloned()
                                 })
                                 .collect();
                             if let Err(e) = anchor.on_beacon_signal_lost(now, affected_dids) {
@@ -5323,15 +5295,15 @@ impl CoreHandle {
                 if let Ok(mut capability) = handle.capability.lock() {
                     // Only check when the device is Verified — if it's already
                     // Unverified or Revoked there's nothing to expire.
-                    if capability.trust_level() == TrustLevel::Verified {
-                        if capability.current_token_expires_at() <= Some(now) {
-                            capability.on_token_expired(now as i64 * 1_000_000);
-                            eprintln!(
-                                "[token-expiry-monitor] device token expired at now_secs={}, \
-                                 transitioned to UNVERIFIED",
-                                now
-                            );
-                        }
+                    if capability.trust_level() == TrustLevel::Verified
+                        && capability.current_token_expires_at() <= Some(now)
+                    {
+                        capability.on_token_expired(now * 1_000_000);
+                        eprintln!(
+                            "[token-expiry-monitor] device token expired at now_secs={}, \
+                             transitioned to UNVERIFIED",
+                            now
+                        );
                     }
                 } else {
                     eprintln!("[token-expiry-monitor] capability mutex poisoned");
@@ -5388,7 +5360,16 @@ impl CoreHandle {
     /// `durability-tier-changed` event.  Subscribers that lag beyond the
     /// channel's ring buffer (64 events) miss the oldest transitions, so poll
     /// [`CoreHandle::durability_tier`] for authoritative current state.
+    ///
+    /// Native-only: the WASM build surfaces the same transitions through the
+    /// SDK's `WasmEvent::DurabilityTierChanged` queue instead.
     #[cfg(feature = "native")]
+    pub fn subscribe_durability_events(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {
+        self.durability_events_channel.subscribe()
+    }
+
     /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
     #[doc(hidden)]
     #[cfg(all(feature = "native", any(test, feature = "test-hooks")))]
@@ -5396,12 +5377,6 @@ impl CoreHandle {
         &self,
     ) -> &std::sync::Arc<std::sync::Mutex<crate::contamination::CausalContaminationEngine>> {
         &self.cce
-    }
-
-    pub fn subscribe_durability_events(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {
-        self.durability_events_channel.subscribe()
     }
 
     /// Inject a `GossipMessage` directly into the inbound channel.
@@ -5615,6 +5590,7 @@ impl Default for DeploymentConfig {
     /// - `max_single_sector_fraction` defaults to `0.7` (Req 14.3 cap, the
     ///   pre-Subphase-4.4 hardcode) — a 0 cap would forbid every receipt and
     ///   disable Quorum entirely.
+    ///
     /// `spatial_diversity_min: 0` is *not* a bug: it is the explicit
     /// unconfigured marker resolved to Req 14.3's default rule
     /// `min(K, distinct tags available)` at runtime (Subphase 4.4).
@@ -7088,10 +7064,7 @@ mod tests {
 
     fn now_secs() -> i64 {
         use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
+        crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
     /// Init-time registration: keys supplied in `DeploymentConfig` must be
@@ -7510,7 +7483,7 @@ mod tests {
         // Deliver migration v1 → v2 through the production inbound pipeline.
         let delta_a = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(delta_a))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta_a)))
             .await
             .expect("inject migration A");
         handle
@@ -7679,11 +7652,11 @@ mod tests {
         let wasm = wat::parse_str(r#"(module (func (export "run")))"#).expect("wasm");
         let d1 = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm.clone());
         let d2 = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm);
-        h1.inject_inbound(GossipMessage::InboundMigrationDelta(d1))
+        h1.inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(d1)))
             .await
             .unwrap();
         h1.process_inbound_messages().await.unwrap();
-        h2.inject_inbound(GossipMessage::InboundMigrationDelta(d2))
+        h2.inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(d2)))
             .await
             .unwrap();
         h2.process_inbound_messages().await.unwrap();
@@ -7738,7 +7711,7 @@ mod tests {
         let migration_id = delta.id;
 
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta)))
             .await
             .expect("inject migration");
         handle
@@ -7750,7 +7723,7 @@ mod tests {
         // until it has genuinely started executing (engine in-progress marker
         // set AND registered in the execution registry, so
         // the epoch interrupt below is guaranteed to land).
-        let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let start_deadline = crate::traits::monotonic_now() + 10_000_000;
         loop {
             let in_progress = handle
                 .migration
@@ -7762,7 +7735,7 @@ mod tests {
                 break;
             }
             assert!(
-                std::time::Instant::now() < start_deadline,
+                crate::traits::monotonic_now() < start_deadline,
                 "migration never began executing (in_progress={in_progress}, registered={registered})"
             );
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
@@ -7785,7 +7758,7 @@ mod tests {
             created_at: 0,
         };
 
-        let revoke_started = std::time::Instant::now();
+        let revoke_started = crate::traits::monotonic_now();
         handle
             .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
             .await
@@ -7803,7 +7776,7 @@ mod tests {
                 .await,
             "revoked migration job must settle within the wait budget"
         );
-        let revoke_elapsed = revoke_started.elapsed();
+        let revoke_elapsed_micros = crate::traits::monotonic_now().saturating_sub(revoke_started);
 
         // ── 3. Assert the interrupt outcome ──────────────────────────────────
         {
@@ -7827,9 +7800,9 @@ mod tests {
             "interrupted run must deregister from the execution registry"
         );
         assert!(
-            revoke_elapsed < std::time::Duration::from_secs(10),
+            revoke_elapsed_micros < 10_000_000,
             "revocation must halt the transform via epoch interrupt well before \
-             the 30 s sandbox timeout — took {revoke_elapsed:?}"
+             the 30 s sandbox timeout — took {revoke_elapsed_micros} µs"
         );
 
         // ── 4. A later attempt to apply the revoked migration is rejected ────
@@ -7924,7 +7897,7 @@ mod tests {
         let migration_id = delta.id;
 
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta)))
             .await
             .expect("inject migration");
         handle
@@ -8041,7 +8014,7 @@ mod tests {
         let bad_delta = make_ca_signed_migration_delta(&ca_secret, s, t, trivial_wasm_bytes());
         let bad_migration_id = bad_delta.id;
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(bad_delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(bad_delta)))
             .await
             .expect("inject migration");
         handle
@@ -8096,7 +8069,7 @@ mod tests {
                 matches!(
                     &open[0].taint_source,
                     TaintSource::BadMigration { migration_id }
-                        if *migration_id == bad_migration_id
+                        if migration_id == &bad_migration_id
                 ),
                 "ICO source must be BadMigration for the revoked migration: {:?}",
                 open[0].taint_source
@@ -8169,7 +8142,7 @@ mod tests {
         // gate.
         let fixed_delta = make_ca_signed_migration_delta(&ca_secret, t, u, trivial_wasm_bytes_v2());
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(fixed_delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(fixed_delta)))
             .await
             .expect("inject corrected migration");
         handle
@@ -8221,7 +8194,7 @@ mod tests {
                 assert!(
                     tags.iter().any(|t| {
                         matches!(t, DeltaTag::ReplayComplete { migration_id }
-                            if *migration_id == bad_migration_id)
+                            if migration_id == &bad_migration_id)
                     }),
                     "delta {} must carry ReplayComplete for the corrupted migration \
                      after zero-conflict replay (Req 19.6)",
@@ -9252,7 +9225,7 @@ mod inbound_tests {
 
         let mig = p53_ca_signed_migration(&ca_secret, h1, h2);
         handle
-            .inject_inbound(GossipMessage::InboundMigrationDelta(mig))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(mig)))
             .await
             .expect("inject migration");
         handle
@@ -10563,13 +10536,13 @@ mod real_mesh_tests {
         expected: &serde_json::Value,
         timeout: Duration,
     ) -> QueryResult {
-        let deadline = tokio::time::Instant::now() + timeout;
+        let deadline = crate::traits::monotonic_now() + timeout.as_micros() as u64;
         loop {
             match handle.read(table, key).await {
                 Ok(res) if &res.data == expected => return res,
                 _ => {
                     assert!(
-                        tokio::time::Instant::now() < deadline,
+                        crate::traits::monotonic_now() < deadline,
                         "row {table}/{key} never projected the expected data on the receiving device within {timeout:?}"
                     );
                     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -10881,7 +10854,7 @@ mod real_mesh_tests {
         handle: &Arc<CoreHandle>,
         delta_id: &DeltaId,
     ) -> crate::durability::receipt::DurabilityReceipt {
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        let deadline = crate::traits::monotonic_now() + 20_000_000;
         loop {
             if let Ok(transport) = handle.transport.lock() {
                 for payload in &transport.outbound_published {
@@ -10896,7 +10869,7 @@ mod real_mesh_tests {
                 }
             }
             assert!(
-                tokio::time::Instant::now() < deadline,
+                crate::traits::monotonic_now() < deadline,
                 "device B never published a DurabilityReceipt for delta {}",
                 hex::encode(delta_id)
             );
@@ -10908,13 +10881,13 @@ mod real_mesh_tests {
     /// production per-Delta state backing `WriteResult::durability_tier`
     /// (Req 14.7).
     async fn wait_for_tier1(handle: &CoreHandle, delta_id: &DeltaId) {
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        let deadline = crate::traits::monotonic_now() + 20_000_000;
         loop {
             if handle.durability_tier(delta_id) == DurabilityTier::Tier1 {
                 return;
             }
             assert!(
-                tokio::time::Instant::now() < deadline,
+                crate::traits::monotonic_now() < deadline,
                 "delta {} never reached Tier-1 within 20s (tier: {:?})",
                 hex::encode(delta_id),
                 handle.durability_tier(delta_id)
@@ -11000,7 +10973,7 @@ mod real_mesh_tests {
 
         // 5. The production notification (Req 14.7, Subphase 4.2) delivered a
         //    DurabilityTierChanged event for the Uncommitted → Tier1 transition.
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        let deadline = crate::traits::monotonic_now() + 20_000_000;
         loop {
             match tier_events.try_recv() {
                 Ok(evt)
@@ -11015,7 +10988,7 @@ mod real_mesh_tests {
                 Err(e) => panic!("durability event channel closed: {e}"),
             }
             assert!(
-                tokio::time::Instant::now() < deadline,
+                crate::traits::monotonic_now() < deadline,
                 "no DurabilityTierChanged(Uncommitted → Tier1) event for delta {}",
                 hex::encode(delta_id)
             );
@@ -11894,13 +11867,13 @@ mod real_mesh_tests {
         // Both clocks must have caught up to at least the higher skewed value.
         let max_skewed = lamport_a_skewed.max(lamport_b_skewed);
         assert!(
-            lamport_a_after >= max_skewed + 1,
+            lamport_a_after > max_skewed,
             "A's post-rejoin clock {} must be at least max(skew)+1 = {}",
             lamport_a_after,
             max_skewed + 1
         );
         assert!(
-            lamport_b_after >= max_skewed + 1,
+            lamport_b_after > max_skewed,
             "B's post-rejoin clock {} must be at least max(skew)+1 = {}",
             lamport_b_after,
             max_skewed + 1
@@ -13073,14 +13046,14 @@ mod tier2_ack_tests {
             use crate::durability::quorum::QuorumConfig;
             use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
             use crate::identity::keypair::{generate_keypair, sign};
-            use std::collections::HashMap;
+            use std::collections::BTreeMap;
 
             let (s1, p1) = generate_keypair().expect("peer1 keypair");
             let (s2, p2) = generate_keypair().expect("peer2 keypair");
             let delta_id = [0xAA; 32];
             let state_hash = [0xBB; 32];
 
-            let mut peers = HashMap::new();
+            let mut peers = BTreeMap::new();
             peers.insert("did:key:peer1".to_string(), p1);
             peers.insert("did:key:peer2".to_string(), p2);
 
@@ -13200,9 +13173,9 @@ mod diversity_config_tests {
 
     /// Build `k` peer keypairs registered for the Delta and return
     /// `(secrets, peers_map)`.
-    fn make_peers(k: usize) -> (Vec<[u8; 32]>, std::collections::HashMap<String, [u8; 32]>) {
+    fn make_peers(k: usize) -> (Vec<[u8; 32]>, std::collections::BTreeMap<String, [u8; 32]>) {
         let mut secrets = Vec::new();
-        let mut peers = std::collections::HashMap::new();
+        let mut peers = std::collections::BTreeMap::new();
         for i in 0..k {
             let (secret, public) = generate_keypair().expect("keygen");
             let did = format!("did:key:peer{i}");
@@ -13288,8 +13261,8 @@ mod diversity_config_tests {
 
         // Three receipts, all declaring the same single sector.
         let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
-        assert_eq!(
-            outcomes[2], true,
+        assert!(
+            outcomes[2],
             "a cap of 1.0 must allow a single-sector K=3 quorum to form"
         );
         assert_eq!(
@@ -13328,8 +13301,8 @@ mod diversity_config_tests {
 
         // Three receipts from one sector: 100% > 50% → blocked.
         let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
-        assert_eq!(
-            outcomes[2], false,
+        assert!(
+            !outcomes[2],
             "a single sector at 100% must exceed the 0.5 cap"
         );
         assert_eq!(
@@ -13360,36 +13333,37 @@ mod diversity_config_tests {
                 .await
                 .expect("CoreHandle::init"),
         );
-        let mut dur = handle_a.durability.lock().unwrap();
-        assert_eq!(
-            dur.quorum_config().spatial_diversity_min,
-            0,
-            "the unconfigured 0 marker must be carried through to the tracker"
-        );
-        assert_eq!(
-            dur.quorum_config().max_single_sector_fraction,
-            1.0,
-            "the Req 14.3 default rule operates alongside the configured cap"
-        );
+        {
+            let mut dur = handle_a.durability.lock().unwrap();
+            assert_eq!(
+                dur.quorum_config().spatial_diversity_min,
+                0,
+                "the unconfigured 0 marker must be carried through to the tracker"
+            );
+            assert_eq!(
+                dur.quorum_config().max_single_sector_fraction,
+                1.0,
+                "the Req 14.3 default rule operates alongside the configured cap"
+            );
 
-        let delta_id_a = [0x61; 32];
-        let state_hash_a = [0x62; 32];
-        let (secrets_a, peers_a) = make_peers(3);
-        dur.register_delta(delta_id_a, state_hash_a, vec![], vec![], peers_a)
-            .expect("register_delta");
-        let outcomes_a = push_receipts(
-            &mut dur,
-            delta_id_a,
-            state_hash_a,
-            &secrets_a,
-            &["sector-x"; 3],
-        );
-        assert_eq!(
-            outcomes_a[2], true,
-            "default rule must not demand more diversity than exists (cap 1.0)"
-        );
-        assert_eq!(dur.durability_tier(&delta_id_a), DurabilityTier::Tier1);
-        drop(dur);
+            let delta_id_a = [0x61; 32];
+            let state_hash_a = [0x62; 32];
+            let (secrets_a, peers_a) = make_peers(3);
+            dur.register_delta(delta_id_a, state_hash_a, vec![], vec![], peers_a)
+                .expect("register_delta");
+            let outcomes_a = push_receipts(
+                &mut dur,
+                delta_id_a,
+                state_hash_a,
+                &secrets_a,
+                &["sector-x"; 3],
+            );
+            assert!(
+                outcomes_a[2],
+                "default rule must not demand more diversity than exists (cap 1.0)"
+            );
+            assert_eq!(dur.durability_tier(&delta_id_a), DurabilityTier::Tier1);
+        }
         cleanup(&path_a);
 
         // (b) Unconfigured min + default 0.7 cap → same single-sector receipts
@@ -13417,8 +13391,8 @@ mod diversity_config_tests {
             &secrets_b,
             &["sector-x"; 3],
         );
-        assert_eq!(
-            outcomes_b[2], false,
+        assert!(
+            !outcomes_b[2],
             "the Req 14.3 fraction cap must still bind under the unconfigured marker"
         );
         assert_eq!(
@@ -13808,7 +13782,7 @@ mod composite_incident_tests {
             let cce = handle.cce.lock().unwrap();
             let conn_arc = cce.test_get_conn();
             let conn = conn_arc.lock().unwrap();
-            let tags = crate::contamination::taint::read_tags_from_db(&*conn, &shared).unwrap();
+            let tags = crate::contamination::taint::read_tags_from_db(&conn, &shared).unwrap();
             assert!(
                 tags.iter()
                     .any(|t| matches!(t, DeltaTag::Contaminated { .. })),
@@ -14182,7 +14156,7 @@ mod quarantine_sidecar_wiring_tests {
         let bad_migration_id = bad_delta.id;
 
         handle_b
-            .inject_inbound(GossipMessage::InboundMigrationDelta(bad_delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(bad_delta)))
             .await
             .expect("inject bad migration on handle_b");
         handle_b
@@ -14328,7 +14302,7 @@ mod quarantine_sidecar_wiring_tests {
                 let mut expanded = change.decode();
                 expanded.start_op =
                     std::num::NonZeroU64::new(expanded.start_op.get() + offset).unwrap();
-                inflated.push(automerge::Change::try_from(expanded).expect("recode"));
+                inflated.push(automerge::Change::from(expanded));
             }
             let mut out = Vec::new();
             for ch in &mut inflated {
@@ -14945,7 +14919,7 @@ mod migration_mid_flight_revocation_tests {
 
         // ── Step 1: Inject the migration into Node A and start it ─────────────
         handle_a
-            .inject_inbound(GossipMessage::InboundMigrationDelta(delta))
+            .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta)))
             .await
             .expect("inject migration delta into Node A");
         handle_a
@@ -14956,7 +14930,7 @@ mod migration_mid_flight_revocation_tests {
         // Wait until the infinite-loop transform is genuinely executing
         // (both the engine's in-progress marker AND the execution registry
         // entry are set), so the revocation races with a live run.
-        let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        let start_deadline = crate::traits::monotonic_now() + 15_000_000;
         loop {
             let in_progress = handle_a
                 .migration
@@ -14968,7 +14942,7 @@ mod migration_mid_flight_revocation_tests {
                 break;
             }
             assert!(
-                std::time::Instant::now() < start_deadline,
+                crate::traits::monotonic_now() < start_deadline,
                 "Node A: migration never began executing \
                  (in_progress={in_progress}, registered={registered})"
             );
@@ -15062,10 +15036,7 @@ mod task23_pv6_hardening_tests {
 
     fn tmp(suffix: &str) -> String {
         let mut p = std::env::temp_dir();
-        let n = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
+        let n = crate::traits::monotonic_now();
         p.push(format!("tirbase_t23_{suffix}_{n}.db"));
         p.to_str().unwrap().to_string()
     }
@@ -15263,10 +15234,7 @@ mod task23_pv6_hardening_tests {
         use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
         let dir = std::env::temp_dir().join(format!(
             "t23q3_{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            crate::traits::monotonic_now()
         ));
         let mut l = SchemaQuarantineLedger::open(&dir).unwrap();
         let d = Delta {
@@ -15344,10 +15312,7 @@ mod task23_pv6_hardening_tests {
         };
         let dir = std::env::temp_dir().join(format!(
             "t23r4_{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            crate::traits::monotonic_now()
         ));
         let db = RateQuarantineLedger::open_summary_db(&dir).unwrap();
         let mut rq = RateQuarantineLedger::new();
@@ -15401,10 +15366,7 @@ mod task23_pv6_hardening_tests {
         use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
         let dir = std::env::temp_dir().join(format!(
             "t23q5_{}.db",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            crate::traits::monotonic_now()
         ));
         let mut l = SchemaQuarantineLedger::open(&dir).unwrap();
         let victim = Delta {
@@ -15466,7 +15428,7 @@ mod task23_pv6_hardening_tests {
             created_at: 0,
         };
         let e = h
-            .cheap_checks_first(&d, true, 100, 1, true, 0, 0)
+            .cheap_checks_first(&d, crate::crdt::hardening::CheapCheckLimits { rate_exceeded: true, max_bytes: 100, max_ops: 1, missing_dependency: true }, 0, 0)
             .unwrap_err();
         assert_eq!(
             e.stage,
@@ -15474,7 +15436,7 @@ mod task23_pv6_hardening_tests {
             "rate before size/op/dep"
         );
         let e = h
-            .cheap_checks_first(&d, false, 100, 1, true, 0, 0)
+            .cheap_checks_first(&d, crate::crdt::hardening::CheapCheckLimits { rate_exceeded: false, max_bytes: 100, max_ops: 1, missing_dependency: true }, 0, 0)
             .unwrap_err();
         assert_eq!(e.stage, CheapCheckStage::Size, "size before op/dep");
         // op count depends on automerge parse; size already smaller can be tested with empty
@@ -15482,7 +15444,7 @@ mod task23_pv6_hardening_tests {
             automerge_bytes: vec![0u8; 10],
             ..d.clone()
         };
-        let ok = h.cheap_checks_first(&d2, false, 1000, 100_000, true, 0, 0);
+        let ok = h.cheap_checks_first(&d2, crate::crdt::hardening::CheapCheckLimits { rate_exceeded: false, max_bytes: 1000, max_ops: 100_000, missing_dependency: true }, 0, 0);
         assert!(
             matches!(ok, Err(ref e) if e.stage == CheapCheckStage::DepCheck),
             "dep check before start_op"
@@ -15594,8 +15556,10 @@ mod task24_wiring_tests {
             .expect("init B");
         drop(handle_a);
 
-        let mut caps = crate::crdt::inbound_caps::InboundCaps::default();
-        caps.op_count = 0;
+        let caps = crate::crdt::inbound_caps::InboundCaps {
+            op_count: 0,
+            ..Default::default()
+        };
         handle_b.set_inbound_caps(caps).expect("set inbound caps");
 
         let mut doc = automerge::AutoCommit::new();
@@ -15652,8 +15616,10 @@ mod task24_wiring_tests {
             .expect("init B");
         drop(handle_a);
 
-        let mut caps = crate::crdt::inbound_caps::InboundCaps::default();
-        caps.delta_size_bytes = 64;
+        let caps = crate::crdt::inbound_caps::InboundCaps {
+            delta_size_bytes: 64,
+            ..Default::default()
+        };
         handle_b.set_inbound_caps(caps).expect("set inbound caps");
 
         let (peer_secret, peer_public) =

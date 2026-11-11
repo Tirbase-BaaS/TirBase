@@ -191,7 +191,7 @@ impl Tier1QuorumTracker {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::Ed25519Signature;

@@ -167,7 +167,7 @@ mod native_convergence {
         assert_eq!(state.revoked_dids.len(), 1);
         assert_eq!(state.revoked_dids[0], "did:key:z6MkvExampleRevoked");
         assert_eq!(state.rejection_records.len(), 0);
-        assert!(state.automerge_bytes.len() > 0);
+        assert!(!state.automerge_bytes.is_empty());
     }
 
     #[test]
@@ -199,7 +199,6 @@ mod native_convergence {
     /// identical.
     #[test]
     fn bidirectional_merge_final_state_identity() {
-        use crate::crdt::delta::Delta;
         use crate::crdt::lww_incoming_wins;
         use std::sync::{Arc, Mutex};
 
@@ -342,7 +341,7 @@ mod wasm_convergence {
         assert_eq!(state.revoked_dids.len(), 1);
         assert_eq!(state.revoked_dids[0], "did:key:z6MkvExampleRevoked");
         assert_eq!(state.rejection_records.len(), 0);
-        assert!(state.automerge_bytes.len() > 0);
+        assert!(!state.automerge_bytes.is_empty());
     }
 
     #[test]

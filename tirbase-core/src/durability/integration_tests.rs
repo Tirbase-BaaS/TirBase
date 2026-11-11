@@ -11,7 +11,7 @@
 #![cfg(test)]
 #![cfg(feature = "native")]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use crate::crdt::delta::{Delta, DeltaId, Ed25519Signature, PriorityClass};
@@ -218,7 +218,7 @@ fn sync_loop_idempotent_after_ack() {
 fn rejected_delta_retained_for_retry() {
     let schema = test_schema();
     let (secret, _, did) = make_identity();
-    let mut engine = make_engine(secret.clone(), did.clone(), schema);
+    let mut engine = make_engine(secret, did.clone(), schema);
     let mut delta = produce_delta(&mut engine, b"tampered-report".to_vec());
 
     // Tamper with the bytes AFTER signing so the signature is invalid.
@@ -333,7 +333,7 @@ fn append_only_committed_set_never_shrinks() {
 fn cloud_ledger_rejects_same_invalid_delta_as_client_engine() {
     let schema = test_schema();
     let (secret, _, did) = make_identity();
-    let mut engine = make_engine(secret.clone(), did.clone(), schema);
+    let mut engine = make_engine(secret, did.clone(), schema);
 
     let mut delta = produce_delta(&mut engine, b"real-data".to_vec());
     // Tamper with the payload.

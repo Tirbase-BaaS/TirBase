@@ -103,10 +103,10 @@ pub struct ChangesetDag {
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
     /// In-memory node store for WASM builds.
     #[cfg(not(feature = "native"))]
-    nodes: std::collections::HashMap<DeltaId, DagNode>,
+    nodes: std::collections::BTreeMap<DeltaId, DagNode>,
     /// In-memory children edges for WASM builds: parent → [child, ...].
     #[cfg(not(feature = "native"))]
-    children_map: std::collections::HashMap<DeltaId, Vec<DeltaId>>,
+    children_map: std::collections::BTreeMap<DeltaId, Vec<DeltaId>>,
 }
 
 #[cfg(feature = "native")]
@@ -361,6 +361,10 @@ impl ChangesetDag {
     ///
     /// Used by the convergence test to assert that the native DAG persists
     /// at least as many nodes as the WASM in-memory equivalent.
+    pub fn is_empty(&self) -> Result<bool, TirBaseError> {
+        Ok(self.len()? == 0)
+    }
+
     pub fn len(&self) -> Result<usize, TirBaseError> {
         let conn = self
             .conn
@@ -433,9 +437,9 @@ impl ChangesetDag {
         drop(conn);
 
         // Build adjacency and in-degree maps.
-        use std::collections::HashMap;
-        let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
-        let mut children_map: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+        use std::collections::BTreeMap;
+        let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
+        let mut children_map: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
 
         for id in &all_ids {
             in_degree.entry(*id).or_insert(0);
@@ -604,12 +608,16 @@ impl ChangesetDag {
     /// Create a new in-memory ChangesetDag (WASM build — no SQLite connection).
     pub fn new() -> Self {
         ChangesetDag {
-            nodes: std::collections::HashMap::new(),
-            children_map: std::collections::HashMap::new(),
+            nodes: std::collections::BTreeMap::new(),
+            children_map: std::collections::BTreeMap::new(),
         }
     }
 
     /// Number of nodes currently stored in the DAG.
+    pub fn is_empty(&self) -> Result<bool, TirBaseError> {
+        Ok(self.len()? == 0)
+    }
+
     pub fn len(&self) -> Result<usize, TirBaseError> {
         Ok(self.nodes.len())
     }
@@ -700,13 +708,13 @@ impl ChangesetDag {
     }
 
     pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
-        use std::collections::HashMap;
+        use std::collections::BTreeMap;
 
         let all_ids: Vec<DeltaId> = self.nodes.keys().copied().collect();
 
         // Build in-degree map and children adjacency.
-        let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
-        let mut adj: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+        let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
+        let mut adj: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
 
         for id in &all_ids {
             in_degree.entry(*id).or_insert(0);
@@ -756,7 +764,7 @@ impl ChangesetDag {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

@@ -7,12 +7,28 @@
 //! evicted after a 7-day TTL.
 
 use std::collections::BTreeMap;
+#[cfg(feature = "native")]
 use std::path::Path;
 
+#[cfg(feature = "native")]
 use rusqlite::{params, Connection};
 
 use crate::errors::TirBaseError;
 use crate::events::{emit_crdt, ReasonCode, Severity};
+
+/// Sink for the periodic summary rows (`rate_quarantine_summary`).
+///
+/// The summary DB is SQLite, so it exists only on the native build.  WASM gets
+/// a never-constructible placeholder rather than a differently-shaped API, so
+/// every call site stays identical across targets (the WASM ledger is in-memory
+/// and lossy by design, per PV-6.7).
+#[cfg(feature = "native")]
+pub type SummaryDb = Connection;
+
+/// WASM stand-in for [`SummaryDb`]: no SQLite in the browser build.
+#[cfg(not(feature = "native"))]
+#[derive(Debug)]
+pub enum SummaryDb {}
 
 pub const RATE_QUARANTINE_TTL_SECS: i64 = 7 * 24 * 60 * 60;
 /// Global Rate_Quarantine limit (entries/senders tracked in summary context).
@@ -85,8 +101,12 @@ impl RateQuarantineLedger {
         now_mono: u64,
         now_wall_secs: i64,
         detail: &str,
-        summary_db: Option<&Connection>,
+        summary_db: Option<&SummaryDb>,
     ) -> Result<(), TirBaseError> {
+        // The summary sink only exists on native builds; on WASM the ledger is
+        // purely in-memory (lossy by design).
+        #[cfg(not(feature = "native"))]
+        let _ = summary_db;
         let window_start = (now_wall_secs / RATE_SUMMARY_WINDOW_SECS) * RATE_SUMMARY_WINDOW_SECS;
         let counter = self
             .counters
@@ -99,6 +119,7 @@ impl RateQuarantineLedger {
             });
         let window_changed = counter.window_start != window_start;
         if window_changed {
+            #[cfg(feature = "native")]
             if let Some(db) = summary_db {
                 Self::flush_summary(
                     db,
@@ -131,6 +152,7 @@ impl RateQuarantineLedger {
 
         // Periodic flush (every window boundary handled above; also flush on a
         // small cadence to survive crashes in lossy mode).
+        #[cfg(feature = "native")]
         if let Some(db) = summary_db {
             if counter.window_count == 1 || counter.window_count % 50 == 0 {
                 Self::flush_summary(
@@ -145,8 +167,9 @@ impl RateQuarantineLedger {
         Ok(())
     }
 
+    #[cfg(feature = "native")]
     fn flush_summary(
-        db: &Connection,
+        db: &SummaryDb,
         sender_did: &str,
         window_start: i64,
         rejected_count: u32,
@@ -180,7 +203,8 @@ impl RateQuarantineLedger {
         Ok(())
     }
 
-    pub fn open_summary_db(path: impl AsRef<Path>) -> Result<Connection, TirBaseError> {
+    #[cfg(feature = "native")]
+    pub fn open_summary_db(path: impl AsRef<Path>) -> Result<SummaryDb, TirBaseError> {
         let conn = Connection::open(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("open rate quarantine summary db: {e}"),
         })?;
@@ -199,7 +223,7 @@ impl RateQuarantineLedger {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -230,7 +254,7 @@ mod tests {
 pub struct PerDidRateLimiter {
     rate: u64,
     burst: u64,
-    tokens: std::collections::HashMap<String, (u64, std::time::Instant)>,
+    tokens: std::collections::BTreeMap<String, (u64, std::time::Instant)>,
 }
 
 impl Default for PerDidRateLimiter {
@@ -238,7 +262,7 @@ impl Default for PerDidRateLimiter {
         Self {
             rate: PER_DID_RATE_OPS_PER_SEC,
             burst: PER_DID_RATE_BURST,
-            tokens: std::collections::HashMap::new(),
+            tokens: std::collections::BTreeMap::new(),
         }
     }
 }

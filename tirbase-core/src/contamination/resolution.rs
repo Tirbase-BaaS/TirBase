@@ -2,7 +2,7 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use crate::contamination::incident::{
@@ -69,41 +69,46 @@ pub(crate) fn verify_manager_auth(
 
 // ─── verify_data ─────────────────────────────────────────────────────────────
 
+/// Manager credentials authorising a contamination resolution.
+pub struct ManagerAuth {
+    pub did: Did,
+    pub sig: Ed25519Signature,
+    pub token_expiry: i64,
+}
+
 /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
 ///
 /// 1. Verify manager auth (sig + token expiry).
 /// 2. Append `DeltaTag::Resolved` to the root Delta's `tags_json` in `dag_nodes`.
 /// 3. For every ICO that lists `root_delta_id` in its `contamination_roots`:
-///    a. Append an `AuditEntry` to the ICO.
-///    b. If ALL roots in that ICO now carry a `Resolved` tag → BFS walk and append
-///       `DeltaTag::Decontaminated` to every reachable descendant.
+///    - Append an `AuditEntry` to the ICO.
+///    - If ALL roots in that ICO now carry a `Resolved` tag, BFS walk and append
+///      `DeltaTag::Decontaminated` to every reachable descendant.
 /// 4. Late-arrival decontamination walk (Req 10.3 gap fix):
-///    a. For each resolved root, query the live DAG for descendants not present
-///       in the original `contaminated_deltas` snapshot and append
-///       `DeltaTag::Decontaminated` to each.
-///    b. For each unresolved root in an active ICO, query the live DAG for
-///       descendants not in the snapshot, append `DeltaTag::Contaminated`, and
-///       add them to the ICO's `contaminated_deltas`.
+///    - For each resolved root, query the live DAG for descendants not present in
+///      the original `contaminated_deltas` snapshot and append
+///      `DeltaTag::Decontaminated` to each.
+///    - For each unresolved root in an active ICO, query the live DAG for
+///      descendants not in the snapshot, append `DeltaTag::Contaminated`, and add
+///      them to the ICO's `contaminated_deltas`.
 /// 5. Decompose composite incidents that contain this root if surviving sub-chains
 ///    still have unresolved roots.
 #[cfg(feature = "native")]
 pub fn verify_data(
     root_delta_id: DeltaId,
-    manager_did: Did,
-    manager_sig: Ed25519Signature,
-    manager_token_expiry: i64,
+    auth: ManagerAuth,
     now_secs: i64,
     conn: &rusqlite::Connection,
     dag: &crate::crdt::dag::ChangesetDag,
-    incidents: &mut HashMap<IncidentId, IncidentContextObject>,
-    composite_incidents: &mut HashMap<IncidentId, CompositeIncidentInstance>,
+    incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
+    composite_incidents: &mut BTreeMap<IncidentId, CompositeIncidentInstance>,
 ) -> Result<DecompositionResult, TirBaseError> {
     // 1. Auth.
     verify_manager_auth(
-        &manager_did,
-        &manager_sig,
+        &auth.did,
+        &auth.sig,
         &root_delta_id,
-        manager_token_expiry,
+        auth.token_expiry,
         now_secs,
     )?;
 
@@ -113,7 +118,7 @@ pub fn verify_data(
         conn,
         &root_delta_id,
         DeltaTag::Resolved {
-            by_manager_did: manager_did.clone(),
+            by_manager_did: auth.did.clone(),
             at,
         },
     )?;
@@ -134,7 +139,7 @@ pub fn verify_data(
         // Append audit entry.
         ico.audit_log.push(AuditEntry {
             operation: AuditOperation::VerifyData,
-            manager_did: manager_did.clone(),
+            manager_did: auth.did.clone(),
             utc_timestamp: at,
             affected_delta_ids: vec![root_delta_id],
         });
@@ -352,8 +357,8 @@ fn decompose_composites_if_needed(
     resolved_root: DeltaId,
     conn: &rusqlite::Connection,
     _dag: &crate::crdt::dag::ChangesetDag,
-    incidents: &mut HashMap<IncidentId, IncidentContextObject>,
-    composite_incidents: &mut HashMap<IncidentId, CompositeIncidentInstance>,
+    incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
+    composite_incidents: &mut BTreeMap<IncidentId, CompositeIncidentInstance>,
     at: i64,
 ) -> Result<DecompositionResult, TirBaseError> {
     let mut result = DecompositionResult::default();
@@ -451,7 +456,7 @@ pub fn admin_close(
     manager_sig: Ed25519Signature,
     manager_token_expiry: i64,
     now_secs: i64,
-    incidents: &mut HashMap<IncidentId, IncidentContextObject>,
+    incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
 ) -> Result<(), TirBaseError> {
     // 1. Auth — sign payload is the incident_id bytes.
     verify_manager_auth(
@@ -498,7 +503,7 @@ pub fn admin_close(
 pub(crate) fn append_audit_entry(
     incident_id: &IncidentId,
     entry: AuditEntry,
-    incidents: &mut HashMap<IncidentId, IncidentContextObject>,
+    incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
 ) -> Result<(), TirBaseError> {
     let ico =
         incidents

@@ -387,7 +387,18 @@ fn check_operator(op: &Operator<'_>, mid: &str) -> Result<(), TirBaseError> {
     }
 }
 
-#[cfg(test)]
+fn check_storage_type(
+    st: wasmparser::StorageType,
+    mid: &str,
+    ctx: &str,
+) -> Result<(), TirBaseError> {
+    match st {
+        wasmparser::StorageType::I8 | wasmparser::StorageType::I16 => Ok(()),
+        wasmparser::StorageType::Val(vt) => check_val_type(vt, mid, ctx),
+    }
+}
+
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -443,13 +454,3 @@ mod tests {
     }
 }
 
-fn check_storage_type(
-    st: wasmparser::StorageType,
-    mid: &str,
-    ctx: &str,
-) -> Result<(), TirBaseError> {
-    match st {
-        wasmparser::StorageType::I8 | wasmparser::StorageType::I16 => Ok(()),
-        wasmparser::StorageType::Val(vt) => check_val_type(vt, mid, ctx),
-    }
-}

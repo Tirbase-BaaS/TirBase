@@ -10,7 +10,7 @@ pub mod dag;
 pub mod delta;
 pub(crate) mod hardening;
 #[doc(hidden)]
-pub use hardening::{CheapCheckRejection, CheapCheckStage};
+pub use hardening::{CheapCheckLimits, CheapCheckRejection, CheapCheckStage};
 
 /// Narrow driver around the production inbound hardening gate.
 ///
@@ -32,26 +32,14 @@ impl InboundGate {
         Self(hardening::InboundHardening::new())
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn cheap_checks_first(
         &mut self,
         delta: &delta::Delta,
-        sender_over_budget: bool,
-        max_bytes: usize,
-        max_ops: u64,
-        is_batch: bool,
+        limits: hardening::CheapCheckLimits,
         now_mono: u64,
         now_wall: i64,
     ) -> Result<(), CheapCheckRejection> {
-        self.0.cheap_checks_first(
-            delta,
-            sender_over_budget,
-            max_bytes,
-            max_ops,
-            is_batch,
-            now_mono,
-            now_wall,
-        )
+        self.0.cheap_checks_first(delta, limits, now_mono, now_wall)
     }
 
     pub fn rate_sender_rejections(&self, sender: &str) -> u32 {
@@ -66,13 +54,17 @@ pub mod pending_queue;
 #[doc(hidden)]
 pub mod rate_quarantine;
 pub mod schema_hash;
+// The Schema_Quarantine_Ledger is a SQLite table; there is no SQLite on the
+// WASM target, so the module (and every caller through `InboundHardening`) is
+// native-only.
+#[cfg(feature = "native")]
 #[doc(hidden)]
 pub mod schema_quarantine;
 
 pub(crate) mod failure;
 mod verify;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 
 use zeroize::Zeroize;
 
@@ -168,7 +160,7 @@ pub struct CrdtEngine {
     /// schemas the device can reason about at the field level; a hash with no
     /// definition here cannot be classified as additive vs breaking and falls
     /// back to the legacy unknown-hash quarantine.
-    schema_definitions: HashMap<SchemaIdentifierHash, Schema>,
+    schema_definitions: BTreeMap<SchemaIdentifierHash, Schema>,
 
     /// DID of the local device's identity (used in `produce_delta`).
     author_did: Did,
@@ -277,7 +269,7 @@ impl CrdtEngine {
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
-            schema_definitions: HashMap::new(),
+            schema_definitions: BTreeMap::new(),
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
@@ -309,7 +301,7 @@ impl CrdtEngine {
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
-            schema_definitions: HashMap::new(),
+            schema_definitions: BTreeMap::new(),
             author_did,
             secret_key,
             revoked_dids: HashSet::new(),
@@ -1122,7 +1114,7 @@ impl CrdtEngine {
         // Walk ROOT-level keys in the Automerge doc.
         let items: Vec<(String, serde_json::Value)> = self.doc
             .map_range(automerge::ROOT, ..)
-            .filter_map(|item| {
+            .map(|item| {
                 let json_val = match item.value {
                     ValueRef::Scalar(sv) => {
                         match sv {
@@ -1142,7 +1134,7 @@ impl CrdtEngine {
                     }
                     ValueRef::Object(_) => serde_json::Value::Null,
                 };
-                Some((item.key.to_string(), json_val))
+                (item.key.to_string(), json_val)
             })
             .collect();
 
@@ -1283,7 +1275,7 @@ impl CrdtEngine {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("DAG mutex poisoned during compaction: {e}"),
                 })?;
-            let _ = compact_table(&*conn, table, &mut self.doc);
+            let _ = compact_table(&conn, table, &mut self.doc);
             Ok(true)
         } else {
             Ok(false)
@@ -1391,10 +1383,7 @@ impl CrdtEngine {
                 self.doc
                     .list_range(&list_id, ..)
                     .filter_map(|item| match item.value {
-                        ValueRef::Scalar(sv) => match sv {
-                            ScalarValueRef::Str(s) => Some(s.to_string()),
-                            _ => None,
-                        },
+                        ValueRef::Scalar(ScalarValueRef::Str(s)) => Some(s.to_string()),
                         _ => None,
                     })
                     .collect(),
@@ -1467,7 +1456,7 @@ fn current_timestamp_micros() -> i64 {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{DeltaTag, PriorityClass};
@@ -1625,7 +1614,7 @@ mod tests {
     fn apply_unknown_schema_hash_is_quarantined() {
         let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
+        let mut engine = make_engine(secret, public, did.clone(), schema);
 
         let unknown_schema = [0xFFu8; 32];
         let delta = make_signed_delta(&secret, did, unknown_schema, 1, vec![]);
@@ -1904,7 +1893,7 @@ mod tests {
     fn apply_tampered_payload_is_rejected() {
         let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
+        let mut engine = make_engine(secret, public, did.clone(), schema);
 
         // Build a signed delta, then tamper with automerge_bytes.
         let mut delta = make_signed_delta(&secret, did, schema, 1, vec![1, 2, 3]);
@@ -1949,7 +1938,7 @@ mod tests {
     fn apply_tampered_payload_emits_signature_verification_failure_record() {
         let (secret, public, did) = make_identity();
         let schema = test_schema_hash();
-        let mut engine = make_engine(secret.clone(), public, did.clone(), schema);
+        let mut engine = make_engine(secret, public, did.clone(), schema);
 
         // Build a signed delta, then tamper with automerge_bytes so the
         // Ed25519 signature no longer verifies (Req 7.4).
@@ -2719,10 +2708,7 @@ mod tests {
                 .doc
                 .list_range(&list_id, ..)
                 .filter_map(|item| match item.value {
-                    ValueRef::Scalar(sv) => match sv {
-                        ScalarValueRef::Str(s) => Some(s.to_string()),
-                        _ => None,
-                    },
+                    ValueRef::Scalar(ScalarValueRef::Str(s)) => Some(s.to_string()),
                     _ => None,
                 })
                 .collect(),

@@ -190,11 +190,7 @@ impl BleAdapter {
                             })?;
 
                     if let Some(props) = props {
-                        if props
-                            .services
-                            .iter()
-                            .any(|s| *s == TIRBASE_BLE_SERVICE_UUID)
-                        {
+                        if props.services.contains(&TIRBASE_BLE_SERVICE_UUID) {
                             p.connect()
                                 .await
                                 .map_err(|e| TirBaseError::MeshUnavailable {
@@ -307,14 +303,9 @@ impl BleAdapter {
                 Err(_) => return,
             };
 
-            loop {
-                match notifications.next().await {
-                    Some(notification) => {
-                        if notification.uuid == chr_clone.uuid {
-                            let _ = tx.send(notification.value).await;
-                        }
-                    }
-                    None => break,
+            while let Some(notification) = notifications.next().await {
+                if notification.uuid == chr_clone.uuid {
+                    let _ = tx.send(notification.value).await;
                 }
             }
         });

@@ -208,7 +208,7 @@ impl IdentityManager {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
@@ -377,7 +377,7 @@ mod tests {
 //
 // `StoredIdentity` is crate-private; the registry lives here (rather than in an
 // integration test) so private key-material types can be proven too.
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod zeroize_registry_tests {
     use std::path::{Path, PathBuf};
 

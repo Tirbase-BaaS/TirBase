@@ -125,7 +125,7 @@ pub const MAX_FRAGMENTS_PER_DELTA: u32 = 4096;
 #[derive(Debug, Default)]
 pub struct ReassemblyBuffer {
     /// Keyed by delta_id.  Each entry is a slot array sized to total_fragments.
-    pending: std::collections::HashMap<[u8; 32], Vec<Option<DeltaFragment>>>,
+    pending: std::collections::BTreeMap<[u8; 32], Vec<Option<DeltaFragment>>>,
 }
 
 impl ReassemblyBuffer {
@@ -243,7 +243,7 @@ impl ReassemblyBuffer {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

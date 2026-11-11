@@ -273,7 +273,7 @@ fn parse_column_list(pair: pest::iterators::Pair<Rule>) -> Vec<String> {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::schema::printer::print;

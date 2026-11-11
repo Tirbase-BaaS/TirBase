@@ -19,7 +19,7 @@ use biscuit_auth::{
     builder_ext::{AuthorizerExt, BuilderExt},
     AuthorizerBuilder, Biscuit, KeyPair, PrivateKey, PublicKey,
 };
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 use tirbase_types::CommandRole;
 
 /// Claims extracted from a command-scoped Biscuit token.
@@ -205,10 +205,10 @@ pub fn create_command_token(
             }
         })?;
     let keypair = KeyPair::from(&private_key);
-    let now = SystemTime::now();
-    let issued_secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    // All clock reads go through the injected TimeSource (PV-3.12).
+    let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0).max(0) as u64;
     let expiry_secs = issued_secs + ttl_secs;
-    let expiry = now + Duration::from_secs(ttl_secs);
+    let expiry = UNIX_EPOCH + Duration::from_secs(expiry_secs);
 
     let did_s = did.to_string();
     let role_s = role.to_string();

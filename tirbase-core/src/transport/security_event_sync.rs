@@ -10,8 +10,7 @@
 use crate::crdt::delta::Did;
 use crate::events::{emit, ReasonCode, SecurityEvent as Payload, SecurityEventCategory, Severity};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
-use std::time::Instant;
+use std::collections::{BTreeMap, VecDeque};
 
 /// PV-7.12: max security events accepted from a peer per minute.
 pub const SECURITY_EVENT_SYNC_MAX_PER_PEER_PER_MIN: usize = 500;
@@ -57,16 +56,21 @@ pub enum SyncInboundDecision {
 }
 
 /// Per-peer inbound rate limiter (500 events/min, PV-7.12).
+///
+/// Time is the [`crate::traits::monotonic_now`] domain in microseconds so the
+/// limiter never reads the system clock directly (PV-3.12).
 #[derive(Debug, Default)]
 pub struct PeerSecurityEventSyncLimiter {
-    windows: HashMap<String, VecDeque<Instant>>,
+    windows: BTreeMap<String, VecDeque<u64>>,
 }
 
+pub const SECURITY_EVENT_SYNC_WINDOW_MICROS: u64 = 60_000_000;
+
 impl PeerSecurityEventSyncLimiter {
-    pub fn allow(&mut self, peer_did: &str, count: usize, now: Instant) -> (usize, usize) {
+    pub fn allow(&mut self, peer_did: &str, count: usize, now_micros: u64) -> (usize, usize) {
         let q = self.windows.entry(peer_did.to_string()).or_default();
         while let Some(front) = q.front() {
-            if now.duration_since(*front).as_secs() >= 60 {
+            if now_micros.saturating_sub(*front) >= SECURITY_EVENT_SYNC_WINDOW_MICROS {
                 q.pop_front();
             } else {
                 break;
@@ -75,7 +79,7 @@ impl PeerSecurityEventSyncLimiter {
         let room = SECURITY_EVENT_SYNC_MAX_PER_PEER_PER_MIN.saturating_sub(q.len());
         let accepted = room.min(count);
         for _ in 0..accepted {
-            q.push_back(now);
+            q.push_back(now_micros);
         }
         (accepted, count.saturating_sub(accepted))
     }
@@ -118,11 +122,11 @@ impl SecurityEventSyncHandler {
     pub fn handle_inbound(
         &mut self,
         batch: SecurityEventSyncBatch,
-        now: Instant,
+        now_micros: u64,
     ) -> SyncInboundDecision {
         let (accepted_n, dropped_n) =
             self.limiter
-                .allow(&batch.sender_did, batch.records.len(), now);
+                .allow(&batch.sender_did, batch.records.len(), now_micros);
         if dropped_n > 0 {
             emit(
                 Payload::new(
@@ -176,7 +180,7 @@ impl SecurityEventSyncHandler {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 
@@ -201,7 +205,7 @@ mod tests {
     #[test]
     fn per_peer_rate_limit_is_500_per_min() {
         let mut h = SecurityEventSyncHandler::new();
-        let now = Instant::now();
+        let now = crate::traits::monotonic_now();
         let batch = SecurityEventSyncBatch {
             sender_did: "did:peer:a".into(),
             records: (1..=700).map(rec).collect(),
@@ -219,7 +223,7 @@ mod tests {
     #[test]
     fn append_only_compaction_none_dedupes() {
         let mut h = SecurityEventSyncHandler::new();
-        let now = Instant::now();
+        let now = crate::traits::monotonic_now();
         let b = SecurityEventSyncBatch {
             sender_did: "did:peer:a".into(),
             records: vec![rec(1), rec(1), rec(2)],

@@ -11,13 +11,13 @@
 #![allow(dead_code)]
 
 use crate::errors::TirBaseError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Tracks the spatial diversity of receipt issuers for one Delta set.
 #[derive(Debug, Default, Clone)]
 pub struct SpatialDiversityTracker {
     /// Map from spatial tag → number of receipts from peers with that tag.
-    tag_counts: HashMap<String, usize>,
+    tag_counts: BTreeMap<String, usize>,
     /// Number of receipts from peers with no spatial tag attached.
     untagged: usize,
 }
@@ -93,7 +93,7 @@ impl SpatialDiversityTracker {
         // We compute count / total > max_fraction, which is equivalent to:
         //   count > max_fraction * total
         // Using floating-point comparison directly avoids rounding ambiguity.
-        for (_tag, &count) in &self.tag_counts {
+        for &count in self.tag_counts.values() {
             let fraction = count as f64 / total_receipts as f64;
             if fraction > max_single_sector_fraction {
                 return Ok(false);
@@ -104,7 +104,7 @@ impl SpatialDiversityTracker {
     }
 
     /// Returns a snapshot of tag → count pairs for inspection and testing.
-    pub fn tag_counts(&self) -> &HashMap<String, usize> {
+    pub fn tag_counts(&self) -> &BTreeMap<String, usize> {
         &self.tag_counts
     }
 
@@ -128,7 +128,7 @@ fn log_spatial_degradation(available: usize, required: usize) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

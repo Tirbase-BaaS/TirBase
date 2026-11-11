@@ -1,8 +1,18 @@
-//! WASM unit tests — run with `wasm-pack test --headless --chrome`
-//! (or `wasm-bindgen-test-runner` for Node.js targets).
+//! In-browser WASM tests — run them with `scripts/wasm-test.sh`
+//! (`cargo test -p tirbase-core --no-default-features --features wasm
+//! --target wasm32-unknown-unknown --lib` plus the ChromeDriver and
+//! `wasm-bindgen-cli` setup the script performs).
 //!
-//! These tests verify that the in-memory bridges work correctly on the
-//! `wasm32-unknown-unknown` target.
+//! These tests execute on `wasm32-unknown-unknown` inside headless Chrome, which
+//! is the only environment where IndexedDB, the browser clock and the
+//! `wasm_exports` entry points exist. They cover the IndexedDB-backed
+//! `LocalStore` (including reload persistence), the quarantine, Side-Car and
+//! compaction ledgers, and `CoreHandle::receive_inbound_wasm` via its public
+//! `core_receive_peer_message` wrapper.
+//!
+//! Only browser tests may live here: the native suites are excluded from this
+//! build (`src/tests/mod.rs` gates them on `target_arch`), and helper functions
+//! cannot be shared through `#[cfg(test)]` modules that need native crates.
 
 #![cfg(all(test, target_arch = "wasm32"))]
 
@@ -280,30 +290,34 @@ async fn test_sidecar_record_and_order() {
 
 #[wasm_bindgen_test]
 async fn test_compaction_snapshot_persisted_to_indexeddb() {
-    use crate::store::compaction::{compact_table_idb, CompactionPolicy};
+    use crate::store::compaction::compact_table_idb;
     use crate::store::indexed_db::IdbStore;
-    use automerge::ReadDoc;
+    use automerge::transaction::Transactable;
+
+    // Deterministic start: a previous run left snapshots behind.
+    crate::store::indexed_db::delete_database("test_compaction")
+        .await
+        .expect("delete prior database");
 
     let db = std::rc::Rc::new(IdbStore::open("test_compaction").await.expect("open idb"));
 
     let mut doc = automerge::AutoCommit::default();
-    doc.put("table", "key1", "value1").unwrap();
-    doc.put("table", "key2", "value2").unwrap();
+    doc.put(automerge::ROOT, "key1", "value1").unwrap();
+    doc.put(automerge::ROOT, "key2", "value2").unwrap();
 
-    let policy = CompactionPolicy::Aggressive { threshold: 1 };
+    compact_table_idb(&db, "items", &mut doc)
+        .await
+        .expect("compaction must not fail");
 
-    // Write enough changes to exceed the threshold.
-    if compact_table_idb(&db, "items", &mut doc).await.is_ok() {
-        // Snapshot should now be persisted.
-        let snapshot = db
-            .get_compaction_snapshot("items")
-            .await
-            .expect("get snapshot");
-        assert!(
-            snapshot.is_some(),
-            "compaction snapshot must be persisted to IndexedDB"
-        );
-    }
+    let snapshot = db
+        .get_compaction_snapshot("items")
+        .await
+        .expect("get snapshot")
+        .expect("compaction snapshot must be persisted to IndexedDB");
+    assert!(
+        !snapshot.snapshot_bytes.is_empty(),
+        "snapshot bytes must be non-empty"
+    );
 
     // Verify persistence across reload.
     let db2 = std::rc::Rc::new(
@@ -382,7 +396,6 @@ fn test_mesh_status_is_disconnected_before_init() {
 #[wasm_bindgen_test]
 async fn test_init_write_read_round_trip() {
     use js_sys::JSON;
-    use wasm_bindgen::JsValue;
 
     // Initialise with a dummy storage path (in-memory on WASM).
     crate::wasm_exports::core_init("wasm-test".to_string(), vec![], None, vec![])
@@ -655,10 +668,10 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
 /// Automerge's convergence guarantees.
 #[wasm_bindgen_test]
 fn test_wasm_crdt_engine_convergence_two_instances() {
-    use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
+    use crate::crdt::delta::PriorityClass;
     use crate::crdt::derive_did_from_public_key;
     use crate::crdt::CrdtEngine;
-    use crate::identity::keypair::{generate_keypair, sign};
+    use crate::identity::keypair::generate_keypair;
     use crate::schema::hash::compute_schema_identifier_hash;
 
     let schema_hash =
@@ -699,12 +712,31 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
         "Delta from B must merge into A: {outcome_ba:?}"
     );
 
-    // Both engines have applied both Deltas.
-    // The final Lamport clocks must be equal (both advanced by max+1 twice).
+    // Both engines have applied both Deltas.  Their clocks are NOT expected to
+    // be equal: `produce_delta` increments by one and `apply` sets
+    // `max(local, incoming) + 1`, so the author of the newest Delta and a site
+    // that only merged it legitimately end up at different values (A = 4,
+    // B = 3 here).  The invariant that matters is causal dominance: each clock
+    // is at least the highest Lamport it has seen, so the next Delta either
+    // engine produces (`lamport + 1`) is ordered after everything already
+    // merged.
+    let highest_seen = delta_from_a.lamport.max(delta_from_b.lamport);
+    for (name, engine) in [("A", &engine_a), ("B", &engine_b)] {
+        assert!(
+            engine.lamport() >= highest_seen,
+            "engine {name} must have absorbed every applied Delta: \
+             lamport={} highest_seen={highest_seen}",
+            engine.lamport()
+        );
+    }
+
+    // Convergence of state, not just of clocks: after merging the same Delta
+    // set, both engines must serialise to byte-identical documents (Automerge
+    // encoding is deterministic for the same op set).
     assert_eq!(
-        engine_a.lamport(),
-        engine_b.lamport(),
-        "Lamport clocks must be equal after applying same Delta set"
+        engine_a.convergent_state().automerge_bytes,
+        engine_b.convergent_state().automerge_bytes,
+        "both engines must converge to the same document bytes"
     );
 
     // Root-level key sets from both engines' docs must be identical.

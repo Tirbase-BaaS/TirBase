@@ -299,7 +299,7 @@ impl RevokedMigrationRegistry {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::Ed25519Signature;
@@ -423,7 +423,7 @@ mod tests {
         let mut registry = registry_that_has_seen(target);
         let id1 = make_identity();
 
-        let revocation = make_signed_revocation(target, &[id1.clone()]);
+        let revocation = make_signed_revocation(target, std::slice::from_ref(&id1));
         registry.apply_revocation(revocation, 1).expect("revoke");
 
         // Trying to revoke again: is_revoked returns true

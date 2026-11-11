@@ -300,7 +300,7 @@ impl PendingQueue {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};

@@ -30,7 +30,7 @@
 //! `ClockJump` quarantine path for deviations; the pending-queue path is added
 //! in task 23.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::crdt::delta::Delta;
 use crate::crdt::merge::QuarantineReason;
@@ -82,7 +82,7 @@ pub(crate) enum StartOpValidation {
 /// the existing merge path keeps its legacy behavior for JSON/test stubs.
 pub(crate) fn validate_start_op(
     delta: &Delta,
-    known_changes: &HashMap<automerge::ChangeHash, (u64, u64)>,
+    known_changes: &BTreeMap<automerge::ChangeHash, (u64, u64)>,
 ) -> StartOpValidation {
     if delta.automerge_bytes.is_empty() {
         return StartOpValidation::NotAutomerge;
@@ -103,8 +103,8 @@ pub(crate) fn validate_start_op(
 
     // Index changes carried inside this payload so intra-payload dependencies
     // resolve (a batch may contain a chain).
-    let mut payload_index: HashMap<automerge::ChangeHash, (u64, u64)> =
-        HashMap::with_capacity(changes.len());
+    let mut payload_index: BTreeMap<automerge::ChangeHash, (u64, u64)> =
+        BTreeMap::new();
     for change in &changes {
         let start = change.start_op().get();
         let len = change.len() as u64;
@@ -152,9 +152,9 @@ pub(crate) fn validate_start_op(
 /// `validate_start_op`.
 pub(crate) fn known_change_index(
     doc: &mut automerge::AutoCommit,
-) -> HashMap<automerge::ChangeHash, (u64, u64)> {
+) -> BTreeMap<automerge::ChangeHash, (u64, u64)> {
     let changes = doc.get_changes(&[]);
-    let mut map = HashMap::with_capacity(changes.len());
+    let mut map = BTreeMap::new();
     for change in changes {
         map.insert(
             change.hash(),
@@ -233,8 +233,7 @@ pub(crate) fn inflate_start_op_in_payload(
             .ok_or_else(|| "start_op overflow".to_string())?;
         expanded.start_op =
             std::num::NonZeroU64::new(bumped).ok_or_else(|| "start_op became zero".to_string())?;
-        let recoded = automerge::Change::try_from(expanded)
-            .map_err(|e| format!("recode inflated change: {e}"))?;
+        let recoded = automerge::Change::from(expanded);
         inflated.push(recoded);
     }
 
@@ -471,7 +470,7 @@ mod task22_tests {
             created_at: 0,
         };
         honest_delta.id = Delta::compute_id(&honest_delta.canonical_bytes());
-        let known_empty: HashMap<automerge::ChangeHash, (u64, u64)> = HashMap::new();
+        let known_empty: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
         assert_eq!(
             validate_start_op(&honest_delta, &known_empty),
             StartOpValidation::Ok,
@@ -506,7 +505,7 @@ mod task22_tests {
         use automerge::transaction::Transactable;
         use automerge::{AutoCommit, ROOT};
         use proptest::prelude::*;
-        use std::collections::HashMap;
+        use std::collections::BTreeMap;
 
         /// Build an honest Automerge history of `steps` sequential scalar writes
         /// in one document (each write becomes/extends changes in the saved doc)
@@ -552,7 +551,7 @@ mod task22_tests {
                     created_at: 0,
                 };
                 delta.id = Delta::compute_id(&delta.canonical_bytes());
-                let known: HashMap<automerge::ChangeHash, (u64, u64)> = HashMap::new();
+                let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
                 let res = validate_start_op(&delta, &known);
                 prop_assert!(
                     matches!(res, StartOpValidation::Ok),
@@ -593,7 +592,7 @@ mod task22_tests {
                     created_at: 0,
                 };
                 delta.id = Delta::compute_id(&delta.canonical_bytes());
-                let known: HashMap<automerge::ChangeHash, (u64, u64)> = HashMap::new();
+                let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
                 let res = validate_start_op(&delta, &known);
                 prop_assert!(
                     matches!(res, StartOpValidation::ClockJump { .. }),
@@ -656,6 +655,15 @@ impl Default for InboundHardening {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Limits/facts evaluated by the cheap-checks-first pipeline.
+#[derive(Debug, Clone, Copy)]
+pub struct CheapCheckLimits {
+    pub rate_exceeded: bool,
+    pub max_bytes: usize,
+    pub max_ops: u64,
+    pub missing_dependency: bool,
 }
 
 impl InboundHardening {
@@ -813,7 +821,7 @@ impl InboundHardening {
         #[cfg(feature = "native")]
         let db = self.summary_db.as_ref();
         #[cfg(not(feature = "native"))]
-        let db: Option<&rusqlite::Connection> = None;
+        let db: Option<&crate::crdt::rate_quarantine::SummaryDb> = None;
         self.rate
             .record(sender_did, reason, now_mono, now_wall_secs, detail, db)
     }
@@ -828,14 +836,11 @@ impl InboundHardening {
     pub fn cheap_checks_first(
         &mut self,
         delta: &Delta,
-        rate_exceeded: bool,
-        max_bytes: usize,
-        max_ops: u64,
-        missing_dependency: bool,
+        limits: CheapCheckLimits,
         now_mono: u64,
         now_wall_secs: i64,
     ) -> Result<(), CheapCheckRejection> {
-        if rate_exceeded {
+        if limits.rate_exceeded {
             let rej = CheapCheckRejection {
                 stage: CheapCheckStage::RateLimit,
                 reason: ReasonCode::RateExceeded,
@@ -850,14 +855,14 @@ impl InboundHardening {
             );
             return Err(rej);
         }
-        if delta.automerge_bytes.len() > max_bytes {
+        if delta.automerge_bytes.len() > limits.max_bytes {
             let rej = CheapCheckRejection {
                 stage: CheapCheckStage::Size,
                 reason: ReasonCode::Oversize,
                 detail: format!(
                     "delta {} bytes exceeds {}",
                     delta.automerge_bytes.len(),
-                    max_bytes
+                    limits.max_bytes
                 ),
             };
             let _ = self.record_rate_quarantine(
@@ -870,11 +875,11 @@ impl InboundHardening {
             return Err(rej);
         }
         let op_count = decode_change_op_count(&delta.automerge_bytes).unwrap_or(0);
-        if op_count > max_ops {
+        if op_count > limits.max_ops {
             let rej = CheapCheckRejection {
                 stage: CheapCheckStage::OpCount,
                 reason: ReasonCode::OpCountExceeded,
-                detail: format!("op_count {} exceeds {}", op_count, max_ops),
+                detail: format!("op_count {} exceeds {}", op_count, limits.max_ops),
             };
             #[cfg(feature = "native")]
             let _ = self.record_schema_quarantine(
@@ -884,7 +889,7 @@ impl InboundHardening {
             );
             return Err(rej);
         }
-        if missing_dependency {
+        if limits.missing_dependency {
             return Err(CheapCheckRejection {
                 stage: CheapCheckStage::DepCheck,
                 reason: ReasonCode::MissingDependency,
@@ -1165,7 +1170,7 @@ pub fn quarantine_structural(
 
 // ─── Task 24.1a tests: every remaining InboundCaps value quarantines ─────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod task24_cap_tests {
     use super::*;
     use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};

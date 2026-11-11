@@ -17,7 +17,8 @@
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::ops::Deref;
 
 use idb::DatabaseEvent;
 use serde_json::Value;
@@ -85,15 +86,39 @@ fn idb_error(e: idb::Error) -> TirBaseError {
     js_error(format!("{e:?}"))
 }
 
+/// Owns the JavaScript `IDBDatabase` connection and closes it when the last
+/// [`IdbStore`] handle is dropped.
+///
+/// `idb::Database` has no `Drop` implementation, so without this wrapper the
+/// connection stayed open for the lifetime of the page.  That is not merely a
+/// leak: an open connection makes a later `deleteDatabase` fire `blocked` and
+/// never complete, which hangs any store reset (including test-harness
+/// cleanup) forever.
+struct DatabaseHandle(idb::Database);
+
+impl Drop for DatabaseHandle {
+    fn drop(&mut self) {
+        self.0.close();
+    }
+}
+
+impl Deref for DatabaseHandle {
+    type Target = idb::Database;
+
+    fn deref(&self) -> &idb::Database {
+        &self.0
+    }
+}
+
 /// IndexedDB-backed persistent store for the WASM LocalStore.
 ///
 /// Wraps an [`idb::Database`] handle and exposes async `write()`, `read()`,
 /// and `query()` methods that persist to IndexedDB — surviving page reloads
 /// (Req 3.1: IndexedDB as the WASM analogue of SQLite-on-every-client-device).
-pub(crate) struct IdbStore {
+pub struct IdbStore {
     db_name: String,
     store_name: String,
-    db: std::rc::Rc<idb::Database>,
+    db: std::rc::Rc<DatabaseHandle>,
 }
 
 impl IdbStore {
@@ -137,11 +162,11 @@ impl IdbStore {
             let _ = &store_name_for_upgrade;
         });
 
-        let db = std::rc::Rc::new(
+        let db = std::rc::Rc::new(DatabaseHandle(
             open_req
                 .await
                 .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?,
-        );
+        ));
 
         Ok(IdbStore {
             db_name: name,
@@ -258,13 +283,19 @@ impl IdbStore {
             .map_err(|e| js_error(format!("KeyRange construction failed: {e:?}")))?;
 
         let query = Some(idb::Query::KeyRange(range));
-        let mut cursor = store
+        let cursor = store
             .open_cursor(query, Some(idb::CursorDirection::Next))
             .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
             .await
-            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
-            .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
-            .into_managed();
+            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
+
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
+        let Some(cursor) = cursor else {
+            return Ok(Vec::new());
+        };
+        let mut cursor = cursor.into_managed();
 
         loop {
             match cursor.value() {
@@ -313,8 +344,8 @@ impl IdbStore {
     /// the WASM analogue of native SQLite projection tables).
     pub(crate) async fn load_all(
         &self,
-    ) -> Result<HashMap<String, HashMap<String, Value>>, TirBaseError> {
-        let mut tables: HashMap<String, HashMap<String, Value>> = HashMap::new();
+    ) -> Result<BTreeMap<String, BTreeMap<String, Value>>, TirBaseError> {
+        let mut tables: BTreeMap<String, BTreeMap<String, Value>> = BTreeMap::new();
 
         let tx = self
             .db
@@ -325,13 +356,19 @@ impl IdbStore {
             .object_store(&self.store_name)
             .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
 
-        let mut cursor = store
+        let cursor = store
             .open_cursor(None, Some(idb::CursorDirection::Next))
             .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
             .await
-            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
-            .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
-            .into_managed();
+            .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
+
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
+        let Some(cursor) = cursor else {
+            return Ok(BTreeMap::new());
+        };
+        let mut cursor = cursor.into_managed();
 
         loop {
             match cursor.value() {
@@ -353,7 +390,7 @@ impl IdbStore {
                     let (table, row_key) = split_composite_key(&composite)?;
                     tables
                         .entry(table)
-                        .or_insert_with(HashMap::new)
+                        .or_insert_with(BTreeMap::new)
                         .insert(row_key, value);
 
                     cursor
@@ -385,6 +422,7 @@ impl IdbStore {
     pub(crate) fn raw_db(&self) -> &idb::Database {
         &self.db
     }
+
 }
 
 impl Clone for IdbStore {
@@ -586,13 +624,19 @@ impl IdbStore {
             .object_store(QUARANTINE_STORE)
             .map_err(|e| js_error(format!("object_store({QUARANTINE_STORE}) failed: {e:?}")))?;
 
-        let mut cursor = store
+        let cursor = store
             .open_cursor(None, Some(idb::CursorDirection::Next))
             .map_err(|e| js_error(format!("open_cursor for quarantine failed: {e:?}")))?
             .await
-            .map_err(|e| js_error(format!("open_cursor await for quarantine failed: {e:?}")))?
-            .ok_or_else(|| js_error("quarantine cursor is null"))?
-            .into_managed();
+            .map_err(|e| js_error(format!("open_cursor await for quarantine failed: {e:?}")))?;
+
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
+        let Some(cursor) = cursor else {
+            return Ok(Vec::new());
+        };
+        let mut cursor = cursor.into_managed();
 
         loop {
             match cursor.value() {
@@ -735,13 +779,19 @@ impl IdbStore {
             .object_store(SIDECAR_STORE)
             .map_err(|e| js_error(format!("object_store({SIDECAR_STORE}) failed: {e:?}")))?;
 
-        let mut cursor = store
+        let cursor = store
             .open_cursor(None, Some(idb::CursorDirection::Next))
             .map_err(|e| js_error(format!("open_cursor for sidecar failed: {e:?}")))?
             .await
-            .map_err(|e| js_error(format!("open_cursor await for sidecar failed: {e:?}")))?
-            .ok_or_else(|| js_error("sidecar cursor is null"))?
-            .into_managed();
+            .map_err(|e| js_error(format!("open_cursor await for sidecar failed: {e:?}")))?;
+
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
+        let Some(cursor) = cursor else {
+            return Ok(Vec::new());
+        };
+        let mut cursor = cursor.into_managed();
 
         loop {
             match cursor.value() {
@@ -875,11 +925,11 @@ pub(crate) async fn open_database(path: &str) -> Result<idb::Database, TirBaseEr
         .map_err(|e| js_error(format!("await open_database({name}) failed: {e:?}")))
 }
 
-/// Eager-load every row into an in-memory `HashMap<table, HashMap<key, Value>>`
+/// Eager-load every row into an in-memory `BTreeMap<table, BTreeMap<key, Value>>`
 /// from a raw `idb::Database` handle.
 pub(crate) async fn load_all_into(
     db: &idb::Database,
-) -> Result<HashMap<String, HashMap<String, serde_json::Value>>, TirBaseError> {
+) -> Result<BTreeMap<String, BTreeMap<String, serde_json::Value>>, TirBaseError> {
     // Construct a temporary IdbStore wrapping the caller's database handle
     // purely to reuse load_all's cursor logic.  We can't clone idb::Database,
     // so we reconstruct the IdbStore struct fields manually — the db field
@@ -892,15 +942,21 @@ pub(crate) async fn load_all_into(
         .object_store(KV_STORE)
         .map_err(|e| js_error(format!("object_store({KV_STORE}) failed: {e:?}")))?;
 
-    let mut tables: HashMap<String, HashMap<String, serde_json::Value>> = HashMap::new();
+    let mut tables: BTreeMap<String, BTreeMap<String, serde_json::Value>> = BTreeMap::new();
 
-    let mut cursor = store
+    let cursor = store
         .open_cursor(None, Some(idb::CursorDirection::Next))
         .map_err(|e| js_error(format!("open_cursor failed: {e:?}")))?
         .await
-        .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?
-        .ok_or_else(|| js_error("cursor is null (store empty or error)"))?
-        .into_managed();
+        .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
+
+    // An empty object store hands back no cursor at all — that is an
+    // empty result set, not a failure (a fresh IndexedDB database is a
+    // legitimate state, e.g. the first `LocalStore::open` of a session).
+    let Some(cursor) = cursor else {
+        return Ok(BTreeMap::new());
+    };
+    let mut cursor = cursor.into_managed();
 
     loop {
         match cursor.value() {
@@ -922,7 +978,7 @@ pub(crate) async fn load_all_into(
                 let (table, row_key) = split_composite_key(&composite)?;
                 tables
                     .entry(table)
-                    .or_insert_with(HashMap::new)
+                    .or_insert_with(BTreeMap::new)
                     .insert(row_key, value);
 
                 cursor

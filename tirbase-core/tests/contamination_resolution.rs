@@ -38,20 +38,12 @@ use tirbase_core::store::sqlite;
 /// Current time in microseconds since UNIX_EPOCH (mirrors `now_micros` in
 /// `contamination::resolution` which is `pub(crate)`).
 fn now_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_micros() as i64
+    tirbase_core::traits::wall_hint().unwrap_or(0)
 }
 
 /// Current time in seconds since UNIX_EPOCH.
 fn now_secs() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64
+    tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
 /// A unique in-memory SQLite database, wrapped in Arc<Mutex<>> for sharing
@@ -271,7 +263,7 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
     // Use open_incidents() (public API) to find it.
     let open_icos = cce.open_incidents().expect("open_incidents");
     assert!(
-        open_icos.len() >= 1,
+        !open_icos.is_empty(),
         "at least one OPEN ICO must exist for the surviving sub-chain"
     );
 

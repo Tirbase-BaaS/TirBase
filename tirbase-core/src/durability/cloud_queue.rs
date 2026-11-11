@@ -16,7 +16,7 @@
 
 use crate::crdt::delta::{Delta, DeltaId, Did};
 use crate::errors::TirBaseError;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 
 /// Maximum Deltas allowed in the cloud outbound queue (Req 16.6).
 pub const MAX_QUEUE_DEPTH: usize = 100_000;
@@ -207,6 +207,9 @@ pub enum RefetchOutcome {
 /// a `try_fetch_from_peer` callback that handles the actual peer communication.
 /// This keeps the function pure and testable without a live transport.
 ///
+/// Synchronous re-fetch callback for compacted ledger entries.
+pub type RefetchFn<'a> = dyn Fn(&DeltaId, &[Did]) -> Option<Vec<u8>> + 'a;
+
 /// # Parameters
 ///
 /// * `delta_id` — the Delta to re-fetch.
@@ -255,16 +258,16 @@ where
 /// appended at the end in their original queue order so nothing is silently
 /// dropped.
 fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::{BTreeMap, VecDeque};
 
     // Build a map from delta_id → index for O(1) look-ups.
     let id_set: std::collections::HashSet<DeltaId> =
         queue.queue.iter().map(|e| e.delta_id).collect();
 
     // in_degree[id] = number of parents still in the queue.
-    let mut in_degree: HashMap<DeltaId, usize> = HashMap::new();
+    let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
     // children_map[parent] = list of children in the queue.
-    let mut children_map: HashMap<DeltaId, Vec<DeltaId>> = HashMap::new();
+    let mut children_map: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
 
     for entry in queue.queue.iter() {
         in_degree.entry(entry.delta_id).or_insert(0);
@@ -291,7 +294,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
 
     // Maintain stable ordering within same in-degree level by using queue
     // insertion order as a secondary key.
-    let order_index: HashMap<DeltaId, usize> = queue
+    let order_index: BTreeMap<DeltaId, usize> = queue
         .queue
         .iter()
         .enumerate()
@@ -377,7 +380,7 @@ pub trait CloudConnection: Send {
 pub fn cloud_sync_loop(
     queue: &mut CloudOutboundQueue,
     conn: &mut dyn CloudConnection,
-    refetch: &dyn Fn(&DeltaId, &[Did]) -> Option<Vec<u8>>,
+    refetch: &RefetchFn<'_>,
 ) -> CloudSyncResult {
     let mut acknowledged = 0usize;
     let mut rejected = 0usize;
@@ -490,7 +493,7 @@ fn log_cloud_rejection(delta_id: &DeltaId, reason: &str) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

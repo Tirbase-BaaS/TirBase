@@ -15,7 +15,7 @@ use crate::durability::receipt::BeaconToken;
 use crate::errors::TirBaseError;
 use crate::identity::did::derive_did;
 use crate::identity::keypair;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Entry in the beacon public-key registry.
 #[derive(Debug, Clone)]
@@ -66,7 +66,7 @@ pub struct AnchorAttestedLocation {
     /// public key, updated on every successfully verified beacon token (Req 15.4).
     /// `check_signal_loss` compares `now_secs - last_seen` against the configured
     /// threshold to decide whether a beacon has gone silent.
-    beacon_last_seen: HashMap<[u8; 32], i64>,
+    beacon_last_seen: BTreeMap<[u8; 32], i64>,
 }
 
 /// A permanent high-priority Transport Degradation Event written on beacon signal loss
@@ -89,7 +89,7 @@ impl AnchorAttestedLocation {
             current_epoch: initial_epoch,
             mode: AnchorMode::BeaconAttested,
             degradation_log: Vec::new(),
-            beacon_last_seen: HashMap::new(),
+            beacon_last_seen: BTreeMap::new(),
         }
     }
 
@@ -314,7 +314,7 @@ fn log_transport_degradation_event(event: &TransportDegradationEvent) {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::crdt::delta::Ed25519Signature;

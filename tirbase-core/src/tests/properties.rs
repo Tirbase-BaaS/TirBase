@@ -539,8 +539,8 @@ proptest! {
         let a_wins_over_b = lww_incoming_wins(lam_a, &pk_a[..], lam_b, &pk_b[..]);
         let b_wins_over_a = lww_incoming_wins(lam_b, &pk_b[..], lam_a, &pk_a[..]);
 
-        if pk_a != pk_b {
-            if lam_a != lam_b {
+        if pk_a != pk_b && lam_a != lam_b {
+            {
                 prop_assert_ne!(
                     a_wins_over_b, b_wins_over_a,
                     "with different lamport, exactly one of A or B must win the LWW tiebreak"
@@ -647,13 +647,10 @@ proptest! {
         // Engine A inserts vals_a into the list.
         let bytes_a: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
-            match doc.get(automerge::ROOT, "items").unwrap() {
-                Some((Value::Object(_), list_id)) => {
-                    for (i, v) in vals_a.iter().enumerate() {
-                        doc.insert(&list_id, i, v.as_str()).unwrap();
-                    }
+            if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
+                for (i, v) in vals_a.iter().enumerate() {
+                    doc.insert(&list_id, i, v.as_str()).unwrap();
                 }
-                _ => {}
             }
             // Use save_incremental to produce only the new change bytes
             // (not the full base doc) — these are the RGA insertion ops.
@@ -663,13 +660,10 @@ proptest! {
         // Engine B inserts vals_b into the list.
         let bytes_b: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
-            match doc.get(automerge::ROOT, "items").unwrap() {
-                Some((Value::Object(_), list_id)) => {
-                    for (i, v) in vals_b.iter().enumerate() {
-                        doc.insert(&list_id, i, v.as_str()).unwrap();
-                    }
+            if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
+                for (i, v) in vals_b.iter().enumerate() {
+                    doc.insert(&list_id, i, v.as_str()).unwrap();
                 }
-                _ => {}
             }
             doc.save_incremental()
         };
@@ -698,25 +692,19 @@ proptest! {
         // merge + read-back path.
         let full_bytes_a: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
-            match doc.get(automerge::ROOT, "items").unwrap() {
-                Some((Value::Object(_), list_id)) => {
-                    for (i, v) in vals_a.iter().enumerate() {
-                        doc.insert(&list_id, i, v.as_str()).unwrap();
-                    }
+            if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
+                for (i, v) in vals_a.iter().enumerate() {
+                    doc.insert(&list_id, i, v.as_str()).unwrap();
                 }
-                _ => {}
             }
             doc.save()
         };
         let full_bytes_b: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
-            match doc.get(automerge::ROOT, "items").unwrap() {
-                Some((Value::Object(_), list_id)) => {
-                    for (i, v) in vals_b.iter().enumerate() {
-                        doc.insert(&list_id, i, v.as_str()).unwrap();
-                    }
+            if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
+                for (i, v) in vals_b.iter().enumerate() {
+                    doc.insert(&list_id, i, v.as_str()).unwrap();
                 }
-                _ => {}
             }
             doc.save()
         };
@@ -1273,7 +1261,7 @@ proptest! {
         // That is link_cap * 7 / item_size items minimum for HIGH.
         let n_high_min = ((link_cap * 7) / item_size + 1) as usize;
         let n_medium_min = ((link_cap * 2) / item_size + 1) as usize;
-        let n_low_min = ((link_cap * 1) / item_size + 1) as usize;
+        let n_low_min = (link_cap / item_size + 1) as usize;
 
         let n_high   = n_high_min   + extra_items;
         let n_medium = n_medium_min + extra_items;
@@ -1646,7 +1634,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
-            std::collections::HashMap::new(),
+            std::collections::BTreeMap::new(),
         );
 
         let result_valid = engine_valid.receive_migration_delta(good_delta.clone(), "did:key:sender");
@@ -1683,7 +1671,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
-            std::collections::HashMap::new(),
+            std::collections::BTreeMap::new(),
         );
         let result_invalid = engine_invalid.receive_migration_delta(bad_delta, "did:key:tamper");
         prop_assert!(
@@ -1833,10 +1821,7 @@ mod prop_20_biscuit {
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
             // Before activation: must be NORMAL.
             prop_assert_eq!(sm.state(), SaturateState::Normal);
@@ -1867,10 +1852,7 @@ mod prop_20_biscuit {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
             // threshold_m = 2, so 1 sig is insufficient.
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
             sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
                 .expect("activate");
@@ -1891,10 +1873,7 @@ mod prop_20_biscuit {
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
             // In NORMAL: absent token returns error, mode unchanged.
             sm.activate("did:key:test".to_string(), &[], now_sec).unwrap_err();
@@ -1914,10 +1893,7 @@ mod prop_20_biscuit {
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
             sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
                 .expect("activate");
@@ -2017,7 +1993,7 @@ proptest! {
                 conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL).expect("create schema");
                 std::sync::Arc::new(std::sync::Mutex::new(conn))
             },
-            std::collections::HashMap::new(),
+            std::collections::BTreeMap::new(),
         );
 
         // Req 18.7: a revocation is only accepted for a *known,

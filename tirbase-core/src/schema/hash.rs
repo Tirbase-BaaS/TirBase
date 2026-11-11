@@ -54,7 +54,7 @@ pub fn compute_schema_identifier_hash(tables: &[(&str, &[(&str, &str)])]) -> Sch
     hasher.finalize().into()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

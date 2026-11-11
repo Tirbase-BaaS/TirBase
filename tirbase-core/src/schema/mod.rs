@@ -115,7 +115,7 @@ pub enum Constraint {
     NotNull(String),
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
     use crate::store::compaction::CompactionPolicy;
@@ -212,7 +212,7 @@ mod tests {
         let values = vec![
             DefaultValue::Text("hello".to_string()),
             DefaultValue::Integer(-42),
-            DefaultValue::Real(3.14),
+            DefaultValue::Real(2.5),
             DefaultValue::Boolean(false),
             DefaultValue::Null,
         ];

@@ -104,7 +104,7 @@ impl SideCarLedger {
 
         let mut hasher = Sha256::new();
         hasher.update(&delta_bytes);
-        hasher.update(&recorded_ts.to_le_bytes());
+        hasher.update(recorded_ts.to_le_bytes());
         let id: DeltaId = hasher.finalize().into();
 
         let conn = self
@@ -458,7 +458,7 @@ impl SideCarLedger {
 
         let mut hasher = Sha256::new();
         hasher.update(&delta_bytes);
-        hasher.update(&recorded_ts.to_le_bytes());
+        hasher.update(recorded_ts.to_le_bytes());
         let id: DeltaId = hasher.finalize().into();
 
         // Check if the entry already exists (INSERT OR IGNORE semantics).
