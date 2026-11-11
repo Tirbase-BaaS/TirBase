@@ -33,3 +33,7 @@ tirbase-sdk/wasm/
 
 # Kellnr data directory (Docker volume is external, but in case of local binary mode)
 .kellnr/data/
+
+# Python cache
+__pycache__/
+*.py[cod]
