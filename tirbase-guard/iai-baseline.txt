@@ -1,0 +1,3 @@
+# CLAIM-40.3 / PV-15.3: iai-callgrind instruction-count baseline (tirbase-guard).
+# Populated/updated by maintainers from CI/reference runs. Until populated with
+# `Instructions:` counts, CI records benchmark execution without numeric regression.
