@@ -169,7 +169,8 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 ## 5. Handoff
 
 - Charter: `docs/agent/e2e-wiring/00-charter.md`.
-- WS1 foundation commit: `<filled after commit>`.
+- WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
+- Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
 - WS2 should start from INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.
