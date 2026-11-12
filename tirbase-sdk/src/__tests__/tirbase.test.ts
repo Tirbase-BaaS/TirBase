@@ -159,7 +159,7 @@ describe('not-initialized guard (Req 2.6)', () => {
   test('manager ops throw TirBaseNotInitializedError before init()', async () => {
     const db = makeUninitializedInstance();
     await expect(
-      db.initiateRevocation({ targetDid: 'did:key:z6Mk', managerToken: 't' }),
+      db.initiateRevocation({ targetDid: 'did:key:z6Mk', managerToken: 't', nowSecs: 0 }),
     ).rejects.toBeInstanceOf(TirBaseNotInitializedError);
     await expect(
       db.revocationStatus({ targetDid: 'did:key:z6Mk' }),
@@ -615,9 +615,13 @@ describe('manager operations', () => {
     mock.initiateRevocationImpl = spy;
 
     const db = await TirBase.init(DEFAULT_CONFIG);
-    await db.initiateRevocation({ targetDid: 'did:key:z6Mk', managerToken: 'tok' });
+    await db.initiateRevocation({
+      targetDid: 'did:key:z6Mk',
+      managerToken: 'tok',
+      nowSecs: 1700000000,
+    });
 
-    expect(spy).toHaveBeenCalledWith('did:key:z6Mk', 'tok');
+    expect(spy).toHaveBeenCalledWith('did:key:z6Mk', 'tok', 1700000000);
   });
 
   test('revocationStatus returns RevocationStatus', async () => {

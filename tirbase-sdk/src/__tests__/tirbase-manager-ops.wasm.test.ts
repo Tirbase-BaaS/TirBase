@@ -97,6 +97,7 @@ async function revocationScene(): Promise<RevocationScene> {
   await manager1.initiateRevocation({
     targetDid: target.localDid,
     managerToken: F.managerTokenHex,
+    nowSecs: nowSecs(),
   });
   await broadcast(manager1, [manager2]);
 
@@ -166,6 +167,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager1.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
 
     const status = await manager1.revocationStatus({
@@ -181,6 +183,48 @@ describe('TirBase SDK — real WASM manager operations', () => {
     expect(manager1.drainOutboundMessages().length).toBeGreaterThan(0);
   });
 
+  test('initiateRevocation rejects untrusted, expired and non-manager tokens', async () => {
+    const [target, manager] = await Promise.all([
+      device('auth-target'),
+      device('auth-manager'),
+    ]);
+
+    // Signed by a CA this deployment does not trust.
+    await expect(
+      manager.initiateRevocation({
+        targetDid: target.localDid,
+        managerToken: F.foreignTokenHex,
+        nowSecs: nowSecs(),
+      }),
+    ).rejects.toThrow(/manager token verification failed/i);
+
+    // Signed by the trusted CA, but valid only for an hour.
+    await expect(
+      manager.initiateRevocation({
+        targetDid: target.localDid,
+        managerToken: F.managerTokenHex,
+        nowSecs: nowSecs() + 7_200,
+      }),
+    ).rejects.toThrow(/manager token verification failed/i);
+
+    // Signed by the trusted CA, but the Auditor role may not revoke.
+    await expect(
+      manager.initiateRevocation({
+        targetDid: target.localDid,
+        managerToken: F.auditorTokenHex,
+        nowSecs: nowSecs(),
+      }),
+    ).rejects.toThrow(/not authorised to initiate revocation/i);
+
+    // No rejected call contributed a signature or gossiped anything.
+    const status = await manager.revocationStatus({
+      targetDid: target.localDid,
+    });
+    expect(status.signaturesCollected).toBe(0);
+    expect(status.status).toBe('PENDING');
+    expect(manager.drainOutboundMessages()).toHaveLength(0);
+  });
+
   test('two manager identities accumulate to the threshold and revoke the target', async () => {
     const { target, manager1, manager2 } = await revocationScene();
 
@@ -193,6 +237,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager2.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
 
     const applied = await manager2.revocationStatus({
@@ -224,6 +269,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager2.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
     // Force a drain of any queued WASM events through the public read path.
     await manager2.query({ table: 'reports' });
@@ -253,6 +299,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager2.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
     await manager2.query({ table: 'reports' });
     expect(created).toHaveLength(2);
@@ -293,6 +340,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager2.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
     await manager2.query({ table: 'reports' });
     expect(created).toHaveLength(2);
@@ -328,6 +376,7 @@ describe('TirBase SDK — real WASM manager operations', () => {
     await manager2.initiateRevocation({
       targetDid: target.localDid,
       managerToken: F.managerTokenHex,
+      nowSecs: nowSecs(),
     });
     await manager2.query({ table: 'reports' });
     const root = created[0].contaminationRoots[0];

@@ -385,7 +385,9 @@ TypeScript → WASM → SQLite → mesh path in CI.
 // Each manager calls this independently; signatures accumulate via mesh gossip
 await db.initiateRevocation({
   targetDid: 'did:key:z6Mk...',
+  // Root-CA-signed, unexpired token with the RevocationManager role.
   managerToken: myBiscuitToken,
+  nowSecs: Math.floor(Date.now() / 1000),
 });
 
 const status = await db.revocationStatus({ targetDid: 'did:key:z6Mk...' });

@@ -643,13 +643,23 @@ export class TirBase {
    *
    * The mesh accumulates signatures until M-of-N threshold is reached
    * (design §Manager Operations — mesh-accumulated signature model).
+   *
+   * `managerToken` (hex) is verified by the core against the deployment root
+   * CA and must carry the `RevocationManager` role; `nowSecs` is the wall
+   * clock used for its expiry check, so an expired token cannot contribute a
+   * signature.
    */
   async initiateRevocation(params: {
     targetDid: string;
     managerToken: string;
+    nowSecs: number;
   }): Promise<void> {
     this._assertInitialized();
-    await this._wasm.initiateRevocation(params.targetDid, params.managerToken);
+    await this._wasm.initiateRevocation(
+      params.targetDid,
+      params.managerToken,
+      params.nowSecs,
+    );
     this._pollWasmEvents();
   }
 

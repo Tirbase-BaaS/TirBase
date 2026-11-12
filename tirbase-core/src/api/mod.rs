@@ -2178,9 +2178,13 @@ impl CoreHandle {
  /// signature for the target DID.
  ///
  /// Mirrors the WASM export's functionality:
- /// 1. `manager_token` and `target_did` must be non-blank (the same gate the
- /// WASM export applies — full Biscuit authorisation of the calling
- /// operator is the caller's responsibility on the native side).
+ /// 1. `manager_token` must be a non-empty, unexpired Biscuit token signed by
+ /// a registered root CA key and carrying the `RevocationManager` role; an
+ /// absent root CA key, a foreign signature, an expired token or any other
+ /// role is rejected before any state changes. The caller-supplied
+ /// `now_secs` is the authoritative wall-clock time for expiry (the same
+ /// convention as [`CoreHandle::verify_contamination`]). `target_did` must
+ /// be non-blank.
  /// 2. Produces a partial `RevocationDelta` signed by this device's identity
  /// (`IdentityManager`) via `RevocationSubsystem::produce_partial_delta`.
  /// 3. Gossips the partial delta at HIGH priority so peer Manager devices
@@ -2198,9 +2202,12 @@ impl CoreHandle {
     pub fn initiate_revocation(
         &self,
         target_did: &str,
-        manager_token: &str,
+        manager_token: &[u8],
+        now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        if manager_token.trim().is_empty() {
+ // Whitespace-only input is as unusable as an empty slice (the WASM export
+ // applies the same gate to its string argument).
+        if manager_token.iter().all(u8::is_ascii_whitespace) {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "manager_token must not be blank".to_string(),
             });
@@ -2208,6 +2215,30 @@ impl CoreHandle {
         if target_did.trim().is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "target_did must not be blank".to_string(),
+            });
+        }
+
+ // Revoking a device is a RevocationManager action: verify the token
+ // offline against the deployment's root CA key and require that role.
+ // This runs before the partial delta is produced, so an unauthorised
+ // caller cannot contribute a signature or gossip one.
+        let root_ca_key = self.root_ca_public_key();
+        if root_ca_key.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "no root CA public key registered; cannot verify manager token".to_string(),
+            });
+        }
+        let claims = crate::auth::biscuit::verify_token(manager_token, &root_ca_key, now_secs)
+            .map_err(|e| TirBaseError::AuthorisationFailed {
+                reason: format!("manager token verification failed: {e}"),
+            })?;
+        if claims.role != "RevocationManager" {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: format!(
+                    "manager token role {:?} is not authorised to initiate revocation \
+                     (requires \"RevocationManager\")",
+                    claims.role
+                ),
             });
         }
 
@@ -5691,6 +5722,34 @@ mod tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
+ /// Mint the credential `initiate_revocation` requires: a root CA key to
+ /// register on the deployment, a `RevocationManager` Biscuit token signed by
+ /// it, and the wall-clock second used for the token-expiry gate.
+    fn revocation_manager_credential() -> ([u8; 32], Vec<u8>, i64) {
+        use crate::identity::file_key_provider::InMemoryKeyProvider;
+        use crate::traits::KeyProvider;
+        let ca = InMemoryKeyProvider::generate().expect("root CA keypair");
+        let token = crate::auth::biscuit::create_token(
+            "did:key:z6MkTestRevocationManager",
+            "RevocationManager",
+            3600,
+            &ca.secret_seed(),
+            false,
+        )
+        .expect("mint RevocationManager token");
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        (
+            ca.public_key_bytes()
+                .try_into()
+                .expect("root CA public key must be 32 bytes"),
+            token,
+            now,
+        )
+    }
+
  // ── CLAIM-5.7: IdentityManager signs through a FileKeyProvider ───────────
  //
  // Two real `CoreHandle` instances each load their identity from a
@@ -6175,7 +6234,7 @@ mod tests {
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let blank_token = handle
-            .initiate_revocation("did:key:z6MkX-target", "  ")
+            .initiate_revocation("did:key:z6MkX-target", b"  ", 0)
             .expect_err("blank manager_token must be rejected");
         assert!(
             blank_token
@@ -6185,7 +6244,7 @@ mod tests {
         );
 
         let blank_target = handle
-            .initiate_revocation("", "manager-token")
+            .initiate_revocation("", b"manager-token", 0)
             .expect_err("blank target_did must be rejected");
         assert!(
             blank_target
@@ -6197,10 +6256,130 @@ mod tests {
         cleanup(&path);
     }
 
+ /// Revocation requires a trusted `RevocationManager` credential: an absent
+ /// root CA, a foreign CA, a wrong role and an expired token must all be
+ /// rejected before anything is signed, gossiped or recorded.
+    #[tokio::test]
+    async fn initiate_revocation_rejects_untrusted_expired_and_wrong_role_tokens() {
+        use crate::identity::file_key_provider::InMemoryKeyProvider;
+        use crate::traits::KeyProvider;
+
+        let path = tmp_path("rev_init_auth");
+        cleanup(&path);
+
+        let target = crate::identity::IdentityManager::init_in_memory()
+            .unwrap()
+            .did()
+            .to_string();
+
+ // 1. No root CA key configured: verification is impossible, so nothing
+ // may be produced.
+        let untrusted_deployment = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init without root CA");
+        let error = untrusted_deployment
+            .initiate_revocation(&target, b"opaque-token", 0)
+            .expect_err("no root CA key must reject any token");
+        assert!(
+            error
+                .to_string()
+                .contains("no root CA public key registered"),
+            "unexpected error: {error}"
+        );
+        cleanup(&path);
+
+ // 2–4. A deployment trusting `trusted_ca`; the malicious variants are
+ // minted against it (or against a CA it does not trust).
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let trusted_ca = InMemoryKeyProvider::generate().expect("trusted CA");
+        let mut trusted_config = make_config(&path);
+        trusted_config.deployment.root_ca_keys = vec![trusted_ca
+            .public_key_bytes()
+            .try_into()
+            .expect("trusted CA public key must be 32 bytes")];
+        let trusted_handle = CoreHandle::init(trusted_config).await.expect("init");
+
+        let foreign_ca = InMemoryKeyProvider::generate().expect("foreign CA");
+        let foreign_token = crate::auth::biscuit::create_token(
+            "did:key:z6MkForeignManager",
+            "RevocationManager",
+            3600,
+            &foreign_ca.secret_seed(),
+            false,
+        )
+        .expect("mint foreign token");
+        let error = trusted_handle
+            .initiate_revocation(&target, &foreign_token, now)
+            .expect_err("token signed by an untrusted CA must be rejected");
+        assert!(
+            error.to_string().contains("manager token verification failed"),
+            "unexpected error: {error}"
+        );
+
+        let wrong_role = crate::auth::biscuit::create_token(
+            "did:key:z6MkAuditor",
+            "Auditor",
+            3600,
+            &trusted_ca.secret_seed(),
+            false,
+        )
+        .expect("mint Auditor token");
+        let error = trusted_handle
+            .initiate_revocation(&target, &wrong_role, now)
+            .expect_err("a non-RevocationManager role must be rejected");
+        assert!(
+            error.to_string().contains("not authorised to initiate revocation"),
+            "unexpected error: {error}"
+        );
+
+        let expired = crate::auth::biscuit::create_token(
+            "did:key:z6MkExpiredManager",
+            "RevocationManager",
+            3600,
+            &trusted_ca.secret_seed(),
+            false,
+        )
+        .expect("mint expiring token");
+        let error = trusted_handle
+            .initiate_revocation(&target, &expired, now + 7200)
+            .expect_err("an expired token must be rejected");
+        assert!(
+            error.to_string().contains("manager token verification failed"),
+            "unexpected error: {error}"
+        );
+
+ // None of the rejected calls may have contributed a signature or gossip.
+        for (label, handle) in [
+            ("no-root-ca", &untrusted_deployment),
+            ("foreign-ca-wrong-role-expired", &trusted_handle),
+        ] {
+            assert!(
+                handle
+                    .revocation
+                    .lock()
+                    .unwrap()
+                    .store_status(&target)
+                    .is_none(),
+                "{label}: a rejected token must not record revocation state"
+            );
+            assert!(
+                !handle.transport.lock().unwrap().has_backlog(),
+                "{label}: a rejected token must not gossip anything"
+            );
+        }
+
+        cleanup(&path);
+    }
+
     #[tokio::test]
     async fn initiate_revocation_1of1_marks_target_revoked_and_gossips_at_high() {
         let path = tmp_path("rev_init_1of1");
         cleanup(&path);
+
+        let (root_ca, manager_token, now) = revocation_manager_credential();
 
  // M=1, N=1 so this Manager's single signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
@@ -6211,7 +6390,7 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
+                root_ca_keys: vec![root_ca],
                 migration_ca_public_key: None,
                 update_signer_public_key: None,
                 schema_version_path: vec![],
@@ -6243,7 +6422,7 @@ mod tests {
 
  // This device (the Manager) initiates the revocation of another device.
         handle
-            .initiate_revocation(&other_did, "manager-token")
+            .initiate_revocation(&other_did, &manager_token, now)
             .expect("initiate_revocation must succeed");
 
  // The complete delta (M=1) is gossiped at HIGH priority (Req 9.1/9.2).
@@ -6291,6 +6470,8 @@ mod tests {
         let path = tmp_path("rev_init_self");
         cleanup(&path);
 
+        let (root_ca, manager_token, now) = revocation_manager_credential();
+
  // M=1, N=1 — a single Manager signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
@@ -6300,7 +6481,7 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
+                root_ca_keys: vec![root_ca],
                 migration_ca_public_key: None,
                 update_signer_public_key: None,
                 schema_version_path: vec![],
@@ -6327,7 +6508,7 @@ mod tests {
 
  // The Manager device initiates a 1-of-1 revocation of ITSELF.
         handle
-            .initiate_revocation(&local_did, "manager-token")
+            .initiate_revocation(&local_did, &manager_token, now)
             .expect("initiate_revocation must succeed");
 
  // Req 8.5: the locally-known REVOKED status must now block all I/O — the
@@ -6364,6 +6545,8 @@ mod tests {
         let path = tmp_path("rev_init_m2");
         cleanup(&path);
 
+        let (root_ca, manager_token, now) = revocation_manager_credential();
+
  // M=2, N=2 — the local contribution stays Pending until a second
  // Manager's signature arrives through the (simulated) mesh.
         let handle = CoreHandle::init(InitConfig {
@@ -6374,7 +6557,7 @@ mod tests {
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
                 extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
+                root_ca_keys: vec![root_ca],
                 migration_ca_public_key: None,
                 update_signer_public_key: None,
                 schema_version_path: vec![],
@@ -6403,7 +6586,7 @@ mod tests {
 
  // This device contributes signature #1 via the native initiate entry.
         handle
-            .initiate_revocation(&target, "manager-token")
+            .initiate_revocation(&target, &manager_token, now)
             .expect("initiate_revocation must succeed");
 
  // Status is Pending (1/2) and the partial delta is gossiped at HIGH.
@@ -6507,6 +6690,8 @@ mod tests {
         let path = tmp_path("rev_dev_status_applied");
         cleanup(&path);
 
+        let (root_ca, manager_token, now) = revocation_manager_credential();
+
  // M=1, N=1 so a single Manager signature applies the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
@@ -6516,7 +6701,7 @@ mod tests {
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
                 extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
+                root_ca_keys: vec![root_ca],
                 migration_ca_public_key: None,
                 update_signer_public_key: None,
                 schema_version_path: vec![],
@@ -6541,7 +6726,7 @@ mod tests {
             .to_string();
 
         handle
-            .initiate_revocation(&other_did, "manager-token")
+            .initiate_revocation(&other_did, &manager_token, now)
             .expect("initiate_revocation must succeed");
 
  // Req 9.5: the last-known TrustLevel is REVOKED and the receipt
@@ -6572,6 +6757,8 @@ mod tests {
         let path = tmp_path("rev_dev_status_pending");
         cleanup(&path);
 
+        let (root_ca, manager_token, now) = revocation_manager_credential();
+
  // M=2, N=2 — the local contribution keeps the revocation Pending.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
@@ -6581,7 +6768,7 @@ mod tests {
                 revocation_n: 2,
                 biscuit_ttl_secs: 3600,
                 extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
+                root_ca_keys: vec![root_ca],
                 migration_ca_public_key: None,
                 update_signer_public_key: None,
                 schema_version_path: vec![],
@@ -6606,7 +6793,7 @@ mod tests {
             .to_string();
 
         handle
-            .initiate_revocation(&target, "manager-token")
+            .initiate_revocation(&target, &manager_token, now)
             .expect("initiate_revocation must succeed");
 
  // The M-of-N accumulation is Pending (1/2)…

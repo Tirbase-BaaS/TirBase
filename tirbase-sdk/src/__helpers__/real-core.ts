@@ -39,6 +39,8 @@ export interface WasmFixtures {
   managerDid: string;
   managerTokenHex: string;
   foreignTokenHex: string;
+  /** Trusted-CA token whose role is `Auditor` (not allowed to revoke). */
+  auditorTokenHex: string;
   disasterAlertTokenHex: string;
   terminationMessage: string;
   terminationMessageHex: string;

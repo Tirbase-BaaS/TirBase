@@ -483,7 +483,7 @@ pub fn tirbase_core::api::CoreHandle::fleet_provision_device(&self, tirbase_core
 pub fn tirbase_core::api::CoreHandle::fleet_revoke_device(&self, &str, &str) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::fleet_snapshot_hash(&self) -> [u8; 32]
 pub async fn tirbase_core::api::CoreHandle::init(tirbase_core::api::InitConfig) -> core::result::Result<alloc::sync::Arc<Self>, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::local_did(&self) -> &str
 pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus

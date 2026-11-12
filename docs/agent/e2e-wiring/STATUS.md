@@ -170,24 +170,25 @@ Scope: `tirbase-sdk/` manager operations and `sdk/typescript/` only. Rows INV-12
 | 6 | Trust-level spelling mismatch (`Unverified` vs `UNVERIFIED`) leaked into the SDK type | `normalizeTrustLevel` at the bridge boundary |
 | 7 | wasm-bindgen rejects with bare strings, breaking the SDK's `Error` contract | every export goes through `call`/`callAsync` → `asCoreError()` (`name: 'TirBaseCoreError'`) |
 | 8 | The `caveat("disaster-alert")` token had no production minting path, so `activate_saturate_mode` was unreachable outside tests | `create_token_with_caveat` keeps production signing, gated on `test`/`test-hooks`; documented as a blocker below |
+| 9 | `initiate_revocation` took a `manager_token` string and never looked at it — any non-blank value authorised a revocation | signature is now `(&self, target_did, manager_token: &[u8], now_secs)`; the token is verified offline against the deployment root CA, expiry is enforced at `now_secs`, and the role must be `RevocationManager` (see §3.2) |
 
 ### Tests added (fail-before / pass-after)
 
 | Suite | File | Cases |
 |-------|------|-------|
-| Real-WASM manager operations | `tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts` | 11 |
+| Real-WASM manager operations | `tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts` | 12 |
 | Real-gateway admin SDK | `sdk/typescript/test/gateway-admin.e2e.test.mjs` | 8 |
 
 Both run against real artefacts: the SDK suite loads a `wasm-pack --target nodejs` build of the same crate/features as the browser bundle (one module copy per simulated device, so each has its own WASM thread-local `CORE`), and the gateway suite boots `target/debug/tirbase-gateway` with the mTLS remote listener and drives `GatewayAdminClient` over real TLS with a client certificate.
 
-Coverage of the manager surface: `initiateRevocation` (partial delta + real outbound frame), two-manager accumulation to the 2-of-3 threshold, contamination incident creation observed by both `pollEvents` and the emitter, `verifyData` root resolution, `adminClose` (archives without certifying), saturate activate/renew/threshold-termination/insufficient-signature rejection, `presentToken` trust transitions + unverified warnings, and `receivePeerMessage` raw-byte peer merge. Gateway coverage: all 19 paths/operation ids, typed success or typed denial for each, `MINT_TTL_EXCEEDED`, anonymous-client handshake rejection.
+Coverage of the manager surface: `initiateRevocation` (partial delta + real outbound frame, plus rejection of untrusted/expired/wrong-role tokens), two-manager accumulation to the 2-of-3 threshold, contamination incident creation observed by both `pollEvents` and the emitter, `verifyData` root resolution, `adminClose` (archives without certifying), saturate activate/renew/threshold-termination/insufficient-signature rejection, `presentToken` trust transitions + unverified warnings, and `receivePeerMessage` raw-byte peer merge. Gateway coverage: all 19 paths/operation ids, typed success or typed denial for each, `MINT_TTL_EXCEEDED`, anonymous-client handshake rejection.
 
 ### Commands and results (this machine)
 
 | Command | Result |
 |---------|--------|
-| `cd tirbase-sdk && npx jest` | **101 passed / 101**, 3 suites (was 90/90 before; +11 real-WASM manager tests) |
-| `cargo test -p tirbase-core --features native` | **718 lib passed / 0 failed** + all integration suites |
+| `cd tirbase-sdk && npx jest` | **102 passed / 102**, 3 suites (was 90/90 before; +12 real-WASM manager tests) |
+| `cargo test -p tirbase-core --features native` | **719 lib passed / 0 failed** + all integration suites |
 | `cargo test -p tirbase-core --features native --lib tests::api_parity` | **6 passed** (parser now also reads `call('core_*')`/`callAsync('core_*')`) |
 | `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
 | `cd sdk/typescript && npm test` | **8 passed / 8** (builds the TS SDK, runs the e2e) |
@@ -206,7 +207,7 @@ Coverage of the manager surface: `initiateRevocation` (partial delta + real outb
 ### Blockers / still-open items (do not mark wired)
 
 1. **DISASTER_ALERT token issuance has no operator-facing surface.** `activate_saturate_mode` requires a root-CA-signed `caveat("disaster-alert")` token, but neither `biscuit::create_token` nor the gateway `mint` endpoint can produce one (mint hard-codes the role → fact mapping and has no caveat field). The e2e mints it with the same production signing code under `test-hooks`. Closing this needs an admin/manager issuance path — a product/API decision, not wiring.
-2. **`initiate_revocation` does not verify the manager token** (it only rejects an empty string). The e2e proves the partial delta and gossip, and that `verify_data`/`admin_close_ico` reject foreign/expired tokens, but the initiation call itself is not authenticated. Flagged for the security owner.
+2. ~~`initiate_revocation` does not verify the manager token~~ — **fixed** in §3.2: the token is verified against the root CA, expiry-checked and role-checked (`RevocationManager`) before any signature is produced or gossiped.
 3. **Signed admin operations are exercised to their auth gate, not through it.** `enroll`/`policy`/`lockdown-exit`/`chain-recovery`/`sequence-reset`/`lease-preempt`/`quarantine-replay`/`time-reset`/`unknown-clear`/`restore`/`epoch-bump` require PolicyAuthority or M-of-3 TimeAnchor `SignedOperation` bodies. Re-implementing the guard's canonical encoding in JavaScript would create a second security-critical implementation, so the TS test asserts the typed answer (never 404/501/silent skip) and the signed success paths stay covered by `tirbase-gateway/tests/admin_endpoints_binary.rs`.
 4. **`sdk/typescript` mTLS uses a custom `fetchImpl`.** The generated client only needs `ok`/`status`/`json()`; the test provides an `https` adapter with a client certificate. Node's global `fetch` cannot present client certificates, so remote admin from a browser/undici client remains unsupported.
 
@@ -217,6 +218,35 @@ Coverage of the manager surface: `initiateRevocation` (partial delta + real outb
 - Gateway: `examples/admin_e2e_setup.rs`; `sdk/typescript/package.json`, `sdk/typescript/test/gateway-admin.e2e.test.mjs`; `scripts/generate-gateway-sdk.mjs`, `sdk/typescript/generation-manifest.json`; `.github/workflows/ci.yml`, `.gitignore`.
 
 Commit for this workstream: the commit that adds this section (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
+### 3.2 Follow-up — `initiate_revocation` now verifies its credential
+
+`CoreHandle::initiate_revocation` used to require only a non-blank token string; the value was never parsed,
+so any caller could contribute a Manager signature and gossip one. It now takes
+`(target_did: &str, manager_token: &[u8], now_secs: i64)` and, before producing anything:
+
+1. rejects an all-whitespace/empty token (`manager_token must not be blank`),
+2. rejects a blank `target_did`,
+3. fails closed when no root CA public key is registered,
+4. verifies the Biscuit token offline against that key at `now_secs` (a foreign CA or an expired token →
+   `manager token verification failed: …`),
+5. requires `claims.role == "RevocationManager"` (`… is not authorised to initiate revocation`).
+
+The WASM export `core_initiate_revocation(target_did, manager_token_hex, now_secs)` hex-decodes the token and
+delegates, and the SDK passes `nowSecs` alongside `managerToken` (the same explicit-clock convention
+`verifyData`/`adminClose` already use). A rejected call leaves no state: no partial delta is signed, nothing is
+enqueued on the transport, and `revocationStatus` stays `PENDING` with zero signatures.
+
+| Evidence | Result |
+|----------|--------|
+| `cargo test -p tirbase-core --features native --lib initiate_revocation` | **5 passed** (blank inputs, 1-of-1, self-revocation, partial+second signature, and the new `initiate_revocation_rejects_untrusted_expired_and_wrong_role_tokens`) |
+| `npm run build:wasm:test && npx jest src/__tests__/tirbase-manager-ops.wasm.test.ts` | **12 passed**, including `initiateRevocation rejects untrusted, expired and non-manager tokens` through the real WASM export |
+| `cargo test -p tirbase-core --features native` | **719 lib passed / 0 failed** + all integration suites |
+| `cargo test … tests::api_parity` | 6 passed |
+| `cargo +nightly public-api -p tirbase-core` | signature line updated in `public-api.txt` / `wasm-public-api.txt` |
+
+The fixture generator additionally emits `auditorTokenHex` (trusted-CA token with the wrong role) so the SDK
+suite can prove the role gate end to end.
 
 ## 4. Blockers / limits of this workstream
 
@@ -235,9 +265,9 @@ Commit for this workstream: the commit that adds this section (`git log -1 --for
 - Charter: `docs/agent/e2e-wiring/00-charter.md`.
 - WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
 - Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
-- WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence, CI jobs and the four items it leaves open
-  (DISASTER_ALERT issuance surface, unauthenticated `initiate_revocation`, signed admin operations proven to the auth
-  gate, and no mTLS-capable browser `fetch`).
+- WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence, CI jobs and the items it leaves open
+  (DISASTER_ALERT issuance surface, signed admin operations proven to the auth gate, and no mTLS-capable browser
+  `fetch`). §3.2 records the follow-up that authenticated `initiate_revocation`.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

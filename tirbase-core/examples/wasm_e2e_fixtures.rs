@@ -18,6 +18,7 @@
 //! * `managerTokenHex` — a valid `RevocationManager` token from the root CA.
 //! * `foreignTokenHex` — a valid token minted by a *different* CA (rejection
 //!   fixture: the deployment does not trust that key).
+//! * `auditorTokenHex` — a trusted-CA token with the wrong role (`Auditor`).
 //! * `disasterAlertTokenHex` — a token carrying `caveat("disaster-alert")`.
 //! * `coManagers` — two independent Manager identities and their Ed25519
 //!   signatures over `terminationMessage`.
@@ -53,6 +54,17 @@ fn main() {
     )
     .expect("mint foreign token");
 
+    // Signed by the trusted CA but carrying the wrong role: revocation
+    // initiation must reject it even though the signature is valid.
+    let auditor_token = biscuit::create_token(
+        "did:key:z6MkAuditor",
+        "Auditor",
+        3600,
+        &ca.secret_seed(),
+        false,
+    )
+    .expect("mint auditor token");
+
     let disaster_alert_token = biscuit::create_token_with_caveat(
         manager.did(),
         "PolicyAuthority",
@@ -79,6 +91,7 @@ fn main() {
         "managerDid": manager.did(),
         "managerTokenHex": hex::encode(&manager_token),
         "foreignTokenHex": hex::encode(&foreign_token),
+        "auditorTokenHex": hex::encode(&auditor_token),
         "disasterAlertTokenHex": hex::encode(&disaster_alert_token),
         "terminationMessage": String::from_utf8_lossy(TERMINATION_MESSAGE),
         "terminationMessageHex": hex::encode(TERMINATION_MESSAGE),

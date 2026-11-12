@@ -82,8 +82,18 @@ export interface WasmCore {
 
   // ── Manager operations ────────────────────────────────────────────────────
 
-  /** Gossip a partial RevocationDelta for the target DID. */
-  initiateRevocation(targetDid: string, managerToken: string): Promise<void>;
+  /**
+   * Gossip a partial RevocationDelta for the target DID.
+   *
+   * `managerToken` is a hex-encoded Biscuit token; the core verifies it
+   * against the deployment root CA, rejects expiry as of `nowSecs`, and
+   * requires the `RevocationManager` role.
+   */
+  initiateRevocation(
+    targetDid: string,
+    managerToken: string,
+    nowSecs: number,
+  ): Promise<void>;
 
   /** Return the current accumulation state for a pending revocation. */
   revocationStatus(targetDid: string): Promise<RevocationStatus>;
@@ -341,8 +351,13 @@ export function buildBridgeFromWasmModule(mod: Record<string, unknown>): WasmCor
     meshStatus: () => call('core_mesh_status') as MeshStatus,
     core_present_token: (token) =>
       callAsync('core_present_token', token) as Promise<TrustLevel>,
-    initiateRevocation: (targetDid, managerToken) =>
-      callAsync('core_initiate_revocation', targetDid, managerToken) as Promise<void>,
+    initiateRevocation: (targetDid, managerToken, nowSecs) =>
+      callAsync(
+        'core_initiate_revocation',
+        targetDid,
+        managerToken,
+        BigInt(nowSecs),
+      ) as Promise<void>,
     revocationStatus: (targetDid) =>
       callAsync('core_revocation_status', targetDid) as Promise<RevocationStatus>,
     // wasm-bindgen represents Rust `i64` as JavaScript `BigInt`; passing a
@@ -430,6 +445,7 @@ export class MockWasmCore implements WasmCore {
   initiateRevocationImpl: (
     targetDid: string,
     managerToken: string,
+    nowSecs: number,
   ) => Promise<void> = async () => undefined;
 
   revocationStatusImpl: (targetDid: string) => Promise<RevocationStatus> =
@@ -503,8 +519,12 @@ export class MockWasmCore implements WasmCore {
     return this.corePresentTokenImpl(token);
   }
 
-  initiateRevocation(targetDid: string, managerToken: string): Promise<void> {
-    return this.initiateRevocationImpl(targetDid, managerToken);
+  initiateRevocation(
+    targetDid: string,
+    managerToken: string,
+    nowSecs: number,
+  ): Promise<void> {
+    return this.initiateRevocationImpl(targetDid, managerToken, nowSecs);
   }
 
   revocationStatus(targetDid: string): Promise<RevocationStatus> {

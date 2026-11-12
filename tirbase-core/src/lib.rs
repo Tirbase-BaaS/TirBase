@@ -608,29 +608,35 @@ mod wasm_exports {
 
  /// Gossip a partial RevocationDelta for the target DID (Req 9.1).
  ///
- /// Delegates to [`api::CoreHandle::initiate_revocation`] so the WASM export
- /// and the native entry point share one implementation (Subphase 2.4). On
- /// WASM the produced partial delta is accumulated locally (and, at M=1,
- /// applies the local REVOKED side effects); the JS transport layer handles
- /// any peer messaging.
+ /// `manager_token_hex` is the hex-encoded Biscuit token of the operator
+ /// initiating the revocation. It must be signed by a registered root CA key,
+ /// unexpired as of the caller-supplied `now_secs`, and carry the
+ /// `RevocationManager` role — the same verification
+ /// [`api::CoreHandle::initiate_revocation`] performs, which both build
+ /// targets share (Subphase 2.4). On WASM the produced partial delta is
+ /// accumulated locally (and, at M=1, applies the local REVOKED side
+ /// effects); the JS transport layer handles any peer messaging.
     #[wasm_bindgen]
     pub async fn core_initiate_revocation(
         target_did: String,
-        manager_token: String,
+        manager_token_hex: String,
+        now_secs: i64,
     ) -> Result<(), JsValue> {
-        if manager_token.trim().is_empty() {
+        if manager_token_hex.trim().is_empty() {
             return Err(to_js_err("manager_token must not be blank"));
         }
         if target_did.trim().is_empty() {
             return Err(to_js_err("target_did must not be blank"));
         }
+        let token_bytes = hex::decode(&manager_token_hex)
+            .map_err(|e| to_js_err(format!("manager_token: invalid hex: {e}")))?;
         CORE.with(|c| {
             let borrow = c.borrow();
             let handle = borrow
                 .as_ref()
                 .ok_or_else(|| to_js_err("core_init() must be called first"))?;
             handle
-                .initiate_revocation(&target_did, &manager_token)
+                .initiate_revocation(&target_did, &token_bytes, now_secs)
                 .map_err(to_js_err)?;
             Ok(())
         })

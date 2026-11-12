@@ -82,7 +82,11 @@ db.on('durability-tier-changed', (e) => console.log('Durability:', e.newTier));
 ## Manager Operations
 
 ```typescript
-await db.initiateRevocation({ targetDid: 'did:key:...', managerToken: myToken });
+await db.initiateRevocation({
+  targetDid: 'did:key:...',
+  managerToken: myToken, // root-CA-signed, unexpired, `RevocationManager` role
+  nowSecs: Math.floor(Date.now() / 1000),
+});
 // Req 9.1–9.4 accumulation state + Req 9.5 last-known device status:
 // { signaturesCollected, signaturesRequired, status,
 //   lastKnownTrustLevel, lastRevocationDeltaReceivedAt }
