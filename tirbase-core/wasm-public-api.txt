@@ -485,6 +485,7 @@ pub fn tirbase_core::api::CoreHandle::fleet_snapshot_hash(&self) -> [u8; 32]
 pub async fn tirbase_core::api::CoreHandle::init(tirbase_core::api::InitConfig) -> core::result::Result<alloc::sync::Arc<Self>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::local_did(&self) -> &str
+pub fn tirbase_core::api::CoreHandle::local_spatial_tag(&self) -> core::option::Option<alloc::string::String>
 pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
@@ -502,6 +503,7 @@ pub fn tirbase_core::api::CoreHandle::root_ca_public_key(&self) -> alloc::vec::V
 pub fn tirbase_core::api::CoreHandle::set_challenge_handler(&self, alloc::sync::Arc<dyn tirbase_core::transport::challenge::MeshChallengeHandler>)
 pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
 pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::set_local_spatial_tag(&self, core::option::Option<alloc::string::String>)
 pub fn tirbase_core::api::CoreHandle::subscribe_checkpoint_observations(&self) -> tokio::sync::broadcast::Receiver<(alloc::string::String, u64, [u8; 32], i64)>
 pub fn tirbase_core::api::CoreHandle::subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::diagnostics::DiagnosticEntry>
 pub fn tirbase_core::api::CoreHandle::subscribe_durability_events(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::api::DurabilityTierChanged>

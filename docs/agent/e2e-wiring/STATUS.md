@@ -1,6 +1,6 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1–2 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK)
+**Workstream:** 1–3 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity)
 **Branch:** `main`
 **Baseline HEAD:** `5bea300`
 **Last updated:** 2026-11-12
@@ -78,7 +78,7 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-15 | Contamination forward trace identifies tainted devices (L260/262) | `contamination` → `verify_contamination` | `under-proven` | composite-incident + revocation mesh tests exist; no revoked-author → CCE tag e2e | 6 | — |
 | INV-16 | Sidecar replay after corrected migration, tagged on success (L279) | `migration::SideCarLedger::replay_sidecar` | `under-proven` | `sidecar.rs` unit tests + property 22; not exercised through a production migration run | 6 | — |
 | INV-17 | Replay conflicts flagged for manual resolution without abort (L286) | `migration/sidecar.rs` conflict counting | `under-proven` | `replay_with_conflicts_does_not_append_replay_complete_tag`; flag not surfaced through API | 6 | — |
-| INV-18 | Tier-1 durability from a live quorum of two devices (L298) | `durability` receipt exchange ← `receive_inbound` | `wired` | `api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange` | 1 | — |
+| INV-18 | Tier-1 durability from a live quorum of two devices (L298) | `durability` receipt exchange ← `receive_inbound` | `wired` | `api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`; WS3 adds a 3-of-4 real-mesh quorum (`three_peers_reach_tier1_via_genuine_receipt_exchange`, §3.6) | 1/3 | WS3 |
 | INV-19 | Tier-1 compaction with refetch from Tier-2 on miss (L316/318) | `crdt::maybe_compact`, `store/compaction.rs` | `under-proven` | compaction applies; no test drives a Tier-1 refetch after compaction | 4 | — |
 | INV-20 | Outbound queue capacity 100,000 writes (L377) | `durability` outbound queue | `under-proven` | capacity constant asserted; no load test | 4 | — |
 | INV-21 | Saturate renewal, expiry auto-demote, M-of-N termination (L406) | `saturate` ← `activate/renew/terminate_saturate_mode` | `wired` | `api::tests::saturate_runtime_lease_expiry_auto_demotes_without_renewal`, Subphase 3.2/3.4 suites | 1 | — |
@@ -110,7 +110,7 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | ID | Annotation | Current state | Evidence | WS |
 |----|------------|---------------|----------|----|
 | INV-39 | Property 2 `PARTIAL` (cross-device acceptance, not final state) | `stale-docs` for LWW, `under-proven` for commutativity | LWW now proven over two Swarms (INV-05); final-state commutativity still unproven | 2 |
-| INV-40 | Property 14 `PARTIAL` (Tier-1 only single device) | `stale-docs` | `two_devices_reach_tier1_durability_via_genuine_receipt_exchange` | 1 |
+| INV-40 | Property 14 `PARTIAL` (Tier-1 only single device) | `stale-docs` | `two_devices_reach_tier1_durability_via_genuine_receipt_exchange`; `three_peers_reach_tier1_via_genuine_receipt_exchange` (K=3 over 4 real Swarms) and the negative quorum/diversity suite in §3.6 | 1/3 | WS3 |
 | INV-41 | Item 7 `PARTIAL` (projection gap over real mesh) | `stale-docs` (closed by WS1) | `json_envelope_delta_over_real_mesh_projects_to_peer_store` + existing binary projection test | 1 |
 | INV-42 | Cross-Device Mesh `PARTIAL` | `stale-docs` (partly) | Delta projection, Tier-1 and MTU now real; revocation/migration/cloud over the wire remain (WS3/WS4/WS6) | 1 |
 | INV-43 | Single-process harness limitation note | `under-proven` | each test uses one process with two Swarms; no cross-process/multi-host run | 3 |
@@ -120,7 +120,7 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | ID | Gap | Current state | WS |
 |----|-----|---------------|----|
 | INV-44 | Property 1: no shared cross-build harness | `stale-docs` — WS1 now provides a real-WASM Node harness and a real-mesh harness; the shared vector run is still missing | 2 |
-| INV-45 | Properties 5/14: Tier-1 quorum only single-device | `stale-docs` (INV-18 / INV-40) | 1 |
+| INV-45 | Properties 5/14: Tier-1 quorum only single-device | `stale-docs` — live K-of-N across networked peers now proven in §3.6 (single-process loopback; see its limits). The gap comment stays in `properties.rs` for WS8 | 3 |
 | INV-46 | Property 20: runtime saturate expiry not exercised in engine | `stale-docs` (INV-21) | 1 |
 | INV-47 | Properties 2/3/4: multi-device commutativity / RGA | `under-proven` (2) / `genuinely-unwired` (3–4) | 2 |
 
@@ -315,6 +315,75 @@ M-of-N deployment config (2-of-3) applied. No mock, no `test-hooks`, no injected
 | `cd tirbase-sdk && npx jest src/__tests__/saturate-issuance.gateway.test.ts` | **1 passed** (~25 s: fixtures, setup example, gateway boot, mint, activate, renew) |
 | `cd tirbase-sdk && npx jest` | **103 passed / 103**, 4 suites |
 | `.github/workflows/ci.yml` | the `test` job builds `tirbase-gateway` explicitly before the SDK suite, so the binary requirement is a named step |
+
+## 3.6 WS3 — Live K-of-N quorum + spatial diversity over real meshes (PROMPT 3 of 8)
+
+Scope: `tirbase-core/src/durability/{quorum,spatial,receipt,mod,cloud_queue}.rs`, the
+receipt/quorum path in `src/api/mod.rs`, and the real-mesh tests. Rows INV-18/INV-40/INV-45.
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | Every receipt a real device issued carried `spatial_tag: None` (the issue path hard-coded it), so `SpatialDiversityTracker` always saw zero distinct tags and `satisfies_diversity` always took the Req 14.5 flat-K-of-N fallback. Spatial diversity could not be enforced, let alone proven, over a real mesh. | Devices now declare their squad/tunnel_sector: `CoreHandle::set_local_spatial_tag` (deployment provisioning on both targets), and `issue_durability_receipt` stamps the configured tag onto every receipt. Blank tags normalise to `None` (untagged). |
+| 2 | A validated revocation did not touch the durability subsystem: a REVOKED device's receipts already counted toward Quorum kept counting, and new ones were accepted — the quorum path had no revocation check at all. | `DurabilitySubsystem::mark_issuer_revoked` records the DID, withdraws every receipt it contributed (`Tier1QuorumTracker::remove_issuer`, which also rebuilds the diversity tallies) and drops it from cloud-queue re-fetch holder lists. `receive_receipt` rejects any later receipt from that issuer with `AuthorisationFailed`. Wired from the native **and** WASM inbound `RevocationDelta` `Applied` arms and from `initiate_revocation`'s applied branch. |
+| 3 | The mesh harness had no way to configure quorum K/N, diversity, revocation thresholds, schema or a device's sector — every test ran K=1/N=1. | `mesh_harness::{mesh_deployment, mesh_config_with, init_mesh_handle_with_deployment, connect_peers_until}`. |
+
+### Tests added (all real Swarms, loopback, production inbound drain)
+
+| Test (`api::real_mesh_tests::…`) | Swarms | Proves |
+|---|---|---|
+| `three_peers_reach_tier1_via_genuine_receipt_exchange` | 4 | Writer + 3 peers, K=3, `spatial_diversity_min=2`, cap 0.6. Each peer merges the Delta over the wire, issues its own Ed25519 receipt with its configured sector tag; all three verify against the issuer's real key; writer reaches Tier-1 through `receive_inbound → register_peer_key → verify_receipt → Tier1QuorumTracker`; the `DurabilityTierChanged(Uncommitted → Tier1)` event fires on the production broadcast channel. |
+| `k_minus_one_genuine_receipts_do_not_reach_tier1` | 3 | K=3 with only two genuine receipts stays `Uncommitted` for the whole 2 s bounded window. |
+| `insufficient_spatial_diversity_blocks_tier1_until_diluted` | 5 | K=3, min=2, cap 0.5: three receipts with a 2-of-3 sector majority (66.7%) are blocked; a fourth peer in a third sector is handed the Delta over the production fragmented outbound path, its genuine receipt dilutes sector-a to 50%, and Tier-1 then forms — which also proves the blocked receipts were received and counted. |
+| `same_sector_receipts_never_form_tier1` | 4 | Three peers all declaring `sector-x` (100% of receipts, cap 50%) never form Tier-1 despite K genuine receipts. |
+| `tampered_wrong_hash_unknown_and_duplicate_receipts_do_not_count` | 3 | Adversarial receipts published through the production `MeshTransport::send_receipt` framing: (a) corrupted signature, (b) valid signature over a different state hash, (c) receipt naming an unresolvable `did:web:` issuer, (d) duplicate of the same genuine receipt. The Delta is written before the peers connect, so only these crafted receipts exist. Two genuine receipts then form K=2; if any negative had counted, the duplicate would have completed K early and the final Tier-1 assertion would be unreachable. |
+| `revocation_mid_quorum_withdraws_the_revoked_receipt` | 5 | K=3. B and C are the only connected peers at write time, so two receipts are counted. A 1-of-1 `initiate_revocation` of C applies (root-CA-verified `RevocationManager` token, `device_revocation_status` reports REVOKED) and withdraws C's receipt. D then joins and genuinely attests the Delta: B+D = 2 < K=3 stays `Uncommitted` (if the withdrawal had not happened it would be 3 and Tier-1). E's genuine receipt then completes the quorum from three honest holders. |
+| `tier1_then_compaction_refetch_and_cloud_sync_reach_tier2` | 3 | K=2 with an `Aggressive { threshold: 1 }` schema so the second write compacts; both Deltas reach Tier-1 via genuine receipts, one production `run_cloud_sync_cycle` re-fetches the compacted entry and reaches Tier-2 (`acknowledged=2, deferred=0, rejected=0`, queue drained, ledger committed), and the receipt holder still holds the Delta and its row. |
+| `durability::tests::revoked_issuer_receipt_is_rejected_and_withdrawn` | unit | Revocation withdraws a counted receipt and subsequent receipts from that issuer return `AuthorisationFailed`. |
+| `durability::quorum::tests::{remove_issuer_withdraws_its_receipt_and_diversity_contribution, removing_a_pre_quorum_receipt_prevents_tier1}` | unit | Removal decrements the receipt count, drops the withdrawn issuer's tag from the diversity tallies, and a removed receipt no longer contributes to K. |
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cargo test -p tirbase-core --features native` | **729 lib passed / 0 failed** + every integration suite passes (8/1/2/5/1/2 …) |
+| `cargo test -p tirbase-core --features native --lib api::real_mesh_tests` | **19 passed / 0 failed** (12 pre-existing + 7 new) |
+| `cargo test -p tirbase-core --features native --lib durability::` | **90 passed / 0 failed** |
+| `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
+| `cargo clippy -p tirbase-core --features native --lib` | no new warnings (pre-existing doc-list/dead-code warnings only) |
+| `cargo +nightly public-api -p tirbase-core` | two approved additions (`local_spatial_tag`, `set_local_spatial_tag`), manifests updated |
+
+### Honest limits (do not overclaim)
+
+1. **Self-declared sectors, not attested location.** The receipts used here are labelled by
+   `set_local_spatial_tag`, a self-declared squad/tunnel_sector string. `Anchor_Attested_Location`'s
+   beacon mode is **not** exercised by these tests, and nothing here proves beacon-attested
+   location; an adversary can still lie about its sector. The existing anchor unit tests
+   (`durability::tests::anchor_mode_*`) remain the only coverage of the beacon path.
+2. **No receipt expiry.** `DurabilityReceipt` has no TTL or expiry field, so an "expired" receipt
+   is not representable and no expiry enforcement is claimed. The prompt's expired/**revoked**
+   issuer case is proven for the revoked half only.
+3. **Single process.** Every device is an in-process `CoreHandle` with a real Swarm over
+   loopback; cross-host behaviour is still INV-43 (WS3's multi-process variant).
+4. **Re-fetch source is the local DAG.** The production `run_cloud_sync_cycle` re-fetch callback
+   resolves compacted bytes from the writer's own DAG; there is no peer-to-peer Delta fetch
+   protocol. The test proves the compacted Delta still reaches Tier-2 and that the receipt holder
+   independently retains the Delta — not that the writer fetches it from that holder over the wire.
+5. **Tier-1 is sticky.** Withdrawing a revoked holder's receipt does not demote a Delta that had
+   already reached Tier-1; the negative case proven is revocation *mid-quorum*.
+6. **`properties.rs` gap text untouched.** The Property 5 / Property 14 gap comments still say
+   live K-of-N is deferred; WS8 owns that reconciliation.
+
+### Files
+
+- Core: `src/durability/quorum.rs`, `src/durability/spatial.rs` (no code change; documentation
+  of the fallback clarified by the new tests), `src/durability/receipt.rs` (no code change),
+  `src/durability/mod.rs`, `src/durability/cloud_queue.rs`, `src/api/mesh_harness.rs`,
+  `src/api/mod.rs`, `src/tests/api_parity.rs`, `public-api.txt`, `wasm-public-api.txt`.
+
+Commit for this workstream: the commit that adds this section
+(`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
 
 ## 4. Blockers / limits of this workstream
 

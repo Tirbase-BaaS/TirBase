@@ -168,6 +168,18 @@ impl CloudOutboundQueue {
         }
     }
 
+ /// Drop a revoked peer from every entry's re-fetch holder list.
+ ///
+ /// Production caller: `DurabilitySubsystem::mark_issuer_revoked` — a
+ /// revoked device must not be selected as the source for re-fetching a
+ /// compacted Delta (Req 16.8), the same trust rule that stops its receipts
+ /// counting toward Quorum (Req 14.6).
+    pub fn remove_receipt_holder(&mut self, holder_did: &Did) {
+        for entry in self.queue.iter_mut() {
+            entry.receipt_holders.retain(|h| h != holder_did);
+        }
+    }
+
  /// Current queue depth.
     pub fn depth(&self) -> usize {
         self.queue.len()

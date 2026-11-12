@@ -40,7 +40,7 @@ use anchor::{AnchorAttestedLocation, AnchorMode};
 use cloud_queue::{CloudOutboundQueue, QueueEntry};
 use quorum::{QuorumConfig, Tier1QuorumTracker};
 use receipt::{verify_receipt, DurabilityReceipt};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 // ─── Tier record ──────────────────────────────────────────────────────────────
 
@@ -103,6 +103,13 @@ pub struct DurabilitySubsystem {
  /// loss, Req 15.4) means receipts are counted by their declared squad tag,
  /// the historical behaviour.
     anchor: Option<AnchorAttestedLocation>,
+ /// Issuer DIDs that must never count toward Quorum (Req 8.6, 14.6):
+ /// a device whose revocation has been validated locally. Receipts from
+ /// such an issuer are rejected on arrival, and any receipt it already
+ /// contributed is withdrawn from the per-Delta quorum tracker
+ /// ([`Tier1QuorumTracker::remove_issuer`]) so a revocation arriving
+ /// mid-quorum cannot let the revoked device complete K.
+    revoked_issuers: HashSet<Did>,
  /// Cloud outbound queue (capped at 100,000 entries — Req 16.6).
     cloud_queue: CloudOutboundQueue,
  /// Optional application-layer listener invoked when a Delta's durability
@@ -147,6 +154,7 @@ impl DurabilitySubsystem {
             quorum_config,
             states: BTreeMap::new(),
             anchor,
+            revoked_issuers: HashSet::new(),
             cloud_queue: CloudOutboundQueue::new(),
             tier_changed_listener: None,
         }
@@ -296,6 +304,20 @@ impl DurabilitySubsystem {
         receipt: DurabilityReceipt,
         delta_id: &DeltaId,
     ) -> Result<bool, TirBaseError> {
+ // A revoked device cannot attest durability (Req 8.6, 14.6). This gate
+ // is checked before the quorum tracker so a receipt that arrives after
+ // the revocation is never counted, and it is enforced at receipt time
+ // (not only at Delta-merge time) because a receipt carries no Delta.
+        if self.revoked_issuers.contains(&receipt.issuer_did) {
+            let reason = format!(
+                "issuer {} is REVOKED; receipt not counted toward Quorum (delta {})",
+                receipt.issuer_did,
+                hex::encode(delta_id)
+            );
+            eprintln!("[durability] receipt rejected: {reason}");
+            return Err(TirBaseError::AuthorisationFailed { reason });
+        }
+
         let state = match self.states.get_mut(delta_id) {
             Some(s) => s,
             None => {
@@ -396,6 +418,38 @@ impl DurabilitySubsystem {
         self.cloud_queue.add_receipt_holder(delta_id, issuer_did);
 
         Ok(false)
+    }
+
+ /// Record that `issuer_did` has been revoked locally (Req 8.6, 14.6).
+ ///
+ /// Production callers: the native and WASM inbound `RevocationDelta` arms
+ /// of `CoreHandle` (on `RevocationStatus::Applied`) and
+ /// `CoreHandle::initiate_revocation` when its own contribution completes
+ /// the M-of-N threshold. After this call every receipt the issuer already
+ /// contributed is withdrawn from its Delta's quorum tracker, and every
+ /// future receipt it sends is rejected in [`Self::receive_receipt`].
+ ///
+ /// Returns the number of counted receipts that were withdrawn.
+    pub(crate) fn mark_issuer_revoked(&mut self, issuer_did: &Did) -> usize {
+        if !self.revoked_issuers.insert(issuer_did.clone()) {
+ // Already known revoked: the tracker was purged the first time, but
+ // a receipt could not have re-entered it (receive_receipt rejects),
+ // so there is nothing to withdraw.
+            self.cloud_queue.remove_receipt_holder(issuer_did);
+            return 0;
+        }
+
+        let mut withdrawn = 0;
+        for state in self.states.values_mut() {
+            if state.quorum.remove_issuer(issuer_did) {
+                withdrawn += 1;
+            }
+        }
+        self.cloud_queue.remove_receipt_holder(issuer_did);
+        eprintln!(
+            "[durability] issuer {issuer_did} REVOKED: {withdrawn} counted receipt(s) withdrawn from Quorum"
+        );
+        withdrawn
     }
 
  // ─── Tier-2 ───────────────────────────────────────────────────────────────
@@ -1091,5 +1145,48 @@ mod tests {
             "squad-tag fallback must reach Tier-1 without beacon tokens (Req 15.4)"
         );
         assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Tier1);
+    }
+
+ // ── Revoked issuer — receipt rejected and withdrawn (Req 8.6, 14.6) ──────
+
+    #[test]
+    fn revoked_issuer_receipt_is_rejected_and_withdrawn() {
+        let delta_id = [0x91; 32];
+        let state_hash = [0x92; 32];
+
+        let (s1, p1) = generate_keypair().unwrap();
+        let (s2, p2) = generate_keypair().unwrap();
+        let mut peers = BTreeMap::new();
+        peers.insert("did:key:rev1".to_string(), p1);
+        peers.insert("did:key:rev2".to_string(), p2);
+
+        let mut sys = DurabilitySubsystem::new(make_quorum_k2());
+        sys.register_delta(delta_id, state_hash, vec![], vec![], peers)
+            .unwrap();
+
+ // rev1's receipt is counted (1 of K=2) before any revocation is known.
+        let r1 = make_signed_receipt(state_hash, &s1, "did:key:rev1", Some("sq-a"));
+        assert!(!sys.receive_receipt(r1, &delta_id).unwrap());
+
+ // Revoking rev1 withdraws that counted receipt.
+        assert_eq!(sys.mark_issuer_revoked(&"did:key:rev1".to_string()), 1);
+
+ // A receipt rev1 sends after the revocation is rejected outright.
+        let late = make_signed_receipt(state_hash, &s1, "did:key:rev1", Some("sq-a"));
+        assert!(
+            matches!(
+                sys.receive_receipt(late, &delta_id),
+                Err(TirBaseError::AuthorisationFailed { .. })
+            ),
+            "a revoked issuer must not contribute to Quorum"
+        );
+
+ // Only rev2 remains: 1 receipt is short of K=2, so no Tier-1.
+        let r2 = make_signed_receipt(state_hash, &s2, "did:key:rev2", Some("sq-b"));
+        assert!(!sys.receive_receipt(r2, &delta_id).unwrap());
+        assert_eq!(sys.durability_tier(&delta_id), DurabilityTier::Uncommitted);
+
+ // Revoking an issuer that never contributed is a no-op.
+        assert_eq!(sys.mark_issuer_revoked(&"did:key:never".to_string()), 0);
     }
 }

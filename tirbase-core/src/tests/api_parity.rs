@@ -207,6 +207,14 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
         "inject_inbound",
         "native-only test injection path, not part of the SDK surface",
     ),
+    (
+        "set_local_spatial_tag",
+        "deployment provisioning of the Spatial_Diversity label; no SDK call site",
+    ),
+    (
+        "local_spatial_tag",
+        "deployment provisioning getter; no SDK call site",
+    ),
 ];
 
 // ─── Source parsers ───────────────────────────────────────────────────────────

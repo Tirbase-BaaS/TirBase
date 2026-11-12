@@ -301,6 +301,17 @@ pub struct CoreHandle {
  /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
 
+ /// Spatial_Diversity tag (squad or tunnel_sector label) this device
+ /// declares in the `DurabilityReceipt`s it issues (Req 14.3).
+ ///
+ /// `None` (the default) means untagged: the device's receipts contribute
+ /// only to the Req 14.5 flat K-of-N fallback. A deployment provisioner
+ /// sets it through [`CoreHandle::set_local_spatial_tag`]; the tag is
+ /// self-declared, so it is honest labelling rather than attested location
+ /// (that is Anchor_Attested_Location's beacon mode, Req 15).
+    #[allow(dead_code)]
+    local_spatial_tag: std::sync::RwLock<Option<String>>,
+
  /// The Cloud Ledger this process hosts, reachable through the
  /// `CloudConnection` adapter (`CloudLedgerConnection`).
  ///
@@ -1255,6 +1266,7 @@ impl CoreHandle {
             challenge_handler: Arc::new(Mutex::new(None)),
             challenge_resp_tx: tokio::sync::broadcast::channel(256).0,
             durability,
+            local_spatial_tag: std::sync::RwLock::new(None),
             #[cfg(feature = "native")]
             cloud_ledger,
             #[cfg(feature = "native")]
@@ -1503,11 +1515,10 @@ impl CoreHandle {
             state_hash: *state_hash,
             issuer_did: self.identity.did().to_string(),
             issuer_signature,
- // No squad/tunnel_sector configured on this device (v1); with
- // Anchor_Attested_Location disabled the receipt is counted by its
- // (absent) declared tag — untagged peers fall back to flat K-of-N
- // diversity (Req 14.5).
-            spatial_tag: None,
+ // The device's configured squad/tunnel_sector label, if the
+ // deployment provisioned one (Req 14.3). Untagged devices fall
+ // back to flat K-of-N diversity (Req 14.5).
+            spatial_tag: self.local_spatial_tag_value(),
             beacon_token: None,
             issued_at: now_micros(),
         };
@@ -1525,6 +1536,25 @@ impl CoreHandle {
                  author will not count this device toward its quorum",
                 hex::encode(state_hash)
             );
+        }
+    }
+
+ /// Exclude a now-revoked device from Tier-1 quorum (Req 8.6, 14.6).
+ ///
+ /// Called from every path that observes a validated revocation: the native
+ /// and WASM inbound `RevocationDelta` arms and `initiate_revocation` when
+ /// the local contribution completes M-of-N. The durability subsystem
+ /// withdraws the device's already-counted receipts and rejects any receipt
+ /// it sends afterwards.
+    fn withdraw_revoked_issuer(&self, revoked_did: &str) {
+        match self.durability.lock() {
+            Ok(mut durability) => {
+                durability.mark_issuer_revoked(&revoked_did.to_string());
+            }
+            Err(e) => eprintln!(
+                "[durability] could not withdraw receipts for revoked DID {revoked_did}: \
+                 durability mutex poisoned: {e}"
+            ),
         }
     }
 
@@ -2330,6 +2360,11 @@ impl CoreHandle {
             eprintln!(
                 "[initiate] CRDT engine now rejects Deltas authored by revoked DID {target_did}"
             );
+
+ // Req 8.6/14.6 — same withdrawal the inbound revocation arm
+ // performs: this revocation also invalidates any receipt the
+ // target already contributed to a quorum.
+            self.withdraw_revoked_issuer(&target_did);
 
  // Req 8.5 — a revocation targeting THIS device makes the REVOKED
  // status locally known: trip the local write/read/query gate.
@@ -3706,6 +3741,11 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
+ // Req 8.6/14.6 — the revoked device can no longer attest
+ // durability: withdraw the receipts it already contributed and
+ // reject any it sends from now on.
+                        self.withdraw_revoked_issuer(&rev_delta.target_did);
+
  // Req 8.5 — a validated revocation targeting THIS
  // device makes the REVOKED status locally known: apply
  // it to the CapabilityManager so the local write/read
@@ -4621,6 +4661,10 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
+ // Req 8.6/14.6 — native/wasm parity: a revoked issuer's receipt
+ // can no longer count toward Tier-1 quorum.
+                        self.withdraw_revoked_issuer(&rev_delta.target_did);
+
  // Req 8.5 — same wiring as the native inbound path: a
  // validated revocation targeting THIS device applies
  // the REVOKED TrustLevel to the CapabilityManager so
@@ -5410,6 +5454,48 @@ impl CoreHandle {
         &self,
     ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {
         self.durability_events_channel.subscribe()
+    }
+
+ /// Set the squad / tunnel_sector tag this device declares in the
+ /// `DurabilityReceipt`s it issues for peer Deltas (Req 14.3).
+ ///
+ /// A deployment provisioner labels each device with its spatial sector so
+ /// the quorum tracker can enforce `spatial_diversity_min` and
+ /// `max_single_sector_fraction` over receipts that actually carry a tag.
+ /// `None` clears the label (the default): an untagged device's receipts
+ /// count only under the Req 14.5 flat K-of-N fallback.
+ ///
+ /// The tag is **self-declared**, not attested: a device can claim any
+ /// sector. Attested location is Anchor_Attested_Location's beacon mode
+ /// (Req 15), which replaces this tag with the beacon-verified location
+ /// claim when the deployment enables it. Blank tags are treated as `None`.
+ ///
+ /// Available on both build targets so a WASM deployment can configure its
+ /// sector through the same handle; only the native receipt-issuance path
+ /// currently stamps it onto a receipt.
+    pub fn set_local_spatial_tag(&self, tag: Option<String>) {
+        let normalized = tag
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty());
+        let mut guard = self
+            .local_spatial_tag
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *guard = normalized;
+    }
+
+ /// The tag configured by [`CoreHandle::set_local_spatial_tag`].
+    pub fn local_spatial_tag(&self) -> Option<String> {
+        self.local_spatial_tag_value()
+    }
+
+ /// Current local spatial tag, tolerating a poisoned lock (a tag read must
+ /// never fail receipt issuance).
+    fn local_spatial_tag_value(&self) -> Option<String> {
+        self.local_spatial_tag
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 
  /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
@@ -11075,8 +11161,10 @@ mod real_mesh_tests {
             }
             assert!(
                 crate::traits::monotonic_now() < deadline,
-                "device B never published a DurabilityReceipt for delta {}",
-                hex::encode(delta_id)
+                "device {} never published a DurabilityReceipt for delta {} (outbound: {:?})",
+                handle.identity.did(),
+                hex::encode(delta_id),
+                handle.transport.lock().map(|t| t.outbound_published.len()).unwrap_or(0)
             );
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
@@ -11202,6 +11290,667 @@ mod real_mesh_tests {
 
         cleanup(&tmp_path("p45_A"));
         cleanup(&tmp_path("p45_B"));
+    }
+
+ // ─── WS3: live K-of-N quorum + spatial diversity over real meshes ────────
+ //
+ // Workstream 3 of the e2e-wiring effort (`docs/agent/e2e-wiring/STATUS.md`):
+ // Tier-1 quorum formed by three or more real Swarm-backed devices over
+ // loopback, with genuine post-merge `DurabilityReceipt`s from every peer and
+ // the production quorum/diversity/revocation gates exercised on the same
+ // transport. Nothing here injects an inbound message: receipts are either
+ // issued by a peer's production `issue_durability_receipt` after a real
+ // merge, or deliberately crafted with a real peer's identity key and
+ // published through the production `MeshTransport::send_receipt` framing to
+ // exercise a rejection gate.
+
+    /// Initialise a tagged loopback device and return its dial address.
+    async fn init_tagged_peer(
+        prefix: &str,
+        deployment: DeploymentConfig,
+        tag: Option<&str>,
+    ) -> (Arc<CoreHandle>, String) {
+        let port = reserve_loopback_port();
+        let handle = init_mesh_handle_with_deployment(prefix, port, deployment).await;
+        handle.set_local_spatial_tag(tag.map(|t| t.to_string()));
+        (handle, format!("/ip4/127.0.0.1/tcp/{port}"))
+    }
+
+    /// Poll for `window` and assert the Delta never leaves `Uncommitted`.
+    async fn assert_stays_uncommitted(
+        handle: &CoreHandle,
+        delta_id: &DeltaId,
+        window: Duration,
+        context: &str,
+    ) {
+        let deadline = crate::traits::monotonic_now() + window.as_micros() as u64;
+        loop {
+            let tier = handle.durability_tier(delta_id);
+            assert_eq!(
+                tier,
+                DurabilityTier::Uncommitted,
+                "{context}: delta {} reached {tier:?} but must stay Uncommitted",
+                hex::encode(delta_id)
+            );
+            if crate::traits::monotonic_now() >= deadline {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    }
+
+    /// Build a receipt for `state_hash` signed with `handle`'s real identity
+    /// key (a peer can sign any claim about a Delta it holds — or, for the
+    /// negative cases, claims about a Delta it never held).
+    fn craft_receipt(
+        state_hash: &DeltaId,
+        handle: &CoreHandle,
+        issuer_did: &str,
+    ) -> crate::durability::receipt::DurabilityReceipt {
+        use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
+        let id = uuid::Uuid::now_v7();
+        let payload = receipt_signing_payload(state_hash, &id);
+        let signature =
+            crate::identity::keypair::sign(&handle.identity.signing_key_bytes(), &payload)
+                .expect("sign crafted receipt");
+        DurabilityReceipt {
+            id,
+            state_hash: *state_hash,
+            issuer_did: issuer_did.to_string(),
+            issuer_signature: signature,
+            spatial_tag: None,
+            beacon_token: None,
+            issued_at: 0,
+        }
+    }
+
+    /// Publish a receipt through the production outbound framing/publish path.
+    fn publish_receipt(
+        handle: &Arc<CoreHandle>,
+        receipt: &crate::durability::receipt::DurabilityReceipt,
+    ) {
+        handle
+            .transport
+            .lock()
+            .expect("transport mutex")
+            .send_receipt(receipt)
+            .expect("send_receipt must publish over the real transport");
+    }
+
+    /// Re-publish a Delta this device already holds to the live mesh (used to
+    /// hand an existing Delta to a peer that joined after the write).
+    ///
+    /// Gossipsub's message id is a content hash, so re-publishing the exact
+    /// whole-Delta framing is dropped as a duplicate. `mtu` therefore selects
+    /// the production fragment framing for this replay (`mtu < 256`); callers
+    /// pass a different value per replay so each replay is a distinct wire
+    /// message. The receiver reassembles and merges it through the ordinary
+    /// `InboundDeltaFragment` path.
+    fn replay_delta(handle: &Arc<CoreHandle>, delta_id: &DeltaId, peer_did: &str, mtu: usize) {
+        use crate::crdt::delta::Delta;
+        let bytes = handle
+            .crdt
+            .lock()
+            .expect("crdt mutex")
+            .refetch_delta_bytes(delta_id)
+            .expect("DAG refetch must not fail")
+            .expect("the writer's DAG must hold the Delta bytes");
+        let delta: Delta = serde_json::from_slice(&bytes).expect("Delta must deserialise");
+        let mut transport = handle.transport.lock().expect("transport mutex");
+        transport.config.mtu = mtu;
+        assert!(
+            mtu > 0 && mtu < 256,
+            "replay must use the fragmented framing to be a distinct wire message"
+        );
+        transport
+            .send_delta(&peer_did.to_string(), &delta)
+            .expect("send_delta must publish over the real transport");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn three_peers_reach_tier1_via_genuine_receipt_exchange() {
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 3;
+        deployment.quorum_n = 4;
+        deployment.spatial_diversity_min = 2;
+        deployment.max_single_sector_fraction = 0.6;
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_t1_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_t1_B", deployment.clone(), Some("sector-b")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_t1_C", deployment.clone(), Some("sector-c")).await;
+        let (handle_d, addr_d) = init_tagged_peer("ws3_t1_D", deployment.clone(), Some("sector-d")).await;
+
+        let mut tier_events = handle_a.subscribe_durability_events();
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        connect_peers_until(&handle_a, &addr_d, 3).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let written = json!({ "device": "A", "msg": "three-peer quorum" });
+        let write = handle_a
+            .write("quorum", "row-1", written.clone())
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+        assert_eq!(
+            handle_a.durability_tier(&delta_id),
+            DurabilityTier::Uncommitted,
+            "no receipt has arrived yet"
+        );
+
+  // Each peer merges the Delta over the wire and issues its own genuine
+        // receipt; capture all three from the peers' outbound publish points.
+        let receipt_b = wait_for_issued_receipt(&handle_b, &delta_id).await;
+        let receipt_c = wait_for_issued_receipt(&handle_c, &delta_id).await;
+        let receipt_d = wait_for_issued_receipt(&handle_d, &delta_id).await;
+
+        for (receipt, peer) in [
+            (&receipt_b, &handle_b),
+            (&receipt_c, &handle_c),
+            (&receipt_d, &handle_d),
+        ] {
+            assert_eq!(receipt.state_hash, delta_id);
+            assert_eq!(receipt.issuer_did, peer.identity.did());
+            crate::durability::receipt::verify_receipt(
+                receipt,
+                &peer.identity.public_key_bytes(),
+                &delta_id,
+            )
+            .expect("every peer receipt must verify against that peer's real key");
+        }
+        let mut tags: Vec<&str> = [&receipt_b, &receipt_c, &receipt_d]
+            .iter()
+            .map(|r| r.spatial_tag.as_deref().expect("tagged peer receipt"))
+            .collect();
+        tags.sort_unstable();
+        assert_eq!(
+            tags,
+            vec!["sector-b", "sector-c", "sector-d"],
+            "each peer must declare the sector its deployment configured"
+        );
+
+        wait_for_tier1(&handle_a, &delta_id).await;
+
+  // The production notification path fired Uncommitted → Tier1.
+        let deadline = crate::traits::monotonic_now() + 20_000_000;
+        loop {
+            match tier_events.try_recv() {
+                Ok(evt)
+                    if evt.delta_id == delta_id
+                        && evt.previous_tier == DurabilityTier::Uncommitted
+                        && evt.new_tier == DurabilityTier::Tier1 =>
+                {
+                    break;
+                }
+                Ok(_) => {}
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => {}
+                Err(e) => panic!("durability event channel closed: {e}"),
+            }
+            assert!(
+                crate::traits::monotonic_now() < deadline,
+                "no DurabilityTierChanged(Uncommitted → Tier1) event for delta {}",
+                hex::encode(delta_id)
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        for suffix in ["ws3_t1_A", "ws3_t1_B", "ws3_t1_C", "ws3_t1_D"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn k_minus_one_genuine_receipts_do_not_reach_tier1() {
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 3;
+        deployment.quorum_n = 3;
+        deployment.spatial_diversity_min = 1;
+        deployment.max_single_sector_fraction = 0.7;
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_km1_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_km1_B", deployment.clone(), Some("sector-b")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_km1_C", deployment.clone(), Some("sector-c")).await;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let write = handle_a
+            .write("quorum", "row-km1", json!({ "seq": 1 }))
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+
+  // Both available peers genuinely issue a receipt (K−1 = 2).
+        let _ = wait_for_issued_receipt(&handle_b, &delta_id).await;
+        let _ = wait_for_issued_receipt(&handle_c, &delta_id).await;
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_secs(2),
+            "K−1 genuine receipts",
+        )
+        .await;
+
+        for suffix in ["ws3_km1_A", "ws3_km1_B", "ws3_km1_C"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn insufficient_spatial_diversity_blocks_tier1_until_diluted() {
+  // K=3, min=2 distinct tags, cap 0.5: at three receipts a 2-of-3 sector
+        // majority (66.7%) exceeds the cap, so Tier-1 must not form. Adding a
+        // fourth, distinct-sector receipt (2/4 = 50%) dilutes it below the cap
+        // and completes the quorum — which also proves the blocked receipts
+        // were received and counted rather than merely lost in flight.
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 3;
+        deployment.quorum_n = 5;
+        deployment.spatial_diversity_min = 2;
+        deployment.max_single_sector_fraction = 0.5;
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_div_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_div_B", deployment.clone(), Some("sector-a")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_div_C", deployment.clone(), Some("sector-a")).await;
+        let (handle_d, addr_d) = init_tagged_peer("ws3_div_D", deployment.clone(), Some("sector-b")).await;
+        let (handle_e, addr_e) = init_tagged_peer("ws3_div_E", deployment.clone(), Some("sector-c")).await;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        connect_peers_until(&handle_a, &addr_d, 3).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let write = handle_a
+            .write("diversity", "row-div", json!({ "seq": 1 }))
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+
+        let _ = wait_for_issued_receipt(&handle_b, &delta_id).await;
+        let _ = wait_for_issued_receipt(&handle_c, &delta_id).await;
+        let _ = wait_for_issued_receipt(&handle_d, &delta_id).await;
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_secs(1),
+            "K receipts with a 66.7% single-sector majority (cap 50%)",
+        )
+        .await;
+
+  // A fourth peer in a third sector joins; replay the Delta through the
+        // production outbound path and its genuine receipt dilutes sector-a to
+        // 50%, allowing the quorum to form.
+        connect_peers_until(&handle_a, &addr_e, 4).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        replay_delta(&handle_a, &delta_id, &handle_e.identity.did().to_string(), 200);
+        let _ = wait_for_issued_receipt(&handle_e, &delta_id).await;
+
+        wait_for_tier1(&handle_a, &delta_id).await;
+
+        for suffix in ["ws3_div_A", "ws3_div_B", "ws3_div_C", "ws3_div_D", "ws3_div_E"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn same_sector_receipts_never_form_tier1() {
+  // Every peer declares the SAME squad/tunnel sector. The deployment
+        // requires K=3 receipts but caps any single sector at 50% of them, so
+        // three same-sector receipts are 100% and can never satisfy the cap.
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 3;
+        deployment.quorum_n = 3;
+        deployment.spatial_diversity_min = 1;
+        deployment.max_single_sector_fraction = 0.5;
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_same_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_same_B", deployment.clone(), Some("sector-x")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_same_C", deployment.clone(), Some("sector-x")).await;
+        let (handle_d, addr_d) = init_tagged_peer("ws3_same_D", deployment.clone(), Some("sector-x")).await;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        connect_peers_until(&handle_a, &addr_d, 3).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let write = handle_a
+            .write("diversity", "row-same", json!({ "seq": 1 }))
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+
+        let receipt_b = wait_for_issued_receipt(&handle_b, &delta_id).await;
+        let receipt_c = wait_for_issued_receipt(&handle_c, &delta_id).await;
+        let receipt_d = wait_for_issued_receipt(&handle_d, &delta_id).await;
+        assert!(receipt_b.spatial_tag.as_deref() == Some("sector-x"));
+        assert!(receipt_c.spatial_tag.as_deref() == Some("sector-x"));
+        assert!(receipt_d.spatial_tag.as_deref() == Some("sector-x"));
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_secs(2),
+            "three same-sector receipts (100% of a 50% cap)",
+        )
+        .await;
+
+        for suffix in ["ws3_same_A", "ws3_same_B", "ws3_same_C", "ws3_same_D"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn tampered_wrong_hash_unknown_and_duplicate_receipts_do_not_count() {
+  // K=2 with two real peers. The writer publishes its Delta before the
+        // peers connect, so the peers cannot auto-issue genuine receipts and
+        // every receipt below is deliberate adversarial input published
+        // through the production receipt framing. If ANY negative receipt
+        // were counted, the duplicate B receipt would complete K=2 early and
+        // the final Tier-1 assertion (C's receipt) would never be reached.
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 2;
+        deployment.quorum_n = 3;
+        deployment.spatial_diversity_min = 1;
+        deployment.max_single_sector_fraction = 1.0;
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_neg_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_neg_B", deployment.clone(), Some("sector-b")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_neg_C", deployment.clone(), Some("sector-c")).await;
+
+  // Write while disconnected: the peers never merge this Delta.
+        let write = handle_a
+            .write("negative", "row-neg", json!({ "seq": 1 }))
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let b_did = handle_b.identity.did().to_string();
+        let c_did = handle_c.identity.did().to_string();
+
+  // 1. Tampered signature: B's key, corrupted signature bytes.
+        let mut tampered = craft_receipt(&delta_id, &handle_b, &b_did);
+        if let Some(byte) = tampered.issuer_signature.0.first_mut() {
+            *byte ^= 0xFF;
+        }
+        publish_receipt(&handle_b, &tampered);
+
+  // 2. Wrong state hash: a valid signature over a different state hash.
+        let other_hash = [0x5A; 32];
+        let wrong_hash = craft_receipt(&other_hash, &handle_b, &b_did);
+        publish_receipt(&handle_b, &wrong_hash);
+
+  // 3. Unknown (unresolvable) issuer DID: not a self-certifying did:key.
+        let unknown_did = craft_receipt(&delta_id, &handle_b, "did:web:unknown-peer");
+        publish_receipt(&handle_b, &unknown_did);
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_millis(800),
+            "tampered / wrong-hash / unknown-issuer receipts",
+        )
+        .await;
+
+  // 4. One genuine receipt from B (count 1).
+        let genuine_b = craft_receipt(&delta_id, &handle_b, &b_did);
+        publish_receipt(&handle_b, &genuine_b);
+
+  // 5. Duplicate of the SAME receipt: must be deduplicated by issuer.
+        publish_receipt(&handle_b, &genuine_b);
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_millis(800),
+            "duplicate receipt from the same issuer",
+        )
+        .await;
+
+  // 6. Genuine receipt from C completes K=2.
+        let genuine_c = craft_receipt(&delta_id, &handle_c, &c_did);
+        publish_receipt(&handle_c, &genuine_c);
+        wait_for_tier1(&handle_a, &delta_id).await;
+
+        for suffix in ["ws3_neg_A", "ws3_neg_B", "ws3_neg_C"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn revocation_mid_quorum_withdraws_the_revoked_receipt() {
+  // A + B + C + D + E, K=3. B and C are the only peers connected when the
+        // write happens, so two receipts are counted. C is then revoked (M=1),
+        // which must withdraw C's counted receipt: B + D = 2 receipts is still
+        // short of K=3 even after D joins and its genuine receipt arrives.
+        // E's receipt then completes the quorum from three honest holders.
+        use crate::identity::file_key_provider::InMemoryKeyProvider;
+        use crate::traits::KeyProvider;
+
+        let ca = InMemoryKeyProvider::generate().expect("root CA keypair");
+        let ca_public: [u8; 32] = ca
+            .public_key_bytes()
+            .try_into()
+            .expect("root CA public key must be 32 bytes");
+        let manager_token = crate::auth::biscuit::create_token(
+            "did:key:z6MkQuorumRevocationManager",
+            "RevocationManager",
+            3600,
+            &ca.secret_seed(),
+            false,
+        )
+        .expect("mint RevocationManager token");
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 3;
+        deployment.quorum_n = 5;
+        deployment.spatial_diversity_min = 1;
+        deployment.max_single_sector_fraction = 0.7;
+        deployment.revocation_m = 1;
+        deployment.revocation_n = 1;
+        deployment.root_ca_keys = vec![ca_public];
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_rev_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_rev_B", deployment.clone(), Some("sector-b")).await;
+        let (handle_c, addr_c) = init_tagged_peer("ws3_rev_C", deployment.clone(), Some("sector-c")).await;
+        let (handle_d, addr_d) = init_tagged_peer("ws3_rev_D", deployment.clone(), Some("sector-d")).await;
+        let (handle_e, addr_e) = init_tagged_peer("ws3_rev_E", deployment.clone(), Some("sector-e")).await;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let write = handle_a
+            .write("revocation", "row-rev", json!({ "seq": 1 }))
+            .await
+            .expect("write on A must succeed");
+        let delta_id = write.delta_id;
+
+        let _ = wait_for_issued_receipt(&handle_b, &delta_id).await;
+        let _ = wait_for_issued_receipt(&handle_c, &delta_id).await;
+  // Give the writer's drain loop time to verify and count both receipts
+        // before the revocation lands.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let c_did = handle_c.identity.did().to_string();
+        handle_a
+            .initiate_revocation(&c_did, &manager_token, now_secs)
+            .expect("1-of-1 revocation must apply");
+        assert_eq!(
+            handle_a
+                .device_revocation_status(&c_did)
+                .expect("status query")
+                .map(|s| s.last_known_trust_level),
+            Some(TrustLevel::Revoked),
+            "the revoked peer must be locally known as REVOKED"
+        );
+
+  // D joins late: hand it the Delta over the production outbound path so it
+        // can genuinely attest it. With C withdrawn, B + D is 2 of K=3.
+        connect_peers_until(&handle_a, &addr_d, 3).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        replay_delta(&handle_a, &delta_id, &handle_d.identity.did().to_string(), 200);
+        let _ = wait_for_issued_receipt(&handle_d, &delta_id).await;
+
+        assert_stays_uncommitted(
+            &handle_a,
+            &delta_id,
+            Duration::from_secs(1),
+            "revoked C's receipt withdrawn (B + D = 2 < K=3)",
+        )
+        .await;
+
+  // E's genuine receipt supplies the third honest holder and completes K.
+        connect_peers_until(&handle_a, &addr_e, 4).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        replay_delta(&handle_a, &delta_id, &handle_e.identity.did().to_string(), 240);
+        let _ = wait_for_issued_receipt(&handle_e, &delta_id).await;
+
+        wait_for_tier1(&handle_a, &delta_id).await;
+
+        for suffix in ["ws3_rev_A", "ws3_rev_B", "ws3_rev_C", "ws3_rev_D", "ws3_rev_E"] {
+            cleanup(&tmp_path(suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn tier1_then_compaction_refetch_and_cloud_sync_reach_tier2() {
+  // K=2 with one real peer and an aggressive compaction policy, so the
+        // second write compacts the engine and marks its cloud-queue entry
+        // compacted. After Tier-1 forms, one production cloud sync cycle must
+        // re-fetch the compacted Delta and reach Tier-2, while the receipt
+        // holder still holds that Delta independently.
+        use crate::schema::{FieldDef, FieldType, Schema, TableDef};
+        use crate::store::compaction::CompactionPolicy;
+
+        let schema = Schema {
+            tables: vec![TableDef {
+                name: "metrics".to_string(),
+                fields: vec![
+                    FieldDef {
+                        name: "id".to_string(),
+                        field_type: FieldType::Text,
+                        nullable: false,
+                        default: None,
+                    },
+                    FieldDef {
+                        name: "value".to_string(),
+                        field_type: FieldType::Integer,
+                        nullable: false,
+                        default: None,
+                    },
+                ],
+                compaction_policy: CompactionPolicy::Aggressive { threshold: 1 },
+                constraints: vec![],
+            }],
+            version: "1.0.0".to_string(),
+        };
+        let schema_hash = schema.identifier_hash();
+
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = 2;
+        deployment.quorum_n = 2;
+        deployment.spatial_diversity_min = 1;
+        deployment.max_single_sector_fraction = 1.0;
+        deployment.schema_definitions = vec![schema];
+        deployment.schema_version_path = vec![schema_hash];
+
+        let port_a = reserve_loopback_port();
+        let handle_a =
+            init_mesh_handle_with_deployment("ws3_cmp_A", port_a, deployment.clone()).await;
+        let (handle_b, addr_b) = init_tagged_peer("ws3_cmp_B", deployment.clone(), Some("sector-b")).await;
+        let (_handle_c, addr_c) = init_tagged_peer("ws3_cmp_C", deployment.clone(), Some("sector-c")).await;
+
+        connect_peers_until(&handle_a, &addr_b, 1).await;
+        connect_peers_until(&handle_a, &addr_c, 2).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let first = handle_a
+            .write("metrics", "row-0", json!({ "value": 0 }))
+            .await
+            .expect("first write");
+        let second = handle_a
+            .write("metrics", "row-1", json!({ "value": 1 }))
+            .await
+            .expect("second write triggers compaction");
+
+        for (value, key) in [(0, "row-0"), (1, "row-1")] {
+            wait_for_data(
+                &handle_b,
+                "metrics",
+                key,
+                &json!({ "value": value }),
+                Duration::from_secs(20),
+            )
+            .await;
+        }
+
+  // Tier-1 for both Deltas via B's genuine receipts, so compaction is
+        // permitted before the Delta is drained to the cloud.
+        wait_for_tier1(&handle_a, &first.delta_id).await;
+        wait_for_tier1(&handle_a, &second.delta_id).await;
+
+        let sync = handle_a
+            .run_cloud_sync_cycle()
+            .expect("production cloud sync cycle");
+        assert_eq!(
+            sync.acknowledged, 2,
+            "both Deltas must reach the Cloud Ledger, including the compacted one via re-fetch"
+        );
+        assert_eq!(sync.deferred, 0, "the compacted Delta must be re-fetched");
+        assert_eq!(sync.rejected, 0);
+        assert_eq!(handle_a.cloud_queue_depth(), 0);
+        assert!(handle_a.cloud_ledger_is_committed(&second.delta_id));
+        assert_eq!(
+            handle_a.durability_tier(&second.delta_id),
+            DurabilityTier::Tier2,
+            "the cloud ack must advance the compacted Delta to Tier-2"
+        );
+
+  // The receipt holder still holds the compacted Delta and its row: it is
+        // a valid independent source of the state after the writer compacted.
+        assert!(
+            handle_b
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&second.delta_id)
+                .expect("DAG lookup")
+                .is_some(),
+            "the receipt holder must still hold the Delta after the writer compacted"
+        );
+        let held = handle_b
+            .read("metrics", "row-1")
+            .await
+            .expect("receipt holder read");
+        assert_eq!(held.data, json!({ "value": 1 }));
+
+        for suffix in ["ws3_cmp_A", "ws3_cmp_B", "ws3_cmp_C"] {
+            cleanup(&tmp_path(suffix));
+        }
     }
 
  // ─── Subphase 7.1: concurrent scalar write LWW over real mesh ────────────

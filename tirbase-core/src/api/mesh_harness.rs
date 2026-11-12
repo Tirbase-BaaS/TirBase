@@ -46,31 +46,46 @@ pub(crate) fn reserve_loopback_port() -> u16 {
     l.local_addr().expect("local addr").port()
 }
 
-/// Minimal deployment config for a loopback mesh device.
+/// Deployment baseline for a loopback mesh device (K=1, M=N=1, no schema,
+/// no anchor). Tests that need quorum/diversity/schema behaviour clone it
+/// and override the relevant fields.
+pub(crate) fn mesh_deployment() -> DeploymentConfig {
+    DeploymentConfig {
+        revocation_m: 1,
+        revocation_n: 1,
+        biscuit_ttl_secs: 3600,
+        extended_ttl_accepted_risk: false,
+        root_ca_keys: vec![],
+        migration_ca_public_key: None,
+        update_signer_public_key: None,
+        schema_version_path: vec![],
+        schema_definitions: vec![],
+        anchor_attested_location: false,
+        beacon_public_keys: vec![],
+        spatial_diversity_min: 1,
+        max_single_sector_fraction: 0.7,
+        quorum_k: 1,
+        quorum_n: 1,
+        saturate_lease_duration_secs: 3600,
+        mesh_mtu: 0,
+        beacon_signal_loss_threshold_secs: 300,
+    }
+}
+
+/// Minimal deployment config for a loopback mesh device (K=1, M=N=1,
+/// no schema, no anchor). Quorum/diversity-sensitive tests use
+/// [`mesh_config_with`] instead.
 pub(crate) fn mesh_config(path: &str, port: u16) -> InitConfig {
+    mesh_config_with(path, port, mesh_deployment())
+}
+
+/// Build a loopback mesh `InitConfig` with a caller-chosen deployment
+/// (quorum K/N, spatial diversity, revocation thresholds, schema).
+pub(crate) fn mesh_config_with(path: &str, port: u16, deployment: DeploymentConfig) -> InitConfig {
     InitConfig {
         storage_path: path.to_string(),
         listen_addr: format!("/ip4/127.0.0.1/tcp/{port}"),
-        deployment: DeploymentConfig {
-            revocation_m: 1,
-            revocation_n: 1,
-            biscuit_ttl_secs: 3600,
-            extended_ttl_accepted_risk: false,
-            root_ca_keys: vec![],
-            migration_ca_public_key: None,
-            update_signer_public_key: None,
-            schema_version_path: vec![],
-            schema_definitions: vec![],
-            anchor_attested_location: false,
-            beacon_public_keys: vec![],
-            spatial_diversity_min: 1,
-            max_single_sector_fraction: 0.7,
-            quorum_k: 1,
-            quorum_n: 1,
-            saturate_lease_duration_secs: 3600,
-            mesh_mtu: 0,
-            beacon_signal_loss_threshold_secs: 300,
-        },
+        deployment,
     }
 }
 
@@ -84,7 +99,19 @@ pub(crate) fn mesh_config(path: &str, port: u16) -> InitConfig {
 pub(crate) async fn init_mesh_handle(suffix: &str, port: u16) -> Arc<CoreHandle> {
     let path = tmp_path(suffix);
     cleanup(&path);
-    let handle = CoreHandle::init(mesh_config(&path, port))
+    init_mesh_handle_with_deployment(suffix, port, mesh_config(&path, port).deployment).await
+}
+
+/// Same as [`init_mesh_handle`] but with a caller-chosen deployment config
+/// (quorum K/N, spatial diversity, revocation thresholds, schema).
+pub(crate) async fn init_mesh_handle_with_deployment(
+    suffix: &str,
+    port: u16,
+    deployment: DeploymentConfig,
+) -> Arc<CoreHandle> {
+    let path = tmp_path(suffix);
+    cleanup(&path);
+    let handle = CoreHandle::init(mesh_config_with(&path, port, deployment))
         .await
         .expect("init must succeed with a real Swarm");
     CoreHandle::spawn_inbound_drain_loop(&handle, Duration::from_millis(10));
@@ -123,6 +150,31 @@ pub(crate) async fn connect_peers(from: &Arc<CoreHandle>, target_addr: &str) {
         assert!(
             attempts < 500,
             "explicit dial never established a connection (mesh_status stayed disconnected for 5s)"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+/// Dial `from` → `target_addr` and wait until the connection is recorded,
+/// asserting the mesh reaches `expected_peers` connected peers in total.
+///
+pub(crate) async fn connect_peers_until(
+    from: &Arc<CoreHandle>,
+    target_addr: &str,
+    expected_peers: u32,
+) {
+    let addr: libp2p::Multiaddr = target_addr.parse().expect("valid multiaddr");
+    from.dial_peer(addr).await.expect("dial_peer must succeed");
+
+    let deadline = crate::traits::monotonic_now() + 5_000_000;
+    loop {
+        if from.mesh_status().peer_count >= expected_peers {
+            return;
+        }
+        assert!(
+            crate::traits::monotonic_now() < deadline,
+            "mesh only reached {} of {expected_peers} peers within 5s",
+            from.mesh_status().peer_count
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }

@@ -25,7 +25,7 @@
 use crate::durability::receipt::DurabilityReceipt;
 use crate::durability::spatial::SpatialDiversityTracker;
 use crate::errors::TirBaseError;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 /// Configuration for Tier-1 quorum formation.
 #[derive(Debug, Clone)]
@@ -71,6 +71,12 @@ pub struct Tier1QuorumTracker {
     receipts: Vec<DurabilityReceipt>,
  /// Set of issuer DIDs to prevent double-counting the same peer.
     seen_issuers: HashSet<String>,
+ /// The spatial tag each counted issuer was recorded under (the receipt's
+ /// declared tag, or the beacon-verified location claim in BeaconAttested
+ /// mode). Kept per issuer so [`Self::remove_issuer`] can rebuild the
+ /// diversity tallies without degrading a beacon-attested count to the
+ /// spoofable declared tag.
+    counted_tags: BTreeMap<String, Option<String>>,
  /// Spatial diversity tracker.
     spatial: SpatialDiversityTracker,
  /// Whether Tier-1 has already been achieved.
@@ -84,6 +90,7 @@ impl Tier1QuorumTracker {
             config,
             receipts: Vec::new(),
             seen_issuers: HashSet::new(),
+            counted_tags: BTreeMap::new(),
             spatial: SpatialDiversityTracker::new(),
             tier1_achieved: false,
         }
@@ -122,11 +129,15 @@ impl Tier1QuorumTracker {
         }
 
  // Record the spatial tag.
-        self.spatial
-            .add(diversity_tag.or(receipt.spatial_tag.as_deref()));
+        let counted_tag = diversity_tag
+            .or(receipt.spatial_tag.as_deref())
+            .map(|tag| tag.to_string());
+        self.spatial.add(counted_tag.as_deref());
 
  // Mark issuer as seen.
         self.seen_issuers.insert(receipt.issuer_did.clone());
+        self.counted_tags
+            .insert(receipt.issuer_did.clone(), counted_tag);
         self.receipts.push(receipt);
 
  // Check if quorum is achieved.
@@ -144,6 +155,41 @@ impl Tier1QuorumTracker {
         }
 
         Ok(false)
+    }
+
+ /// Remove every receipt issued by `issuer_did` from the tracker and
+ /// recompute the spatial tallies over the receipts that remain.
+ ///
+ /// Production caller: `DurabilitySubsystem::mark_issuer_revoked`, invoked
+ /// when a validated `RevocationDelta` applies (Req 8.6, 14.6). A revoked
+ /// device must not count toward `Quorum`: if its receipt was already in
+ /// the tracker (revocation arriving mid-quorum), it is withdrawn here so
+ /// the remaining honest receipts are what determine whether K is met.
+ ///
+ /// Tier-1 already recorded for the Delta is **not** revoked: the tier
+ /// records that K peers held the state at the time it formed, and the
+ /// Delta's durability is not retroactively undone by a later revocation
+ /// of one holder (the Delta stays in the cloud queue until Tier-2).
+ ///
+ /// Returns `true` when a counted receipt was actually removed.
+    pub fn remove_issuer(&mut self, issuer_did: &str) -> bool {
+        let before = self.receipts.len();
+        self.receipts.retain(|r| r.issuer_did != issuer_did);
+        self.seen_issuers.remove(issuer_did);
+        self.counted_tags.remove(issuer_did);
+
+        if self.receipts.len() == before {
+            return false;
+        }
+
+ // Rebuild the tallies so a withdrawn receipt no longer dilutes or
+ // satisfies the diversity requirement.
+        let mut spatial = SpatialDiversityTracker::new();
+        for tag in self.counted_tags.values() {
+            spatial.add(tag.as_deref());
+        }
+        self.spatial = spatial;
+        true
     }
 
  /// Whether Tier-1 durability has been achieved for this Delta set.
@@ -514,6 +560,83 @@ mod tests {
             tracker.add_receipt(receipt).unwrap();
             assert_eq!(tracker.receipt_count(), (i + 1) as usize);
         }
+    }
+
+ // ── revoked issuer removal ────────────────────────────────────────────────
+
+    #[test]
+    fn remove_issuer_withdraws_its_receipt_and_diversity_contribution() {
+ // K=3, min=2, cap=1.0: three distinct tags form Tier-1. Removing one
+ // receipt must drop the count to 2 and the distinct-tag count to 2.
+        let state_hash = [0x77; 32];
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 2,
+            max_single_sector_fraction: 1.0,
+        };
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+        let mut dids = Vec::new();
+        for i in 0..3u8 {
+            let (secret, _) = generate_keypair().unwrap();
+            let did = format!("did:key:revoked-remove{i}");
+            let tag = format!("squad-{}", (b'a' + i) as char);
+            tracker
+                .add_receipt(make_receipt(state_hash, &secret, &did, Some(&tag)))
+                .unwrap();
+            dids.push(did);
+        }
+        assert!(tracker.is_tier1());
+        assert_eq!(tracker.receipt_count(), 3);
+        assert_eq!(tracker.spatial().distinct_tag_count(), 3);
+
+        assert!(tracker.remove_issuer(&dids[1]), "counted receipt must be removed");
+        assert_eq!(tracker.receipt_count(), 2);
+        assert_eq!(
+            tracker.spatial().distinct_tag_count(),
+            2,
+            "the withdrawn receipt's tag must no longer count"
+        );
+
+ // Removing an issuer that never contributed is a no-op.
+        assert!(!tracker.remove_issuer("did:key:never-counted"));
+        assert_eq!(tracker.receipt_count(), 2);
+    }
+
+    #[test]
+    fn removing_a_pre_quorum_receipt_prevents_tier1() {
+ // K=3: two receipts are counted, then one issuer is revoked before the
+ // third arrives. The revoked receipt must not help reach K, and the
+ // issuer must be able to re-contribute only after removal (dedupe reset).
+        let state_hash = [0x78; 32];
+        let cfg = QuorumConfig {
+            k: 3,
+            n: 5,
+            spatial_diversity_min: 1,
+            max_single_sector_fraction: 1.0,
+        };
+        let mut tracker = Tier1QuorumTracker::new(cfg);
+
+        let (secret_a, _) = generate_keypair().unwrap();
+        let (secret_b, _) = generate_keypair().unwrap();
+        tracker
+            .add_receipt(make_receipt(state_hash, &secret_a, "did:key:pre-a", Some("sq-a")))
+            .unwrap();
+        tracker
+            .add_receipt(make_receipt(state_hash, &secret_b, "did:key:pre-b", Some("sq-b")))
+            .unwrap();
+        assert!(!tracker.is_tier1());
+
+        assert!(tracker.remove_issuer("did:key:pre-b"));
+        let (secret_c, _) = generate_keypair().unwrap();
+        let third = tracker
+            .add_receipt(make_receipt(state_hash, &secret_c, "did:key:pre-c", Some("sq-c")))
+            .unwrap();
+        assert!(
+            !third,
+            "topping up from 2 honest + 1 withdrawn receipts must not reach K=3"
+        );
+        assert!(!tracker.is_tier1());
     }
 
  // ── tier1 is sticky ───────────────────────────────────────────────────────
