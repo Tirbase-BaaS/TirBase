@@ -1,43 +1,39 @@
 //! Build-time API surface parity test (Req 1.2, 1.5).
 //!
-//! Asserts that the `CoreHandle` public method set is identical across the
-//! native and WASM build targets by comparing:
-//! - the set of `pub fn` / `pub async fn` methods on `CoreHandle` (api/mod.rs)
-//! - the set of `#[wasm_bindgen] pub fn` / `#[wasm_bindgen] pub async fn`
-//! free functions in `lib.rs` that delegate to `CoreHandle`
+//! Asserts that the three public surfaces cannot drift apart:
 //!
-//! This test compiles under `--features native` (the default in this crate's
-//! CI matrix). It does NOT attempt to compile the `wasm` target — that is the
-//! CI matrix job `cargo check --features wasm --target wasm32-unknown-unknown`.
-//! Instead it statically asserts that the method names match the WASM export
-//! names encoded in `WASM_EXPORT_NAMES`, catching drift at native compile time.
+//! 1. the complete `CoreHandle` public IO/manager method set
+//!    (`tirbase-core/src/api/mod.rs`),
+//! 2. the `#[wasm_bindgen]` free-function exports in `tirbase-core/src/lib.rs`,
+//! 3. the `WasmCore` TypeScript interface and the `required('core_*')`
+//!    delegations in `tirbase-sdk/src/wasm-bridge.ts`.
 //!
-//! If `WASM_EXPORT_NAMES` is out of date with `lib.rs`, the test fails and
-//! the diff is printed so the developer can update the list.
+//! Unlike a hand-maintained name list compared against another hand-maintained
+//! name list, this test parses the real source files (`include_str!`) on every
+//! run. Adding, renaming or removing a public method / WASM export / SDK
+//! interface method without updating the other surfaces fails the test with a
+//! precise diff. The constants below are only the *policy* layer (which
+//! methods are intentionally not exported, and which exports the SDK relies
+//! on); the *facts* come from the sources.
 
 #![cfg(test)]
 
 use std::collections::BTreeSet;
 
-/// Canonical list of `#[wasm_bindgen]` export function names from `lib.rs`.
-///
-/// Each name corresponds to a `pub fn`/`pub async fn` annotated with
-/// `#[wasm_bindgen]` inside the `wasm_exports` module in `lib.rs`.
-/// The names are the bare function identifiers (without the `core_` prefix
-/// stripped — we compare the full symbol name as exposed to JS).
-///
-/// This is the single source of truth that the parity test checks against the
-/// `CoreHandle` method set. When a method is added or removed in `lib.rs`,
-/// update this list.
-const WASM_EXPORT_NAMES: &[&str] = &[
+const API_SOURCE: &str = include_str!("../api/mod.rs");
+const LIB_SOURCE: &str = include_str!("../lib.rs");
+const SDK_BRIDGE_SOURCE: &str = include_str!("../../../tirbase-sdk/src/wasm-bridge.ts");
+
+/// Every `#[wasm_bindgen]` export must either be claimed by the SDK here or
+/// be a deliberately SDK-independent helper (schema helpers, registration
+/// helpers). The test verifies these exports exist in `lib.rs`.
+const SDK_REQUIRED_EXPORTS: &[&str] = &[
     "core_init",
-    "core_register_root_ca_key",
-    "core_register_root_ca_key_with_token",
-    "core_register_migration_ca_key",
     "core_write",
     "core_read",
     "core_query",
     "core_trust_level",
+    "core_present_token",
     "core_mesh_status",
     "core_initiate_revocation",
     "core_revocation_status",
@@ -50,307 +46,527 @@ const WASM_EXPORT_NAMES: &[&str] = &[
     "core_poll_events",
 ];
 
-/// Mapping from `#[wasm_bindgen]` export name → the `CoreHandle` method it
-/// delegates to.
-///
-/// This captures the delegation relationship enforced in `lib.rs`: each WASM
-/// export calls a method on the `CoreHandle` stored in the thread-local `CORE`.
-/// If an export is missing its delegation target (or vice versa) the test
-/// fails with a precise diff.
-const EXPORT_TO_METHOD: &[(&str, &str)] = &[
-    ("core_init", "init"),
-    ("core_write", "write"),
-    ("core_read", "read"),
-    ("core_query", "query"),
-    ("core_trust_level", "trust_level"),
-    ("core_mesh_status", "mesh_status"),
-    ("core_register_root_ca_key", "register_root_ca_key"),
+/// `CoreHandle` method → its `#[wasm_bindgen]` export. Every method listed
+/// here must exist as a real `pub fn`/`pub async fn` on `CoreHandle`, must be
+/// a real `#[wasm_bindgen]` export in `lib.rs`, and must be present on the
+/// TypeScript `WasmCore` interface under `ts_name`.
+const IO_MANAGER_EXPORTS: &[(&str, &str, &str)] = &[
+    // `core_init` is invoked directly by the WASM loader, so it has no
+    // `WasmCore` interface method (the SDK exposes `TirBase.init` instead).
+    ("init", "core_init", ""),
+    ("write", "core_write", "write"),
+    ("read", "core_read", "read"),
+    ("query", "core_query", "query"),
+    ("trust_level", "core_trust_level", "trustLevel"),
+    ("present_biscuit_token", "core_present_token", "core_present_token"),
+    ("mesh_status", "core_mesh_status", "meshStatus"),
     (
-        "core_register_root_ca_key_with_token",
         "register_root_ca_key",
+        "core_register_root_ca_key",
+        "",
     ),
     (
-        "core_register_migration_ca_key",
         "register_migration_ca_key",
+        "core_register_migration_ca_key",
+        "",
     ),
-    ("core_initiate_revocation", "initiate_revocation"),
-    ("core_revocation_status", "device_revocation_status"),
-    ("core_verify_data", "verify_contamination"),
-    ("core_admin_close_ico", "admin_close_ico"),
-    ("core_activate_saturate_mode", "activate_saturate_mode"),
-    ("core_renew_saturate_mode", "renew_saturate_mode"),
-    ("core_terminate_saturate_mode", "terminate_saturate_mode"),
-    ("core_receive_peer_message", "receive_inbound_wasm"),
-    ("core_poll_events", "poll_events"),
+    (
+        "initiate_revocation",
+        "core_initiate_revocation",
+        "initiateRevocation",
+    ),
+    (
+        "device_revocation_status",
+        "core_revocation_status",
+        "revocationStatus",
+    ),
+    ("verify_contamination", "core_verify_data", "verifyData"),
+    ("admin_close_ico", "core_admin_close_ico", "adminClose"),
+    (
+        "activate_saturate_mode",
+        "core_activate_saturate_mode",
+        "activateSaturateMode",
+    ),
+    (
+        "renew_saturate_mode",
+        "core_renew_saturate_mode",
+        "renewSaturateMode",
+    ),
+    (
+        "terminate_saturate_mode",
+        "core_terminate_saturate_mode",
+        "terminateSaturateMode",
+    ),
+    (
+        "receive_inbound_wasm",
+        "core_receive_peer_message",
+        "receiveMessage",
+    ),
 ];
 
-#[test]
-fn wasm_exports_match_core_handle_methods() {
-    let declared_exports: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
-
- // 1. Every WASM export must map to a CoreHandle method.
-    let missing_delegations: Vec<&(&str, &str)> = EXPORT_TO_METHOD
-        .iter()
-        .filter(|(export, _)| !declared_exports.contains(*export))
-        .collect();
-    assert!(
-        missing_delegations.is_empty(),
-        "EXPORT_TO_METHOD contains entries for exports not in WASM_EXPORT_NAMES: {:?}",
-        missing_delegations
-    );
-
- // 3. Every declared WASM export name has a delegation target.
-    let declared_set: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
-    let delegation_exports: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(e, _)| *e).collect();
-
-    let exports_in_declared_but_not_mapped: Vec<&str> = declared_set
-        .difference(&delegation_exports)
-        .copied()
-        .collect();
-    assert!(
-        exports_in_declared_but_not_mapped.is_empty(),
-        "WASM_EXPORT_NAMES contains exports without a delegation mapping: {:?}",
-        exports_in_declared_but_not_mapped
-    );
-
- // 4. Every delegation export is in the declared set.
-    let exports_in_mapped_but_not_declared: Vec<&(&str, &str)> = EXPORT_TO_METHOD
-        .iter()
-        .filter(|(export, _)| !declared_set.contains(*export))
-        .collect();
-    assert!(
-        exports_in_mapped_but_not_declared.is_empty(),
-        "EXPORT_TO_METHOD contains entries for exports not in WASM_EXPORT_NAMES: {:?}",
-        exports_in_mapped_but_not_declared
-    );
-
- // 3. Every target method actually exists on CoreHandle (compile-time check).
- // This is verified by the fact that the test module compiles — the
- // `assert_method_exists!` macro below performs a trait-bound check that
- // the method is present on `CoreHandle`.
-    for (_, method) in EXPORT_TO_METHOD {
-        assert_method_exists(method);
-    }
-}
-
-#[test]
-fn all_corehandle_public_io_methods_are_exported() {
- // The four primary data-plane methods (write, read, query) and the two
- // status accessors (trust_level, mesh_status) MUST have WASM exports so
- // the SDK can drive them through the WASM bridge (Req 2.1–2.6).
-    let required_methods: &[&str] = &["write", "read", "query", "trust_level", "mesh_status"];
-    for m in required_methods {
-        assert_method_exists(m);
-    }
-}
-
-/// Compile-time assertion that `T` has a method named `method_name`.
-///
-/// Uses a trait with a blanket impl to verify the method exists at compile
-/// time without actually calling it. If the method is removed from `CoreHandle`,
-/// this fails to compile, surfacing the drift immediately.
-fn assert_method_exists(method_name: &str) {
- // We can't do true compile-time method-name reflection, but we can call a
- // helper that exercises the delegation mapping. The test framework
- // ensures the mapping is consistent with WASM_EXPORT_NAMES above.
-    let mapped: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(_, m)| *m).collect();
-    assert!(
-        mapped.contains(method_name),
-        "method '{method_name}' has no WASM export mapping — \
-         every CoreHandle public method must either be WASM-exported \
-         (add an entry to EXPORT_TO_METHOD) or explicitly excluded"
-    );
-}
-
-/// Verify the `WasmCore` TypeScript interface parity by checking that every
-/// WASM export the SDK expects is present in our declared set.
-///
-/// This catches the scenario where a WASM export is added to `lib.rs` but the
-/// `WasmCore` interface in `tirbase-sdk/src/wasm-bridge.ts` is not updated.
-#[test]
-fn wasm_exports_cover_sdk_wasmcore_interface() {
- // These are the method names defined on `WasmCore` in wasm-bridge.ts,
- // mapped from camelCase (TS) to the `core_*` snake_case (Rust) names.
-    let sdk_interface_methods: &[(&str, &str)] = &[
-        ("core_init", "init"),
-        ("core_write", "write"),
-        ("core_read", "read"),
-        ("core_query", "query"),
-        ("core_trust_level", "trustLevel"),
-        ("core_mesh_status", "meshStatus"),
-        ("core_initiate_revocation", "initiateRevocation"),
-        ("core_revocation_status", "revocationStatus"),
-        ("core_verify_data", "verifyData"),
-        ("core_admin_close_ico", "adminClose"),
-        ("core_activate_saturate_mode", "activateSaturateMode"),
-        ("core_renew_saturate_mode", "renewSaturateMode"),
-        ("core_terminate_saturate_mode", "terminateSaturateMode"),
-    ];
-
-    let declared: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
-
-    for (export_name, _ts_name) in sdk_interface_methods {
-        assert!(
-            declared.contains(*export_name),
-            "SDK WasmCore interface references '{export_name}' which is \
-             not in WASM_EXPORT_NAMES — either the export was removed from \
-             lib.rs or the SDK interface is stale"
-        );
-    }
-
- // The optional methods (pollEvents, receiveMessage) are present but may
- // be absent on older builds — they MUST still be in WASM_EXPORT_NAMES since
- // they are annotated with #[wasm_bindgen].
-    assert!(
-        declared.contains("core_poll_events"),
-        "core_poll_events is #[wasm_bindgen]-annotated in lib.rs and must be in WASM_EXPORT_NAMES"
-    );
-    assert!(
-        declared.contains("core_receive_peer_message"),
-        "core_receive_peer_message is #[wasm_bindgen]-annotated in lib.rs and must be in WASM_EXPORT_NAMES"
-    );
-}
-
-/// Verify that the delegation mappings cover the core data-plane operations
-/// that the production SDK path (`tirbase-sdk/src/tirbase.ts`) calls:
-/// `core_write` → `CoreHandle::write`, `core_read` → `CoreHandle::read`.
-#[test]
-fn sdk_production_callers_have_wasm_exports() {
-    let production_callers: &[(&str, &str)] = &[("core_write", "write"), ("core_read", "read")];
-
-    let declared: BTreeSet<&str> = WASM_EXPORT_NAMES.iter().copied().collect();
-    let mapped: BTreeSet<(&str, &str)> = EXPORT_TO_METHOD.iter().copied().collect();
-
-    for (export, method) in production_callers {
-        assert!(
-            declared.contains(*export),
-            "production SDK caller references '{export}' which is not in WASM_EXPORT_NAMES"
-        );
-        assert!(
-            mapped.contains(&(*export, *method)),
-            "WASM export '{export}' does not delegate to CoreHandle::{method} \
-             — the SDK production caller path depends on this mapping"
-        );
-    }
-}
-
-/// Canonical list of every `pub` method on `CoreHandle` (api/mod.rs) that does
-/// **not** have a `#[wasm_bindgen]` export in `lib.rs`, together with the
-/// documented reason for its absence.
-///
-/// This is the maintained list of intentional exclusions. When a new method
-/// is added to `CoreHandle`, it must either:
-/// - appear in `EXPORT_TO_METHOD` (which adds a WASM export), or
-/// - appear here with a reason.
-///
-/// If a method is added to `CoreHandle` and is absent from both lists, this
-/// test fails, forcing the developer to make the export decision explicit.
+/// Canonical list of every `pub` method on `CoreHandle` that deliberately has
+/// no `#[wasm_bindgen]` export, with the reason. The source parse below
+/// guarantees no new public method can silently bypass this decision.
 const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
- // Native-only diagnostics channel — `tokio::sync::broadcast::Receiver`
- // cannot be passed across the WASM boundary; diagnostics are delivered to
- // the SDK via `core_poll_events` (WasmEvent stream) instead.
     (
         "subscribe_diagnostics",
-        "native-only tokio broadcast channel",
+        "native-only tokio broadcast channel; WASM uses core_poll_events",
     ),
- // Synchronous getter for the root CA public key bytes — the SDK retrieves
- // this via `core_register_root_ca_key_with_token` (which accepts the key
- // material) and stores it in JS memory; a separate getter is unnecessary.
     (
         "root_ca_public_key",
         "synchronous key getter; key material stored in JS by register call",
     ),
- // Native-only inbound path — `receive_inbound` (the non-wasm arm at
- // api/mod.rs:2234) is the Swarm-polling-task caller on native; the WASM
- // equivalent is `receive_inbound_wasm` (which is exported as
- // `core_receive_peer_message`).
+    (
+        "fleet_provision_device",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "fleet_revoke_device",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "fleet_inventory_snapshot",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "fleet_device",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "fleet_is_revoked",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "fleet_snapshot_hash",
+        "fleet control plane is native-only (CLI/admin), not an SDK boundary",
+    ),
+    (
+        "subscribe_fleet_updates",
+        "native-only tokio broadcast channel",
+    ),
+    (
+        "subscribe_checkpoint_observations",
+        "native-only tokio broadcast channel",
+    ),
+    (
+        "subscribe_security_event_sync",
+        "native-only tokio broadcast channel",
+    ),
+    (
+        "publish_security_event_sync",
+        "native-only mesh control plane; no SDK call site",
+    ),
+    (
+        "set_checkpoint_provider",
+        "native-only callback registration (not serialisable over WASM)",
+    ),
+    (
+        "publish_checkpoint_hash",
+        "native-only mesh control plane; no SDK call site",
+    ),
+    (
+        "set_challenge_handler",
+        "native-only callback registration (not serialisable over WASM)",
+    ),
+    (
+        "subscribe_mesh_challenge_responses",
+        "native-only tokio broadcast channel",
+    ),
+    (
+        "request_mesh_challenge",
+        "native-only mesh control plane; no SDK call site",
+    ),
+    (
+        "local_did",
+        "synchronous local accessor; DID is available from core_init state",
+    ),
+    (
+        "memory_budget_metrics",
+        "native diagnostics accessor",
+    ),
+    (
+        "set_inbound_caps",
+        "native hardening configuration; WASM uses fixed compile-time caps",
+    ),
     (
         "receive_inbound",
         "native-only Swarm polling caller; WASM equivalent is receive_inbound_wasm",
     ),
- // Internal dispatch — `process_inbound_messages` drains the native inbound
- // channel and is not a public WASM boundary method.
     (
         "process_inbound_messages",
         "internal native inbound drain loop, not a WASM boundary method",
     ),
- // `receive_inbound_wasm` is the WASM-internal implementation of the inbound
- // path; it is called by `core_receive_peer_message` and is not itself
- // exported — exporting it would create a duplicate entry in the WASM
- // surface.
-    (
-        "receive_inbound_wasm",
-        "WASM-internal inbound impl, called by core_receive_peer_message",
-    ),
- // Native-only durability event subscription — returns a
- // `tokio::sync::broadcast::Receiver` which has no WASM equivalent;
- // durability events on WASM are delivered through `core_poll_events`.
     (
         "subscribe_durability_events",
         "native-only tokio broadcast channel; WASM uses core_poll_events",
     ),
- // Native-only test injection path — `inject_inbound` is used by native
- // integration tests to simulate inbound gossip messages; it is not part of
- // the SDK surface.
+    (
+        "test_cce",
+        "test-only accessor for the contamination engine",
+    ),
     (
         "inject_inbound",
-        "native-only test injection path, not part of SDK surface",
+        "native-only test injection path, not part of the SDK surface",
     ),
 ];
 
-/// All `pub` method names on `CoreHandle` (the complete set that must be
-/// accounted for in `EXPORT_TO_METHOD` or `UNEXPORTED_COREHANDLE_METHODS`).
-const ALL_COREHANDLE_PUBLIC_METHODS: &[&str] = &[
-    "init",
-    "write",
-    "read",
-    "query",
-    "trust_level",
-    "mesh_status",
-    "subscribe_diagnostics",
-    "root_ca_public_key",
-    "register_root_ca_key",
-    "register_migration_ca_key",
-    "initiate_revocation",
-    "device_revocation_status",
-    "activate_saturate_mode",
-    "renew_saturate_mode",
-    "terminate_saturate_mode",
-    "verify_contamination",
-    "admin_close_ico",
-    "receive_inbound",
-    "receive_inbound_wasm",
-    "process_inbound_messages",
-    "subscribe_durability_events",
-    "inject_inbound",
-];
+// ─── Source parsers ───────────────────────────────────────────────────────────
 
+/// Brace-matched body of the first `impl CoreHandle { ... }` block.
+fn corehandle_impl_body(src: &str) -> &str {
+    let start = src
+        .find("impl CoreHandle {")
+        .expect("api/mod.rs must contain `impl CoreHandle {`");
+    let open = start + src[start..].find('{').expect("impl brace");
+    let mut depth = 0usize;
+    for (offset, ch) in src[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &src[open..open + offset];
+                }
+            }
+            _ => {}
+        }
+    }
+    panic!("unbalanced braces in `impl CoreHandle` block");
+}
+
+/// Every `pub fn` / `pub async fn` on `CoreHandle` (deduplicated).
+fn corehandle_public_methods() -> BTreeSet<String> {
+    let body = corehandle_impl_body(API_SOURCE);
+    body.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            let rest = trimmed
+                .strip_prefix("pub fn ")
+                .or_else(|| trimmed.strip_prefix("pub async fn "))?;
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if name.is_empty() {
+                None
+            } else {
+                Some(name)
+            }
+        })
+        .collect()
+}
+
+/// Every `#[wasm_bindgen] pub fn` / `pub async fn` export in `lib.rs`.
+fn wasm_bindgen_exports() -> BTreeSet<String> {
+    let mut exports = BTreeSet::new();
+    let mut pending_bindgen = false;
+    for line in LIB_SOURCE.lines() {
+        let trimmed = line.trim();
+        if trimmed == "#[wasm_bindgen]" {
+            pending_bindgen = true;
+            continue;
+        }
+        if !pending_bindgen {
+            continue;
+        }
+        if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("#[") {
+            continue;
+        }
+        if let Some(rest) = trimmed
+            .strip_prefix("pub fn ")
+            .or_else(|| trimmed.strip_prefix("pub async fn "))
+        {
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if !name.is_empty() {
+                exports.insert(name);
+            }
+            pending_bindgen = false;
+        } else {
+            // Attribute was not followed by an exported fn — stop scanning it.
+            pending_bindgen = false;
+        }
+    }
+    exports
+}
+
+/// Method identifiers declared by `export interface WasmCore { ... }`.
+fn sdk_wasmcore_methods() -> BTreeSet<String> {
+    let marker = "export interface WasmCore {";
+    let start = SDK_BRIDGE_SOURCE
+        .find(marker)
+        .expect("wasm-bridge.ts must declare `export interface WasmCore {`");
+    let body_start = start + marker.len();
+    let end = SDK_BRIDGE_SOURCE[body_start..]
+        .find("\n}")
+        .expect("unterminated WasmCore interface")
+        + body_start;
+    SDK_BRIDGE_SOURCE[body_start..end]
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.is_empty() {
+                return None;
+            }
+            let name: String = trimmed
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            let after = trimmed[name.len()..].trim_start();
+            // Optional interface methods are declared `name?(...)`.
+            let after = after.strip_prefix('?').unwrap_or(after).trim_start();
+            if name.is_empty() || !after.starts_with('(') {
+                return None;
+            }
+            Some(name)
+        })
+        .collect()
+}
+
+/// Every `required('core_*')` delegation name in `wasm-bridge.ts`.
+fn sdk_required_exports() -> BTreeSet<String> {
+    let mut found = BTreeSet::new();
+    let needle = "required('";
+    let mut rest = SDK_BRIDGE_SOURCE;
+    while let Some(idx) = rest.find(needle) {
+        rest = &rest[idx + needle.len()..];
+        let name: String = rest.chars().take_while(|c| *c != '\'').collect();
+        if name.starts_with("core_") {
+            found.insert(name);
+        }
+    }
+    found
+}
+
+/// Map a TypeScript `WasmCore` method name to the Rust export it must use.
+///
+/// `core_*` methods map to themselves; camelCase methods map to
+/// `core_snake_case`; the two names whose Rust export differs from that rule
+/// are listed explicitly.
+fn ts_method_to_export(ts_name: &str) -> Option<String> {
+    if ts_name.starts_with("core_") {
+        return Some(ts_name.to_string());
+    }
+    let explicit = match ts_name {
+        "adminClose" => Some("core_admin_close_ico"),
+        "receiveMessage" => Some("core_receive_peer_message"),
+        _ => None,
+    };
+    if let Some(name) = explicit {
+        return Some(name.to_string());
+    }
+    let mut snake = String::from("core_");
+    for (i, ch) in ts_name.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i != 0 {
+                snake.push('_');
+            }
+            snake.extend(ch.to_lowercase());
+        } else {
+            snake.push(ch);
+        }
+    }
+    Some(snake)
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+/// The parser must actually find the known surface — guards against a parser
+/// that silently returns an empty set and makes every other assertion vacuous.
+#[test]
+fn parity_parsers_find_the_real_surfaces() {
+    let methods = corehandle_public_methods();
+    assert!(
+        methods.len() >= 40,
+        "parser found only {} CoreHandle public methods — parser is broken",
+        methods.len()
+    );
+    let exports = wasm_bindgen_exports();
+    assert!(
+        exports.len() >= 20,
+        "parser found only {} #[wasm_bindgen] exports — parser is broken",
+        exports.len()
+    );
+    let ts = sdk_wasmcore_methods();
+    assert!(
+        ts.len() >= 14,
+        "parser found only {} WasmCore interface methods — parser is broken",
+        ts.len()
+    );
+}
+
+/// Drift between `lib.rs`'s `#[wasm_bindgen]` exports and the SDK's
+/// `required('core_*')` delegations fails the test in both directions.
+#[test]
+fn sdk_delegations_and_lib_exports_are_in_lockstep() {
+    let exports = wasm_bindgen_exports();
+    let sdk_required = sdk_required_exports();
+
+    let missing_in_lib: Vec<&String> = sdk_required.difference(&exports).collect();
+    assert!(
+        missing_in_lib.is_empty(),
+        "wasm-bridge.ts delegates to exports that lib.rs does not #[wasm_bindgen]-export: {missing_in_lib:?}"
+    );
+
+    let missing_in_sdk: Vec<&str> = SDK_REQUIRED_EXPORTS
+        .iter()
+        .copied()
+        .filter(|name| !exports.contains(*name))
+        .collect();
+    assert!(
+        missing_in_sdk.is_empty(),
+        "SDK_REQUIRED_EXPORTS lists names that lib.rs does not export: {missing_in_sdk:?}"
+    );
+}
+
+/// Every IO/manager operation exists on `CoreHandle`, is exported by
+/// `lib.rs`, and is declared on the TypeScript `WasmCore` interface.
+#[test]
+fn complete_io_and_manager_surface_is_wired_across_all_three_layers() {
+    let methods = corehandle_public_methods();
+    let exports = wasm_bindgen_exports();
+    let ts_methods = sdk_wasmcore_methods();
+
+    for (method, export, ts_name) in IO_MANAGER_EXPORTS {
+        assert!(
+            methods.contains(*method),
+            "CoreHandle::{method} is missing from api/mod.rs — the IO/manager surface shrank"
+        );
+        assert!(
+            exports.contains(*export),
+            "lib.rs is missing the #[wasm_bindgen] export `{export}` for CoreHandle::{method}"
+        );
+        if !ts_name.is_empty() {
+            assert!(
+                ts_methods.contains(*ts_name),
+                "tirbase-sdk/src/wasm-bridge.ts `WasmCore` is missing `{ts_name}` for export `{export}`"
+            );
+        }
+    }
+
+    // Manager operations named explicitly by the spec must all be present.
+    for (method, export) in [
+        ("initiate_revocation", "core_initiate_revocation"),
+        ("device_revocation_status", "core_revocation_status"),
+        ("verify_contamination", "core_verify_data"),
+        ("admin_close_ico", "core_admin_close_ico"),
+        ("activate_saturate_mode", "core_activate_saturate_mode"),
+        ("renew_saturate_mode", "core_renew_saturate_mode"),
+        ("terminate_saturate_mode", "core_terminate_saturate_mode"),
+    ] {
+        assert!(methods.contains(method), "missing CoreHandle::{method}");
+        assert!(exports.contains(export), "missing WASM export {export}");
+        assert!(
+            IO_MANAGER_EXPORTS
+                .iter()
+                .any(|(m, e, _)| *m == method && *e == export),
+            "manager op {method} → {export} is not covered by IO_MANAGER_EXPORTS"
+        );
+    }
+}
+
+/// Every TypeScript `WasmCore` method maps to a real `#[wasm_bindgen]` export.
+#[test]
+fn every_sdk_wasmcore_method_maps_to_a_real_export() {
+    let exports = wasm_bindgen_exports();
+    let mut unmapped = Vec::new();
+    for ts_name in sdk_wasmcore_methods() {
+        match ts_method_to_export(&ts_name) {
+            Some(export) if exports.contains(&export) => {}
+            Some(export) => unmapped.push(format!("{ts_name} → {export} (export missing)")),
+            None => unmapped.push(format!("{ts_name} (no mapping rule)")),
+        }
+    }
+    assert!(
+        unmapped.is_empty(),
+        "WasmCore interface methods without a real Rust export: {unmapped:?}"
+    );
+}
+
+/// Every public `CoreHandle` method is either exported or explicitly
+/// documented as intentionally unexported; every exclusion is real.
 #[test]
 fn all_corehandle_public_methods_are_accounted_for() {
-    let exported: BTreeSet<&str> = EXPORT_TO_METHOD.iter().map(|(_, m)| *m).collect();
-    let unexported_reasons: BTreeSet<&str> = UNEXPORTED_COREHANDLE_METHODS
+    let methods = corehandle_public_methods();
+    let exports = wasm_bindgen_exports();
+
+    let exported_methods: BTreeSet<&str> =
+        IO_MANAGER_EXPORTS.iter().map(|(m, _, _)| *m).collect();
+    let excluded: BTreeSet<&str> = UNEXPORTED_COREHANDLE_METHODS
         .iter()
         .map(|(m, _)| *m)
         .collect();
 
-    for method in ALL_COREHANDLE_PUBLIC_METHODS {
-        let is_exported = exported.contains(method);
-        let is_documented = unexported_reasons.contains(method);
+    let mut unaccounted: Vec<&str> = methods
+        .iter()
+        .map(String::as_str)
+        .filter(|m| !exported_methods.contains(m) && !excluded.contains(m))
+        .collect();
+    unaccounted.sort_unstable();
+    assert!(
+        unaccounted.is_empty(),
+        "CoreHandle public methods with no WASM export and no documented exclusion: {unaccounted:?}"
+    );
 
+    let mut stale: Vec<&str> = excluded
+        .iter()
+        .copied()
+        .filter(|m| !methods.contains(*m))
+        .collect();
+    stale.sort_unstable();
+    assert!(
+        stale.is_empty(),
+        "UNEXPORTED_COREHANDLE_METHODS references methods that are not pub on CoreHandle: {stale:?}"
+    );
+
+    for (method, export, _) in IO_MANAGER_EXPORTS {
         assert!(
-            is_exported || is_documented,
-            "CoreHandle::'{method}' is pub but has no WASM export and no documented \
-             exclusion reason — add it to EXPORT_TO_METHOD or UNEXPORTED_COREHANDLE_METHODS"
+            methods.contains(*method),
+            "IO_MANAGER_EXPORTS references CoreHandle::{method}, which does not exist"
+        );
+        assert!(
+            exports.contains(*export),
+            "IO_MANAGER_EXPORTS references export {export}, which lib.rs does not declare"
         );
     }
 
- // Every entry in UNEXPORTED_COREHANDLE_METHODS must correspond to a real
- // method on CoreHandle (prevents stale entries from accumulating).
-    for (method, _reason) in UNEXPORTED_COREHANDLE_METHODS {
+    // Every declared export must be a method delegation (identity / transport
+    // plumbing exports are listed here explicitly so they cannot drift in
+    // silently).
+    const NON_DELEGATING_EXPORTS: &[&str] = &[
+        "core_register_root_ca_key_with_token",
+        "core_poll_events",
+        "core_schema_identifier_hash",
+        "core_schema_print",
+        "core_schema_parse",
+    ];
+    let mapped_exports: BTreeSet<&str> = IO_MANAGER_EXPORTS.iter().map(|(_, e, _)| *e).collect();
+    let mut undocumented: Vec<&str> = exports
+        .iter()
+        .map(String::as_str)
+        .filter(|e| !mapped_exports.contains(e) && !NON_DELEGATING_EXPORTS.contains(e))
+        .collect();
+    undocumented.sort_unstable();
+    assert!(
+        undocumented.is_empty(),
+        "lib.rs exports with no CoreHandle delegation and no documented exemption: {undocumented:?}"
+    );
+}
+
+/// The SDK's real production caller path (`tirbase.ts`) depends on
+/// `core_write`/`core_read`; both must stay exported and delegated.
+#[test]
+fn sdk_production_callers_have_wasm_exports() {
+    let exports = wasm_bindgen_exports();
+    for (method, export) in [("write", "core_write"), ("read", "core_read")] {
         assert!(
-            ALL_COREHANDLE_PUBLIC_METHODS.contains(method),
-            "UNEXPORTED_COREHANDLE_METHODS references '{method}' which is not a \
-             pub method on CoreHandle — remove the stale entry"
+            IO_MANAGER_EXPORTS
+                .iter()
+                .any(|(m, e, _)| *m == method && *e == export),
+            "IO_MANAGER_EXPORTS is missing the production SDK mapping {method} → {export}"
         );
+        assert!(exports.contains(export), "lib.rs is missing {export}");
     }
 }

@@ -70,6 +70,15 @@ try {
     const trustLevel = mod.core_trust_level();
     const meshStatus = mod.core_mesh_status();
     output.results = { trustLevel, meshStatus };
+  } else if (op === 'write-read-roundtrip') {
+    // Req 2.3: a write through the real WASM core is readable back through
+    // the real read path (and visible to query). No mocks on this path.
+    await coreInit(':memory:', [], null, []);
+    const payload = { sensor: 'temp', value: 7, ok: true };
+    const written = await mod.core_write('harness', 'row-1', payload);
+    const read = await mod.core_read('harness', 'row-1');
+    const queried = await mod.core_query('harness', null);
+    output.results = { payload, written, read, queried };
   } else if (op === 'write-error') {
     await coreInit(':memory:', [], null, []);
     try {
@@ -142,6 +151,32 @@ describe('TirBase SDK — real WASM integration (Req 2.2, 2.3, 2.6)', () => {
       const result = runWasmRunner('init-success');
       expect(result.results.trustLevel).toBe('Unverified');
       expect(result.results.meshStatus).toBeDefined();
+    });
+  });
+
+  describe('write → read round-trip against real WASM (Req 2.3)', () => {
+    test('data written through core_write is returned by core_read and core_query', () => {
+      const result = runWasmRunner('write-read-roundtrip');
+      expect(result.success).toBe(true);
+      expect(result.error).toBeNull();
+
+      const payload = result.results.payload as Record<string, unknown>;
+      const written = result.results.written as Record<string, unknown>;
+      const read = result.results.read as Record<string, unknown>;
+      const queried = result.results.queried as Array<Record<string, unknown>>;
+
+      // The write produced a real Delta, not a stub.
+      expect(typeof written.deltaId).toBe('string');
+      expect(written.deltaId).toMatch(/^[0-9a-f]{64}$/);
+
+      // The real read path returns exactly the data written.
+      expect(read.table).toBe('harness');
+      expect(read.key).toBe('row-1');
+      expect(read.data).toEqual(payload);
+
+      // The real query path sees the same projected row.
+      expect(queried).toHaveLength(1);
+      expect(queried[0].data).toEqual(payload);
     });
   });
 

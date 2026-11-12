@@ -169,7 +169,7 @@ impl SchemaMigrationEngine {
         revocation_threshold_m: usize,
         #[cfg(feature = "native")] store: Arc<Mutex<crate::store::LocalStore>>,
         #[cfg(feature = "native")] migration_conn: Arc<Mutex<rusqlite::Connection>>,
-        #[cfg(not(feature = "native"))] db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
+        #[cfg(not(feature = "native"))] db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>,
         schema_definitions: BTreeMap<
             crate::schema::hash::SchemaIdentifierHash,
             crate::schema::Schema,

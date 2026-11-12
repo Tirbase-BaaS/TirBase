@@ -531,6 +531,29 @@ jobs:
  - name: cargo test (native) — includes parity + convergence tests
  run: cargo test --features native
 
+ # ── Mandatory e2e wiring gates ───────────────────────────────────────────
+ #
+ # These run the real production paths, not mocks: two Swarm-backed
+ # CoreHandles on loopback, a signed Delta travelling the real outbound
+ # transport into the production inbound drain loop, and the SQL projection
+ # read back through the public read() path. They are separate steps so a
+ # regression names the broken surface in the CI summary.
+ - name: Real-mesh e2e (two-Swarm loopback through production inbound path)
+ run: >-
+ cargo test -p tirbase-core --features native --lib api::real_mesh_tests
+ -- --test-threads=1
+
+ - name: Projection write-through (binary Automerge + JSON envelope)
+ run: |
+ set -euo pipefail
+ cargo test -p tirbase-core --features native --lib \
+ api::real_mesh_tests::write_gossip_receive_merge_round_trip_is_signature_verified_and_projected
+ cargo test -p tirbase-core --features native --lib \
+ api::real_mesh_tests::json_envelope_delta_over_real_mesh_projects_to_peer_store
+
+ - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
+ run: cargo test -p tirbase-core --features native --lib tests::api_parity
+
  # / CLAIM-39.1: the TOML catalog S1–S35 executes 1,120 seeded
  # scenarios per run (>= 1,000 required). A failing scenario prints its
  # seed before the runner exits.

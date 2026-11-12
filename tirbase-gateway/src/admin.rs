@@ -1440,7 +1440,10 @@ fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
         "self_update": if state.and_then(|s| s.self_update.as_ref()).is_some() {
             "WIRED"
         } else {
-            "UNCONFIGURED"
+ // Self-update is not implemented; RFC-tuf describes the intended TUF
+ // flow. Report the honest blocked status rather than a vague
+ // "UNCONFIGURED" (the endpoint always reports a definite state).
+            "BLOCKED_PENDING_RFC_TUF"
         },
     })
     .to_string()

@@ -4,7 +4,7 @@
 //! endpoint shows up as a failure instead of a stale document.
 
 #[test]
-fn gateway_admin_openapi_defines_every_admin_endpoint {
+fn gateway_admin_openapi_defines_every_admin_endpoint() {
  let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
  .join("../docs/api/gateway-admin-openapi.yaml");
  let doc = std::fs::read_to_string(&path).expect("admin OpenAPI document exists");

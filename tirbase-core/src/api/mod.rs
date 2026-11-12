@@ -551,9 +551,10 @@ impl CoreHandle {
         #[cfg(not(feature = "native"))]
         let (store, store_db_rc) = {
             let store = LocalStore::open(&config.storage_path).await?;
-            let store_db_rc = store
-                .idb_store_rc()
-                .expect("idb store must exist for non-:memory: path");
+ // `None` for the literal `":memory:"` path: the store is ephemeral and
+ // the migration ledgers keep their state in memory (the WASM analogue of
+ // the native in-memory SQLite ledger) instead of panicking here.
+            let store_db_rc = store.idb_store_rc();
             (Arc::new(Mutex::new(store)), store_db_rc)
         };
 
@@ -10461,135 +10462,14 @@ mod convergence_tests {
 // trip with a signature-verified, merged, projected Delta on the receiver).
 
 #[cfg(all(test, feature = "native"))]
+pub(crate) mod mesh_harness;
+
+#[cfg(all(test, feature = "native"))]
 mod real_mesh_tests {
+    use super::mesh_harness::*;
     use super::*;
     use serde_json::json;
-    use std::env;
-    use std::net::TcpListener;
     use std::time::Duration;
-
-    fn tmp_path(suffix: &str) -> String {
-        let mut p = env::temp_dir();
-        p.push(format!("tirbase_mesh_test_{suffix}.db"));
-        p.to_str().unwrap().to_string()
-    }
-
-    fn cleanup(path: &str) {
-        let _ = std::fs::remove_file(path);
-        let _ = std::fs::remove_file(format!("{path}.identity.json"));
-        let _ = std::fs::remove_file(format!("{path}-wal"));
-        let _ = std::fs::remove_file(format!("{path}-shm"));
-    }
-
- /// Reserve a free loopback TCP port for a transport listen address.
- ///
- /// The listener is dropped before `CoreHandle::init` binds it, so there is
- /// a tiny reuse window; reserving both ports up front (before either
- /// handle inits) keeps that window to microseconds per port.
-    fn reserve_loopback_port() -> u16 {
-        let l = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
-        l.local_addr().expect("local addr").port()
-    }
-
-    fn mesh_config(path: &str, port: u16) -> InitConfig {
-        InitConfig {
-            storage_path: path.to_string(),
-            listen_addr: format!("/ip4/127.0.0.1/tcp/{port}"),
-            deployment: DeploymentConfig {
-                revocation_m: 1,
-                revocation_n: 1,
-                biscuit_ttl_secs: 3600,
-                extended_ttl_accepted_risk: false,
-                root_ca_keys: vec![],
-                migration_ca_public_key: None,
-                update_signer_public_key: None,
-                schema_version_path: vec![],
-                schema_definitions: vec![],
-                anchor_attested_location: false,
-                beacon_public_keys: vec![],
-                spatial_diversity_min: 1,
-                max_single_sector_fraction: 0.7,
-                quorum_k: 1,
-                quorum_n: 1,
-                saturate_lease_duration_secs: 3600,
-                mesh_mtu: 0,
-                beacon_signal_loss_threshold_secs: 300,
-            },
-        }
-    }
-
- /// Initialise a handle on its own loopback port with a real Swarm (the
- /// production `CoreHandle::init` path spawns the Swarm polling task) and
- /// start the production inbound drain loop at accelerated cadence — the
- /// identical loop `init` spawns at 50 ms in production builds (Subphase
- /// 1.3); test builds make `init`'s own instance inert so count-based unit
- /// tests stay deterministic, so the test drives the accelerated loop
- /// explicitly, exactly as the Subphase 1.3 acceptance does.
-    async fn init_mesh_handle(suffix: &str, port: u16) -> Arc<CoreHandle> {
-        let path = tmp_path(suffix);
-        cleanup(&path);
-        let handle = CoreHandle::init(mesh_config(&path, port))
-            .await
-            .expect("init must succeed with a real Swarm");
-        CoreHandle::spawn_inbound_drain_loop(&handle, Duration::from_millis(10));
-        handle
-    }
-
-    async fn init_mesh_handle_on_path(suffix: &str, port: u16, path: &str) -> Arc<CoreHandle> {
-        let handle = CoreHandle::init(mesh_config(path, port))
-            .await
-            .expect("init must succeed with a real Swarm");
-        CoreHandle::spawn_inbound_drain_loop(&handle, Duration::from_millis(10));
-        handle
-    }
-
- /// Dial `from` → `to`'s listen address via the production
- /// `CoreHandle::dial_peer` path and wait until the connection is recorded
- /// (the Swarm polling task's `ConnectionEstablished` arm populates the
- /// peer table, so `mesh_status()` reports it).
-    async fn connect_peers(from: &Arc<CoreHandle>, target_addr: &str) {
-        let addr: libp2p::Multiaddr = target_addr.parse().expect("valid multiaddr");
-        from.dial_peer(addr).await.expect("dial_peer must succeed");
-
-        let mut attempts = 0u32;
-        loop {
-            if from.mesh_status().peer_count >= 1 {
-                return;
-            }
-            attempts += 1;
-            assert!(
-                attempts < 500,
-                "explicit dial never established a connection (mesh_status stayed disconnected for 5s)"
-            );
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }
-
- /// Poll `handle.read(table, key)` until the row's data equals `expected`
- /// or `timeout` elapses. (Polling for a bare successful read is not
- /// enough across multiple round trips — a row written by an earlier
- /// round trip already reads successfully with stale data.)
-    async fn wait_for_data(
-        handle: &CoreHandle,
-        table: &str,
-        key: &str,
-        expected: &serde_json::Value,
-        timeout: Duration,
-    ) -> QueryResult {
-        let deadline = crate::traits::monotonic_now() + timeout.as_micros() as u64;
-        loop {
-            match handle.read(table, key).await {
-                Ok(res) if &res.data == expected => return res,
-                _ => {
-                    assert!(
-                        crate::traits::monotonic_now() < deadline,
-                        "row {table}/{key} never projected the expected data on the receiving device within {timeout:?}"
-                    );
-                    tokio::time::sleep(Duration::from_millis(20)).await;
-                }
-            }
-        }
-    }
 
  // ── Phase 0.3(a): two-device real mesh Delta exchange ────────────────────
  //
@@ -10646,6 +10526,109 @@ mod real_mesh_tests {
 
         cleanup(&tmp_path("p03a_A"));
         cleanup(&tmp_path("p03a_B"));
+    }
+
+ // ── Projection write-through: JSON-envelope Delta over the real mesh ────
+ //
+ // The native write path embeds real Automerge binary bytes, so the Phase
+ // 0.3(a) test proves the binary projection branch. This test proves the
+ // *other* branch of `receive_inbound`'s projection: a peer Delta whose
+ // `automerge_bytes` carry the TirBase JSON envelope (`_tirbase_table` /
+ // `_tirbase_key` / flattened data), exactly what a WASM peer publishes.
+ //
+ // No `inject_inbound`: the signed Delta is published through device A's
+ // production `MeshTransport::send_delta` outbound path, travels the real
+ // loopback Swarm, and is merged + projected on B by the production
+ // inbound drain loop. B then reads the row through the ordinary public
+ // `read()` path over the SQL projection.
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn json_envelope_delta_over_real_mesh_projects_to_peer_store() {
+        use crate::crdt::delta::{Delta, PriorityClass};
+        use crate::identity::keypair::sign as ek_sign;
+
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        let handle_a = init_mesh_handle("proj_json_A", port_a).await;
+        let handle_b = init_mesh_handle("proj_json_B", port_b).await;
+
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        let written = json!({ "sensor": "flow", "value": 42 });
+        let schema_hash: [u8; 32] = [0u8; 32];
+
+ // Build the JSON envelope a WASM peer produces: metadata keys plus the
+ // flattened application data.
+        let delta = {
+            let mut envelope = serde_json::Map::new();
+            envelope.insert(
+                "_tirbase_table".to_string(),
+                serde_json::Value::String("proj_json".to_string()),
+            );
+            envelope.insert(
+                "_tirbase_key".to_string(),
+                serde_json::Value::String("row-1".to_string()),
+            );
+            for (k, v) in written.as_object().expect("object payload") {
+                envelope.insert(k.clone(), v.clone());
+            }
+            let envelope_bytes =
+                serde_json::to_vec(&serde_json::Value::Object(envelope)).expect("envelope");
+
+            let mut d = Delta {
+                id: [0u8; 32],
+                author_did: handle_a.identity.did().to_string(),
+                signature: crate::crdt::delta::Ed25519Signature::default(),
+                schema_hash,
+                automerge_bytes: envelope_bytes,
+                priority: PriorityClass::Low,
+                causal_parents: vec![],
+                tags: vec![],
+                lamport: 2,
+                created_at: 0,
+            };
+            let canonical = d.canonical_bytes();
+            d.signature =
+                ek_sign(&handle_a.identity.signing_key_bytes(), &canonical).expect("sign");
+            d.id = Delta::compute_id(&canonical);
+            d
+        };
+        let delta_id = delta.id;
+
+ // Production outbound path: framed by `prepare_outbound` and published on
+ // A's real Swarm to B.
+        handle_a
+            .transport
+            .lock()
+            .expect("transport lock")
+            .send_delta(&handle_b.identity.did().to_string(), &delta)
+            .expect("send_delta must publish the Delta");
+
+ // B merges + projects via its production inbound drain loop; `read()` is
+ // the ordinary projection read.
+        let observed =
+            wait_for_data(&handle_b, "proj_json", "row-1", &written, Duration::from_secs(20)).await;
+        assert_eq!(
+            observed.data, written,
+            "JSON-envelope Delta must be merged and projected into B's SQL store"
+        );
+        assert!(
+            handle_b
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&delta_id)
+                .expect("dag lookup")
+                .is_some(),
+            "the published Delta must be signature-verified and merged into B's DAG"
+        );
+
+        cleanup(&tmp_path("proj_json_A"));
+        cleanup(&tmp_path("proj_json_B"));
     }
 
  // ── Phase 0.3(b): full write→gossip→receive→merge round trip ────────────

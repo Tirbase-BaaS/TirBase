@@ -382,14 +382,29 @@ impl QuarantineLedger {
 /// `id` hex string.
 #[cfg(not(feature = "native"))]
 pub struct QuarantineLedger {
-    db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
+ /// `Some` for an IndexedDB-backed store, `None` for an ephemeral
+ /// (`":memory:"`) store. Ephemeral ledgers keep entries in `mem` — the
+ /// WASM analogue of the native in-memory SQLite ledger.
+    db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>,
+    mem: std::collections::BTreeMap<DeltaId, QuarantineEntry>,
 }
 
 #[cfg(not(feature = "native"))]
 impl QuarantineLedger {
- /// Create a new QuarantineLedger backed by the given `IdbStore`.
-    pub(crate) fn new(db: std::rc::Rc<crate::store::indexed_db::IdbStore>) -> Self {
-        Self { db }
+ /// Create a new QuarantineLedger backed by the given `IdbStore`, or by an
+ /// in-memory map when the store is ephemeral (`None`).
+    pub(crate) fn new(db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>) -> Self {
+        Self {
+            db,
+            mem: std::collections::BTreeMap::new(),
+        }
+    }
+
+    async fn snapshot(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
+        match &self.db {
+            Some(db) => db.scan_quarantine_entries().await,
+            None => Ok(self.mem.values().cloned().collect()),
+        }
     }
 
  /// Store a raw incoming Delta without modification (Req 17.5).
@@ -417,7 +432,12 @@ impl QuarantineLedger {
             migration_id: None,
         };
 
-        self.db.put_quarantine_entry(&entry).await?;
+        match &self.db {
+            Some(db) => db.put_quarantine_entry(&entry).await?,
+            None => {
+                self.mem.insert(id, entry);
+            }
+        }
         Ok(id)
     }
 
@@ -425,7 +445,7 @@ impl QuarantineLedger {
         &self,
         hash: &SchemaIdentifierHash,
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        let all = self.db.scan_quarantine_entries().await?;
+        let all = self.snapshot().await?;
         Ok(all
             .into_iter()
             .filter(|e| e.schema_hash.as_ref() == Some(hash))
@@ -433,7 +453,7 @@ impl QuarantineLedger {
     }
 
     pub async fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
-        self.db.scan_quarantine_entries().await
+        self.snapshot().await
     }
 
     pub async fn release_for_migration(
@@ -442,24 +462,31 @@ impl QuarantineLedger {
         migration_id: [u8; 32],
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         let matching: Vec<QuarantineEntry> = {
-            let all = self.db.scan_quarantine_entries().await?;
+            let all = self.snapshot().await?;
             all.into_iter()
                 .filter(|e| e.schema_hash.as_ref() == Some(schema_hash))
                 .collect()
         };
 
         for entry in &matching {
-            self.db
-                .update_quarantine_migration_id(&entry.id[..], Some(migration_id))
-                .await?;
+            match &self.db {
+                Some(db) => {
+                    db.update_quarantine_migration_id(&entry.id[..], Some(migration_id))
+                        .await?;
+                }
+                None => {
+                    if let Some(stored) = self.mem.get_mut(&entry.id) {
+                        stored.migration_id = Some(migration_id);
+                    }
+                }
+            }
         }
 
         Ok(matching)
     }
 
     pub async fn count(&self) -> Result<usize, TirBaseError> {
-        let all = self.db.scan_quarantine_entries().await?;
-        Ok(all.len())
+        Ok(self.snapshot().await?.len())
     }
 }
 

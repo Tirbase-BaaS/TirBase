@@ -434,14 +434,22 @@ impl SideCarLedger {
 
 #[cfg(not(feature = "native"))]
 pub struct SideCarLedger {
-    db: std::rc::Rc<crate::store::indexed_db::IdbStore>,
+ /// `Some` for an IndexedDB-backed store, `None` for an ephemeral
+ /// (`":memory:"`) store. Ephemeral ledgers keep entries in `mem` — the
+ /// WASM analogue of the native in-memory SQLite ledger.
+    db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>,
+    mem: std::collections::BTreeMap<DeltaId, SideCarEntry>,
 }
 
 #[cfg(not(feature = "native"))]
 impl SideCarLedger {
- /// Create a new SideCarLedger backed by the given `IdbStore`.
-    pub(crate) fn new(db: std::rc::Rc<crate::store::indexed_db::IdbStore>) -> Self {
-        Self { db }
+ /// Create a new SideCarLedger backed by the given `IdbStore`, or by an
+ /// in-memory map when the store is ephemeral (`None`).
+    pub(crate) fn new(db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>) -> Self {
+        Self {
+            db,
+            mem: std::collections::BTreeMap::new(),
+        }
     }
 
  /// Record a write operation in the Side-Car Ledger (Req 19.2).
@@ -462,10 +470,7 @@ impl SideCarLedger {
         let id: DeltaId = hasher.finalize().into();
 
  // Check if the entry already exists (INSERT OR IGNORE semantics).
-        let all = self
-            .db
-            .scan_sidecar_entries_for_migration(migration_id)
-            .await?;
+        let all = self.load_entries_ordered(migration_id).await?;
         if all.iter().any(|e| e.id == id) {
             return Ok(id);
         }
@@ -479,7 +484,12 @@ impl SideCarLedger {
             replay_status: ReplayStatus::Pending,
         };
 
-        self.db.put_sidecar_entry(&entry).await?;
+        match &self.db {
+            Some(db) => db.put_sidecar_entry(&entry).await?,
+            None => {
+                self.mem.insert(id, entry);
+            }
+        }
         Ok(id)
     }
 
@@ -636,9 +646,19 @@ impl SideCarLedger {
         &self,
         migration_id: MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
-        self.db
-            .scan_sidecar_entries_for_migration(migration_id)
-            .await
+        match &self.db {
+            Some(db) => db.scan_sidecar_entries_for_migration(migration_id).await,
+            None => {
+                let mut entries: Vec<SideCarEntry> = self
+                    .mem
+                    .values()
+                    .filter(|e| e.migration_id == migration_id)
+                    .cloned()
+                    .collect();
+                entries.sort_by_key(|e| (e.recorded_ts, e.id));
+                Ok(entries)
+            }
+        }
     }
 
     async fn update_entry_status(
@@ -646,7 +666,20 @@ impl SideCarLedger {
         id: &DeltaId,
         status_json: &str,
     ) -> Result<(), TirBaseError> {
-        self.db.update_sidecar_status(id, status_json).await
+        match &self.db {
+            Some(db) => db.update_sidecar_status(id, status_json).await,
+            None => {
+                let status: ReplayStatus = serde_json::from_str(status_json).map_err(|e| {
+                    TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("replay status deserialisation failed: {e}"),
+                    }
+                })?;
+                if let Some(entry) = self.mem.get_mut(id) {
+                    entry.replay_status = status;
+                }
+                Ok(())
+            }
+        }
     }
 
  /// Count entries for a migration (used by tests).
@@ -654,11 +687,7 @@ impl SideCarLedger {
         &self,
         migration_id: MigrationId,
     ) -> Result<usize, TirBaseError> {
-        let entries = self
-            .db
-            .scan_sidecar_entries_for_migration(migration_id)
-            .await?;
-        Ok(entries.len())
+        Ok(self.load_entries_ordered(migration_id).await?.len())
     }
 }
 

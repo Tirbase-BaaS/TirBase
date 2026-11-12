@@ -282,6 +282,7 @@ mod wasm_exports {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys,
                 migration_ca_public_key,
+                update_signer_public_key: None,
                 schema_version_path,
  // The WASM export surface does not carry full schema
  // definitions; field-level additive-vs-breaking classification
