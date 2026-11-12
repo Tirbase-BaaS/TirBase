@@ -108,3 +108,38 @@ fn claim_53_2_multiple_peers_select_most_recent_valid_beacon_within_max_jump() {
     let bad = PeerBeacon { beacon: newest_valid, anchor_public_key: peer_a.public_key_bytes() };
     assert!(select_authenticated_beacon(&[bad], floor, max_jump).is_none());
 }
+
+/// CLAIM-53.1: the *periodic* production service must publish repeatedly on its
+/// own cadence. The original test only called `produce_beacon()` three times, so
+/// it never exercised `spawn_periodic` — and `spawn_periodic` had no production
+/// caller in `main.rs` at all.
+#[test]
+fn claim_53_1_spawn_periodic_broadcasts_repeatedly_in_production_service() {
+    let provider = Arc::new(InMemoryKeyProvider::generate().expect("key"));
+    let ts = Arc::new(FixedWallTimeSource {
+        wall_micros: 1_800_000_000_i64 * 1_000_000,
+        mono: Mutex::new(0),
+    });
+    let sink = Arc::new(CollectSink::default());
+    let svc = Arc::new(TimeAnchorService::new(
+        provider.clone(),
+        ts,
+        Duration::from_millis(10),
+        300,
+        sink.clone(),
+    ));
+
+    let running = svc.spawn_periodic();
+    std::thread::sleep(Duration::from_millis(80));
+    svc.stop();
+    running.store(false, std::sync::atomic::Ordering::SeqCst);
+
+    let published = sink.0.lock().unwrap().len();
+    assert!(
+        published >= 2,
+        "periodic service must broadcast more than one beacon, got {published}"
+    );
+    assert!(svc.mono_seq() >= 2, "mono_seq must advance per beacon");
+    let beacon = svc.last_beacon().expect("last beacon retained");
+    verify_cose_beacon(&beacon, &provider.public_key_bytes()).expect("beacon verifies");
+}

@@ -23,6 +23,10 @@ use tirbase_guard::trust_root::TrustRootRecord;
 use tirbase_guard::PolicyBundle;
 use tirbase_types::envelope::EnvelopeProfile;
 
+use crate::self_update::{
+    SelfUpdateController, SignedConfigRollback, SignedFirmwareManifest,
+};
+
 /// State shared by the admin endpoints.
 pub struct AdminState {
     pub enrollment: Option<Arc<EnrollmentService>>,
@@ -66,6 +70,13 @@ pub struct AdminState {
     pub events_view_window_days: i64,
     /// Task 36.3e: page size cap for a single event-inspection query.
     pub events_page_size: usize,
+    /// Task 30.9 / RD-6: UpdateSigner-verified firmware/config updates and
+    /// PolicyAuthority-signed config rollback.
+    ///
+    /// `None` means this deployment has not configured the role keys and the
+    /// live config path; the endpoint then answers 503 rather than pretending
+    /// the capability exists.
+    pub self_update: Option<Arc<std::sync::Mutex<SelfUpdateController>>>,
 }
 
 impl fmt::Debug for AdminState {
@@ -82,6 +93,7 @@ impl fmt::Debug for AdminState {
             .field("has_ratchet", &self.ratchet.is_some())
             .field("has_mint_seed", &self.mint_root_ca_seed.is_some())
             .field("has_key_rotator", &self.key_rotator.is_some())
+            .field("has_self_update", &self.self_update.is_some())
             .finish()
     }
 }
@@ -111,6 +123,7 @@ impl Default for AdminState {
             key_rotator: None,
             events_view_window_days: 7,
             events_page_size: 100,
+            self_update: None,
         }
     }
 }
@@ -144,6 +157,7 @@ impl AdminState {
             key_rotator: None,
             events_view_window_days: 7,
             events_page_size: 100,
+            self_update: None,
         }
     }
 }
@@ -215,6 +229,7 @@ pub fn dispatch_admin_command_with_caller(
         Some("time-reset") => dispatch_time_reset(command, state, now_est),
         Some("restore") => dispatch_restore(command, state, now_est),
         Some("rollout-status") => dispatch_rollout_status(state),
+        Some("self-update") => dispatch_self_update(command, state),
         Some("revoke-issuer") => dispatch_revoke_issuer(command, state, now_est),
         _ => r#"{"status":400,"error":"unknown command"}"#.to_string(),
     };
@@ -253,6 +268,7 @@ pub fn dispatch_http_request(
         ("POST", "/admin/restore") => ("restore", None, None),
         ("POST", "/admin/epoch-bump") => ("epoch-bump", None, None),
         ("GET", "/admin/rollout-status") => ("rollout-status", None, None),
+        ("POST", "/admin/self-update") => ("self-update", None, None),
         ("GET", p) if p.starts_with("/admin/status/") => {
             let issuer = p.trim_start_matches("/admin/status/").to_string();
             (
@@ -1301,6 +1317,109 @@ fn dispatch_restore(command: &str, state: Option<&AdminState>, now_est: i64) -> 
     }
 }
 
+// ── Self-update / config rollback (task 30.9, RD-6) ───────────────────────
+
+fn dispatch_self_update(command: &str, state: Option<&AdminState>) -> String {
+    let Some(controller) = state.and_then(|s| s.self_update.as_ref()) else {
+        return not_configured(
+            "self-update",
+            "UpdateSigner/PolicyAuthority keys and self_update_config_path",
+        );
+    };
+    let payload = payload_value(command).unwrap_or_else(|| serde_json::json!({}));
+    let action = payload
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("status");
+    let mut controller = match controller.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            return deny(
+                500,
+                "SELF_UPDATE_LOCK_POISONED",
+                "self-update controller mutex poisoned",
+                "self-update",
+            )
+        }
+    };
+    match action {
+        "status" => serde_json::json!({
+            "status": 200,
+            "endpoint": "self-update",
+            "action": "status",
+            "last_good_config_version": controller.last_good_config_version(),
+        })
+        .to_string(),
+        "checkpoint" => match controller.checkpoint_current_config() {
+            Ok(()) => serde_json::json!({
+                "status": 200,
+                "endpoint": "self-update",
+                "action": "checkpoint",
+                "outcome": "last_good_config_recorded",
+            })
+            .to_string(),
+            Err(error) => deny(
+                409,
+                "CHECKPOINT_FAILED",
+                &error.to_string(),
+                "self-update",
+            ),
+        },
+        "apply" => {
+            let Some(manifest_value) = payload.get("manifest").cloned() else {
+                return bad_request("apply requires a `manifest` object");
+            };
+            let manifest: SignedFirmwareManifest = match serde_json::from_value(manifest_value) {
+                Ok(manifest) => manifest,
+                Err(error) => return bad_request(&format!("invalid manifest: {error}")),
+            };
+            let Some(new_config) = payload.get("new_config").and_then(|v| v.as_str()) else {
+                return bad_request("apply requires `new_config` (string)");
+            };
+            match controller.apply_signed_firmware_manifest(&manifest, new_config) {
+                Ok(()) => serde_json::json!({
+                    "status": 200,
+                    "endpoint": "self-update",
+                    "action": "apply",
+                    "applied_version": manifest.version,
+                })
+                .to_string(),
+                Err(error) => deny(
+                    422,
+                    "SELF_UPDATE_REJECTED",
+                    &error.to_string(),
+                    "self-update",
+                ),
+            }
+        }
+        "rollback" => {
+            let Some(rollback_value) = payload.get("rollback").cloned() else {
+                return bad_request("rollback requires a `rollback` object");
+            };
+            let rollback: SignedConfigRollback = match serde_json::from_value(rollback_value) {
+                Ok(rollback) => rollback,
+                Err(error) => return bad_request(&format!("invalid rollback: {error}")),
+            };
+            match controller.rollback_config_signed(&rollback) {
+                Ok(version) => serde_json::json!({
+                    "status": 200,
+                    "endpoint": "self-update",
+                    "action": "rollback",
+                    "restored_version": version,
+                })
+                .to_string(),
+                Err(error) => deny(
+                    422,
+                    "ROLLBACK_REJECTED",
+                    &error.to_string(),
+                    "self-update",
+                ),
+            }
+        }
+        _ => bad_request("unknown self-update action"),
+    }
+}
+
 // ── Rollout status (task 36.3l) ────────────────────────────────────────────
 
 fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
@@ -1318,7 +1437,11 @@ fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
         "profile_id": profile.map(|p| hex::encode(p.profile_id)),
         "profile_version": profile.map(|p| p.version),
         "device_class": profile.map(|p| p.device_class.clone()),
-        "self_update": "BLOCKED_PENDING_RFC_TUF",
+        "self_update": if state.and_then(|s| s.self_update.as_ref()).is_some() {
+            "WIRED"
+        } else {
+            "UNCONFIGURED"
+        },
     })
     .to_string()
 }

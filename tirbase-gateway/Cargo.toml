@@ -6,7 +6,7 @@ sqlite = ["rusqlite/bundled"]
 sqlcipher = ["rusqlite/bundled-sqlcipher"]
 # Hardware-backed key providers and counters are feature-gated (tasks 6.3,
 # 6.4, 6.6).  Both stubs compile without their SDKs present.
-tpm2 = []
+tpm2 = ["dep:tss-esapi"]
 pkcs11 = []
 # Failpoint injection for PV-9.3/CLAIM-32.2 power-loss boundary tests.
 failpoints = ["tirbase-core/failpoints"]
@@ -67,6 +67,13 @@ toml = "0.8"
 
 # Serialisation / deserialization for GatewayConfig
 serde = { version = "1", features = ["derive"] }
+
+# Ed25519 verification for UpdateSigner/PolicyAuthority-signed self-update and
+# config rollback operations (Task 30.9, PV-11.6).
+ed25519-dalek = "3.0.0"
+
+# TPM2 NV counter backend (task 6.6/6.7b, CLAIM-6.7b). Optional: links libtss2.
+tss-esapi = { version = "7.6", optional = true }
 
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
@@ -130,3 +137,4 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 serde_json = "1"
 wat = "1"
 rcgen = "0.13"
+tempfile = "3"

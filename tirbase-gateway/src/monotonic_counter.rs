@@ -520,29 +520,133 @@ impl Tpm2MonotonicCounter {
 }
 
 #[cfg(feature = "tpm2")]
+mod tpm2_nv {
+    use std::str::FromStr;
+
+    use tss_esapi::attributes::NvIndexAttributesBuilder;
+    use tss_esapi::handles::{NvIndexHandle, NvIndexTpmHandle, TpmHandle};
+    use tss_esapi::interface_types::algorithm::HashingAlgorithm;
+    use tss_esapi::constants::NvIndexType;
+    use tss_esapi::interface_types::resource_handles::{NvAuth, Provision};
+    use tss_esapi::interface_types::session_handles::AuthSession;
+    use tss_esapi::structures::NvPublicBuilder;
+    use tss_esapi::tcti_ldr::TctiNameConf;
+    use tss_esapi::Context;
+
+    use tirbase_core::errors::TirBaseError;
+
+    pub(super) fn unavailable(reason: impl std::fmt::Display) -> TirBaseError {
+        TirBaseError::KeyProviderUnavailable {
+            provider: "tpm2".to_string(),
+            reason: reason.to_string(),
+        }
+    }
+
+    pub(super) fn open(nv_index: u32) -> Result<(Context, NvIndexHandle), TirBaseError> {
+        let spec = std::env::var("TIRBASE_TPM2_TCTI")
+            .unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
+        let tcti = TctiNameConf::from_str(&spec).map_err(unavailable)?;
+        let mut context = Context::new(tcti).map_err(unavailable)?;
+        context.set_sessions((Some(AuthSession::Password), None, None));
+        let tpm_handle = TpmHandle::NvIndex(NvIndexTpmHandle::new(nv_index).map_err(unavailable)?);
+        let object = context.tr_from_tpm_public(tpm_handle).map_err(unavailable)?;
+        Ok((context, NvIndexHandle::from(object)))
+    }
+
+    pub(super) fn read(context: &mut Context, handle: NvIndexHandle) -> Result<u64, TirBaseError> {
+        let buffer = context
+            .nv_read(NvAuth::Owner, handle, 8, 0)
+            .map_err(unavailable)?;
+        let bytes = buffer.value();
+        let mut raw = [0u8; 8];
+        if bytes.len() != raw.len() {
+            return Err(unavailable(format!(
+                "TPM2 NV counter returned {} bytes, expected 8",
+                bytes.len()
+            )));
+        }
+        raw.copy_from_slice(bytes);
+        Ok(u64::from_be_bytes(raw))
+    }
+
+    /// Create the counter index if it does not exist yet (empty hierarchy auth).
+    /// Used by provisioning and by the swtpm integration test.
+    pub fn provision_counter_index(nv_index: u32) -> Result<(), TirBaseError> {
+        let spec = std::env::var("TIRBASE_TPM2_TCTI")
+            .unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
+        let tcti = TctiNameConf::from_str(&spec).map_err(unavailable)?;
+        let mut context = Context::new(tcti).map_err(unavailable)?;
+        context.set_sessions((Some(AuthSession::Password), None, None));
+        let attributes = NvIndexAttributesBuilder::new()
+            .with_owner_read(true)
+            .with_owner_write(true)
+            .with_auth_read(true)
+            .with_auth_write(true)
+            .with_nv_index_type(NvIndexType::Counter)
+            .build()
+            .map_err(unavailable)?;
+        let public = NvPublicBuilder::new()
+            .with_nv_index(NvIndexTpmHandle::new(nv_index).map_err(unavailable)?)
+            .with_index_name_algorithm(HashingAlgorithm::Sha256)
+            .with_index_attributes(attributes)
+            .with_data_area_size(8)
+            .build()
+            .map_err(unavailable)?;
+        context
+            .nv_define_space(Provision::Owner, None, public)
+            .map_err(|e| unavailable(format!("NV_DefineSpace: {e:?}")))?;
+        Ok(())
+    }
+}
+
+/// Provision the TPM2 NV counter index used by [`Tpm2MonotonicCounter`].
+///
+/// Requires an owner hierarchy with empty authorization (the swtpm test rig
+/// and a freshly provisioned device). Re-provisioning an existing index fails
+/// with the TPM's `NV_DEFINED` error rather than overwriting it.
+#[cfg(feature = "tpm2")]
+pub fn provision_tpm2_counter_index(nv_index: u32) -> Result<(), TirBaseError> {
+    tpm2_nv::provision_counter_index(nv_index)
+}
+
+#[cfg(feature = "tpm2")]
 impl MonotonicCounterTrait for Tpm2MonotonicCounter {
     fn read(&self) -> Result<u64, TirBaseError> {
-        Err(TirBaseError::KeyProviderUnavailable {
-            provider: "tpm2".to_string(),
-            reason: format!(
-                "Tpm2MonotonicCounter is a compile-time stub; NV index {:#010x} is not readable yet",
-                self.nv_index
-            ),
-        })
+        let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
+        tpm2_nv::read(&mut context, handle)
     }
 
     fn increment(&self) -> Result<u64, TirBaseError> {
-        Err(TirBaseError::KeyProviderUnavailable {
-            provider: "tpm2".to_string(),
-            reason: "Tpm2MonotonicCounter is a compile-time stub".to_string(),
-        })
+        let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
+        context
+            .nv_increment(tss_esapi::interface_types::resource_handles::NvAuth::Owner, handle)
+            .map_err(tpm2_nv::unavailable)?;
+        tpm2_nv::read(&mut context, handle)
     }
 
-    fn set_if_greater(&self, _value: u64) -> Result<u64, TirBaseError> {
-        Err(TirBaseError::KeyProviderUnavailable {
-            provider: "tpm2".to_string(),
-            reason: "Tpm2MonotonicCounter is a compile-time stub".to_string(),
-        })
+    /// Raise the hardware counter to at least `value`.
+    ///
+    /// A TPM2 counter index only supports increment, so raising it to a target
+    /// above the current value costs `value - current` increments. The caller
+    /// bounds this by the checkpoint cadence (default 1000).
+    fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
+        let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
+        let current = tpm2_nv::read(&mut context, handle)?;
+        if value <= current {
+            return Ok(current);
+        }
+        let steps = value - current;
+        if steps > 100_000 {
+            return Err(tpm2_nv::unavailable(format!(
+                "refusing to advance TPM2 counter by {steps} increments"
+            )));
+        }
+        for _ in 0..steps {
+            context
+                .nv_increment(tss_esapi::interface_types::resource_handles::NvAuth::Owner, handle)
+                .map_err(tpm2_nv::unavailable)?;
+        }
+        tpm2_nv::read(&mut context, handle)
     }
 
     fn assurance_level(&self) -> AssuranceLevel {

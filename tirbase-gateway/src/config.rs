@@ -34,6 +34,21 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub key_backend: KeyBackend,
 
+    /// UpdateSigner Ed25519 public key (hex, 32 bytes) that authenticates
+    /// signed firmware/config manifests (task 30.9, RD-6).
+    #[serde(default)]
+    pub update_signer_public_key_hex: Option<String>,
+
+    /// PolicyAuthority Ed25519 public key (hex, 32 bytes) that authenticates
+    /// config rollback operations (task 30.9, RD-6).
+    #[serde(default)]
+    pub policy_authority_public_key_hex: Option<String>,
+
+    /// Path of the live config file that self-update rewrites atomically.
+    /// Self-update is only enabled when this, and both role keys, are set.
+    #[serde(default)]
+    pub self_update_config_path: Option<PathBuf>,
+
     /// Address to listen on for admin Unix socket.
     #[serde(default = "default_admin_sock")]
     pub admin_socket: PathBuf,
@@ -114,6 +129,18 @@ pub struct GatewayConfig {
     /// Required when `time_beacon_path` is set.
     #[serde(default)]
     pub time_anchor_keys_path: Option<PathBuf>,
+
+    /// Cadence, in seconds, at which this gateway broadcasts its own signed
+    /// `COSE_Sign1` time beacons (CLAIM-53.1, PV-28.1). `None` (the default)
+    /// disables broadcast; setting it starts the periodic service in `main.rs`.
+    /// Must be greater than zero when present.
+    #[serde(default)]
+    pub time_anchor_broadcast_interval_secs: Option<u64>,
+
+    /// Validity window advertised in broadcast beacons, in seconds
+    /// (PV-28.2). Defaults to 300 when unset.
+    #[serde(default)]
+    pub time_anchor_valid_for_secs: Option<u32>,
 
     /// TPM2 NV index holding the sealed Ed25519 seed (CLAIM-6.3).
     #[cfg_attr(not(feature = "tpm2"), allow(dead_code))]
@@ -349,6 +376,16 @@ impl GatewayConfig {
         if self.time_max_forward_jump_secs <= 0 {
             bail!(
                 "gateway config schema validation failed: time_max_forward_jump_secs must be > 0"
+            );
+        }
+        if matches!(self.time_anchor_broadcast_interval_secs, Some(0)) {
+            bail!(
+                "gateway config schema validation failed: time_anchor_broadcast_interval_secs must be > 0 when set"
+            );
+        }
+        if matches!(self.time_anchor_valid_for_secs, Some(0)) {
+            bail!(
+                "gateway config schema validation failed: time_anchor_valid_for_secs must be > 0 when set"
             );
         }
         if self.time_staleness_window_secs <= 0 {

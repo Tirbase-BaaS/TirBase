@@ -401,6 +401,40 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Task 53.1 (CLAIM-53.1, PV-28.1/28.2): broadcast our own signed
+    // `COSE_Sign1` time beacons when a cadence is configured. Before this was
+    // wired, `TimeAnchorService::spawn_periodic` had no production caller, so the
+    // gateway never actually broadcast a beacon.
+    let _time_anchor_broadcast = if let Some(interval_secs) =
+        config.time_anchor_broadcast_interval_secs
+    {
+        struct TracingBeaconSink;
+        impl tirbase_gateway::time_anchor::BeaconSink for TracingBeaconSink {
+            fn publish(&self, beacon: &tirbase_gateway::time_anchor::CoseSign1Beacon) {
+                tracing::debug!(
+                    payload_len = beacon.payload.len(),
+                    signature_len = beacon.signature.len(),
+                    "time anchor beacon broadcast (CLAIM-53.1)"
+                );
+            }
+        }
+        let service = std::sync::Arc::new(tirbase_gateway::time_anchor::TimeAnchorService::new(
+            key_provider.clone(),
+            time_source.clone(),
+            std::time::Duration::from_secs(interval_secs),
+            config.time_anchor_valid_for_secs.unwrap_or(300),
+            std::sync::Arc::new(TracingBeaconSink),
+        ));
+        let running = service.spawn_periodic();
+        tracing::info!(
+            interval_secs,
+            "periodic time anchor beacon broadcast started (task 53.1)"
+        );
+        Some(running)
+    } else {
+        None
+    };
+
     let now_est = ratchet.now_est(time_source.as_ref());
     let expires_est = ratchet
         .persisted_floor()
@@ -733,6 +767,40 @@ async fn main() -> Result<()> {
         None => None,
     };
     let rotator: Arc<dyn KeyRotator> = Arc::new(FileKeyRotator::new(config.key_path.clone()));
+    // Task 30.9 / RD-6: self-update requires the UpdateSigner and
+    // PolicyAuthority keys plus the live config path. Missing or malformed
+    // configuration leaves the capability unconfigured (the endpoint answers
+    // 503) rather than half-enabled.
+    let self_update = match (
+        &config.update_signer_public_key_hex,
+        &config.policy_authority_public_key_hex,
+        &config.self_update_config_path,
+    ) {
+        (Some(update_hex), Some(policy_hex), Some(path)) => {
+            let parse_key = |value: &str| -> Option<[u8; 32]> {
+                hex::decode(value)
+                    .ok()
+                    .and_then(|bytes| <[u8; 32]>::try_from(bytes.as_slice()).ok())
+            };
+            match (parse_key(update_hex), parse_key(policy_hex)) {
+                (Some(update_key), Some(policy_key)) => {
+                    Some(Arc::new(std::sync::Mutex::new(
+                        crate::self_update::SelfUpdateController::new(None)
+                            .with_config_path(path.clone())
+                            .with_update_signer(update_key)
+                            .with_policy_authority(policy_key),
+                    )))
+                }
+                _ => {
+                    tracing::warn!(
+                        "self-update disabled: role keys must each be 32-byte hex"
+                    );
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
     let admin_state = admin::AdminState {
         primary_db_path: Some(primary_db_path.clone()),
         security_log: Some(security_log.clone()),
@@ -755,6 +823,7 @@ async fn main() -> Result<()> {
         key_rotator: Some(rotator),
         events_view_window_days: config.admin_events_view_days,
         events_page_size: config.admin_events_page_size,
+        self_update,
         ..Default::default()
     };
     let admin_state = Some(Arc::new(admin_state));
