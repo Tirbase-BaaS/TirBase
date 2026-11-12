@@ -589,6 +589,13 @@ jobs:
  - name: cargo test (WASM, headless Chrome) — IndexedDB store + WASM inbound
  run: ./scripts/wasm-test.sh
 
+ # The SDK suite includes a cross-component test that boots this binary and
+ # mints a DISASTER_ALERT token through the real admin surface. `cargo test`
+ # above builds it via CARGO_BIN_EXE, but build it explicitly so the test's
+ # binary requirement is a named step instead of a side effect.
+ - name: Build gateway binary for the SDK saturate e2e
+ run: cargo build -p tirbase-gateway --bin tirbase-gateway
+
  - name: Build WASM for SDK tests
  working-directory: tirbase-sdk
  run: npm run build:wasm

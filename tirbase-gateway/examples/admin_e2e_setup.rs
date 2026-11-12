@@ -18,6 +18,11 @@
 //! then spawns the real `tirbase-gateway` binary with that config and drives
 //! `GatewayAdminClient` against it. No gateway behaviour is simulated here.
 //!
+//! Set `TIRBASE_E2E_ROOT_CA_SEED_HEX` to a 32-byte Ed25519 seed to make the
+//! deployment trust — and mint with — an externally owned root CA (the WASM
+//! device e2e uses this so the gateway mints credentials the device verifies).
+//! The chosen CA public key is printed as `rootCaPublicHex`.
+//!
 //! Usage:
 //!   cargo run -q -p tirbase-gateway --example admin_e2e_setup -- <dir>
 
@@ -164,7 +169,17 @@ fn main() {
     write(&dir.join("client.pem"), &pki.client_cert_pem);
     write(&dir.join("client.key"), &pki.client_key_pem);
 
-    let ca = InMemoryKeyProvider::generate().expect("root ca");
+    let ca = match std::env::var("TIRBASE_E2E_ROOT_CA_SEED_HEX") {
+        Ok(hex_seed) => {
+            let bytes = hex::decode(hex_seed.trim()).expect("root CA seed must be hex");
+            let seed: [u8; 32] = bytes
+                .as_slice()
+                .try_into()
+                .expect("root CA seed must be 32 bytes");
+            InMemoryKeyProvider::from_seed(seed)
+        }
+        Err(_) => InMemoryKeyProvider::generate().expect("root ca"),
+    };
     let pa = InMemoryKeyProvider::generate().expect("policy authority");
     let rm = InMemoryKeyProvider::generate().expect("revocation manager");
     let ta1 = InMemoryKeyProvider::generate().expect("time anchor 1");
@@ -250,6 +265,7 @@ fn main() {
             "clientCertPath": dir.join("client.pem"),
             "clientKeyPath": dir.join("client.key"),
             "targetId": TARGET,
+            "rootCaPublicHex": hex::encode(ca.public_key_bytes()),
             "simulateBody": { "command": command },
         }))
         .expect("serialise setup")

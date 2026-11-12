@@ -267,7 +267,7 @@ outside `test-hooks`: `biscuit::create_token` has no caveat parameter and the ad
 |----------|--------|
 | `cargo test -p tirbase-gateway --test admin_endpoints_binary admin_mint` | **2 passed**, including `admin_mint_issues_disaster_alert_caveat_token`: the minted token satisfies `verify_and_check_caveat("disaster-alert")`, fails for any other caveat, and an unlisted caveat returns `400 MINT_CAVEAT_REJECTED` |
 | `cd sdk/typescript && npm test` | **10 passed**, including the caveat mint and the allowlist denial through the generated client |
-| `cd tirbase-sdk && npx jest` | **102 passed**, fixtures now generated without `--features test-hooks` |
+| `cd tirbase-sdk && npx jest` | **102 passed** at the time of §3.3 (103 now, see §3.5), fixtures generated without `--features test-hooks` |
 
 ### 3.4 Gateway admin SDK transports (Node, undici, browser)
 
@@ -288,6 +288,34 @@ the handshake, so provisioning is out of band. That limitation is documented in 
 | `cd sdk/typescript && npm test` | **10 passed**: the e2e drives the real gateway through the shipped `createMtlsFetch`, and `test/client-options.test.mjs` pins the `fetchInit` merge and that transport fields cannot override the request the client owns |
 | `bash scripts/check-gateway-sdk-generated.sh` | OK — the new `caveat` field and `fetchInit` are generator output, not hand edits |
 
+### 3.5 Gateway-issued DISASTER_ALERT token activating Saturate_Mode on real WASM
+
+§3.3 made the token mintable at the admin surface; this closes the loop across components: the real gateway binary
+mints, a real WASM device activates.
+
+`tirbase-sdk/src/__tests__/saturate-issuance.gateway.test.ts` (Jest, so it runs in the existing `test` CI job):
+
+1. boots `target/debug/tirbase-gateway` with the Unix admin socket and the mTLS remote listener
+   (`TIRBASE_GATEWAY_BIN`, default `target/debug/tirbase-gateway`),
+2. configures the gateway to mint with the *same* root CA the device trusts — the setup example now accepts
+   `TIRBASE_E2E_ROOT_CA_SEED_HEX` and prints `rootCaPublicHex`, and the test asserts the two keys are identical
+   (otherwise the minted token could not verify, which is the seam this test exists to pin),
+3. mints a caveat-less `PolicyAuthority` token and asserts the device rejects activation
+   (`biscuit token is missing the disaster-alert caveat`),
+4. mints `caveat: "disaster-alert"` over the production `POST /admin/mint` path and asserts the device is still not
+   in Saturate_Mode (`renewSaturateMode` → `not in SATURATE mode`),
+5. activates, then renews — renewal only succeeds inside an active lease, so its success is the observable effect of
+   the real `SaturateModeStateMachine`, not an accepted-and-dropped call.
+
+The device is a `wasm-pack --target nodejs` build of `tirbase-core` opened through the production SDK init, with the
+M-of-N deployment config (2-of-3) applied. No mock, no `test-hooks`, no injected inbound path.
+
+| Evidence | Result |
+|----------|--------|
+| `cd tirbase-sdk && npx jest src/__tests__/saturate-issuance.gateway.test.ts` | **1 passed** (~25 s: fixtures, setup example, gateway boot, mint, activate, renew) |
+| `cd tirbase-sdk && npx jest` | **103 passed / 103**, 4 suites |
+| `.github/workflows/ci.yml` | the `test` job builds `tirbase-gateway` explicitly before the SDK suite, so the binary requirement is a named step |
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -306,8 +334,8 @@ the handshake, so provisioning is out of band. That limitation is documented in 
 - WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
 - Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
 - WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence and CI jobs. §3.2 records the follow-up
-  that authenticated `initiate_revocation`, §3.3 the DISASTER_ALERT issuance path and §3.4 the gateway SDK
-  transports. The one remaining item is signed admin operations proven only to their auth gate, which stays with
+  that authenticated `initiate_revocation`, §3.3 the DISASTER_ALERT issuance path, §3.4 the gateway SDK transports
+  and §3.5 the gateway→WASM saturate e2e. The one remaining item is signed admin operations proven only to their auth gate, which stays with
   `tirbase-gateway/tests/admin_endpoints_binary.rs`.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they

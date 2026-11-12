@@ -110,4 +110,13 @@ await db.terminateSaturateMode({
 npm test
 ```
 
-Tests use a `MockWasmCore` and do not require the WASM artefact to be built.
+`pretest` builds both WASM targets: the browser bundle in `wasm/` and a
+`--target nodejs` artefact in `wasm-test/` that Jest loads directly. The
+manager-operation suites (`tirbase-manager-ops.wasm.test.ts`,
+`saturate-issuance.gateway.test.ts`) therefore execute the real core — no
+`MockWasmCore` on the asserted path. `saturate-issuance.gateway.test.ts` also
+boots the real `tirbase-gateway` binary, mints a DISASTER_ALERT token over the
+admin socket and activates Saturate_Mode in a real WASM device, so it requires
+a built gateway (`cargo build -p tirbase-gateway --bin tirbase-gateway`, or
+`TIRBASE_GATEWAY_BIN`). Only the delegation/plumbing specs in `tirbase.test.ts`
+use the mock.
