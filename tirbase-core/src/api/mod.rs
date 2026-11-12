@@ -11953,6 +11953,354 @@ mod real_mesh_tests {
         }
     }
 
+ // ─── WS3b: multi-process Tier-1 quorum (separate OS processes) ────────────
+ //
+ // The WS3 tests above run every device in one process. This variant runs
+ // each device in its own OS process: the lib test binary re-executes itself
+ // with `--exact api::real_mesh_tests::multiprocess_quorum_child_process`,
+ // and the child dispatcher (below) boots one real `CoreHandle`/Swarm from an
+ // env-var config. Deltas, `DurabilityReceipt`s and the revocation-free
+ // quorum all travel over loopback TCP between processes — no shared memory,
+ // no in-process channel. The parent asserts on each child's stdout:
+ // `MP_LISTENING`, `MP_DID`, `MP_CONNECTED`, `MP_MERGED` (the peer's own SQL
+ // projection of the writer's row) and `MP_TIER1` (the writer's production
+ // `DurabilityTierChanged` event).
+
+    const MP_ENV: &str = "TIRBASE_MP_QUORUM_CHILD";
+
+    /// Env-var config handed to a re-executed child process.
+    #[derive(serde::Deserialize)]
+    struct MultiprocessQuorumConfig {
+        role: String,
+        port: u16,
+        tag: Option<String>,
+        k: usize,
+        n: usize,
+        diversity_min: usize,
+        max_fraction: f64,
+        peer_port: Option<u16>,
+        expected_peers: u32,
+        table: String,
+        key: String,
+        value: serde_json::Value,
+        timeout_secs: u64,
+    }
+
+    /// Child-process entry point. When the env var is absent this is the
+    /// ordinary suite run and there is nothing to do — the cross-process
+    /// proof lives in `three_processes_reach_tier1_across_os_processes`,
+    /// which spawns this same binary in child mode.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multiprocess_quorum_child_process() {
+        let Ok(raw) = std::env::var(MP_ENV) else {
+            eprintln!(
+                "[mp-quorum] child dispatcher: {MP_ENV} unset — spawned by the parent test only"
+            );
+            return;
+        };
+        let cfg: MultiprocessQuorumConfig =
+            serde_json::from_str(&raw).expect("child config must parse");
+
+        let mut deployment = mesh_deployment();
+        deployment.quorum_k = cfg.k;
+        deployment.quorum_n = cfg.n;
+        deployment.spatial_diversity_min = cfg.diversity_min;
+        deployment.max_single_sector_fraction = cfg.max_fraction;
+
+        let suffix = format!("mp_quorum_{}_{}", cfg.role, cfg.port);
+        let handle = init_mesh_handle_with_deployment(&suffix, cfg.port, deployment).await;
+        handle.set_local_spatial_tag(cfg.tag.clone());
+
+        println!("MP_DID {}", handle.local_did());
+        println!("MP_LISTENING {}", cfg.port);
+
+        if let Some(peer_port) = cfg.peer_port {
+            let peer_addr = format!("/ip4/127.0.0.1/tcp/{peer_port}");
+            connect_peers(&handle, &peer_addr).await;
+            println!("MP_CONNECTED {}", handle.mesh_status().peer_count);
+        }
+
+        if cfg.role == "writer" {
+  // Wait until every peer process is connected, then let the gossipsub
+            // subscription exchange settle before the first write.
+            let connect_deadline =
+                crate::traits::monotonic_now() + cfg.timeout_secs * 1_000_000;
+            while handle.mesh_status().peer_count < cfg.expected_peers {
+                assert!(
+                    crate::traits::monotonic_now() < connect_deadline,
+                    "writer only sees {} of {} peer processes",
+                    handle.mesh_status().peer_count,
+                    cfg.expected_peers
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            tokio::time::sleep(Duration::from_millis(400)).await;
+
+            let mut events = handle.subscribe_durability_events();
+            let overall_deadline =
+                crate::traits::monotonic_now() + cfg.timeout_secs * 1_000_000;
+            let mut attempt = 0u32;
+            loop {
+                assert!(
+                    crate::traits::monotonic_now() < overall_deadline,
+                    "writer never observed a Tier-1 transition across processes"
+                );
+                attempt += 1;
+  // Retry the same table/key on a fresh Delta: a lost first write or a
+                // lost receipt is retried with a new Delta (unique gossipsub
+                // message id), which the peers merge and attest again.
+                let write = handle
+                    .write(&cfg.table, &cfg.key, cfg.value.clone())
+                    .await
+                    .expect("write must succeed");
+                println!("MP_WROTE {}", hex::encode(write.delta_id));
+
+                let event = tokio::time::timeout(
+                    Duration::from_secs(8),
+                    async {
+                        loop {
+                            match events.recv().await {
+                                Ok(evt) => {
+                                    if evt.delta_id == write.delta_id
+                                        && evt.new_tier == DurabilityTier::Tier1
+                                    {
+                                        return evt;
+                                    }
+                                }
+                                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                                Err(e) => panic!("durability event channel closed: {e}"),
+                            }
+                        }
+                    },
+                )
+                .await;
+
+                if event.is_ok() {
+                    println!("MP_TIER1 {}", hex::encode(write.delta_id));
+                    eprintln!("[mp-quorum] writer reached Tier-1 on attempt {attempt}");
+                    return;
+                }
+            }
+        }
+
+  // Peer role: merge the writer's Delta into this process's own store, then
+        // stay up (the drain loop keeps issuing receipts for retry Deltas)
+        // until the parent tears the process down.
+        wait_for_data(
+            &handle,
+            &cfg.table,
+            &cfg.key,
+            &cfg.value,
+            Duration::from_secs(cfg.timeout_secs),
+        )
+        .await;
+        println!("MP_MERGED {}/{}", cfg.table, cfg.key);
+        tokio::time::sleep(Duration::from_secs(cfg.timeout_secs)).await;
+    }
+
+    /// One spawned child process plus a line feed from its stdout.
+    struct MpChild {
+        name: String,
+        child: std::process::Child,
+        lines: Vec<String>,
+        rx: std::sync::mpsc::Receiver<String>,
+    }
+
+    impl MpChild {
+        fn spawn(
+            name: &str,
+            config: serde_json::Value,
+        ) -> Self {
+            use std::io::BufRead;
+            let exe = std::env::current_exe().expect("current test binary path");
+            let mut child = std::process::Command::new(exe)
+                .arg("--exact")
+                .arg("api::real_mesh_tests::multiprocess_quorum_child_process")
+                .arg("--nocapture")
+                .env(MP_ENV, serde_json::to_string(&config).expect("config json"))
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::inherit())
+                .spawn()
+                .unwrap_or_else(|e| panic!("spawn {name} child process: {e}"));
+
+            let stdout = child.stdout.take().expect("child stdout must be piped");
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                for line in std::io::BufReader::new(stdout).lines() {
+                    match line {
+                        Ok(line) => {
+                            if tx.send(line).is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+
+            Self {
+                name: name.to_string(),
+                child,
+                lines: Vec::new(),
+                rx,
+            }
+        }
+
+        /// Block until the child prints a line starting with `prefix`.
+        fn wait_for(&mut self, prefix: &str, timeout: Duration) -> String {
+            if let Some(line) = self.lines.iter().find(|l| l.starts_with(prefix)) {
+                return line.clone();
+            }
+            let deadline = crate::traits::monotonic_now() + timeout.as_micros() as u64;
+            loop {
+                let now = crate::traits::monotonic_now();
+                assert!(
+                    now < deadline,
+                    "{} child never printed {prefix:?}; output so far: {:?}",
+                    self.name,
+                    self.lines
+                );
+                let remaining = Duration::from_micros(deadline - now);
+                match self.rx.recv_timeout(remaining) {
+                    Ok(line) => {
+                        if line.starts_with(prefix) {
+                            self.lines.push(line.clone());
+                            return line;
+                        }
+                        self.lines.push(line);
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => panic!(
+                        "{} child exited before printing {prefix:?} (status: {:?}); output: {:?}",
+                        self.name,
+                        self.child.try_wait(),
+                        self.lines
+                    ),
+                }
+            }
+        }
+
+        /// Collected non-marker lines (harness noise) are kept for diagnostics.
+        fn all_lines(&self) -> &[String] {
+            &self.lines
+        }
+    }
+
+    impl Drop for MpChild {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    #[test]
+    fn three_processes_reach_tier1_across_os_processes() {
+  // Writer + 3 peers, each a separate OS process. K=3, min=2, cap 0.6:
+        // the writer only reaches Tier-1 when three other *processes* have
+        // merged its Delta and their signed receipts have crossed loopback TCP.
+        let ports = [
+            reserve_loopback_port(),
+            reserve_loopback_port(),
+            reserve_loopback_port(),
+            reserve_loopback_port(),
+        ];
+        for (i, port) in ports.iter().enumerate() {
+            for other in &ports[i + 1..] {
+                assert_ne!(port, other, "each process needs its own port");
+            }
+        }
+
+        let run_token = uuid::Uuid::now_v7();
+        let table = "mp_quorum".to_string();
+        let key = format!("row-{run_token}");
+        let value = json!({ "run": run_token.to_string(), "msg": "cross-process quorum" });
+
+        let base = |role: &str, port: u16, tag: Option<&str>, peer_port: Option<u16>| {
+            json!({
+                "role": role,
+                "port": port,
+                "tag": tag,
+                "k": 3,
+                "n": 4,
+                "diversity_min": 2,
+                "max_fraction": 0.6,
+                "peer_port": peer_port,
+                "expected_peers": 3,
+                "table": table.clone(),
+                "key": key.clone(),
+                "value": value.clone(),
+                "timeout_secs": 30,
+            })
+        };
+
+        let mut writer = MpChild::spawn(
+            "writer",
+            base("writer", ports[0], Some("sector-a"), None),
+        );
+        writer.wait_for("MP_LISTENING", Duration::from_secs(60));
+        let writer_did = writer
+            .wait_for("MP_DID", Duration::from_secs(60))
+            .trim_start_matches("MP_DID ")
+            .to_string();
+
+        let mut peers = Vec::new();
+        for (i, tag) in ["sector-b", "sector-c", "sector-d"].iter().enumerate() {
+            let mut peer = MpChild::spawn(
+                tag,
+                base("peer", ports[i + 1], Some(tag), Some(ports[0])),
+            );
+            peer.wait_for("MP_LISTENING", Duration::from_secs(60));
+            peer.wait_for("MP_CONNECTED", Duration::from_secs(60));
+            peers.push(peer);
+        }
+
+  // Each peer process independently projects the writer's row into its own
+        // SQLite store; the production inbound path then issues its receipt.
+        let mut peer_dids = Vec::new();
+        for peer in peers.iter_mut() {
+            peer_dids.push(
+                peer.wait_for("MP_DID", Duration::from_secs(60))
+                    .trim_start_matches("MP_DID ")
+                    .to_string(),
+            );
+            peer.wait_for("MP_MERGED", Duration::from_secs(60));
+        }
+
+        let tier1 = writer.wait_for("MP_TIER1", Duration::from_secs(60));
+        let tier1_delta = tier1.trim_start_matches("MP_TIER1 ").to_string();
+        assert_eq!(tier1_delta.len(), 64, "a Delta id is 32 bytes of hex");
+
+        let mut dids = vec![writer_did];
+        dids.extend(peer_dids);
+        dids.sort_unstable();
+        dids.dedup();
+        assert_eq!(
+            dids.len(),
+            4,
+            "each OS process must run its own file-backed identity"
+        );
+
+        for peer in &mut peers {
+            assert!(
+                peer.child.try_wait().expect("try_wait").is_none(),
+                "{} peer process exited before the parent finished; output: {:?}",
+                peer.name,
+                peer.all_lines()
+            );
+        }
+
+        let status = writer.child.wait().expect("wait for writer process");
+        assert!(
+            status.success(),
+            "writer process must exit successfully after Tier-1, got {status}"
+        );
+
+        for port in ports {
+            cleanup(&tmp_path(&format!("mp_quorum_writer_{port}")));
+            cleanup(&tmp_path(&format!("mp_quorum_peer_{port}")));
+        }
+    }
+
  // ─── Subphase 7.1: concurrent scalar write LWW over real mesh ────────────
  //
  // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).

@@ -340,6 +340,7 @@ receipt/quorum path in `src/api/mod.rs`, and the real-mesh tests. Rows INV-18/IN
 | `tampered_wrong_hash_unknown_and_duplicate_receipts_do_not_count` | 3 | Adversarial receipts published through the production `MeshTransport::send_receipt` framing: (a) corrupted signature, (b) valid signature over a different state hash, (c) receipt naming an unresolvable `did:web:` issuer, (d) duplicate of the same genuine receipt. The Delta is written before the peers connect, so only these crafted receipts exist. Two genuine receipts then form K=2; if any negative had counted, the duplicate would have completed K early and the final Tier-1 assertion would be unreachable. |
 | `revocation_mid_quorum_withdraws_the_revoked_receipt` | 5 | K=3. B and C are the only connected peers at write time, so two receipts are counted. A 1-of-1 `initiate_revocation` of C applies (root-CA-verified `RevocationManager` token, `device_revocation_status` reports REVOKED) and withdraws C's receipt. D then joins and genuinely attests the Delta: B+D = 2 < K=3 stays `Uncommitted` (if the withdrawal had not happened it would be 3 and Tier-1). E's genuine receipt then completes the quorum from three honest holders. |
 | `tier1_then_compaction_refetch_and_cloud_sync_reach_tier2` | 3 | K=2 with an `Aggressive { threshold: 1 }` schema so the second write compacts; both Deltas reach Tier-1 via genuine receipts, one production `run_cloud_sync_cycle` re-fetches the compacted entry and reaches Tier-2 (`acknowledged=2, deferred=0, rejected=0`, queue drained, ledger committed), and the receipt holder still holds the Delta and its row. |
+| `three_processes_reach_tier1_across_os_processes` | 4 OS processes | Multi-process variant. The lib test binary re-executes itself as one writer and three peer processes (`--exact api::real_mesh_tests::multiprocess_quorum_child_process`, config in `TIRBASE_MP_QUORUM_CHILD`); each boots its own file-backed `CoreHandle`/Swarm through the production public API (`init`, `set_local_spatial_tag`, `dial_peer`, `write`, `subscribe_durability_events`, `mesh_status`, `local_did`, `read`). The writer reaches Tier-1 only after three other *processes* merged the Delta and their signed receipts crossed loopback TCP between processes (no shared memory/in-process channels). The parent asserts 4 distinct DIDs, `MP_MERGED` from every peer process, the writer's `MP_TIER1`/production `DurabilityTierChanged` transition, and the writer process exiting successfully. |
 | `durability::tests::revoked_issuer_receipt_is_rejected_and_withdrawn` | unit | Revocation withdraws a counted receipt and subsequent receipts from that issuer return `AuthorisationFailed`. |
 | `durability::quorum::tests::{remove_issuer_withdraws_its_receipt_and_diversity_contribution, removing_a_pre_quorum_receipt_prevents_tier1}` | unit | Removal decrements the receipt count, drops the withdrawn issuer's tag from the diversity tallies, and a removed receipt no longer contributes to K. |
 
@@ -347,9 +348,10 @@ receipt/quorum path in `src/api/mod.rs`, and the real-mesh tests. Rows INV-18/IN
 
 | Command | Result |
 |---------|--------|
-| `cargo test -p tirbase-core --features native` | **729 lib passed / 0 failed** + every integration suite passes (8/1/2/5/1/2 …) |
-| `cargo test -p tirbase-core --features native --lib api::real_mesh_tests` | **19 passed / 0 failed** (12 pre-existing + 7 new) |
+| `cargo test -p tirbase-core --features native` | **731 lib passed / 0 failed** + every integration suite passes (8/1/2/5/1/2 …) |
+| `cargo test -p tirbase-core --features native --lib api::real_mesh_tests` | **21 passed / 0 failed** (12 pre-existing + 9 new, including the multi-process variant) |
 | `cargo test -p tirbase-core --features native --lib durability::` | **90 passed / 0 failed** |
+| `cargo test -p tirbase-core --features native --lib -- --test-threads=1 api::real_mesh_tests::three_processes_reach_tier1_across_os_processes` | **1 passed / 0 failed** (writer + 3 peer OS processes, Tier-1 on attempt 1) |
 | `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
 | `cargo clippy -p tirbase-core --features native --lib` | no new warnings (pre-existing doc-list/dead-code warnings only) |
 | `cargo +nightly public-api -p tirbase-core` | two approved additions (`local_spatial_tag`, `set_local_spatial_tag`), manifests updated |
@@ -364,8 +366,11 @@ receipt/quorum path in `src/api/mod.rs`, and the real-mesh tests. Rows INV-18/IN
 2. **No receipt expiry.** `DurabilityReceipt` has no TTL or expiry field, so an "expired" receipt
    is not representable and no expiry enforcement is claimed. The prompt's expired/**revoked**
    issuer case is proven for the revoked half only.
-3. **Single process.** Every device is an in-process `CoreHandle` with a real Swarm over
-   loopback; cross-host behaviour is still INV-43 (WS3's multi-process variant).
+3. **Multi-process, but same host.** `three_processes_reach_tier1_across_os_processes` runs
+   writer and peers as separate OS processes (re-executions of the lib test binary) with real
+   loopback TCP between them and no shared in-process state, so receipts are no longer handed over
+   in-process handles. It does not prove cross-host behaviour, NAT traversal, or failure of the
+   host's loopback stack (INV-43 remains partly open).
 4. **Re-fetch source is the local DAG.** The production `run_cloud_sync_cycle` re-fetch callback
    resolves compacted bytes from the writer's own DAG; there is no peer-to-peer Delta fetch
    protocol. The test proves the compacted Delta still reaches Tier-2 and that the receipt holder
@@ -392,8 +397,9 @@ Commit for this workstream: the commit that adds this section
 - **RGA (INV-06)** has no public write surface at all; it needs a new API (WS2), not wiring.
 - **BLE (INV-07), HIL (INV-52/55), TPM2 (INV-53)** are hardware-blocked and cannot be closed by
   code in this environment; they must not be marked wired.
-- The real-mesh harness runs two Swarms in one process. It does not prove cross-host behaviour
-  (INV-43); WS3 owns a multi-process variant.
+- The real-mesh harness runs two Swarms in one process. A multi-process variant
+  (`three_processes_reach_tier1_across_os_processes`) now proves genuine receipt exchange across
+  separate OS processes over loopback, but it does not prove cross-host behaviour (INV-43).
 - `real_mesh_tests` use loopback ports reserved by binding; on a machine with heavy port pressure
   they can still collide (documented in `mesh_harness`).
 
