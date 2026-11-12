@@ -1,17 +1,17 @@
 //! System time source backed by `CLOCK_BOOTTIME`, `CLOCK_REALTIME`, and the
-//! kernel boot id (task 7.1 — CLAIM-7.1, PV-3.8).
+//! kernel boot id (CLAIM-7.1, PV-3.8).
 //!
 //! This is the gateway's concrete [`TimeSource`]:
 //!
 //! * `monotonic_now` reads **`CLOCK_BOOTTIME`** directly, which keeps advancing
-//!   while the system is suspended (unlike `CLOCK_MONOTONIC`) and is unaffected
-//!   by wall-clock adjustment.  It is the authoritative domain for leases, rate
-//!   limits and the `TimeRatchet`'s elapsed-time arithmetic.
+//! while the system is suspended (unlike `CLOCK_MONOTONIC`) and is unaffected
+//! by wall-clock adjustment. It is the authoritative domain for leases, rate
+//! limits and the `TimeRatchet`'s elapsed-time arithmetic.
 //! * `wall_hint` reads **`CLOCK_REALTIME`** in microseconds since the Unix
-//!   epoch.  It is explicitly untrusted and used only for human-facing
-//!   timestamps.
+//! epoch. It is explicitly untrusted and used only for human-facing
+//! timestamps.
 //! * `boot_id` hashes `/proc/sys/kernel/random/boot_id`, so the ratchet can tell
-//!   "the monotonic clock advanced" from "the device rebooted".
+//! "the monotonic clock advanced" from "the device rebooted".
 //!
 //! Non-Linux hosts (developer machines, macOS CI) fall back to the portable
 //! `tirbase_core::traits::SystemTimeSource`, which approximates the same domains
@@ -20,14 +20,14 @@
 //! # Simulation hooks
 //!
 //! Two environment variables exist for fault-injection and integration tests
-//! (the same pattern as `TIRBASE_SIMULATED_HW_COUNTER`).  They are **not**
+//! (the same pattern as `TIRBASE_SIMULATED_HW_COUNTER`). They are **not**
 //! production configuration:
 //!
 //! * `TIRBASE_BOOT_ID` — override the boot identifier, so a test can model
-//!   "same boot, new gateway process" on hosts without a kernel boot id, or
-//!   "simulated reboot" by changing it.
+//! "same boot, new gateway process" on hosts without a kernel boot id, or
+//! "simulated reboot" by changing it.
 //! * `TIRBASE_TIME_SIM_OFFSET_SECS` — advance the monotonic domain by a fixed
-//!   number of seconds, modelling elapsed time without sleeping.
+//! number of seconds, modelling elapsed time without sleeping.
 
 use std::sync::Arc;
 
@@ -47,7 +47,7 @@ pub struct SystemTimeSource {
 }
 
 impl SystemTimeSource {
-    /// Construct a new `SystemTimeSource`.
+ /// Construct a new `SystemTimeSource`.
     pub fn new() -> Self {
         SystemTimeSource {
             inner: CoreTimeSource::new(),
@@ -55,9 +55,9 @@ impl SystemTimeSource {
         }
     }
 
-    /// Construct a source whose monotonic domain is advanced by `micros`.
-    ///
-    /// Used by tests and `tirbase-sim` to model elapsed time deterministically.
+ /// Construct a source whose monotonic domain is advanced by `micros`.
+ ///
+ /// Used by tests and `tirbase-sim` to model elapsed time deterministically.
     pub fn with_monotonic_offset(micros: u64) -> Self {
         SystemTimeSource {
             inner: CoreTimeSource::new(),
@@ -65,15 +65,15 @@ impl SystemTimeSource {
         }
     }
 
-    /// Install this source as the process-wide time source used by all
-    /// `tirbase-core` subsystems, returning the shared handle.
+ /// Install this source as the process-wide time source used by all
+ /// `tirbase-core` subsystems, returning the shared handle.
     pub fn install(self) -> Arc<dyn TimeSource> {
         let source: Arc<dyn TimeSource> = Arc::new(self);
         tirbase_core::traits::install_time_source(source.clone());
         source
     }
 
-    /// The `TIRBASE_TIME_SIM_OFFSET_SECS` value, in microseconds.
+ /// The `TIRBASE_TIME_SIM_OFFSET_SECS` value, in microseconds.
     fn simulated_offset_micros() -> u64 {
         std::env::var(MONOTONIC_OFFSET_ENV)
             .ok()
@@ -82,7 +82,7 @@ impl SystemTimeSource {
             .saturating_mul(1_000_000)
     }
 
-    /// `TIRBASE_BOOT_ID` override, when set to a valid integer.
+ /// `TIRBASE_BOOT_ID` override, when set to a valid integer.
     fn environment_boot_id() -> Option<u64> {
         std::env::var(BOOT_ID_ENV)
             .ok()
@@ -116,9 +116,9 @@ fn clock_micros(clock: libc::clockid_t) -> Option<u64> {
         tv_sec: 0,
         tv_nsec: 0,
     };
-    // SAFETY: `clock_gettime` writes into the `timespec` we own, and the clock
-    // ids passed in are libc constants (CLOCK_BOOTTIME / CLOCK_REALTIME) that
-    // are valid for this target.
+ // SAFETY: `clock_gettime` writes into the `timespec` we own, and the clock
+ // ids passed in are libc constants (CLOCK_BOOTTIME / CLOCK_REALTIME) that
+ // are valid for this target.
     let rc = unsafe { libc::clock_gettime(clock, &mut ts) };
     if rc != 0 {
         return None;
@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    /// Guards tests that swap the process-wide core time source.
+ /// Guards tests that swap the process-wide core time source.
     static TIME_SOURCE_LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Debug)]
@@ -235,7 +235,7 @@ mod tests {
         });
         let previous = tirbase_core::traits::install_time_source(fixed);
 
-        // These are the exact accessors every core subsystem uses.
+ // These are the exact accessors every core subsystem uses.
         assert_eq!(tirbase_core::traits::monotonic_now(), 777_000);
         assert_eq!(
             tirbase_core::traits::wall_hint(),

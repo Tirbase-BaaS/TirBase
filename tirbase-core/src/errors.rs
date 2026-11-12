@@ -10,7 +10,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TirBaseError {
-    // ─── Identity / Auth ──────────────────────────────────────────────────────
+ // ─── Identity / Auth ──────────────────────────────────────────────────────
     #[error("DID resolution failed for {did}: {reason}")]
     DidResolutionFailed { did: String, reason: String },
 
@@ -29,7 +29,7 @@ pub enum TirBaseError {
     #[error("Authorisation error: {reason}")]
     AuthorisationFailed { reason: String },
 
-    // ─── CRDT / Schema ────────────────────────────────────────────────────────
+ // ─── CRDT / Schema ────────────────────────────────────────────────────────
     #[error("Unknown schema hash: {hash}")]
     UnknownSchemaHash { hash: String },
 
@@ -53,7 +53,7 @@ pub enum TirBaseError {
     #[error("Schema definition registration failed: {reason}")]
     SchemaRegistrationFailed { reason: String },
 
-    // ─── Transport ────────────────────────────────────────────────────────────
+ // ─── Transport ────────────────────────────────────────────────────────────
     #[error("Noise handshake failed with peer {peer_did}: {reason}")]
     NoiseHandshakeFailed { peer_did: String, reason: String },
 
@@ -66,14 +66,14 @@ pub enum TirBaseError {
     #[error("Cloud outbound queue full: depth={depth}")]
     CloudQueueFull { depth: usize },
 
-    // ─── Contamination ────────────────────────────────────────────────────────
+ // ─── Contamination ────────────────────────────────────────────────────────
     #[error("Unsupported taint source")]
     UnsupportedTaintSource,
 
     #[error("Invalid incident state: expected OPEN, got {got:?}")]
     InvalidIncidentState { got: IncidentState },
 
-    // ─── Migration ────────────────────────────────────────────────────────────
+ // ─── Migration ────────────────────────────────────────────────────────────
     #[error("Migration CA signature invalid: {migration_id}")]
     MigrationCaSignatureInvalid { migration_id: String },
 
@@ -83,23 +83,23 @@ pub enum TirBaseError {
     #[error("Migration transform timeout: {migration_id}")]
     MigrationTransformTimeout { migration_id: String },
 
-    /// Another migration transform is currently executing; schema migrations
-    /// are strictly serialised because each step validates against the
-    /// device's current schema hash (Req 18.3a).
+ /// Another migration transform is currently executing; schema migrations
+ /// are strictly serialised because each step validates against the
+ /// device's current schema hash (Req 18.3a).
     #[error("Another migration is already in progress: {migration_id}")]
     MigrationInProgress { migration_id: String },
 
-    /// Migration module failed DeterministicWasmProfile validation (PV-8.2):
-    /// forbidden f32/f64/SIMD/threads/host-clock/randomness/imports detected.
-    /// The module is quarantined before execution.
+ /// Migration module failed DeterministicWasmProfile validation (PV-8.2):
+ /// forbidden f32/f64/SIMD/threads/host-clock/randomness/imports detected.
+ /// The module is quarantined before execution.
     #[error("Migration module violates deterministic WASM profile ({migration_id}): {reason}")]
     MigrationDeterministicProfileViolation {
         migration_id: String,
         reason: String,
     },
 
-    /// Migration execution profile (PV-8.2a) did not match the node's pinned
-    /// wasmi fuel/config profile: quarantined with ENGINE_VERSION_MISMATCH.
+ /// Migration execution profile (PV-8.2a) did not match the node's pinned
+ /// wasmi fuel/config profile: quarantined with ENGINE_VERSION_MISMATCH.
     #[error("Migration execution profile mismatch ({migration_id}): expected profile={expected_profile}, fuel_hash={expected_fuel_hash}; got profile={got_profile}, fuel_hash={got_fuel_hash}")]
     MigrationExecutionProfileMismatch {
         migration_id: String,
@@ -109,42 +109,42 @@ pub enum TirBaseError {
         got_fuel_hash: String,
     },
 
-    /// Migration module exceeds wasmi StoreLimits (PV-8.1/PV-8.4): 64 MiB memory,
-    /// 1,000 tables, 10 instances, 512 KiB stack-equivalent limits. Quarantined.
+ /// Migration module exceeds wasmi StoreLimits (PV-8.1/PV-8.4): 64 MiB memory,
+ /// 1,000 tables, 10 instances, 512 KiB stack-equivalent limits. Quarantined.
     #[error("Migration module exceeds store limits ({migration_id}): {reason}")]
     MigrationStoreLimitExceeded {
         migration_id: String,
         reason: String,
     },
 
-    /// A `MigrationRevocationDelta` targeted a migration hash this device has
-    /// never seen (no CA-validated `MigrationDelta` for it was received).
-    /// Revocations are only accepted for known, previously-seen migration
-    /// hashes (Req 18.7) — an arbitrary-hash revocation would permanently
-    /// poison the registry with a block on a migration that was never
-    /// distributed.
+ /// A `MigrationRevocationDelta` targeted a migration hash this device has
+ /// never seen (no CA-validated `MigrationDelta` for it was received).
+ /// Revocations are only accepted for known, previously-seen migration
+ /// hashes (Req 18.7) — an arbitrary-hash revocation would permanently
+ /// poison the registry with a block on a migration that was never
+ /// distributed.
     #[error("Migration revocation targets an unknown migration hash: {migration_id}")]
     UnknownMigrationHash { migration_id: String },
 
-    /// Task 30.3 (PV-8.5a): Contract migration lacks verified fleet precondition.
+ /// (PV-8.5a): Contract migration lacks verified fleet precondition.
     #[error("Contract migration requires verified fleet precondition (task 37.5 inventory hook): {migration_id}")]
     FleetPreconditionMissing { migration_id: String },
 
-    /// Task 30.2 (PV-8.4): signed postcondition evaluation failed on shadow output.
+ /// (PV-8.4): signed postcondition evaluation failed on shadow output.
     #[error("Migration postcondition failed ({migration_id}): {reason}")]
     MigrationPostconditionFailed {
         migration_id: String,
         reason: String,
     },
 
-    /// Task 30.4 (PV-8.5a): mixed add+remove migration or kind/diff mismatch.
+ /// (PV-8.5a): mixed add+remove migration or kind/diff mismatch.
     #[error("Expand-then-contract violation ({migration_id}): {reason}")]
     ExpandContractViolation {
         migration_id: String,
         reason: String,
     },
 
-    /// Task 30.6 (PV-8.7): transform author DID revoked before shadow commit.
+ /// (PV-8.7): transform author DID revoked before shadow commit.
     #[error(
         "Migration author DID revoked before commit ({migration_id}): author_did={author_did}"
     )]
@@ -153,20 +153,20 @@ pub enum TirBaseError {
         author_did: String,
     },
 
-    /// Task 37.5 (PV-11.3): a fleet-inventory mutation or inbound update was
-    /// rejected (oversized provisioning payload, revoked device, malformed
-    /// entry).
+ /// (PV-11.3): a fleet-inventory mutation or inbound update was
+ /// rejected (oversized provisioning payload, revoked device, malformed
+ /// entry).
     #[error("Fleet inventory rejected: {reason}")]
     FleetInventoryRejected { reason: String },
 
-    // ─── Storage ──────────────────────────────────────────────────────────────
+ // ─── Storage ──────────────────────────────────────────────────────────────
     #[error("Local store write failed: {reason}")]
     LocalStoreWriteFailed { reason: String },
 
     #[error("Compaction failed on table {table}: {reason}")]
     CompactionFailed { table: String, reason: String },
 
-    // ─── Durability ───────────────────────────────────────────────────────────
+ // ─── Durability ───────────────────────────────────────────────────────────
     #[error("Re-fetch unavailable for delta {delta_id}")]
     RefetchUnavailable { delta_id: String },
 
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn error_implements_std_error() {
-        // Verify TirBaseError satisfies the std::error::Error bound.
+ // Verify TirBaseError satisfies the std::error::Error bound.
         fn takes_error(_: &dyn std::error::Error) {}
         let e = TirBaseError::UnsupportedTaintSource;
         takes_error(&e);

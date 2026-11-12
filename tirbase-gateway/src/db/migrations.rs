@@ -1,13 +1,13 @@
 //! SQLite schema migrations for gateway `primary.db` and `derived.db`
-//! (tasks 18.1–18.3, 32.1 — CLAIM-18.1, CLAIM-18.2, CLAIM-18.3, CLAIM-32.1,
+//! (18.3, 32.1 — CLAIM-18.1, CLAIM-18.2, CLAIM-18.3, CLAIM-32.1,
 //! PV-9.3, PV-9.4).
 //!
 //! Migrations are idempotent, applied in ascending version order, and the
-//! current schema version is queryable at runtime.  Migrations run before the
+//! current schema version is queryable at runtime. Migrations run before the
 //! database is opened for reads or writes.
 //!
 //! Each ledger has its own `schema_migrations` table so versions advance
-//! independently.  Table-creation tasks create their tables through this
+//! independently. Table-creation tasks create their tables through this
 //! framework by adding/appending migrations here.
 
 use std::path::Path;
@@ -19,13 +19,13 @@ use crate::db::sqlite_errors::{apply_hardening_pragmas, DbKind, SqliteErrorActio
 /// A single, idempotent schema migration.
 #[derive(Debug, Clone, Copy)]
 pub struct Migration {
-    /// Monotonically increasing version (starts at 1).
+ /// Monotonically increasing version (starts at 1).
     pub version: i64,
-    /// Short stable name for diagnostics.
+ /// Short stable name for diagnostics.
     pub name: &'static str,
-    /// SQL batch applied inside a transaction.  Must be idempotent
-    /// (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, additive
-    /// `ALTER TABLE ... ADD COLUMN` guards, etc.).
+ /// SQL batch applied inside a transaction. Must be idempotent
+ /// (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, additive
+ /// `ALTER TABLE ... ADD COLUMN` guards, etc.).
     pub sql: &'static str,
 }
 
@@ -64,8 +64,8 @@ pub fn schema_version(conn: &Connection, kind: DbKind) -> Result<i64, SqliteErro
     Ok(v)
 }
 
-/// Apply `migrations` in ascending version order.  Idempotent: versions already
-/// present in `schema_migrations` are skipped.  Each migration runs in its own
+/// Apply `migrations` in ascending version order. Idempotent: versions already
+/// present in `schema_migrations` are skipped. Each migration runs in its own
 /// transaction.
 pub fn apply_migrations(
     conn: &Connection,
@@ -114,7 +114,7 @@ pub fn apply_migrations(
         applied.push(migration.version);
     }
 
-    ensure_task25_checkpoint_hash_column(conn, kind)?;
+    ensure_security_events_checkpoint_hash_column(conn, kind)?;
     let to_version = schema_version(conn, kind)?;
     Ok(MigrationReport {
         db_kind: kind,
@@ -126,7 +126,7 @@ pub fn apply_migrations(
 
 /// 25.3/25.4: ensure `security_events.checkpoint_hash` exists for DBs created
 /// before migration v3 or with older v1 DDL. Idempotent.
-fn ensure_task25_checkpoint_hash_column(
+fn ensure_security_events_checkpoint_hash_column(
     conn: &Connection,
     kind: DbKind,
 ) -> Result<(), SqliteErrorAction> {
@@ -158,7 +158,7 @@ fn ensure_task25_checkpoint_hash_column(
 }
 
 fn now_secs() -> i64 {
-    // Best-effort wall hint; migration bookkeeping is not security-critical.
+ // Best-effort wall hint; migration bookkeeping is not security-critical.
     tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
@@ -195,8 +195,8 @@ fn record_boot_check(kind: DbKind, check: &str) {
 }
 
 fn boot_quick_check(conn: &Connection, kind: DbKind) -> Result<(), SqliteErrorAction> {
-    // CLAIM-31.4 wiring mutation guard: test can force the wrong boot check to
-    // prove a startup-time test fails when integrity_check runs at boot.
+ // CLAIM-31.4 wiring mutation guard: test can force the wrong boot check to
+ // prove a startup-time test fails when integrity_check runs at boot.
     if std::env::var("TIRBASE_TEST_BOOT_USES_INTEGRITY_CHECK")
         .ok()
         .as_deref()
@@ -271,9 +271,9 @@ pub fn open_primary_with_key(
     })?;
     #[cfg(not(feature = "sqlcipher"))]
     let _ = key_provider;
-    // WAL + synchronous=FULL before migrations (CLAIM-18.1).  journal_mode is a
-    // persistent DB property but we set it explicitly so a fresh or copied DB
-    // is always in the required mode.
+ // WAL + synchronous=FULL before migrations (CLAIM-18.1). journal_mode is a
+ // persistent DB property but we set it explicitly so a fresh or copied DB
+ // is always in the required mode.
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|e| {
             SqliteErrorAction::from_rusqlite(DbKind::Primary, &e, "set journal_mode=WAL")
@@ -354,10 +354,10 @@ fn ensure_parent(path: &Path, kind: DbKind) -> Result<(), SqliteErrorAction> {
 ///
 /// NOTE: `pending_approvals` in this migration uses the design.md shape
 /// (approval_id/kind/payload_hash/co_signatures_json/...). The existing
-/// `SqlitePendingApprovalsStore` (task 12.8) uses an op_id/op_type layout;
+/// `SqlitePendingApprovalsStore` () uses an op_id/op_type layout;
 /// both are kept compatible by creating the task-12.8 table via its own
 /// helper when that store is opened. Migration v1 owns the design-mandated
-/// table names so task 18's "all PrimaryLedger tables exist" requirement is
+/// table names so 's "all PrimaryLedger tables exist" requirement is
 /// satisfied at boot; schema harmonization is tracked by follow-on tasks.
 pub fn primary_migrations() -> &'static [Migration] {
     &PRIMARY_MIGRATIONS
@@ -371,7 +371,7 @@ pub fn derived_migrations() -> &'static [Migration] {
 const PRIMARY_MIGRATIONS: [Migration; 3] = [
     Migration {
         version: 1,
-        name: "task18_primary_ledger_tables",
+        name: "initial_primary_ledger_tables",
         sql: r#"
 -- Applied_Effects_Ledger (PrimaryLedger) (PV-5.1)
 CREATE TABLE IF NOT EXISTS applied_effects_ledger (
@@ -587,7 +587,7 @@ CREATE INDEX IF NOT EXISTS idx_drift_lookup
     },
     Migration {
         version: 2,
-        name: "task21_single_writer_target_state_drift",
+        name: "single_writer_target_state_drift",
         sql: r#"
 CREATE TABLE IF NOT EXISTS single_writer_leases (
     target_id              TEXT PRIMARY KEY,
@@ -622,7 +622,7 @@ CREATE TABLE IF NOT EXISTS drift_rate_summary (
     },
     Migration {
         version: 3,
-        name: "task25_security_events_checkpoint_hash",
+        name: "security_events_checkpoint_hash_column",
         sql: r#"
 -- 25.3/25.4: checkpoint_hash column for signed checkpoint records (PV-7.3).
 -- v1 now creates the column for fresh DBs; this migration is a compatibility
@@ -634,7 +634,7 @@ SELECT 1;
 
 const DERIVED_MIGRATIONS: [Migration; 1] = [Migration {
     version: 1,
-    name: "task18_derived_ledger_tables",
+    name: "initial_derived_ledger_tables",
     sql: r#"
 -- Automerge documents (DerivedLedger)
 CREATE TABLE IF NOT EXISTS automerge_docs (

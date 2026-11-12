@@ -6,7 +6,7 @@
 //! - Rejects tokens from unrecognised beacons (Req 15.1).
 //! - Uses Lamport epoch ordering to reject stale replay tokens (Req 15.3).
 //! - On beacon signal loss, writes a permanent high-priority Transport Degradation Event
-//!   to the append-only log and reverts Spatial_Diversity to squad-tag mode (Req 15.4).
+//! to the append-only log and reverts Spatial_Diversity to squad-tag mode (Req 15.4).
 
 #![allow(dead_code)]
 
@@ -20,9 +20,9 @@ use std::collections::BTreeMap;
 /// Entry in the beacon public-key registry.
 #[derive(Debug, Clone)]
 pub struct BeaconRegistryEntry {
-    /// DID of the fixed beacon.
+ /// DID of the fixed beacon.
     pub beacon_did: Did,
-    /// Ed25519 public key (32 bytes) for this beacon.
+ /// Ed25519 public key (32 bytes) for this beacon.
     pub public_key: [u8; 32],
 }
 
@@ -43,29 +43,29 @@ pub(crate) fn beacon_token_signing_payload(epoch: u64, location_claim: &str) -> 
 /// Whether beacon-attested location is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnchorMode {
-    /// Beacon tokens are verified; peers without valid tokens are excluded from
-    /// spatial diversity count (Req 15.2).
+ /// Beacon tokens are verified; peers without valid tokens are excluded from
+ /// spatial diversity count (Req 15.2).
     BeaconAttested,
-    /// Signal lost or disabled; fall back to squad/tunnel_sector tag mode (Req 15.4, 15.5).
+ /// Signal lost or disabled; fall back to squad/tunnel_sector tag mode (Req 15.4, 15.5).
     SquadTagFallback,
 }
 
 /// Verifies and manages beacon-attested location tokens (Req 15.1–15.4).
 #[derive(Debug)]
 pub struct AnchorAttestedLocation {
-    /// Registry of trusted beacon public keys.
+ /// Registry of trusted beacon public keys.
     beacon_registry: Vec<BeaconRegistryEntry>,
-    /// Current Lamport epoch (for stale replay detection — Req 15.3).
-    /// Tokens with `epoch < current_epoch` are rejected as replays.
+ /// Current Lamport epoch (for stale replay detection — Req 15.3).
+ /// Tokens with `epoch < current_epoch` are rejected as replays.
     current_epoch: u64,
-    /// Current operating mode.
+ /// Current operating mode.
     pub mode: AnchorMode,
-    /// Append-only log of Transport Degradation Events (Req 15.4).
+ /// Append-only log of Transport Degradation Events (Req 15.4).
     degradation_log: Vec<TransportDegradationEvent>,
-    /// Last-observed timestamp (seconds since UNIX_EPOCH) for each beacon
-    /// public key, updated on every successfully verified beacon token (Req 15.4).
-    /// `check_signal_loss` compares `now_secs - last_seen` against the configured
-    /// threshold to decide whether a beacon has gone silent.
+ /// Last-observed timestamp (seconds since UNIX_EPOCH) for each beacon
+ /// public key, updated on every successfully verified beacon token (Req 15.4).
+ /// `check_signal_loss` compares `now_secs - last_seen` against the configured
+ /// threshold to decide whether a beacon has gone silent.
     beacon_last_seen: BTreeMap<[u8; 32], i64>,
 }
 
@@ -73,16 +73,16 @@ pub struct AnchorAttestedLocation {
 /// (Req 15.4).
 #[derive(Debug, Clone)]
 pub struct TransportDegradationEvent {
-    /// UTC timestamp (microseconds) of signal loss.
+ /// UTC timestamp (microseconds) of signal loss.
     pub timestamp: i64,
-    /// DIDs of peers whose beacon attestation became unavailable.
+ /// DIDs of peers whose beacon attestation became unavailable.
     pub affected_peer_dids: Vec<Did>,
-    /// Human-readable reason.
+ /// Human-readable reason.
     pub reason: String,
 }
 
 impl AnchorAttestedLocation {
-    /// Create a new instance with the given beacon registry and initial epoch.
+ /// Create a new instance with the given beacon registry and initial epoch.
     pub fn new(beacon_registry: Vec<BeaconRegistryEntry>, initial_epoch: u64) -> Self {
         Self {
             beacon_registry,
@@ -93,15 +93,15 @@ impl AnchorAttestedLocation {
         }
     }
 
-    /// Build the verifier from the deployment-configured beacon **public keys**.
-    ///
-    /// The registry entry DID is derived from each key (`did:key:` — Req 15.1
-    /// compares the token's `beacon_did` against these derived DIDs), so the
-    /// api layer only needs to expose the raw Ed25519 keys.
-    ///
-    /// Production caller: `CoreHandle::init` (api/mod.rs), which constructs
-    /// this instance from `DeploymentConfig.beacon_public_keys` when
-    /// `anchor_attested_location` is enabled (Subphase 4.3).
+ /// Build the verifier from the deployment-configured beacon **public keys**.
+ ///
+ /// The registry entry DID is derived from each key (`did:key:` — Req 15.1
+ /// compares the token's `beacon_did` against these derived DIDs), so the
+ /// api layer only needs to expose the raw Ed25519 keys.
+ ///
+ /// Production caller: `CoreHandle::init` (api/mod.rs), which constructs
+ /// this instance from `DeploymentConfig.beacon_public_keys` when
+ /// `anchor_attested_location` is enabled (Subphase 4.3).
     pub(crate) fn from_beacon_public_keys(
         beacon_public_keys: &[[u8; 32]],
         initial_epoch: u64,
@@ -116,28 +116,28 @@ impl AnchorAttestedLocation {
         Self::new(registry, initial_epoch)
     }
 
-    /// Advance the current Lamport epoch.
-    ///
-    /// Tokens issued before the new epoch will be rejected as stale replays (Req 15.3).
+ /// Advance the current Lamport epoch.
+ ///
+ /// Tokens issued before the new epoch will be rejected as stale replays (Req 15.3).
     pub fn advance_epoch(&mut self, new_epoch: u64) {
         if new_epoch > self.current_epoch {
             self.current_epoch = new_epoch;
         }
     }
 
-    /// Read the current Lamport epoch (for stale-epoch replay checks — Req 15.3).
-    ///
-    /// `pub(crate)`: test/introspection access so Subphase 7.6 can assert the
-    /// epoch advanced during a simulated partition.  Not exported as external
-    /// API surface — the beacon token signature verification is the production
-    /// consumer of this value.
+ /// Read the current Lamport epoch (for stale-epoch replay checks — Req 15.3).
+ ///
+ /// `pub(crate)`: test/introspection access so Subphase 7.6 can assert the
+ /// epoch advanced during a simulated partition. Not exported as external
+ /// API surface — the beacon token signature verification is the production
+ /// consumer of this value.
     pub(crate) fn current_epoch(&self) -> u64 {
         self.current_epoch
     }
 
-    /// Look up a beacon's public key by its DID.
-    ///
-    /// Returns `None` if the beacon DID is not in the registry.
+ /// Look up a beacon's public key by its DID.
+ ///
+ /// Returns `None` if the beacon DID is not in the registry.
     fn find_beacon_key(&self, beacon_did: &str) -> Option<[u8; 32]> {
         self.beacon_registry
             .iter()
@@ -145,23 +145,23 @@ impl AnchorAttestedLocation {
             .map(|e| e.public_key)
     }
 
-    /// Validate an incoming beacon token (Req 15.1–15.3).
-    ///
-    /// Checks (in order):
-    /// 1. Beacon DID is in the registered set → `UnknownBeacon` error if not (Req 15.1).
-    /// 2. Token epoch is not stale (`epoch >= current_epoch`) → rejected as replay if stale (Req 15.3).
-    /// 3. Beacon signature over `beacon_token_signing_payload(epoch, location_claim)` is valid.
-    ///
-    /// On success, updates `beacon_last_seen` for this beacon's public key with
-    /// the current wall-clock timestamp (`now_secs`), so that
-    /// [`AnchorAttestedLocation::check_signal_loss`] can later determine whether
-    /// the beacon has gone silent beyond the configured threshold (Req 15.4).
+ /// Validate an incoming beacon token (Req 15.1–15.3).
+ ///
+ /// Checks (in order):
+ /// 1. Beacon DID is in the registered set → `UnknownBeacon` error if not (Req 15.1).
+ /// 2. Token epoch is not stale (`epoch >= current_epoch`) → rejected as replay if stale (Req 15.3).
+ /// 3. Beacon signature over `beacon_token_signing_payload(epoch, location_claim)` is valid.
+ ///
+ /// On success, updates `beacon_last_seen` for this beacon's public key with
+ /// the current wall-clock timestamp (`now_secs`), so that
+ /// [`AnchorAttestedLocation::check_signal_loss`] can later determine whether
+ /// the beacon has gone silent beyond the configured threshold (Req 15.4).
     pub fn verify_beacon_token(
         &mut self,
         token: &BeaconToken,
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        // Check 1: beacon public key in registry.
+ // Check 1: beacon public key in registry.
         let public_key = self.find_beacon_key(&token.beacon_did).ok_or_else(|| {
             TirBaseError::SignatureVerificationFailed {
                 reason: format!(
@@ -171,7 +171,7 @@ impl AnchorAttestedLocation {
             }
         })?;
 
-        // Check 2: stale epoch — replay protection.
+ // Check 2: stale epoch — replay protection.
         if token.epoch < self.current_epoch {
             return Err(TirBaseError::SignatureVerificationFailed {
                 reason: format!(
@@ -182,7 +182,7 @@ impl AnchorAttestedLocation {
             });
         }
 
-        // Check 3: verify beacon Ed25519 signature.
+ // Check 3: verify beacon Ed25519 signature.
         let payload = beacon_token_signing_payload(token.epoch, &token.location_claim);
         keypair::verify(&public_key, &payload, &token.beacon_signature).map_err(|e| {
             TirBaseError::SignatureVerificationFailed {
@@ -193,19 +193,19 @@ impl AnchorAttestedLocation {
             }
         })?;
 
-        // Valid token: record that this beacon was seen at `now_secs` (Req 15.4).
+ // Valid token: record that this beacon was seen at `now_secs` (Req 15.4).
         self.beacon_last_seen.insert(public_key, now_secs);
 
         Ok(())
     }
 
-    /// Handle beacon signal loss beyond the configured threshold (Req 15.4).
-    ///
-    /// Writes a permanent high-priority Transport Degradation Event to the
-    /// append-only log and reverts Spatial_Diversity to squad-tag mode.
-    ///
-    /// This reversion is **permanent for the lifetime of this instance** — the
-    /// design does not specify an automatic recovery path once signal is lost.
+ /// Handle beacon signal loss beyond the configured threshold (Req 15.4).
+ ///
+ /// Writes a permanent high-priority Transport Degradation Event to the
+ /// append-only log and reverts Spatial_Diversity to squad-tag mode.
+ ///
+ /// This reversion is **permanent for the lifetime of this instance** — the
+ /// design does not specify an automatic recovery path once signal is lost.
     pub fn on_beacon_signal_lost(
         &mut self,
         timestamp: i64,
@@ -222,29 +222,29 @@ impl AnchorAttestedLocation {
             ),
         };
 
-        // Log the event (permanent, high-priority — Req 15.4).
+ // Log the event (permanent, high-priority — Req 15.4).
         log_transport_degradation_event(&event);
 
-        // Append to the append-only in-memory log.
+ // Append to the append-only in-memory log.
         self.degradation_log.push(event);
 
-        // Revert to squad-tag spatial diversity mode (Req 15.4).
+ // Revert to squad-tag spatial diversity mode (Req 15.4).
         self.mode = AnchorMode::SquadTagFallback;
 
         Ok(())
     }
 
-    /// Return the list of beacon public keys that have not been seen within
-    /// `threshold_secs` of `now_secs` (Req 15.4).
-    ///
-    /// A beacon is considered "lost" when:
-    /// - It was registered (present in `beacon_last_seen` with a timestamp), AND
-    /// - `now_secs - last_seen_secs > threshold_secs`.
-    ///
-    /// Beacons that have never been seen (no entry in `beacon_last_seen`) are
-    /// also reported as lost — they have never attested since startup.
-    /// Returns an empty `Vec` when the anchor is already in `SquadTagFallback`
-    /// mode (signal loss has already been declared and handled).
+ /// Return the list of beacon public keys that have not been seen within
+ /// `threshold_secs` of `now_secs` (Req 15.4).
+ ///
+ /// A beacon is considered "lost" when:
+ /// - It was registered (present in `beacon_last_seen` with a timestamp), AND
+ /// - `now_secs - last_seen_secs > threshold_secs`.
+ ///
+ /// Beacons that have never been seen (no entry in `beacon_last_seen`) are
+ /// also reported as lost — they have never attested since startup.
+ /// Returns an empty `Vec` when the anchor is already in `SquadTagFallback`
+ /// mode (signal loss has already been declared and handled).
     pub fn check_signal_loss(&self, now_secs: i64, threshold_secs: u64) -> Vec<[u8; 32]> {
         if self.mode == AnchorMode::SquadTagFallback {
             return Vec::new();
@@ -267,12 +267,12 @@ impl AnchorAttestedLocation {
         lost
     }
 
-    /// Resolve a beacon public key to its registered DID.
-    ///
-    /// `pub(crate)`: used by the production beacon-monitoring loop in
-    /// `CoreHandle::init` to build `affected_peer_dids` for
-    /// [`AnchorAttestedLocation::on_beacon_signal_lost`] from the public keys
-    /// returned by [`check_signal_loss`](Self::check_signal_loss).
+ /// Resolve a beacon public key to its registered DID.
+ ///
+ /// `pub(crate)`: used by the production beacon-monitoring loop in
+ /// `CoreHandle::init` to build `affected_peer_dids` for
+ /// [`AnchorAttestedLocation::on_beacon_signal_lost`] from the public keys
+ /// returned by [`check_signal_loss`](Self::check_signal_loss).
     pub(crate) fn beacon_did_for_key(&self, public_key: &[u8; 32]) -> Option<&Did> {
         self.beacon_registry
             .iter()
@@ -280,17 +280,17 @@ impl AnchorAttestedLocation {
             .map(|e| &e.beacon_did)
     }
 
-    /// Read the append-only degradation event log.
+ /// Read the append-only degradation event log.
     pub fn degradation_log(&self) -> &[TransportDegradationEvent] {
         &self.degradation_log
     }
 
-    /// Whether a peer's token is valid for the current epoch and should be counted
-    /// toward spatial diversity. Returns `false` if verification fails or if the
-    /// subsystem is in SquadTagFallback mode (Req 15.2, 15.4).
-    ///
-    /// `now_secs` is the current wall-clock time (seconds since UNIX_EPOCH),
-    /// used to update `beacon_last_seen` on a successful verification.
+ /// Whether a peer's token is valid for the current epoch and should be counted
+ /// toward spatial diversity. Returns `false` if verification fails or if the
+ /// subsystem is in SquadTagFallback mode (Req 15.2, 15.4).
+ ///
+ /// `now_secs` is the current wall-clock time (seconds since UNIX_EPOCH),
+ /// used to update `beacon_last_seen` on a successful verification.
     pub fn peer_has_valid_token(&mut self, token: &BeaconToken, now_secs: i64) -> bool {
         if self.mode == AnchorMode::SquadTagFallback {
             return false;
@@ -298,7 +298,7 @@ impl AnchorAttestedLocation {
         self.verify_beacon_token(token, now_secs).is_ok()
     }
 
-    /// Current operating mode.
+ /// Current operating mode.
     pub fn mode(&self) -> AnchorMode {
         self.mode
     }
@@ -344,7 +344,7 @@ mod tests {
         }
     }
 
-    // ── from_beacon_public_keys ──────────────────────────────────────────────
+ // ── from_beacon_public_keys ──────────────────────────────────────────────
 
     #[test]
     fn from_beacon_public_keys_derives_registry_dids() {
@@ -367,7 +367,7 @@ mod tests {
         assert!(anchor.beacon_registry.is_empty());
     }
 
-    // ── verify_beacon_token ──────────────────────────────────────────────────
+ // ── verify_beacon_token ──────────────────────────────────────────────────
 
     #[test]
     fn verify_valid_beacon_token_passes() {
@@ -387,7 +387,7 @@ mod tests {
             vec![make_registry_entry("did:key:z6MkBeacon1", public)],
             0,
         );
-        // Token claims to be from an unregistered beacon.
+ // Token claims to be from an unregistered beacon.
         let token = BeaconToken {
             beacon_did: "did:key:z6MkUnknown".to_string(),
             beacon_signature: Ed25519Signature(vec![0; 64]),
@@ -406,7 +406,7 @@ mod tests {
             vec![make_registry_entry("did:key:z6MkBeacon2", public)],
             10, // current epoch is 10
         );
-        // Token has epoch 5 — stale.
+ // Token has epoch 5 — stale.
         let token = make_signed_beacon_token("did:key:z6MkBeacon2", &secret, 5, "sector-A");
         let result = anchor.verify_beacon_token(&token, 100);
         assert!(result.is_err(), "stale epoch must be rejected as replay");
@@ -419,7 +419,7 @@ mod tests {
             vec![make_registry_entry("did:key:z6MkBeacon3", public)],
             10,
         );
-        // Token has epoch == current_epoch (10).
+ // Token has epoch == current_epoch (10).
         let token = make_signed_beacon_token("did:key:z6MkBeacon3", &secret, 10, "sector-B");
         assert!(anchor.verify_beacon_token(&token, 100).is_ok());
     }
@@ -432,7 +432,7 @@ mod tests {
             0,
         );
         let mut token = make_signed_beacon_token("did:key:z6MkBeacon4", &secret, 1, "sector-C");
-        // Tamper with signature.
+ // Tamper with signature.
         if let Some(b) = token.beacon_signature.0.first_mut() {
             *b ^= 0xFF;
         }
@@ -440,7 +440,7 @@ mod tests {
         assert!(result.is_err(), "tampered signature must be rejected");
     }
 
-    // ── on_beacon_signal_lost ────────────────────────────────────────────────
+ // ── on_beacon_signal_lost ────────────────────────────────────────────────
 
     #[test]
     fn signal_loss_reverts_to_squad_tag_mode() {
@@ -481,7 +481,7 @@ mod tests {
         assert_eq!(anchor.degradation_log().len(), 2);
     }
 
-    // ── peer_has_valid_token ──────────────────────────────────────────────────
+ // ── peer_has_valid_token ──────────────────────────────────────────────────
 
     #[test]
     fn peer_has_valid_token_true_when_beacon_verified() {
@@ -501,15 +501,15 @@ mod tests {
             vec![make_registry_entry("did:key:z6MkBeacon7", public)],
             0,
         );
-        // Signal loss puts us in fallback mode.
+ // Signal loss puts us in fallback mode.
         anchor.on_beacon_signal_lost(0, vec![]).unwrap();
 
         let token = make_signed_beacon_token("did:key:z6MkBeacon7", &secret, 0, "sector-Y");
-        // Even with a valid token, fallback mode returns false.
+ // Even with a valid token, fallback mode returns false.
         assert!(!anchor.peer_has_valid_token(&token, 100));
     }
 
-    // ── advance_epoch ────────────────────────────────────────────────────────
+ // ── advance_epoch ────────────────────────────────────────────────────────
 
     #[test]
     fn advance_epoch_only_advances_forward() {
@@ -520,37 +520,37 @@ mod tests {
         assert_eq!(anchor.current_epoch, 10);
     }
 
-    // ── Subphase 7.6: stale-epoch rejection under simulated skew ──────────────
-    //
-    // A beacon issues location tokens carrying a Lamport epoch.  During a long
-    // network partition the beacon keeps advancing its epoch (it is still
-    // alive in the quorum), but an isolated device retains only a token from
-    // before the partition.  The token's epoch is now *stale relative to the
-    // advanced current_epoch*.  On rejoin, the stale token must be rejected as
-    // a replay (Req 15.3) — not at a static epoch value, but after the epoch
-    // *advanced during the simulated partition*.
-    //
-    // This is the Subphase 7.6 acceptance criterion #2 test: "anchor-beacon
-    // stale-epoch rejection works correctly under simulated skew."
-    //
-    // Production path exercised:
-    //   `AnchorAttestedLocation::verify_beacon_token` (anchor.rs:147)
-    //     → stale-epoch check: `token.epoch < self.current_epoch` (anchor.rs:149)
-    //   Production caller: `DurabilitySubsystem::receive_receipt`
-    //     → `peer_has_valid_token` (anchor.rs:226) (durability/mod.rs:344-347).
-    //
-    // The existing `verify_stale_epoch_token_is_rejected_as_replay` test covers
-    // stale rejection at *static* epoch values (created with token.epoch=5,
-    // current_epoch=10).  This test simulates the partition: the token is
-    // initially valid, THEN the epoch advances, THEN the token is rejected.
+ // ── Subphase 7.6: stale-epoch rejection under simulated skew ──────────────
+ //
+ // A beacon issues location tokens carrying a Lamport epoch. During a long
+ // network partition the beacon keeps advancing its epoch (it is still
+ // alive in the quorum), but an isolated device retains only a token from
+ // before the partition. The token's epoch is now *stale relative to the
+ // advanced current_epoch*. On rejoin, the stale token must be rejected as
+ // a replay (Req 15.3) — not at a static epoch value, but after the epoch
+ // *advanced during the simulated partition*.
+ //
+ // This is the Subphase 7.6 acceptance criterion #2 test: "anchor-beacon
+ // stale-epoch rejection works correctly under simulated skew."
+ //
+ // Production path exercised:
+ // `AnchorAttestedLocation::verify_beacon_token` (anchor.rs:147)
+ // → stale-epoch check: `token.epoch < self.current_epoch` (anchor.rs:149)
+ // Production caller: `DurabilitySubsystem::receive_receipt`
+ // → `peer_has_valid_token` (anchor.rs:226) (durability/mod.rs:344-347).
+ //
+ // The existing `verify_stale_epoch_token_is_rejected_as_replay` test covers
+ // stale rejection at *static* epoch values (created with token.epoch=5,
+ // current_epoch=10). This test simulates the partition: the token is
+ // initially valid, THEN the epoch advances, THEN the token is rejected.
 
     #[test]
     fn stale_epoch_rejected_after_beacon_advances_during_partition() {
         let (b_secret, b_public) = generate_keypair().expect("beacon keygen");
         let beacon_did = derive_did(&b_public);
 
-        // Anchor starts at epoch 0 — the beacon's epoch before the partition.
-        // The device holds a token at epoch 3 (issued before the partition).
+ // Anchor starts at epoch 0 — the beacon's epoch before the partition.
+ // The device holds a token at epoch 3 (issued before the partition).
         let mut anchor = AnchorAttestedLocation::new(
             vec![BeaconRegistryEntry {
                 beacon_did: beacon_did.clone(),
@@ -559,7 +559,7 @@ mod tests {
             0,
         );
 
-        // Phase 1: before partition, the epoch-3 token is valid.
+ // Phase 1: before partition, the epoch-3 token is valid.
         let pre_partition_token = make_signed_beacon_token(&beacon_did, &b_secret, 3, "sector-7G");
         assert!(
             anchor
@@ -568,19 +568,19 @@ mod tests {
             "token at epoch 3 must be valid when current_epoch is 0 (3 >= 0)"
         );
 
-        // Phase 2: simulated long partition — the beacon advances its epoch.
-        // During the partition, the beacon keeps operating and its epoch moves
-        // forward from 0 → 10.  The isolated device cannot receive the new
-        // tokens, so its cached epoch-3 token is now 7 epochs stale.
+ // Phase 2: simulated long partition — the beacon advances its epoch.
+ // During the partition, the beacon keeps operating and its epoch moves
+ // forward from 0 → 10. The isolated device cannot receive the new
+ // tokens, so its cached epoch-3 token is now 7 epochs stale.
         anchor.advance_epoch(10);
         assert_eq!(
             anchor.current_epoch, 10,
             "beacon epoch must advance to 10 during the simulated partition"
         );
 
-        // Phase 3: rejoin — the stale token (epoch 3) must be rejected.
-        // The stale-epoch check at anchor.rs:149 (`token.epoch < current_epoch`)
-        // fires: 3 < 10 → StaleEpoch replay rejection (Req 15.3).
+ // Phase 3: rejoin — the stale token (epoch 3) must be rejected.
+ // The stale-epoch check at anchor.rs:149 (`token.epoch < current_epoch`)
+ // fires: 3 < 10 → StaleEpoch replay rejection (Req 15.3).
         let result = anchor.verify_beacon_token(&pre_partition_token, 100);
         assert!(
             result.is_err(),
@@ -593,17 +593,17 @@ mod tests {
             "stale-epoch rejection must be reported as a replay/stale error, got: {err}"
         );
 
-        // Phase 4: a fresh token at the current epoch (10) verifies normally.
-        // The stale-epoch rejection must not poison future valid tokens.
+ // Phase 4: a fresh token at the current epoch (10) verifies normally.
+ // The stale-epoch rejection must not poison future valid tokens.
         let fresh_token = make_signed_beacon_token(&beacon_did, &b_secret, 10, "sector-7G");
         assert!(
             anchor.verify_beacon_token(&fresh_token, 100).is_ok(),
             "fresh token at epoch 10 must verify after rejoin"
         );
 
-        // Phase 5: the stale token is permanently stale — it must still be
-        // rejected even after a fresh token is accepted.  The check is purely
-        // `token.epoch < current_epoch`, which is token-state-driven.
+ // Phase 5: the stale token is permanently stale — it must still be
+ // rejected even after a fresh token is accepted. The check is purely
+ // `token.epoch < current_epoch`, which is token-state-driven.
         let still_stale = anchor.verify_beacon_token(&pre_partition_token, 100);
         assert!(
             still_stale.is_err(),
@@ -611,12 +611,12 @@ mod tests {
         );
     }
 
-    /// Companion: verify `peer_has_valid_token` (the production gate used by
-    /// `DurabilitySubsystem::receive_receipt` at durability/mod.rs:344-347)
-    /// also rejects stale-epoch tokens under simulated skew — not just
-    /// `verify_beacon_token`.  This closes the production-caller coverage gap:
-    /// `receive_receipt` delegates to `peer_has_valid_token`, so the stale-epoch
-    /// rejection must propagate through that path too.
+ /// Companion: verify `peer_has_valid_token` (the production gate used by
+ /// `DurabilitySubsystem::receive_receipt` at durability/mod.rs:344-347)
+ /// also rejects stale-epoch tokens under simulated skew — not just
+ /// `verify_beacon_token`. This closes the production-caller coverage gap:
+ /// `receive_receipt` delegates to `peer_has_valid_token`, so the stale-epoch
+ /// rejection must propagate through that path too.
     #[test]
     fn peer_has_valid_token_rejects_stale_epoch_under_simulated_skew() {
         let (b_secret, b_public) = generate_keypair().expect("beacon keygen");
@@ -631,20 +631,20 @@ mod tests {
         );
         assert_eq!(anchor.mode(), AnchorMode::BeaconAttested);
 
-        // Epoch-0 token is valid at the start.
+ // Epoch-0 token is valid at the start.
         let stale_token = make_signed_beacon_token(&beacon_did, &b_secret, 0, "sector-A");
         assert!(
             anchor.peer_has_valid_token(&stale_token, 100),
             "token must be valid in peer_has_valid_token before the epoch advances"
         );
 
-        // Beacon advances its epoch during the simulated partition.
+ // Beacon advances its epoch during the simulated partition.
         anchor.advance_epoch(5);
         assert_eq!(anchor.current_epoch, 5);
 
-        // After the epoch advance, the stale epoch-0 token is rejected — the
-        // production `peer_has_valid_token` gate (anchor.rs:226) must return
-        // false, which is the exact path `receive_receipt` checks.
+ // After the epoch advance, the stale epoch-0 token is rejected — the
+ // production `peer_has_valid_token` gate (anchor.rs:226) must return
+ // false, which is the exact path `receive_receipt` checks.
         assert!(
             !anchor.peer_has_valid_token(&stale_token, 100),
             "peer_has_valid_token must reject the stale-epoch token after the \

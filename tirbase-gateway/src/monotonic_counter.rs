@@ -1,19 +1,19 @@
 //! Monotonic counters for the gateway binary (PV-9.8, RD-2).
 //!
-//! * [`SoftwareMonotonicCounter`] — assurance **Level 1**.  Durable SQLite WAL
-//!   storage with `PRAGMA synchronous=FULL`, so an increment is fsynced before
-//!   it returns (CLAIM-6.5).  The gateway reports `Level1` in its boot
-//!   diagnostic.
+//! * [`SoftwareMonotonicCounter`] — assurance **Level 1**. Durable SQLite WAL
+//! storage with `PRAGMA synchronous=FULL`, so an increment is fsynced before
+//! it returns (CLAIM-6.5). The gateway reports `Level1` in its boot
+//! diagnostic.
 //! * [`Tpm2MonotonicCounter`] — assurance **Level 2** stub over a TPM2 NV index
-//!   or eMMC RPMB (CLAIM-6.6).
+//! or eMMC RPMB (CLAIM-6.6).
 //! * [`NullHardwareCounter`] / [`SimulatedHardwareCounter`] — non-TPM
-//!   deployments and the fault-injection path used by the rollback test
-//!   (CLAIM-6.7a).
+//! deployments and the fault-injection path used by the rollback test
+//! (CLAIM-6.7a).
 //!
 //! # Level 1 durability
 //!
 //! WAL alone does not make a commit durable; `synchronous=FULL` is the pragma
-//! that forces an fsync of the WAL on every commit.  The wiring-mutation check
+//! that forces an fsync of the WAL on every commit. The wiring-mutation check
 //! for CLAIM-6.5 removes that pragma and requires
 //! `software_counter_uses_sqlite_wal_with_synchronous_full` to fail.
 
@@ -35,18 +35,18 @@ fn db_error(context: &str, error: rusqlite::Error) -> TirBaseError {
 /// Software-backed monotonic counter (no TPM / secure element required).
 ///
 /// Assurance **Level 1**: the value lives in a SQLite database opened in WAL
-/// mode with `synchronous=FULL`.  Every `increment` commits before returning,
+/// mode with `synchronous=FULL`. Every `increment` commits before returning,
 /// so the counter survives power loss (a restored older *snapshot* is not
 /// detectable by the counter alone — that is what the hardware-counter binding
-/// in task 6.7a and the enrollment-epoch bump cover).
+/// in and the enrollment-epoch bump cover).
 #[derive(Debug)]
 pub struct SoftwareMonotonicCounter {
     conn: Mutex<Connection>,
 }
 
 impl SoftwareMonotonicCounter {
-    /// Open (or create) the counter database at `path`, seeding it with
-    /// `initial` on first boot.
+ /// Open (or create) the counter database at `path`, seeding it with
+ /// `initial` on first boot.
     pub fn open(path: impl AsRef<Path>, initial: u64) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -64,8 +64,8 @@ impl SoftwareMonotonicCounter {
 
         let conn = Connection::open(path).map_err(|e| db_error("open", e))?;
 
-        // Durability: WAL + synchronous=FULL (CLAIM-6.5).  `pragma_update`
-        // fails loudly if SQLite rejects either setting.
+ // Durability: WAL + synchronous=FULL (CLAIM-6.5). `pragma_update`
+ // fails loudly if SQLite rejects either setting.
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| db_error("set journal_mode=WAL", e))?;
         conn.pragma_update(None, "synchronous", "FULL")
@@ -90,8 +90,8 @@ impl SoftwareMonotonicCounter {
         })
     }
 
-    /// The effective `PRAGMA synchronous` value (2 = FULL).  Exposed for the
-    /// wiring-mutation test for CLAIM-6.5.
+ /// The effective `PRAGMA synchronous` value (2 = FULL). Exposed for the
+ /// wiring-mutation test for CLAIM-6.5.
     #[cfg(test)]
     pub fn synchronous_pragma(&self) -> Result<i64, TirBaseError> {
         self.with_conn(|conn| {
@@ -100,7 +100,7 @@ impl SoftwareMonotonicCounter {
         })
     }
 
-    /// The effective `PRAGMA journal_mode` value (expected: `"wal"`).
+ /// The effective `PRAGMA journal_mode` value (expected: `"wal"`).
     #[cfg(test)]
     pub fn journal_mode_pragma(&self) -> Result<String, TirBaseError> {
         self.with_conn(|conn| {
@@ -169,7 +169,7 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
                 params![to_i64(next)?],
             )
             .map_err(|e| db_error("increment", e))?;
-            // Commit under synchronous=FULL: fsynced before returning.
+ // Commit under synchronous=FULL: fsynced before returning.
             tx.commit().map_err(|e| db_error("commit increment", e))?;
             Ok(next)
         })
@@ -212,7 +212,7 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
 /// A durable named counter sharing the `monotonic_counters` key/value table.
 ///
 /// The trust-root version is stored this way so it lives in `primary.db`
-/// alongside the other anti-rollback state (task 8.2 — CLAIM-8.2).  Each
+/// alongside the other anti-rollback state (CLAIM-8.2). Each
 /// named counter has its own row, so unrelated counters cannot collide.
 #[derive(Debug)]
 pub struct NamedMonotonicCounter {
@@ -221,8 +221,8 @@ pub struct NamedMonotonicCounter {
 }
 
 impl NamedMonotonicCounter {
-    /// Open (or create) `key` in the `monotonic_counters` table, seeding it
-    /// with `initial` on first use.
+ /// Open (or create) `key` in the `monotonic_counters` table, seeding it
+ /// with `initial` on first use.
     pub fn open(
         path: impl AsRef<Path>,
         key: impl Into<String>,
@@ -268,7 +268,7 @@ impl NamedMonotonicCounter {
         })
     }
 
-    /// The row key this counter is bound to.
+ /// The row key this counter is bound to.
     #[cfg(test)]
     pub fn key(&self) -> &str {
         &self.key
@@ -404,7 +404,7 @@ impl MonotonicCounterTrait for NullHardwareCounter {
 ///
 /// This is the fault-injection hook the gateway integration test uses to
 /// simulate a device whose NV counter advanced while the software counter was
-/// rolled back (CLAIM-6.7a, scenario S22).  It reports Level 2 so the boot
+/// rolled back (CLAIM-6.7a, scenario S22). It reports Level 2 so the boot
 /// comparison and checkpoint write paths run, but it is **not** durable and
 /// must never be used in production.
 #[derive(Debug)]
@@ -413,7 +413,7 @@ pub struct SimulatedHardwareCounter {
 }
 
 impl SimulatedHardwareCounter {
-    /// Construct with an initial simulated NV value.
+ /// Construct with an initial simulated NV value.
     pub fn new(initial: u64) -> Self {
         SimulatedHardwareCounter {
             value: AtomicU64::new(initial),
@@ -476,23 +476,23 @@ pub fn default_hardware_counter() -> Arc<dyn MonotonicCounterTrait> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TPM2 / RPMB counter — stub (task 6.6, CLAIM-6.6, PV-9.8, RD-2)
+// TPM2 / RPMB counter — stub (CLAIM-6.6, PV-9.8, RD-2)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Level 2 monotonic counter backed by a TPM2 NV index or eMMC RPMB — stub.
 ///
 /// # NV-endurance wear-leveling (design note)
 ///
-/// TPM2 NV indices are rated for roughly 512k write cycles.  Incrementing the
+/// TPM2 NV indices are rated for roughly 512k write cycles. Incrementing the
 /// NV counter on every command would exhaust that budget in weeks on a busy
-/// gateway.  The design therefore binds the **software** counter to the NV
+/// gateway. The design therefore binds the **software** counter to the NV
 /// counter only at checkpoint cadence:
 ///
 /// ```text
-/// hw_counter_value            -- last value written to NV
+/// hw_counter_value -- last value written to NV
 /// sw_counter_at_last_hw_write -- software counter when NV was last written
-/// sw_increment_per_hw_write   -- how far the software counter may advance
-///                                before the next NV write (default 1000)
+/// sw_increment_per_hw_write -- how far the software counter may advance
+/// before the next NV write (default 1000)
 /// ```
 ///
 /// [`crate::hw_counter_binding::HardwareCounterBinding`] performs the write only
@@ -507,12 +507,12 @@ pub struct Tpm2MonotonicCounter {
 
 #[cfg(feature = "tpm2")]
 impl Tpm2MonotonicCounter {
-    /// Address the given TPM2 NV index (or RPMB counter slot).
+ /// Address the given TPM2 NV index (or RPMB counter slot).
     pub fn new(nv_index: u32) -> Self {
         Tpm2MonotonicCounter { nv_index }
     }
 
-    /// The NV index this counter would use.
+ /// The NV index this counter would use.
     #[cfg(test)]
     pub fn nv_index(&self) -> u32 {
         self.nv_index
@@ -569,8 +569,8 @@ mod tpm2_nv {
         Ok(u64::from_be_bytes(raw))
     }
 
-    /// Create the counter index if it does not exist yet (empty hierarchy auth).
-    /// Used by provisioning and by the swtpm integration test.
+ /// Create the counter index if it does not exist yet (empty hierarchy auth).
+ /// Used by provisioning and by the swtpm integration test.
     pub fn provision_counter_index(nv_index: u32) -> Result<(), TirBaseError> {
         let spec = std::env::var("TIRBASE_TPM2_TCTI")
             .unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
@@ -624,11 +624,11 @@ impl MonotonicCounterTrait for Tpm2MonotonicCounter {
         tpm2_nv::read(&mut context, handle)
     }
 
-    /// Raise the hardware counter to at least `value`.
-    ///
-    /// A TPM2 counter index only supports increment, so raising it to a target
-    /// above the current value costs `value - current` increments. The caller
-    /// bounds this by the checkpoint cadence (default 1000).
+ /// Raise the hardware counter to at least `value`.
+ ///
+ /// A TPM2 counter index only supports increment, so raising it to a target
+ /// above the current value costs `value - current` increments. The caller
+ /// bounds this by the checkpoint cadence (default 1000).
     fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
         let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
         let current = tpm2_nv::read(&mut context, handle)?;

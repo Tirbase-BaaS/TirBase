@@ -10,5 +10,5 @@ fn main() {
         entry_id: [0u8; 16],
         _sealed: (),
     };
-    //~^ ERROR
+ //~^ ERROR
 }

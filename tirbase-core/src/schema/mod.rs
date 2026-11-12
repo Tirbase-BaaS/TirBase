@@ -17,19 +17,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Schema {
     pub tables: Vec<TableDef>,
-    /// Semver string, e.g. "1.0.0".
+ /// Semver string, e.g. "1.0.0".
     pub version: String,
 }
 
 impl Schema {
-    /// Compute the `SchemaIdentifierHash` for this schema (Req 17.1, 20.5).
-    ///
-    /// The hash is deterministic regardless of table or field declaration order
-    /// (Property 15). It delegates to the single authoritative implementation
-    /// in `schema/hash.rs`, which is also re-exported from `crdt/schema_hash.rs`
-    /// to avoid duplicate logic (Req 20.5).
+ /// Compute the `SchemaIdentifierHash` for this schema (Req 17.1, 20.5).
+ ///
+ /// The hash is deterministic regardless of table or field declaration order
+ /// (Property 15). It delegates to the single authoritative implementation
+ /// in `schema/hash.rs`, which is also re-exported from `crdt/schema_hash.rs`
+ /// to avoid duplicate logic (Req 20.5).
     pub fn identifier_hash(&self) -> SchemaIdentifierHash {
-        // Build the input slice expected by `compute_schema_identifier_hash`.
+ // Build the input slice expected by `compute_schema_identifier_hash`.
         let table_data: Vec<(&str, Vec<(&str, &str)>)> = self
             .tables
             .iter()
@@ -43,7 +43,7 @@ impl Schema {
             })
             .collect();
 
-        // Convert to the double-reference slice form expected by the hash fn.
+ // Convert to the double-reference slice form expected by the hash fn.
         let table_refs: Vec<(&str, &[(&str, &str)])> = table_data
             .iter()
             .map(|(name, fields)| (*name, fields.as_slice()))
@@ -82,7 +82,7 @@ pub enum FieldType {
 }
 
 impl FieldType {
-    /// Return the canonical string representation used in hash computation.
+ /// Return the canonical string representation used in hash computation.
     pub fn canonical_str(&self) -> &'static str {
         match self {
             FieldType::Text => "TEXT",

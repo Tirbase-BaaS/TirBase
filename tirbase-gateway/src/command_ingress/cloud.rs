@@ -1,4 +1,4 @@
-//! Cloud API command ingress (tasks 11.3/14 production callers).
+//! Cloud API command ingress (14 production callers).
 
 use tirbase_guard::admit::AdmitContext;
 use tirbase_guard::{AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource};
@@ -14,7 +14,7 @@ pub fn handle_cloud_command<W: std::io::Write + Send>(
     guard.admit(cmd, IngressSource::CloudApi, proxy, frame)
 }
 
-/// Admit a cloud-API command with full Task 14 pipeline context.
+/// Admit a cloud-API command with full pipeline context.
 pub fn handle_cloud_command_with_context<W: std::io::Write + Send>(
     guard: &CommandGuard,
     proxy: &mut DriverProxy<W>,

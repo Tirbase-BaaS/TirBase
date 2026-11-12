@@ -13,7 +13,7 @@ use tirbase_guard::time::{TimeRatchetError, TimeRatchetRecord, TimeRatchetStore}
 use tirbase_types::{FixedPointValue, UnitId};
 
 /// A test-controlled [`TimeSource`] with independent monotonic, wall and boot
-/// domains.  Scenarios advance or reboot it explicitly so no wall clock is read.
+/// domains. Scenarios advance or reboot it explicitly so no wall clock is read.
 #[derive(Debug)]
 pub struct FixedTimeSource {
     state: Mutex<TimeState>,
@@ -103,7 +103,7 @@ pub fn fp(mantissa: i64, exponent: i8, unit_id: UnitId) -> FixedPointValue {
     FixedPointValue::new(mantissa, exponent, unit_id)
 }
 
-/// Build a structurally valid, signed Delta.  Used by CRDT scenarios that need
+/// Build a structurally valid, signed Delta. Used by CRDT scenarios that need
 /// to drive `apply_incoming_delta` directly.
 pub fn signed_delta(
     secret: &[u8; 32],

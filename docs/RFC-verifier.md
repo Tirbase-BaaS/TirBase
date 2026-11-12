@@ -1,6 +1,6 @@
-# RFC: `no_std` Verifier Crate (Phase 11, Task 41.1)
+# RFC: `no_std` Verifier Crate (Phase 11)
 
-- **Status:** Draft (design-only RFC). **No verifier implementation code may be written until this RFC is merged to the main branch** (PV-13.5, task 41).
+- **Status:** Draft (design-only RFC). **No verifier implementation code may be written until this RFC is merged to the main branch** (PV-13.5).
 - **Requirements:** PV-13, PV-13.1–PV-13.5
 - **Claim:** CLAIM-41.1 (this document)
 - **Related:** PV-4 (Command Guard), PV-5 (anti-replay), PV-21 (fixed-point), PV-22 (time/freshness), RD-5 (COSE_Sign1 + deterministic CBOR)
@@ -73,11 +73,11 @@ This section defines the proposed interface contract the implementation RFC-foll
 
 ```text
 verify_and_check(
-  cmd_bytes: &[u8],                // COSE_Sign1 / fixed-width command
-  envelope: &VerifierEnvelope,      // installed, signed/profiled bounds
-  replay: &ReplayState256,         // fixed-size, caller-held
-  trust: &VerifierTrustRoot,       // pinned keys/roots for this profile
-  ctx: &VerifierContext            // e.g. now_est/freshness inputs supplied by caller
+ cmd_bytes: &[u8], // COSE_Sign1 / fixed-width command
+ envelope: &VerifierEnvelope, // installed, signed/profiled bounds
+ replay: &ReplayState256, // fixed-size, caller-held
+ trust: &VerifierTrustRoot, // pinned keys/roots for this profile
+ ctx: &VerifierContext // e.g. now_est/freshness inputs supplied by caller
 ) -> Decision { Accept(ReplayState256), Reject(Reason) }
 ```
 
@@ -137,5 +137,5 @@ The verifier must be decision-equivalent to the gateway guard for the supported 
 
 ## 7. Implementation gate (PV-13.5)
 
-- This RFC is a **design artifact only**. Per **PV-13.5** and task 41, **no implementation code for any verifier crate may be written until `docs/RFC-verifier.md` is merged to the main branch**.
+- This RFC is a **design artifact only**. Per **PV-13.5** and, **no implementation code for any verifier crate may be written until `docs/RFC-verifier.md` is merged to the main branch**.
 - Follow-on work (new crate, parsers, crypto wiring, differential harness) must land only after merge and must demonstrate conformance to §§3–5 and the budgets in §4.

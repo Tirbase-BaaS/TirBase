@@ -16,11 +16,11 @@ Task sections 38.x, 39.x, 40.x: 14 acceptance-criterion rows (14 complete, 0 ope
 Every row was traced against the repository; nothing was accepted on assertion. The audit:
 
 1. resolves each declared production-caller path on disk and each cited symbol to its
-   definition site (`file:line`);
+ definition site (`file:line`);
 2. resolves test identifiers in this order: a claim-named test (`claim_<task>`), a test
-   named in the task entry, the closest test in a test file named in the task entry, then
-   the test location committed in `docs/traceability-matrix.md` for the task's PV
-   requirement;
+ named in the task entry, the closest test in a test file named in the task entry, then
+ the test location committed in `docs/traceability-matrix.md` for the task's PV
+ requirement;
 3. records tasks with an open checkbox as `NOT IMPLEMENTED` or `BLOCKED` — never as verified.
 
 Evidence classes in the status column:
@@ -38,7 +38,7 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 | Task | Acceptance criterion (task) | Req | Production call site | Test evidence | Status |
 |---|---|---|---|---|---|
 | 38.1 | Create tirbase-sim crate with ChaCha8Rng-seeded deterministic simulator | PV-12.1 | `tirbase-sim/src/lib.rs:93` | — | TRACED-CALLER |
-| 38.2 | Implement SimClock (virtual time advancing on tick()), SimNetwork (fault injection), SimNode (wraps CommandGua… | PV-12.1 | `tirbase-sim/src/sim.rs:39` (`SimClock`) | — | TRACED-CALLER |
+| 38.2 | Implement SimClock (virtual time advancing on tick), SimNetwork (fault injection), SimNode (wraps CommandGua… | PV-12.1 | `tirbase-sim/src/sim.rs:39` (`SimClock`) | — | TRACED-CALLER |
 | 38.3 | Implement network fault modes: partition, delay (1–30,000 ms), drop, reorder, duplicate (≤5 copies per message… | PV-12.1 | `tirbase-sim/src/network.rs:30` | — | TRACED-CALLER |
 | 38.4 | Implement first-order thermal model using libm for deterministic floating-point results; bit-identical from th… | PV-12.3 | `tirbase-sim/src/models/thermal.rs:25` | `tirbase-sim/tests/determinism.rs:88` (`thermal_model_is_bit_identical_from_the_same_seed`) — via PV-12.3 | TRACED-CALLER |
 | 38.5 | Implement battery/inverter model using libm for deterministic floats | PV-12.3 | `tirbase-sim/src/models/battery.rs:23` | `tirbase-sim/tests/determinism.rs:97` (`battery_model_is_bit_identical_from_the_same_seed`) — via PV-12.3 | TRACED-CALLER |

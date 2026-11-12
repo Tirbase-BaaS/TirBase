@@ -11,5 +11,5 @@ fn main() {
         FixedPointValue::new(1, 0, UNIT_PERCENT),
         [0u8; 16],
     );
-    //~^ ERROR
+ //~^ ERROR
 }

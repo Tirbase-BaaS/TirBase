@@ -1,9 +1,9 @@
-//! Root CA public key registry (task 8.1 / 8.2 — CLAIM-8.1, CLAIM-8.2,
+//! Root CA public key registry (8.2 — CLAIM-8.1, CLAIM-8.2,
 //! PV-3.4).
 //!
 //! The registry holds **multiple simultaneous** root CA Ed25519 public keys.
 //! Token verification tries every active key; a token is accepted when it
-//! verifies against one of them.  Root rotation is authorised by a k-of-n
+//! verifies against one of them. Root rotation is authorised by a k-of-n
 //! threshold of the *current* keys (`k ≥ 1`); `k = 1` is permitted for small
 //! deployments but the gateway emits a startup diagnostic warning (scenario
 //! S11).
@@ -24,19 +24,19 @@ use tirbase_types::DeviceSignature;
 /// root, then updated by signed rotation ceremonies.
 #[derive(Debug, Clone, Default)]
 pub struct RootCaRegistry {
-    /// Ed25519 public keys of registered root CAs (including revoked keys, so
-    /// the revocation is auditable).
+ /// Ed25519 public keys of registered root CAs (including revoked keys, so
+ /// the revocation is auditable).
     keys: Vec<[u8; 32]>,
-    /// Keys explicitly revoked by a rotation ceremony.
+ /// Keys explicitly revoked by a rotation ceremony.
     revoked: Vec<[u8; 32]>,
-    /// k in the k-of-n rotation threshold (always ≥ 1 for a configured
-    /// registry).
+ /// k in the k-of-n rotation threshold (always ≥ 1 for a configured
+ /// registry).
     threshold_k: usize,
 }
 
 impl RootCaRegistry {
-    /// Create a registry from a list of root CA public key bytes with the
-    /// default threshold `k = 1`.
+ /// Create a registry from a list of root CA public key bytes with the
+ /// default threshold `k = 1`.
     pub fn new(keys: Vec<[u8; 32]>) -> Self {
         RootCaRegistry {
             keys,
@@ -45,9 +45,9 @@ impl RootCaRegistry {
         }
     }
 
-    /// Create a registry with an explicit k-of-n rotation threshold.
-    ///
-    /// Fails when `k == 0` or when `k` exceeds the number of active keys.
+ /// Create a registry with an explicit k-of-n rotation threshold.
+ ///
+ /// Fails when `k == 0` or when `k` exceeds the number of active keys.
     pub fn with_threshold(keys: Vec<[u8; 32]>, threshold_k: usize) -> Result<Self, TirBaseError> {
         let registry = RootCaRegistry {
             keys,
@@ -58,31 +58,31 @@ impl RootCaRegistry {
         Ok(registry)
     }
 
-    /// Register an additional root CA public key at runtime.
-    ///
-    /// Idempotent: registering a key that is already present (or revoked) is a
-    /// no-op.  A revoked key is *not* un-revoked by re-registration.
+ /// Register an additional root CA public key at runtime.
+ ///
+ /// Idempotent: registering a key that is already present (or revoked) is a
+ /// no-op. A revoked key is *not* un-revoked by re-registration.
     pub fn register(&mut self, key: [u8; 32]) {
         if !self.keys.contains(&key) {
             self.keys.push(key);
         }
     }
 
-    /// Return the raw registered key list, **including revoked keys**.
-    ///
-    /// Token verification must use [`Self::active_keys`] so a revoked key can
-    /// never verify again.  `keys()` exists for audit/export and backwards
-    /// compatibility with callers that need the full historical set.
+ /// Return the raw registered key list, **including revoked keys**.
+ ///
+ /// Token verification must use [`Self::active_keys`] so a revoked key can
+ /// never verify again. `keys()` exists for audit/export and backwards
+ /// compatibility with callers that need the full historical set.
     pub fn keys(&self) -> &[[u8; 32]] {
         &self.keys
     }
 
-    /// All keys ever registered, including revoked keys (audit view).
+ /// All keys ever registered, including revoked keys (audit view).
     pub fn all_keys(&self) -> &[[u8; 32]] {
         &self.keys
     }
 
-    /// Active (non-revoked) keys, in registration order.
+ /// Active (non-revoked) keys, in registration order.
     pub fn active_keys(&self) -> Vec<[u8; 32]> {
         self.keys
             .iter()
@@ -91,16 +91,16 @@ impl RootCaRegistry {
             .collect()
     }
 
-    /// k in the k-of-n rotation threshold.
+ /// k in the k-of-n rotation threshold.
     pub fn threshold_k(&self) -> usize {
         self.threshold_k
     }
 
-    /// Startup diagnostic warning when k = 1 (PV-3.4, S11).
-    ///
-    /// `k = 1` is allowed so a single-gateway deployment can operate, but a
-    /// single compromised root key can rotate the whole trust root.  Returns
-    /// `None` for `k >= 2` and for an empty registry (nothing to rotate yet).
+ /// Startup diagnostic warning when k = 1 (PV-3.4, S11).
+ ///
+ /// `k = 1` is allowed so a single-gateway deployment can operate, but a
+ /// single compromised root key can rotate the whole trust root. Returns
+ /// `None` for `k >= 2` and for an empty registry (nothing to rotate yet).
     pub fn threshold_warning(&self) -> Option<String> {
         (self.threshold_k == 1 && !self.keys.is_empty()).then(|| {
             "root CA threshold k=1: a single root key can rotate the root; \
@@ -109,22 +109,22 @@ impl RootCaRegistry {
         })
     }
 
-    /// Check if a given Ed25519 public key is an active registered root CA.
+ /// Check if a given Ed25519 public key is an active registered root CA.
     pub fn is_registered(&self, key: &[u8; 32]) -> bool {
         self.keys.contains(key) && !self.revoked.contains(key)
     }
 
-    /// Whether `key` has been revoked.
+ /// Whether `key` has been revoked.
     pub fn is_revoked(&self, key: &[u8; 32]) -> bool {
         self.revoked.contains(key)
     }
 
-    /// Revoke a root CA key (task 8.2).
-    ///
-    /// Returns `true` when the key was active and is now revoked.  Revocation
-    /// is permanent for this registry instance; installing a new trust-root
-    /// version is the only way to re-admit a key, and doing so is rollback
-    /// protected by [`crate::trust_root::TrustRootManager`].
+ /// Revoke a root CA key ().
+ ///
+ /// Returns `true` when the key was active and is now revoked. Revocation
+ /// is permanent for this registry instance; installing a new trust-root
+ /// version is the only way to re-admit a key, and doing so is rollback
+ /// protected by [`crate::trust_root::TrustRootManager`].
     pub fn revoke(&mut self, key: &[u8; 32]) -> bool {
         if !self.keys.contains(key) || self.revoked.contains(key) {
             return false;
@@ -133,15 +133,15 @@ impl RootCaRegistry {
         true
     }
 
-    /// Return the first active root CA public key, if any.
+ /// Return the first active root CA public key, if any.
     pub fn primary_key(&self) -> Option<&[u8; 32]> {
         self.keys.iter().find(|key| !self.revoked.contains(key))
     }
 
-    /// Verify a token against every active root key.
-    ///
-    /// `verify` is the token-verification closure (for example
-    /// [`crate::auth::biscuit::verify_token`]).
+ /// Verify a token against every active root key.
+ ///
+ /// `verify` is the token-verification closure (for example
+ /// [`crate::auth::biscuit::verify_token`]).
     pub fn verify_against_first<T, E>(
         &self,
         mut verify: impl FnMut(&[u8; 32]) -> Result<T, E>,
@@ -165,17 +165,17 @@ impl RootCaRegistry {
         })
     }
 
-    /// Rotate the root key set with k-of-n authorisation from the **current**
-    /// active keys (task 8.1).
-    ///
-    /// `message` is the signed rotation statement (the offline ceremony
-    /// defines its exact contents; the trust-root record uses its own domain
-    /// separated bytes).  `signatures` are `(signer_did, signature)` pairs;
-    /// each signer must derive from an active key, and at least
-    /// [`Self::threshold_k`] distinct signers are required.
-    ///
-    /// Only after the threshold verifies are `new_keys`, `new_threshold` and
-    /// `revoked_keys` applied.
+ /// Rotate the root key set with k-of-n authorisation from the **current**
+ /// active keys ().
+ ///
+ /// `message` is the signed rotation statement (the offline ceremony
+ /// defines its exact contents; the trust-root record uses its own domain
+ /// separated bytes). `signatures` are `(signer_did, signature)` pairs;
+ /// each signer must derive from an active key, and at least
+ /// [`Self::threshold_k`] distinct signers are required.
+ ///
+ /// Only after the threshold verifies are `new_keys`, `new_threshold` and
+ /// `revoked_keys` applied.
     pub fn rotate(
         &mut self,
         new_keys: Vec<[u8; 32]>,
@@ -226,7 +226,7 @@ impl RootCaRegistry {
         Ok(())
     }
 
-    /// Validate that the threshold is usable.
+ /// Validate that the threshold is usable.
     pub fn validate_threshold(&self) -> Result<(), TirBaseError> {
         if self.threshold_k == 0 {
             return Err(TirBaseError::AuthorisationFailed {
@@ -300,14 +300,14 @@ mod tests {
         let message = b"rotate to new root";
         let new_keys = vec![[9u8; 32], [10u8; 32]];
 
-        // One signature is not enough for k=2.
+ // One signature is not enough for k=2.
         let one = vec![(a.did().to_string(), a.sign(message).unwrap())];
         assert!(matches!(
             registry.rotate(new_keys.clone(), 1, message, &one, vec![]),
             Err(TirBaseError::ThresholdNotMet { got: 1, need: 2 })
         ));
 
-        // Two distinct root signatures rotate the set.
+ // Two distinct root signatures rotate the set.
         let two = vec![
             (a.did().to_string(), a.sign(message).unwrap()),
             (b.did().to_string(), b.sign(message).unwrap()),

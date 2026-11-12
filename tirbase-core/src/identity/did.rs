@@ -18,7 +18,7 @@ const ED25519_MULTICODEC_PREFIX: [u8; 2] = [0xed, 0x01];
 /// Derive a `did:key:` DID from a raw Ed25519 public key (32 bytes).
 ///
 /// The DID is the multibase-encoded (base58btc) multicodec-prefixed public key:
-///   `did:key:z` + base58btc(0xed01 || public_key_bytes)
+/// `did:key:z` + base58btc(0xed01 || public_key_bytes)
 pub fn derive_did(public_key: &[u8; 32]) -> Did {
     let mut prefixed = Vec::with_capacity(2 + 32);
     prefixed.extend_from_slice(&ED25519_MULTICODEC_PREFIX);
@@ -32,7 +32,7 @@ pub fn derive_did(public_key: &[u8; 32]) -> Did {
 /// Returns `DidResolutionFailed` if the DID is malformed or uses an
 /// unsupported method.
 pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
-    // DID must start with "did:key:z"
+ // DID must start with "did:key:z"
     let encoded =
         did.strip_prefix("did:key:z")
             .ok_or_else(|| TirBaseError::DidResolutionFailed {
@@ -48,7 +48,7 @@ pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
                 reason: format!("base58btc decode error: {e}"),
             })?;
 
-    // Must start with the ed25519 multicodec prefix 0xed 0x01
+ // Must start with the ed25519 multicodec prefix 0xed 0x01
     if decoded.len() < 2 || decoded[0] != 0xed || decoded[1] != 0x01 {
         return Err(TirBaseError::DidResolutionFailed {
             did: did.clone(),
@@ -74,14 +74,14 @@ pub fn resolve_did(did: &Did) -> Result<[u8; 32], TirBaseError> {
 /// The identity file format stored on disk.
 ///
 /// Holds the hex-encoded private seed, so it is zeroized on drop (PV-3.7,
-/// CLAIM-6.1/6.2).  `pub(crate)` only so the zeroize registry test can name it;
+/// CLAIM-6.1/6.2). `pub(crate)` only so the zeroize registry test can name it;
 /// it is not part of the crate's public API.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct StoredIdentity {
     did: String,
-    /// Hex-encoded 32-byte secret key seed.
+ /// Hex-encoded 32-byte secret key seed.
     secret_key_hex: String,
-    /// Hex-encoded 32-byte public key.
+ /// Hex-encoded 32-byte public key.
     public_key_hex: String,
 }
 
@@ -121,13 +121,13 @@ pub fn persist_identity_to(
             });
         }
 
-        // keypair_bytes: first 32 bytes = secret key seed, last 32 bytes = public key
-        // (ed25519-dalek SigningKey::to_bytes() returns 32-byte seed, not 64-byte)
+ // keypair_bytes: first 32 bytes = secret key seed, last 32 bytes = public key
+ // (ed25519-dalek SigningKey::to_bytes() returns 32-byte seed, not 64-byte)
         let secret_key_hex = hex::encode(&keypair_bytes[..32]);
         let public_key_hex = if keypair_bytes.len() >= 64 {
             hex::encode(&keypair_bytes[32..64])
         } else {
-            // Derive public key from secret key
+ // Derive public key from secret key
             let pk_bytes = resolve_did(did).unwrap_or([0u8; 32]);
             hex::encode(pk_bytes)
         };
@@ -186,7 +186,7 @@ pub fn load_identity_from(path: &str) -> Result<Option<(Did, Vec<u8>)>, TirBaseE
             }
         })?;
 
-        // Return keypair_bytes as secret_key (32 bytes) + public_key (32 bytes) = 64 bytes
+ // Return keypair_bytes as secret_key (32 bytes) + public_key (32 bytes) = 64 bytes
         let mut keypair = secret_key_bytes;
         keypair.extend_from_slice(&public_key_bytes);
 
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_resolve_wrong_multicodec_prefix() {
-        // Build a did:key:z with the wrong prefix (0x12 0x20 = sha2-256 hash)
+ // Build a did:key:z with the wrong prefix (0x12 0x20 = sha2-256 hash)
         let wrong_prefix = [0x12u8, 0x20];
         let mut prefixed = Vec::with_capacity(2 + 32);
         prefixed.extend_from_slice(&wrong_prefix);
@@ -276,7 +276,7 @@ mod tests {
         let pubkey = make_test_pubkey();
         let did = derive_did(&pubkey);
 
-        // Simulate keypair_bytes = [secret(32)] + [public(32)]
+ // Simulate keypair_bytes = [secret(32)] + [public(32)]
         let secret_key = [42u8; 32];
         let mut keypair_bytes = secret_key.to_vec();
         keypair_bytes.extend_from_slice(&pubkey);
@@ -299,7 +299,7 @@ mod tests {
             "loaded public key should match"
         );
 
-        // Clean up
+ // Clean up
         let _ = std::fs::remove_file(path);
     }
 

@@ -1,4 +1,4 @@
-//! EnvelopeProfile data model & install-path tests (tasks 10.1–10.6 —
+//! EnvelopeProfile data model & install-path tests (10.6 —
 //! CLAIM-10.1…CLAIM-10.6, PV-4.5, INV-1).
 //!
 //! Production callers exercised here:
@@ -98,7 +98,7 @@ fn sample_temp_spec() -> ParameterSpec {
         canonical_exponent: -1, // tenths of °C
         kind: ParameterKind::Range {
             min: fpv(-200, -1, UNIT_DEG_C), // -20.0 °C
-            max: fpv(80, -1, UNIT_DEG_C),   //  8.0 °C
+            max: fpv(80, -1, UNIT_DEG_C),   // 8.0 °C
         },
         max_rate_per_sec: fpv(5, -1, UNIT_DEG_C),
         dwell_secs: 60,
@@ -154,7 +154,7 @@ fn parameter_kind_range_enum_bool_construct_and_serde() {
     };
     let b = ParameterKind::Bool;
 
-    // Round-trip via serde_json (exercises derive + variant shapes).
+ // Round-trip via serde_json (exercises derive + variant shapes).
     for kind in [&range, &en, &b] {
         let j = serde_json::to_string(kind).unwrap();
         let back: ParameterKind = serde_json::from_str(&j).unwrap();
@@ -182,7 +182,7 @@ fn parameter_spec_carries_all_required_fields() {
     assert_eq!(s.safe_default, fpv(40, -1, UNIT_DEG_C));
     assert!(matches!(s.kind, ParameterKind::Range { .. }));
 
-    // Serde round-trip (serde_json in dev-deps).
+ // Serde round-trip (serde_json in dev-deps).
     let j = serde_json::to_string(&s).unwrap();
     let back: ParameterSpec = serde_json::from_str(&j).unwrap();
     assert_eq!(back, s);
@@ -192,7 +192,7 @@ fn parameter_spec_carries_all_required_fields() {
 
 #[test]
 fn linear_constraint_expresses_conjunction_and_evaluates_bound() {
-    // temp_setpoint + (2 * compressor_pct/100) <= 12.0 °C-equivalent
+ // temp_setpoint + (2 * compressor_pct/100) <= 12.0 °C-equivalent
     let c1 = LinearConstraint {
         coefficients: vec![
             ("setpoint_c".into(), fpv(1, 0, UNIT_DEG_C)),
@@ -211,12 +211,12 @@ fn linear_constraint_expresses_conjunction_and_evaluates_bound() {
     assert!(matches!(c1.operator, ConstraintOperator::Leq));
     assert!(matches!(c2.operator, ConstraintOperator::Geq));
 
-    // Total/non-Turing-complete representation is just data; serde round-trip.
+ // Total/non-Turing-complete representation is just data; serde round-trip.
     let j = serde_json::to_string(&conjunction).unwrap();
     let back: Vec<LinearConstraint> = serde_json::from_str(&j).unwrap();
     assert_eq!(back, conjunction);
 
-    // Eq operator present.
+ // Eq operator present.
     let eq = LinearConstraint {
         coefficients: vec![("mode".into(), fpv(1, 0, UNIT_BOOLEAN))],
         bound: fpv(1, 0, UNIT_BOOLEAN),
@@ -240,15 +240,15 @@ fn envelope_profile_signed_by_policy_authority_is_accepted() {
 
 #[test]
 fn profile_signed_by_non_policy_authority_is_rejected() {
-    // Wiring mutation check (CLAIM-10.4): removing the PolicyAuthority/registry
-    // gate must fail this test.
+ // Wiring mutation check (CLAIM-10.4): removing the PolicyAuthority/registry
+ // gate must fail this test.
     let pa = InMemoryKeyProvider::generate().unwrap(); // signs the profile
     let rm = InMemoryKeyProvider::generate().unwrap(); // only RM is in trust root
     let mut profile = sample_profile(&pa);
     sign_profile(&mut profile, &pa);
     let model = sample_device_model();
 
-    // Trust root has NO PolicyAuthority role configured.
+ // Trust root has NO PolicyAuthority role configured.
     let trust = rm_only_trust_root(&rm);
     let err = install_profile(&profile, &model, &trust).unwrap_err();
     assert!(
@@ -268,7 +268,7 @@ fn profile_signed_by_unregistered_key_is_rejected_even_if_valid() {
     let rogue = InMemoryKeyProvider::generate().unwrap();
     let trust = pa_trust_root(&registered_pa);
     let mut profile = sample_profile(&registered_pa);
-    // Sign with a key that is NOT in the PolicyAuthority registry.
+ // Sign with a key that is NOT in the PolicyAuthority registry.
     let msg = profile_signing_bytes(&profile);
     profile.signature = rogue.sign(&msg).unwrap();
     let model = sample_device_model();
@@ -279,7 +279,7 @@ fn profile_signed_by_unregistered_key_is_rejected_even_if_valid() {
         "unregistered signer must be rejected: {err:?}"
     );
 
-    // Direct signature helper agrees.
+ // Direct signature helper agrees.
     assert!(verify_profile_signature(&profile, &trust).is_err());
 }
 
@@ -290,12 +290,12 @@ fn profile_signing_bytes_are_domain_separated() {
     let bytes = profile_signing_bytes(&profile);
     assert!(bytes.starts_with(CONTEXT_ENVELOPE_PROFILE.as_bytes()));
     assert_eq!(bytes[CONTEXT_ENVELOPE_PROFILE.len()], 0);
-    // hash length 32
+ // hash length 32
     assert_eq!(bytes.len(), CONTEXT_ENVELOPE_PROFILE.len() + 1 + 32);
-    // Deterministic.
+ // Deterministic.
     assert_eq!(bytes, profile_signing_bytes(&profile));
 
-    // Mutating a governance field changes the signed body.
+ // Mutating a governance field changes the signed body.
     let mut p2 = profile.clone();
     p2.policy_loosen_m = 3;
     sign_profile(&mut p2, &pa);
@@ -307,7 +307,7 @@ fn tampered_profile_body_fails_signature_verification() {
     let pa = InMemoryKeyProvider::generate().unwrap();
     let trust = pa_trust_root(&pa);
     let mut profile = sample_profile(&pa);
-    // Tamper after signing.
+ // Tamper after signing.
     profile.policy_timelock_secs = 1;
     assert!(verify_profile_signature(&profile, &trust).is_err());
 }
@@ -334,7 +334,7 @@ fn profile_map_hot_swap_takes_effect() {
 
 #[test]
 fn profile_map_hot_swap_visible_across_threads_within_one_second() {
-    // Integration-style concurrency check for hot-swap (CLAIM-10.5).
+ // Integration-style concurrency check for hot-swap (CLAIM-10.5).
     let pa = InMemoryKeyProvider::generate().unwrap();
     let p1 = sample_profile(&pa);
     let mut p2 = sample_profile(&pa);
@@ -364,7 +364,7 @@ fn profile_map_hot_swap_visible_across_threads_within_one_second() {
     });
 
     barrier.wait();
-    // swap after reader is ready
+ // swap after reader is ready
     assert!(map.swap(&target, p2));
     let observed = reader.join().unwrap();
     assert!(observed < Duration::from_secs(1));
@@ -402,7 +402,7 @@ fn validate_profile_rejects_unit_id_mismatch_with_field_error() {
 fn validate_profile_rejects_range_outside_device_model() {
     let pa = InMemoryKeyProvider::generate().unwrap();
     let mut profile = sample_profile(&pa);
-    // Expand profile range beyond device model max (device max is 15.0°C).
+ // Expand profile range beyond device model max (device max is 15.0°C).
     if let ParameterKind::Range { max, .. } = &mut profile.parameters[0].kind {
         *max = fpv(500, -1, UNIT_DEG_C); // 50.0°C > 15.0°C
     }
@@ -474,8 +474,8 @@ fn validate_profile_rejects_device_class_mismatch() {
 
 #[test]
 fn install_profile_runs_validation_after_signature() {
-    // Valid PA signature but invalid model (unit mismatch) => Validation error,
-    // proving both gates run and validation is reachable post-signature.
+ // Valid PA signature but invalid model (unit mismatch) => Validation error,
+ // proving both gates run and validation is reachable post-signature.
     let pa = InMemoryKeyProvider::generate().unwrap();
     let trust = pa_trust_root(&pa);
     let profile = sample_profile(&pa);

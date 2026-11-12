@@ -6,12 +6,12 @@
 //! This crate compiles identically to two targets:
 //!
 //! - **`--features native`** — native binary for the Cloud Ledger server.
-//!   Uses `wasmi` for migration sandbox execution and `rusqlite/bundled`
-//!   for SQLite.
+//! Uses `wasmi` for migration sandbox execution and `rusqlite/bundled`
+//! for SQLite.
 //!
 //! - **`--features wasm`** — WASM module loaded by the TypeScript SDK on
-//!   client devices. Uses `wasm-bindgen` for JS interop and `wasm3` for
-//!   the WASM-in-WASM migration sandbox.
+//! client devices. Uses `wasm-bindgen` for JS interop and `wasm3` for
+//! the WASM-in-WASM migration sandbox.
 //!
 //! The public API surface is **identical** on both targets; the
 //! `static_assertions!` block below enforces this at compile time (Req 1.2, 1.5).
@@ -20,8 +20,8 @@
 //!
 //! `native` and `wasm` are mutually exclusive build targets.
 //! The CI matrix always builds exactly one at a time:
-//!   - `cargo check --features native`
-//!   - `cargo check --features wasm --target wasm32-unknown-unknown`
+//! - `cargo check --features native`
+//! - `cargo check --features wasm --target wasm32-unknown-unknown`
 
 #![deny(clippy::module_inception)]
 #![allow(missing_docs)]
@@ -168,22 +168,22 @@ mod wasm_exports {
     use wasm_bindgen::prelude::*;
 
     thread_local! {
-        // `Arc` because `api::CoreHandle::init` now returns a shared handle:
-        // the production inbound drain loop spawned by init holds a clone
-        // (native builds).  On WASM the handle is owned solely by this slot.
-        //
-        // `pub(crate)` so the in-browser suite (`src/tests/wasm_tests.rs`) can
-        // inspect the live handle after driving the public JS entry points.
+ // `Arc` because `api::CoreHandle::init` now returns a shared handle:
+ // the production inbound drain loop spawned by init holds a clone
+ // (native builds). On WASM the handle is owned solely by this slot.
+ //
+ // `pub(crate)` so the in-browser suite (`src/tests/wasm_tests.rs`) can
+ // inspect the live handle after driving the public JS entry points.
         pub(crate) static CORE: std::cell::RefCell<Option<std::sync::Arc<api::CoreHandle>>>
             = std::cell::RefCell::new(None);
     }
 
-    /// Map any `impl Display` error to a JavaScript-visible string.
+ /// Map any `impl Display` error to a JavaScript-visible string.
     fn to_js_err(e: impl std::fmt::Display) -> JsValue {
         JsValue::from_str(&e.to_string())
     }
 
-    /// Parse a JavaScript value as `serde_json::Value` via JSON string round-trip.
+ /// Parse a JavaScript value as `serde_json::Value` via JSON string round-trip.
     fn js_to_json(val: &JsValue) -> Result<serde_json::Value, JsValue> {
         let json_str = js_sys::JSON::stringify(val)
             .map_err(|e| to_js_err(format!("JSON.stringify failed: {:?}", e)))?
@@ -192,17 +192,17 @@ mod wasm_exports {
         serde_json::from_str(&json_str).map_err(to_js_err)
     }
 
-    /// Serialise a `serde_json::Value` to a JavaScript `object` via JSON string.
+ /// Serialise a `serde_json::Value` to a JavaScript `object` via JSON string.
     fn json_to_js(val: &serde_json::Value) -> Result<JsValue, JsValue> {
         let json_str = serde_json::to_string(val).map_err(to_js_err)?;
         js_sys::JSON::parse(&json_str).map_err(|e| to_js_err(format!("{:?}", e)))
     }
 
-    // ── Helper: borrow CoreHandle pointer for async fn calls ─────────────────
-    //
-    // Since WASM is single-threaded and Rust's async/await on WASM is
-    // cooperative (no preemption), it is safe to hold a raw `*const CoreHandle`
-    // across an await point — there is no concurrent mutation.
+ // ── Helper: borrow CoreHandle pointer for async fn calls ─────────────────
+ //
+ // Since WASM is single-threaded and Rust's async/await on WASM is
+ // cooperative (no preemption), it is safe to hold a raw `*const CoreHandle`
+ // across an await point — there is no concurrent mutation.
     fn core_ptr() -> Result<*const api::CoreHandle, JsValue> {
         CORE.with(|c| {
             c.borrow()
@@ -212,10 +212,10 @@ mod wasm_exports {
         })
     }
 
-    // ── Initialisation ────────────────────────────────────────────────────────
+ // ── Initialisation ────────────────────────────────────────────────────────
 
-    /// Decode a hex-encoded 32-byte value (public key / schema hash) into raw
-    /// bytes, with a `label` used in error messages to identify the config field.
+ /// Decode a hex-encoded 32-byte value (public key / schema hash) into raw
+ /// bytes, with a `label` used in error messages to identify the config field.
     fn decode_32byte_hex(label: &str, hex_str: &str) -> Result<[u8; 32], JsValue> {
         let bytes = hex::decode(hex_str)
             .map_err(|e| to_js_err(format!("{label}: invalid hex \"{hex_str}\": {e}")))?;
@@ -226,30 +226,30 @@ mod wasm_exports {
         })
     }
 
-    /// Decode a hex-encoded root CA public key into its 32 raw bytes.
+ /// Decode a hex-encoded root CA public key into its 32 raw bytes.
     fn decode_root_ca_key_hex(key_hex: &str) -> Result<[u8; 32], JsValue> {
         decode_32byte_hex("root_ca_keys", key_hex)
     }
 
-    /// Initialise TirBase and store the handle in the thread-local slot.
-    ///
-    /// Must be called before any other export.  Calling it again re-initialises.
-    ///
-    /// `root_ca_keys_hex` — hex-encoded Ed25519 root CA public keys (64 hex
-    /// chars each) trusted for offline Biscuit token verification.  An empty
-    /// array is the explicit unconfigured state: no Biscuit token verifies
-    /// until a key is registered here or via `core_register_root_ca_key`.
-    ///
-    /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
-    /// (64 hex chars; Req 18.2).  `None`/`undefined` is the explicit
-    /// unconfigured state: no inbound Migration_Delta verifies until the key
-    /// is registered here or via `core_register_migration_ca_key` (Subphase
-    /// 5.1).
-    ///
-    /// `schema_version_path_hex` — hex-encoded schema hashes in deployment
-    /// order, oldest → newest (Req 18.3a).  An empty array is the explicit
-    /// unconfigured state: no version step validates until the path is
-    /// registered (Subphase 5.1).
+ /// Initialise TirBase and store the handle in the thread-local slot.
+ ///
+ /// Must be called before any other export. Calling it again re-initialises.
+ ///
+ /// `root_ca_keys_hex` — hex-encoded Ed25519 root CA public keys (64 hex
+ /// chars each) trusted for offline Biscuit token verification. An empty
+ /// array is the explicit unconfigured state: no Biscuit token verifies
+ /// until a key is registered here or via `core_register_root_ca_key`.
+ ///
+ /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
+ /// (64 hex chars; Req 18.2). `None`/`undefined` is the explicit
+ /// unconfigured state: no inbound Migration_Delta verifies until the key
+ /// is registered here or via `core_register_migration_ca_key` (Subphase
+ /// 5.1).
+ ///
+ /// `schema_version_path_hex` — hex-encoded schema hashes in deployment
+ /// order, oldest → newest (Req 18.3a). An empty array is the explicit
+ /// unconfigured state: no version step validates until the path is
+ /// registered (Subphase 5.1).
     #[wasm_bindgen]
     pub async fn core_init(
         storage_path: String,
@@ -276,16 +276,16 @@ mod wasm_exports {
                 revocation_m: 1,
                 revocation_n: 1,
                 biscuit_ttl_secs: 3600,
-                // WASM export surface hardcodes the default 1h TTL, which is
-                // within the 1h–24h default range, so no accepted-risk override
-                // is granted here.
+ // WASM export surface hardcodes the default 1h TTL, which is
+ // within the 1h–24h default range, so no accepted-risk override
+ // is granted here.
                 extended_ttl_accepted_risk: false,
                 root_ca_keys,
                 migration_ca_public_key,
                 schema_version_path,
-                // The WASM export surface does not carry full schema
-                // definitions; field-level additive-vs-breaking classification
-                // (Subphase 5.3) is a native deployment-config capability.
+ // The WASM export surface does not carry full schema
+ // definitions; field-level additive-vs-breaking classification
+ // (Subphase 5.3) is a native deployment-config capability.
                 schema_definitions: vec![],
                 anchor_attested_location: false,
                 beacon_public_keys: vec![],
@@ -293,8 +293,8 @@ mod wasm_exports {
                 max_single_sector_fraction: 0.7,
                 quorum_k: 1,
                 quorum_n: 1,
-                // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);
-                // the WASM export surface does not expose lease-duration tuning.
+ // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);
+ // the WASM export surface does not expose lease-duration tuning.
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
                 beacon_signal_loss_threshold_secs: 300,
@@ -307,11 +307,11 @@ mod wasm_exports {
         Ok(())
     }
 
-    /// Register an additional root CA public key at runtime (Req 8.1).
-    ///
-    /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex
-    /// chars).  Takes effect immediately for subsequent Biscuit token
-    /// verification (e.g. `core_activate_saturate_mode`).
+ /// Register an additional root CA public key at runtime (Req 8.1).
+ ///
+ /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex
+ /// chars). Takes effect immediately for subsequent Biscuit token
+ /// verification (e.g. `core_activate_saturate_mode`).
     #[wasm_bindgen]
     pub fn core_register_root_ca_key(root_ca_key_hex: String) -> Result<(), JsValue> {
         let key = decode_root_ca_key_hex(&root_ca_key_hex)?;
@@ -327,14 +327,14 @@ mod wasm_exports {
         })
     }
 
-    /// Register an additional root CA public key at runtime and verify a Biscuit
-    /// token against it (Req 8.1, 8.3).
-    ///
-    /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex chars).
-    /// `biscuit_token_hex` — hex-encoded Biscuit token to verify immediately.
-    /// `now_secs` — current Unix timestamp in seconds for expiry checking.
-    ///
-    /// On success the device's `TrustLevel` transitions to `Verified`.
+ /// Register an additional root CA public key at runtime and verify a Biscuit
+ /// token against it (Req 8.1, 8.3).
+ ///
+ /// `root_ca_key_hex` — hex-encoded Ed25519 root CA public key (64 hex chars).
+ /// `biscuit_token_hex` — hex-encoded Biscuit token to verify immediately.
+ /// `now_secs` — current Unix timestamp in seconds for expiry checking.
+ ///
+ /// On success the device's `TrustLevel` transitions to `Verified`.
     #[wasm_bindgen]
     pub fn core_register_root_ca_key_with_token(
         root_ca_key_hex: String,
@@ -355,12 +355,12 @@ mod wasm_exports {
         })
     }
 
-    /// Register the deployment's Migration CA public key at runtime (Req 18.2).
-    ///
-    /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
-    /// (64 hex chars).  Takes effect immediately: subsequent inbound
-    /// Migration_Deltas verify their CA signature against this key,
-    /// replacing any key registered at `core_init` (Subphase 5.1).
+ /// Register the deployment's Migration CA public key at runtime (Req 18.2).
+ ///
+ /// `migration_ca_key_hex` — hex-encoded Ed25519 Migration CA public key
+ /// (64 hex chars). Takes effect immediately: subsequent inbound
+ /// Migration_Deltas verify their CA signature against this key,
+ /// replacing any key registered at `core_init` (Subphase 5.1).
     #[wasm_bindgen]
     pub fn core_register_migration_ca_key(migration_ca_key_hex: String) -> Result<(), JsValue> {
         let key = decode_32byte_hex("migration_ca_key", &migration_ca_key_hex)?;
@@ -373,17 +373,17 @@ mod wasm_exports {
         })
     }
 
-    // ── Write ─────────────────────────────────────────────────────────────────
+ // ── Write ─────────────────────────────────────────────────────────────────
 
-    /// Write a row to (table, key).
-    ///
-    /// `data` must be a JSON-serialisable JavaScript value.  Returns a
-    /// `WriteResult` object: `{ deltaId: string, durabilityTier: string }`.
+ /// Write a row to (table, key).
+ ///
+ /// `data` must be a JSON-serialisable JavaScript value. Returns a
+ /// `WriteResult` object: `{ deltaId: string, durabilityTier: string }`.
     #[wasm_bindgen]
     pub async fn core_write(table: String, key: String, data: JsValue) -> Result<JsValue, JsValue> {
         let data_json = js_to_json(&data)?;
         let ptr = core_ptr()?;
-        // SAFETY: WASM is single-threaded; no concurrent mutation.
+ // SAFETY: WASM is single-threaded; no concurrent mutation.
         let handle = unsafe { &*ptr };
         let write_result = handle
             .write(&table, &key, data_json)
@@ -395,9 +395,9 @@ mod wasm_exports {
         }))
     }
 
-    // ── Read ──────────────────────────────────────────────────────────────────
+ // ── Read ──────────────────────────────────────────────────────────────────
 
-    /// Read a single row by (table, key). Returns a `QueryResult` as a JS object.
+ /// Read a single row by (table, key). Returns a `QueryResult` as a JS object.
     #[wasm_bindgen]
     pub async fn core_read(table: String, key: String) -> Result<JsValue, JsValue> {
         let ptr = core_ptr()?;
@@ -411,9 +411,9 @@ mod wasm_exports {
         }))
     }
 
-    // ── Query ─────────────────────────────────────────────────────────────────
+ // ── Query ─────────────────────────────────────────────────────────────────
 
-    /// Query rows from a table with an optional JS filter object.
+ /// Query rows from a table with an optional JS filter object.
     #[wasm_bindgen]
     pub async fn core_query(table: String, filter: JsValue) -> Result<JsValue, JsValue> {
         let filter_json: Option<serde_json::Value> = if filter.is_null() || filter.is_undefined() {
@@ -441,9 +441,9 @@ mod wasm_exports {
         json_to_js(&serde_json::Value::Array(json_arr))
     }
 
-    // ── Trust level ───────────────────────────────────────────────────────────
+ // ── Trust level ───────────────────────────────────────────────────────────
 
-    /// Returns the current `TrustLevel` as a string (e.g. `"Unverified"`).
+ /// Returns the current `TrustLevel` as a string (e.g. `"Unverified"`).
     #[wasm_bindgen]
     pub fn core_trust_level() -> String {
         CORE.with(|c| {
@@ -454,26 +454,26 @@ mod wasm_exports {
         })
     }
 
-    /// Present a hex-encoded Biscuit token for verification (Req 8.3, 8.4, 8.8).
-    ///
-    /// `token_hex` — hex-encoded Biscuit token bytes.
-    ///
-    /// Delegates to
-    /// [`CoreHandle::present_biscuit_token`](crate::api::CoreHandle::present_biscuit_token),
-    /// which in turn calls
-    /// [`CapabilityManager::present_token`] → [`biscuit::verify_token_distinguish_expiry`].
-    ///
-    /// Returns the resulting `TrustLevel` as a string (`"VERIFIED"`,
-    /// `"UNVERIFIED"`, `"REVOKED"`).  Returns `Result<js_sys::JsString, JsValue>`
-    /// so that an `AuthorisationFailed` error (e.g. no root CA keys registered)
-    /// is surfaced as a JS exception rather than silently resolving to
-    /// `"UNVERIFIED"`.
-    ///
-    /// - Valid token → `Verified`
-    /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
-    /// - Invalid token (non-expiry failure) → `Unverified` without state
-    ///   transition (Req 8.8)
-    /// - No root CA keys → JS exception
+ /// Present a hex-encoded Biscuit token for verification (Req 8.3, 8.4, 8.8).
+ ///
+ /// `token_hex` — hex-encoded Biscuit token bytes.
+ ///
+ /// Delegates to
+ /// [`CoreHandle::present_biscuit_token`](crate::api::CoreHandle::present_biscuit_token),
+ /// which in turn calls
+ /// [`CapabilityManager::present_token`] → [`biscuit::verify_token_distinguish_expiry`].
+ ///
+ /// Returns the resulting `TrustLevel` as a string (`"VERIFIED"`,
+ /// `"UNVERIFIED"`, `"REVOKED"`). Returns `Result<js_sys::JsString, JsValue>`
+ /// so that an `AuthorisationFailed` error (e.g. no root CA keys registered)
+ /// is surfaced as a JS exception rather than silently resolving to
+ /// `"UNVERIFIED"`.
+ ///
+ /// - Valid token → `Verified`
+ /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
+ /// - Invalid token (non-expiry failure) → `Unverified` without state
+ /// transition (Req 8.8)
+ /// - No root CA keys → JS exception
     #[wasm_bindgen]
     pub fn core_present_token(token_hex: String) -> Result<js_sys::JsString, JsValue> {
         CORE.with(|c| {
@@ -495,9 +495,9 @@ mod wasm_exports {
         })
     }
 
-    // ── Mesh status ───────────────────────────────────────────────────────────
+ // ── Mesh status ───────────────────────────────────────────────────────────
 
-    /// Returns the current `MeshStatus` as a JS object.
+ /// Returns the current `MeshStatus` as a JS object.
     #[wasm_bindgen]
     pub fn core_mesh_status() -> JsValue {
         let status = CORE.with(|c| {
@@ -516,19 +516,19 @@ mod wasm_exports {
         json_to_js(&js).unwrap_or(JsValue::NULL)
     }
 
-    // ── Manager operations ────────────────────────────────────────────────────
-    //
-    // These map to the manager-facing `WasmCore` methods in wasm-bridge.ts.
-    // Full P2P gossip and CCE integration requires native-only transports;
-    // on WASM the operations are accepted (no error) but are no-ops for v1.
+ // ── Manager operations ────────────────────────────────────────────────────
+ //
+ // These map to the manager-facing `WasmCore` methods in wasm-bridge.ts.
+ // Full P2P gossip and CCE integration requires native-only transports;
+ // on WASM the operations are accepted (no error) but are no-ops for v1.
 
-    /// Gossip a partial RevocationDelta for the target DID (Req 9.1).
-    ///
-    /// Delegates to [`api::CoreHandle::initiate_revocation`] so the WASM export
-    /// and the native entry point share one implementation (Subphase 2.4).  On
-    /// WASM the produced partial delta is accumulated locally (and, at M=1,
-    /// applies the local REVOKED side effects); the JS transport layer handles
-    /// any peer messaging.
+ /// Gossip a partial RevocationDelta for the target DID (Req 9.1).
+ ///
+ /// Delegates to [`api::CoreHandle::initiate_revocation`] so the WASM export
+ /// and the native entry point share one implementation (Subphase 2.4). On
+ /// WASM the produced partial delta is accumulated locally (and, at M=1,
+ /// applies the local REVOKED side effects); the JS transport layer handles
+ /// any peer messaging.
     #[wasm_bindgen]
     pub async fn core_initiate_revocation(
         target_did: String,
@@ -552,14 +552,14 @@ mod wasm_exports {
         })
     }
 
-    /// Return the current revocation status of a device (Req 9.1–9.5).
-    ///
-    /// Combines the in-flight M-of-N accumulation state
-    /// (`signaturesCollected`, `signaturesRequired`, `status`) with the
-    /// Req 9.5 last-known device status recorded in
-    /// `RevocationSubsystem::device_status` (`lastKnownTrustLevel`,
-    /// `lastRevocationDeltaReceivedAt`). The device-status fields are `null`
-    /// until a RevocationDelta for the target has actually been applied.
+ /// Return the current revocation status of a device (Req 9.1–9.5).
+ ///
+ /// Combines the in-flight M-of-N accumulation state
+ /// (`signaturesCollected`, `signaturesRequired`, `status`) with the
+ /// Req 9.5 last-known device status recorded in
+ /// `RevocationSubsystem::device_status` (`lastKnownTrustLevel`,
+ /// `lastRevocationDeltaReceivedAt`). The device-status fields are `null`
+ /// until a RevocationDelta for the target has actually been applied.
     #[wasm_bindgen]
     pub async fn core_revocation_status(target_did: String) -> Result<JsValue, JsValue> {
         CORE.with(|c| {
@@ -580,7 +580,7 @@ mod wasm_exports {
                 None => (0, "PENDING"),
             };
             drop(rev);
-            // Req 9.5 — the last-known device status recorded by the subsystem.
+ // Req 9.5 — the last-known device status recorded by the subsystem.
             let device_status = handle
                 .device_revocation_status(&target_did)
                 .map_err(to_js_err)?;
@@ -598,14 +598,14 @@ mod wasm_exports {
         })
     }
 
-    /// Append a RESOLVED tag to a contamination root Delta (Req 11.1).
-    ///
-    /// Delegates to [`api::CoreHandle::verify_contamination`] — the shared WASM + native
-    /// implementation — so both build targets share one code path. The manager
-    /// token is verified against the root CA key and its `expires_at` claim is
-    /// enforced against the caller-supplied `now_secs`, so expired tokens are
-    /// rejected at the auth gate rather than bypassing it with a hardcoded
-    /// `far_future` (Subphase 14.4 — Req 11.5).
+ /// Append a RESOLVED tag to a contamination root Delta (Req 11.1).
+ ///
+ /// Delegates to [`api::CoreHandle::verify_contamination`] — the shared WASM + native
+ /// implementation — so both build targets share one code path. The manager
+ /// token is verified against the root CA key and its `expires_at` claim is
+ /// enforced against the caller-supplied `now_secs`, so expired tokens are
+ /// rejected at the auth gate rather than bypassing it with a hardcoded
+ /// `far_future` (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
     pub async fn core_verify_data(
         root_delta_id_hex: String,
@@ -626,11 +626,11 @@ mod wasm_exports {
         })
     }
 
-    /// Archive an incident without certifying data integrity (Req 11.2).
-    ///
-    /// Delegates to [`api::CoreHandle::admin_close_ico`] — the shared WASM + native
-    /// implementation. The `now_secs` parameter supplies the real current time
-    /// so token-expiry enforcement is live (Subphase 14.4 — Req 11.5).
+ /// Archive an incident without certifying data integrity (Req 11.2).
+ ///
+ /// Delegates to [`api::CoreHandle::admin_close_ico`] — the shared WASM + native
+ /// implementation. The `now_secs` parameter supplies the real current time
+ /// so token-expiry enforcement is live (Subphase 14.4 — Req 11.5).
     #[wasm_bindgen]
     pub async fn core_admin_close_ico(
         ico_id_hex: String,
@@ -652,16 +652,16 @@ mod wasm_exports {
         })
     }
 
-    /// Activate Saturate Mode with a DISASTER_ALERT payload (Req 13.1).
-    ///
-    /// `biscuit_token_hex` — hex-encoded Biscuit token carrying the
-    /// `disaster-alert` caveat, signed by a registered root CA key (Req 13.1,
-    /// 13.7).  Delegates to [`api::CoreHandle::activate_saturate_mode`] — the
-    /// shared WASM + native implementation — which verifies the token and
-    /// routes activation through the transport's real `SaturateModeStateMachine`
-    /// (Subphase 3.2): a 60-minute lease is opened and the DRR scheduler is
-    /// reconciled into Saturate Mode.  Any verification failure leaves the
-    /// current mode untouched (Req 13.7).
+ /// Activate Saturate Mode with a DISASTER_ALERT payload (Req 13.1).
+ ///
+ /// `biscuit_token_hex` — hex-encoded Biscuit token carrying the
+ /// `disaster-alert` caveat, signed by a registered root CA key (Req 13.1,
+ /// 13.7). Delegates to [`api::CoreHandle::activate_saturate_mode`] — the
+ /// shared WASM + native implementation — which verifies the token and
+ /// routes activation through the transport's real `SaturateModeStateMachine`
+ /// (Subphase 3.2): a 60-minute lease is opened and the DRR scheduler is
+ /// reconciled into Saturate Mode. Any verification failure leaves the
+ /// current mode untouched (Req 13.7).
     #[wasm_bindgen]
     pub async fn core_activate_saturate_mode(biscuit_token_hex: String) -> Result<(), JsValue> {
         let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
@@ -676,16 +676,16 @@ mod wasm_exports {
         })
     }
 
-    /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
-    /// (Req 13.4).
-    ///
-    /// `biscuit_token_hex` — hex-encoded Biscuit token as for activation.
-    /// Delegates to [`api::CoreHandle::renew_saturate_mode`] — the shared WASM
-    /// + native implementation — which verifies the token and routes the
-    /// renewal through the transport's real `SaturateModeStateMachine`: the
-    /// lease is extended by 60 minutes from the renewal timestamp and the DRR
-    /// scheduler stays in Saturate Mode.  A failed heartbeat leaves the mode
-    /// untouched (Req 13.7).
+ /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+ /// (Req 13.4).
+ ///
+ /// `biscuit_token_hex` — hex-encoded Biscuit token as for activation.
+ /// Delegates to [`api::CoreHandle::renew_saturate_mode`] — the shared WASM
+ /// + native implementation — which verifies the token and routes the
+ /// renewal through the transport's real `SaturateModeStateMachine`: the
+ /// lease is extended by 60 minutes from the renewal timestamp and the DRR
+ /// scheduler stays in Saturate Mode. A failed heartbeat leaves the mode
+ /// untouched (Req 13.7).
     #[wasm_bindgen]
     pub async fn core_renew_saturate_mode(biscuit_token_hex: String) -> Result<(), JsValue> {
         let token_bytes = decode_biscuit_token_hex(&biscuit_token_hex)?;
@@ -698,24 +698,24 @@ mod wasm_exports {
         })
     }
 
-    /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
-    ///
-    /// `termination_message_hex` — hex-encoded canonical bytes that every
-    /// terminating Manager signed.  `co_manager_signatures` — a JSON array of
-    /// objects `[{"did": "did:key:z6Mk…", "signatureHex": "…"}, …]` carrying
-    /// the raw Ed25519 signatures (64 bytes, hex-encoded) already collected
-    /// from the other Managers; this device contributes its own signature over
-    /// the message automatically.  Delegates to
-    /// [`api::CoreHandle::terminate_saturate_mode`] — the shared WASM + native
-    /// implementation — which routes the termination through the transport's
-    /// real `SaturateModeStateMachine` and, at threshold, clears the lease and
-    /// takes the DRR scheduler out of Saturate Mode.
+ /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
+ ///
+ /// `termination_message_hex` — hex-encoded canonical bytes that every
+ /// terminating Manager signed. `co_manager_signatures` — a JSON array of
+ /// objects `[{"did": "did:key:z6Mk…", "signatureHex": "…"}, …]` carrying
+ /// the raw Ed25519 signatures (64 bytes, hex-encoded) already collected
+ /// from the other Managers; this device contributes its own signature over
+ /// the message automatically. Delegates to
+ /// [`api::CoreHandle::terminate_saturate_mode`] — the shared WASM + native
+ /// implementation — which routes the termination through the transport's
+ /// real `SaturateModeStateMachine` and, at threshold, clears the lease and
+ /// takes the DRR scheduler out of Saturate Mode.
     #[wasm_bindgen]
     pub async fn core_terminate_saturate_mode(
         termination_message_hex: String,
         co_manager_signatures: JsValue,
     ) -> Result<(), JsValue> {
-        // Canonical termination message (the bytes the Managers signed).
+ // Canonical termination message (the bytes the Managers signed).
         let message = hex::decode(&termination_message_hex).map_err(|_| {
             to_js_err(
                 crate::errors::TirBaseError::AuthorisationFailed {
@@ -733,7 +733,7 @@ mod wasm_exports {
             ));
         }
 
-        // Parse [{ did, signatureHex }, …] into (did, raw signature bytes).
+ // Parse [{ did, signatureHex }, …] into (did, raw signature bytes).
         let sigs_json = js_to_json(&co_manager_signatures)
             .map_err(|e| to_js_err(format!("co_manager_signatures: {e:?}")))?;
         let entries = sigs_json.as_array().ok_or_else(|| {
@@ -772,9 +772,9 @@ mod wasm_exports {
         })
     }
 
-    /// Decode a hex-encoded Biscuit token, rejecting malformed or empty input
-    /// with a `SignatureVerificationFailed`-style error string (shared by
-    /// `core_activate_saturate_mode` and `core_renew_saturate_mode`).
+ /// Decode a hex-encoded Biscuit token, rejecting malformed or empty input
+ /// with a `SignatureVerificationFailed`-style error string (shared by
+ /// `core_activate_saturate_mode` and `core_renew_saturate_mode`).
     fn decode_biscuit_token_hex(biscuit_token_hex: &str) -> Result<Vec<u8>, JsValue> {
         let token_bytes = hex::decode(biscuit_token_hex).map_err(|_| {
             to_js_err(
@@ -795,49 +795,49 @@ mod wasm_exports {
         Ok(token_bytes)
     }
 
-    // ── Inbound peer message ───────────────────────────────────────────────────
+ // ── Inbound peer message ───────────────────────────────────────────────────
 
-    /// Accept raw peer message bytes from the JS transport layer and route them
-    /// through the signature-verification → schema-hash gate → IndexedDB-backed
-    /// store merge pipeline (Subphase 6.3).
-    ///
-    /// ## Contract for application developers
-    ///
-    /// The JS transport layer (WebRTC `RTCDataChannel`, BLE bridge, or any
-    /// browser-compatible peer-to-peer transport) is responsible for calling
-    /// this function when raw bytes arrive from a peer.  TirBase is
-    /// transport-agnostic — it does not know *how* the bytes arrived, only what
-    /// to do with them once they have.
-    ///
-    /// **Typical usage in a WebRTC `ondatachannel` handler:**
-    /// ```js
-    /// channel.onmessage = (event) => {
-    ///   const bytes = new Uint8Array(event.data);
-    ///   await core_receive_peer_message(bytes);
-    ///   // Then poll for side-effect events produced by the merge:
-    ///   const events = core_poll_events();
-    ///   // … dispatch events to the TirBase SDK …
-    /// };
-    /// ```
-    ///
-    /// ## Message format
-    ///
-    /// `raw_bytes` must be a JSON-serialised `GossipMessage` (the same format
-    /// produced by `GossipMessage::to_bytes()` on the Rust side).  Any bytes
-    /// that cannot be deserialised into a known variant are silently dropped
-    /// and an error is returned.
-    ///
-    /// ## Relationship to native builds
-    ///
-    /// On native builds, a libp2p Swarm is spawned at `init()` time, and
-    /// `CoreHandle::init` also spawns a background task (Subphase 1.3) that
-    /// calls `process_inbound_messages()` on a 50 ms interval, so Gossipsub
-    /// messages are drained automatically — no application-level call is
-    /// needed.  (Under `#[cfg(test)]` the interval is set to one hour so the
-    /// loop does not race count-based unit tests; the same loop is exercised
-    /// by the Subphase 1.3 integration test with a short interval.)
-    /// WASM builds have no Swarm; this function is the explicit equivalent
-    /// entry point for the inbound pipeline (Req 5, Req 1.4).
+ /// Accept raw peer message bytes from the JS transport layer and route them
+ /// through the signature-verification → schema-hash gate → IndexedDB-backed
+ /// store merge pipeline (Subphase 6.3).
+ ///
+ /// ## Contract for application developers
+ ///
+ /// The JS transport layer (WebRTC `RTCDataChannel`, BLE bridge, or any
+ /// browser-compatible peer-to-peer transport) is responsible for calling
+ /// this function when raw bytes arrive from a peer. TirBase is
+ /// transport-agnostic — it does not know *how* the bytes arrived, only what
+ /// to do with them once they have.
+ ///
+ /// **Typical usage in a WebRTC `ondatachannel` handler:**
+ /// ```js
+ /// channel.onmessage = (event) => {
+ /// const bytes = new Uint8Array(event.data);
+ /// await core_receive_peer_message(bytes);
+ /// // Then poll for side-effect events produced by the merge:
+ /// const events = core_poll_events();
+ /// // … dispatch events to the TirBase SDK …
+ /// };
+ /// ```
+ ///
+ /// ## Message format
+ ///
+ /// `raw_bytes` must be a JSON-serialised `GossipMessage` (the same format
+ /// produced by `GossipMessage::to_bytes()` on the Rust side). Any bytes
+ /// that cannot be deserialised into a known variant are silently dropped
+ /// and an error is returned.
+ ///
+ /// ## Relationship to native builds
+ ///
+ /// On native builds, a libp2p Swarm is spawned at `init()` time, and
+ /// `CoreHandle::init` also spawns a background task (Subphase 1.3) that
+ /// calls `process_inbound_messages()` on a 50 ms interval, so Gossipsub
+ /// messages are drained automatically — no application-level call is
+ /// needed. (Under `#[cfg(test)]` the interval is set to one hour so the
+ /// loop does not race count-based unit tests; the same loop is exercised
+ /// by the Subphase 1.3 integration test with a short interval.)
+ /// WASM builds have no Swarm; this function is the explicit equivalent
+ /// entry point for the inbound pipeline (Req 5, Req 1.4).
     #[wasm_bindgen]
     pub async fn core_receive_peer_message(raw_bytes: &[u8]) -> Result<(), JsValue> {
         use crate::transport::message::GossipMessage;
@@ -850,15 +850,15 @@ mod wasm_exports {
         })?;
 
         let handle_ptr = core_ptr()?;
-        // SAFETY: WASM is single-threaded; cooperative async, no concurrent mutation.
+ // SAFETY: WASM is single-threaded; cooperative async, no concurrent mutation.
         let handle = unsafe { &*handle_ptr };
 
-        // Subphase 7.4 parity: WASM transport also has a ReassemblyBuffer
-        // (MeshTransport is constructed identically on both targets).  If the
-        // incoming message is an InboundDeltaFragment, process_wire_message
-        // buffers it and returns None until reassembly completes; only a fully
-        // reassembled Delta (or a non-fragment message) is dispatched to the
-        // WASM inbound handler.
+ // Subphase 7.4 parity: WASM transport also has a ReassemblyBuffer
+ // (MeshTransport is constructed identically on both targets). If the
+ // incoming message is an InboundDeltaFragment, process_wire_message
+ // buffers it and returns None until reassembly completes; only a fully
+ // reassembled Delta (or a non-fragment message) is dispatched to the
+ // WASM inbound handler.
         let processed = {
             let mut transport = handle.transport.lock().map_err(|e| {
                 to_js_err(&format!(
@@ -874,22 +874,22 @@ mod wasm_exports {
                 .await
                 .map_err(to_js_err),
             None => {
-                // Fragment buffered (incomplete) or reassembly failed silently
-                // (logged).  Nothing to dispatch.
+ // Fragment buffered (incomplete) or reassembly failed silently
+ // (logged). Nothing to dispatch.
                 Ok(())
             }
         }
     }
 
-    // ── Event polling ──────────────────────────────────────────────────────────
+ // ── Event polling ──────────────────────────────────────────────────────────
 
-    /// Drain and return all queued WASM events as a JS array.
-    ///
-    /// Each element is a plain JS object serialised from `WasmEvent`.
-    /// The TypeScript SDK calls this at the end of every `write()`, `read()`,
-    /// and `query()` to surface Rust-side side-effects (trust-level changes,
-    /// contamination incidents, durability tier promotions) without requiring
-    /// a separate polling loop.
+ /// Drain and return all queued WASM events as a JS array.
+ ///
+ /// Each element is a plain JS object serialised from `WasmEvent`.
+ /// The TypeScript SDK calls this at the end of every `write()`, `read()`,
+ /// and `query()` to surface Rust-side side-effects (trust-level changes,
+ /// contamination incidents, durability tier promotions) without requiring
+ /// a separate polling loop.
     #[wasm_bindgen]
     pub fn core_poll_events() -> JsValue {
         let events: Vec<crate::WasmEvent> =
@@ -898,11 +898,11 @@ mod wasm_exports {
         js_sys::JSON::parse(&json).unwrap_or(JsValue::NULL)
     }
 
-    /// Compute the `SchemaIdentifierHash` for a TirBase schema definition document.
-    ///
-    /// Parses `schema_src` and returns the deterministic SHA-256 hash of the
-    /// parsed schema structure as a hex string.  Used by SDK integration tests
-    /// to verify the hash is computed from the parsed object, not raw string input.
+ /// Compute the `SchemaIdentifierHash` for a TirBase schema definition document.
+ ///
+ /// Parses `schema_src` and returns the deterministic SHA-256 hash of the
+ /// parsed schema structure as a hex string. Used by SDK integration tests
+ /// to verify the hash is computed from the parsed object, not raw string input.
     #[wasm_bindgen]
     pub fn core_schema_identifier_hash(schema_src: String) -> Result<String, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
@@ -917,10 +917,10 @@ mod wasm_exports {
         Ok(hex::encode(hash))
     }
 
-    /// Pretty-print a TirBase schema definition document.
-    ///
-    /// Parses `schema_src` and returns the canonical printed representation.
-    /// Used by SDK integration tests to verify `parse(print(schema))` round-trips.
+ /// Pretty-print a TirBase schema definition document.
+ ///
+ /// Parses `schema_src` and returns the canonical printed representation.
+ /// Used by SDK integration tests to verify `parse(print(schema))` round-trips.
     #[wasm_bindgen]
     pub fn core_schema_print(schema_src: String) -> Result<String, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {
@@ -934,11 +934,11 @@ mod wasm_exports {
         Ok(crate::schema::printer::print(&schema))
     }
 
-    /// Parse a TirBase schema definition document and return the structured
-    /// schema as a JSON object.
-    ///
-    /// Used by SDK integration tests to verify the printer output is accepted
-    /// by the parser without errors.
+ /// Parse a TirBase schema definition document and return the structured
+ /// schema as a JSON object.
+ ///
+ /// Used by SDK integration tests to verify the printer output is accepted
+ /// by the parser without errors.
     #[wasm_bindgen]
     pub fn core_schema_parse(schema_src: String) -> Result<JsValue, JsValue> {
         let schema = crate::schema::parser::parse(&schema_src).map_err(|e| {

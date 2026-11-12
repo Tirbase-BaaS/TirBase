@@ -64,11 +64,11 @@ fn try_acquire(
 
 #[test]
 fn single_writer_lease_mutual_exclusion_under_concurrency() {
-    // Two issuers race for one target. Both may legitimately acquire in
-    // sequence (a released/expired lease is free again), but at no point may a
-    // second issuer take a lease that is still live for the first: every
-    // rejection must be the typed "target busy" error, and the final holder must
-    // be consistent with the lease written under the lock.
+ // Two issuers race for one target. Both may legitimately acquire in
+ // sequence (a released/expired lease is free again), but at no point may a
+ // second issuer take a lease that is still live for the first: every
+ // rejection must be the typed "target busy" error, and the final holder must
+ // be consistent with the lease written under the lock.
     loom::model(|| {
         let slot = Arc::new(Mutex::new(None::<SingleWriterLease>));
         let outcomes = Arc::new(Mutex::new(Vec::<Result<(), &'static str>>::new()));
@@ -86,8 +86,8 @@ fn single_writer_lease_mutual_exclusion_under_concurrency() {
         }
 
         let results = lock(&outcomes).clone();
-        // Both acquisitions happened at the same instant `now=100`, so at most
-        // one can succeed; the loser must see the typed busy error.
+ // Both acquisitions happened at the same instant `now=100`, so at most
+ // one can succeed; the loser must see the typed busy error.
         let winners = results.iter().filter(|r| r.is_ok()).count();
         assert!(
             winners <= 1,
@@ -112,8 +112,8 @@ fn single_writer_lease_mutual_exclusion_under_concurrency() {
 
 #[test]
 fn single_writer_lease_expired_lease_is_reacquirable() {
-    // A lease that has expired must be acquirable by another issuer: the
-    // production `is_expired` rule, not an unconditional lock.
+ // A lease that has expired must be acquirable by another issuer: the
+ // production `is_expired` rule, not an unconditional lock.
     loom::model(|| {
         let slot = Arc::new(Mutex::new(Some(lease("did:key:zAlice", "target-1", 50))));
         let second = try_acquire(&slot, "did:key:zBob", "target-1", 100);
@@ -128,9 +128,9 @@ fn single_writer_lease_expired_lease_is_reacquirable() {
 
 #[test]
 fn anti_replay_window_rejects_concurrent_duplicate_commit() {
-    // Two threads attempt to commit the same sequence. Check + commit are done
-    // under one lock (the Stage 16 atomic-commit contract). Exactly one accepts;
-    // the other must see the real `Replay` decision.
+ // Two threads attempt to commit the same sequence. Check + commit are done
+ // under one lock (the Stage 16 atomic-commit contract). Exactly one accepts;
+ // the other must see the real `Replay` decision.
     loom::model(|| {
         let window = Arc::new(Mutex::new(AntiReplayWindow::new(
             "did:key:zIssuer".into(),
@@ -168,7 +168,7 @@ fn anti_replay_window_rejects_concurrent_duplicate_commit() {
 
 #[test]
 fn anti_replay_window_admits_distinct_sequences_once() {
-    // Distinct in-window sequences must both be accepted, each exactly once.
+ // Distinct in-window sequences must both be accepted, each exactly once.
     loom::model(|| {
         let window = Arc::new(Mutex::new(AntiReplayWindow::new(
             "did:key:zIssuer".into(),

@@ -10,7 +10,7 @@
 - **(b) `tirbase-safe-writer` sandboxed driver via ExecStopPost:** A separate sandboxed process with its own driver instance starts during `ExecStopPost`. Not implemented; acceptable alternative if a controller lacks a reliable watchdog/fallback register.
 
 ## Production caller
-`tirbase_guard::lockdown::arm_controller_watchdogs()` is the production caller (invoked by the guard startup/refresh path). Each controller binding implements `SafeDefaultBinding` in `tirbase-drivers` (protocol-specific: Modbus/BACnet/register watchdogs).
+`tirbase_guard::lockdown::arm_controller_watchdogs` is the production caller (invoked by the guard startup/refresh path). Each controller binding implements `SafeDefaultBinding` in `tirbase-drivers` (protocol-specific: Modbus/BACnet/register watchdogs).
 
 ## Systemd note
 `tirbase-guard.service` uses `OnFailure=tirbase-lockdown.service` to persist LOCKDOWN on guard failure (CLAIM-13.4) and `StartLimitBurst=3`/`StartLimitIntervalSec=300` for crash-loop escalation (CLAIM-13.6). Safe defaults are **not** driven by `ExecStopPost`.

@@ -2,8 +2,8 @@
 """Regenerate the README Status section from CLAIMS.md (CLAIM-50.2, PV-17.3).
 
 Replaces the content between the markers:
-  <!-- README-STATUS:BEGIN -->
-  <!-- README-STATUS:END -->
+ <!-- README-STATUS:BEGIN -->
+ <!-- README-STATUS:END -->
 with a summary table derived from CLAIMS.md.
 """
 from __future__ import annotations
@@ -53,11 +53,11 @@ def render(rows):
         "| Claim ID | Status | Test Identifier |",
         "|---|---|---|",
     ]
-    # remove None
+ # remove None
     lines = [l for l in lines if l is not None]
     for claim_id, _text, status, test_id in rows:
         tid = test_id if test_id else "—"
-        # keep table cells single-line and escape pipes
+ # keep table cells single-line and escape pipes
         tid = tid.replace("\n", " ").replace("|", "\\|")
         claim_id = claim_id.replace("|", "\\|")
         status = status.replace("|", "\\|")
@@ -82,7 +82,7 @@ def main():
     block = render(rows)
     pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
     if not pattern.search(readme_text):
-        # append if markers missing
+ # append if markers missing
         if not readme_text.endswith("\n"):
             readme_text += "\n"
         new_text = readme_text + "\n" + block + "\n"

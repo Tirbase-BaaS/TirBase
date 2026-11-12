@@ -3,10 +3,10 @@
 //!
 //! Production callers exercised here:
 //! * `tirbase_drivers::{create_driver_socketpair, verify_peercred,
-//!   send_fd_via_scm_rights}` through `DriverProxy::spawn_child`
+//! send_fd_via_scm_rights}` through `DriverProxy::spawn_child`
 //! * `apply_child_sandbox` inside the spawned driver child, before parsing
 //! * `DriverLifecycle` / `apply_restart_decision` through
-//!   `SupervisedDriver::restart_after_crash`
+//! `SupervisedDriver::restart_after_crash`
 //!
 //! The child is the real `driver-isolation-child` binary (a separate process
 //! reached over the inherited socketpair), never an in-process `Write` wrapper.
@@ -90,8 +90,8 @@ fn config(device_fd: Option<RawFd>, extra_args: Vec<String>) -> ChildDriverConfi
         program: PathBuf::from(child_bin()),
         args,
         device_fd,
-        // Test-only explicit opt-in mirrors the signed config flag on hosts
-        // without landlock; seccomp is still required and asserted below.
+ // Test-only explicit opt-in mirrors the signed config flag on hosts
+ // without landlock; seccomp is still required and asserted below.
         degraded_isolation_opt_in: !caps.supports_landlock(),
         expected_peer_uid: None,
         capture_output: true,
@@ -230,15 +230,15 @@ fn real_child_applies_sandbox_and_serves_admitted_frames() {
             );
         }
     } else {
-        // Non-Linux dev hosts cannot enforce Linux seccomp/landlock; the child
-        // reports the platform limitation explicitly instead of pretending.
+ // Non-Linux dev hosts cannot enforce Linux seccomp/landlock; the child
+ // reports the platform limitation explicitly instead of pretending.
         assert!(
             ready.iter().any(|l| l.contains("SANDBOX:UNAVAILABLE")),
             "non-Linux child must report explicit sandbox status: {ready:#?}"
         );
     }
 
-    // Dispatch through the guard-owned permit path and read the echo back.
+ // Dispatch through the guard-owned permit path and read the echo back.
     dispatch_admitted(&mut driver, 1);
     let mut buf = [0u8; 16];
     let n = driver
@@ -267,7 +267,7 @@ fn crashed_child_is_restarted_with_backoff() {
     let first_pid = driver.child_pid();
     let rx = collect_stdout(&mut driver);
 
-    // The first child exits non-zero before applying its sandbox.
+ // The first child exits non-zero before applying its sandbox.
     let deadline = tirbase_core::traits::monotonic_now() + 10_000_000;
     let mut status = None;
     while tirbase_core::traits::monotonic_now() < deadline {
@@ -310,7 +310,7 @@ fn crashed_child_is_restarted_with_backoff() {
         "a new child process must run"
     );
 
-    // The respawned child is real and sandboxed (marker present -> no crash).
+ // The respawned child is real and sandboxed (marker present -> no crash).
     let rx = collect_stdout(&mut driver);
     let ready = wait_for(&rx, "READY", Duration::from_secs(15));
     if cfg!(target_os = "linux") {

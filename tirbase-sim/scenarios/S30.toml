@@ -1,5 +1,5 @@
 # Adversary scenario 30 — Exponent-Overflow Value
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S30"
 title = "Exponent-Overflow Value"
 seeds = 32

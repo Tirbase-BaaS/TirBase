@@ -1,11 +1,11 @@
 //! Ledger corruption recovery (CLAIM-31.5, PV-9.3).
 //!
 //! - Derived ledgers (CRDT state, contamination index, sidecar/quarantine
-//!   replay tables): rebuilt from signed delta log / durable DAG-derived
-//!   records on corruption.
+//! replay tables): rebuilt from signed delta log / durable DAG-derived
+//! records on corruption.
 //! - Primary ledgers (Applied_Effects_Ledger, security events, monotonic/anti-
-//!   rollback counters): corruption triggers `Restricted` mode + operator
-//!   intervention. Primary ledgers are NEVER rebuilt from the delta log.
+//! rollback counters): corruption triggers `Restricted` mode + operator
+//! intervention. Primary ledgers are NEVER rebuilt from the delta log.
 
 use std::path::{Path, PathBuf};
 
@@ -46,7 +46,7 @@ pub fn recover_derived_on_corruption(
         }
     };
 
-    // Rebuild from signed delta log when available (core DAG stores signed deltas).
+ // Rebuild from signed delta log when available (core DAG stores signed deltas).
     if let Some(core_path) = core_storage_path {
         if let Err(detail) = replay_signed_delta_log_from_core(core_path, &conn) {
             if let Some(mode) = node_mode {
@@ -92,8 +92,8 @@ pub fn handle_primary_corruption(
     action: SqliteErrorAction,
     node_mode: Option<&NodeModeState>,
 ) -> SqliteErrorAction {
-    // Hard guard: any attempt to route primary recovery through delta-log rebuild
-    // must fail. (Wiring mutation check: rebuilding Primary from delta log fails a test.)
+ // Hard guard: any attempt to route primary recovery through delta-log rebuild
+ // must fail. (Wiring mutation check: rebuilding Primary from delta log fails a test.)
     if std::env::var("TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG")
         .ok()
         .as_deref()
@@ -128,7 +128,7 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
             core_path.display()
         ));
     }
-    // Replay signed delta log records (dag_nodes carry signed deltas/payload metadata).
+ // Replay signed delta log records (dag_nodes carry signed deltas/payload metadata).
     let mut stmt = core
         .prepare(
             "SELECT id, payload, delta_bytes, lamport, schema_hash, compacted, author_did, tags_json \
@@ -162,7 +162,7 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
         )
         .map_err(|e| format!("replay signed delta into derived: {e}"))?;
     }
-    // dag_edges best-effort if present in core
+ // dag_edges best-effort if present in core
     let has_edges: i64 = core
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='dag_edges'",
@@ -188,8 +188,8 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
             .map_err(|e| format!("replay dag_edge: {e}"))?;
         }
     }
-    // Sidecar and quarantine rows carry signed delta bytes; replay them into
-    // their derived-ledger shapes so a rebuild does not lose replay work.
+ // Sidecar and quarantine rows carry signed delta bytes; replay them into
+ // their derived-ledger shapes so a rebuild does not lose replay work.
     replay_derived_tables_from_core(&core, &tx)?;
 
     tx.commit()
@@ -198,7 +198,7 @@ fn replay_signed_delta_log_from_core(core_path: &Path, derived: &Connection) -> 
 }
 
 /// Replay the core store's sidecar, quarantine, and rate-quarantine tables into
-/// the derived ledger.  Rows are copied byte-for-byte (signed delta bytes are
+/// the derived ledger. Rows are copied byte-for-byte (signed delta bytes are
 /// never re-serialised); derived-only replay bookkeeping columns start NULL.
 fn replay_derived_tables_from_core(core: &Connection, derived: &Connection) -> Result<(), String> {
     replay_sidecar_ledger(core, derived)?;
@@ -264,8 +264,8 @@ fn replay_sidecar_ledger(core: &Connection, derived: &Connection) -> Result<(), 
 }
 
 fn replay_quarantine_ledgers(core: &Connection, derived: &Connection) -> Result<(), String> {
-    // The core store's migration quarantine keeps the raw signed Delta bytes.
-    // Map it onto derived.schema_quarantine (the replayable derived shape).
+ // The core store's migration quarantine keeps the raw signed Delta bytes.
+ // Map it onto derived.schema_quarantine (the replayable derived shape).
     if table_exists(core, "quarantine_ledger") {
         let mut stmt = core
             .prepare(
@@ -299,8 +299,8 @@ fn replay_quarantine_ledgers(core: &Connection, derived: &Connection) -> Result<
         }
     }
 
-    // Core-local CRDT schema quarantine (hardening DB shape) also feeds the
-    // derived table when present; it has no migration id.
+ // Core-local CRDT schema quarantine (hardening DB shape) also feeds the
+ // derived table when present; it has no migration id.
     if table_exists(core, "schema_quarantine") {
         let mut stmt = core
             .prepare(

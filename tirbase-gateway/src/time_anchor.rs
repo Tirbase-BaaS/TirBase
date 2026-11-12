@@ -46,13 +46,13 @@ impl BeaconSink for NoopBeaconSink {
 /// Payload fields: `wall_time_secs`, `issuer_did`, `mono_seq`, `valid_for_secs`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CoseSign1Beacon {
-    /// Protected header bytes (deterministic CBOR map).
+ /// Protected header bytes (deterministic CBOR map).
     pub protected: Vec<u8>,
-    /// Unprotected header map (currently empty).
+ /// Unprotected header map (currently empty).
     pub unprotected: BTreeMap<String, CborValue>,
-    /// Deterministic-CBOR payload bytes containing the beacon fields.
+ /// Deterministic-CBOR payload bytes containing the beacon fields.
     pub payload: Vec<u8>,
-    /// Signature bytes (Ed25519, 64 bytes).
+ /// Signature bytes (Ed25519, 64 bytes).
     pub signature: Vec<u8>,
 }
 
@@ -79,7 +79,7 @@ impl TimeBeaconPayload {
 }
 
 fn protected_header_bytes() -> Result<Vec<u8>, String> {
-    // { 1: -8 } (alg = EdDSA), deterministic CBOR.
+ // { 1: -8 } (alg = EdDSA), deterministic CBOR.
     let header = CborValue::Map(vec![(
         CborValue::Integer(1.into()),
         CborValue::Integer(COSE_ALG_EDDSA.into()),
@@ -159,7 +159,7 @@ pub fn verify_cose_beacon(
 /// Encode a COSE_Sign1 beacon as a deterministic-CBOR array
 /// `[protected, unprotected, payload, signature]`.
 pub fn encode_cose_sign1(beacon: &CoseSign1Beacon) -> Result<Vec<u8>, String> {
-    // unprotected is an (empty) map
+ // unprotected is an (empty) map
     let unprot = CborValue::Map(Vec::new());
     let arr = CborValue::Array(vec![
         CborValue::Bytes(beacon.protected.clone()),
@@ -220,7 +220,7 @@ pub fn beacon_fingerprint(beacon: &CoseSign1Beacon) -> [u8; 32] {
 #[derive(Debug, Clone)]
 pub struct PeerBeacon {
     pub beacon: CoseSign1Beacon,
-    /// Trusted Ed25519 public key for the beacon issuer.
+ /// Trusted Ed25519 public key for the beacon issuer.
     pub anchor_public_key: Vec<u8>,
 }
 
@@ -230,7 +230,7 @@ pub struct PeerBeacon {
 /// - Rejects beacons whose `wall_time_secs` is below `persisted_floor` (replay/rollback).
 /// - Enforces `wall_time_secs - persisted_floor <= max_forward_jump_secs`.
 /// - Returns the most recent (highest `wall_time_secs`, tie-break by `mono_seq`)
-///   among valid candidates, or `None` if none qualify.
+/// among valid candidates, or `None` if none qualify.
 pub fn select_authenticated_beacon(
     candidates: &[PeerBeacon],
     persisted_floor: i64,
@@ -247,9 +247,9 @@ pub fn select_authenticated_beacon(
         }
         let jump = payload.wall_time_secs.saturating_sub(persisted_floor);
         if jump > max_forward_jump_secs {
-            // Large jumps require M-of-N at ratchet admission; single-peer COSE
-            // beacon cannot satisfy the quorum here, so do not select it as a
-            // standalone most-recent valid estimate.
+ // Large jumps require M-of-N at ratchet admission; single-peer COSE
+ // beacon cannot satisfy the quorum here, so do not select it as a
+ // standalone most-recent valid estimate.
             continue;
         }
         let replace = match &best {
@@ -277,7 +277,7 @@ pub struct TimeAnchorService {
     mono_seq: AtomicU64,
     sink: Arc<dyn BeaconSink>,
     running: Arc<AtomicBool>,
-    /// Retain last produced beacon for observers/tests.
+ /// Retain last produced beacon for observers/tests.
     last_beacon: Arc<Mutex<Option<CoseSign1Beacon>>>,
 }
 
@@ -310,8 +310,8 @@ impl TimeAnchorService {
         }
     }
 
-    /// Produce one signed COSE_Sign1 beacon using the current wall hint and
-    /// increment the monotonic sequence number.
+ /// Produce one signed COSE_Sign1 beacon using the current wall hint and
+ /// increment the monotonic sequence number.
     pub fn produce_beacon(&self) -> Result<CoseSign1Beacon, String> {
         let seq = self.mono_seq.fetch_add(1, Ordering::SeqCst) + 1;
         let wall = self
@@ -335,8 +335,8 @@ impl TimeAnchorService {
         self.mono_seq.load(Ordering::SeqCst)
     }
 
-    /// Spawn a periodic broadcast loop. Returns a handle that stops the loop
-    /// when dropped/set.
+ /// Spawn a periodic broadcast loop. Returns a handle that stops the loop
+ /// when dropped/set.
     pub fn spawn_periodic(self: &Arc<Self>) -> Arc<AtomicBool> {
         let running = self.running.clone();
         running.store(true, Ordering::SeqCst);

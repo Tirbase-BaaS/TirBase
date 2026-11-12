@@ -1,12 +1,12 @@
 //! SQLite schema and stores for gateway state.
 //!
-//! Task 18 (CLAIM-18.1–18.4, PV-9.3, PV-9) splits the durable state into:
+//! (CLAIM-18.1–18.4, PV-9.3, PV-9) splits the durable state into:
 //! - `primary.db` (WAL, `synchronous=FULL`) — PrimaryLedger tables.
 //! - `derived.db` (WAL, `synchronous=NORMAL`) — DerivedLedger tables.
 //!
-//! Both are opened through the migration framework (task 32.1, CLAIM-32.1)
+//! Both are opened through the migration framework (CLAIM-32.1)
 //! before reads/writes, and receive hardening pragmas after creation.
-//! SQLite errors are mapped to `NodeMode`/`SecurityEvent` (task 18.4).
+//! SQLite errors are mapped to `NodeMode`/`SecurityEvent` ().
 //!
 //! Per-subsystem `create_table` helpers remain available for compatibility
 //! with existing stores; the migration framework is the authoritative schema

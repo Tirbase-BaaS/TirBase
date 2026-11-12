@@ -1,4 +1,4 @@
-//! `tirbase-admin rollout` — staged rollout primitives (Task 30.8, PV-8.9, RD-1).
+//! `tirbase-admin rollout` — staged rollout primitives (PV-8.9, RD-1).
 //!
 //! Operator procedure (not automated halt): canary ring assignment, per-device
 //! migration state reporting, and signed rollback command generation.
@@ -11,11 +11,11 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct RolloutStatusArgs {
-    /// Rollout identifier (stable string).
+ /// Rollout identifier (stable string).
     pub rollout_id: String,
-    /// Optional state file: JSON object { "device_id": { "migration_state": "...", ... } }
+ /// Optional state file: JSON object { "device_id": { "migration_state": "...", ... } }
     pub state_path: Option<PathBuf>,
-    /// Device IDs to report (repeatable).
+ /// Device IDs to report (repeatable).
     pub device_ids: Vec<String>,
 }
 
@@ -33,7 +33,7 @@ pub struct DeviceRolloutState {
 pub struct RolloutStatusRow {
     pub device_id: String,
     pub rollout_id: String,
-    /// Canary ring 0-99 assigned by `H(device_id || rollout_id) mod 100`.
+ /// Canary ring 0-99 assigned by `H(device_id || rollout_id) mod 100`.
     pub canary_ring: u8,
     pub migration_state: String,
     pub schema_hash: Option<String>,
@@ -82,7 +82,7 @@ pub fn run_status(args: &RolloutStatusArgs) -> Result<Vec<RolloutStatusRow>> {
 pub struct SignedRollbackArgs {
     pub rollout_id: String,
     pub target_migration_id_hex: String,
-    /// Hex-encoded 32-byte Ed25519 seed for PolicyAuthority/rollback signer (operator-held).
+ /// Hex-encoded 32-byte Ed25519 seed for PolicyAuthority/rollback signer (operator-held).
     pub signer_seed_hex: String,
     pub output: PathBuf,
 }

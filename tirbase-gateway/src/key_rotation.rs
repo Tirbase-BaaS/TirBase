@@ -1,10 +1,10 @@
-//! Device key rotation (task 36.3c, PV-11.2).
+//! Device key rotation (PV-11.2).
 //!
 //! The gateway loads a static device [`KeyProvider`](tirbase_core::traits::KeyProvider)
-//! at boot.  The admin `rotate` endpoint delegates to a [`KeyRotator`]: it
+//! at boot. The admin `rotate` endpoint delegates to a [`KeyRotator`]: it
 //! generates a fresh Ed25519 identity, backs up the previous identity file, and
 //! writes the new identity so the next boot (or an explicit reload in a future
-//! revision) picks it up.  The running process keeps serving with the identity
+//! revision) picks it up. The running process keeps serving with the identity
 //! it loaded; rotation never silently changes signing behaviour mid-flight.
 //!
 //! The file format matches `tirbase-admin rotate` so both entry points are
@@ -21,22 +21,22 @@ use tirbase_core::traits::KeyProvider;
 /// Result of a successful key rotation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RotationOutcome {
-    /// DID of the identity that was replaced, if a key file existed.
+ /// DID of the identity that was replaced, if a key file existed.
     pub old_did: Option<String>,
-    /// DID of the newly generated identity.
+ /// DID of the newly generated identity.
     pub new_did: String,
-    /// Hex-encoded Ed25519 public key of the new identity.
+ /// Hex-encoded Ed25519 public key of the new identity.
     pub new_public_key_hex: String,
-    /// Path where the new identity was written.
+ /// Path where the new identity was written.
     pub key_path: String,
-    /// Path of the backup of the previous identity, if one was made.
+ /// Path of the backup of the previous identity, if one was made.
     pub backup_path: Option<String>,
 }
 
 /// Rotation backend used by the admin dispatcher.
 pub trait KeyRotator: Send + Sync + fmt::Debug {
-    /// Rotate the active device identity.  Implementations must not return
-    /// `Ok` unless the new identity is durably written.
+ /// Rotate the active device identity. Implementations must not return
+ /// `Ok` unless the new identity is durably written.
     fn rotate(&self) -> Result<RotationOutcome, String>;
 }
 
@@ -48,7 +48,7 @@ pub struct FileKeyRotator {
 }
 
 impl FileKeyRotator {
-    /// Create a rotator for `key_path`, backing up to `<key_path>.bak`.
+ /// Create a rotator for `key_path`, backing up to `<key_path>.bak`.
     pub fn new(key_path: impl Into<PathBuf>) -> Self {
         let key_path = key_path.into();
         let backup_path = PathBuf::from(format!("{}.bak", key_path.display()));
@@ -58,7 +58,7 @@ impl FileKeyRotator {
         }
     }
 
-    /// Create a rotator with an explicit backup path.
+ /// Create a rotator with an explicit backup path.
     pub fn with_backup(key_path: impl Into<PathBuf>, backup_path: impl Into<PathBuf>) -> Self {
         Self {
             key_path: key_path.into(),

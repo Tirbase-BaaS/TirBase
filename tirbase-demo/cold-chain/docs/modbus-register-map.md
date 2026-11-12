@@ -9,6 +9,6 @@ Device class: `cold_chain` (simulated cold-room controller)
 | `compressor_on` | 2 | 01/05 (Read/Write Coil) | bool | boolean (7) | 1 | yes | Compressor state; min-off 60 s, safe default ON |
 
 All writable registers are actuated only through the TirBase guard path
-(`CommandGuard::admit()` -> `ActuationPermit` -> driver). Direct writes outside the
+(`CommandGuard::admit` -> `ActuationPermit` -> driver). Direct writes outside the
 envelope are rejected (S1), cumulative drift is bounded (S2), and replays are
 deduplicated (S3).

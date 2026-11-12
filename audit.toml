@@ -14,16 +14,16 @@
 ignore = [
     "RUSTSEC-2026-0387",
 
-    # hickory-proto v0.25.2 — two DNS parsing issues pulled in by libp2p-mdns.
+ # hickory-proto v0.25.2 — two DNS parsing issues pulled in by libp2p-mdns.
     "RUSTSEC-2026-0118",
     "RUSTSEC-2026-0119",
 
-    # tokio v1.53.1 — AsyncFd constructors violate I/O safety (unsound).
-    # Will be resolved when tokio publishes a patched 1.x release.
+ # tokio v1.53.1 — AsyncFd constructors violate I/O safety (unsound).
+ # Will be resolved when tokio publishes a patched 1.x release.
     "RUSTSEC-2026-0386",
 
-    # wasmtime — multiple component-model and JIT vulnerabilities in v48.x.
-    # All require upgrading to the patched wasmtime release when available.
+ # wasmtime — multiple component-model and JIT vulnerabilities in v48.x.
+ # All require upgrading to the patched wasmtime release when available.
     "RUSTSEC-2026-0315",
     "RUSTSEC-2026-0316",
     "RUSTSEC-2026-0325",

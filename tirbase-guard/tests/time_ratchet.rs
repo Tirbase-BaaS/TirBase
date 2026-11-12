@@ -1,8 +1,8 @@
-//! TimeRatchet behaviour tests (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
+//! TimeRatchet behaviour tests (7.5 — CLAIM-7.2…7.5, PV-22).
 //!
 //! These tests drive the real [`TimeRatchet`] with a controllable
 //! [`TimeSource`], so "simulated time advance" and "simulated reboot" are exact
-//! rather than wall-clock dependent.  They cover:
+//! rather than wall-clock dependent. They cover:
 //!
 //! * `now_est` arithmetic and its floor (PV-22.1);
 //! * wall-clock manipulation not affecting expiry (PV-22.1, S04);
@@ -50,7 +50,7 @@ impl FakeTimeSource {
         }
     }
 
-    /// Advance the `CLOCK_BOOTTIME` domain (simulated elapsed time).
+ /// Advance the `CLOCK_BOOTTIME` domain (simulated elapsed time).
     fn advance_secs(&self, secs: i64) {
         let mut state = self.state.lock().unwrap();
         state.mono_us = state
@@ -58,14 +58,14 @@ impl FakeTimeSource {
             .saturating_add((secs.max(0) as u64).saturating_mul(MICROS_PER_SEC));
     }
 
-    /// Simulate a reboot: the monotonic clock restarts and the boot id changes.
+ /// Simulate a reboot: the monotonic clock restarts and the boot id changes.
     fn reboot(&self, boot: u64) {
         let mut state = self.state.lock().unwrap();
         state.mono_us = MICROS_PER_SEC;
         state.boot = boot;
     }
 
-    /// Simulate a wall-clock jump (which must not affect `now_est`).
+ /// Simulate a wall-clock jump (which must not affect `now_est`).
     fn set_wall_secs(&self, wall_secs: i64) {
         self.state.lock().unwrap().wall_secs = wall_secs;
     }
@@ -214,7 +214,7 @@ fn wall_clock_poisoning_does_not_move_now_est() {
 
     ts.advance_secs(10);
     let before = ratchet.now_est(&ts);
-    // Attacker sets the system clock far into the future.
+ // Attacker sets the system clock far into the future.
     ts.set_wall_secs(1_800_000_000 + 86_400 * 365);
     assert_eq!(
         ratchet.now_est(&ts),
@@ -229,8 +229,8 @@ fn now_est_never_runs_behind_the_persisted_floor() {
     let mut ratchet = open_ratchet(Arc::new(MemoryStore::default()));
     bootstrap_to(&mut ratchet, &ts, 1_800_000_000);
 
-    // The monotonic domain goes backwards (should not happen, but the floor is
-    // the defensive lower bound).
+ // The monotonic domain goes backwards (should not happen, but the floor is
+ // the defensive lower bound).
     let rewind = FakeTimeSource::new(7, 1_800_000_000);
     assert_eq!(ratchet.now_est(&rewind), 1_800_000_000);
     assert!(ratchet.now_est(&rewind) >= ratchet.persisted_floor());
@@ -268,7 +268,7 @@ fn expired_command_is_rejected_after_simulated_time_advance() {
     let mut ratchet = open_ratchet(Arc::new(MemoryStore::default()));
     bootstrap_to(&mut ratchet, &ts, 1_800_000_000);
 
-    // A command issued now with a 60-second TTL (Stage 9 evaluates this).
+ // A command issued now with a 60-second TTL (Stage 9 evaluates this).
     let command_expiry_est = 1_800_000_000 + 60;
     assert!(!ratchet.is_expired(command_expiry_est, &ts));
 
@@ -435,7 +435,7 @@ fn duplicate_signatures_from_one_anchor_do_not_satisfy_the_quorum() {
     let mut operation =
         SignedOperation::<TimeBeacon>::new(&far_future, far_future.wall_time_secs, None)
             .expect("wrap beacon");
-    // The same anchor signs twice: one distinct signer, so M-of-N is unmet.
+ // The same anchor signs twice: one distinct signer, so M-of-N is unmet.
     operation
         .sign_with(&anchor, CommandRole::TimeAnchor)
         .expect("sign once");
@@ -561,7 +561,7 @@ fn critical_parameter_requires_a_challenge_nonce_when_unverified() {
     bootstrap_to(&mut ratchet, &ts, 1_800_000_000);
     assert!(!ratchet.freshness(&ts).requires_challenge(true));
 
-    // Stale again: the challenge requirement returns for critical parameters.
+ // Stale again: the challenge requirement returns for critical parameters.
     ts.advance_secs(ratchet.staleness_window_secs() + 1);
     assert_eq!(ratchet.freshness(&ts), FreshnessState::Unverified);
     assert!(ratchet.freshness(&ts).requires_challenge(true));

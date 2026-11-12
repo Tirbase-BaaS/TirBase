@@ -1,7 +1,7 @@
 //! File-backed and in-memory [`KeyProvider`] implementations (PV-3.6).
 //!
 //! [`FileKeyProvider`] loads (or creates) a device Ed25519 key in the same JSON
-//! format the original identity persistence used.  The private seed is held in
+//! format the original identity persistence used. The private seed is held in
 //! a [`secrecy::Secret<[u8; 32]>`] and zeroized when the provider is dropped
 //! (PV-3.7, CLAIM-6.1); it is never returned by the [`KeyProvider`] trait.
 //!
@@ -27,8 +27,8 @@ use crate::traits::KeyProvider;
 // invokes_zeroize_on_the_seed` reads this counter around a drop.
 #[cfg(test)]
 thread_local! {
-    // Per-test-thread counter: each `#[test]` runs on its own thread, so
-    // concurrently dropping providers in other tests cannot perturb it.
+ // Per-test-thread counter: each `#[test]` runs on its own thread, so
+ // concurrently dropping providers in other tests cannot perturb it.
     pub(crate) static ZEROIZE_INVOCATIONS: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
 }
@@ -50,7 +50,7 @@ fn record_zeroize() {
 /// ```
 pub struct FileKeyProvider {
     did: String,
-    /// Private seed, zeroized on drop by `secrecy::Secret` (PV-3.7).
+ /// Private seed, zeroized on drop by `secrecy::Secret` (PV-3.7).
     seed: Secret<[u8; 32]>,
     public_key: [u8; 32],
     path: PathBuf,
@@ -67,11 +67,11 @@ impl std::fmt::Debug for FileKeyProvider {
 }
 
 impl FileKeyProvider {
-    /// Load the key at `path`, creating and persisting a new keypair when no
-    /// identity file exists yet.
-    ///
-    /// This is the first-boot path used by the core `IdentityManager`; task 8.6
-    /// layers the enrollment flow on top.
+ /// Load the key at `path`, creating and persisting a new keypair when no
+ /// identity file exists yet.
+ ///
+ /// This is the first-boot path used by the core `IdentityManager`; 
+ /// layers the enrollment flow on top.
     pub fn load_or_generate(path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
         if path.exists() {
@@ -80,7 +80,7 @@ impl FileKeyProvider {
         Self::generate(path)
     }
 
-    /// Load an existing key file.
+ /// Load an existing key file.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
         let path_str = path
@@ -106,7 +106,7 @@ impl FileKeyProvider {
         Self::from_seed(seed, did, path.to_path_buf())
     }
 
-    /// Generate a fresh keypair and persist it at `path`.
+ /// Generate a fresh keypair and persist it at `path`.
     pub fn generate(path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
         let (seed, public_key) = keypair::generate_keypair()?;
@@ -123,14 +123,14 @@ impl FileKeyProvider {
         did::persist_identity_to(&did, &keypair_bytes, path_str)?;
 
         let provider = Self::from_seed(seed, did, path.to_path_buf());
-        // The stack copy of the seed is no longer needed; wipe it.
+ // The stack copy of the seed is no longer needed; wipe it.
         let mut seed_copy = seed;
         seed_copy.zeroize();
         provider
     }
 
-    /// Construct a provider from an existing seed (used by tests and by callers
-    /// that already hold an identity file).
+ /// Construct a provider from an existing seed (used by tests and by callers
+ /// that already hold an identity file).
     pub fn from_seed(seed: [u8; 32], did: String, path: PathBuf) -> Result<Self, TirBaseError> {
         let signing_key = SigningKey::from_bytes(&seed);
         let public_key = signing_key.verifying_key().to_bytes();
@@ -142,21 +142,21 @@ impl FileKeyProvider {
         })
     }
 
-    /// Path of the backing key file.
+ /// Path of the backing key file.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// Crate-internal access to the seed for subsystems that still take raw
-    /// signing keys (CRDT engine, Noise static key, revocation partial delta).
-    ///
-    /// This is intentionally not part of the [`KeyProvider`] trait: it is a
-    /// migration bridge, not an API the rest of the system may use.
+ /// Crate-internal access to the seed for subsystems that still take raw
+ /// signing keys (CRDT engine, Noise static key, revocation partial delta).
+ ///
+ /// This is intentionally not part of the [`KeyProvider`] trait: it is a
+ /// migration bridge, not an API the rest of the system may use.
     pub fn secret_seed(&self) -> [u8; 32] {
         *self.seed.expose_secret()
     }
 
-    /// 32-byte Ed25519 public key.
+ /// 32-byte Ed25519 public key.
     pub fn public_key(&self) -> [u8; 32] {
         self.public_key
     }
@@ -165,9 +165,9 @@ impl FileKeyProvider {
 impl Zeroize for FileKeyProvider {
     fn zeroize(&mut self) {
         record_zeroize();
-        // Replacing the live secret drops it, which zeroizes the seed bytes in
-        // place (secrecy::Secret's Drop impl).  The replacement is all-zero so a
-        // zeroized provider can never sign again.
+ // Replacing the live secret drops it, which zeroizes the seed bytes in
+ // place (secrecy::Secret's Drop impl). The replacement is all-zero so a
+ // zeroized provider can never sign again.
         let live = std::mem::replace(&mut self.seed, Secret::new([0u8; 32]));
         drop(live);
         self.public_key.zeroize();
@@ -176,8 +176,8 @@ impl Zeroize for FileKeyProvider {
 
 impl Drop for FileKeyProvider {
     fn drop(&mut self) {
-        // CLAIM-6.1 wiring point: removing this call must fail the
-        // `dropping_provider_invokes_zeroize_on_the_seed` test.
+ // CLAIM-6.1 wiring point: removing this call must fail the
+ // `dropping_provider_invokes_zeroize_on_the_seed` test.
         self.zeroize();
     }
 }
@@ -212,7 +212,7 @@ impl KeyProvider for FileKeyProvider {
 
 /// Ephemeral Ed25519 key held only in memory (WASM builds and tests).
 ///
-/// No persistence: the identity changes on every construction.  The seed is
+/// No persistence: the identity changes on every construction. The seed is
 /// held in a [`Secret`] and zeroized on drop (PV-3.7).
 pub struct InMemoryKeyProvider {
     did: String,
@@ -230,7 +230,7 @@ impl std::fmt::Debug for InMemoryKeyProvider {
 }
 
 impl InMemoryKeyProvider {
-    /// Generate a fresh in-memory keypair.
+ /// Generate a fresh in-memory keypair.
     pub fn generate() -> Result<Self, TirBaseError> {
         let (seed, public_key) = keypair::generate_keypair()?;
         let provider = InMemoryKeyProvider {
@@ -243,7 +243,7 @@ impl InMemoryKeyProvider {
         Ok(provider)
     }
 
-    /// Construct from an existing seed.
+ /// Construct from an existing seed.
     pub fn from_seed(seed: [u8; 32]) -> Self {
         let public_key = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
         InMemoryKeyProvider {
@@ -348,8 +348,8 @@ mod tests {
         )
         .expect("signature verifies");
 
-        // Reloading the same file yields the same identity and can verify the
-        // signature produced by the first instance.
+ // Reloading the same file yields the same identity and can verify the
+ // signature produced by the first instance.
         let reloaded = FileKeyProvider::load(&path).expect("reload provider");
         assert_eq!(reloaded.did(), provider.did());
         assert_eq!(reloaded.public_key_bytes(), provider.public_key_bytes());
@@ -403,8 +403,8 @@ mod tests {
         );
     }
 
-    // Helper so the drop test also exercises `FileKeyProvider`'s seed accessor
-    // without keeping a borrow across the drop.
+ // Helper so the drop test also exercises `FileKeyProvider`'s seed accessor
+ // without keeping a borrow across the drop.
     fn render_seed_file(provider: &InMemoryKeyProvider) -> Vec<u8> {
         provider.secret_seed().to_vec()
     }

@@ -204,8 +204,8 @@ async fn cloud_anchor_ack_is_verified_and_removes_the_no_witness_fallback() {
         "26.7a: verified anchor acknowledgement must persist the cloud anchor witness"
     );
 
-    // The anchor now counts as a witness, so the next checkpoint must not
-    // report NoWitnessAvailable.
+ // The anchor now counts as a witness, so the next checkpoint must not
+ // report NoWitnessAvailable.
     log.append_payload(payload(4, "post-anchor"));
     log.try_checkpoint().unwrap().expect("second checkpoint");
     assert_eq!(
@@ -235,7 +235,7 @@ async fn cloud_anchor_previous_witness_ahead_of_local_tail_enters_restricted() {
     let dir = tmp("truncation");
     let primary = dir.join("primary.db");
     let anchor = Arc::new(InMemoryKeyProvider::generate().unwrap());
-    // The anchor has already witnessed a longer chain from this device.
+ // The anchor has already witnessed a longer chain from this device.
     let anchor_addr = start_mock_anchor(
         anchor.clone(),
         Arc::new(Mutex::new(Some((500, [0xAB; 32])))),
@@ -288,7 +288,7 @@ async fn cloud_anchor_ack_from_untrusted_signer_is_rejected() {
     let primary = dir.join("primary.db");
     let trusted = Arc::new(InMemoryKeyProvider::generate().unwrap());
     let rogue = Arc::new(InMemoryKeyProvider::generate().unwrap());
-    // Endpoint signs with `rogue`, but configuration trusts `trusted`.
+ // Endpoint signs with `rogue`, but configuration trusts `trusted`.
     let anchor_addr = start_mock_anchor(rogue, Arc::new(Mutex::new(None)));
     let config = write_config(&dir, anchor_addr, &trusted);
 

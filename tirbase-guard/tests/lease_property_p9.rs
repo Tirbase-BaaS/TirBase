@@ -1,4 +1,4 @@
-//! SingleWriterLease property test P9 (Task 21.6, CLAIM-21.6, PV-5.8, INV-13).
+//! SingleWriterLease property test P9 (CLAIM-21.6, PV-5.8, INV-13).
 //! Models the lease exclusivity/renewal/cooldown state machine: at most one
 //! issuer holds an active (non-expired, non-cooldown-blocked for others) lease
 //! for a target at any time.
@@ -63,7 +63,7 @@ proptest! {
             }
             if let Some(l) = &lease {
                 if l.expires_mono_secs > now && l.cooldown_until_mono_secs.unwrap_or(0) <= now {
-                    // Active lease: no other issuer may be active holder.
+ // Active lease: no other issuer may be active holder.
                     for did in &issuers {
                         if did == &l.issuer_did { continue; }
                         prop_assert!(true, "single holder invariant checked structurally");

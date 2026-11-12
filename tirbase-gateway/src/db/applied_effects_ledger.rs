@@ -1,7 +1,7 @@
 //! `applied_effects_ledger` SQLite store (PV-5.1, CLAIM-15.1/19.1, INV-12).
 //! The first durable state is `Actuating` (no `Intent`).
 //!
-//! Task 19 adds boot crash reconciliation (19.2/19.3, PV-5.3, INV-11),
+//! adds boot crash reconciliation (19.2/19.3, PV-5.3, INV-11),
 //! ledger pruning (19.5, PV-5.12), and failpoint coverage (19.6, PV-5.4).
 
 use std::path::Path;
@@ -68,11 +68,11 @@ pub struct ActuatingEntry {
 /// Result of a driver read-back used by reconciliation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadBackOutcome {
-    /// Driver reports state matches the commanded value.
+ /// Driver reports state matches the commanded value.
     Matches,
-    /// Driver reports a different state.
+ /// Driver reports a different state.
     Mismatch { response: Vec<u8> },
-    /// Driver did not respond within timeout.
+ /// Driver did not respond within timeout.
     Timeout,
 }
 
@@ -288,7 +288,7 @@ pub fn prune_retention(
         return Err(format!("failpoint {}", "aef_prune"));
     }
     let cutoff = now_est.saturating_sub(max_age_secs);
-    // Age-based pruning of terminal Complete/Failed entries.
+ // Age-based pruning of terminal Complete/Failed entries.
     let age_deleted = conn
         .execute(
             &format!(
@@ -298,7 +298,7 @@ pub fn prune_retention(
             params![cutoff],
         )
         .map_err(|e| format!("prune age: {e}"))?;
-    // Count-based pruning: keep newest entries overall, removing oldest Complete/Failed first.
+ // Count-based pruning: keep newest entries overall, removing oldest Complete/Failed first.
     let total: i64 = conn
         .query_row(
             &format!("SELECT COUNT(*) FROM {APPLIED_EFFECTS_LEDGER_TABLE}"),
@@ -365,7 +365,7 @@ impl SqliteAppliedEffectsStore {
     }
 }
 
-/// Task 21.9: list targets with unresolved `Unknown` entries.
+/// : list targets with unresolved `Unknown` entries.
 pub fn list_unknown_targets(conn: &Connection) -> Result<Vec<String>, String> {
     let mut stmt = conn
         .prepare(&format!(
@@ -379,7 +379,7 @@ pub fn list_unknown_targets(conn: &Connection) -> Result<Vec<String>, String> {
         .map_err(|e| format!("collect unknown targets: {e}"))
 }
 
-/// Task 21.9: operator-clear (PolicyAuthority) advances an `Unknown` entry to
+/// : operator-clear (PolicyAuthority) advances an `Unknown` entry to
 /// `Failed`. Production caller: gateway admin path.
 pub fn operator_clear_unknown_to_failed(
     conn: &Connection,
@@ -400,7 +400,7 @@ pub fn operator_clear_unknown_to_failed(
     Ok(changed > 0)
 }
 
-/// Task 21.9: insert or upsert an Unknown entry (admin/operator/test helper).
+/// : insert or upsert an Unknown entry (admin/operator/test helper).
 pub fn mark_unknown_tx(
     tx: &Transaction<'_>,
     entry_id: [u8; 16],
@@ -416,7 +416,7 @@ pub fn mark_unknown_tx(
     Ok(())
 }
 
-/// Task 21.9 runtime sync helper: resolve target_id for an entry (used to clear
+/// runtime sync helper: resolve target_id for an entry (used to clear
 /// pipeline unknown_targets after operator clear).
 pub fn target_id_for_entry(
     conn: &Connection,

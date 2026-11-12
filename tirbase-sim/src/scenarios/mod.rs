@@ -1,10 +1,10 @@
-//! Adversarial scenario implementations (tasks 39.2–39.4, PV-12.4, PV-12.8).
+//! Adversarial scenario implementations (39.4, PV-12.4, PV-12.8).
 //!
 //! Every scenario in `docs/adversary-scenarios.md` (S1–S35) is registered here
 //! and executed by [`crate::runner::ScenarioRunner`] from
 //! `tirbase-sim/scenarios/S*.toml`.
 //!
-//! Each scenario is a function `fn(u64) -> Result<(), String>`.  The seed
+//! Each scenario is a function `fn(u64) -> Result<(), String>`. The seed
 //! parameterises the attack so a failing seed reproduces the exact run; the
 //! runner also catches panics and prints the seed before exiting.
 //!
@@ -197,7 +197,7 @@ fn s35(seed: u64) -> Result<(), String> {
 
 /// The scenario registry consumed by [`crate::runner::ScenarioRunner`].
 ///
-/// Every ID in the `S1`..`S35` catalog has exactly one implementation.  The
+/// Every ID in the `S1`..`S35` catalog has exactly one implementation. The
 /// `S*.toml` loader verifies the ID set; the runner verifies each spec resolves
 /// here, so a deleted or unregistered scenario fails CI rather than silently
 /// shrinking coverage.

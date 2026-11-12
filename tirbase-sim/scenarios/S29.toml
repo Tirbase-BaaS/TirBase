@@ -1,5 +1,5 @@
 # Adversary scenario 29 — Retry Same Seq vs New Seq Same Idempotency Key
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S29"
 title = "Retry Same Seq vs New Seq Same Idempotency Key"
 seeds = 32

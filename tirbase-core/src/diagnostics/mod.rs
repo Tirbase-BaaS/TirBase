@@ -11,9 +11,9 @@ use crate::api::InitConfig;
 /// The severity of a diagnostic entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiagnosticSeverity {
-    /// Informational notice — no action required.
+ /// Informational notice — no action required.
     Info,
-    /// Warning — operator should be aware of a trade-off or limitation.
+ /// Warning — operator should be aware of a trade-off or limitation.
     Warning,
 }
 
@@ -21,7 +21,7 @@ pub enum DiagnosticSeverity {
 #[derive(Debug, Clone)]
 pub struct DiagnosticEntry {
     pub severity: DiagnosticSeverity,
-    /// Short code identifying the diagnostic (e.g., "UNVERIFIED_RETENTION").
+ /// Short code identifying the diagnostic (e.g., "UNVERIFIED_RETENTION").
     pub code: &'static str,
     pub message: String,
 }
@@ -33,7 +33,7 @@ pub struct DiagnosticEntry {
 pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
     let mut entries = Vec::new();
 
-    // Req 21.1 — isolated-device UNVERIFIED retention
+ // Req 21.1 — isolated-device UNVERIFIED retention
     entries.push(DiagnosticEntry {
         severity: DiagnosticSeverity::Info,
         code: "UNVERIFIED_RETENTION",
@@ -43,7 +43,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             .to_string(),
     });
 
-    // Req 21.4 — LoRa/satellite duty-cycle limitation
+ // Req 21.4 — LoRa/satellite duty-cycle limitation
     entries.push(DiagnosticEntry {
         severity: DiagnosticSeverity::Info,
         code: "LORA_DUTY_CYCLE",
@@ -52,7 +52,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             .to_string(),
     });
 
-    // Req 21.5 — multi-hop tree topology / no hub-and-spoke
+ // Req 21.5 — multi-hop tree topology / no hub-and-spoke
     entries.push(DiagnosticEntry {
         severity: DiagnosticSeverity::Info,
         code: "TREE_TOPOLOGY",
@@ -61,7 +61,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
             .to_string(),
     });
 
-    // Req 21.3 — spatial diversity tag spoofing (only when Anchor_Attested_Location is disabled)
+ // Req 21.3 — spatial diversity tag spoofing (only when Anchor_Attested_Location is disabled)
     if !config.deployment.anchor_attested_location {
         entries.push(DiagnosticEntry {
             severity: DiagnosticSeverity::Info,
@@ -73,7 +73,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
         });
     }
 
-    // Req 21.2 — 1-of-1 revocation unilateral exile warning
+ // Req 21.2 — 1-of-1 revocation unilateral exile warning
     if config.deployment.revocation_m == 1 && config.deployment.revocation_n == 1 {
         entries.push(DiagnosticEntry {
             severity: DiagnosticSeverity::Warning,
@@ -84,7 +84,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
         });
     }
 
-    // Req 21.6 — extended Biscuit TTL accepted-risk warning
+ // Req 21.6 — extended Biscuit TTL accepted-risk warning
     let biscuit_ttl = config.deployment.biscuit_ttl_secs;
     if biscuit_ttl > 24 * 3600 {
         entries.push(DiagnosticEntry {
@@ -102,7 +102,7 @@ pub fn emit_startup_diagnostics(config: &InitConfig) -> Vec<DiagnosticEntry> {
         });
     }
 
-    // Req 21.7 — CCE ICO state is in-memory only; not persisted across restarts
+ // Req 21.7 — CCE ICO state is in-memory only; not persisted across restarts
     entries.push(DiagnosticEntry {
         severity: DiagnosticSeverity::Info,
         code: "CCE_INMEMORY_ONLY",
@@ -123,7 +123,7 @@ mod tests {
     use super::*;
     use crate::api::{DeploymentConfig, InitConfig};
 
-    /// Returns `true` if any entry in `entries` has the given `code`.
+ /// Returns `true` if any entry in `entries` has the given `code`.
     fn has_code(entries: &[DiagnosticEntry], code: &str) -> bool {
         entries.iter().any(|e| e.code == code)
     }
@@ -136,7 +136,7 @@ mod tests {
         }
     }
 
-    // ── Req 21.1 ─────────────────────────────────────────────────────────────
+ // ── Req 21.1 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn unverified_retention_always_present() {
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
-    // ── Req 21.2 ─────────────────────────────────────────────────────────────
+ // ── Req 21.2 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn unilateral_exile_present_when_m1_n1() {
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn unilateral_exile_absent_when_m1_n2() {
-        // M=1 but N≠1 — not a unilateral configuration
+ // M=1 but N≠1 — not a unilateral configuration
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -235,7 +235,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Warning);
     }
 
-    // ── Req 21.3 ─────────────────────────────────────────────────────────────
+ // ── Req 21.3 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn tag_spoof_risk_present_when_anchor_attested_disabled() {
@@ -286,7 +286,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
-    // ── Req 21.4 ─────────────────────────────────────────────────────────────
+ // ── Req 21.4 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn lora_duty_cycle_always_present() {
@@ -309,7 +309,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
-    // ── Req 21.5 ─────────────────────────────────────────────────────────────
+ // ── Req 21.5 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn tree_topology_always_present() {
@@ -329,7 +329,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
-    // ── Req 21.6 ─────────────────────────────────────────────────────────────
+ // ── Req 21.6 ─────────────────────────────────────────────────────────────
 
     #[test]
     fn extended_ttl_present_when_ttl_exceeds_24h() {
@@ -397,7 +397,7 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Warning);
     }
 
-    // ── Composite: all-triggering config emits all unconditional + conditional codes
+ // ── Composite: all-triggering config emits all unconditional + conditional codes
 
     #[test]
     fn all_diagnostics_emitted_when_all_conditions_met() {
@@ -430,7 +430,7 @@ mod tests {
         }
     }
 
-    // ── CCE_INMEMORY_ONLY is always emitted (Req 21.7)
+ // ── CCE_INMEMORY_ONLY is always emitted (Req 21.7)
 
     #[test]
     fn cce_inmemory_only_always_present() {
@@ -453,14 +453,14 @@ mod tests {
         assert_eq!(entry.severity, DiagnosticSeverity::Info);
     }
 
-    // ── Baseline: default config emits exactly the unconditional codes ─────
+ // ── Baseline: default config emits exactly the unconditional codes ─────
 
     #[test]
     fn default_config_emits_only_unconditional_diagnostics() {
-        // DeploymentConfig::default() has anchor_attested_location=false,
-        // revocation_m=0, revocation_n=0, biscuit_ttl_secs=0 —
-        // so TAG_SPOOF_RISK fires but UNILATERAL_EXILE and EXTENDED_TTL do not.
-        // CCE_INMEMORY_ONLY is unconditional (always emitted, Req 21.7).
+ // DeploymentConfig::default() has anchor_attested_location=false,
+ // revocation_m=0, revocation_n=0, biscuit_ttl_secs=0 —
+ // so TAG_SPOOF_RISK fires but UNILATERAL_EXILE and EXTENDED_TTL do not.
+ // CCE_INMEMORY_ONLY is unconditional (always emitted, Req 21.7).
         let config = InitConfig {
             storage_path: ":memory:".to_string(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -473,12 +473,12 @@ mod tests {
             },
         };
         let entries = emit_startup_diagnostics(&config);
-        // Must be present (unconditional)
+ // Must be present (unconditional)
         assert!(has_code(&entries, "UNVERIFIED_RETENTION"));
         assert!(has_code(&entries, "LORA_DUTY_CYCLE"));
         assert!(has_code(&entries, "TREE_TOPOLOGY"));
         assert!(has_code(&entries, "CCE_INMEMORY_ONLY"));
-        // Must be absent (conditional)
+ // Must be absent (conditional)
         assert!(!has_code(&entries, "TAG_SPOOF_RISK"));
         assert!(!has_code(&entries, "UNILATERAL_EXILE"));
         assert!(!has_code(&entries, "EXTENDED_TTL"));

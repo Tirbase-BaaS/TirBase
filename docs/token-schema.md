@@ -47,15 +47,15 @@ check if command($t), scope($p), profile_exists($t), parameter_exists($t, $p)
 // Enforce role: bearer must hold the CommandIssuer role.
 check if role("CommandIssuer")
 
-// Expiry is enforced by the Biscuit runtime against the authorizer-provided time() fact.
-// The time() fact is set to now_est before authorizer execution (see §4).
+// Expiry is enforced by the Biscuit runtime against the authorizer-provided time fact.
+// The time fact is set to now_est before authorizer execution (see §4).
 
 // Envelope arithmetic (bounds, rate-of-change, drift) runs in Rust (Stage 11), NOT here:
 // deny if envelope_violated($t, $p, $value)
 ```
 
 The authorizer is evaluated by the Biscuit library. All `check if` rules must pass; any
-failing check causes `authorize()` to return an error and the token is rejected.
+failing check causes `authorize` to return an error and the token is rejected.
 
 ---
 
@@ -70,15 +70,15 @@ window enforcement — **runs in Rust (Stage 11), NOT in Biscuit Datalog**.
 ### Reasons for this boundary
 
 1. **Single source of truth.** The envelope logic is shared between the gateway and the
-   Phase 11 verifier. Duplicating it in Datalog would create two independent
-   implementations that could diverge.
+ Phase 11 verifier. Duplicating it in Datalog would create two independent
+ implementations that could diverge.
 
 2. **i128 intermediate arithmetic safety.** Envelope bounds checks use i128 intermediates
-   to prevent overflow on i64 fixed-point values. Datalog integer operations cannot
-   guarantee overflow-free arithmetic for this computation.
+ to prevent overflow on i64 fixed-point values. Datalog integer operations cannot
+ guarantee overflow-free arithmetic for this computation.
 
 3. **`no_std` verifier feasibility.** The Phase 11 verifier needs the same envelope checks
-   in a `no_std` environment where the Biscuit crate may not be available.
+ in a `no_std` environment where the Biscuit crate may not be available.
 
 ### What Biscuit CAN enforce (and does)
 
@@ -101,14 +101,14 @@ guard's Stage 11 Rust envelope check is always executed.
 
 ## 4. `now_est` Injection Before Token Verification
 
-Biscuit expiry is enforced via the authorizer's `time()` ambient fact. TirBase sets
+Biscuit expiry is enforced via the authorizer's `time` ambient fact. TirBase sets
 this fact to `now_est` — the authenticated-time estimate produced by
-`TimeRatchet::now_est()` — before calling `authorizer.authorize()`.
+`TimeRatchet::now_est` — before calling `authorizer.authorize`.
 
 ```rust
 // Pseudocode — tirbase-guard/src/guard/stages.rs (Stage 3)
 let now = time_ratchet.now_est(&*time_source);
-authorizer.set_time(now);   // sets the Biscuit time() ambient fact
+authorizer.set_time(now); // sets the Biscuit time ambient fact
 authorizer.authorize(&token)?;
 ```
 
@@ -129,7 +129,7 @@ retreat — even across reboots (PV-22.1, PV-22.4).
 | Attack | Defence |
 |---|---|
 | Set system clock back | `now_est` does not use the system wall clock |
-| Replay an old `TimeBeacon` | `TimeRatchet::advance()` rejects beacons that are not strictly greater than the persisted floor |
+| Replay an old `TimeBeacon` | `TimeRatchet::advance` rejects beacons that are not strictly greater than the persisted floor |
 | Reboot to reset monotonic counter | Boot-ID tracking; on boot-id change, ratchet returns `persisted_floor` only, never a lower value |
 
 ---
@@ -143,36 +143,36 @@ original caveats plus the new ones.
 ### Key properties
 
 - **One-way restriction.** Attenuation can only restrict capability; it can never expand
-  it. A `CommandIssuer` token attenuated to target `target_1` cannot be un-attenuated
-  to re-admit other targets.
+ it. A `CommandIssuer` token attenuated to target `target_1` cannot be un-attenuated
+ to re-admit other targets.
 
 - **All caveats verified.** The guard verifies all caveats from all blocks in the token
-  chain, including attenuated blocks appended by intermediate parties.
+ chain, including attenuated blocks appended by intermediate parties.
 
 - **Role attenuation example.** A `PolicyAuthority` token can be attenuated to a
-  `CommandIssuer` role for a specific target before delegation to a downstream operator:
+ `CommandIssuer` role for a specific target before delegation to a downstream operator:
 
-  ```biscuit
-  // Original PolicyAuthority token block 0 (issued by admin):
-  role("PolicyAuthority")
-  exp(1735689600)
+ ```biscuit
+ // Original PolicyAuthority token block 0 (issued by admin):
+ role("PolicyAuthority")
+ exp(1735689600)
 
-  // Attenuated block 1 (appended by delegating operator):
-  check if role("CommandIssuer")
-  check if command("target_cold_room_3")
-  ```
+ // Attenuated block 1 (appended by delegating operator):
+ check if role("CommandIssuer")
+ check if command("target_cold_room_3")
+ ```
 
 - **Scope-narrowing example.** A fleet-wide `CommandIssuer` token can be attenuated to
-  a single parameter:
+ a single parameter:
 
-  ```biscuit
-  // block 1 (attenuation caveat):
-  check if scope("setpoint_degC")
-  ```
+ ```biscuit
+ // block 1 (attenuation caveat):
+ check if scope("setpoint_degC")
+ ```
 
 - **Guard behaviour.** The guard always evaluates the full Datalog authorizer against
-  all token blocks. An attenuated token that fails any caveat from any block is rejected
-  in full.
+ all token blocks. An attenuated token that fails any caveat from any block is rejected
+ in full.
 
 ---
 
@@ -185,26 +185,26 @@ shares the root block's `revocation_id`.
 ### Revocation flow
 
 1. **Issuance.** When `tirbase-admin mint` creates a token, the token's `revocation_id`
-   is recorded in the guard's revocation table alongside the issuer DID, target scope,
-   and issue timestamp.
+ is recorded in the guard's revocation table alongside the issuer DID, target scope,
+ and issue timestamp.
 
 2. **Revocation.** A `RevocationManager` credential holder calls
-   `POST /admin/revoke { revocation_id: "..." }`. The ID is written to the
-   `revoked_tokens` table in the SQLite WAL store with `synchronous = FULL` to ensure
-   durability before the API responds.
+ `POST /admin/revoke { revocation_id: "..." }`. The ID is written to the
+ `revoked_tokens` table in the SQLite WAL store with `synchronous = FULL` to ensure
+ durability before the API responds.
 
 3. **Verification (Stage 3).** Before the Biscuit authorizer runs, the guard reads the
-   token's `revocation_id` and checks it against the `revoked_tokens` table. A match
-   causes an immediate rejection with `AuthError::TokenRevoked` before any Datalog
-   evaluation occurs.
+ token's `revocation_id` and checks it against the `revoked_tokens` table. A match
+ causes an immediate rejection with `AuthError::TokenRevoked` before any Datalog
+ evaluation occurs.
 
 4. **Propagation.** The revocation record is replicated to all connected peers via the
-   CRDT delta log with the same propagation SLA as other durability events (≤ 60 seconds
-   to all connected peers, PV-3.11).
+ CRDT delta log with the same propagation SLA as other durability events (≤ 60 seconds
+ to all connected peers, PV-3.11).
 
 5. **In-flight commands.** Commands admitted by the guard before revocation was
-   processed complete normally. Revocation takes effect on the **next token presentation**
-   at Stage 3.
+ processed complete normally. Revocation takes effect on the **next token presentation**
+ at Stage 3.
 
 ### Revocation ID format
 

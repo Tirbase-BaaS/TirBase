@@ -1,4 +1,4 @@
-//! Per-tick system invariant checks for `tirbase-sim` (tasks 17.1–17.8, 38.6;
+//! Per-tick system invariant checks for `tirbase-sim` (17.8, 38.6;
 //! CLAIM-17.1..CLAIM-17.8, CLAIM-38.6, PV-12.1, PV-23.2).
 //!
 //! `InvariantChecker::check_all()` is called on every simulation tick and by
@@ -76,9 +76,9 @@ pub struct ActuationObservation {
     pub envelope_min: FixedPointValue,
     pub envelope_max: FixedPointValue,
     pub node_mode: NodeMode,
-    /// True only when the write passed through the guard admission/dispatch path.
+ /// True only when the write passed through the guard admission/dispatch path.
     pub passed_through_guard: bool,
-    /// INV-12: durable `Actuating` record committed before dispatch.
+ /// INV-12: durable `Actuating` record committed before dispatch.
     pub durable_actuating_record: bool,
 }
 
@@ -112,7 +112,7 @@ pub struct AdmissionObservation {
     pub freshness_verified: bool,
     pub now_est: Option<i64>,
     pub expiry_est: Option<i64>,
-    /// Guard/envelope acceptance of the commanded value.
+ /// Guard/envelope acceptance of the commanded value.
     pub envelope_accepted: bool,
 }
 
@@ -121,60 +121,60 @@ pub struct AdmissionObservation {
 pub struct CacheObservation {
     pub key: ReplayTuple,
     pub outcome_fingerprint: u64,
-    /// True when this observation is a mutation/rewrite of an existing key.
+ /// True when this observation is a mutation/rewrite of an existing key.
     pub mutated_existing: bool,
-    /// True when cache write and `Actuating` commit were observed as atomic.
+ /// True when cache write and `Actuating` commit were observed as atomic.
     pub atomic_with_actuating: bool,
 }
 
 /// Deterministic simulation state snapshot checked on every tick.
 ///
 /// Fields default to safe/pass values so checks can be wired incrementally as
-/// the simulator runtime (tasks 38.1–38.5) matures.
+/// the simulator runtime (38.5) matures.
 #[derive(Debug, Clone, Default)]
 pub struct SimState {
     pub seed: u64,
     pub tick: u64,
-    /// Human-readable triggering context (scenario step, node, command, etc.).
+ /// Human-readable triggering context (scenario step, node, command, etc.).
     pub triggering_state: String,
 
-    // INV-1, INV-5, INV-6, INV-12
+ // INV-1, INV-5, INV-6, INV-12
     pub actuations: Vec<ActuationObservation>,
 
-    // INV-2
+ // INV-2
     pub idempotency_actuations: Vec<IdempotencyTuple>,
 
-    // INV-3
+ // INV-3
     pub policy_versions_by_device: BTreeMap<String, Vec<u64>>,
 
-    // INV-4
+ // INV-4
     pub hash_chain_intact: bool,
 
-    // INV-7, INV-9
+ // INV-7, INV-9
     pub admissions: Vec<AdmissionObservation>,
 
-    // INV-8
+ // INV-8
     pub loosening_applications: Vec<LooseningApplication>,
 
-    // INV-10
+ // INV-10
     pub accepted_replay_tuples: Vec<ReplayTuple>,
 
-    // INV-11
+ // INV-11
     pub targets_with_unknown: BTreeSet<TargetId>,
     pub commands_to_unknown_targets: Vec<TargetId>,
 
-    // INV-13
+ // INV-13
     pub now_est_observations: Vec<i64>,
 
-    // INV-14
+ // INV-14
     pub previous_governance: Option<GovernanceFields>,
     pub current_governance: Option<GovernanceFields>,
     pub governance_weakening_approved: bool,
 
-    // INV-15
+ // INV-15
     pub inflight_actuating_per_target: BTreeMap<TargetId, usize>,
 
-    // INV-16
+ // INV-16
     pub cache_observations: Vec<CacheObservation>,
 }
 
@@ -219,8 +219,8 @@ fn violation(
 }
 
 fn fpv_le(a: &FixedPointValue, b: &FixedPointValue) -> bool {
-    // Compare using i128 after exponent alignment where possible; fall back to
-    // mantissa comparison for same exponent (the common case in checks).
+ // Compare using i128 after exponent alignment where possible; fall back to
+ // mantissa comparison for same exponent (the common case in checks).
     if a.unit_id != b.unit_id {
         return false;
     }
@@ -249,10 +249,10 @@ impl InvariantChecker {
         Self
     }
 
-    /// Check every invariant (INV-1..INV-16) against the current tick state.
-    ///
-    /// Fails immediately on the first violation and prints seed, invariant ID,
-    /// and triggering state.
+ /// Check every invariant (INV-1..INV-16) against the current tick state.
+ ///
+ /// Fails immediately on the first violation and prints seed, invariant ID,
+ /// and triggering state.
     pub fn check_all(&self, state: &SimState) -> Result<(), InvariantViolation> {
         self.check_inv_1(state)?;
         self.check_inv_2(state)?;
@@ -364,11 +364,11 @@ impl InvariantChecker {
     pub fn check_inv_7(&self, state: &SimState) -> Result<(), InvariantViolation> {
         for obs in &state.admissions {
             if obs.token_attempted_relaxation && obs.accepted && !obs.envelope_accepted {
-                // accepted despite being outside envelope due to token relaxation
+ // accepted despite being outside envelope due to token relaxation
                 return Err(violation(state, InvariantId::Inv7,
                     "token caused acceptance of a value outside the authorizer-side EnvelopeProfile".to_string()));
             }
-            // Conservative: token relaxation must never produce acceptance without envelope acceptance.
+ // Conservative: token relaxation must never produce acceptance without envelope acceptance.
             if obs.token_attempted_relaxation
                 && obs.accepted
                 && obs.rejection.is_none()

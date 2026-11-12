@@ -2,15 +2,15 @@
 //!
 //! These traits are the seams through which the gateway injects platform
 //! capabilities (time, keys, anti-rollback counters, the security event log)
-//! into `tirbase-core`.  Production code must consume these traits rather than
+//! into `tirbase-core`. Production code must consume these traits rather than
 //! calling the platform directly:
 //!
 //! * [`TimeSource`] — all expiry, replay and rate-limit logic (PV-3.8, PV-3.9,
-//!   PV-3.12).  The workspace `clippy.toml` bans `std::time::Instant::now`,
-//!   `std::time::SystemTime::now` and `tokio::time::Instant::now`, so a direct
-//!   clock call fails CI.
-//! * [`KeyProvider`] — all signing operations (PV-3.6).  Private key material
-//!   is never returned by the trait.
+//! PV-3.12). The workspace `clippy.toml` bans `std::time::Instant::now`,
+//! `std::time::SystemTime::now` and `tokio::time::Instant::now`, so a direct
+//! clock call fails CI.
+//! * [`KeyProvider`] — all signing operations (PV-3.6). Private key material
+//! is never returned by the trait.
 //! * [`MonotonicCounterTrait`] — anti-rollback counters (PV-9.8).
 //! * [`SecurityEventSink`] — typed security event emission (PV-7.1).
 
@@ -27,7 +27,7 @@ use crate::errors::TirBaseError;
 use crate::events::SecurityEvent;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TimeSource (task 5.1 — CLAIM-5.1, PV-3.8, PV-3.9)
+// TimeSource (CLAIM-5.1, PV-3.8, PV-3.9)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Abstraction over the platform clock (PV-3.8, PV-3.9).
@@ -36,31 +36,30 @@ use crate::events::SecurityEvent;
 ///
 /// `monotonic_now` is the **`CLOCK_BOOTTIME`** domain: it never goes backwards,
 /// it keeps advancing while the system is suspended, and it is unaffected by
-/// wall-clock adjustments.  It is therefore authoritative for rate limits,
-/// replay windows, lease expiry and command expiry.  The production Linux
-/// implementation reads `CLOCK_BOOTTIME` directly (task 7.1,
-/// `tirbase-gateway::time_source::SystemTimeSource`); the portable
+/// wall-clock adjustments. It is therefore authoritative for rate limits,
+/// replay windows, lease expiry and command expiry. The production Linux
+/// implementation reads `CLOCK_BOOTTIME` directly (/// `tirbase-gateway::time_source::SystemTimeSource`); the portable
 /// [`SystemTimeSource`] in this module approximates it with
 /// `std::time::Instant` for development and tests.
 ///
 /// `wall_hint` is the **`CLOCK_REALTIME`** domain expressed as microseconds
-/// since the Unix epoch.  It is explicitly **untrusted**: it may jump forwards
-/// or backwards.  It is a hint for human-facing timestamps only — never for a
+/// since the Unix epoch. It is explicitly **untrusted**: it may jump forwards
+/// or backwards. It is a hint for human-facing timestamps only — never for a
 /// security decision that needs elapsed time.
 ///
 /// `boot_id` identifies the current boot so a caller can tell "the clock
-/// advanced" from "the device rebooted".  It is stable for the lifetime of a
+/// advanced" from "the device rebooted". It is stable for the lifetime of a
 /// boot and changes across reboots.
 pub trait TimeSource: Send + Sync + std::fmt::Debug {
-    /// `CLOCK_BOOTTIME` in **microseconds** (monotonic, includes suspend time).
+ /// `CLOCK_BOOTTIME` in **microseconds** (monotonic, includes suspend time).
     fn monotonic_now(&self) -> u64;
 
-    /// `CLOCK_REALTIME` in **microseconds** since the Unix epoch, if the
-    /// platform exposes a wall clock (explicitly untrusted).
+ /// `CLOCK_REALTIME` in **microseconds** since the Unix epoch, if the
+ /// platform exposes a wall clock (explicitly untrusted).
     fn wall_hint(&self) -> Option<i64>;
 
-    /// Identifier of the current boot (stable within one boot, changes across
-    /// reboots).
+ /// Identifier of the current boot (stable within one boot, changes across
+ /// reboots).
     fn boot_id(&self) -> u64;
 }
 
@@ -72,19 +71,19 @@ pub trait TimeSource: Send + Sync + std::fmt::Debug {
 ///
 /// `monotonic_now` is derived from `std::time::Instant`, which is the
 /// `CLOCK_MONOTONIC` domain: monotonic and wall-clock-adjustment-proof, but it
-/// does not count time spent suspended.  That difference is why task 7.1
+/// does not count time spent suspended. That difference is why 
 /// supplies a direct `CLOCK_BOOTTIME` reader for production gateways.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemTimeSource;
 
 impl SystemTimeSource {
-    /// Construct a system time source.
+ /// Construct a system time source.
     pub fn new() -> Self {
         SystemTimeSource
     }
 }
 
-/// Process-relative monotonic offset.  Captured once so
+/// Process-relative monotonic offset. Captured once so
 /// [`SystemTimeSource::monotonic_now`] is a cheap subtraction.
 ///
 /// wasm32-unknown-unknown stores the origin in the browser's
@@ -99,11 +98,11 @@ static MONOTONIC_ORIGIN: OnceLock<f64> = OnceLock::new();
 static DEFAULT_BOOT_ID: OnceLock<u64> = OnceLock::new();
 
 impl TimeSource for SystemTimeSource {
-    // This is the clock boundary the `clippy::disallowed_methods` clock ban
-    // (PV-3.12) exists to funnel everything through: `SystemTimeSource` is the
-    // one implementation permitted to read the platform primitive, and the
-    // allow cannot be removed without making the trait unimplementable.  Every
-    // other crate must obtain time through `TimeSource`.
+ // This is the clock boundary the `clippy::disallowed_methods` clock ban
+ // (PV-3.12) exists to funnel everything through: `SystemTimeSource` is the
+ // one implementation permitted to read the platform primitive, and the
+ // allow cannot be removed without making the trait unimplementable. Every
+ // other crate must obtain time through `TimeSource`.
     #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
     #[allow(clippy::disallowed_methods)]
     fn monotonic_now(&self) -> u64 {
@@ -111,11 +110,11 @@ impl TimeSource for SystemTimeSource {
         origin.elapsed().as_micros() as u64
     }
 
-    // wasm32-unknown-unknown has no OS clock: `Instant::now()` panics with
-    // "time not implemented on this platform".  `performance.now()` is the
-    // browser's monotonic, high-resolution clock, so the WASM build uses it
-    // (falling back to `Date.now()` when there is no `window.performance`,
-    // e.g. inside a worker).
+ // wasm32-unknown-unknown has no OS clock: `Instant::now()` panics with
+ // "time not implemented on this platform". `performance.now()` is the
+ // browser's monotonic, high-resolution clock, so the WASM build uses it
+ // (falling back to `Date.now()` when there is no `window.performance`,
+ // e.g. inside a worker).
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     fn monotonic_now(&self) -> u64 {
         let origin = MONOTONIC_ORIGIN.get_or_init(browser_monotonic_ms);
@@ -146,7 +145,7 @@ fn wall_clock_now() -> Option<SystemTime> {
 
 /// WASM wall clock: `SystemTime::now()` panics on `wasm32-unknown-unknown`, so
 /// the browser clock (`Date.now()`, milliseconds since the epoch) is converted
-/// into a `SystemTime` instead.  The result is still only ever surfaced as the
+/// into a `SystemTime` instead. The result is still only ever surfaced as the
 /// untrusted `wall_hint`; monotonic time comes from `performance.now()`.
 #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 fn wall_clock_now() -> Option<SystemTime> {
@@ -176,10 +175,10 @@ fn default_boot_id() -> u64 {
             return fnv1a64(raw.trim().as_bytes());
         }
     }
-    // A browser page load is the WASM analogue of a boot, and both
-    // `std::process::id()` and `SystemTime::now()` panic on
-    // wasm32-unknown-unknown, so the identifier is derived from the browser
-    // clock instead.
+ // A browser page load is the WASM analogue of a boot, and both
+ // `std::process::id()` and `SystemTime::now()` panic on
+ // wasm32-unknown-unknown, so the identifier is derived from the browser
+ // clock instead.
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     {
         let mut bytes = Vec::with_capacity(16);
@@ -187,9 +186,9 @@ fn default_boot_id() -> u64 {
         bytes.extend_from_slice(&js_sys::Math::random().to_le_bytes());
         return fnv1a64(&bytes);
     }
-    // Non-Linux fallback: the process id plus the monotonic origin.  This is
-    // stable for the process but not across reboots; the production gateway
-    // overrides `boot_id` with a kernel-derived value (task 7.1).
+ // Non-Linux fallback: the process id plus the monotonic origin. This is
+ // stable for the process but not across reboots; the production gateway
+ // overrides `boot_id` with a kernel-derived value ().
     #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
     {
         let mut bytes = Vec::with_capacity(16);
@@ -266,64 +265,64 @@ pub(crate) fn wall_hint_system_time() -> SystemTime {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// KeyProvider (task 5.2 — CLAIM-5.2, PV-3.6)
+// KeyProvider (CLAIM-5.2, PV-3.6)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Abstraction over a device key (PV-3.6).
 ///
-/// Every signing operation in the system goes through this trait.  The trait
+/// Every signing operation in the system goes through this trait. The trait
 /// deliberately exposes **no** way to read private key material: callers can
-/// sign, ask for the public key, the key type, and the DID.  Key bytes live in
+/// sign, ask for the public key, the key type, and the DID. Key bytes live in
 /// the implementation (a file, a TPM, a PKCS#11 token) and never leave it.
 ///
 /// Implementations must be `Send + Sync` so a single provider can be shared
 /// across the gateway's Tokio tasks.
 #[async_trait::async_trait]
 pub trait KeyProvider: Send + Sync + std::fmt::Debug {
-    /// Sign `payload`, returning a typed [`DeviceSignature`].
-    ///
-    /// This is the synchronous path used by code that is not on an async
-    /// runtime (delta production, token issuance).
+ /// Sign `payload`, returning a typed [`DeviceSignature`].
+ ///
+ /// This is the synchronous path used by code that is not on an async
+ /// runtime (delta production, token issuance).
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError>;
 
-    /// Async variant for callers on a Tokio task whose provider may need to
-    /// await hardware I/O (TPM2 / PKCS#11).
+ /// Async variant for callers on a Tokio task whose provider may need to
+ /// await hardware I/O (TPM2 / PKCS#11).
     async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError>;
 
-    /// The public key bytes for this key (raw encoding for
-    /// [`DeviceKeyType::Ed25519`], SEC1 uncompressed for
-    /// [`DeviceKeyType::P256`]).
+ /// The public key bytes for this key (raw encoding for
+ /// [`DeviceKeyType::Ed25519`], SEC1 uncompressed for
+ /// [`DeviceKeyType::P256`]).
     fn public_key_bytes(&self) -> Vec<u8>;
 
-    /// Algorithm of this key.
+ /// Algorithm of this key.
     fn key_type(&self) -> DeviceKeyType;
 
-    /// The DID bound to this key (`did:key:z6Mk…`).
+ /// The DID bound to this key (`did:key:z6Mk…`).
     fn did(&self) -> &str;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MonotonicCounterTrait (task 5.3 — CLAIM-5.3, PV-9.8)
+// MonotonicCounterTrait (CLAIM-5.3, PV-9.8)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Assurance level of a [`MonotonicCounterTrait`] implementation (PV-9.8, RD-2).
 ///
 /// * [`AssuranceLevel::Level1`] — software counter persisted with SQLite WAL
-///   and `synchronous=FULL`.  Detects mistakes and non-physical attackers; a
-///   restore of an older snapshot is not detectable by the counter alone and is
-///   handled by the signed enrollment-epoch bump.
+/// and `synchronous=FULL`. Detects mistakes and non-physical attackers; a
+/// restore of an older snapshot is not detectable by the counter alone and is
+/// handled by the signed enrollment-epoch bump.
 /// * [`AssuranceLevel::Level2`] — hardware non-volatile counter (TPM2 NV index
-///   or eMMC RPMB).  Required for any documented anti-rollback claim.
+/// or eMMC RPMB). Required for any documented anti-rollback claim.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AssuranceLevel {
-    /// Software-backed counter (WAL + `synchronous=FULL`).
+ /// Software-backed counter (WAL + `synchronous=FULL`).
     Level1,
-    /// Hardware-backed counter (TPM2 NV index / eMMC RPMB).
+ /// Hardware-backed counter (TPM2 NV index / eMMC RPMB).
     Level2,
 }
 
 impl AssuranceLevel {
-    /// Canonical string used in the boot diagnostic.
+ /// Canonical string used in the boot diagnostic.
     pub fn as_str(&self) -> &'static str {
         match self {
             AssuranceLevel::Level1 => "Level1",
@@ -334,39 +333,39 @@ impl AssuranceLevel {
 
 /// Abstraction over the anti-rollback counter (PV-9.8).
 ///
-/// The counter only ever moves forward.  `increment` returns the **new** value
-/// so a caller can commit the value it must later compare against.  Storage
+/// The counter only ever moves forward. `increment` returns the **new** value
+/// so a caller can commit the value it must later compare against. Storage
 /// failures are reported as `Err` rather than being swallowed: a counter that
 /// silently fails to persist is worse than no counter.
 pub trait MonotonicCounterTrait: Send + Sync + std::fmt::Debug {
-    /// Read the current value without changing it.
+ /// Read the current value without changing it.
     fn read(&self) -> Result<u64, TirBaseError>;
 
-    /// Increment by one and return the new value.
+ /// Increment by one and return the new value.
     fn increment(&self) -> Result<u64, TirBaseError>;
 
-    /// Raise the counter to `value` if `value` is greater than the current
-    /// value; returns the value now stored.  A lower `value` never moves the
-    /// counter backwards.
+ /// Raise the counter to `value` if `value` is greater than the current
+ /// value; returns the value now stored. A lower `value` never moves the
+ /// counter backwards.
     fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError>;
 
-    /// Assurance level reported in the gateway boot diagnostic (PV-9.8).
+ /// Assurance level reported in the gateway boot diagnostic (PV-9.8).
     fn assurance_level(&self) -> AssuranceLevel;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SecurityEventSink (task 5.4 — CLAIM-5.4, PV-7.1, INV-4)
+// SecurityEventSink (CLAIM-5.4, PV-7.1, INV-4)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Destination for typed [`SecurityEvent`]s (PV-7.1).
 ///
 /// The core emits through the process-wide sink installed by the gateway (see
-/// [`crate::events::install_security_event_sink`]).  The sink is responsible
+/// [`crate::events::install_security_event_sink`]). The sink is responsible
 /// for serialising events into the hash-chained log (INV-4), assigning
 /// sequence numbers, and checkpointing — none of that state lives at the
 /// emission site.
 pub trait SecurityEventSink: Send + Sync + std::fmt::Debug {
-    /// Record one event.
+ /// Record one event.
     fn emit(&self, event: SecurityEvent);
 }
 

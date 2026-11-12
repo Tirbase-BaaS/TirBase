@@ -1,9 +1,9 @@
-//! `time_ratchet` table and its SQLite-backed store (task 7.2/7.6 —
+//! `time_ratchet` table and its SQLite-backed store (7.6 —
 //! CLAIM-7.2, CLAIM-7.6, PV-22.2).
 //!
 //! The ratchet state is a PrimaryLedger: it must survive restarts, so it lives in
 //! `primary.db` (the same database that holds the monotonic counters) opened in
-//! WAL mode with `PRAGMA synchronous=FULL`.  A ratchet advance is committed
+//! WAL mode with `PRAGMA synchronous=FULL`. A ratchet advance is committed
 //! before the in-memory ratchet moves, so a crash can never leave the process
 //! accepting time it did not durably commit.
 //!
@@ -11,12 +11,12 @@
 //!
 //! ```sql
 //! CREATE TABLE IF NOT EXISTS time_ratchet (
-//!     id               INTEGER PRIMARY KEY CHECK (id = 1),
-//!     last_beacon_time INTEGER NOT NULL DEFAULT 0,
-//!     mono_at_beacon   INTEGER NOT NULL DEFAULT 0,
-//!     beacon_boot_id   INTEGER NOT NULL DEFAULT 0,
-//!     persisted_floor  INTEGER NOT NULL DEFAULT 0,
-//!     updated_at_mono  INTEGER NOT NULL DEFAULT 0
+//! id INTEGER PRIMARY KEY CHECK (id = 1),
+//! last_beacon_time INTEGER NOT NULL DEFAULT 0,
+//! mono_at_beacon INTEGER NOT NULL DEFAULT 0,
+//! beacon_boot_id INTEGER NOT NULL DEFAULT 0,
+//! persisted_floor INTEGER NOT NULL DEFAULT 0,
+//! updated_at_mono INTEGER NOT NULL DEFAULT 0
 //! );
 //! ```
 
@@ -60,10 +60,10 @@ pub struct SqliteTimeRatchetStore {
 }
 
 impl SqliteTimeRatchetStore {
-    /// Open (creating if needed) the ratchet table at `db_path`.
-    ///
-    /// This is called from the gateway boot path, which is how the table exists
-    /// in `primary.db` and how the persisted floor is read at boot (CLAIM-7.6).
+ /// Open (creating if needed) the ratchet table at `db_path`.
+ ///
+ /// This is called from the gateway boot path, which is how the table exists
+ /// in `primary.db` and how the persisted floor is read at boot (CLAIM-7.6).
     pub fn open(db_path: impl AsRef<Path>) -> Result<Self, TimeRatchetError> {
         let db_path = db_path.as_ref();
         if let Some(parent) = db_path.parent() {
@@ -224,7 +224,7 @@ mod tests {
         store.save(&record).unwrap();
         assert_eq!(store.load().unwrap(), Some(record));
 
-        // A second save overwrites the single row rather than appending.
+ // A second save overwrites the single row rather than appending.
         let updated = TimeRatchetRecord {
             persisted_floor: 1_800_000_500,
             ..record

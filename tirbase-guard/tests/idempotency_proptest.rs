@@ -1,4 +1,4 @@
-//! Property test for idempotency semantics (task 20.7, CLAIM-20.7, PV-5.6).
+//! Property test for idempotency semantics (CLAIM-20.7, PV-5.6).
 //! P10: any command with a known idempotency key within the retention window
 //! returns the stored outcome without a second actuation.
 
@@ -26,9 +26,9 @@ type ReplayMap = Mutex<BTreeMap<(String, String, u64), (u64, u64)>>;
 
 #[derive(Debug, Default)]
 struct MemStore {
-    // (issuer,target,key) -> original_result
+ // (issuer,target,key) -> original_result
     idem: IdemMap,
-    // (issuer,target,epoch) -> (highest, bitmap)
+ // (issuer,target,epoch) -> (highest, bitmap)
     replay: ReplayMap,
     leases: Mutex<BTreeMap<String, String>>,
     effects: Mutex<HashSet<[u8; 16]>>,
@@ -42,7 +42,7 @@ impl Stage16Store for MemStore {
             cmd.target_id.as_str().to_string(),
             cmd.idempotency_key,
         );
-        // (b) idempotency first
+ // (b) idempotency first
         if let Some((orig, exp)) = self.idem.lock().unwrap().get(&ik).cloned() {
             if exp >= req.now_est {
                 return Err(Stage16Error::IdempotencyHit {
@@ -50,7 +50,7 @@ impl Stage16Store for MemStore {
                 });
             }
         }
-        // (a) anti-replay
+ // (a) anti-replay
         let rk = (
             cmd.issuer_did.as_str().to_string(),
             cmd.target_id.as_str().to_string(),
@@ -76,7 +76,7 @@ impl Stage16Store for MemStore {
             _ => return Err(Stage16Error::AntiReplay),
         }
         drop(replay);
-        // (c) lease (simple)
+ // (c) lease (simple)
         let mut leases = self.leases.lock().unwrap();
         if let Some(h) = leases.get(cmd.target_id.as_str()) {
             if h != cmd.issuer_did.as_str() {
@@ -87,7 +87,7 @@ impl Stage16Store for MemStore {
             cmd.target_id.as_str().to_string(),
             cmd.issuer_did.as_str().to_string(),
         );
-        // (e,f)
+ // (e,f)
         let ret = clamp_idempotency_retention_secs(req.idempotency_retention_secs);
         self.idem.lock().unwrap().insert(
             ik,
@@ -117,7 +117,7 @@ impl Stage16Store for MemStore {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
-    /// P10: known idempotency key within retention returns stored outcome, no second actuation.
+ /// P10: known idempotency key within retention returns stored outcome, no second actuation.
     #[test]
     fn p10_known_idempotency_key_returns_original_without_second_actuation(
         idem_byte in any::<u8>(),
@@ -160,7 +160,7 @@ proptest! {
         );
         prop_assert_eq!(v1["status"].as_str(), Some("accepted"));
         prop_assert!(!w1.is_empty(), "first must actuate");
-        // Same key+issuer+target, within retention.
+ // Same key+issuer+target, within retention.
         let mut cmd2 = cmd.clone();
         cmd2.sequence_number = seq.saturating_add(1); // different seq; idempotency is keyed by (issuer,target,key)
         sign_command(&mut cmd2, &issuer).unwrap();
@@ -172,7 +172,7 @@ proptest! {
         };
         let r = store.commit_actuating(&req);
         prop_assert!(matches!(r, Err(Stage16Error::IdempotencyHit { .. })), "P10: known key must return cached/hit: {:?}", r);
-        // No dispatch path was executed by this idempotency hit; w1 already proved first actuation.
+ // No dispatch path was executed by this idempotency hit; w1 already proved first actuation.
         let _ = retention;
     }
 }

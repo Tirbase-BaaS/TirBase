@@ -1,4 +1,4 @@
-//! Task 55.7 (CLAIM-55.7, PV-30.3): verify each operator runbook procedure by
+//! (CLAIM-55.7, PV-30.3): verify each operator runbook procedure by
 //! running it against `tirbase-sim` with a simulated fault before the runbook
 //! is committed.
 //!
@@ -119,10 +119,10 @@ fn trust_root_pa_rm(pa: &InMemoryKeyProvider, rm: &InMemoryKeyProvider) -> Trust
 // ── CLAIM-55.1 lockdown runbook (S24 fault + M-of-N exit procedure) ──────────
 #[test]
 fn runbook_lockdown_exit_requires_m_of_n_and_clears_lockdown() {
-    // Simulated fault: crash-loop escalation enters LOCKDOWN (runbook/crash-loop & lockdown).
+ // Simulated fault: crash-loop escalation enters LOCKDOWN (runbook/crash-loop & lockdown).
     s24_crash_loop::s24_crash_loop_escalates_to_lockdown_within_window();
 
-    // Procedure: only M-of-N (>=2 distinct roles) with full profile exits LOCKDOWN.
+ // Procedure: only M-of-N (>=2 distinct roles) with full profile exits LOCKDOWN.
     let dir = tmp("lockdown");
     let store = SqliteLockdownStore::new(dir.join("primary.db"), dir.join("lockdown"));
     let mode = NodeModeState::new(NodeMode::Normal);
@@ -142,14 +142,14 @@ fn runbook_lockdown_exit_requires_m_of_n_and_clears_lockdown() {
         envelope_profile_id: profile.profile_id,
     };
 
-    // Single-role attempt must fail (distinct roles required).
+ // Single-role attempt must fail (distinct roles required).
     let mut op1 = SignedOperation::new(&payload, 1_000, None).unwrap();
     op1.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
     assert!(apply_lockdown_exit(&op1, &payload, &tr, Some(&profile), &store, &mode).is_err());
     assert!(store.is_lockdown().unwrap());
     assert_eq!(mode.get(), NodeMode::Lockdown);
 
-    // PA+RM succeeds: clears persistence and returns to Normal.
+ // PA+RM succeeds: clears persistence and returns to Normal.
     let mut op2 = SignedOperation::new(&payload, 1_000, None).unwrap();
     op2.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
     op2.sign_with(&rm, CommandRole::RevocationManager).unwrap();
@@ -179,7 +179,7 @@ fn runbook_tamper_detection_and_chain_recovery() {
             log.append_payload(payload(i));
         }
     }
-    // Simulated fault: interior chain break.
+ // Simulated fault: interior chain break.
     let conn = Connection::open(&primary).unwrap();
     conn.execute(
         "UPDATE security_events SET target='TAMPERED' WHERE seq=?1",
@@ -203,7 +203,7 @@ fn runbook_tamper_detection_and_chain_recovery() {
         .iter()
         .any(|e| e.reason_code == ReasonCode::TamperDetection));
 
-    // Procedure: signed chain recovery exits Restricted.
+ // Procedure: signed chain recovery exits Restricted.
     let pa = InMemoryKeyProvider::generate().unwrap();
     let tr = {
         let mut roles = BTreeMap::new();
@@ -270,7 +270,7 @@ impl MonotonicCounterTrait for MemCounter {
 
 #[test]
 fn runbook_restore_bumps_epoch_and_rejects_prior_epoch() {
-    // Simulated restore/rollback fault (S22) + runbook restore invariants.
+ // Simulated restore/rollback fault (S22) + runbook restore invariants.
     let dir = tmp("restore");
     let db_path = dir.join("primary.db");
     let hw_value = 920u64;
@@ -315,14 +315,14 @@ fn runbook_restore_bumps_epoch_and_rejects_prior_epoch() {
         .unwrap();
     assert_eq!(lockdown, 1, "restore rollback must persist LOCKDOWN");
 
-    // Signed-restore semantics: epoch bump invalidates prior-epoch commands.
+ // Signed-restore semantics: epoch bump invalidates prior-epoch commands.
     let epochs = EpochRegistry::new(Arc::new(InMemoryEpochStore::default()));
     epochs.ensure_enrolled("dev1", 1_000).unwrap();
     let bumped = epochs
         .restore_bump("dev1", "restore runbook", 2_000)
         .unwrap();
     assert_eq!(bumped.epoch, 1);
-    // Post-restore: current epoch is 1 (prior epoch 0 commands are stale/rejected).
+ // Post-restore: current epoch is 1 (prior epoch 0 commands are stale/rejected).
     assert!(matches!(
         epochs.check_command_epoch("dev1", 0),
         Err(EpochError::StaleEpoch { .. })
@@ -334,7 +334,7 @@ fn runbook_restore_bumps_epoch_and_rejects_prior_epoch() {
 // ── CLAIM-55.4 key-compromise runbook (S10 fault: revoked issuer rejected) ──
 #[test]
 fn runbook_key_compromise_revocation_rejects_revoked_issuer() {
-    // Simulated fault: post-revocation delta from revoked DID rejected (S10).
+ // Simulated fault: post-revocation delta from revoked DID rejected (S10).
     s10_revoked_delta::run_s10(1).expect("S10 revoked delta must be rejected");
 }
 
@@ -342,7 +342,7 @@ fn runbook_key_compromise_revocation_rejects_revoked_issuer() {
 #[test]
 fn runbook_crash_loop_escalates_to_lockdown() {
     s24_crash_loop::s24_crash_loop_escalates_to_lockdown_within_window();
-    // Explicit threshold persistence check (procedure expectation).
+ // Explicit threshold persistence check (procedure expectation).
     let store = InMemoryLockdownStore::new();
     let mode = NodeModeState::new(NodeMode::Starting);
     let mut tracker = tirbase_guard::lockdown::CrashLoopTracker::new(3, 300);
@@ -385,13 +385,13 @@ impl TimeRatchetStore for MemStore {
 
 #[test]
 fn runbook_time_anchor_failure_unverified_and_recovery() {
-    // Faults: delayed delivery, poisoning resistance, reboot UNVERIFIED floor.
+ // Faults: delayed delivery, poisoning resistance, reboot UNVERIFIED floor.
     tirbase_sim::scenarios::s19_s23_s31_time::run_s19(1).unwrap();
     tirbase_sim::scenarios::s19_s23_s31_time::run_s23(1).unwrap();
     tirbase_sim::scenarios::s19_s23_s31_time::run_s31(1).unwrap();
 
-    // Procedure: after reboot, freshness Unverified and now_est == persisted_floor;
-    // a valid M-of-N beacon restores Verified freshness.
+ // Procedure: after reboot, freshness Unverified and now_est == persisted_floor;
+ // a valid M-of-N beacon restores Verified freshness.
     let floor = 1_800_000_000i64;
     let store = Arc::new(MemStore::default());
     store

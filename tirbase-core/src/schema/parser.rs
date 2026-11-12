@@ -22,7 +22,7 @@ struct TirBaseSchemaParser;
 ///
 /// On success: returns the parsed `Schema`.
 /// On failure: returns `Err(Vec<TirBaseError::SchemaParseError>)` with
-///             line number, column number, and description for each error (Req 20.2).
+/// line number, column number, and description for each error (Req 20.2).
 pub fn parse(source: &str) -> Result<Schema, Vec<TirBaseError>> {
     let pairs = TirBaseSchemaParser::parse(Rule::schema, source).map_err(|e| {
         let (line, col) = match e.line_col {
@@ -78,7 +78,7 @@ fn parse_version_directive(pair: pest::iterators::Pair<Rule>) -> String {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::string_literal {
             let s = inner.as_str();
-            // Strip surrounding quotes
+ // Strip surrounding quotes
             return s[1..s.len() - 1].to_string();
         }
     }
@@ -235,7 +235,7 @@ fn parse_default_value(pair: pest::iterators::Pair<Rule>) -> DefaultValue {
 }
 
 fn parse_constraint(pair: pest::iterators::Pair<Rule>) -> Result<Constraint, Vec<TirBaseError>> {
-    // Capture location before consuming `pair` via into_inner().
+ // Capture location before consuming `pair` via into_inner().
     let (line, col) = pair.line_col();
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -278,7 +278,7 @@ mod tests {
     use super::*;
     use crate::schema::printer::print;
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+ // ─── Helpers ──────────────────────────────────────────────────────────────
 
     fn full_schema_src() -> &'static str {
         r#"schema {
@@ -305,7 +305,7 @@ mod tests {
 }"#
     }
 
-    // ─── Happy-path parsing ───────────────────────────────────────────────────
+ // ─── Happy-path parsing ───────────────────────────────────────────────────
 
     #[test]
     fn parse_full_schema_success() {
@@ -423,11 +423,11 @@ mod tests {
         );
     }
 
-    // ─── Parse error coverage ─────────────────────────────────────────────────
+ // ─── Parse error coverage ─────────────────────────────────────────────────
 
     #[test]
     fn parse_error_has_line_and_col() {
-        // Missing closing brace — syntax error
+ // Missing closing brace — syntax error
         let src = "schema { version = \"1.0.0\" table bad { compaction = none";
         let errs = parse(src).expect_err("should fail");
         assert!(!errs.is_empty());
@@ -457,7 +457,7 @@ mod tests {
         assert!(parse(src).is_err());
     }
 
-    // ─── Parse-print-parse round-trip ─────────────────────────────────────────
+ // ─── Parse-print-parse round-trip ─────────────────────────────────────────
 
     #[test]
     fn parse_print_parse_round_trip() {
@@ -482,11 +482,11 @@ mod tests {
         assert_eq!(schema1, schema2);
     }
 
-    // ─── Hash determinism ─────────────────────────────────────────────────────
+ // ─── Hash determinism ─────────────────────────────────────────────────────
 
     #[test]
     fn hash_determinism_same_structure_different_order() {
-        // Same schema, tables declared in different order.
+ // Same schema, tables declared in different order.
         let src_a = r#"schema {
   version = "1.0.0"
   table users {
@@ -568,7 +568,7 @@ mod tests {
         assert_ne!(s_a.identifier_hash(), s_b.identifier_hash());
     }
 
-    // ─── Version path lookup ──────────────────────────────────────────────────
+ // ─── Version path lookup ──────────────────────────────────────────────────
 
     #[test]
     fn version_path_next_step_lookup() {

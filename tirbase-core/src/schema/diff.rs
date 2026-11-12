@@ -12,16 +12,16 @@
 //! affect compatibility):
 //!
 //! - **Additive** — the incoming schema differs from the local schema only by
-//!   adding tables and/or fields; nothing was removed, renamed, or retyped.
-//!   Deltas written under such a schema SHALL merge (Req 17.3).
+//! adding tables and/or fields; nothing was removed, renamed, or retyped.
+//! Deltas written under such a schema SHALL merge (Req 17.3).
 //! - **Breaking** — the incoming schema removes, renames (a rename is
-//!   structurally a removal plus an addition), or retypes a field that exists
-//!   in the local schema, or drops an entire table.  Deltas written under such
-//!   a schema SHALL be quarantined (Req 17.4).
+//! structurally a removal plus an addition), or retypes a field that exists
+//! in the local schema, or drops an entire table. Deltas written under such
+//! a schema SHALL be quarantined (Req 17.4).
 //! - **Identical** — no structural difference (this implies identical hashes,
-//!   so it is normally filtered out before diffing).
+//! so it is normally filtered out before diffing).
 //!
-//! This is the *only* place additive-vs-breaking is decided.  The CRDT engine
+//! This is the *only* place additive-vs-breaking is decided. The CRDT engine
 //! (`crdt/mod.rs`) imports [`diff_schemas`] through the schema hash gate.
 
 use crate::schema::Schema;
@@ -39,9 +39,9 @@ pub struct FieldRef {
 pub struct RetypedField {
     pub table: String,
     pub field: String,
-    /// Canonical type string in the base (local) schema, e.g. "TEXT".
+ /// Canonical type string in the base (local) schema, e.g. "TEXT".
     pub from: String,
-    /// Canonical type string in the incoming schema, e.g. "INTEGER".
+ /// Canonical type string in the incoming schema, e.g. "INTEGER".
     pub to: String,
 }
 
@@ -49,22 +49,22 @@ pub struct RetypedField {
 /// (peer-written) schema.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SchemaDiff {
-    /// Whole tables present in `incoming` but absent from `base`.
+ /// Whole tables present in `incoming` but absent from `base`.
     pub added_tables: Vec<String>,
-    /// Whole tables present in `base` but absent from `incoming`.
+ /// Whole tables present in `base` but absent from `incoming`.
     pub removed_tables: Vec<String>,
-    /// Fields present in `incoming` but absent from `base` (on common tables).
+ /// Fields present in `incoming` but absent from `base` (on common tables).
     pub added_fields: Vec<FieldRef>,
-    /// Fields present in `base` but absent from `incoming` (on common tables).
-    /// A rename surfaces here (old name removed) plus an `added_fields` entry
-    /// (new name introduced), so renames classify as breaking.
+ /// Fields present in `base` but absent from `incoming` (on common tables).
+ /// A rename surfaces here (old name removed) plus an `added_fields` entry
+ /// (new name introduced), so renames classify as breaking.
     pub removed_fields: Vec<FieldRef>,
-    /// Fields whose type differs between the two schemas.
+ /// Fields whose type differs between the two schemas.
     pub retyped_fields: Vec<RetypedField>,
 }
 
 impl SchemaDiff {
-    /// True when the two schemas are structurally identical.
+ /// True when the two schemas are structurally identical.
     pub fn is_identical(&self) -> bool {
         self.added_tables.is_empty()
             && self.removed_tables.is_empty()
@@ -73,10 +73,10 @@ impl SchemaDiff {
             && self.retyped_fields.is_empty()
     }
 
-    /// True when the only differences are additions (new tables / new fields).
-    ///
-    /// This is Req 17.3's compatibility predicate: no existing table was
-    /// dropped and no existing field was removed, renamed, or retyped.
+ /// True when the only differences are additions (new tables / new fields).
+ ///
+ /// This is Req 17.3's compatibility predicate: no existing table was
+ /// dropped and no existing field was removed, renamed, or retyped.
     pub fn is_additive(&self) -> bool {
         !self.is_identical()
             && self.removed_tables.is_empty()
@@ -84,16 +84,16 @@ impl SchemaDiff {
             && self.retyped_fields.is_empty()
     }
 
-    /// True when the incoming schema is *not* forward compatible with `base`:
-    /// at least one existing table or field was removed/renamed (surfaces as a
-    /// removal) or a field's type changed.  Req 17.4 → Quarantine_Ledger.
+ /// True when the incoming schema is *not* forward compatible with `base`:
+ /// at least one existing table or field was removed/renamed (surfaces as a
+ /// removal) or a field's type changed. Req 17.4 → Quarantine_Ledger.
     pub fn is_breaking(&self) -> bool {
         !self.removed_tables.is_empty()
             || !self.removed_fields.is_empty()
             || !self.retyped_fields.is_empty()
     }
 
-    /// One-line human-readable summary for rejection/acceptance logs.
+ /// One-line human-readable summary for rejection/acceptance logs.
     pub fn summary(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
         for t in &self.removed_tables {
@@ -141,7 +141,7 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
     let base_set: HashSet<&str> = base_names.iter().copied().collect();
     let incoming_set: HashSet<&str> = incoming_names.iter().copied().collect();
 
-    // Whole-table differences.
+ // Whole-table differences.
     for name in &base_names {
         if !incoming_set.contains(name) {
             diff.removed_tables.push((*name).to_string());
@@ -153,7 +153,7 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
         }
     }
 
-    // Field-level differences on tables present in both schemas.
+ // Field-level differences on tables present in both schemas.
     for name in &base_names {
         if !incoming_set.contains(name) {
             continue; // whole-table removal already reported
@@ -193,7 +193,7 @@ pub fn diff_schemas(base: &Schema, incoming: &Schema) -> SchemaDiff {
             }
         }
 
-        // Same-name fields whose type changed.
+ // Same-name fields whose type changed.
         for fname in &base_field_names {
             if !incoming_field_set.contains(fname) {
                 continue;
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn renamed_field_is_breaking() {
-        // A rename is structurally removal-of-old + addition-of-new.
+ // A rename is structurally removal-of-old + addition-of-new.
         let mut v2 = base_v1();
         for f in v2.tables[0].fields.iter_mut() {
             if f.name == "name" {
@@ -347,11 +347,11 @@ mod tests {
     #[test]
     fn combined_additive_and_breaking_reports_both() {
         let mut v2 = base_v1();
-        // Additive: new field + new table.
+ // Additive: new field + new table.
         v2.tables[0].fields.push(field("email", FieldType::Text));
         v2.tables
             .push(table("audit_log", vec![field("entry", FieldType::Blob)]));
-        // Breaking: drop "posts.body".
+ // Breaking: drop "posts.body".
         v2.tables[1].fields.retain(|f| f.name != "body");
         let diff = diff_schemas(&base_v1(), &v2);
         assert!(diff.is_breaking(), "{diff:?}");
@@ -366,9 +366,9 @@ mod tests {
 
     #[test]
     fn additive_change_yields_different_hash_but_non_breaking_diff() {
-        // The gate contract: an additive schema must hash differently from the
-        // local schema (otherwise it would already be "known") yet classify as
-        // non-breaking at the field level.
+ // The gate contract: an additive schema must hash differently from the
+ // local schema (otherwise it would already be "known") yet classify as
+ // non-breaking at the field level.
         let mut v2 = base_v1();
         v2.tables[0].fields.push(field("email", FieldType::Text));
 
@@ -396,7 +396,7 @@ mod tests {
         )]);
 
         let d1 = diff_schemas(&a, &b);
-        // Reverse the base field order — same logical diff.
+ // Reverse the base field order — same logical diff.
         a.tables[0].fields.swap(0, 1);
         let d2 = diff_schemas(&a, &b);
         assert_eq!(d1, d2);
@@ -405,8 +405,8 @@ mod tests {
 
     #[test]
     fn constraints_and_compaction_do_not_affect_classification() {
-        // Schema versions differing only in non-hash-carrying attributes
-        // (constraints / compaction) are structurally identical.
+ // Schema versions differing only in non-hash-carrying attributes
+ // (constraints / compaction) are structurally identical.
         let mut v2 = base_v1();
         v2.tables[0].compaction_policy = CompactionPolicy::Aggressive { threshold: 10 };
         v2.tables[1]
@@ -427,16 +427,16 @@ mod tests {
     }
 }
 
-/// Task 30.4 (PV-8.5a): classify schema diff for expand-then-contract.
+/// (PV-8.5a): classify schema diff for expand-then-contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpandContractClass {
-    /// Adds >=1 field/table and removes 0 fields/tables/types.
+ /// Adds >=1 field/table and removes 0 fields/tables/types.
     ExpandOnly,
-    /// Removes >=1 field/table and adds 0 fields/tables.
+ /// Removes >=1 field/table and adds 0 fields/tables.
     ContractOnly,
-    /// No structural change relevant to migration.
+ /// No structural change relevant to migration.
     NoChange,
-    /// Mixed add+remove/type change in a single module.
+ /// Mixed add+remove/type change in a single module.
     Mixed,
 }
 

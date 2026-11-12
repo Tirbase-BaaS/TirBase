@@ -6,7 +6,7 @@
 # Kellnr must be running before any `cargo build/check/test` commands:
 #   docker compose -f .kellnr/docker-compose.yml up -d
 #
-# Kellnr UI: http://localhost:8000  (default credentials: admin / admin)
+# Kellnr UI: http://localhost:8000 (default credentials: admin / admin)
 # Docs:       https://kellnr.io/documentation
 
 # ── Kellnr registry definition ──────────────────────────────────────────────

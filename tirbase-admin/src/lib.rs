@@ -1,4 +1,4 @@
-//! `tirbase-admin` library surface (tasks 9, 27).
+//! `tirbase-admin` library surface ().
 
 pub mod cmd;
 

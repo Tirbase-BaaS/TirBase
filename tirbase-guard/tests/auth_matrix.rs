@@ -36,7 +36,7 @@ fn denied_cells_count_matches_matrix() {
 
 #[test]
 fn auto_generated_negative_tests_for_every_denied_cell() {
-    // Table-driven: every `—` cell must reject with a typed authorization error.
+ // Table-driven: every `—` cell must reject with a typed authorization error.
     let mut failures: Vec<String> = Vec::new();
     for row in AUTHORIZATION_MATRIX {
         for (idx, role) in MATRIX_ROLES.iter().enumerate() {
@@ -88,7 +88,7 @@ fn allowed_cells_are_not_denied() {
 }
 
 fn denied_pairs() -> Vec<(usize, usize)> {
-    // (operation index, role index) for denied cells
+ // (operation index, role index) for denied cells
     let mut v = Vec::new();
     for (op_i, row) in AUTHORIZATION_MATRIX.iter().enumerate() {
         for (role_i, cell) in row.cells.iter().enumerate() {
@@ -103,8 +103,8 @@ fn denied_pairs() -> Vec<(usize, usize)> {
 proptest! {
     #![proptest_config(ProptestConfig { cases: 128, ..ProptestConfig::default() })]
 
-    /// P19 (PV-3.3): for every `—` cell, a credential of the wrong role is
-    /// rejected with a typed authorization error.
+ /// P19 (PV-3.3): for every `—` cell, a credential of the wrong role is
+ /// rejected with a typed authorization error.
     #[test]
     fn p19_every_denied_cell_rejects_wrong_role_with_typed_error(
         pick in 0usize..(19usize * 6usize),
@@ -112,8 +112,8 @@ proptest! {
     ) {
         let pairs = denied_pairs();
         prop_assert!(!pairs.is_empty());
-        // Deterministically cover all denied cells across cases by cycling picks,
-        // while also exercising property-based selection.
+ // Deterministically cover all denied cells across cases by cycling picks,
+ // while also exercising property-based selection.
         let idx = pick % pairs.len();
         let (op_i, role_i) = pairs[idx];
         let op = AUTHORIZATION_MATRIX[op_i].operation;
@@ -125,7 +125,7 @@ proptest! {
         prop_assert_eq!(err.attempted_role, role);
     }
 
-    /// Exhaustive P19 sweep over all denied cells (property-run harness).
+ /// Exhaustive P19 sweep over all denied cells (property-run harness).
     #[test]
     fn p19_all_denied_cells_rejected(_seed in 0u64..64u64) {
         for (op, role) in denied_cells() {

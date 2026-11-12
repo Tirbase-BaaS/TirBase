@@ -5,26 +5,26 @@
 # These tests compile the crate for wasm32-unknown-unknown and execute it in a
 # real headless browser, so they cover code paths the native suite cannot:
 #
-#   * the IndexedDB-backed `LocalStore` (open / write / reload / query / cursor
-#     scans) — a browser is the only place IndexedDB exists;
-#   * `CoreHandle::receive_inbound_wasm` and the other WASM entry points, driven
-#     through the same public `wasm_exports` functions the TypeScript SDK calls;
-#   * the WASM clock (`performance.now()` / `Date.now()`), which is a different
-#     implementation from the native one (`std::time::Instant` panics on
-#     wasm32-unknown-unknown).
+# * the IndexedDB-backed `LocalStore` (open / write / reload / query / cursor
+# scans) — a browser is the only place IndexedDB exists;
+# * `CoreHandle::receive_inbound_wasm` and the other WASM entry points, driven
+# through the same public `wasm_exports` functions the TypeScript SDK calls;
+# * the WASM clock (`performance.now()` / `Date.now()`), which is a different
+# implementation from the native one (`std::time::Instant` panics on
+# wasm32-unknown-unknown).
 #
 # Prerequisites (the script checks each and explains how to fix it):
 #
-#   1. `rustup target add wasm32-unknown-unknown`
-#   2. `wasm-bindgen-cli` whose version matches the `wasm-bindgen` crate in
-#      Cargo.lock — `cargo binstall wasm-bindgen-cli@<version>`
-#   3. a ChromeDriver matching the installed Chrome.  On macOS/Linux this can be
-#      fetched without root, e.g.
-#        npx @puppeteer/browsers install chromedriver@stable --path ~/.cache/chromedriver
-#      The script also honours `$CHROMEDRIVER` (absolute path to the binary).
+# 1. `rustup target add wasm32-unknown-unknown`
+# 2. `wasm-bindgen-cli` whose version matches the `wasm-bindgen` crate in
+# Cargo.lock — `cargo binstall wasm-bindgen-cli@<version>`
+# 3. a ChromeDriver matching the installed Chrome. On macOS/Linux this can be
+# fetched without root, e.g.
+# npx @puppeteer/browsers install chromedriver@stable --path ~/.cache/chromedriver
+# The script also honours `$CHROMEDRIVER` (absolute path to the binary).
 #
 # Extra arguments are forwarded to `cargo test`, so a single test can be run with
-#   scripts/wasm-test.sh -- tests::wasm_tests::test_local_store_persists_across_reopen --exact
+# scripts/wasm-test.sh -- tests::wasm_tests::test_local_store_persists_across_reopen --exact
 #
 set -euo pipefail
 
@@ -68,7 +68,7 @@ find_driver() {
         command -v chromedriver
         return 0
     fi
-    # `npx @puppeteer/browsers install chromedriver@...` layout.
+ # `npx @puppeteer/browsers install chromedriver@...` layout.
     local candidate
     candidate="$(find "${HOME}/.cache/chromedriver" -type f -name chromedriver -perm -u+x 2>/dev/null | sort | tail -n 1)"
     if [[ -n "${candidate}" ]]; then

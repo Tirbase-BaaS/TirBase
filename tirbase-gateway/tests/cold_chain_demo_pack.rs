@@ -84,7 +84,7 @@ fn cold_chain_profile_has_temperature_setpoint_compressor_and_rate_limit() {
         .find(|p| p.name == "temperature_setpoint_c")
         .expect("temperature setpoint parameter");
     assert!(matches!(setpoint.kind, ParameterKind::Range { .. }));
-    // Rate-of-change limit: 0.5 °C/s encoded as mantissa 5, exponent -1 (unit degC).
+ // Rate-of-change limit: 0.5 °C/s encoded as mantissa 5, exponent -1 (unit degC).
     assert_eq!(setpoint.max_rate_per_sec.mantissa, 5);
     assert_eq!(setpoint.max_rate_per_sec.exponent, -1);
 
@@ -101,9 +101,9 @@ fn cold_chain_profile_installs_and_validates() {
     let profile_path = workspace_root().join("tirbase-demo/cold-chain/profiles/cold_chain.toml");
     let parsed = load_profile_from_path(&profile_path).expect("parse cold-chain profile");
 
-    // Re-sign with a generated PA for the install-path validation (the committed
-    // fixture signature is for the [0x47;32] PA seed; install validates signature
-    // against the trust root's authorized PA key).
+ // Re-sign with a generated PA for the install-path validation (the committed
+ // fixture signature is for the [0x47;32] PA seed; install validates signature
+ // against the trust root's authorized PA key).
     let pa = InMemoryKeyProvider::generate().expect("generate PA key");
     let signed = sign_parsed_profile(parsed, &pa);
     let trust = pa_trust_root(pa.did(), pa.public_key_bytes());
@@ -113,7 +113,7 @@ fn cold_chain_profile_installs_and_validates() {
         .expect("cold-chain profile must install and validate via gateway path");
     assert_eq!(signer, pa.did());
 
-    // Modbus register map exists alongside the profile.
+ // Modbus register map exists alongside the profile.
     let regmap = workspace_root().join("tirbase-demo/cold-chain/docs/modbus-register-map.md");
     let reg_text = std::fs::read_to_string(&regmap).expect("read register map");
     assert!(reg_text.contains("temperature_setpoint_c"));

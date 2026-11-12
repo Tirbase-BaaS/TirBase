@@ -2,7 +2,7 @@
 //!
 //! The manager no longer holds a raw `ed25519_dalek::SigningKey`: all signing
 //! goes through the [`KeyProvider`] trait, so the same code path works with a
-//! file-backed key, a TPM-sealed seed, or a PKCS#11 token (task 6.3 / 6.4).
+//! file-backed key, a TPM-sealed seed, or a PKCS#11 token (6.4).
 //!
 //! # Legacy seed bridge
 //!
@@ -64,24 +64,24 @@ impl DeviceKey {
 
 /// Manages the local device's identity and DID (Req 7.1).
 pub struct IdentityManager {
-    /// `did:key:z6Mk…` DID for this device.
+ /// `did:key:z6Mk…` DID for this device.
     pub did: String,
-    /// Key provider used for every signature this device produces (PV-3.6).
+ /// Key provider used for every signature this device produces (PV-3.6).
     key: DeviceKey,
-    /// Path used for persistence (None = in-memory only).
+ /// Path used for persistence (None = in-memory only).
     identity_path: Option<String>,
 }
 
 impl IdentityManager {
-    /// Initialise the identity: load from the default storage path or generate a new keypair.
-    ///
-    /// Uses `./tirbase-identity.json` as default path on native builds.
+ /// Initialise the identity: load from the default storage path or generate a new keypair.
+ ///
+ /// Uses `./tirbase-identity.json` as default path on native builds.
     pub fn init() -> Result<Self, TirBaseError> {
         Self::init_with_path(Some("./tirbase-identity.json"))
     }
 
-    /// Initialise with a specific storage path.
-    /// Pass `None` for `path` to operate in-memory without persistence.
+ /// Initialise with a specific storage path.
+ /// Pass `None` for `path` to operate in-memory without persistence.
     pub fn init_with_path(path: Option<&str>) -> Result<Self, TirBaseError> {
         match path {
             Some(path) => {
@@ -98,7 +98,7 @@ impl IdentityManager {
         }
     }
 
-    /// Initialise an in-memory-only identity (no persistence). Useful for WASM and testing.
+ /// Initialise an in-memory-only identity (no persistence). Useful for WASM and testing.
     pub fn init_in_memory() -> Result<Self, TirBaseError> {
         Self::init_with_path(None)
     }
@@ -112,38 +112,38 @@ impl IdentityManager {
         }
     }
 
-    /// The [`KeyProvider`] this identity signs through.
+ /// The [`KeyProvider`] this identity signs through.
     pub fn key_provider(&self) -> &dyn KeyProvider {
         self.key.as_provider()
     }
 
-    /// Return the DID string for this device.
+ /// Return the DID string for this device.
     pub fn did(&self) -> &str {
         &self.did
     }
 
-    /// Return the 32-byte Ed25519 public key bytes.
+ /// Return the 32-byte Ed25519 public key bytes.
     pub fn public_key_bytes(&self) -> [u8; 32] {
         self.key.public_key()
     }
 
-    /// Return the 32-byte Ed25519 secret key seed.
-    ///
-    /// Crate-internal migration bridge for subsystems that still take a raw
-    /// signing key; new code must call [`IdentityManager::sign`] or
-    /// [`IdentityManager::sign_async`] instead.
+ /// Return the 32-byte Ed25519 secret key seed.
+ ///
+ /// Crate-internal migration bridge for subsystems that still take a raw
+ /// signing key; new code must call [`IdentityManager::sign`] or
+ /// [`IdentityManager::sign_async`] instead.
     pub(crate) fn signing_key_bytes(&self) -> [u8; 32] {
         self.key.secret_seed()
     }
 
-    /// Sign a payload with this device's key (Req 7.2).
-    ///
-    /// Returns the 64-byte Ed25519 signature.
+ /// Sign a payload with this device's key (Req 7.2).
+ ///
+ /// Returns the 64-byte Ed25519 signature.
     pub fn sign(&self, payload: &[u8]) -> Result<[u8; 64], TirBaseError> {
         Self::ed25519_bytes(self.key.as_provider().sign(payload)?)
     }
 
-    /// Async signing path (hardware-backed providers).
+ /// Async signing path (hardware-backed providers).
     pub async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError> {
         self.key.as_provider().sign_async(payload).await
     }
@@ -157,46 +157,46 @@ impl IdentityManager {
         }
     }
 
-    /// Sign a Delta: set `delta.signature`, `delta.author_did`, and `delta.id` (Req 7.2).
-    ///
-    /// The signature covers `canonical_bytes()` which excludes the signature and id fields.
+ /// Sign a Delta: set `delta.signature`, `delta.author_did`, and `delta.id` (Req 7.2).
+ ///
+ /// The signature covers `canonical_bytes()` which excludes the signature and id fields.
     pub fn sign_delta(&self, delta: &mut Delta) -> Result<(), TirBaseError> {
-        // Set the author DID
+ // Set the author DID
         delta.author_did = self.did.clone();
 
-        // Compute canonical bytes (excludes signature and id)
+ // Compute canonical bytes (excludes signature and id)
         let canonical = delta.canonical_bytes();
 
-        // Sign through the KeyProvider
+ // Sign through the KeyProvider
         let sig_bytes = self.sign(&canonical)?;
         delta.signature = Ed25519Signature::from_bytes(sig_bytes);
 
-        // Compute and set the id
+ // Compute and set the id
         delta.id = Delta::compute_id(&canonical);
 
         Ok(())
     }
 
-    /// Verify a Delta's signature against a peer's DID-resolved public key (Req 7.3).
-    ///
-    /// Returns `Ok(())` if valid. Returns `DidResolutionFailed` or
-    /// `SignatureVerificationFailed` on failure (Req 7.4–7.5).
+ /// Verify a Delta's signature against a peer's DID-resolved public key (Req 7.3).
+ ///
+ /// Returns `Ok(())` if valid. Returns `DidResolutionFailed` or
+ /// `SignatureVerificationFailed` on failure (Req 7.4–7.5).
     pub fn verify_delta_signature(
         &self,
         sender_did: &str,
         payload: &[u8],
         signature: &[u8; 64],
     ) -> Result<(), TirBaseError> {
-        // Resolve sender's DID to public key
+ // Resolve sender's DID to public key
         let sender_did_str = sender_did.to_string();
         let public_key = did::resolve_did(&sender_did_str)?;
 
-        // Reconstruct Ed25519Signature and verify
+ // Reconstruct Ed25519Signature and verify
         let ed_sig = Ed25519Signature::from_bytes(*signature);
         keypair::verify(&public_key, payload, &ed_sig)
     }
 
-    /// Verify a Delta's embedded signature (convenience wrapper).
+ /// Verify a Delta's embedded signature (convenience wrapper).
     pub fn verify_delta(&self, delta: &Delta) -> Result<(), TirBaseError> {
         let canonical = delta.canonical_bytes();
         let sig_bytes = delta.signature.as_bytes().ok_or_else(|| {
@@ -254,7 +254,7 @@ mod tests {
         assert!(!delta.signature.0.is_empty(), "signature should be set");
         assert_ne!(delta.id, [0u8; 32], "delta id should be computed");
 
-        // Verify the signature
+ // Verify the signature
         mgr.verify_delta(&delta)
             .expect("delta signature should be valid");
     }
@@ -265,7 +265,7 @@ mod tests {
         let mut delta = make_test_delta();
         mgr.sign_delta(&mut delta).unwrap();
 
-        // Tamper with the payload after signing
+ // Tamper with the payload after signing
         delta.automerge_bytes = b"tampered-data".to_vec();
 
         let result = mgr.verify_delta(&delta);
@@ -279,16 +279,16 @@ mod tests {
         let tmp = env::temp_dir().join("tirbase_test_idmgr.json");
         let path = tmp.to_str().unwrap();
 
-        // Remove leftover from prior run
+ // Remove leftover from prior run
         let _ = std::fs::remove_file(path);
 
-        // Create new identity with persistence
+ // Create new identity with persistence
         let mgr =
             IdentityManager::init_with_path(Some(path)).expect("init with path should succeed");
         let original_did = mgr.did().to_string();
         let original_pk = mgr.public_key_bytes();
 
-        // Load it back
+ // Load it back
         let mgr2 =
             IdentityManager::init_with_path(Some(path)).expect("reload from path should succeed");
         assert_eq!(mgr2.did(), &original_did, "DID should be restored");
@@ -298,13 +298,13 @@ mod tests {
             "public key should be restored"
         );
 
-        // Verify that a delta signed by the first can be verified by the second
+ // Verify that a delta signed by the first can be verified by the second
         let mut delta = make_test_delta();
         mgr.sign_delta(&mut delta).unwrap();
         mgr2.verify_delta(&delta)
             .expect("cross-instance verification should succeed after restore");
 
-        // Clean up
+ // Clean up
         let _ = std::fs::remove_file(path);
     }
 
@@ -328,7 +328,7 @@ mod tests {
         let canonical = delta.canonical_bytes();
         let sig_bytes = delta.signature.as_bytes().unwrap();
 
-        // Try to verify the signature using the other manager's DID
+ // Try to verify the signature using the other manager's DID
         let result = mgr.verify_delta_signature(other_mgr.did(), &canonical, &sig_bytes);
         assert!(
             result.is_err(),
@@ -362,18 +362,18 @@ mod tests {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ZeroizeOnDrop coverage registry (task 6.2 — CLAIM-6.2, PV-3.14)
+// ZeroizeOnDrop coverage registry (CLAIM-6.2, PV-3.14)
 // ═════════════════════════════════════════════════════════════════════════════
 //
 // This test module is the single registry of types that hold raw key material
-// in `tirbase-core` and `tirbase-guard`.  Two CI tests enforce coverage:
+// in `tirbase-core` and `tirbase-guard`. Two CI tests enforce coverage:
 //
-//   * `every_registered_type_is_zeroize_on_drop` — compile-time proof that each
-//     registered type implements `ZeroizeOnDrop`.  Removing a `ZeroizeOnDrop`
-//     impl/derive from any registered type breaks this test at compile time.
-//   * `registry_covers_every_key_material_struct` — scans both crates' source
-//     trees for structs whose fields include raw key bytes and fails if a type
-//     is missing from the registry.
+// * `every_registered_type_is_zeroize_on_drop` — compile-time proof that each
+// registered type implements `ZeroizeOnDrop`. Removing a `ZeroizeOnDrop`
+// impl/derive from any registered type breaks this test at compile time.
+// * `registry_covers_every_key_material_struct` — scans both crates' source
+// trees for structs whose fields include raw key bytes and fails if a type
+// is missing from the registry.
 //
 // `StoredIdentity` is crate-private; the registry lives here (rather than in an
 // integration test) so private key-material types can be proven too.
@@ -388,8 +388,8 @@ mod zeroize_registry_tests {
     use crate::crdt::CrdtEngine;
     use crate::transport::MeshTransport;
 
-    /// Every type in `tirbase-core` / `tirbase-guard` known to hold raw key
-    /// bytes, by type name.
+ /// Every type in `tirbase-core` / `tirbase-guard` known to hold raw key
+ /// bytes, by type name.
     pub static ZEROIZE_ON_DROP_REGISTRY: &[&str] = &[
         "CrdtEngine",
         "FileKeyProvider",
@@ -403,8 +403,8 @@ mod zeroize_registry_tests {
 
     #[test]
     fn every_registered_type_is_zeroize_on_drop() {
-        // One assertion per registry entry.  Adding an entry without an
-        // assertion here fails `registry_entries_have_type_assertions`.
+ // One assertion per registry entry. Adding an entry without an
+ // assertion here fails `registry_entries_have_type_assertions`.
         assert_zeroize_on_drop::<CrdtEngine>();
         assert_zeroize_on_drop::<FileKeyProvider>();
         assert_zeroize_on_drop::<InMemoryKeyProvider>();
@@ -418,12 +418,12 @@ mod zeroize_registry_tests {
         assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"StoredIdentity"));
     }
 
-    /// Guards against a registry entry that has no corresponding type-level
-    /// assertion above (a name alone would not prove anything).
+ /// Guards against a registry entry that has no corresponding type-level
+ /// assertion above (a name alone would not prove anything).
     #[test]
     fn registry_entries_have_type_assertions() {
-        // Core types have compile-time assertions above; EnrollmentService lives
-        // in tirbase-guard (cross-crate) and is asserted there.
+ // Core types have compile-time assertions above; EnrollmentService lives
+ // in tirbase-guard (cross-crate) and is asserted there.
         assert_eq!(ZEROIZE_ON_DROP_REGISTRY.len(), 6);
         assert!(ZEROIZE_ON_DROP_REGISTRY.contains(&"EnrollmentService"));
     }
@@ -452,7 +452,7 @@ mod zeroize_registry_tests {
         );
     }
 
-    /// Recursively collect `.rs` files below `root`.
+ /// Recursively collect `.rs` files below `root`.
     fn rust_files(root: &Path) -> Vec<PathBuf> {
         let mut out = Vec::new();
         if !root.exists() {
@@ -472,12 +472,12 @@ mod zeroize_registry_tests {
         out
     }
 
-    /// Heuristic source scan for structs that hold raw key material.
-    ///
-    /// A struct qualifies when one of its fields is named like key material
-    /// (`seed`, `secret`, `private_key`, `signing_key`, `keypair`) or has a
-    /// key type (`SigningKey`, `SecretKey`, `StaticSecret`).  Test modules are
-    /// stripped first so fixture structs do not need registry entries.
+ /// Heuristic source scan for structs that hold raw key material.
+ ///
+ /// A struct qualifies when one of its fields is named like key material
+ /// (`seed`, `secret`, `private_key`, `signing_key`, `keypair`) or has a
+ /// key type (`SigningKey`, `SecretKey`, `StaticSecret`). Test modules are
+ /// stripped first so fixture structs do not need registry entries.
     fn key_material_structs(source: &str) -> Vec<String> {
         let production = source.split("\n#[cfg(test)]").next().unwrap_or(source);
 
@@ -491,7 +491,7 @@ mod zeroize_registry_tests {
                 if let Some(name) = struct_name(trimmed) {
                     let (open, close) = brace_delta(trimmed);
                     let depth = open.saturating_sub(close);
-                    // Tuple/unit structs (no `{`) cannot hold named fields.
+ // Tuple/unit structs (no `{`) cannot hold named fields.
                     if depth > 0 {
                         current = Some((name, depth, false));
                     }

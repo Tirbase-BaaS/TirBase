@@ -1,19 +1,19 @@
-//! `device_epoch` SQLite store (task 8.7 — CLAIM-8.7, PV-5.5, PV-9.8).
+//! `device_epoch` SQLite store (CLAIM-8.7, PV-5.5, PV-9.8).
 //!
 //! The table lives in `primary.db` and mirrors design.md §4.13:
 //!
 //! ```sql
 //! CREATE TABLE IF NOT EXISTS device_epoch (
-//!     device_id     TEXT PRIMARY KEY,
-//!     epoch         INTEGER NOT NULL DEFAULT 0,
-//!     bumped_at_est INTEGER NOT NULL,
-//!     co_sig_pa     BLOB,   -- PolicyAuthority signature; NULL for epoch 0
-//!     co_sig_rm     BLOB    -- RevocationManager signature; NULL for epoch 0
+//! device_id TEXT PRIMARY KEY,
+//! epoch INTEGER NOT NULL DEFAULT 0,
+//! bumped_at_est INTEGER NOT NULL,
+//! co_sig_pa BLOB, -- PolicyAuthority signature; NULL for epoch 0
+//! co_sig_rm BLOB -- RevocationManager signature; NULL for epoch 0
 //! );
 //! ```
 //!
 //! The epoch starts at 0 on first enrollment and is only advanced by a signed
-//! [`EpochBump`](tirbase_guard::epoch::EpochBump).  Keeping the row here (not
+//! [`EpochBump`](tirbase_guard::epoch::EpochBump). Keeping the row here (not
 //! in memory) means a restart cannot silently resurrect a prior epoch.
 
 use std::path::Path;
@@ -33,7 +33,7 @@ pub struct SqliteDeviceEpochStore {
 }
 
 impl SqliteDeviceEpochStore {
-    /// Open `primary.db`, creating the `device_epoch` table idempotently.
+ /// Open `primary.db`, creating the `device_epoch` table idempotently.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, EpochError> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {

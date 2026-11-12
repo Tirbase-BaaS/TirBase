@@ -4,13 +4,13 @@
 //! # Responsibilities
 //!
 //! - `CloudOutboundQueue` holds Deltas waiting for Cloud Ledger acknowledgement in
-//!   causal order (topologically sorted at enqueue time).
+//! causal order (topologically sorted at enqueue time).
 //! - `enqueue()` enforces the 100,000 Delta cap and returns `CloudQueueFull` on overflow.
 //! - `acknowledge()` removes a Delta from the queue only after a per-Delta ack (Req 16.3).
 //! - `cloud_sync_loop()` sends each Delta to the Cloud Ledger in causal order and
-//!   removes acknowledged Deltas; retained on rejection for retry (Req 16.5).
+//! removes acknowledged Deltas; retained on rejection for retry (Req 16.5).
 //! - `refetch_for_cloud_sync()` re-fetches compacted Deltas from receipt-holding peers
-//!   before cloud sync; logs `RefetchUnavailable` when no peers are reachable (Req 16.8).
+//! before cloud sync; logs `RefetchUnavailable` when no peers are reachable (Req 16.8).
 
 #![allow(dead_code, unused_variables)]
 
@@ -26,23 +26,23 @@ pub const MAX_QUEUE_DEPTH: usize = 100_000;
 /// An entry in the cloud outbound queue.
 #[derive(Debug, Clone)]
 pub struct QueueEntry {
-    /// The Delta identifier.
+ /// The Delta identifier.
     pub delta_id: DeltaId,
-    /// Serialised Delta bytes (may need re-fetching if `compacted = true`).
+ /// Serialised Delta bytes (may need re-fetching if `compacted = true`).
     pub delta_bytes: Option<Vec<u8>>,
-    /// Causal parent IDs — used for topological ordering.
+ /// Causal parent IDs — used for topological ordering.
     pub causal_parents: Vec<DeltaId>,
-    /// True if this Delta has been compacted from the hot read path and its
-    /// `delta_bytes` may be absent; requires re-fetch before cloud sync (Req 14.8).
+ /// True if this Delta has been compacted from the hot read path and its
+ /// `delta_bytes` may be absent; requires re-fetch before cloud sync (Req 14.8).
     pub compacted: bool,
-    /// Peer DIDs that issued `DurabilityReceipt`s for this Delta (for re-fetch — Req 16.8).
+ /// Peer DIDs that issued `DurabilityReceipt`s for this Delta (for re-fetch — Req 16.8).
     pub receipt_holders: Vec<Did>,
-    /// True when the Cloud Ledger has acknowledged this Delta (Tier-2 durable).
+ /// True when the Cloud Ledger has acknowledged this Delta (Tier-2 durable).
     pub tier2_durable: bool,
 }
 
 impl QueueEntry {
-    /// Create a new non-compacted queue entry with its serialised bytes.
+ /// Create a new non-compacted queue entry with its serialised bytes.
     pub fn new(delta_id: DeltaId, delta_bytes: Vec<u8>, causal_parents: Vec<DeltaId>) -> Self {
         Self {
             delta_id,
@@ -54,7 +54,7 @@ impl QueueEntry {
         }
     }
 
-    /// Create a compacted queue entry (bytes absent, must be re-fetched).
+ /// Create a compacted queue entry (bytes absent, must be re-fetched).
     pub fn new_compacted(
         delta_id: DeltaId,
         causal_parents: Vec<DeltaId>,
@@ -79,16 +79,16 @@ impl QueueEntry {
 /// enqueueing). Entries are removed only after a per-Delta Cloud Ledger ack (Req 16.3).
 #[derive(Debug)]
 pub struct CloudOutboundQueue {
-    /// Ordered queue of pending entries.
+ /// Ordered queue of pending entries.
     queue: VecDeque<QueueEntry>,
-    /// Index from `delta_id` → position in `queue` for O(1) acknowledge.
-    /// Rebuilt on demand since `VecDeque` doesn't support stable indices — we use
-    /// a `retain`-based acknowledge which is O(n) but safe for the 100k cap.
+ /// Index from `delta_id` → position in `queue` for O(1) acknowledge.
+ /// Rebuilt on demand since `VecDeque` doesn't support stable indices — we use
+ /// a `retain`-based acknowledge which is O(n) but safe for the 100k cap.
     _index_placeholder: (),
 }
 
 impl CloudOutboundQueue {
-    /// Create an empty queue.
+ /// Create an empty queue.
     pub fn new() -> Self {
         Self {
             queue: VecDeque::new(),
@@ -96,11 +96,11 @@ impl CloudOutboundQueue {
         }
     }
 
-    /// Enqueue a Delta for cloud sync (Req 16.3).
-    ///
-    /// The caller is responsible for topological ordering before enqueueing.
-    ///
-    /// Returns `CloudQueueFull` if the queue is at or beyond `MAX_QUEUE_DEPTH` (Req 16.7).
+ /// Enqueue a Delta for cloud sync (Req 16.3).
+ ///
+ /// The caller is responsible for topological ordering before enqueueing.
+ ///
+ /// Returns `CloudQueueFull` if the queue is at or beyond `MAX_QUEUE_DEPTH` (Req 16.7).
     pub fn enqueue(&mut self, entry: QueueEntry) -> Result<(), TirBaseError> {
         if self.queue.len() >= MAX_QUEUE_DEPTH {
             let depth = self.queue.len();
@@ -111,14 +111,14 @@ impl CloudOutboundQueue {
         Ok(())
     }
 
-    /// Mark a Delta as Tier-2 durable and remove it from the queue after a
-    /// per-Delta Cloud Ledger acknowledgement (Req 16.3).
+ /// Mark a Delta as Tier-2 durable and remove it from the queue after a
+ /// per-Delta Cloud Ledger acknowledgement (Req 16.3).
     pub fn acknowledge(&mut self, delta_id: &DeltaId) {
         self.queue.retain(|e| &e.delta_id != delta_id);
     }
 
-    /// Mark a Delta as Tier-2 durable **without** removing it — used to update
-    /// the `tier2_durable` flag while retaining the entry for re-fetch tracking.
+ /// Mark a Delta as Tier-2 durable **without** removing it — used to update
+ /// the `tier2_durable` flag while retaining the entry for re-fetch tracking.
     pub fn mark_tier2(&mut self, delta_id: &DeltaId) {
         for entry in self.queue.iter_mut() {
             if &entry.delta_id == delta_id {
@@ -128,13 +128,13 @@ impl CloudOutboundQueue {
         }
     }
 
-    /// Mark a Delta as compacted from the hot read path (Req 14.8).
-    ///
-    /// Clears `delta_bytes` so the sync loop will invoke the refetch callback
-    /// before re-sending.  Sets `compacted = true` so `pending_entries` and the
-    /// sync loop know the bytes must be re-fetched from a receipt-holding peer.
-    ///
-    /// Called by `CoreHandle::write` after a successful `compact_table` run.
+ /// Mark a Delta as compacted from the hot read path (Req 14.8).
+ ///
+ /// Clears `delta_bytes` so the sync loop will invoke the refetch callback
+ /// before re-sending. Sets `compacted = true` so `pending_entries` and the
+ /// sync loop know the bytes must be re-fetched from a receipt-holding peer.
+ ///
+ /// Called by `CoreHandle::write` after a successful `compact_table` run.
     pub fn mark_compacted(&mut self, delta_id: &DeltaId) {
         for entry in self.queue.iter_mut() {
             if &entry.delta_id == delta_id {
@@ -145,9 +145,9 @@ impl CloudOutboundQueue {
         }
     }
 
-    /// Collect the IDs of all pending (non-Tier-2) queue entries that have been
-    /// compacted and therefore need re-fetching before cloud sync (Req 14.8,
-    /// 16.8).  The caller passes these to the refetch callback.
+ /// Collect the IDs of all pending (non-Tier-2) queue entries that have been
+ /// compacted and therefore need re-fetching before cloud sync (Req 14.8,
+ /// 16.8). The caller passes these to the refetch callback.
     pub fn compacted_entry_ids(&self) -> Vec<DeltaId> {
         self.queue
             .iter()
@@ -156,7 +156,7 @@ impl CloudOutboundQueue {
             .collect()
     }
 
-    /// Add a receipt holder DID to an existing queue entry.
+ /// Add a receipt holder DID to an existing queue entry.
     pub fn add_receipt_holder(&mut self, delta_id: &DeltaId, holder_did: Did) {
         for entry in self.queue.iter_mut() {
             if &entry.delta_id == delta_id {
@@ -168,17 +168,17 @@ impl CloudOutboundQueue {
         }
     }
 
-    /// Current queue depth.
+ /// Current queue depth.
     pub fn depth(&self) -> usize {
         self.queue.len()
     }
 
-    /// Iterate pending entries in queue order (causal order, as enqueued).
+ /// Iterate pending entries in queue order (causal order, as enqueued).
     pub fn pending_entries(&self) -> impl Iterator<Item = &QueueEntry> {
         self.queue.iter().filter(|e| !e.tier2_durable)
     }
 
-    /// Look up a queue entry by Delta ID.
+ /// Look up a queue entry by Delta ID.
     pub fn find(&self, delta_id: &DeltaId) -> Option<&QueueEntry> {
         self.queue.iter().find(|e| &e.delta_id == delta_id)
     }
@@ -195,9 +195,9 @@ impl Default for CloudOutboundQueue {
 /// Outcome of a re-fetch attempt.
 #[derive(Debug)]
 pub enum RefetchOutcome {
-    /// The Delta bytes were successfully retrieved from a receipt-holding peer.
+ /// The Delta bytes were successfully retrieved from a receipt-holding peer.
     Success(Vec<u8>),
-    /// No receipt-holding peer was reachable.
+ /// No receipt-holding peer was reachable.
     Unavailable,
 }
 
@@ -215,7 +215,7 @@ pub type RefetchFn<'a> = dyn Fn(&DeltaId, &[Did]) -> Option<Vec<u8>> + 'a;
 /// * `delta_id` — the Delta to re-fetch.
 /// * `receipt_holders` — DIDs of peers that issued receipts for this Delta.
 /// * `try_fetch_from_peer` — async callback that attempts to retrieve the Delta
-///   bytes from a specific peer.  Returns `None` if the peer is unreachable.
+/// bytes from a specific peer. Returns `None` if the peer is unreachable.
 ///
 /// # Behaviour
 ///
@@ -237,7 +237,7 @@ where
         }
     }
 
-    // All peers unreachable — log and defer (Req 16.8).
+ // All peers unreachable — log and defer (Req 16.8).
     log_refetch_unavailable(&delta_id, &receipt_holders);
     Err(TirBaseError::RefetchUnavailable {
         delta_id: hex::encode(delta_id),
@@ -260,13 +260,13 @@ where
 fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
     use std::collections::{BTreeMap, VecDeque};
 
-    // Build a map from delta_id → index for O(1) look-ups.
+ // Build a map from delta_id → index for O(1) look-ups.
     let id_set: std::collections::HashSet<DeltaId> =
         queue.queue.iter().map(|e| e.delta_id).collect();
 
-    // in_degree[id] = number of parents still in the queue.
+ // in_degree[id] = number of parents still in the queue.
     let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
-    // children_map[parent] = list of children in the queue.
+ // children_map[parent] = list of children in the queue.
     let mut children_map: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
 
     for entry in queue.queue.iter() {
@@ -275,7 +275,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
 
         for parent_id in &entry.causal_parents {
             if id_set.contains(parent_id) {
-                // Parent is also in the queue → this entry depends on it.
+ // Parent is also in the queue → this entry depends on it.
                 *in_degree.entry(entry.delta_id).or_insert(0) += 1;
                 children_map
                     .entry(*parent_id)
@@ -285,15 +285,15 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
         }
     }
 
-    // Kahn's BFS: start with all zero-in-degree nodes.
+ // Kahn's BFS: start with all zero-in-degree nodes.
     let mut ready: VecDeque<DeltaId> = in_degree
         .iter()
         .filter(|(_, &deg)| deg == 0)
         .map(|(id, _)| *id)
         .collect();
 
-    // Maintain stable ordering within same in-degree level by using queue
-    // insertion order as a secondary key.
+ // Maintain stable ordering within same in-degree level by using queue
+ // insertion order as a secondary key.
     let order_index: BTreeMap<DeltaId, usize> = queue
         .queue
         .iter()
@@ -301,7 +301,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
         .map(|(i, e)| (e.delta_id, i))
         .collect();
 
-    // Sort initial ready set by original queue position for determinism.
+ // Sort initial ready set by original queue position for determinism.
     let mut ready_vec: Vec<DeltaId> = ready.drain(..).collect();
     ready_vec.sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
     ready.extend(ready_vec);
@@ -323,7 +323,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
                     }
                 })
                 .collect();
-            // Stable ordering within the newly-ready batch.
+ // Stable ordering within the newly-ready batch.
             next_ready.sort_by_key(|id| order_index.get(id).copied().unwrap_or(usize::MAX));
             for id in next_ready {
                 ready.push_back(id);
@@ -331,7 +331,7 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
         }
     }
 
-    // Append any remaining (cycle / unreachable) entries in original order.
+ // Append any remaining (cycle / unreachable) entries in original order.
     let sorted_set: std::collections::HashSet<DeltaId> = sorted.iter().cloned().collect();
     for entry in queue.queue.iter() {
         if !sorted_set.contains(&entry.delta_id) {
@@ -346,11 +346,11 @@ fn topological_sort_queue(queue: &CloudOutboundQueue) -> Vec<DeltaId> {
 
 /// Trait for the Cloud Ledger connection — allows testing without a live connection.
 pub trait CloudConnection: Send {
-    /// Send one Delta to the Cloud Ledger.
-    ///
-    /// Returns:
-    /// - `Ok(())` — Cloud Ledger acknowledged this Delta.
-    /// - `Err(reason)` — Cloud Ledger rejected the Delta; caller should retain it.
+ /// Send one Delta to the Cloud Ledger.
+ ///
+ /// Returns:
+ /// - `Ok(())` — Cloud Ledger acknowledged this Delta.
+ /// - `Err(reason)` — Cloud Ledger rejected the Delta; caller should retain it.
     fn send_delta(&mut self, delta_id: &DeltaId, bytes: &[u8]) -> Result<(), String>;
 }
 
@@ -359,7 +359,7 @@ pub trait CloudConnection: Send {
 ///
 /// The loop first computes a topological ordering of all pending queue entries
 /// using their `causal_parents` relationships so that parents are always
-/// transmitted before their children.  This is safe even if some parents have
+/// transmitted before their children. This is safe even if some parents have
 /// already been sent and removed from the queue — those entries simply have
 /// zero in-queue parents and are treated as roots.
 ///
@@ -369,7 +369,7 @@ pub trait CloudConnection: Send {
 /// # Re-fetch behaviour
 ///
 /// For entries where `compacted = true` and `delta_bytes = None`, this function
-/// calls `refetch` to obtain the bytes before sending.  If re-fetch fails, the
+/// calls `refetch` to obtain the bytes before sending. If re-fetch fails, the
 /// entry is skipped for this sync cycle.
 ///
 /// # Parameters
@@ -385,13 +385,13 @@ pub fn cloud_sync_loop(
     let mut acknowledged = 0usize;
     let mut rejected = 0usize;
     let mut deferred = 0usize;
-    // Delta IDs the Cloud Ledger freshly acknowledged this cycle.  The caller
-    // uses these to mark each Delta Tier-2 durable in its durability-state
-    // table (Subphase 4.2 — `DurabilitySubsystem::on_cloud_ack`), so a real
-    // cloud ack transitions `WriteResult`-backing state out of `Uncommitted`.
+ // Delta IDs the Cloud Ledger freshly acknowledged this cycle. The caller
+ // uses these to mark each Delta Tier-2 durable in its durability-state
+ // table (Subphase 4.2 — `DurabilitySubsystem::on_cloud_ack`), so a real
+ // cloud ack transitions `WriteResult`-backing state out of `Uncommitted`.
     let mut acknowledged_ids: Vec<DeltaId> = Vec::new();
 
-    // Compute causal order before processing (Req 16.3).
+ // Compute causal order before processing (Req 16.3).
     let ids = topological_sort_queue(queue);
 
     for delta_id in ids {
@@ -401,16 +401,16 @@ pub fn cloud_sync_loop(
         };
 
         if entry.tier2_durable {
-            // Already acknowledged in a previous cycle — remove and continue.
-            // Not reported in `acknowledged_ids`: the Tier-2 state marking and
-            // notification for this Delta already happened when it was first
-            // acknowledged, and re-marking would emit a duplicate event.
+ // Already acknowledged in a previous cycle — remove and continue.
+ // Not reported in `acknowledged_ids`: the Tier-2 state marking and
+ // notification for this Delta already happened when it was first
+ // acknowledged, and re-marking would emit a duplicate event.
             queue.acknowledge(&delta_id);
             acknowledged += 1;
             continue;
         }
 
-        // Resolve bytes: either inline or via re-fetch.
+ // Resolve bytes: either inline or via re-fetch.
         let bytes = if let Some(b) = &entry.delta_bytes {
             b.clone()
         } else if entry.compacted {
@@ -423,12 +423,12 @@ pub fn cloud_sync_loop(
                 }
             }
         } else {
-            // No bytes and not compacted — should not happen; skip.
+ // No bytes and not compacted — should not happen; skip.
             deferred += 1;
             continue;
         };
 
-        // Send to Cloud Ledger.
+ // Send to Cloud Ledger.
         match conn.send_delta(&delta_id, &bytes) {
             Ok(()) => {
                 queue.acknowledge(&delta_id);
@@ -436,7 +436,7 @@ pub fn cloud_sync_loop(
                 acknowledged_ids.push(delta_id);
             }
             Err(reason) => {
-                // Retain in queue; log rejection (Req 16.5).
+ // Retain in queue; log rejection (Req 16.5).
                 log_cloud_rejection(&delta_id, &reason);
                 rejected += 1;
             }
@@ -457,11 +457,11 @@ pub struct CloudSyncResult {
     pub acknowledged: usize,
     pub rejected: usize,
     pub deferred: usize,
-    /// Delta IDs the Cloud Ledger acknowledged **during this cycle** (fresh
-    /// acks only — entries already flagged `tier2_durable` in a previous
-    /// cycle are counted in `acknowledged` but excluded here so their Tier-2
-    /// marking is not repeated).  The production drain caller marks each of
-    /// these Tier-2 durable in the Durability Subsystem (Subphase 4.2).
+ /// Delta IDs the Cloud Ledger acknowledged **during this cycle** (fresh
+ /// acks only — entries already flagged `tier2_durable` in a previous
+ /// cycle are counted in `acknowledged` but excluded here so their Tier-2
+ /// marking is not repeated). The production drain caller marks each of
+ /// these Tier-2 durable in the Durability Subsystem (Subphase 4.2).
     pub acknowledged_ids: Vec<DeltaId>,
 }
 
@@ -509,7 +509,7 @@ mod tests {
         QueueEntry::new_compacted(make_delta_id(byte), vec![], receipt_holders)
     }
 
-    // ── enqueue ────────────────────────────────────────────────────────────
+ // ── enqueue ────────────────────────────────────────────────────────────
 
     #[test]
     fn enqueue_increments_depth() {
@@ -524,7 +524,7 @@ mod tests {
     #[test]
     fn enqueue_at_capacity_returns_queue_full() {
         let mut q = CloudOutboundQueue::new();
-        // Fill up to MAX_QUEUE_DEPTH.
+ // Fill up to MAX_QUEUE_DEPTH.
         for i in 0..MAX_QUEUE_DEPTH {
             let id: [u8; 32] = {
                 let mut arr = [0u8; 32];
@@ -537,7 +537,7 @@ mod tests {
         }
         assert_eq!(q.depth(), MAX_QUEUE_DEPTH);
 
-        // One more must fail.
+ // One more must fail.
         let overflow = QueueEntry::new([0xFF; 32], vec![1, 2, 3], vec![]);
         let result = q.enqueue(overflow);
         assert!(
@@ -546,7 +546,7 @@ mod tests {
         );
     }
 
-    // ── acknowledge ────────────────────────────────────────────────────────
+ // ── acknowledge ────────────────────────────────────────────────────────
 
     #[test]
     fn acknowledge_removes_entry_from_queue() {
@@ -569,9 +569,9 @@ mod tests {
         assert_eq!(q.depth(), 1);
     }
 
-    // ── cloud_sync_loop ───────────────────────────────────────────────────
+ // ── cloud_sync_loop ───────────────────────────────────────────────────
 
-    /// A mock CloudConnection that acks everything.
+ /// A mock CloudConnection that acks everything.
     struct AlwaysOkConn;
     impl CloudConnection for AlwaysOkConn {
         fn send_delta(&mut self, _id: &DeltaId, _bytes: &[u8]) -> Result<(), String> {
@@ -579,7 +579,7 @@ mod tests {
         }
     }
 
-    /// A mock CloudConnection that rejects everything.
+ /// A mock CloudConnection that rejects everything.
     struct AlwaysErrConn;
     impl CloudConnection for AlwaysErrConn {
         fn send_delta(&mut self, _id: &DeltaId, _bytes: &[u8]) -> Result<(), String> {
@@ -626,7 +626,7 @@ mod tests {
         .unwrap();
 
         let mut conn = AlwaysOkConn;
-        // Re-fetch always returns None → deferred.
+ // Re-fetch always returns None → deferred.
         let result = cloud_sync_loop(&mut q, &mut conn, &|_id, _holders| None);
 
         assert_eq!(result.deferred, 1);
@@ -644,7 +644,7 @@ mod tests {
         .unwrap();
 
         let mut conn = AlwaysOkConn;
-        // Re-fetch succeeds.
+ // Re-fetch succeeds.
         let result = cloud_sync_loop(&mut q, &mut conn, &|_id, _holders| Some(vec![0xDE, 0xAD]));
 
         assert_eq!(result.acknowledged, 1);
@@ -652,7 +652,7 @@ mod tests {
         assert_eq!(q.depth(), 0);
     }
 
-    // ── refetch_for_cloud_sync (async) ────────────────────────────────────
+ // ── refetch_for_cloud_sync (async) ────────────────────────────────────
 
     #[tokio::test]
     async fn refetch_succeeds_from_first_reachable_peer() {
@@ -698,7 +698,7 @@ mod tests {
         ));
     }
 
-    // ── add_receipt_holder ────────────────────────────────────────────────
+ // ── add_receipt_holder ────────────────────────────────────────────────
 
     #[test]
     fn add_receipt_holder_no_duplicate() {

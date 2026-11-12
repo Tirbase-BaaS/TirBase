@@ -2,7 +2,7 @@
 //! schema definition document (Req 20.3).
 //!
 //! The output round-trips through the parser without information loss:
-//!   parse(print(schema)) == schema  (Property 18)
+//! parse(print(schema)) == schema (Property 18)
 
 #![allow(dead_code)]
 
@@ -12,7 +12,7 @@ use crate::store::compaction::CompactionPolicy;
 /// Format a `Schema` object into a TirBase schema definition document (Req 20.3).
 ///
 /// The output round-trips through the parser without information loss:
-///   `parse(print(schema)) == schema`  (Property 18)
+/// `parse(print(schema)) == schema` (Property 18)
 pub fn print(schema: &Schema) -> String {
     let mut out = String::new();
 
@@ -88,9 +88,9 @@ fn print_default_value(dv: &DefaultValue) -> String {
         DefaultValue::Text(s) => format!("\"{}\"", s),
         DefaultValue::Integer(i) => i.to_string(),
         DefaultValue::Real(f) => {
-            // Always produce a decimal point to distinguish from integer literals.
-            // f64's Display may omit it for whole numbers (e.g. 0.0 → "0"),
-            // so we normalise here.
+ // Always produce a decimal point to distinguish from integer literals.
+ // f64's Display may omit it for whole numbers (e.g. 0.0 → "0"),
+ // so we normalise here.
             let s = format!("{}", f);
             if s.contains('.') || s.contains('e') || s.contains('E') {
                 s
@@ -113,19 +113,19 @@ fn print_constraint(constraint: &Constraint) -> String {
             format!("UNIQUE ({})", cols.join(", "))
         }
         Constraint::NotNull(col) => {
-            // NotNull constraints are expressed as NOT NULL modifiers on field
-            // definitions in the textual language; if this variant appears as a
-            // standalone constraint (not a field modifier) we emit it as UNIQUE
-            // with a single-column list here and then convert back to NotNull
-            // during parsing.  However the canonical approach is to not produce
-            // standalone NotNull — the printer instead records it on the field
-            // line via print_field().  This arm handles any legacy data that
-            // carries a Constraint::NotNull and emits a comment so round-trip
-            // equality is maintained at the Schema struct level.
-            //
-            // In practice the parser never produces Constraint::NotNull — it
-            // uses `FieldDef::nullable = false` instead.  This arm is here only
-            // to satisfy exhaustiveness.
+ // NotNull constraints are expressed as NOT NULL modifiers on field
+ // definitions in the textual language; if this variant appears as a
+ // standalone constraint (not a field modifier) we emit it as UNIQUE
+ // with a single-column list here and then convert back to NotNull
+ // during parsing. However the canonical approach is to not produce
+ // standalone NotNull — the printer instead records it on the field
+ // line via print_field(). This arm handles any legacy data that
+ // carries a Constraint::NotNull and emits a comment so round-trip
+ // equality is maintained at the Schema struct level.
+ //
+ // In practice the parser never produces Constraint::NotNull — it
+ // uses `FieldDef::nullable = false` instead. This arm is here only
+ // to satisfy exhaustiveness.
             format!("// NOT NULL {}", col)
         }
     }
@@ -216,11 +216,11 @@ mod tests {
 
     #[test]
     fn print_real_without_decimal_adds_dot_zero() {
-        // 0.0 in Rust formats as "0" — printer must add ".0"
+ // 0.0 in Rust formats as "0" — printer must add ".0"
         assert_eq!(print_default_value(&DefaultValue::Real(0.0)), "0.0");
-        // 1.0 also formats as "1" — should become "1.0"
+ // 1.0 also formats as "1" — should become "1.0"
         assert_eq!(print_default_value(&DefaultValue::Real(1.0)), "1.0");
-        // 2.5 already has a decimal — left as-is
+ // 2.5 already has a decimal — left as-is
         let s = print_default_value(&DefaultValue::Real(2.5));
         assert!(s.contains('.'), "should have decimal: {}", s);
     }

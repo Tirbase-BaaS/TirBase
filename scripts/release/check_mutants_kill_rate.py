@@ -34,7 +34,7 @@ def main() -> int:
     def is_critical(o: dict) -> bool:
         scenario = o.get("scenario") or {}
         mutant = scenario.get("Mutant") or scenario.get("mutant") or {}
-        # cargo-mutants formats vary; try common fields
+ # cargo-mutants formats vary; try common fields
         path = ""
         for key in ("file", "path", "source_path"):
             if key in mutant and mutant[key]:
@@ -53,7 +53,7 @@ def main() -> int:
         if not is_critical(o):
             continue
         summary = (o.get("summary") or o.get("outcome") or "").lower()
-        # Count mutants where a test result is meaningful.
+ # Count mutants where a test result is meaningful.
         if summary in {"unviable", "skipped"}:
             continue
         considered += 1
@@ -62,7 +62,7 @@ def main() -> int:
         elif summary in {"missed", "survived"}:
             missed += 1
         else:
-            # Unknown outcome: treat conservatively as not killed.
+ # Unknown outcome: treat conservatively as not killed.
             missed += 1
 
     if considered == 0:

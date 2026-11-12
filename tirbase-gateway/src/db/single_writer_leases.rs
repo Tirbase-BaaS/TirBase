@@ -98,7 +98,7 @@ pub fn acquire_tx(
                 row.consecutive_renewals.saturating_add(1)
             };
             if renewals >= max_consecutive_renewals {
-                // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
+ // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
                 let cooldown_until = now_mono_secs.saturating_add(lease_duration_secs);
                 tirbase_core::fail_crate::fail_point!("fp_lease_cooldown", |_| Err(
                     LeaseAcquireError::Store("failpoint fp_lease_cooldown".to_string())
@@ -136,7 +136,7 @@ pub fn release_tx(tx: &Transaction<'_>, target_id: &str, issuer_did: &str) -> Re
     Ok(())
 }
 
-/// Task 21.5: release all leases at boot (stale leases are expired/released).
+/// : release all leases at boot (stale leases are expired/released).
 pub fn release_all_at_boot(conn: &Connection) -> Result<usize, String> {
     let deleted = conn
         .execute(&format!("DELETE FROM {SINGLE_WRITER_LEASES_TABLE}"), [])
@@ -144,7 +144,7 @@ pub fn release_all_at_boot(conn: &Connection) -> Result<usize, String> {
     Ok(deleted)
 }
 
-/// Task 21.2: M-of-N preemption by RevocationManager + PolicyAuthority joint op.
+/// : M-of-N preemption by RevocationManager + PolicyAuthority joint op.
 /// Production caller: gateway admin path.
 pub fn preempt_tx(
     tx: &Transaction<'_>,
@@ -186,7 +186,7 @@ pub fn preempt_tx(
     Ok(prior)
 }
 
-/// Task 21.3: release all leases held by a revoked DID.
+/// : release all leases held by a revoked DID.
 pub fn release_all_for_issuer_did(conn: &Connection, issuer_did: &str) -> Result<usize, String> {
     tirbase_core::fail_crate::fail_point!("fp_lease_release_all_for_issuer", |_| Err(
         "failpoint fp_lease_release_all_for_issuer".to_string()

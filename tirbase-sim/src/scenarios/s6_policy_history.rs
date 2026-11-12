@@ -297,8 +297,8 @@ pub fn run_s28(seed: u64) -> Result<(), String> {
         InMemoryKeyProvider::generate().map_err(|error| format!("S28 keygen: {error}"))?;
     let (mut lifecycle, _, _) = make_lifecycle(&authority, profile(1, 0, 1000, 2, 3, 300, 0), 50);
 
-    // The bundle claims an unusable floor (i64::MAX).  If the guard trusted it,
-    // even a valid tightening would be rejected.  It must be ignored.
+ // The bundle claims an unusable floor (i64::MAX). If the guard trusted it,
+ // even a valid tightening would be rejected. It must be ignored.
     let prev = lifecycle.active().body_hash;
     let valid_tightening = signed(
         make_bundle(
@@ -313,8 +313,8 @@ pub fn run_s28(seed: u64) -> Result<(), String> {
         .ingest_bundle(valid_tightening, 1_000)
         .map_err(|error| format!("S28 FAIL: bundle-declared floor was trusted: {error}"))?;
 
-    // Trust-root floor is 5.0°C.  A tightening to [1.0°C, 900] is a strict
-    // subset of the active range but violates the floor, so it must fail.
+ // Trust-root floor is 5.0°C. A tightening to [1.0°C, 900] is a strict
+ // subset of the active range but violates the floor, so it must fail.
     let (mut lifecycle, _, trust_root) =
         make_lifecycle(&authority, profile(1, 0, 1000, 2, 3, 300, 0), 50);
     let prev = lifecycle.active().body_hash;

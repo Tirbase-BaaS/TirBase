@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# check-size-budget.sh — binary size and RSS budget gate (PV-11.4, task 37.4)
+# check-size-budget.sh — binary size and RSS budget gate (PV-11.4)
 #
-# Enforces the numerical budgets in deploy/budgets.toml.  Per PV-15.7 the
+# Enforces the numerical budgets in deploy/budgets.toml. Per PV-15.7 the
 # numerical values are NOT set until the measure-first task (44.2 / PV-15.2)
 # records baselines; a budget of 0 means "not set yet" and the gate records the
-# measurement without failing.  Per PV-15.2 a budget is set at 120% of the
+# measurement without failing. Per PV-15.2 a budget is set at 120% of the
 # measured baseline, so exceeding a set budget IS the regression gate.
 #
 # Usage:
-#   check-size-budget.sh binary-size <path> <target>   # target e.g. aarch64-unknown-linux-gnu
-#   check-size-budget.sh rss <peak_kib>
-#   check-size-budget.sh --self-test                   # proves the failure paths
+# check-size-budget.sh binary-size <path> <target> # target e.g. aarch64-unknown-linux-gnu
+# check-size-budget.sh rss <peak_kib>
+# check-size-budget.sh --self-test # proves the failure paths
 #
 # Exit codes: 0 pass / budget not set, 1 over budget or bad usage.
 set -euo pipefail
@@ -95,12 +95,12 @@ EOF
     fi
   }
 
-  # Over-budget binary must fail; at-budget must pass.
+ # Over-budget binary must fail; at-budget must pass.
   assert_exit 1 "binary size over budget fails" env TIRBASE_BUDGETS_FILE="$fake_budgets" \
     bash "$0" binary-size "$tmp/oversized" test-target --size-bytes 101
   assert_exit 0 "binary size at budget passes" env TIRBASE_BUDGETS_FILE="$fake_budgets" \
     bash "$0" binary-size "$tmp/exact" test-target --size-bytes 100
-  # Over-budget RSS must fail; under-budget must pass.
+ # Over-budget RSS must fail; under-budget must pass.
   assert_exit 1 "RSS over budget fails" env TIRBASE_BUDGETS_FILE="$fake_budgets" \
     bash "$0" rss 201 --budget-file "$fake_budgets"
   assert_exit 0 "RSS under budget passes" env TIRBASE_BUDGETS_FILE="$fake_budgets" \

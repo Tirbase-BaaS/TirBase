@@ -4,7 +4,7 @@
 #
 # Fails if docs/system-invariants.md is missing any INV-1 through INV-16
 # registration row, or if the tirbase-sim InvariantChecker production caller
-# is missing. This is the CI catalog check referenced by task 17 wiring
+# is missing. This is the CI catalog check referenced by wiring
 # mutation checks: removing any INV-N entry from system-invariants.md must
 # fail CI.
 #

@@ -1,13 +1,13 @@
 {
-  "bomFormat": "CycloneDX",
-  "specVersion": "1.5",
-  "version": 1,
-  "metadata": {
-    "component": {
-      "type": "application",
-      "name": "tirbase",
-      "description": "Release VEX statements for TirBase supply-chain gate (CLAIM-42.1/42.4)."
-    }
-  },
-  "vulnerabilities": []
+ "bomFormat": "CycloneDX",
+ "specVersion": "1.5",
+ "version": 1,
+ "metadata": {
+ "component": {
+ "type": "application",
+ "name": "tirbase",
+ "description": "Release VEX statements for TirBase supply-chain gate (CLAIM-42.1/42.4)."
+ }
+ },
+ "vulnerabilities": []
 }

@@ -1,4 +1,4 @@
-//! Single-writer lease (Task 21.1, PV-5.8/5.8a, CLAIM-21.1–21.5).
+//! Single-writer lease (PV-5.8/5.8a, CLAIM-21.1–21.5).
 //!
 //! At most one issuer may hold a lease for a target at a time. Lease timing
 //! uses monotonic time (`expires_mono`); `expires_est` is not used. Consecutive
@@ -12,11 +12,11 @@ use tirbase_types::Did;
 pub struct SingleWriterLease {
     pub issuer_did: Did,
     pub target_id: String,
-    /// Monotonic expiry (`CLOCK_BOOTTIME` domain seconds in gateway persistence).
+ /// Monotonic expiry (`CLOCK_BOOTTIME` domain seconds in gateway persistence).
     pub expires_mono_secs: i64,
     pub consecutive_renewals: u32,
-    /// Monotonic cooldown deadline; while `Some(t)` and `now_mono < t` the same
-    /// issuer cannot re-acquire (S21 / CLAIM-21.4).
+ /// Monotonic cooldown deadline; while `Some(t)` and `now_mono < t` the same
+ /// issuer cannot re-acquire (S21 / CLAIM-21.4).
     pub cooldown_until_mono_secs: Option<i64>,
 }
 

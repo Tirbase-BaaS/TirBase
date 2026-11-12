@@ -1,5 +1,5 @@
 //! Simulation runtime: virtual clock, nodes, and seeded scenario harness
-//! (task 38.2 — CLAIM-38.2, PV-12.1).
+//! (CLAIM-38.2, PV-12.1).
 //!
 //! [`SimClock`] is the single source of simulated time. It advances only when
 //! [`SimClock::tick`] (or [`SimClock::advance_ms`]) is called, and implements
@@ -43,7 +43,7 @@ pub struct SimClock {
 }
 
 impl SimClock {
-    /// Create a clock at `start_ms` that advances by `tick_len_ms` per tick.
+ /// Create a clock at `start_ms` that advances by `tick_len_ms` per tick.
     pub fn new(start_ms: u64, tick_len_ms: u64) -> Self {
         Self {
             now_ms: start_ms,
@@ -52,47 +52,47 @@ impl SimClock {
         }
     }
 
-    /// Virtual time in milliseconds since the simulation epoch.
+ /// Virtual time in milliseconds since the simulation epoch.
     pub fn now_ms(&self) -> u64 {
         self.now_ms
     }
 
-    /// Virtual time in whole seconds.
+ /// Virtual time in whole seconds.
     pub fn now_secs(&self) -> u64 {
         self.now_ms / 1_000
     }
 
-    /// Virtual wall-clock time in Unix seconds (anchor + elapsed).
+ /// Virtual wall-clock time in Unix seconds (anchor + elapsed).
     pub fn wall_secs(&self) -> i64 {
         SIM_EPOCH_SECS + self.now_secs() as i64
     }
 
-    /// Configured tick length in milliseconds.
+ /// Configured tick length in milliseconds.
     pub fn tick_len_ms(&self) -> u64 {
         self.tick_len_ms
     }
 
-    /// Advance one tick and return the new virtual time in milliseconds.
+ /// Advance one tick and return the new virtual time in milliseconds.
     pub fn tick(&mut self) -> u64 {
         self.now_ms = self.now_ms.saturating_add(self.tick_len_ms);
         self.now_ms
     }
 
-    /// Advance by an explicit duration.
+ /// Advance by an explicit duration.
     pub fn advance_ms(&mut self, ms: u64) -> u64 {
         self.now_ms = self.now_ms.saturating_add(ms);
         self.now_ms
     }
 
-    /// Simulate a reboot. Monotonic time keeps increasing (as `CLOCK_BOOTTIME`
-    /// does across a reboot on the same host in this model); only the boot id
-    /// changes, which is what freshness logic keys off.
+ /// Simulate a reboot. Monotonic time keeps increasing (as `CLOCK_BOOTTIME`
+ /// does across a reboot on the same host in this model); only the boot id
+ /// changes, which is what freshness logic keys off.
     pub fn reboot(&mut self) -> u64 {
         self.boot_id = self.boot_id.wrapping_add(1).max(1);
         self.now_ms
     }
 
-    /// Current virtual boot identifier.
+ /// Current virtual boot identifier.
     pub fn boot_id(&self) -> u64 {
         self.boot_id
     }
@@ -121,8 +121,8 @@ impl TimeSource for SimClock {
 /// A simulated TirBase node: real guard + deterministic plant models.
 pub struct SimNode {
     id: NodeId,
-    /// The real command guard this node runs. Simulated commands go through
-    /// the same admission machinery the gateway uses.
+ /// The real command guard this node runs. Simulated commands go through
+ /// the same admission machinery the gateway uses.
     guard: CommandGuard,
     thermal: ThermalModel,
     battery: BatteryModel,
@@ -143,8 +143,8 @@ impl fmt::Debug for SimNode {
 }
 
 impl SimNode {
-    /// Create a node in `Normal` mode with a fresh in-memory epoch store and
-    /// models seeded from `seed` (each node domain-separates by its id).
+ /// Create a node in `Normal` mode with a fresh in-memory epoch store and
+ /// models seeded from `seed` (each node domain-separates by its id).
     pub fn new(id: NodeId, seed: u64) -> Self {
         let node_seed = seed ^ ((id.as_u16() as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15));
         let epochs = Arc::new(EpochRegistry::new(Arc::new(InMemoryEpochStore::default())));
@@ -162,76 +162,76 @@ impl SimNode {
         }
     }
 
-    /// Node identifier.
+ /// Node identifier.
     pub fn id(&self) -> NodeId {
         self.id
     }
 
-    /// The real [`CommandGuard`] wrapped by this node.
+ /// The real [`CommandGuard`] wrapped by this node.
     pub fn guard(&self) -> &CommandGuard {
         &self.guard
     }
 
-    /// Shared mode state of the wrapped guard.
+ /// Shared mode state of the wrapped guard.
     pub fn mode_state(&self) -> Arc<NodeModeState> {
         Arc::clone(self.guard.node_mode())
     }
 
-    /// Set the node's operational mode (Stage 1 reads this on admission).
+ /// Set the node's operational mode (Stage 1 reads this on admission).
     pub fn set_mode(&self, mode: NodeMode) -> NodeMode {
         self.guard.node_mode().set(mode)
     }
 
-    /// Current operational mode.
+ /// Current operational mode.
     pub fn mode(&self) -> NodeMode {
         self.guard.node_mode().get()
     }
 
-    /// Thermal plant model.
+ /// Thermal plant model.
     pub fn thermal(&self) -> &ThermalModel {
         &self.thermal
     }
 
-    /// Mutable thermal plant model (e.g. to change the setpoint).
+ /// Mutable thermal plant model (e.g. to change the setpoint).
     pub fn thermal_mut(&mut self) -> &mut ThermalModel {
         &mut self.thermal
     }
 
-    /// Battery/inverter plant model.
+ /// Battery/inverter plant model.
     pub fn battery(&self) -> &BatteryModel {
         &self.battery
     }
 
-    /// Mutable battery/inverter plant model (e.g. to set the load).
+ /// Mutable battery/inverter plant model (e.g. to set the load).
     pub fn battery_mut(&mut self) -> &mut BatteryModel {
         &mut self.battery
     }
 
-    /// The node's virtual clock view.
+ /// The node's virtual clock view.
     pub fn clock(&self) -> &SimClock {
         &self.clock
     }
 
-    /// Messages delivered to this node, in delivery order.
+ /// Messages delivered to this node, in delivery order.
     pub fn received(&self) -> &[DeliveredMessage] {
         &self.received
     }
 
-    /// Number of tick steps this node has executed.
+ /// Number of tick steps this node has executed.
     pub fn ticks(&self) -> u64 {
         self.ticks
     }
 
-    /// Record a delivery from the network.
+ /// Record a delivery from the network.
     pub fn record_delivery(&mut self, message: DeliveredMessage) {
         if message.dst == self.id {
             self.received.push(message);
         }
     }
 
-    /// Advance the node to virtual time `now_ms`, stepping the plant models by
-    /// the elapsed whole seconds (at most one step per second to keep the
-    /// physics independent of tick granularity).
+ /// Advance the node to virtual time `now_ms`, stepping the plant models by
+ /// the elapsed whole seconds (at most one step per second to keep the
+ /// physics independent of tick granularity).
     pub fn step_to(&mut self, now_ms: u64) {
         self.clock = SimClock::new(now_ms, DEFAULT_TICK_MS);
         let elapsed_s = now_ms.saturating_sub(self.last_step_ms) / 1_000;
@@ -245,7 +245,7 @@ impl SimNode {
         self.ticks = self.ticks.saturating_add(1);
     }
 
-    /// Deterministic state fingerprint for this node at the current instant.
+ /// Deterministic state fingerprint for this node at the current instant.
     pub fn fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         let mut mix = |value: u64| {
@@ -264,7 +264,7 @@ impl SimNode {
 /// A failed scenario: always carries the seed needed to reproduce it (PV-12.2).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SimError {
-    /// A per-tick invariant failed and the scenario halted immediately.
+ /// A per-tick invariant failed and the scenario halted immediately.
     Invariant {
         seed: u64,
         tick: u64,
@@ -273,7 +273,7 @@ pub enum SimError {
 }
 
 impl SimError {
-    /// The reproducibility seed for this failure.
+ /// The reproducibility seed for this failure.
     pub fn seed(&self) -> u64 {
         match self {
             SimError::Invariant { seed, .. } => *seed,
@@ -307,10 +307,10 @@ pub fn seeded_rng(seed: u64) -> ChaCha8Rng {
 pub struct ScenarioReport {
     pub seed: u64,
     pub ticks: u64,
-    /// Order-sensitive FNV-1a digest over clock time, node fingerprints,
-    /// network counters, and the invariant state.
+ /// Order-sensitive FNV-1a digest over clock time, node fingerprints,
+ /// network counters, and the invariant state.
     pub digest: u64,
-    /// Per-node state fingerprints at the end of the run.
+ /// Per-node state fingerprints at the end of the run.
     pub node_fingerprints: Vec<u64>,
     pub delivered_messages: u64,
     pub dropped_messages: u64,
@@ -327,13 +327,13 @@ impl TickGuard {
         Self { seed }
     }
 
-    /// Check invariants for `state`, halting (and printing the seed,
-    /// invariant ID, and triggering state) on the first violation.
+ /// Check invariants for `state`, halting (and printing the seed,
+ /// invariant ID, and triggering state) on the first violation.
     pub fn check(&self, checker: &InvariantChecker, state: &SimState) -> Result<(), SimError> {
         match checker.check_all(state) {
             Ok(()) => Ok(()),
             Err(violation) => {
-                // PV-23.2 / PV-12.2: print the seed before the scenario exits.
+ // PV-23.2 / PV-12.2: print the seed before the scenario exits.
                 println!(
                     "tirbase-sim: seed={} invariant={} state={}",
                     self.seed, violation.invariant, violation.triggering_state

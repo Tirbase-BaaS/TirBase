@@ -1,18 +1,17 @@
-//! TOML adversary-scenario loader and seeded scenario runner (task 39.1,
-//! CLAIM-39.1, PV-12.1, PV-12.2).
+//! TOML adversary-scenario loader and seeded scenario runner (//! CLAIM-39.1, PV-12.1, PV-12.2).
 //!
 //! Each scenario in `tirbase-sim/scenarios/S*.toml` declares its catalog ID,
 //! title, requirement references, the guard/control it exercises, and how many
-//! seeds to execute.  [`ScenarioRunner`] resolves the ID through
+//! seeds to execute. [`ScenarioRunner`] resolves the ID through
 //! [`crate::scenarios::registry`] and runs the scenario once per seed.
 //!
 //! * A CI run executes every declared seed; [`MIN_SEEDS_PER_RUN`] is enforced
-//!   so the adversarial catalog can never silently shrink below 1,000 seeded
-//!   executions (PV-12.1).
+//! so the adversarial catalog can never silently shrink below 1,000 seeded
+//! executions (PV-12.1).
 //! * On the first failing seed the runner writes
-//!   `scenario <ID> FAILED seed=<seed> :: <detail>` to the output stream
-//!   *before* returning, so re-running with that seed reproduces the failure
-//!   exactly (PV-12.2).
+//! `scenario <ID> FAILED seed=<seed> :: <detail>` to the output stream
+//! *before* returning, so re-running with that seed reproduces the failure
+//! exactly (PV-12.2).
 //!
 //! The runner is production code (not `#[cfg(test)]`) so it can be driven by
 //! the simulator binary, CI, or an operator reproducing a failure locally.
@@ -35,19 +34,19 @@ const MAX_SEEDS_PER_SPEC: u64 = 4_096;
 /// A single TOML scenario declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScenarioSpec {
-    /// Catalog identifier, `S1`..`S35`.
+ /// Catalog identifier, `S1`..`S35`.
     pub id: String,
-    /// Human-readable title (matches `docs/adversary-scenarios.md`).
+ /// Human-readable title (matches `docs/adversary-scenarios.md`).
     pub title: String,
-    /// Number of seeds to execute for this scenario in one full run.
+ /// Number of seeds to execute for this scenario in one full run.
     pub seeds: u64,
-    /// Virtual ticks used by scenarios that drive [`crate::TirBaseSim`].
+ /// Virtual ticks used by scenarios that drive [`crate::TirBaseSim`].
     pub ticks: u64,
-    /// PV requirement identifiers this scenario covers.
+ /// PV requirement identifiers this scenario covers.
     pub requirements: Vec<String>,
-    /// Guard/control names the scenario exercises (used by the wiring audit).
+ /// Guard/control names the scenario exercises (used by the wiring audit).
     pub guards: Vec<String>,
-    /// Path the scenario was loaded from.
+ /// Path the scenario was loaded from.
     pub source: PathBuf,
 }
 
@@ -76,18 +75,18 @@ fn default_ticks() -> u64 {
 /// Errors produced while loading or running the catalog.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunnerError {
-    /// The scenario directory or file could not be read.
+ /// The scenario directory or file could not be read.
     Io(String),
-    /// The TOML document is malformed.
+ /// The TOML document is malformed.
     Toml(String),
-    /// A declared field is invalid or a catalog invariant is violated.
+ /// A declared field is invalid or a catalog invariant is violated.
     InvalidSpec(String),
-    /// A scenario ID has no registered implementation.
+ /// A scenario ID has no registered implementation.
     UnknownScenario(String),
-    /// One or more seeded executions failed.  Every failure already had its
-    /// seed written to the output stream before this error was returned.
+ /// One or more seeded executions failed. Every failure already had its
+ /// seed written to the output stream before this error was returned.
     Failures(Vec<ScenarioFailure>),
-    /// The catalog would execute fewer than [`MIN_SEEDS_PER_RUN`] seeds.
+ /// The catalog would execute fewer than [`MIN_SEEDS_PER_RUN`] seeds.
     InsufficientSeeds { declared: u64, required: u64 },
 }
 
@@ -135,16 +134,16 @@ pub struct ScenarioFailure {
 /// Summary of a complete catalog run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScenarioRunSummary {
-    /// Number of scenario specs executed.
+ /// Number of scenario specs executed.
     pub scenarios: usize,
-    /// Total seeded executions (sum of each spec's `seeds`).
+ /// Total seeded executions (sum of each spec's `seeds`).
     pub seeds_executed: u64,
-    /// Per-scenario seed counts, in catalog order.
+ /// Per-scenario seed counts, in catalog order.
     pub per_scenario: Vec<(String, u64)>,
 }
 
 impl ScenarioRunSummary {
-    /// Total seeds executed in this run.
+ /// Total seeds executed in this run.
     pub fn total_seeds(&self) -> u64 {
         self.seeds_executed
     }
@@ -170,7 +169,7 @@ impl fmt::Debug for ScenarioRunner {
 }
 
 impl ScenarioRunner {
-    /// Build a runner from explicit specs and a scenario registry.
+ /// Build a runner from explicit specs and a scenario registry.
     pub fn new(specs: Vec<ScenarioSpec>, registry: BTreeMap<String, ScenarioFn>) -> Self {
         Self {
             specs,
@@ -179,36 +178,36 @@ impl ScenarioRunner {
         }
     }
 
-    /// Load the catalog shipped with this crate and the built-in registry.
+ /// Load the catalog shipped with this crate and the built-in registry.
     pub fn builtin() -> Result<Self, RunnerError> {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("scenarios");
         let specs = load_scenario_dir(&dir)?;
         Ok(Self::new(specs, crate::scenarios::registry()))
     }
 
-    /// Override the first seed in the run.  Each spec's seeds are offset so
-    /// different scenarios do not replay the same RNG streams.
+ /// Override the first seed in the run. Each spec's seeds are offset so
+ /// different scenarios do not replay the same RNG streams.
     pub fn with_base_seed(mut self, base_seed: u64) -> Self {
         self.base_seed = base_seed;
         self
     }
 
-    /// Loaded scenario declarations.
+ /// Loaded scenario declarations.
     pub fn specs(&self) -> &[ScenarioSpec] {
         &self.specs
     }
 
-    /// Number of registered implementations.
+ /// Number of registered implementations.
     pub fn registered(&self) -> usize {
         self.registry.len()
     }
 
-    /// Total seeds this catalog will execute.
+ /// Total seeds this catalog will execute.
     pub fn declared_seeds(&self) -> u64 {
         self.specs.iter().map(|spec| spec.seeds).sum()
     }
 
-    /// Execute one scenario for one explicit seed.
+ /// Execute one scenario for one explicit seed.
     pub fn run_scenario(&self, id: &str, seed: u64) -> Result<(), RunnerError> {
         let Some(scenario) = self.registry.get(id) else {
             return Err(RunnerError::UnknownScenario(id.to_string()));
@@ -222,14 +221,14 @@ impl ScenarioRunner {
         })
     }
 
-    /// Execute every spec for every configured seed, writing a reproducible
-    /// failure line (including the seed) before returning.
+ /// Execute every spec for every configured seed, writing a reproducible
+ /// failure line (including the seed) before returning.
     pub fn run(&self) -> Result<ScenarioRunSummary, RunnerError> {
         let mut out = io::stdout().lock();
         self.run_to(&mut out)
     }
 
-    /// Like [`ScenarioRunner::run`], but writes failure reports to `out`.
+ /// Like [`ScenarioRunner::run`], but writes failure reports to `out`.
     pub fn run_to(&self, out: &mut dyn Write) -> Result<ScenarioRunSummary, RunnerError> {
         let declared = self.declared_seeds();
         if declared < MIN_SEEDS_PER_RUN {
@@ -255,7 +254,7 @@ impl ScenarioRunner {
                     .wrapping_add(offset);
                 seeds_executed = seeds_executed.saturating_add(1);
                 if let Err(detail) = execute(&spec.id, *scenario, seed) {
-                    // PV-12.2: write the seed before returning to the caller.
+ // PV-12.2: write the seed before returning to the caller.
                     let _ = writeln!(
                         out,
                         "scenario {} FAILED seed={} :: {}",

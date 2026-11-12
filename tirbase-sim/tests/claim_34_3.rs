@@ -21,7 +21,7 @@ fn claim_34_3_canonical_thermal_model_bit_identical_across_crates() {
         );
     }
 
-    // ColdRoomSimDriver uses the same canonical model.
+ // ColdRoomSimDriver uses the same canonical model.
     let mut drv = tirbase_drivers::ColdRoomSimDriver::new(0xC01D, "cold_room#1");
     let mut sim = ColdRoomThermalSim::new(0xC01D);
     for step in 0..256 {

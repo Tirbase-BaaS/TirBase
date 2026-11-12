@@ -2,20 +2,20 @@
 //!
 //! Covers six scenarios:
 //! 1. Late-arriving descendant taint (Req 10.3) — `tag_contamination_root`
-//!    BFS walk reaches descendants inserted after the initial tag.
+//! BFS walk reaches descendants inserted after the initial tag.
 //! 2. Composite decomposition end-to-end (Req 10.6) — full `verify_data` →
-//!    `decompose_composites_if_needed` → surviving sub-chain ICOs carry
-//!    `affected_rows` re-marked CONTAMINATED.
+//! `decompose_composites_if_needed` → surviving sub-chain ICOs carry
+//! `affected_rows` re-marked CONTAMINATED.
 //! 3. Contamination resolution production exposure (Req 11.1/11.2) — `verify_data`
-//!    appends `DeltaTag::Resolved` + audit entries; `admin_close` transitions ICO to Closed.
+//! appends `DeltaTag::Resolved` + audit entries; `admin_close` transitions ICO to Closed.
 //! 4. Token-expiry enforcement (Req 11.5) — `verify_data`/`admin_close` reject
-//!    expired manager tokens via `verify_manager_auth`.
+//! expired manager tokens via `verify_manager_auth`.
 //! 5. Beacon signal loss production path (Req 15.4) —
-//!    `AnchorAttestedLocation::on_beacon_signal_lost` → permanent
-//!    mode reversion to SquadTagFallback.
+//! `AnchorAttestedLocation::on_beacon_signal_lost` → permanent
+//! mode reversion to SquadTagFallback.
 //! 6. Expired manager token rejection (Req 11.5) — `verify_data`/`admin_close`
-//!    reject an expired token before any resolution operation, leaving no
-//!    tags written to `dag_nodes`.
+//! reject an expired token before any resolution operation, leaving no
+//! tags written to `dag_nodes`.
 
 #![cfg(feature = "native")]
 
@@ -133,11 +133,11 @@ fn test_late_arriving_descendant_taint() {
     let early_child: DeltaId = [0x02u8; 32];
     let late_child: DeltaId = [0x03u8; 32];
 
-    // Build: root → early_child (both present before tagging).
+ // Build: root → early_child (both present before tagging).
     insert_node(&mut dag, root_id, vec![]);
     insert_node(&mut dag, early_child, vec![root_id]);
 
-    // Tag the root — BFS should walk to early_child only.
+ // Tag the root — BFS should walk to early_child only.
     let ico_id = cce
         .tag_contamination_root(
             root_id,
@@ -147,7 +147,7 @@ fn test_late_arriving_descendant_taint() {
         )
         .expect("tag_contamination_root should succeed");
 
-    // Confirm early_child was tagged with Contaminated.
+ // Confirm early_child was tagged with Contaminated.
     {
         let lock = conn.lock().unwrap();
         let tags = read_tags(&lock, &early_child);
@@ -160,10 +160,10 @@ fn test_late_arriving_descendant_taint() {
         );
     }
 
-    // Now simulate the late-arriving descendant: insert it into the DAG.
+ // Now simulate the late-arriving descendant: insert it into the DAG.
     insert_node(&mut dag, late_child, vec![root_id]);
 
-    // Re-tag the root to prove the BFS walk reaches the late descendant.
+ // Re-tag the root to prove the BFS walk reaches the late descendant.
     let source = TaintSource::DeviceRevocation {
         revocation_delta_id: root_id,
     };
@@ -171,7 +171,7 @@ fn test_late_arriving_descendant_taint() {
         .tag_contamination_root(root_id, source)
         .expect("re-tag root");
 
-    // late_child must now have a Contaminated tag.
+ // late_child must now have a Contaminated tag.
     let lock = conn.lock().unwrap();
     let tags = read_tags(&lock, &late_child);
     assert!(
@@ -184,7 +184,7 @@ fn test_late_arriving_descendant_taint() {
 // ─── Test 2: Composite decomposition end-to-end (Req 10.6) ────────────────────
 
 /// Scenario: Two contamination chains (A: root_a → shared, B: root_b → shared)
-/// share a descendant `shared`, forming a composite incident.  When `root_a` is
+/// share a descendant `shared`, forming a composite incident. When `root_a` is
 /// VERIFY_DATA'd (resolved), the composite decomposes and `root_b`'s surviving
 /// sub-chain is re-registered as a fresh OPEN ICO with `affected_rows`
 /// re-marked CONTAMINATED in the projection store.
@@ -201,12 +201,12 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
     let root_b: DeltaId = [0xBBu8; 32];
     let shared: DeltaId = [0xCCu8; 32]; // child of both root_a and root_b
 
-    // Build the diamond DAG.
+ // Build the diamond DAG.
     insert_node(&mut dag, root_a, vec![]);
     insert_node(&mut dag, root_b, vec![]);
     insert_node(&mut dag, shared, vec![root_a, root_b]);
 
-    // Create a projection table so resolve_affected_rows finds rows.
+ // Create a projection table so resolve_affected_rows finds rows.
     {
         let lock = conn.lock().unwrap();
         lock.execute_batch(
@@ -221,7 +221,7 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
 
     let (mgr_did, mgr_secret) = make_manager();
 
-    // Tag root_a → ICO_A covers {root_a, shared}.
+ // Tag root_a → ICO_A covers {root_a, shared}.
     cce.tag_contamination_root(
         root_a,
         TaintSource::DeviceRevocation {
@@ -230,8 +230,8 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
     )
     .expect("tag root_a");
 
-    // Tag root_b → since `shared` is already contaminated by ICO_A, a composite
-    // should form. The returned ID is the composite incident ID.
+ // Tag root_b → since `shared` is already contaminated by ICO_A, a composite
+ // should form. The returned ID is the composite incident ID.
     let composite_id = cce
         .tag_contamination_root(
             root_b,
@@ -241,9 +241,9 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
         )
         .expect("tag root_b");
 
-    // The composite_id should not be a regular ICO — it's a composite.
-    // After decomposition, it transitions to Decomposed state, so the regular
-    // ICO lookup returns None.
+ // The composite_id should not be a regular ICO — it's a composite.
+ // After decomposition, it transitions to Decomposed state, so the regular
+ // ICO lookup returns None.
     assert!(
         cce.get_incident(composite_id)
             .expect("get incident")
@@ -251,16 +251,16 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
         "composite incident should not be found via get_incident (it lives in composite_incidents)"
     );
 
-    // Resolve root_a — this should decompose the composite and re-register
-    // root_b as a fresh OPEN ICO.
+ // Resolve root_a — this should decompose the composite and re-register
+ // root_b as a fresh OPEN ICO.
     let expiry = now_micros() + 3_600_000_000;
     let now_s = now_secs();
     let sig_a = sign_payload(&mgr_secret, &root_a);
     cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s)
         .expect("verify_data root_a");
 
-    // After decomposition, a new OPEN ICO for root_b must exist.
-    // Use open_incidents() (public API) to find it.
+ // After decomposition, a new OPEN ICO for root_b must exist.
+ // Use open_incidents() (public API) to find it.
     let open_icos = cce.open_incidents().expect("open_incidents");
     assert!(
         !open_icos.is_empty(),
@@ -281,8 +281,8 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
         "surviving ICO must have affected_rows populated for the unresolved lineage"
     );
 
-    // Projection rows must still be CONTAMINATED via the unresolved lineage
-    // (root_b's sub-chain still has an unresolved root).
+ // Projection rows must still be CONTAMINATED via the unresolved lineage
+ // (root_b's sub-chain still has an unresolved root).
     let lock = conn.lock().unwrap();
     let contaminated: i64 = lock
         .query_row(
@@ -296,7 +296,7 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
         "affected rows must remain CONTAMINATED via the unresolved lineage after decomposition"
     );
 
-    // Verify root_a now has a Resolved tag in the DAG.
+ // Verify root_a now has a Resolved tag in the DAG.
     let tags_root_a = read_tags(&lock, &root_a);
     assert!(
         tags_root_a
@@ -316,7 +316,7 @@ fn test_composite_decomposition_surviving_subchain_remains_contaminated() {
 /// - After `verify_data`, root has a `DeltaTag::Resolved` in `dag_nodes.tags_json`.
 /// - An `AuditEntry` with `AuditOperation::VerifyData` is present.
 /// - After `admin_close`, the ICO state is `Closed` and an `AdminClose` audit
-///   entry was appended.
+/// entry was appended.
 #[test]
 fn test_verify_data_and_admin_close_audit_trail() {
     let (mut cce, conn) = open_cce();
@@ -329,7 +329,7 @@ fn test_verify_data_and_admin_close_audit_trail() {
 
     let (mgr_did, mgr_secret) = make_manager();
 
-    // Tag the root.
+ // Tag the root.
     let ico_id = cce
         .tag_contamination_root(
             root_id,
@@ -343,11 +343,11 @@ fn test_verify_data_and_admin_close_audit_trail() {
     let now_s = now_secs();
     let sig = sign_payload(&mgr_secret, &root_id);
 
-    // verify_data — must succeed and leave auditable traces.
+ // verify_data — must succeed and leave auditable traces.
     cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_s)
         .expect("verify_data");
 
-    // Check the Resolved tag directly in dag_nodes.tags_json.
+ // Check the Resolved tag directly in dag_nodes.tags_json.
     {
         let lock = conn.lock().unwrap();
         let tags = read_tags(&lock, &root_id);
@@ -369,7 +369,7 @@ fn test_verify_data_and_admin_close_audit_trail() {
         "VerifyData audit entry must be present"
     );
 
-    // admin_close — must succeed and transition to Closed.
+ // admin_close — must succeed and transition to Closed.
     let sig_close = sign_payload(&mgr_secret, ico_id.as_bytes());
     cce.admin_close(ico_id, mgr_did.clone(), sig_close, expiry, now_s)
         .expect("admin_close");
@@ -426,10 +426,10 @@ fn test_token_expiry_rejects_expired_manager_token() {
 
     let now_s = now_secs();
 
-    // --- verify_data with expired token ---
-    // Token expiry is compared against `now_secs * 1_000_000` inside
-    // `verify_manager_auth`; construct an expiry that is strictly in the
-    // past relative to that computation.
+ // --- verify_data with expired token ---
+ // Token expiry is compared against `now_secs * 1_000_000` inside
+ // `verify_manager_auth`; construct an expiry that is strictly in the
+ // past relative to that computation.
     let expired = now_s * 1_000_000 - 1; // 1 microsecond before now_secs in micros
     let sig = sign_payload(&mgr_secret, &root_id);
     let result = cce.verify_data(root_id, mgr_did.clone(), sig, expired, now_s);
@@ -442,13 +442,13 @@ fn test_token_expiry_rejects_expired_manager_token() {
         "verify_data must reject an expired token: {result:?}"
     );
 
-    // --- verify_data with valid (future) token must not be blocked by expiry ---
+ // --- verify_data with valid (future) token must not be blocked by expiry ---
     let valid = now_s * 1_000_000 + 3_600_000_000;
     let sig2 = sign_payload(&mgr_secret, &root_id);
     cce.verify_data(root_id, mgr_did.clone(), sig2, valid, now_s)
         .expect("verify_data with valid token must succeed");
 
-    // --- admin_close with expired token ---
+ // --- admin_close with expired token ---
     let sig_close_expired = sign_payload(&mgr_secret, ico_id.as_bytes());
     let result = cce.admin_close(ico_id, mgr_did.clone(), sig_close_expired, expired, now_s);
     assert!(
@@ -460,7 +460,7 @@ fn test_token_expiry_rejects_expired_manager_token() {
         "admin_close must reject an expired token: {result:?}"
     );
 
-    // --- admin_close with valid token must succeed ---
+ // --- admin_close with valid token must succeed ---
     let sig_close_valid = sign_payload(&mgr_secret, ico_id.as_bytes());
     cce.admin_close(ico_id, mgr_did, sig_close_valid, valid, now_s)
         .expect("admin_close with valid token must succeed");
@@ -469,7 +469,7 @@ fn test_token_expiry_rejects_expired_manager_token() {
 // ─── Test 5: Beacon signal loss production path (Req 15.4) ────────────────────
 
 /// Scenario: An `AnchorAttestedLocation` in `BeaconAttested` mode verifies
-/// beacon-signed location tokens.  When `on_beacon_signal_lost` is called, the
+/// beacon-signed location tokens. When `on_beacon_signal_lost` is called, the
 /// subsystem permanently reverts to `SquadTagFallback` mode — receipts are then
 /// counted by squad tag, not beacon-attested location.
 ///
@@ -480,10 +480,10 @@ fn test_token_expiry_rejects_expired_manager_token() {
 /// Acceptance:
 /// - Before signal loss: `peer_has_valid_token` returns true for a valid token.
 /// - After signal loss: `mode()` is `SquadTagFallback`, `degradation_log` has one entry,
-///   and `peer_has_valid_token` returns false for all tokens.
+/// and `peer_has_valid_token` returns false for all tokens.
 #[test]
 fn test_beacon_signal_loss_permanent_reversion() {
-    // Set up a beacon identity.
+ // Set up a beacon identity.
     let beacon = IdentityManager::init_in_memory().expect("beacon identity");
     let beacon_pk = beacon.public_key_bytes();
     let beacon_did = beacon.did().to_string();
@@ -495,10 +495,10 @@ fn test_beacon_signal_loss_permanent_reversion() {
 
     let mut anchor = AnchorAttestedLocation::new(registry, 1);
 
-    // Before signal loss: mode is BeaconAttested.
+ // Before signal loss: mode is BeaconAttested.
     assert_eq!(anchor.mode(), AnchorMode::BeaconAttested);
 
-    // Create a valid beacon token for epoch 1.
+ // Create a valid beacon token for epoch 1.
     let epoch = 1u64;
     let location = "sector-A";
     let payload = beacon_signing_payload(epoch, location);
@@ -512,45 +512,45 @@ fn test_beacon_signal_loss_permanent_reversion() {
         issued_at: now_micros(),
     };
 
-    // A valid token should verify.
+ // A valid token should verify.
     anchor
         .verify_beacon_token(&token, now_secs())
         .expect("valid beacon token must verify");
 
-    // peer_has_valid_token must return true in BeaconAttested mode.
+ // peer_has_valid_token must return true in BeaconAttested mode.
     assert!(
         anchor.peer_has_valid_token(&token, now_secs()),
         "peer_has_valid_token must return true with a valid token in BeaconAttested mode"
     );
 
-    // Simulate beacon signal loss (Req 15.4).
+ // Simulate beacon signal loss (Req 15.4).
     let affected_dids = vec!["did:key:z6MkPeer1".to_string()];
     anchor
         .on_beacon_signal_lost(now_micros(), affected_dids.clone())
         .expect("on_beacon_signal_lost must succeed");
 
-    // Mode must have reverted permanently to SquadTagFallback.
+ // Mode must have reverted permanently to SquadTagFallback.
     assert_eq!(
         anchor.mode(),
         AnchorMode::SquadTagFallback,
         "mode must revert to SquadTagFallback after beacon signal loss"
     );
 
-    // The degradation log must contain exactly one entry.
+ // The degradation log must contain exactly one entry.
     assert_eq!(
         anchor.degradation_log().len(),
         1,
         "exactly one TransportDegradationEvent must be logged"
     );
 
-    // After reversion, peer_has_valid_token must return false for ALL tokens
-    // (spatial diversity falls back to squad tags entirely).
+ // After reversion, peer_has_valid_token must return false for ALL tokens
+ // (spatial diversity falls back to squad tags entirely).
     assert!(
         !anchor.peer_has_valid_token(&token, now_secs()),
         "peer_has_valid_token must return false after signal loss (SquadTagFallback)"
     );
 
-    // Verify the degradation event carries the affected peer DIDs.
+ // Verify the degradation event carries the affected peer DIDs.
     let event = &anchor.degradation_log()[0];
     assert_eq!(event.affected_peer_dids, affected_dids);
     assert!(
@@ -561,15 +561,15 @@ fn test_beacon_signal_loss_permanent_reversion() {
 
 // ─── Test 6: Late-arriving descendant of resolved root receives Decontaminated ─
 
-/// Scenario: A contamination root is tagged and an ICO is created.  Then a
+/// Scenario: A contamination root is tagged and an ICO is created. Then a
 /// late-arriving Delta is inserted as a descendant of the root *after* the
-/// initial `tag_contamination_root` snapshot.  When `verify_data` resolves the
+/// initial `tag_contamination_root` snapshot. When `verify_data` resolves the
 /// root, the late-arrival walk must discover the new descendant via the live DAG
 /// and append `DeltaTag::Decontaminated` to it.
 ///
 /// Acceptance:
 /// - The late-arriving Delta must carry `DeltaTag::Decontaminated` after
-///   `verify_data` resolves the root.
+/// `verify_data` resolves the root.
 #[test]
 fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
     let (mut cce, conn) = open_cce();
@@ -579,11 +579,11 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
     let early_child: DeltaId = [0x12u8; 32];
     let late_child: DeltaId = [0x13u8; 32];
 
-    // Build: root → early_child (both present before tagging).
+ // Build: root → early_child (both present before tagging).
     insert_node(&mut dag, root_id, vec![]);
     insert_node(&mut dag, early_child, vec![root_id]);
 
-    // Tag the root — snapshot covers {root_id, early_child}.
+ // Tag the root — snapshot covers {root_id, early_child}.
     let ico_id = cce
         .tag_contamination_root(
             root_id,
@@ -593,7 +593,7 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
         )
         .expect("tag_contamination_root should succeed");
 
-    // Confirm early_child was tagged with Contaminated.
+ // Confirm early_child was tagged with Contaminated.
     {
         let lock = conn.lock().unwrap();
         let tags = read_tags(&lock, &early_child);
@@ -606,11 +606,11 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
         );
     }
 
-    // Now simulate the late-arriving descendant: insert it into the DAG
-    // AFTER the root was tagged.
+ // Now simulate the late-arriving descendant: insert it into the DAG
+ // AFTER the root was tagged.
     insert_node(&mut dag, late_child, vec![root_id]);
 
-    // Resolve the root via verify_data.
+ // Resolve the root via verify_data.
     let (mgr_did, mgr_secret) = make_manager();
     let expiry = now_micros() + 3_600_000_000;
     let now_s = now_secs();
@@ -618,7 +618,7 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
     cce.verify_data(root_id, mgr_did, sig, expiry, now_s)
         .expect("verify_data should succeed");
 
-    // The late-arriving descendant must now have a Decontaminated tag.
+ // The late-arriving descendant must now have a Decontaminated tag.
     let lock = conn.lock().unwrap();
     let tags = read_tags(&lock, &late_child);
     assert!(
@@ -629,7 +629,7 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
         "late-arriving descendant of resolved root must carry DeltaTag::Decontaminated: {tags:?}"
     );
 
-    // early_child should also still have Decontaminated (from the snapshot walk).
+ // early_child should also still have Decontaminated (from the snapshot walk).
     let early_tags = read_tags(&lock, &early_child);
     assert!(
         early_tags.iter().any(|t| matches!(
@@ -643,15 +643,15 @@ fn test_late_arriving_descendant_of_resolved_root_is_decontaminated() {
 // ─── Test 7: Late-arriving descendant of unresolved root receives Contaminated ─
 
 /// Scenario: Two contamination roots (root_a, root_b) share a descendant `shared`,
-/// forming a composite incident.  After the composite is created, a late-arriving
+/// forming a composite incident. After the composite is created, a late-arriving
 /// Delta is inserted as a descendant of root_b (the root that will remain
-/// unresolved).  When root_a is resolved via `verify_data`, the late-arrival walk
+/// unresolved). When root_a is resolved via `verify_data`, the late-arrival walk
 /// must find the late descendant of the *unresolved* root_b and tag it
 /// `DeltaTag::Contaminated`.
 ///
 /// Acceptance:
 /// - The late-arriving Delta must carry `DeltaTag::Contaminated` after
-///   `verify_data` resolves root_a (because root_b is still unresolved).
+/// `verify_data` resolves root_a (because root_b is still unresolved).
 #[test]
 fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
     let (mut cce, conn) = open_cce();
@@ -662,12 +662,12 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
     let shared: DeltaId = [0x23u8; 32]; // descendant of both roots
     let late_child: DeltaId = [0x24u8; 32]; // late descendant of root_b only
 
-    // Build the diamond: root_a → shared, root_b → shared.
+ // Build the diamond: root_a → shared, root_b → shared.
     insert_node(&mut dag, root_a, vec![]);
     insert_node(&mut dag, root_b, vec![]);
     insert_node(&mut dag, shared, vec![root_a, root_b]);
 
-    // Tag root_a → ICO_A covers {root_a, shared}.
+ // Tag root_a → ICO_A covers {root_a, shared}.
     let ico_a_id = cce
         .tag_contamination_root(
             root_a,
@@ -677,7 +677,7 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
         )
         .expect("tag root_a");
 
-    // Tag root_b → composite forms (shared is reachable from both roots).
+ // Tag root_b → composite forms (shared is reachable from both roots).
     let composite_id = cce
         .tag_contamination_root(
             root_b,
@@ -687,9 +687,9 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
         )
         .expect("tag root_b");
 
-    // The second tag should have produced a composite incident.
-    // Composite ICOs live in `composite_incidents`, not `incidents`, so
-    // `get_incident` (which queries `incidents` only) should return None.
+ // The second tag should have produced a composite incident.
+ // Composite ICOs live in `composite_incidents`, not `incidents`, so
+ // `get_incident` (which queries `incidents` only) should return None.
     assert!(
         cce.get_incident(composite_id)
             .expect("get incident")
@@ -697,11 +697,11 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
         "composite incident should not be found via get_incident (it lives in composite_incidents)"
     );
 
-    // Now simulate the late-arriving descendant: insert it as a child of root_b
-    // AFTER both roots were tagged and the composite was formed.
+ // Now simulate the late-arriving descendant: insert it as a child of root_b
+ // AFTER both roots were tagged and the composite was formed.
     insert_node(&mut dag, late_child, vec![root_b]);
 
-    // Resolve root_a via verify_data — root_b remains unresolved.
+ // Resolve root_a via verify_data — root_b remains unresolved.
     let (mgr_did, mgr_secret) = make_manager();
     let expiry = now_micros() + 3_600_000_000;
     let now_s = now_secs();
@@ -709,8 +709,8 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
     cce.verify_data(root_a, mgr_did, sig_a, expiry, now_s)
         .expect("verify_data root_a should succeed");
 
-    // The late-arriving descendant of the unresolved root_b must now have a
-    // Contaminated tag from the late-arrival walk.
+ // The late-arriving descendant of the unresolved root_b must now have a
+ // Contaminated tag from the late-arrival walk.
     let lock = conn.lock().unwrap();
     let tags = read_tags(&lock, &late_child);
     assert!(
@@ -735,7 +735,7 @@ fn test_late_arriving_descendant_of_unresolved_root_is_contaminated() {
 /// Acceptance:
 /// - An expired token → `AuthorisationFailed` with "manager token expired".
 /// - The root Delta's `tags_json` must NOT contain a `DeltaTag::Resolved`
-///   (the resolution operation was short-circuited at the auth gate).
+/// (the resolution operation was short-circuited at the auth gate).
 #[test]
 fn expired_manager_token_is_rejected() {
     let (mut cce, conn) = open_cce();
@@ -746,7 +746,7 @@ fn expired_manager_token_is_rejected() {
 
     let (mgr_did, mgr_secret) = make_manager();
 
-    // Create an ICO by tagging the root.
+ // Create an ICO by tagging the root.
     let ico_id = cce
         .tag_contamination_root(
             root_id,
@@ -756,15 +756,15 @@ fn expired_manager_token_is_rejected() {
         )
         .expect("tag root");
 
-    // Token expiry is 1 microsecond before now_secs (in micros).
-    // `verify_manager_auth` compares `token_expiry` against `now_secs * 1_000_000`,
-    // so we must construct the expired value relative to `now_secs` to avoid
-    // sub-second truncation causing a false pass.
+ // Token expiry is 1 microsecond before now_secs (in micros).
+ // `verify_manager_auth` compares `token_expiry` against `now_secs * 1_000_000`,
+ // so we must construct the expired value relative to `now_secs` to avoid
+ // sub-second truncation causing a false pass.
     let now_s = now_secs();
     let expired_micros = now_s * 1_000_000 - 1;
     let sig = sign_payload(&mgr_secret, &root_id);
 
-    // verify_data must reject the expired token.
+ // verify_data must reject the expired token.
     let result = cce.verify_data(root_id, mgr_did.clone(), sig, expired_micros, now_s);
     assert!(
         matches!(
@@ -775,8 +775,8 @@ fn expired_manager_token_is_rejected() {
         "verify_data must reject an expired token: {result:?}"
     );
 
-    // The root Delta must NOT have a Resolved tag — the operation was
-    // short-circuited at the auth gate before any tag was written.
+ // The root Delta must NOT have a Resolved tag — the operation was
+ // short-circuited at the auth gate before any tag was written.
     let lock = conn.lock().unwrap();
     let tags = read_tags(&lock, &root_id);
     assert!(
@@ -784,7 +784,7 @@ fn expired_manager_token_is_rejected() {
         "root must NOT carry a Resolved tag when token is expired: {tags:?}"
     );
 
-    // admin_close must also reject the expired token.
+ // admin_close must also reject the expired token.
     let sig_close = sign_payload(&mgr_secret, ico_id.as_bytes());
     let result = cce.admin_close(ico_id, mgr_did, sig_close, expired_micros, now_s);
     assert!(
@@ -796,7 +796,7 @@ fn expired_manager_token_is_rejected() {
         "admin_close must reject an expired token: {result:?}"
     );
 
-    // The ICO must still be Open — admin_close was short-circuited.
+ // The ICO must still be Open — admin_close was short-circuited.
     let ico = cce
         .get_incident(ico_id)
         .expect("get incident")

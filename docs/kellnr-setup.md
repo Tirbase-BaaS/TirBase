@@ -5,12 +5,12 @@ that acts as a **caching proxy for crates.io**. Every dependency download flows
 through the local Kellnr instance, giving the team:
 
 - **Supply-chain control** — a tamper-evident cache; crates are checksum-verified
-  before being served.
+ before being served.
 - **Auditability** — every version that has been pulled is visible in the Kellnr UI.
 - **Offline resilience** — once a crate is cached, it is served from Kellnr even if
-  crates.io is unreachable.
+ crates.io is unreachable.
 - **Private crate hosting** — internal crates can be published to Kellnr and used as
-  normal `[dependencies]` entries with `registry = "kellnr"`.
+ normal `[dependencies]` entries with `registry = "kellnr"`.
 
 ---
 
@@ -23,7 +23,7 @@ Kellnr runs as a Docker container. Docker Desktop must be running.
 docker compose -f .kellnr/docker-compose.yml up -d
 
 # Check health
-curl -s http://localhost:8000/api/v1/health   # → "OK"
+curl -s http://localhost:8000/api/v1/health # → "OK"
 
 # Stop Kellnr
 docker compose -f .kellnr/docker-compose.yml down
@@ -58,7 +58,7 @@ On first use Kellnr fetches crates from crates.io on demand and caches them. To
 pre-warm the cache for the full workspace:
 
 ```bash
-cargo fetch   # downloads all locked deps through Kellnr
+cargo fetch # downloads all locked deps through Kellnr
 ```
 
 ---
@@ -114,17 +114,17 @@ To reset Kellnr completely: `docker compose -f .kellnr/docker-compose.yml down -
 
 ## Troubleshooting
 
-**`cargo build` fails with "kellnr: no such registry"**  
+**`cargo build` fails with "kellnr: no such registry"** 
 → Kellnr is not running. Run `docker compose -f .kellnr/docker-compose.yml up -d`.
 
-**Connection refused on port 8000**  
-→ Docker Desktop may not be running, or Kellnr container crashed.  
+**Connection refused on port 8000** 
+→ Docker Desktop may not be running, or Kellnr container crashed. 
 → Check: `docker compose -f .kellnr/docker-compose.yml ps`
 
-**Crate not found in Kellnr**  
-→ Kellnr fetches from crates.io on demand. The first fetch may take a moment.  
+**Crate not found in Kellnr** 
+→ Kellnr fetches from crates.io on demand. The first fetch may take a moment. 
 → If it fails, check internet connectivity from the Docker container.
 
-**`cargo deny check` fails with "unknown registry"**  
+**`cargo deny check` fails with "unknown registry"** 
 → `deny.toml` already includes Kellnr's URL in `allow-registry`. If you change
-   the Kellnr port, update `deny.toml` accordingly.
+ the Kellnr port, update `deny.toml` accordingly.

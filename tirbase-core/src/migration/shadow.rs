@@ -1,4 +1,4 @@
-//! Shadow-copy migration execution over projection tables (PV-8.4, Task 30.1/30.2/30.5).
+//! Shadow-copy migration execution over projection tables (PV-8.4, /30.2/30.5).
 
 #![allow(dead_code)]
 
@@ -21,7 +21,7 @@ pub struct ShadowRunOutcome {
     pub migration_result: MigrationResult,
     pub postconditions: Option<PostconditionOutcome>,
     pub shadow_projections: Option<ShadowProjections>,
-    /// Quarantine to record if present (caller records under engine lock).
+ /// Quarantine to record if present (caller records under engine lock).
     pub quarantine_reason: Option<QuarantineReason>,
     pub quarantine_detail: Option<String>,
 }

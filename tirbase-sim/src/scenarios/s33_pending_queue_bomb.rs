@@ -29,7 +29,7 @@ fn mk(n: u16, payload: usize, author: &str) -> Delta {
 }
 
 pub fn run_s33(seed: u64) -> Result<(), String> {
-    // Tiny caps to model boundedness deterministically.
+ // Tiny caps to model boundedness deterministically.
     let mut q = PendingQueue::new(100, 5_000, 2_200);
     let mut overflow = 0usize;
     let base = seed as u16;
@@ -56,7 +56,7 @@ pub fn run_s33(seed: u64) -> Result<(), String> {
         ));
     }
 
-    // age-out -> MissingDependencyTimeout
+ // age-out -> MissingDependencyTimeout
     let mut q2 = PendingQueue::new(50, 1024 * 1024, 1024 * 1024);
     q2.enqueue(
         mk(base.wrapping_add(999), 10, "did:key:a"),

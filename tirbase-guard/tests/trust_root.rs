@@ -1,4 +1,4 @@
-//! Task 8 integration tests: root CA registry, trust-root rollback protection,
+//! integration tests: root CA registry, trust-root rollback protection,
 //! and the role registry (CLAIM-8.1, CLAIM-8.2, CLAIM-8.3, CLAIM-8.3a).
 //!
 //! These drive the same public API the gateway boot path uses:
@@ -117,7 +117,7 @@ fn k_of_n_root_rotation_revokes_old_keys_and_rejects_rollback() {
     let mut manager =
         TrustRootManager::install(record, counter.clone(), 1_000).expect("install v1");
 
-    // Rotation v2 keeps b, adds c, revokes a.  It is signed by b and c.
+ // Rotation v2 keeps b, adds c, revokes a. It is signed by b and c.
     let mut rotated = root_record(2, &[&b, &c], 2);
     rotated.revoked_root_ca_keys = vec![a.public_key_bytes()];
     sign_record(&mut rotated, &[&b, &c]);
@@ -132,7 +132,7 @@ fn k_of_n_root_rotation_revokes_old_keys_and_rejects_rollback() {
     assert!(manager.record().is_root_revoked(&a.public_key_bytes()));
     assert!(!manager.record().is_root_revoked(&b.public_key_bytes()));
 
-    // Restoring v1 must be rejected before anything is committed (CLAIM-8.2).
+ // Restoring v1 must be rejected before anything is committed (CLAIM-8.2).
     let rollback = root_record(1, &[&a, &b], 2);
     assert_eq!(
         manager.rotate(rollback, 1_000),
@@ -166,7 +166,7 @@ fn revoked_root_key_can_no_longer_verify_a_token() {
     )
     .unwrap();
 
-    // Empty registry: the self-test path must reject before registration.
+ // Empty registry: the self-test path must reject before registration.
     let empty = RootCaRegistry::new(Vec::new());
     assert!(empty
         .verify_against_first(|key| biscuit::verify_token(&token_from_new, key, now_secs()))
@@ -177,8 +177,8 @@ fn revoked_root_key_can_no_longer_verify_a_token() {
     assert_eq!(registry.active_keys(), vec![new_pub]);
     assert!(!registry.is_registered(&old_pub));
 
-    // A token signed by the revoked key is rejected; the remaining key still
-    // verifies its own tokens.
+ // A token signed by the revoked key is rejected; the remaining key still
+ // verifies its own tokens.
     assert!(registry
         .verify_against_first(|key| biscuit::verify_token(&token_from_old, key, now_secs()))
         .is_err());

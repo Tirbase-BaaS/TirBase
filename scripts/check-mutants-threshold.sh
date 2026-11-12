@@ -54,18 +54,18 @@ GROUPS = {
 
 def parse_outcomes(outcomes_path: Path) -> tuple[int,int,int,int]:
     data = json.loads(outcomes_path.read_text())
-    # cargo-mutants outcomes.json schema has evolved; handle common forms.
+ # cargo-mutants outcomes.json schema has evolved; handle common forms.
     outcomes = data.get("outcomes") or data.get("mutants") or []
     caught = missed = timeout = unviable = 0
     for m in outcomes:
         summary = (m.get("summary") or m.get("outcome") or "").lower()
-        # normalize
+ # normalize
         if summary in ("caught","killed"): caught += 1
         elif summary in ("missed","survived"): missed += 1
         elif summary in ("timeout","time_out"): timeout += 1
         elif summary in ("unviable","build_failed","unviable_mutant"): unviable += 1
         else:
-            # some versions nest differently
+ # some versions nest differently
             res = str(m).lower()
             if "caught" in res or "killed" in res: caught += 1
             elif "missed" in res or "survived" in res: missed += 1
@@ -75,7 +75,7 @@ def parse_outcomes(outcomes_path: Path) -> tuple[int,int,int,int]:
 
 
 def run_group(name: str, files: list[str], extra_args: list[str], timeout: int) -> float:
-    # remove stale outcomes
+ # remove stale outcomes
     outdir = Path("mutants.out")
     if outdir.exists():
         shutil.rmtree(outdir)

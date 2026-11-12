@@ -1,4 +1,4 @@
-# Packaging and fleet inventory (task 37, PV-11.3 / PV-11.4)
+# Packaging and fleet inventory (PV-11.3 / PV-11.4)
 
 This page documents the packaging pipeline for the `tirbase-gateway` binary and
 the fleet-inventory CRDT collection. Every item below is enforced by CI; the
@@ -93,25 +93,25 @@ gateway and gates its peak RSS (`VmHWM`).
 collection keyed by device DID:
 
 * **Provisioning payload cap** — `MAX_PROVISIONING_PAYLOAD_BYTES = 64 KiB`,
-  enforced on local provisioning *and* on untrusted inbound updates.
+ enforced on local provisioning *and* on untrusted inbound updates.
 * **Revocation is monotonic** — a revoked entry always dominates a provisioned
-  entry, so a stale peer cannot resurrect a revoked device.
+ entry, so a stale peer cannot resurrect a revoked device.
 * **Convergence** — per-device join is a total order on
-  `(lifecycle, version, updated_by)`, so merge is commutative, associative and
-  idempotent; `FleetInventory::snapshot_hash()` is byte-stable across replicas
-  and is the fleet-precondition hash Contract migrations commit to (task 30.3).
+ `(lifecycle, version, updated_by)`, so merge is commutative, associative and
+ idempotent; `FleetInventory::snapshot_hash` is byte-stable across replicas
+ and is the fleet-precondition hash Contract migrations commit to .
 * **Propagation** — `CoreHandle::fleet_provision_device` /
-  `fleet_revoke_device` publish a `FleetInventoryDelta` on
-  `subscribe_fleet_updates()` and enqueue it on the mesh scheduler at HIGH
-  priority as a `GossipMessage::FleetInventoryUpdate` envelope. Inbound deltas
-  merge through both `receive_inbound` paths, apply the local revocation side
-  effects (the CRDT engine then rejects Deltas authored by the revoked DID),
-  and re-broadcast only when the merge changed state. Newly connected peers are
-  sent the full inventory on connection, so revocation reaches every connected
-  peer within the PV-11.3 60-second budget.
+ `fleet_revoke_device` publish a `FleetInventoryDelta` on
+ `subscribe_fleet_updates` and enqueue it on the mesh scheduler at HIGH
+ priority as a `GossipMessage::FleetInventoryUpdate` envelope. Inbound deltas
+ merge through both `receive_inbound` paths, apply the local revocation side
+ effects (the CRDT engine then rejects Deltas authored by the revoked DID),
+ and re-broadcast only when the merge changed state. Newly connected peers are
+ sent the full inventory on connection, so revocation reaches every connected
+ peer within the PV-11.3 60-second budget.
 
 The integration test
-`tirbase-core/tests/task37_fleet_inventory.rs::fleet_revocation_propagates_to_connected_peer_within_60_seconds`
+`tirbase-core/tests/fleet_inventory.rs::fleet_revocation_propagates_to_connected_peer_within_60_seconds`
 drives two real `CoreHandle` instances: the revocation delta must be published,
 accepted by the peer and applied to the peer's merge gate inside 60 seconds.
 Removing the propagation path makes that wait time out, so it is also the

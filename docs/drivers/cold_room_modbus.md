@@ -7,7 +7,7 @@ Reference pack for the simulated cold-room controller backed by `tirbase-sim`/`t
 - **Modbus TCP client**: `tirbase_drivers::ModbusTcpClient` (real `Read+Write` client, bounded timeouts, tx-id/unit-id matching) connects to `tirbase_sim::ModbusSimServer`.
 - **Modbus RTU client**: `tirbase_drivers::ModbusRtuClient` over generic `Read+Write` with RTU request/response framing and CRC-16 validation.
 - **Physical device fd ownership (34.8/S35)**: `tirbase-guard::DeviceTransport` owns the TCP socket / serial fd; guard passes fd to driver child via `SCM_RIGHTS` (`tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` proves real child receipt and Linux sandbox blocking of post-sandbox `SCM_RIGHTS`).
-- Gateway production smoke path: `CARGO_BIN_EXE_tirbase-gateway modbus-smoke ...` (`tirbase-gateway/src/task34_cli.rs`, `tests/task34_binary.rs`).
+- Gateway production smoke path: `CARGO_BIN_EXE_tirbase-gateway modbus-smoke ...` (`tirbase-gateway/src/reference_cli.rs`, `tests/reference_profile_binary.rs`).
 
 ## Supported function codes
 
@@ -43,7 +43,7 @@ The canonical cold-room model is `tirbase_drivers::cold_room_sim::FirstOrderTher
 
 ## Tests/evidence
 
-- Modbus codec/client: `tirbase-drivers/tests/task34_modbus_client.rs`, `task34_reference_drivers.rs`; gateway binary smoke: `tirbase-gateway/tests/task34_binary.rs::claim_34_1_gateway_binary_modbus_smoke_against_sim`.
+- Modbus codec/client: `tirbase-drivers/tests/modbus_client.rs`, `reference_drivers.rs`; gateway binary smoke: `tirbase-gateway/tests/reference_profile_binary.rs::claim_34_1_gateway_binary_modbus_smoke_against_sim`.
 - Register-map parser/fuzz: `tirbase-drivers/src/register_map.rs`, `tirbase-drivers/fuzz/fuzz_targets/register_map_parse.rs`.
 - S35 fd isolation: `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked`, `tirbase-guard/tests/device_transport_s35.rs`.
 

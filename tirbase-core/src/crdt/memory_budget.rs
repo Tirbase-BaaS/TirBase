@@ -1,4 +1,4 @@
-//! Memory budgets with eviction metrics (PV-6.5, task 24.2).
+//! Memory budgets with eviction metrics (PV-6.5).
 //!
 //! DAG node cache 32 MiB, ICO index 8 MiB, reassembly buffers 16 MiB.
 //! Each cache exposes current_bytes, eviction_count, hit_count, miss_count.
@@ -9,9 +9,9 @@ use std::sync::Arc;
 pub const DAG_NODE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 pub const ICO_INDEX_BYTES: usize = 8 * 1024 * 1024;
 pub const REASSEMBLY_BUFFERS_BYTES: usize = 16 * 1024 * 1024;
-pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per task 24.5
+pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per 
 
-/// Cap for the in-memory rate-quarantine counters (task 24.1).
+/// Cap for the in-memory rate-quarantine counters ().
 ///
 /// These are per-sender counters (`sender_did -> window state`), not payload
 /// buffers, so the cap is small: 1 MiB covers far more senders than
@@ -19,7 +19,7 @@ pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per task 2
 pub const RATE_QUARANTINE_MEMORY_BYTES: usize = 1024 * 1024;
 
 /// Documented process RSS budget baseline (MiB) for a gateway process with all
-/// configured caches loaded.  Task 44.2 will replace this provisional number
+/// configured caches loaded. will replace this provisional number
 /// with a measured value; until then it is the budget the memory gate asserts
 /// against and the denominator for the 90% ledger rule.
 pub const RSS_BUDGET_BYTES: usize = 256 * 1024 * 1024;
@@ -139,7 +139,7 @@ mod tests {
 }
 
 #[cfg(all(test, feature = "native"))]
-mod task24_tests {
+mod memory_budget_tests {
     use super::*;
 
     #[test]

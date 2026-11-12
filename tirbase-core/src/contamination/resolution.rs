@@ -26,9 +26,9 @@ pub(crate) fn now_micros() -> i64 {
 ///
 /// Checks:
 /// 1. `now_secs > token_expiry / 1_000_000` — rejects expired tokens.
-///    Both `token_expiry` and `now_secs` are wall-clock; `token_expiry` is in
-///    microseconds and `now_secs` is in seconds, so the comparison converts
-///    `now_secs` to microseconds.
+/// Both `token_expiry` and `now_secs` are wall-clock; `token_expiry` is in
+/// microseconds and `now_secs` is in seconds, so the comparison converts
+/// `now_secs` to microseconds.
 /// 2. Resolves manager DID to Ed25519 public key via `identity::did::resolve_did`.
 /// 3. Verifies the Ed25519 signature over `payload` using `ed25519_dalek`.
 ///
@@ -40,9 +40,9 @@ pub(crate) fn verify_manager_auth(
     token_expiry: i64,
     now_secs: i64,
 ) -> Result<(), TirBaseError> {
-    // 1. Token expiry check — compare caller-supplied wall-clock (seconds)
-    //    against the token's expiry claim (microseconds). The token is expired
-    //    if the current time has passed the expiry deadline.
+ // 1. Token expiry check — compare caller-supplied wall-clock (seconds)
+ // against the token's expiry claim (microseconds). The token is expired
+ // if the current time has passed the expiry deadline.
     let now_micros = now_secs * 1_000_000;
     if token_expiry <= now_micros {
         return Err(TirBaseError::AuthorisationFailed {
@@ -52,14 +52,14 @@ pub(crate) fn verify_manager_auth(
         });
     }
 
-    // 2. Resolve DID → public key.
+ // 2. Resolve DID → public key.
     let public_key = crate::identity::did::resolve_did(manager_did).map_err(|e| {
         TirBaseError::AuthorisationFailed {
             reason: format!("DID resolution failed for {manager_did}: {e}"),
         }
     })?;
 
-    // 3. Verify Ed25519 signature.
+ // 3. Verify Ed25519 signature.
     crate::identity::keypair::verify(&public_key, payload, sig).map_err(|e| {
         TirBaseError::AuthorisationFailed {
             reason: format!("manager signature invalid: {e}"),
@@ -81,18 +81,18 @@ pub struct ManagerAuth {
 /// 1. Verify manager auth (sig + token expiry).
 /// 2. Append `DeltaTag::Resolved` to the root Delta's `tags_json` in `dag_nodes`.
 /// 3. For every ICO that lists `root_delta_id` in its `contamination_roots`:
-///    - Append an `AuditEntry` to the ICO.
-///    - If ALL roots in that ICO now carry a `Resolved` tag, BFS walk and append
-///      `DeltaTag::Decontaminated` to every reachable descendant.
+/// - Append an `AuditEntry` to the ICO.
+/// - If ALL roots in that ICO now carry a `Resolved` tag, BFS walk and append
+/// `DeltaTag::Decontaminated` to every reachable descendant.
 /// 4. Late-arrival decontamination walk (Req 10.3 gap fix):
-///    - For each resolved root, query the live DAG for descendants not present in
-///      the original `contaminated_deltas` snapshot and append
-///      `DeltaTag::Decontaminated` to each.
-///    - For each unresolved root in an active ICO, query the live DAG for
-///      descendants not in the snapshot, append `DeltaTag::Contaminated`, and add
-///      them to the ICO's `contaminated_deltas`.
+/// - For each resolved root, query the live DAG for descendants not present in
+/// the original `contaminated_deltas` snapshot and append
+/// `DeltaTag::Decontaminated` to each.
+/// - For each unresolved root in an active ICO, query the live DAG for
+/// descendants not in the snapshot, append `DeltaTag::Contaminated`, and add
+/// them to the ICO's `contaminated_deltas`.
 /// 5. Decompose composite incidents that contain this root if surviving sub-chains
-///    still have unresolved roots.
+/// still have unresolved roots.
 #[cfg(feature = "native")]
 pub fn verify_data(
     root_delta_id: DeltaId,
@@ -103,7 +103,7 @@ pub fn verify_data(
     incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
     composite_incidents: &mut BTreeMap<IncidentId, CompositeIncidentInstance>,
 ) -> Result<DecompositionResult, TirBaseError> {
-    // 1. Auth.
+ // 1. Auth.
     verify_manager_auth(
         &auth.did,
         &auth.sig,
@@ -112,7 +112,7 @@ pub fn verify_data(
         now_secs,
     )?;
 
-    // 2. Append Resolved tag to the root Delta.
+ // 2. Append Resolved tag to the root Delta.
     let at = now_micros();
     crate::contamination::taint::append_tag(
         conn,
@@ -123,7 +123,7 @@ pub fn verify_data(
         },
     )?;
 
-    // 3. For each ICO referencing this root, record audit entry + check if all roots resolved.
+ // 3. For each ICO referencing this root, record audit entry + check if all roots resolved.
     let ico_ids: Vec<IncidentId> = incidents
         .values()
         .filter(|ico| ico.contamination_roots.contains(&root_delta_id))
@@ -136,7 +136,7 @@ pub fn verify_data(
             None => continue,
         };
 
-        // Append audit entry.
+ // Append audit entry.
         ico.audit_log.push(AuditEntry {
             operation: AuditOperation::VerifyData,
             manager_did: auth.did.clone(),
@@ -145,14 +145,14 @@ pub fn verify_data(
         });
         ico.updated_at = at;
 
-        // Check if all roots are now resolved.
+ // Check if all roots are now resolved.
         let all_resolved = ico
             .contamination_roots
             .iter()
             .all(|root_id| has_resolved_tag(conn, root_id));
 
         if all_resolved {
-            // Propagate Decontaminated to every reachable descendant.
+ // Propagate Decontaminated to every reachable descendant.
             let all_contaminated: Vec<DeltaId> = ico.contaminated_deltas.iter().copied().collect();
             for delta_id in &all_contaminated {
                 let _ = crate::contamination::taint::append_tag(
@@ -165,7 +165,7 @@ pub fn verify_data(
                 );
             }
 
-            // Clear projection-layer contamination flags for all affected rows (Req 11.1).
+ // Clear projection-layer contamination flags for all affected rows (Req 11.1).
             for row in &ico.affected_rows {
                 let _ = crate::store::projection::clear_row_contamination(
                     conn,
@@ -176,23 +176,23 @@ pub fn verify_data(
         }
     }
 
-    // ─── Step 4: Late-arrival decontamination walk (Req 10.3 gap fix) ─────────
-    //
-    // Deltas that descended from a contamination root *after* the initial
-    // `tag_contamination_root` snapshot was taken are not in the ICO's
-    // `contaminated_deltas` snapshot.  We now query the live DAG to find
-    // those late-arriving descendants and tag them:
-    //
-    //   • Roots that are now fully resolved → late descendants receive
-    //     DeltaTag::Decontaminated.
-    //   • Roots that remain unresolved → late descendants receive
-    //     DeltaTag::Contaminated and are added to the active ICO's
-    //     contaminated_deltas.
-    //
-    // We process both regular ICOs and composite incidents that reference
-    // `root_delta_id` in their contamination_roots.
+ // ─── Step 4: Late-arrival decontamination walk (Req 10.3 gap fix) ─────────
+ //
+ // Deltas that descended from a contamination root *after* the initial
+ // `tag_contamination_root` snapshot was taken are not in the ICO's
+ // `contaminated_deltas` snapshot. We now query the live DAG to find
+ // those late-arriving descendants and tag them:
+ //
+ // • Roots that are now fully resolved → late descendants receive
+ // DeltaTag::Decontaminated.
+ // • Roots that remain unresolved → late descendants receive
+ // DeltaTag::Contaminated and are added to the active ICO's
+ // contaminated_deltas.
+ //
+ // We process both regular ICOs and composite incidents that reference
+ // `root_delta_id` in their contamination_roots.
 
-    // Collect composite incident IDs that reference this root.
+ // Collect composite incident IDs that reference this root.
     let composite_ico_ids: Vec<IncidentId> = composite_incidents
         .values()
         .filter(|c| {
@@ -212,8 +212,8 @@ pub fn verify_data(
             .iter()
             .all(|root_id| has_resolved_tag(conn, root_id));
 
-        // For a fully resolved ICO, late descendants of the root should be
-        // decontaminated.
+ // For a fully resolved ICO, late descendants of the root should be
+ // decontaminated.
         if all_resolved {
             for root_id in &ico.contamination_roots {
                 if has_resolved_tag(conn, root_id) {
@@ -225,17 +225,17 @@ pub fn verify_data(
                         conn,
                         *ico_id,
                     )?;
-                    // Add late arrivals to the ICO's contaminated_deltas so
-                    // they are tracked (they will already carry Decontaminated
-                    // tags from the walk above).
+ // Add late arrivals to the ICO's contaminated_deltas so
+ // they are tracked (they will already carry Decontaminated
+ // tags from the walk above).
                     for delta_id in &late {
                         ico.contaminated_deltas.insert(*delta_id);
                     }
                 }
             }
         } else {
-            // For an unresolved ICO, late descendants of unresolved roots
-            // should receive Contaminated tags and join contaminated_deltas.
+ // For an unresolved ICO, late descendants of unresolved roots
+ // should receive Contaminated tags and join contaminated_deltas.
             for root_id in &ico.contamination_roots {
                 if !has_resolved_tag(conn, root_id) {
                     let late = crate::contamination::taint::walk_late_arrival_descendants(
@@ -254,7 +254,7 @@ pub fn verify_data(
         }
     }
 
-    // Process composite incidents referencing this root.
+ // Process composite incidents referencing this root.
     for comp_id in &composite_ico_ids {
         let comp = match composite_incidents.get_mut(comp_id) {
             Some(c) => c,
@@ -301,11 +301,11 @@ pub fn verify_data(
         }
     }
 
-    // 5. Decompose any composite incidents that include this root.
-    //    The returned DecompositionResult carries the new ICOs' affected_rows
-    //    so the caller (CausalContaminationEngine::verify_data) can repopulate
-    //    its `contaminated_rows` O(1) index for the surviving sub-chains
-    //    (Req 10.6 — affected rows remain CONTAMINATED via the unresolved lineage).
+ // 5. Decompose any composite incidents that include this root.
+ // The returned DecompositionResult carries the new ICOs' affected_rows
+ // so the caller (CausalContaminationEngine::verify_data) can repopulate
+ // its `contaminated_rows` O(1) index for the surviving sub-chains
+ // (Req 10.6 — affected rows remain CONTAMINATED via the unresolved lineage).
     let decomposition = decompose_composites_if_needed(
         root_delta_id,
         conn,
@@ -332,7 +332,7 @@ fn has_resolved_tag(conn: &rusqlite::Connection, delta_id: &DeltaId) -> bool {
 /// `contaminated_rows` O(1) index.
 #[derive(Debug, Default)]
 pub struct DecompositionResult {
-    /// (new_ico_id, affected_rows) pairs for each re-registered unresolved root.
+ /// (new_ico_id, affected_rows) pairs for each re-registered unresolved root.
     pub new_icos: Vec<(IncidentId, Vec<crate::contamination::incident::AffectedRow>)>,
 }
 
@@ -363,7 +363,7 @@ fn decompose_composites_if_needed(
 ) -> Result<DecompositionResult, TirBaseError> {
     let mut result = DecompositionResult::default();
 
-    // Find composites that contain this root.
+ // Find composites that contain this root.
     let composite_ids: Vec<IncidentId> = composite_incidents
         .values()
         .filter(|c| c.contamination_roots.contains(&resolved_root))
@@ -376,7 +376,7 @@ fn decompose_composites_if_needed(
             None => continue,
         };
 
-        // Identify sub-chains with unresolved roots.
+ // Identify sub-chains with unresolved roots.
         let unresolved_roots: Vec<DeltaId> = composite
             .contamination_roots
             .iter()
@@ -384,24 +384,24 @@ fn decompose_composites_if_needed(
             .copied()
             .collect();
 
-        // If surviving unresolved roots exist, decompose into a fresh ICO.
+ // If surviving unresolved roots exist, decompose into a fresh ICO.
         if !unresolved_roots.is_empty() {
             composite.state = IncidentState::Decomposed;
 
-            // Re-register each unresolved root as a new independent ICO.
+ // Re-register each unresolved root as a new independent ICO.
             for root_id in &unresolved_roots {
                 let new_ico_id = uuid::Uuid::now_v7();
-                // BFS walk from this root to find its descendants — use the
-                // raw connection (already locked) to avoid deadlocking the
-                // shared Mutex<Connection> that ChangesetDag would re-lock.
+ // BFS walk from this root to find its descendants — use the
+ // raw connection (already locked) to avoid deadlocking the
+ // shared Mutex<Connection> that ChangesetDag would re-lock.
                 let descendants = crate::contamination::taint::bfs_descendants_raw(conn, root_id)
                     .unwrap_or_else(|_| vec![*root_id]);
                 let contaminated_deltas = descendants.iter().copied().collect();
 
-                // Resolve affected projection rows for the surviving sub-chain
-                // and re-mark them CONTAMINATED so the unresolved lineage
-                // keeps its rows tainted (Req 10.6, acceptance criteria:
-                // "affected rows remain CONTAMINATED via the unresolved lineage").
+ // Resolve affected projection rows for the surviving sub-chain
+ // and re-mark them CONTAMINATED so the unresolved lineage
+ // keeps its rows tainted (Req 10.6, acceptance criteria:
+ // "affected rows remain CONTAMINATED via the unresolved lineage").
                 let affected_rows = crate::contamination::taint::resolve_affected_rows(
                     conn,
                     &descendants,
@@ -433,7 +433,7 @@ fn decompose_composites_if_needed(
                 result.new_icos.push((new_ico_id, affected_rows));
             }
         } else {
-            // All roots resolved — mark composite as decomposed.
+ // All roots resolved — mark composite as decomposed.
             composite.state = IncidentState::Decomposed;
         }
     }
@@ -458,7 +458,7 @@ pub fn admin_close(
     now_secs: i64,
     incidents: &mut BTreeMap<IncidentId, IncidentContextObject>,
 ) -> Result<(), TirBaseError> {
-    // 1. Auth — sign payload is the incident_id bytes.
+ // 1. Auth — sign payload is the incident_id bytes.
     verify_manager_auth(
         &manager_did,
         &manager_sig,
@@ -467,7 +467,7 @@ pub fn admin_close(
         now_secs,
     )?;
 
-    // 2. Load ICO.
+ // 2. Load ICO.
     let ico =
         incidents
             .get_mut(&incident_id)
@@ -475,18 +475,18 @@ pub fn admin_close(
                 reason: format!("incident {incident_id} not found"),
             })?;
 
-    // 3. Guard — must be Open.
+ // 3. Guard — must be Open.
     if ico.state != IncidentState::Open {
         return Err(TirBaseError::InvalidIncidentState { got: ico.state });
     }
 
     let at = now_micros();
 
-    // 4. Transition to Closed.
+ // 4. Transition to Closed.
     ico.state = IncidentState::Closed;
     ico.updated_at = at;
 
-    // 5. Audit entry.
+ // 5. Audit entry.
     ico.audit_log.push(AuditEntry {
         operation: AuditOperation::AdminClose,
         manager_did,

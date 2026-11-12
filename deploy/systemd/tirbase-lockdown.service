@@ -1,8 +1,8 @@
-# tirbase-lockdown.service — oneshot lockdown flag writer (task 13.4, CLAIM-13.4,
-# PV-1.11, PV-4.15).  Triggered by OnFailure= from tirbase-guard.service.
+# tirbase-lockdown.service — oneshot lockdown flag writer (CLAIM-13.4,
+# PV-1.11, PV-4.15). Triggered by OnFailure= from tirbase-guard.service.
 #
 # Writes LOCKDOWN to primary.db monotonic_counters(lockdown_state)=1 and the
-# secondary indicator /var/lib/tirbase/lockdown.  /run is tmpfs and is NOT used
+# secondary indicator /var/lib/tirbase/lockdown. /run is tmpfs and is NOT used
 # as sole persistence.
 
 [Unit]

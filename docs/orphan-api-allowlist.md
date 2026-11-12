@@ -27,7 +27,7 @@ To add an entry:
 
 | Item | Owner | Justification | Expiry |
 |------|-------|---------------|--------|
-| `tirbase_types::CommandRole` | @tirbase-core-team | Role enum defined for PV-3.1; cross-crate wiring in tirbase-guard Phase 2 (task 7+) | v0.3.0 |
+| `tirbase_types::CommandRole` | @tirbase-core-team | Role enum defined for PV-3.1; cross-crate wiring in tirbase-guard Phase 2 (+) | v0.3.0 |
 | `tirbase_types::CommandRole::Auditor` | @tirbase-core-team | Enum variant; cross-crate wiring in Phase 2 | v0.3.0 |
 | `tirbase_types::CommandRole::CommandIssuer` | @tirbase-core-team | Enum variant; cross-crate wiring in Phase 2 | v0.3.0 |
 | `tirbase_types::CommandRole::PolicyAuthority` | @tirbase-core-team | Enum variant; cross-crate wiring in Phase 2 | v0.3.0 |
@@ -47,11 +47,11 @@ To add an entry:
 | `tirbase_types::DeltaId` | @tirbase-core-team | Type alias [u8;32]; shared type, cross-crate wiring Phase 2+ | v0.3.0 |
 | `tirbase_types::MigrationId` | @tirbase-core-team | Type alias [u8;32]; wired in migration Phase 6 | v0.3.0 |
 | `tirbase_types::ProfileId` | @tirbase-core-team | Type alias [u8;16]; wired in Phase 2 EnvelopeProfile | v0.3.0 |
-| `tirbase_guard::tirbase_types` | @tirbase-guard-team | Re-export of tirbase_types; guard body wired in tasks 7–16 | v0.3.0 |
-| `tirbase_drivers::tirbase_types` | @tirbase-drivers-team | Re-export of tirbase_types; driver body wired in tasks 18+ | v0.3.0 |
-| `tirbase_sim::tirbase_types` | @tirbase-sim-team | Re-export of tirbase_types; simulator body wired in tasks 24+ | v0.3.0 |
-| `tirbase_demo::tirbase_types` | @tirbase-demo-team | Re-export of tirbase_types; demo packs wired in tasks 27+ | v0.3.0 |
-| `tirbase_core::api` | @tirbase-core-team | CoreHandle API module; tirbase-gateway wires this in Phase 9 (task 20+) | v0.3.0 |
+| `tirbase_guard::tirbase_types` | @tirbase-guard-team | Re-export of tirbase_types; guard body wired in –16 | v0.3.0 |
+| `tirbase_drivers::tirbase_types` | @tirbase-drivers-team | Re-export of tirbase_types; driver body wired in + | v0.3.0 |
+| `tirbase_sim::tirbase_types` | @tirbase-sim-team | Re-export of tirbase_types; simulator body wired in + | v0.3.0 |
+| `tirbase_demo::tirbase_types` | @tirbase-demo-team | Re-export of tirbase_types; demo packs wired in + | v0.3.0 |
+| `tirbase_core::api` | @tirbase-core-team | CoreHandle API module; tirbase-gateway wires this in Phase 9 (+) | v0.3.0 |
 | `tirbase_core::api::CoreHandle` | @tirbase-core-team | Main API entry point; tirbase-gateway wires in Phase 9 | v0.3.0 |
 | `tirbase_core::api::CoreHandle::init` | @tirbase-core-team | Init function; wired in gateway Phase 9 | v0.3.0 |
 | `tirbase_core::api::CoreHandle::register_migration_ca_key` | @tirbase-core-team | Wired in gateway init path Phase 9 | v0.3.0 |
@@ -462,21 +462,21 @@ To add an entry:
 | `tirbase_core::transport::session::PeerPair` | @tirbase-core-team | Peer pair type; wired in Phase 9 | v0.3.0 |
 | `tirbase_core::transport::session::ResumptionCredential` | @tirbase-core-team | Credential type; wired in Phase 9 | v0.3.0 |
 | `tirbase_core::transport::session::SessionManager` | @tirbase-core-team | Session manager type; wired in Phase 9 | v0.3.0 |
-| `tirbase_types::envelope::ConstraintOperator` | @tirbase-core-team | Envelope constraint operator (PV-4.5, CLAIM-10.3); Stage 12 evaluation wired in task 13 | v0.3.0 |
-| `tirbase_types::envelope::DeviceModel` | @tirbase-core-team | Device model validation view (PV-10.2, CLAIM-10.6); driver model wired in task 33 | v0.3.0 |
-| `tirbase_types::envelope::DeviceParameter` | @tirbase-core-team | Device parameter validation view (PV-10.2, CLAIM-10.6); driver model wired in task 33 | v0.3.0 |
-| `tirbase_types::envelope::EnvelopeProfile` | @tirbase-core-team | Signed envelope profile document (PV-4.5, CLAIM-10.4); guard/gateway pipeline wired in task 13 | v0.3.0 |
+| `tirbase_types::envelope::ConstraintOperator` | @tirbase-core-team | Envelope constraint operator (PV-4.5, CLAIM-10.3); Stage 12 evaluation wired in | v0.3.0 |
+| `tirbase_types::envelope::DeviceModel` | @tirbase-core-team | Device model validation view (PV-10.2, CLAIM-10.6); driver model wired in | v0.3.0 |
+| `tirbase_types::envelope::DeviceParameter` | @tirbase-core-team | Device parameter validation view (PV-10.2, CLAIM-10.6); driver model wired in | v0.3.0 |
+| `tirbase_types::envelope::EnvelopeProfile` | @tirbase-core-team | Signed envelope profile document (PV-4.5, CLAIM-10.4); guard/gateway pipeline wired in | v0.3.0 |
 | `tirbase_types::envelope::EnvelopeProfileBody` | @tirbase-core-team | Unsigned profile body for signing/verification (PV-4.5, CLAIM-10.4) | v0.3.0 |
-| `tirbase_types::envelope::LinearConstraint` | @tirbase-core-team | Cross-parameter constraint (PV-4.5, CLAIM-10.3); Stage 12 wired in task 13 | v0.3.0 |
-| `tirbase_types::envelope::ParameterKind` | @tirbase-core-team | Parameter domain kind (PV-4.5, CLAIM-10.1); Stage 10-13 wired in task 13 | v0.3.0 |
-| `tirbase_types::envelope::ParameterSpec` | @tirbase-core-team | Per-parameter spec (PV-4.5, CLAIM-10.2); Stage 10-13 wired in task 13 | v0.3.0 |
-| `tirbase_guard::envelope::FieldError` | @tirbase-core-team | Profile validation field error (PV-4.5, CLAIM-10.6); guard install path wired in task 13 | v0.3.0 |
-| `tirbase_guard::envelope::ProfileInstallError` | @tirbase-core-team | Profile install error (PV-4.5, CLAIM-10.4/10.6); guard install path wired in task 13 | v0.3.0 |
-| `tirbase_guard::envelope::ProfileMap` | @tirbase-core-team | Target-to-profile hot-swap map (PV-4.5, CLAIM-10.5); CommandGuard wiring in task 13 | v0.3.0 |
-| `tirbase_guard::envelope::install_profile` | @tirbase-core-team | Production profile install path (PV-4.5, CLAIM-10.4/10.6); guard/gateway wiring in task 13 | v0.3.0 |
+| `tirbase_types::envelope::LinearConstraint` | @tirbase-core-team | Cross-parameter constraint (PV-4.5, CLAIM-10.3); Stage 12 wired in | v0.3.0 |
+| `tirbase_types::envelope::ParameterKind` | @tirbase-core-team | Parameter domain kind (PV-4.5, CLAIM-10.1); Stage 10-13 wired in | v0.3.0 |
+| `tirbase_types::envelope::ParameterSpec` | @tirbase-core-team | Per-parameter spec (PV-4.5, CLAIM-10.2); Stage 10-13 wired in | v0.3.0 |
+| `tirbase_guard::envelope::FieldError` | @tirbase-core-team | Profile validation field error (PV-4.5, CLAIM-10.6); guard install path wired in | v0.3.0 |
+| `tirbase_guard::envelope::ProfileInstallError` | @tirbase-core-team | Profile install error (PV-4.5, CLAIM-10.4/10.6); guard install path wired in | v0.3.0 |
+| `tirbase_guard::envelope::ProfileMap` | @tirbase-core-team | Target-to-profile hot-swap map (PV-4.5, CLAIM-10.5); CommandGuard wiring in | v0.3.0 |
+| `tirbase_guard::envelope::install_profile` | @tirbase-core-team | Production profile install path (PV-4.5, CLAIM-10.4/10.6); guard/gateway wiring in | v0.3.0 |
 | `tirbase_guard::envelope::profile_signing_bytes` | @tirbase-core-team | Domain-separated profile signing bytes (PV-4.5, CLAIM-10.4) | v0.3.0 |
-| `tirbase_guard::envelope::validate_profile` | @tirbase-core-team | Install-time profile validation (PV-4.5, CLAIM-10.6); guard wiring in task 13 | v0.3.0 |
-| `tirbase_guard::envelope::verify_profile_signature` | @tirbase-core-team | PolicyAuthority profile signature check (PV-4.5, CLAIM-10.4); guard wiring in task 13 | v0.3.0 |
+| `tirbase_guard::envelope::validate_profile` | @tirbase-core-team | Install-time profile validation (PV-4.5, CLAIM-10.6); guard wiring in | v0.3.0 |
+| `tirbase_guard::envelope::verify_profile_signature` | @tirbase-core-team | PolicyAuthority profile signature check (PV-4.5, CLAIM-10.4); guard wiring in | v0.3.0 |
 | `tirbase_guard::signed_operation::CONTEXT_ENVELOPE_PROFILE` | @tirbase-core-team | Domain-separation context for EnvelopeProfile signatures (PV-4.5, CLAIM-10.4) | v0.3.0 |
 | `tirbase_guard::command` | @tirbase-guard-team | No source reference from any other workspace crate; guard-internal signed-command surface pending a library consumer | v0.3.0 |
 | `tirbase_guard::commit` | @tirbase-guard-team | No source reference from any other workspace crate; commit/effects outcome surface pending a library consumer | v0.3.0 |

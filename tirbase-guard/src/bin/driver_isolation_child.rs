@@ -32,7 +32,7 @@ fn main() {
             "--degraded-isolation-opt-in" => degraded_opt_in = true,
             "--expect-device-fd" => expect_device_fd = true,
             s if sock_fd < 0 => {
-                // back-compat positional fd
+ // back-compat positional fd
                 if let Ok(fd) = s.parse() {
                     sock_fd = fd;
                 }
@@ -94,8 +94,8 @@ fn recv_and_report(sock_fd: i32) {
 
 #[cfg(unix)]
 fn sandbox_then_attempt(sock_fd: i32) {
-    // Receive device fd first (guard-owned fd handoff happens before/with init contract
-    // in production; this child proves post-sandbox SCM_RIGHTS is blocked).
+ // Receive device fd first (guard-owned fd handoff happens before/with init contract
+ // in production; this child proves post-sandbox SCM_RIGHTS is blocked).
     let device_fd = match tirbase_drivers::recv_fd_via_scm_rights(sock_fd) {
         Ok(fd) => fd,
         Err(e) => {
@@ -107,7 +107,7 @@ fn sandbox_then_attempt(sock_fd: i32) {
     let sandbox = apply_linux_sandbox_before_parse();
     println!("SANDBOX:{sandbox}");
 
-    // S35: after sandbox, child must not be able to pass fds via SCM_RIGHTS.
+ // S35: after sandbox, child must not be able to pass fds via SCM_RIGHTS.
     let attempt = tirbase_drivers::send_fd_via_scm_rights(sock_fd, device_fd);
     unsafe {
         libc::close(device_fd);
@@ -265,8 +265,8 @@ fn sandboxed_driver(
     degraded_opt_in: bool,
     crash_once: Option<&str>,
 ) {
-    // 1) Guard-owned device fd handoff completes before the sandbox is applied;
-    // no command frame has been read at this point.
+ // 1) Guard-owned device fd handoff completes before the sandbox is applied;
+ // no command frame has been read at this point.
     let device_fd = if expect_device_fd {
         match tirbase_drivers::recv_fd_via_scm_rights(sock_fd) {
             Ok(fd) => Some(fd),
@@ -287,7 +287,7 @@ fn sandboxed_driver(
         }
     }
 
-    // 2) Sandbox first, parse later (CLAIM-33.6).
+ // 2) Sandbox first, parse later (CLAIM-33.6).
     #[cfg(all(
         unix,
         target_os = "linux",
@@ -303,8 +303,8 @@ fn sandboxed_driver(
                 std::process::exit(20);
             }
         }
-        // Probe that the sandbox is really in force: filesystem open and
-        // socket creation must both fail after the sandbox is applied.
+ // Probe that the sandbox is really in force: filesystem open and
+ // socket creation must both fail after the sandbox is applied.
         match std::fs::File::open("/etc/hostname") {
             Ok(f) => {
                 drop(f);
@@ -332,8 +332,8 @@ fn sandboxed_driver(
         println!("SANDBOX:UNAVAILABLE:linux_seccomp_landlock_not_supported_on_this_platform");
     }
 
-    // 3) Codec loop over the inherited socket only.  No filesystem or network
-    // syscall is needed from here on.
+ // 3) Codec loop over the inherited socket only. No filesystem or network
+ // syscall is needed from here on.
     println!("READY");
     loop {
         let mut buf = [0u8; 64];

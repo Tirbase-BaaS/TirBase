@@ -1,5 +1,5 @@
 #!/bin/sh
-# tirbase-gateway postinst (task 37.2, PV-11.4).
+# tirbase-gateway postinst (PV-11.4).
 set -e
 
 if ! getent group tirbase >/dev/null 2>&1; then

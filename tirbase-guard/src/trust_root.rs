@@ -1,31 +1,31 @@
-//! Trust root record and role registry (task 8.3 / 8.3a — CLAIM-8.3, CLAIM-8.3a,
+//! Trust root record and role registry (8.3a — CLAIM-8.3, CLAIM-8.3a,
 //! PV-3.2, PV-3.3, PV-3.4).
 //!
 //! The offline root ceremony produces a [`TrustRootRecord`]: a versioned,
 //! threshold-signed description of
 //!
 //! * the active root CA public keys and the k-of-n threshold that authorises
-//!   root rotation,
+//! root rotation,
 //! * the per-role co-signature policy and the DID public keys authorised to
-//!   co-sign for each [`CommandRole`],
+//! co-sign for each [`CommandRole`],
 //! * per-device-class tightening floors, and
 //! * an expiry in authenticated time.
 //!
 //! ## Role registry (PV-3.2, PV-3.3)
 //!
 //! The role registry is deliberately part of the trust root, not the active
-//! policy bundle: a PolicyAuthority cannot add itself to a role.  Before any
+//! policy bundle: a PolicyAuthority cannot add itself to a role. Before any
 //! co-signature is accepted, [`TrustRootRecord::verify_role_signatures`] first
 //! checks that the signer DID appears in the role's
-//! [`RolePolicy::authorized_signers`] list.  A cryptographically valid
+//! [`RolePolicy::authorized_signers`] list. A cryptographically valid
 //! signature from a DID that is not registered for the claimed role is rejected
 //! with [`TrustRootError::RoleNotAuthorized`] — it is never even fed to the
 //! verifier.
 //!
-//! ## Root rollback protection (task 8.2 — CLAIM-8.2)
+//! ## Root rollback protection (CLAIM-8.2)
 //!
 //! [`TrustRootManager`] commits every installed trust-root version to a
-//! [`MonotonicCounterTrait`].  A record whose version is not strictly greater
+//! [`MonotonicCounterTrait`]. A record whose version is not strictly greater
 //! than the committed counter value is rejected as a rollback, so restoring an
 //! old `trust-root.json` cannot re-introduce revoked root keys.
 
@@ -45,28 +45,28 @@ use crate::signed_operation::SignatureEntry;
 /// One DID public key authorised to co-sign for a role (PV-3.2, PV-3.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthorizedRoleSigner {
-    /// DID bound to `public_key` (`did:key:z6Mk…`).
+ /// DID bound to `public_key` (`did:key:z6Mk…`).
     pub did: String,
-    /// Raw Ed25519 public key bytes.
+ /// Raw Ed25519 public key bytes.
     pub public_key: Vec<u8>,
 }
 
 /// Co-signature policy for one role.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RolePolicy {
-    /// Minimum number of distinct authorised co-signatures required.
+ /// Minimum number of distinct authorised co-signatures required.
     pub required_m: u8,
-    /// Total number of authorised signers in the policy (informational; the
-    /// authoritative list is [`Self::authorized_signers`]).
+ /// Total number of authorised signers in the policy (informational; the
+ /// authoritative list is [`Self::authorized_signers`]).
     pub required_n: u8,
-    /// DID public keys authorised for this role.  A signer absent from this
-    /// list is rejected before its signature is verified.
+ /// DID public keys authorised for this role. A signer absent from this
+ /// list is rejected before its signature is verified.
     #[serde(default)]
     pub authorized_signers: Vec<AuthorizedRoleSigner>,
 }
 
 impl RolePolicy {
-    /// Construct a policy with an explicit authorised-signer list.
+ /// Construct a policy with an explicit authorised-signer list.
     pub fn new(required_m: u8, authorized_signers: Vec<AuthorizedRoleSigner>) -> Self {
         RolePolicy {
             required_m,
@@ -75,14 +75,14 @@ impl RolePolicy {
         }
     }
 
-    /// Whether `signer_did` is registered for this role.
+ /// Whether `signer_did` is registered for this role.
     pub fn is_authorized(&self, signer_did: &str) -> bool {
         self.authorized_signers
             .iter()
             .any(|signer| signer.did == signer_did)
     }
 
-    /// Public key registered for `signer_did`, if any.
+ /// Public key registered for `signer_did`, if any.
     pub fn public_key_for(&self, signer_did: &str) -> Option<&[u8]> {
         self.authorized_signers
             .iter()
@@ -97,20 +97,20 @@ impl RolePolicy {
 /// `min_floor` or above `max_ceiling` (PV-4.4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParamFloor {
-    /// Parameter name.
+ /// Parameter name.
     pub param_name: String,
-    /// Tightening cannot push `min` below this value.
+ /// Tightening cannot push `min` below this value.
     pub min_floor: FixedPointValue,
-    /// Tightening cannot push `max` above this value.
+ /// Tightening cannot push `max` above this value.
     pub max_ceiling: FixedPointValue,
 }
 
 /// One threshold signature over the unsigned trust-root body.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrustRootSignature {
-    /// DID of the root-key holder.
+ /// DID of the root-key holder.
     pub signer_did: String,
-    /// Signature over [`TrustRootRecord::signing_bytes`].
+ /// Signature over [`TrustRootRecord::signing_bytes`].
     pub signature: DeviceSignature,
 }
 
@@ -129,29 +129,29 @@ struct TrustRootSigningBody<'a> {
 /// Versioned, threshold-signed trust root (PV-3.4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrustRootRecord {
-    /// Monotonically increasing trust-root version (rollback protected).
+ /// Monotonically increasing trust-root version (rollback protected).
     pub version: u64,
-    /// Active k-of-n root CA Ed25519 public keys.
+ /// Active k-of-n root CA Ed25519 public keys.
     pub root_ca_public_keys: Vec<Vec<u8>>,
-    /// k in the root k-of-n rotation threshold (`k >= 1`).
+ /// k in the root k-of-n rotation threshold (`k >= 1`).
     pub threshold_k: u8,
-    /// Per-role co-signature policy and authorised DID public keys.
+ /// Per-role co-signature policy and authorised DID public keys.
     pub role_thresholds: BTreeMap<CommandRole, RolePolicy>,
-    /// Per-device-class tightening floors.  This is the authoritative source
-    /// for policy classification — never read from an incoming bundle.
+ /// Per-device-class tightening floors. This is the authoritative source
+ /// for policy classification — never read from an incoming bundle.
     pub device_class_floors: BTreeMap<String, Vec<ParamFloor>>,
-    /// Expiry in authenticated-time seconds (`now_est > expiry_est` rejects).
+ /// Expiry in authenticated-time seconds (`now_est > expiry_est` rejects).
     pub expiry_est: i64,
-    /// Root CA keys revoked by a rotation ceremony.
+ /// Root CA keys revoked by a rotation ceremony.
     #[serde(default)]
     pub revoked_root_ca_keys: Vec<Vec<u8>>,
-    /// Threshold signatures by the root keys over [`Self::signing_bytes`].
+ /// Threshold signatures by the root keys over [`Self::signing_bytes`].
     #[serde(default)]
     pub signatures: Vec<TrustRootSignature>,
 }
 
 impl TrustRootRecord {
-    /// Root keys that are still active (not revoked).
+ /// Root keys that are still active (not revoked).
     pub fn active_root_ca_keys(&self) -> Vec<&[u8]> {
         self.root_ca_public_keys
             .iter()
@@ -165,38 +165,38 @@ impl TrustRootRecord {
             .collect()
     }
 
-    /// Whether `key` is explicitly revoked.
+ /// Whether `key` is explicitly revoked.
     pub fn is_root_revoked(&self, key: &[u8]) -> bool {
         self.revoked_root_ca_keys
             .iter()
             .any(|revoked| revoked.as_slice() == key)
     }
 
-    /// The role policy for `role`, if configured.
+ /// The role policy for `role`, if configured.
     pub fn role_policy(&self, role: CommandRole) -> Option<&RolePolicy> {
         self.role_thresholds.get(&role)
     }
 
-    /// Co-signature threshold for `role` (`None` when the role is unknown).
+ /// Co-signature threshold for `role` (`None` when the role is unknown).
     pub fn role_threshold(&self, role: CommandRole) -> Option<u8> {
         self.role_policy(role).map(|policy| policy.required_m)
     }
 
-    /// Tightening floor for `param` in `device_class`.
+ /// Tightening floor for `param` in `device_class`.
     pub fn device_class_floor(&self, device_class: &str, param: &str) -> Option<&ParamFloor> {
         self.device_class_floors
             .get(device_class)
             .and_then(|floors| floors.iter().find(|floor| floor.param_name == param))
     }
 
-    /// Whether the record has expired at `now_est`.
+ /// Whether the record has expired at `now_est`.
     pub fn is_expired(&self, now_est: i64) -> bool {
         now_est > self.expiry_est
     }
 
-    /// Startup diagnostic: k=1 is permitted (small deployments) but the
-    /// rotation ceremony has no threshold protection, so the gateway emits a
-    /// warning at boot (PV-3.4, scenario S11).
+ /// Startup diagnostic: k=1 is permitted (small deployments) but the
+ /// rotation ceremony has no threshold protection, so the gateway emits a
+ /// warning at boot (PV-3.4, scenario S11).
     pub fn threshold_warning(&self) -> Option<String> {
         (self.threshold_k == 1).then(|| {
             "trust root threshold k=1: a single root key can rotate the root — \
@@ -205,11 +205,11 @@ impl TrustRootRecord {
         })
     }
 
-    /// Domain-separated bytes signed by the root CA keys.
-    ///
-    /// The signature covers `"TirBase/v1/TrustRootRecord" || 0x00 ||
-    /// SHA-256(CBOR(unsigned body))`, so a signature for another artefact type
-    /// cannot be reused and the `signatures` field is not self-referential.
+ /// Domain-separated bytes signed by the root CA keys.
+ ///
+ /// The signature covers `"TirBase/v1/TrustRootRecord" || 0x00 ||
+ /// SHA-256(CBOR(unsigned body))`, so a signature for another artefact type
+ /// cannot be reused and the `signatures` field is not self-referential.
     pub fn signing_bytes(&self) -> Vec<u8> {
         let body = TrustRootSigningBody {
             version: self.version,
@@ -221,8 +221,8 @@ impl TrustRootRecord {
             revoked_root_ca_keys: &self.revoked_root_ca_keys,
         };
         let mut cbor = Vec::new();
-        // Infallible for these plain data types; an empty buffer would simply
-        // fail signature verification, never accept an unsigned record.
+ // Infallible for these plain data types; an empty buffer would simply
+ // fail signature verification, never accept an unsigned record.
         let _ = ciborium::ser::into_writer(&body, &mut cbor);
         let digest = Sha256::digest(&cbor);
 
@@ -233,12 +233,12 @@ impl TrustRootRecord {
         bytes
     }
 
-    /// Verify the root k-of-n threshold signatures over this record.
-    ///
-    /// Each signature must be from an active root key (the signer DID must
-    /// derive from that key) and a distinct signer is required.  Returns the
-    /// number of valid signatures; the caller compares against
-    /// [`Self::threshold_k`].
+ /// Verify the root k-of-n threshold signatures over this record.
+ ///
+ /// Each signature must be from an active root key (the signer DID must
+ /// derive from that key) and a distinct signer is required. Returns the
+ /// number of valid signatures; the caller compares against
+ /// [`Self::threshold_k`].
     pub fn count_valid_root_signatures(&self) -> usize {
         let message = self.signing_bytes();
         let active = self.active_root_ca_keys();
@@ -262,7 +262,7 @@ impl TrustRootRecord {
         seen.len()
     }
 
-    /// Verify the root threshold signatures (PV-3.4).
+ /// Verify the root threshold signatures (PV-3.4).
     pub fn verify_threshold_signatures(&self) -> Result<(), TrustRootError> {
         if self.threshold_k == 0 {
             return Err(TrustRootError::InvalidThreshold {
@@ -288,12 +288,12 @@ impl TrustRootRecord {
         Ok(())
     }
 
-    /// Verify that `signer_did` is registered for `role` and that
-    /// `signature` verifies over `message`.
-    ///
-    /// The role-registry lookup happens **before** signature verification
-    /// (PV-3.3): a valid signature from an unregistered DID is rejected with
-    /// [`TrustRootError::RoleNotAuthorized`].
+ /// Verify that `signer_did` is registered for `role` and that
+ /// `signature` verifies over `message`.
+ ///
+ /// The role-registry lookup happens **before** signature verification
+ /// (PV-3.3): a valid signature from an unregistered DID is rejected with
+ /// [`TrustRootError::RoleNotAuthorized`].
     pub fn verify_role_cosignature(
         &self,
         role: CommandRole,
@@ -319,17 +319,17 @@ impl TrustRootRecord {
         Ok(())
     }
 
-    /// Verify a full set of co-signatures for `role` against `message`.
-    ///
-    /// This is the multi-signature verification path used by
-    /// [`SignedOperation`](crate::signed_operation::SignedOperation) callers
-    /// (epoch bump, lockdown exit, policy bundle).  It:
-    ///
-    /// 1. rejects an unknown role,
-    /// 2. rejects any entry whose claimed role differs from `role`,
-    /// 3. rejects any entry whose DID is not in the role registry **before**
-    ///    verifying its signature (PV-3.2/PV-3.3), and
-    /// 4. requires at least `required_m` distinct valid signatures.
+ /// Verify a full set of co-signatures for `role` against `message`.
+ ///
+ /// This is the multi-signature verification path used by
+ /// [`SignedOperation`](crate::signed_operation::SignedOperation) callers
+ /// (epoch bump, lockdown exit, policy bundle). It:
+ ///
+ /// 1. rejects an unknown role,
+ /// 2. rejects any entry whose claimed role differs from `role`,
+ /// 3. rejects any entry whose DID is not in the role registry **before**
+ /// verifying its signature (PV-3.2/PV-3.3), and
+ /// 4. requires at least `required_m` distinct valid signatures.
     pub fn verify_role_signatures(
         &self,
         role: CommandRole,
@@ -365,7 +365,7 @@ impl TrustRootRecord {
         Ok(())
     }
 
-    /// Validate structural invariants that must hold regardless of signatures.
+ /// Validate structural invariants that must hold regardless of signatures.
     pub fn validate(&self, now_est: i64) -> Result<(), TrustRootError> {
         if self.threshold_k == 0 {
             return Err(TrustRootError::InvalidThreshold {
@@ -420,57 +420,57 @@ fn verify_signature(public_key: &[u8], message: &[u8], signature: &DeviceSignatu
 /// Trust-root installation and rotation failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TrustRootError {
-    /// The record is older than the committed trust-root version.
+ /// The record is older than the committed trust-root version.
     Rollback {
-        /// Version in the rejected record.
+ /// Version in the rejected record.
         incoming: u64,
-        /// Version currently committed to the monotonic counter.
+ /// Version currently committed to the monotonic counter.
         current: u64,
     },
-    /// The record's expiry has passed.
+ /// The record's expiry has passed.
     Expired {
-        /// Record expiry.
+ /// Record expiry.
         expiry_est: i64,
-        /// Current authenticated time.
+ /// Current authenticated time.
         now_est: i64,
     },
-    /// Structural threshold problem.
+ /// Structural threshold problem.
     InvalidThreshold {
-        /// Human-readable reason.
+ /// Human-readable reason.
         reason: String,
     },
-    /// Not enough valid signatures.
+ /// Not enough valid signatures.
     ThresholdNotMet {
-        /// Valid signatures found.
+ /// Valid signatures found.
         got: usize,
-        /// Signatures required.
+ /// Signatures required.
         need: usize,
     },
-    /// A signer is not registered for the claimed role.
+ /// A signer is not registered for the claimed role.
     RoleNotAuthorized {
-        /// Claimed role.
+ /// Claimed role.
         role: CommandRole,
-        /// Offending DID.
+ /// Offending DID.
         signer_did: String,
     },
-    /// No policy is configured for the role.
+ /// No policy is configured for the role.
     RoleNotConfigured {
-        /// Missing role.
+ /// Missing role.
         role: CommandRole,
     },
-    /// A signature entry claims a different role than the one being verified.
+ /// A signature entry claims a different role than the one being verified.
     RoleMismatch {
-        /// Expected role.
+ /// Expected role.
         expected: CommandRole,
-        /// Role in the entry.
+ /// Role in the entry.
         actual: CommandRole,
     },
-    /// A signature failed cryptographic verification.
+ /// A signature failed cryptographic verification.
     SignatureInvalid {
-        /// Offending DID.
+ /// Offending DID.
         signer_did: String,
     },
-    /// The monotonic counter failed.
+ /// The monotonic counter failed.
     Counter(String),
 }
 
@@ -525,7 +525,7 @@ impl From<tirbase_core::errors::TirBaseError> for TrustRootError {
 }
 
 /// Installs and rotates trust-root records under monotonic-counter rollback
-/// protection (task 8.2 — CLAIM-8.2, PV-3.4).
+/// protection (CLAIM-8.2, PV-3.4).
 #[derive(Debug)]
 pub struct TrustRootManager {
     record: TrustRootRecord,
@@ -533,10 +533,10 @@ pub struct TrustRootManager {
 }
 
 impl TrustRootManager {
-    /// Install the initial record.
-    ///
-    /// The committed counter starts at the installed version.  Every later
-    /// [`Self::rotate`] must present a strictly greater version.
+ /// Install the initial record.
+ ///
+ /// The committed counter starts at the installed version. Every later
+ /// [`Self::rotate`] must present a strictly greater version.
     pub fn install(
         record: TrustRootRecord,
         counter: Arc<dyn MonotonicCounterTrait>,
@@ -554,12 +554,12 @@ impl TrustRootManager {
         Ok(TrustRootManager { record, counter })
     }
 
-    /// Rotate to a new record, rejecting version rollback (task 8.2).
-    ///
-    /// Root revocation is expressed by listing the key in
-    /// `revoked_root_ca_keys`: a rotation that revokes a key and keeps the
-    /// remaining active keys at or above `threshold_k` is accepted; a rotation
-    /// that rolls the version back is rejected before anything is committed.
+ /// Rotate to a new record, rejecting version rollback ().
+ ///
+ /// Root revocation is expressed by listing the key in
+ /// `revoked_root_ca_keys`: a rotation that revokes a key and keeps the
+ /// remaining active keys at or above `threshold_k` is accepted; a rotation
+ /// that rolls the version back is rejected before anything is committed.
     pub fn rotate(&mut self, record: TrustRootRecord, now_est: i64) -> Result<(), TrustRootError> {
         record.validate(now_est)?;
         let current = self.counter.read()?;
@@ -574,12 +574,12 @@ impl TrustRootManager {
         Ok(())
     }
 
-    /// Current installed record.
+ /// Current installed record.
     pub fn record(&self) -> &TrustRootRecord {
         &self.record
     }
 
-    /// Committed trust-root version.
+ /// Committed trust-root version.
     pub fn committed_version(&self) -> Result<u64, TrustRootError> {
         Ok(self.counter.read()?)
     }
@@ -624,8 +624,8 @@ mod tests {
 
     #[test]
     fn co_signature_from_did_not_in_role_registry_is_rejected_even_when_valid() {
-        // Authorised PolicyAuthority and an unregistered attacker with a
-        // perfectly valid key.
+ // Authorised PolicyAuthority and an unregistered attacker with a
+ // perfectly valid key.
         let (authorized, authorized_signer) = signer("authorized");
         let (attacker, _) = signer("attacker");
         let mut record = base_record();
@@ -655,7 +655,7 @@ mod tests {
             "the role-registry lookup must reject before signature verification"
         );
 
-        // The authorised signer is accepted.
+ // The authorised signer is accepted.
         let good = authorized.sign(message).unwrap();
         record
             .verify_role_cosignature(
@@ -690,7 +690,7 @@ mod tests {
                 signature: a.sign(message).unwrap(),
             },
         ];
-        // Duplicate signer counts once.
+ // Duplicate signer counts once.
         assert_eq!(
             record.verify_role_signatures(CommandRole::RevocationManager, message, &entries),
             Err(TrustRootError::ThresholdNotMet { got: 1, need: 2 })

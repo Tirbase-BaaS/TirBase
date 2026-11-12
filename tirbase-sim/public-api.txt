@@ -139,7 +139,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::M
 pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
 pub struct tirbase_sim::drivers::modbus_server::ModbusSimServer
 impl tirbase_sim::drivers::modbus_server::ModbusSimServer
-pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
 impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
@@ -192,7 +192,7 @@ pub fn tirbase_sim::drivers::modbus_server::RegisterBank::get_input(&self, u16) 
 pub fn tirbase_sim::drivers::modbus_server::RegisterBank::set_holding(&mut self, u16, u16)
 pub fn tirbase_sim::drivers::modbus_server::RegisterBank::set_input(&mut self, u16, u16)
 impl core::default::Default for tirbase_sim::drivers::modbus_server::RegisterBank
-pub fn tirbase_sim::drivers::modbus_server::RegisterBank::default() -> tirbase_sim::drivers::modbus_server::RegisterBank
+pub fn tirbase_sim::drivers::modbus_server::RegisterBank::default -> tirbase_sim::drivers::modbus_server::RegisterBank
 impl core::fmt::Debug for tirbase_sim::drivers::modbus_server::RegisterBank
 pub fn tirbase_sim::drivers::modbus_server::RegisterBank::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::RegisterBank
@@ -372,7 +372,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::M
 pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
 pub struct tirbase_sim::drivers::ModbusSimServer
 impl tirbase_sim::drivers::modbus_server::ModbusSimServer
-pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
 impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
@@ -742,7 +742,7 @@ impl core::cmp::Eq for tirbase_sim::invariants::GovernanceFields
 impl core::cmp::PartialEq for tirbase_sim::invariants::GovernanceFields
 pub fn tirbase_sim::invariants::GovernanceFields::eq(&self, &tirbase_sim::invariants::GovernanceFields) -> bool
 impl core::default::Default for tirbase_sim::invariants::GovernanceFields
-pub fn tirbase_sim::invariants::GovernanceFields::default() -> tirbase_sim::invariants::GovernanceFields
+pub fn tirbase_sim::invariants::GovernanceFields::default -> tirbase_sim::invariants::GovernanceFields
 impl core::fmt::Debug for tirbase_sim::invariants::GovernanceFields
 pub fn tirbase_sim::invariants::GovernanceFields::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_sim::invariants::GovernanceFields
@@ -805,28 +805,28 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::invariants::GovernanceFie
 pub fn tirbase_sim::invariants::GovernanceFields::vzip(self) -> V
 pub struct tirbase_sim::invariants::InvariantChecker
 impl tirbase_sim::invariants::InvariantChecker
-pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::new() -> Self
+pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::new -> Self
 impl core::clone::Clone for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::clone(&self) -> tirbase_sim::invariants::InvariantChecker
 impl core::default::Default for tirbase_sim::invariants::InvariantChecker
-pub fn tirbase_sim::invariants::InvariantChecker::default() -> tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::default -> tirbase_sim::invariants::InvariantChecker
 impl core::fmt::Debug for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_sim::invariants::InvariantChecker
@@ -1045,7 +1045,7 @@ pub tirbase_sim::invariants::SimState::triggering_state: alloc::string::String
 impl core::clone::Clone for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::clone(&self) -> tirbase_sim::invariants::SimState
 impl core::default::Default for tirbase_sim::invariants::SimState
-pub fn tirbase_sim::invariants::SimState::default() -> tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::default -> tirbase_sim::invariants::SimState
 impl core::fmt::Debug for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_sim::invariants::SimState
@@ -1788,7 +1788,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::network::NodeId where V: 
 pub fn tirbase_sim::network::NodeId::vzip(self) -> V
 pub struct tirbase_sim::network::SimNetwork
 impl tirbase_sim::network::SimNetwork
-pub fn tirbase_sim::network::SimNetwork::add_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<(), tirbase_sim::network::NetworkError>
+pub fn tirbase_sim::network::SimNetwork::add_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<, tirbase_sim::network::NetworkError>
 pub fn tirbase_sim::network::SimNetwork::deliver(&mut self, u64) -> alloc::vec::Vec<tirbase_sim::network::DeliveredMessage>
 pub fn tirbase_sim::network::SimNetwork::delivered_messages(&self) -> u64
 pub fn tirbase_sim::network::SimNetwork::delivery_log(&self) -> &[tirbase_sim::network::DeliveredMessage]
@@ -2070,12 +2070,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::runner::ScenarioRunSummar
 pub fn tirbase_sim::runner::ScenarioRunSummary::vzip(self) -> V
 pub struct tirbase_sim::runner::ScenarioRunner
 impl tirbase_sim::runner::ScenarioRunner
-pub fn tirbase_sim::runner::ScenarioRunner::builtin() -> core::result::Result<Self, tirbase_sim::runner::RunnerError>
+pub fn tirbase_sim::runner::ScenarioRunner::builtin -> core::result::Result<Self, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::declared_seeds(&self) -> u64
-pub fn tirbase_sim::runner::ScenarioRunner::new(alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<(), alloc::string::String>>) -> Self
+pub fn tirbase_sim::runner::ScenarioRunner::new(alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<, alloc::string::String>>) -> Self
 pub fn tirbase_sim::runner::ScenarioRunner::registered(&self) -> usize
 pub fn tirbase_sim::runner::ScenarioRunner::run(&self) -> core::result::Result<tirbase_sim::runner::ScenarioRunSummary, tirbase_sim::runner::RunnerError>
-pub fn tirbase_sim::runner::ScenarioRunner::run_scenario(&self, &str, u64) -> core::result::Result<(), tirbase_sim::runner::RunnerError>
+pub fn tirbase_sim::runner::ScenarioRunner::run_scenario(&self, &str, u64) -> core::result::Result<, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::run_to(&self, &mut dyn core::io::write::Write) -> core::result::Result<tirbase_sim::runner::ScenarioRunSummary, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::specs(&self) -> &[tirbase_sim::runner::ScenarioSpec]
 pub fn tirbase_sim::runner::ScenarioRunner::with_base_seed(self, u64) -> Self
@@ -2256,12 +2256,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::scenarios::common::FixedT
 pub fn tirbase_sim::scenarios::common::FixedTimeSource::vzip(self) -> V
 pub struct tirbase_sim::scenarios::common::MemoryRatchetStore
 impl core::default::Default for tirbase_sim::scenarios::common::MemoryRatchetStore
-pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::default() -> tirbase_sim::scenarios::common::MemoryRatchetStore
+pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::default -> tirbase_sim::scenarios::common::MemoryRatchetStore
 impl core::fmt::Debug for tirbase_sim::scenarios::common::MemoryRatchetStore
 pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::time::TimeRatchetStore for tirbase_sim::scenarios::common::MemoryRatchetStore
 pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
-pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_sim::scenarios::common::MemoryRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<, tirbase_guard::time::TimeRatchetError>
 impl !core::marker::Freeze for tirbase_sim::scenarios::common::MemoryRatchetStore
 impl core::marker::Send for tirbase_sim::scenarios::common::MemoryRatchetStore
 impl core::marker::Sync for tirbase_sim::scenarios::common::MemoryRatchetStore
@@ -2317,8 +2317,8 @@ pub tirbase_sim::scenarios::guard_harness::AdversaryFixture::pipeline: alloc::sy
 pub tirbase_sim::scenarios::guard_harness::AdversaryFixture::target: tirbase_types::TargetId
 pub tirbase_sim::scenarios::guard_harness::AdversaryFixture::token: alloc::vec::Vec<u8>
 impl tirbase_sim::scenarios::guard_harness::AdversaryFixture
-pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::admit(&self, &tirbase_types::command::CommandMessage) -> core::result::Result<(), tirbase_guard::guard::AdmitError>
-pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::admit_with_token(&self, &tirbase_types::command::CommandMessage, &[u8]) -> core::result::Result<(), tirbase_guard::guard::AdmitError>
+pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::admit(&self, &tirbase_types::command::CommandMessage) -> core::result::Result<, tirbase_guard::guard::AdmitError>
+pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::admit_with_token(&self, &tirbase_types::command::CommandMessage, &[u8]) -> core::result::Result<, tirbase_guard::guard::AdmitError>
 pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::command(&self, i64, u8, u64) -> core::result::Result<tirbase_types::command::CommandMessage, alloc::string::String>
 pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::new(&str, &str, bool) -> core::result::Result<Self, alloc::string::String>
 impl !core::marker::Freeze for tirbase_sim::scenarios::guard_harness::AdversaryFixture
@@ -2364,76 +2364,76 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::scenarios::guard_harness::AdversaryFixture where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_sim::scenarios::guard_harness::AdversaryFixture::vzip(self) -> V
 pub mod tirbase_sim::scenarios::s10_revoked_delta
-pub fn tirbase_sim::scenarios::s10_revoked_delta::run_s10(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s10_revoked_delta::run_s10(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s11_s18_controls
-pub fn tirbase_sim::scenarios::s11_s18_controls::run_s11(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s11_s18_controls::run_s18(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s11_s18_controls::run_s11(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s11_s18_controls::run_s18(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s12_partition_rejoin
-pub fn tirbase_sim::scenarios::s12_partition_rejoin::run_s12(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s12_partition_rejoin::run_s12(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s13_crash_every_step
-pub fn tirbase_sim::scenarios::s13_crash_every_step::run_s13(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s13_crash_every_step::run_s13(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s14_log_flooding
 pub const tirbase_sim::scenarios::s14_log_flooding::S14_SEED: u64
-pub fn tirbase_sim::scenarios::s14_log_flooding::run_s14(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s14_log_flooding::run_s14(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s16_s17_admission
-pub fn tirbase_sim::scenarios::s16_s17_admission::run_s16(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s16_s17_admission::run_s17(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s16_s17_admission::run_s16(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s16_s17_admission::run_s17(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s19_s23_s31_time
-pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s19(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s23(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s31(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s19(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s23(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s19_s23_s31_time::run_s31(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s1_s2_s3
-pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s1_envelope_violation_rejected()
-pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s2_slow_ramp_drift_rejected()
-pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s3_replay_duplicate_idempotency_no_second_actuation()
-pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s3_replay_returns_cached_no_second_actuation()
+pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s1_envelope_violation_rejected
+pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s2_slow_ramp_drift_rejected
+pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s3_replay_duplicate_idempotency_no_second_actuation
+pub fn tirbase_sim::scenarios::s1_s2_s3::scenario_s3_replay_returns_cached_no_second_actuation
 pub mod tirbase_sim::scenarios::s20_sequence_poisoning
-pub fn tirbase_sim::scenarios::s20_sequence_poisoning::scenario_s20_sequence_poisoning_rejected_cmd_does_not_advance_window()
+pub fn tirbase_sim::scenarios::s20_sequence_poisoning::scenario_s20_sequence_poisoning_rejected_cmd_does_not_advance_window
 pub mod tirbase_sim::scenarios::s21_lease_starvation
-pub fn tirbase_sim::scenarios::s21_lease_starvation::run_s21(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s21_lease_starvation::run_s21(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s22_snapshot_restore
-pub fn tirbase_sim::scenarios::s22_snapshot_restore::run_s22(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s22_snapshot_restore::run_s22(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s24_crash_loop
-pub fn tirbase_sim::scenarios::s24_crash_loop::s24_crash_loop_escalates_to_lockdown_within_window()
+pub fn tirbase_sim::scenarios::s24_crash_loop::s24_crash_loop_escalates_to_lockdown_within_window
 pub mod tirbase_sim::scenarios::s25_quarantine_flush
 pub const tirbase_sim::scenarios::s25_quarantine_flush::S25_SEED: u64
-pub fn tirbase_sim::scenarios::s25_quarantine_flush::run_s25(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s25_quarantine_flush::run_s25(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s26_s29_idempotency
-pub fn tirbase_sim::scenarios::s26_s29_idempotency::run_s26(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s26_s29_idempotency::run_s29(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s26_s29_idempotency::run_s26(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s26_s29_idempotency::run_s29(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s30_exponent_overflow
-pub fn tirbase_sim::scenarios::s30_exponent_overflow::run_s30(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s30_exponent_overflow::run_s30(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s32_challenge_nonce_flood
-pub fn tirbase_sim::scenarios::s32_challenge_nonce_flood::s32_challenge_nonce_flood_is_rate_limited()
+pub fn tirbase_sim::scenarios::s32_challenge_nonce_flood::s32_challenge_nonce_flood_is_rate_limited
 pub mod tirbase_sim::scenarios::s33_pending_queue_bomb
 pub const tirbase_sim::scenarios::s33_pending_queue_bomb::S33_SEED: u64
-pub fn tirbase_sim::scenarios::s33_pending_queue_bomb::run_s33(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s33_pending_queue_bomb::run_s33(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s34_partial_sig
-pub fn tirbase_sim::scenarios::s34_partial_sig::run_s34(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s34_partial_sig::run_s34(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s35_fd_leakage
-pub fn tirbase_sim::scenarios::s35_fd_leakage::run_s35(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s35_fd_leakage::run_s35(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s36_postcondition_failure
-pub fn tirbase_sim::scenarios::s36_postcondition_failure::scenario_s36_postcondition_failure_preserves_pre_execution_state()
-pub fn tirbase_sim::scenarios::s36_postcondition_failure::scenario_s36_postcondition_pass_produces_shadow_projections()
+pub fn tirbase_sim::scenarios::s36_postcondition_failure::scenario_s36_postcondition_failure_preserves_pre_execution_state
+pub fn tirbase_sim::scenarios::s36_postcondition_failure::scenario_s36_postcondition_pass_produces_shadow_projections
 pub mod tirbase_sim::scenarios::s4_clock_poisoning
 pub const tirbase_sim::scenarios::s4_clock_poisoning::S4_SEED: u64
-pub fn tirbase_sim::scenarios::s4_clock_poisoning::run_s4(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s4_clock_poisoning::run_s4(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s5_s15_crdt_caps
-pub fn tirbase_sim::scenarios::s5_s15_crdt_caps::run_s15(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s5_s15_crdt_caps::run_s5(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s5_s15_crdt_caps::run_s15(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s5_s15_crdt_caps::run_s5(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s6_policy_history
-pub fn tirbase_sim::scenarios::s6_policy_history::run_s27(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s6_policy_history::run_s28(u64) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_sim::scenarios::s6_policy_history::run_s6(u64) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_sim::scenarios::s6_policy_history::run_s27(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s6_policy_history::run_s28(u64) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_sim::scenarios::s6_policy_history::run_s6(u64) -> core::result::Result<, alloc::string::String>
 pub mod tirbase_sim::scenarios::s7_policy_loosening
-pub fn tirbase_sim::scenarios::s7_policy_loosening::run_s7()
+pub fn tirbase_sim::scenarios::s7_policy_loosening::run_s7
 pub mod tirbase_sim::scenarios::s8_malicious_migration
-pub fn tirbase_sim::scenarios::s8_malicious_migration::scenario_s8_malicious_migration_float_rejected()
-pub fn tirbase_sim::scenarios::s8_malicious_migration::scenario_s8_malicious_migration_simd_forbidden()
+pub fn tirbase_sim::scenarios::s8_malicious_migration::scenario_s8_malicious_migration_float_rejected
+pub fn tirbase_sim::scenarios::s8_malicious_migration::scenario_s8_malicious_migration_simd_forbidden
 pub mod tirbase_sim::scenarios::s9_engine_profile_mismatch
-pub fn tirbase_sim::scenarios::s9_engine_profile_mismatch::scenario_s9_engine_version_mismatch_quarantined()
-pub fn tirbase_sim::scenarios::s9_engine_profile_mismatch::scenario_s9_profile_id_mismatch_quarantined()
-pub fn tirbase_sim::scenarios::registry() -> alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<(), alloc::string::String>>
+pub fn tirbase_sim::scenarios::s9_engine_profile_mismatch::scenario_s9_engine_version_mismatch_quarantined
+pub fn tirbase_sim::scenarios::s9_engine_profile_mismatch::scenario_s9_profile_id_mismatch_quarantined
+pub fn tirbase_sim::scenarios::registry -> alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<, alloc::string::String>>
 pub mod tirbase_sim::sim
 pub enum tirbase_sim::sim::SimError
 pub tirbase_sim::sim::SimError::Invariant
@@ -2601,7 +2601,7 @@ impl core::cmp::Eq for tirbase_sim::sim::SimClock
 impl core::cmp::PartialEq for tirbase_sim::sim::SimClock
 pub fn tirbase_sim::sim::SimClock::eq(&self, &tirbase_sim::sim::SimClock) -> bool
 impl core::default::Default for tirbase_sim::sim::SimClock
-pub fn tirbase_sim::sim::SimClock::default() -> Self
+pub fn tirbase_sim::sim::SimClock::default -> Self
 impl core::fmt::Debug for tirbase_sim::sim::SimClock
 pub fn tirbase_sim::sim::SimClock::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_sim::sim::SimClock
@@ -2730,7 +2730,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::sim::SimNode where V: ppv
 pub fn tirbase_sim::sim::SimNode::vzip(self) -> V
 pub struct tirbase_sim::sim::TickGuard
 impl tirbase_sim::sim::TickGuard
-pub fn tirbase_sim::sim::TickGuard::check(&self, &tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::sim::SimError>
+pub fn tirbase_sim::sim::TickGuard::check(&self, &tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::sim::TickGuard::new(u64) -> Self
 impl core::clone::Clone for tirbase_sim::sim::TickGuard
 pub fn tirbase_sim::sim::TickGuard::clone(&self) -> tirbase_sim::sim::TickGuard
@@ -2788,9 +2788,9 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::sim::TickGuard where V: p
 pub fn tirbase_sim::sim::TickGuard::vzip(self) -> V
 pub const tirbase_sim::sim::DEFAULT_TICK_MS: u64
 pub const tirbase_sim::sim::SIM_EPOCH_SECS: i64
-pub fn tirbase_sim::sim::install_faults(&mut tirbase_sim::network::SimNetwork, &[tirbase_sim::network::NetworkFault]) -> core::result::Result<(), tirbase_sim::network::NetworkError>
+pub fn tirbase_sim::sim::install_faults(&mut tirbase_sim::network::SimNetwork, &[tirbase_sim::network::NetworkFault]) -> core::result::Result<, tirbase_sim::network::NetworkError>
 pub fn tirbase_sim::sim::seeded_rng(u64) -> rand_chacha::chacha::ChaCha8Rng
-pub fn tirbase_sim::sim::tick_nodes(&mut tirbase_sim::sim::SimClock, &mut tirbase_sim::network::SimNetwork, &mut [tirbase_sim::sim::SimNode], &tirbase_sim::invariants::InvariantChecker, &mut tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::sim::SimError>
+pub fn tirbase_sim::sim::tick_nodes(&mut tirbase_sim::sim::SimClock, &mut tirbase_sim::network::SimNetwork, &mut [tirbase_sim::sim::SimNode], &tirbase_sim::invariants::InvariantChecker, &mut tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::sim::SimError>
 pub enum tirbase_sim::InvariantId
 pub tirbase_sim::InvariantId::Inv1
 pub tirbase_sim::InvariantId::Inv10
@@ -3416,28 +3416,28 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::network::DeliveredMessage
 pub fn tirbase_sim::network::DeliveredMessage::vzip(self) -> V
 pub struct tirbase_sim::InvariantChecker
 impl tirbase_sim::invariants::InvariantChecker
-pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::invariants::InvariantChecker::new() -> Self
+pub fn tirbase_sim::invariants::InvariantChecker::check_all(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_1(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_10(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_11(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_12(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_13(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_14(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_15(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_16(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_2(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_3(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_4(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_5(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_6(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_7(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_8(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::check_inv_9(&self, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::invariants::InvariantViolation>
+pub fn tirbase_sim::invariants::InvariantChecker::new -> Self
 impl core::clone::Clone for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::clone(&self) -> tirbase_sim::invariants::InvariantChecker
 impl core::default::Default for tirbase_sim::invariants::InvariantChecker
-pub fn tirbase_sim::invariants::InvariantChecker::default() -> tirbase_sim::invariants::InvariantChecker
+pub fn tirbase_sim::invariants::InvariantChecker::default -> tirbase_sim::invariants::InvariantChecker
 impl core::fmt::Debug for tirbase_sim::invariants::InvariantChecker
 pub fn tirbase_sim::invariants::InvariantChecker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_sim::invariants::InvariantChecker
@@ -3711,7 +3711,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::modbus_server::M
 pub fn tirbase_sim::drivers::modbus_server::ModbusServerHandle::vzip(self) -> V
 pub struct tirbase_sim::ModbusSimServer
 impl tirbase_sim::drivers::modbus_server::ModbusSimServer
-pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn() -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
+pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 pub fn tirbase_sim::drivers::modbus_server::ModbusSimServer::spawn_with_bank(tirbase_sim::drivers::modbus_server::RegisterBank) -> core::io::error::Result<tirbase_sim::drivers::modbus_server::ModbusServerHandle>
 impl core::marker::Freeze for tirbase_sim::drivers::modbus_server::ModbusSimServer
 impl core::marker::Send for tirbase_sim::drivers::modbus_server::ModbusSimServer
@@ -3982,12 +3982,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::runner::ScenarioRunSummar
 pub fn tirbase_sim::runner::ScenarioRunSummary::vzip(self) -> V
 pub struct tirbase_sim::ScenarioRunner
 impl tirbase_sim::runner::ScenarioRunner
-pub fn tirbase_sim::runner::ScenarioRunner::builtin() -> core::result::Result<Self, tirbase_sim::runner::RunnerError>
+pub fn tirbase_sim::runner::ScenarioRunner::builtin -> core::result::Result<Self, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::declared_seeds(&self) -> u64
-pub fn tirbase_sim::runner::ScenarioRunner::new(alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<(), alloc::string::String>>) -> Self
+pub fn tirbase_sim::runner::ScenarioRunner::new(alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, alloc::collections::btree::map::BTreeMap<alloc::string::String, fn(u64) -> core::result::Result<, alloc::string::String>>) -> Self
 pub fn tirbase_sim::runner::ScenarioRunner::registered(&self) -> usize
 pub fn tirbase_sim::runner::ScenarioRunner::run(&self) -> core::result::Result<tirbase_sim::runner::ScenarioRunSummary, tirbase_sim::runner::RunnerError>
-pub fn tirbase_sim::runner::ScenarioRunner::run_scenario(&self, &str, u64) -> core::result::Result<(), tirbase_sim::runner::RunnerError>
+pub fn tirbase_sim::runner::ScenarioRunner::run_scenario(&self, &str, u64) -> core::result::Result<, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::run_to(&self, &mut dyn core::io::write::Write) -> core::result::Result<tirbase_sim::runner::ScenarioRunSummary, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::runner::ScenarioRunner::specs(&self) -> &[tirbase_sim::runner::ScenarioSpec]
 pub fn tirbase_sim::runner::ScenarioRunner::with_base_seed(self, u64) -> Self
@@ -4124,7 +4124,7 @@ impl core::cmp::Eq for tirbase_sim::sim::SimClock
 impl core::cmp::PartialEq for tirbase_sim::sim::SimClock
 pub fn tirbase_sim::sim::SimClock::eq(&self, &tirbase_sim::sim::SimClock) -> bool
 impl core::default::Default for tirbase_sim::sim::SimClock
-pub fn tirbase_sim::sim::SimClock::default() -> Self
+pub fn tirbase_sim::sim::SimClock::default -> Self
 impl core::fmt::Debug for tirbase_sim::sim::SimClock
 pub fn tirbase_sim::sim::SimClock::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_sim::sim::SimClock
@@ -4191,7 +4191,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::sim::SimClock where V: pp
 pub fn tirbase_sim::sim::SimClock::vzip(self) -> V
 pub struct tirbase_sim::SimNetwork
 impl tirbase_sim::network::SimNetwork
-pub fn tirbase_sim::network::SimNetwork::add_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<(), tirbase_sim::network::NetworkError>
+pub fn tirbase_sim::network::SimNetwork::add_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<, tirbase_sim::network::NetworkError>
 pub fn tirbase_sim::network::SimNetwork::deliver(&mut self, u64) -> alloc::vec::Vec<tirbase_sim::network::DeliveredMessage>
 pub fn tirbase_sim::network::SimNetwork::delivered_messages(&self) -> u64
 pub fn tirbase_sim::network::SimNetwork::delivery_log(&self) -> &[tirbase_sim::network::DeliveredMessage]
@@ -4332,7 +4332,7 @@ pub tirbase_sim::SimState::triggering_state: alloc::string::String
 impl core::clone::Clone for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::clone(&self) -> tirbase_sim::invariants::SimState
 impl core::default::Default for tirbase_sim::invariants::SimState
-pub fn tirbase_sim::invariants::SimState::default() -> tirbase_sim::invariants::SimState
+pub fn tirbase_sim::invariants::SimState::default -> tirbase_sim::invariants::SimState
 impl core::fmt::Debug for tirbase_sim::invariants::SimState
 pub fn tirbase_sim::invariants::SimState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_sim::invariants::SimState
@@ -4457,7 +4457,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::models::thermal::ThermalM
 pub fn tirbase_sim::models::thermal::ThermalModel::vzip(self) -> V
 pub struct tirbase_sim::TickGuard
 impl tirbase_sim::sim::TickGuard
-pub fn tirbase_sim::sim::TickGuard::check(&self, &tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState) -> core::result::Result<(), tirbase_sim::sim::SimError>
+pub fn tirbase_sim::sim::TickGuard::check(&self, &tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState) -> core::result::Result<, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::sim::TickGuard::new(u64) -> Self
 impl core::clone::Clone for tirbase_sim::sim::TickGuard
 pub fn tirbase_sim::sim::TickGuard::clone(&self) -> tirbase_sim::sim::TickGuard
@@ -4520,7 +4520,7 @@ pub fn tirbase_sim::TirBaseSim::clock(&self) -> &tirbase_sim::sim::SimClock
 pub fn tirbase_sim::TirBaseSim::clock_mut(&mut self) -> &mut tirbase_sim::sim::SimClock
 pub fn tirbase_sim::TirBaseSim::digest(&self) -> u64
 pub fn tirbase_sim::TirBaseSim::halted(&self) -> core::option::Option<&tirbase_sim::invariants::InvariantViolation>
-pub fn tirbase_sim::TirBaseSim::inject_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<(), tirbase_sim::network::NetworkError>
+pub fn tirbase_sim::TirBaseSim::inject_fault(&mut self, tirbase_sim::network::NetworkFault) -> core::result::Result<, tirbase_sim::network::NetworkError>
 pub fn tirbase_sim::TirBaseSim::network(&self) -> &tirbase_sim::network::SimNetwork
 pub fn tirbase_sim::TirBaseSim::network_mut(&mut self) -> &mut tirbase_sim::network::SimNetwork
 pub fn tirbase_sim::TirBaseSim::new(u64) -> Self
@@ -4528,13 +4528,13 @@ pub fn tirbase_sim::TirBaseSim::nodes(&self) -> &[tirbase_sim::sim::SimNode]
 pub fn tirbase_sim::TirBaseSim::nodes_mut(&mut self) -> &mut [tirbase_sim::sim::SimNode]
 pub fn tirbase_sim::TirBaseSim::report(&self) -> tirbase_sim::sim::ScenarioReport
 pub fn tirbase_sim::TirBaseSim::rng(&mut self) -> &mut rand_chacha::chacha::ChaCha8Rng
-pub fn tirbase_sim::TirBaseSim::run(&mut self, u64) -> core::result::Result<(), tirbase_sim::sim::SimError>
+pub fn tirbase_sim::TirBaseSim::run(&mut self, u64) -> core::result::Result<, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::TirBaseSim::run_seeded_scenario(u64, u64) -> core::result::Result<tirbase_sim::sim::ScenarioReport, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::TirBaseSim::run_seeded_scenario_to(u64, u64, &mut dyn core::io::write::Write) -> core::result::Result<tirbase_sim::sim::ScenarioReport, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::TirBaseSim::seed(&self) -> u64
 pub fn tirbase_sim::TirBaseSim::state(&self) -> &tirbase_sim::invariants::SimState
 pub fn tirbase_sim::TirBaseSim::state_mut(&mut self) -> &mut tirbase_sim::invariants::SimState
-pub fn tirbase_sim::TirBaseSim::tick(&mut self) -> core::result::Result<(), tirbase_sim::sim::SimError>
+pub fn tirbase_sim::TirBaseSim::tick(&mut self) -> core::result::Result<, tirbase_sim::sim::SimError>
 pub fn tirbase_sim::TirBaseSim::with_nodes(u64, usize) -> Self
 impl core::fmt::Debug for tirbase_sim::TirBaseSim
 pub fn tirbase_sim::TirBaseSim::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -4590,7 +4590,7 @@ pub const tirbase_sim::MIN_DELAY_MS: u64
 pub const tirbase_sim::MIN_SEEDS_PER_RUN: u64
 pub const tirbase_sim::SIM_EPOCH_SECS: i64
 pub fn tirbase_sim::assert_invariants_hold(&tirbase_sim::invariants::InvariantChecker, &tirbase_sim::invariants::SimState)
-pub fn tirbase_sim::install_faults(&mut tirbase_sim::network::SimNetwork, &[tirbase_sim::network::NetworkFault]) -> core::result::Result<(), tirbase_sim::network::NetworkError>
+pub fn tirbase_sim::install_faults(&mut tirbase_sim::network::SimNetwork, &[tirbase_sim::network::NetworkFault]) -> core::result::Result<, tirbase_sim::network::NetworkError>
 pub fn tirbase_sim::load_scenario_dir(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<alloc::vec::Vec<tirbase_sim::runner::ScenarioSpec>, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::load_scenario_file(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_sim::runner::ScenarioSpec, tirbase_sim::runner::RunnerError>
 pub fn tirbase_sim::seeded_rng(u64) -> rand_chacha::chacha::ChaCha8Rng

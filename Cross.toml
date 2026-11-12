@@ -1,7 +1,7 @@
-# cross-rs pre-build hooks (task 37.1, PV-11.4).
+# cross-rs pre-build hooks (PV-11.4).
 #
 # tirbase-core's `native` feature links the BLE bridge (btleplug → dbus), whose
-# build script resolves libdbus-1 through pkg-config.  cross's minimal images do
+# build script resolves libdbus-1 through pkg-config. cross's minimal images do
 # not ship it, so each target installs the target-architecture development
 # package before compiling.
 #

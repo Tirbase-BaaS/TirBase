@@ -1,4 +1,4 @@
-//! Gateway self-update and config rollback (Task 30.9, PV-11.6).
+//! Gateway self-update and config rollback (PV-11.6).
 //!
 //! The *mechanics* are implemented here: an `UpdateSigner`-signed firmware
 //! manifest is verified over domain-separated canonical bytes, the new config is
@@ -11,7 +11,7 @@
 //! and rollback *semantics* without committing to that wire format, so the
 //! format decision does not have to be re-litigated in code. The module is not
 //! yet exposed through an admin endpoint; enabling the active update path needs
-//! both that wiring and the RD-6 decision, so task 30.9 stays open.
+//! both that wiring and the RD-6 decision, so stays open.
 
 #![allow(dead_code)]
 
@@ -25,11 +25,11 @@ const ROLLBACK_CONTEXT: &str = "TirBase/v1/ConfigRollback";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SelfUpdateError {
-    /// The manifest/rollback contains malformed fields.
+ /// The manifest/rollback contains malformed fields.
     InvalidManifest(String),
-    /// Signature did not verify against the configured role key.
+ /// Signature did not verify against the configured role key.
     SignatureInvalid(String),
-    /// No key is configured for the role that must sign this operation.
+ /// No key is configured for the role that must sign this operation.
     MissingRoleKey(&'static str),
     ApplyFailed(String),
     RollbackFailed(String),
@@ -54,12 +54,12 @@ pub struct SignedFirmwareManifest {
     pub version: String,
     pub artifact_hash_sha256_hex: String,
     pub update_signer_did: String,
-    /// Ed25519 signature (hex) over [`Self::canonical_bytes`].
+ /// Ed25519 signature (hex) over [`Self::canonical_bytes`].
     pub signature_hex: String,
 }
 
 impl SignedFirmwareManifest {
-    /// Domain-separated canonical bytes covered by the UpdateSigner signature.
+ /// Domain-separated canonical bytes covered by the UpdateSigner signature.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(MANIFEST_CONTEXT.as_bytes());
@@ -125,10 +125,10 @@ impl SelfUpdateController {
         self.last_good_config_version.as_deref()
     }
 
-    /// Verify an UpdateSigner-signed manifest and apply `new_config` atomically.
-    ///
-    /// On any write failure the previous config contents are restored, so a
-    /// partially-written config never becomes the live one.
+ /// Verify an UpdateSigner-signed manifest and apply `new_config` atomically.
+ ///
+ /// On any write failure the previous config contents are restored, so a
+ /// partially-written config never becomes the live one.
     pub fn apply_signed_firmware_manifest(
         &mut self,
         manifest: &SignedFirmwareManifest,
@@ -148,7 +148,7 @@ impl SelfUpdateController {
                 return Err(SelfUpdateError::ApplyFailed(error));
             }
             if previous.is_none() {
-                // First successful apply becomes the last-good baseline.
+ // First successful apply becomes the last-good baseline.
                 self.last_good_config_contents = None;
             }
         }
@@ -157,7 +157,7 @@ impl SelfUpdateController {
         Ok(())
     }
 
-    /// Verify a PolicyAuthority-signed rollback and restore the last-good config.
+ /// Verify a PolicyAuthority-signed rollback and restore the last-good config.
     pub fn rollback_config_signed(
         &mut self,
         rollback: &SignedConfigRollback,
@@ -177,8 +177,8 @@ impl SelfUpdateController {
         self.rollback_to_last_good()
     }
 
-    /// Restore the last-good config contents (if a config path is configured)
-    /// and return the restored version.
+ /// Restore the last-good config contents (if a config path is configured)
+ /// and return the restored version.
     pub fn rollback_to_last_good(&mut self) -> Result<String, SelfUpdateError> {
         let version = self.last_good_config_version.clone().ok_or_else(|| {
             SelfUpdateError::RollbackFailed("no last-good config version recorded".into())
@@ -189,7 +189,7 @@ impl SelfUpdateController {
         Ok(version)
     }
 
-    /// Snapshot the current config as last-good before an update attempt.
+ /// Snapshot the current config as last-good before an update attempt.
     pub fn checkpoint_current_config(&mut self) -> Result<(), SelfUpdateError> {
         let Some(path) = &self.config_path else {
             return Ok(());
@@ -281,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn task_30_9_manifest_requires_configured_update_signer() {
+    fn manifest_requires_configured_update_signer() {
         let key = SigningKey::from_bytes(&[7u8; 32]);
         let mut c = SelfUpdateController::default();
         let err = c
@@ -291,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn task_30_9_tampered_manifest_is_rejected() {
+    fn tampered_manifest_is_rejected() {
         let key = SigningKey::from_bytes(&[7u8; 32]);
         let mut m = manifest(&key, "v2");
         m.artifact_hash_sha256_hex = "cd".repeat(32); // mutate after signing
@@ -301,14 +301,14 @@ mod tests {
     }
 
     #[test]
-    fn task_30_9_auto_rollback_uses_last_good() {
+    fn auto_rollback_uses_last_good() {
         let mut c = SelfUpdateController::new(Some("cfg-1".into()));
         assert_eq!(c.rollback_to_last_good().unwrap(), "cfg-1");
         assert_eq!(c.last_good_config_version(), Some("cfg-1"));
     }
 
     #[test]
-    fn task_30_9_valid_manifest_applies_and_rolls_back_config() {
+    fn valid_manifest_applies_and_rolls_back_config() {
         let key = SigningKey::from_bytes(&[9u8; 32]);
         let path = temp_config("apply", "mode = \"old\"\n");
         let mut c = SelfUpdateController::default()
@@ -322,7 +322,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "mode = \"new\"\n");
         assert_eq!(c.last_good_config_version(), Some("v2"));
 
-        // A rollback signed by the PolicyAuthority restores the checkpointed config.
+ // A rollback signed by the PolicyAuthority restores the checkpointed config.
         let mut rollback = SignedConfigRollback {
             target_config_version: "v2".into(),
             policy_authority_did: "did:key:zPA".into(),
@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn task_30_9_unsigned_rollback_is_rejected() {
+    fn unsigned_rollback_is_rejected() {
         let pa = SigningKey::from_bytes(&[3u8; 32]);
         let attacker = SigningKey::from_bytes(&[4u8; 32]);
         let mut rollback = SignedConfigRollback {

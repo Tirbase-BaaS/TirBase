@@ -2,9 +2,9 @@
 //! Changeset DAG and Incident Context Object management (Req 10, 11).
 //!
 //! The CCE accepts taint from exactly three source types (Req 10.1):
-//!   1. `DeviceRevocation` — triggered by a Revocation_Delta
-//!   2. `BadMigration`     — triggered by a Migration_Revocation_Delta
-//!   3. `HumanReaction`    — triggered by a write on a contaminated projection
+//! 1. `DeviceRevocation` — triggered by a Revocation_Delta
+//! 2. `BadMigration` — triggered by a Migration_Revocation_Delta
+//! 3. `HumanReaction` — triggered by a write on a contaminated projection
 //!
 //! Any other source is rejected with `UnsupportedTaintSource`.
 
@@ -46,20 +46,20 @@ type IncidentSnapshot = (
 /// persistence is explicitly deferred to a post-v1 task.
 #[cfg(feature = "native")]
 pub struct CausalContaminationEngine {
-    /// Shared SQLite connection (same pool as LocalStore and ChangesetDag).
+ /// Shared SQLite connection (same pool as LocalStore and ChangesetDag).
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
-    /// SQLite-backed Changeset DAG — used for BFS walks.
+ /// SQLite-backed Changeset DAG — used for BFS walks.
     dag: crate::crdt::dag::ChangesetDag,
-    /// In-memory incident registry.
+ /// In-memory incident registry.
     incidents: BTreeMap<IncidentId, IncidentContextObject>,
-    /// In-memory composite incident registry.
+ /// In-memory composite incident registry.
     composite_incidents: BTreeMap<IncidentId, CompositeIncidentInstance>,
-    /// Keyed lookup index: (table_name, row_key) → active IncidentId.
-    ///
-    /// Populated when `tag_contamination_root` resolves affected rows.
-    /// Pruned when `verify_data` appends `DeltaTag::Decontaminated` to a fully
-    /// resolved incident.  This map is the fast path for `CoreHandle::write()`
-    /// to check whether the current row is contaminated (Req 19.5).
+ /// Keyed lookup index: (table_name, row_key) → active IncidentId.
+ ///
+ /// Populated when `tag_contamination_root` resolves affected rows.
+ /// Pruned when `verify_data` appends `DeltaTag::Decontaminated` to a fully
+ /// resolved incident. This map is the fast path for `CoreHandle::write()`
+ /// to check whether the current row is contaminated (Req 19.5).
     contaminated_rows: BTreeMap<(String, String), IncidentId>,
 }
 
@@ -67,9 +67,9 @@ pub struct CausalContaminationEngine {
 pub struct CausalContaminationEngine {
     incidents: BTreeMap<IncidentId, IncidentContextObject>,
     composite_incidents: BTreeMap<IncidentId, CompositeIncidentInstance>,
-    /// In-memory DAG for WASM builds (mirrors the native SQLite-backed DAG).
+ /// In-memory DAG for WASM builds (mirrors the native SQLite-backed DAG).
     dag: crate::crdt::dag::ChangesetDag,
-    /// Keyed lookup index: (table_name, row_key) → active IncidentId.
+ /// Keyed lookup index: (table_name, row_key) → active IncidentId.
     contaminated_rows: BTreeMap<(String, String), IncidentId>,
 }
 
@@ -77,7 +77,7 @@ pub struct CausalContaminationEngine {
 
 #[cfg(feature = "native")]
 mod persistence {
-    // STATE-INVENTORY: PERSISTED cce_incidents, cce_composite_incidents, cce_contaminated_rows (CLAIM-31.3, PV-9.1)
+ // STATE-INVENTORY: PERSISTED cce_incidents, cce_composite_incidents, cce_contaminated_rows (CLAIM-31.3, PV-9.1)
     use super::*;
     use std::str::FromStr;
 
@@ -331,8 +331,8 @@ mod persistence {
 
 #[cfg(feature = "native")]
 impl CausalContaminationEngine {
-    /// Create a new CCE backed by the given shared SQLite connection.
-    /// Loads persisted ICO/CCE state on construction (CLAIM-31.3, PV-9.1).
+ /// Create a new CCE backed by the given shared SQLite connection.
+ /// Loads persisted ICO/CCE state on construction (CLAIM-31.3, PV-9.1).
     pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
         let dag = crate::crdt::dag::ChangesetDag::new(conn.clone());
         let (incidents, composite_incidents, contaminated_rows) =
@@ -346,35 +346,35 @@ impl CausalContaminationEngine {
         }
     }
 
-    /// Persist current ICO/CCE/index state to SQLite (CLAIM-31.3).
+ /// Persist current ICO/CCE/index state to SQLite (CLAIM-31.3).
     fn persist_snapshot(&self) -> Result<(), TirBaseError> {
         persistence::save_snapshot(self)
     }
 
-    /// Test-only: force-persist current state (CLAIM-31.3 tests).
+ /// Test-only: force-persist current state (CLAIM-31.3 tests).
     #[doc(hidden)]
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_persist_snapshot(&self) -> Result<(), TirBaseError> {
         self.persist_snapshot()
     }
 
-    // ─── tag_contamination_root ───────────────────────────────────────────────
+ // ─── tag_contamination_root ───────────────────────────────────────────────
 
-    /// Tag `root_delta_id` as a contamination root and walk all descendants
-    /// in the ChangesetDag, appending `DeltaTag::Contaminated` to each.
-    ///
-    /// Validates the taint source (all three enum variants are valid — the guard
-    /// is structural).  Detects overlap with existing incidents and creates a
-    /// `CompositeIncidentInstance` when two chains share a DAG node (Req 10.5).
-    ///
-    /// Returns the `IncidentId` of the newly created (or composite) incident.
+ /// Tag `root_delta_id` as a contamination root and walk all descendants
+ /// in the ChangesetDag, appending `DeltaTag::Contaminated` to each.
+ ///
+ /// Validates the taint source (all three enum variants are valid — the guard
+ /// is structural). Detects overlap with existing incidents and creates a
+ /// `CompositeIncidentInstance` when two chains share a DAG node (Req 10.5).
+ ///
+ /// Returns the `IncidentId` of the newly created (or composite) incident.
     pub fn tag_contamination_root(
         &mut self,
         root_delta_id: DeltaId,
         source: TaintSource,
     ) -> Result<IncidentId, TirBaseError> {
-        // Taint source guard — all three variants of TaintSource are valid.
-        // The match exhausts the enum, which is the compile-time guard (Req 10.1).
+ // Taint source guard — all three variants of TaintSource are valid.
+ // The match exhausts the enum, which is the compile-time guard (Req 10.1).
         let _source_is_valid = match &source {
             TaintSource::DeviceRevocation { .. } => true,
             TaintSource::BadMigration { .. } => true,
@@ -384,10 +384,10 @@ impl CausalContaminationEngine {
         let now = now_micros();
         let ico_id = uuid::Uuid::now_v7();
 
-        // BFS walk from the root — collect all reachable descendant Delta IDs.
+ // BFS walk from the root — collect all reachable descendant Delta IDs.
         let descendants = taint::walk_dag_descendants(&self.dag, &root_delta_id)?;
 
-        // Obtain a connection lock for tag writes.
+ // Obtain a connection lock for tag writes.
         let conn_guard = self
             .conn
             .lock()
@@ -395,7 +395,7 @@ impl CausalContaminationEngine {
                 reason: format!("CCE mutex poisoned: {e}"),
             })?;
 
-        // Append Contaminated tag to every reachable Delta.
+ // Append Contaminated tag to every reachable Delta.
         for delta_id in &descendants {
             let _ = taint::append_tag(
                 &conn_guard,
@@ -408,7 +408,7 @@ impl CausalContaminationEngine {
         }
         drop(conn_guard);
 
-        // Resolve affected projection rows and mark them contaminated (Req 10.7).
+ // Resolve affected projection rows and mark them contaminated (Req 10.7).
         let affected_rows = {
             let conn_guard2 =
                 self.conn
@@ -427,7 +427,7 @@ impl CausalContaminationEngine {
             rows
         };
 
-        // Build the new ICO.
+ // Build the new ICO.
         let contaminated_deltas = descendants.iter().copied().collect();
         let new_ico = IncidentContextObject {
             id: ico_id,
@@ -442,7 +442,7 @@ impl CausalContaminationEngine {
             audit_log: vec![],
         };
 
-        // Overlap detection: check against all existing OPEN incidents.
+ // Overlap detection: check against all existing OPEN incidents.
         let overlapping_id: Option<IncidentId> = self
             .incidents
             .values()
@@ -457,14 +457,14 @@ impl CausalContaminationEngine {
             .next();
 
         if let Some(existing_ico_id) = overlapping_id {
-            // Insert new ICO temporarily so composite_merge can see both.
+ // Insert new ICO temporarily so composite_merge can see both.
             self.incidents.insert(ico_id, new_ico);
 
             let (composite_id, composite) = {
                 let ico_a = self.incidents.get_mut(&existing_ico_id).unwrap();
                 let ico_b_ref = self.incidents.get_mut(&ico_id).unwrap();
-                // We need both as mutable — use a two-step borrow workaround.
-                // Take ico_b out, mutate both, then re-insert.
+ // We need both as mutable — use a two-step borrow workaround.
+ // Take ico_b out, mutate both, then re-insert.
                 let mut ico_b = self.incidents.remove(&ico_id).unwrap();
                 let mut ico_a_owned = self.incidents.remove(&existing_ico_id).unwrap();
                 let result = incident::composite_merge(&mut ico_a_owned, &mut ico_b, now);
@@ -474,7 +474,7 @@ impl CausalContaminationEngine {
             };
 
             self.composite_incidents.insert(composite_id, composite);
-            // Populate contaminated_rows index for the composite ICO (native).
+ // Populate contaminated_rows index for the composite ICO (native).
             if let Some(comp) = self.composite_incidents.get(&composite_id) {
                 for row in &comp.affected_rows {
                     self.contaminated_rows
@@ -485,10 +485,10 @@ impl CausalContaminationEngine {
             return Ok(composite_id);
         }
 
-        // No overlap — just register the new ICO.
+ // No overlap — just register the new ICO.
         self.incidents.insert(ico_id, new_ico);
 
-        // Populate the O(1) contaminated_rows index for this ICO.
+ // Populate the O(1) contaminated_rows index for this ICO.
         if let Some(ico) = self.incidents.get(&ico_id) {
             for row in &ico.affected_rows {
                 self.contaminated_rows
@@ -499,9 +499,9 @@ impl CausalContaminationEngine {
         Ok(ico_id)
     }
 
-    // ─── verify_data ─────────────────────────────────────────────────────────
+ // ─── verify_data ─────────────────────────────────────────────────────────
 
-    /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
+ /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
     pub fn verify_data(
         &mut self,
         root_delta_id: DeltaId,
@@ -531,18 +531,18 @@ impl CausalContaminationEngine {
             &mut self.composite_incidents,
         )?;
 
-        // Drop the connection guard before taking a mutable borrow of self.
+ // Drop the connection guard before taking a mutable borrow of self.
         drop(conn_guard);
 
-        // Req 10.6 — repopulate contaminated_rows for surviving sub-chains.
-        //
-        // When a composite incident is decomposed (one root resolved, the other
-        // still unresolved), the surviving sub-chain is re-registered as a
-        // fresh OPEN ICO with its own affected_rows.  Any row that was
-        // previously mapped to the composite ID must be re-pointed to the new
-        // ICO so `is_row_contaminated()` continues to return `true` via the
-        // unresolved lineage (acceptance criteria: "affected rows remain
-        // CONTAMINATED via the unresolved lineage").
+ // Req 10.6 — repopulate contaminated_rows for surviving sub-chains.
+ //
+ // When a composite incident is decomposed (one root resolved, the other
+ // still unresolved), the surviving sub-chain is re-registered as a
+ // fresh OPEN ICO with its own affected_rows. Any row that was
+ // previously mapped to the composite ID must be re-pointed to the new
+ // ICO so `is_row_contaminated()` continues to return `true` via the
+ // unresolved lineage (acceptance criteria: "affected rows remain
+ // CONTAMINATED via the unresolved lineage").
         for (new_ico_id, affected_rows) in &decomposition.new_icos {
             for row in affected_rows {
                 self.contaminated_rows
@@ -550,15 +550,15 @@ impl CausalContaminationEngine {
             }
         }
 
-        // After resolution, prune contaminated_rows entries for any row that now
-        // has no active OPEN incident referencing it.  This keeps is_row_contaminated()
-        // returning false after all roots are resolved (Req 19.5 / Test C).
-        //
-        // The standard prune only retains rows while the ICO is `Open`.  But `Open`
-        // is the correct state even after full resolution (only `admin_close`
-        // transitions to `Closed`).  So we also prune rows whose ICO's entire
-        // contamination_roots set now carries a `Resolved` tag — i.e. the incident
-        // has been fully verified even if not yet admin-closed.
+ // After resolution, prune contaminated_rows entries for any row that now
+ // has no active OPEN incident referencing it. This keeps is_row_contaminated()
+ // returning false after all roots are resolved (Req 19.5 / Test C).
+ //
+ // The standard prune only retains rows while the ICO is `Open`. But `Open`
+ // is the correct state even after full resolution (only `admin_close`
+ // transitions to `Closed`). So we also prune rows whose ICO's entire
+ // contamination_roots set now carries a `Resolved` tag — i.e. the incident
+ // has been fully verified even if not yet admin-closed.
         {
             let conn_guard2 =
                 self.conn
@@ -567,12 +567,12 @@ impl CausalContaminationEngine {
                         reason: format!("CCE mutex poisoned during prune: {e}"),
                     })?;
             self.contaminated_rows.retain(|_key, incident_id| {
-                // Check regular ICO.
+ // Check regular ICO.
                 if let Some(ico) = self.incidents.get(incident_id) {
                     if ico.state != IncidentState::Open {
                         return false;
                     }
-                    // Keep entry only if at least one contamination root is NOT yet resolved.
+ // Keep entry only if at least one contamination root is NOT yet resolved.
                     return ico.contamination_roots.iter().any(|root_id| {
                         let tags =
                             crate::contamination::taint::read_tags_from_db(&conn_guard2, root_id)
@@ -580,7 +580,7 @@ impl CausalContaminationEngine {
                         !tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
                     });
                 }
-                // Check composite ICO.
+ // Check composite ICO.
                 if let Some(comp) = self.composite_incidents.get(incident_id) {
                     if comp.state != IncidentState::Open {
                         return false;
@@ -600,9 +600,9 @@ impl CausalContaminationEngine {
         Ok(())
     }
 
-    // ─── admin_close ─────────────────────────────────────────────────────────
+ // ─── admin_close ─────────────────────────────────────────────────────────
 
-    /// Submit an ADMIN_CLOSE operation for an Incident Context Object (Req 11.2).
+ /// Submit an ADMIN_CLOSE operation for an Incident Context Object (Req 11.2).
     pub fn admin_close(
         &mut self,
         incident_id: IncidentId,
@@ -623,9 +623,9 @@ impl CausalContaminationEngine {
         Ok(())
     }
 
-    // ─── Read accessors ───────────────────────────────────────────────────────
+ // ─── Read accessors ───────────────────────────────────────────────────────
 
-    /// Retrieve an Incident Context Object by ID.
+ /// Retrieve an Incident Context Object by ID.
     pub fn get_incident(
         &self,
         id: IncidentId,
@@ -633,7 +633,7 @@ impl CausalContaminationEngine {
         Ok(self.incidents.get(&id).cloned())
     }
 
-    /// Return all currently OPEN incidents.
+ /// Return all currently OPEN incidents.
     pub fn open_incidents(&self) -> Result<Vec<IncidentContextObject>, TirBaseError> {
         Ok(self
             .incidents
@@ -643,29 +643,29 @@ impl CausalContaminationEngine {
             .collect())
     }
 
-    /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
-    /// contaminated by an active incident (Req 19.5).
+ /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
+ /// contaminated by an active incident (Req 19.5).
     pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
         self.contaminated_rows
             .contains_key(&(table.to_string(), row_key.to_string()))
     }
 
-    /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
-    /// if the row is contaminated, or `None` otherwise (Req 19.5).
+ /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
+ /// if the row is contaminated, or `None` otherwise (Req 19.5).
     pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
         self.contaminated_rows
             .get(&(table.to_string(), row_key.to_string()))
             .copied()
     }
 
-    // ─── Private helpers ──────────────────────────────────────────────────────
+ // ─── Private helpers ──────────────────────────────────────────────────────
 
-    /// Remove entries from `contaminated_rows` that no longer have an active OPEN
-    /// incident.  Called after `verify_data` to prune rows that have been fully
-    /// decontaminated.
+ /// Remove entries from `contaminated_rows` that no longer have an active OPEN
+ /// incident. Called after `verify_data` to prune rows that have been fully
+ /// decontaminated.
     fn prune_contaminated_rows(&mut self) {
         self.contaminated_rows.retain(|_key, incident_id| {
-            // Keep the entry if the incident still exists AND is still Open.
+ // Keep the entry if the incident still exists AND is still Open.
             self.incidents
                 .get(incident_id)
                 .map(|ico| ico.state == IncidentState::Open)
@@ -678,11 +678,11 @@ impl CausalContaminationEngine {
         });
     }
 
-    // ─── Test-only helpers ────────────────────────────────────────────────────
+ // ─── Test-only helpers ────────────────────────────────────────────────────
 
-    /// Insert a DagNode directly into the CCE's DAG.
-    /// Used by integration tests to set up causal ancestry without going through
-    /// the full write pipeline.
+ /// Insert a DagNode directly into the CCE's DAG.
+ /// Used by integration tests to set up causal ancestry without going through
+ /// the full write pipeline.
     #[doc(hidden)]
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_insert_dag_node(
@@ -696,9 +696,9 @@ impl CausalContaminationEngine {
             })
     }
 
-    /// Manually set the `contaminated_rows` entry for a `(table, row_key)` pair.
-    /// Used by integration tests to simulate projection-layer contamination without
-    /// requiring a full `tag_contamination_root` walk over live store rows.
+ /// Manually set the `contaminated_rows` entry for a `(table, row_key)` pair.
+ /// Used by integration tests to simulate projection-layer contamination without
+ /// requiring a full `tag_contamination_root` walk over live store rows.
     #[doc(hidden)]
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_set_contaminated_row(
@@ -711,29 +711,29 @@ impl CausalContaminationEngine {
             .insert((table.to_string(), row_key.to_string()), incident_id);
     }
 
-    /// Clone the shared SQLite connection handle for direct tag reads in integration
-    /// tests.  Used by tests that need to verify `DeltaTag` entries on `dag_nodes`
-    /// without going through the public CCE API.
+ /// Clone the shared SQLite connection handle for direct tag reads in integration
+ /// tests. Used by tests that need to verify `DeltaTag` entries on `dag_nodes`
+ /// without going through the public CCE API.
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_get_conn(&self) -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
         self.conn.clone()
     }
 
-    /// Retrieve a snapshot of a `CompositeIncidentInstance` by ID.
+ /// Retrieve a snapshot of a `CompositeIncidentInstance` by ID.
     #[doc(hidden)]
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_get_composite_incident(&self, id: IncidentId) -> Option<CompositeIncidentInstance> {
         self.composite_incidents.get(&id).cloned()
     }
 
-    /// Check whether an incident ID refers to a composite incident.
+ /// Check whether an incident ID refers to a composite incident.
     #[doc(hidden)]
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_is_composite(&self, id: IncidentId) -> bool {
         self.composite_incidents.contains_key(&id)
     }
 
-    /// Find OPEN incidents whose `contamination_roots` contain the given root.
+ /// Find OPEN incidents whose `contamination_roots` contain the given root.
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn test_open_incidents_for_root(&self, root: DeltaId) -> Vec<IncidentContextObject> {
         self.incidents
@@ -764,7 +764,7 @@ impl CausalContaminationEngine {
         root_delta_id: DeltaId,
         source: TaintSource,
     ) -> Result<IncidentId, TirBaseError> {
-        // Taint source guard — all three variants of TaintSource are valid.
+ // Taint source guard — all three variants of TaintSource are valid.
         let _source_is_valid = match &source {
             TaintSource::DeviceRevocation { .. } => true,
             TaintSource::BadMigration { .. } => true,
@@ -774,10 +774,10 @@ impl CausalContaminationEngine {
         let now = now_micros();
         let ico_id = uuid::Uuid::now_v7();
 
-        // BFS walk from the root — collect all reachable descendant Delta IDs.
+ // BFS walk from the root — collect all reachable descendant Delta IDs.
         let descendants = taint::walk_dag_descendants(&self.dag, &root_delta_id)?;
 
-        // Append Contaminated tag to every reachable Delta.
+ // Append Contaminated tag to every reachable Delta.
         for delta_id in &descendants {
             let _ = taint::append_tag(
                 delta_id,
@@ -788,10 +788,10 @@ impl CausalContaminationEngine {
             );
         }
 
-        // Resolve affected rows (empty on WASM).
+ // Resolve affected rows (empty on WASM).
         let affected_rows = taint::resolve_affected_rows(&descendants, root_delta_id)?;
 
-        // Build the new ICO.
+ // Build the new ICO.
         let contaminated_deltas = descendants.iter().copied().collect();
         let new_ico = IncidentContextObject {
             id: ico_id,
@@ -806,7 +806,7 @@ impl CausalContaminationEngine {
             audit_log: vec![],
         };
 
-        // Overlap detection: check against all existing OPEN incidents.
+ // Overlap detection: check against all existing OPEN incidents.
         let overlapping_id: Option<IncidentId> = self
             .incidents
             .values()
@@ -830,7 +830,7 @@ impl CausalContaminationEngine {
                 self.incidents.insert(ico_id, ico_b);
                 result
             };
-            // Push IncidentCreated for the composite ICO.
+ // Push IncidentCreated for the composite ICO.
             #[cfg(feature = "wasm")]
             {
                 let composite_json =
@@ -840,7 +840,7 @@ impl CausalContaminationEngine {
                 });
             }
             self.composite_incidents.insert(composite_id, composite);
-            // Populate contaminated_rows index for the composite ICO (WASM).
+ // Populate contaminated_rows index for the composite ICO (WASM).
             if let Some(comp) = self.composite_incidents.get(&composite_id) {
                 for row in &comp.affected_rows {
                     self.contaminated_rows
@@ -850,7 +850,7 @@ impl CausalContaminationEngine {
             return Ok(composite_id);
         }
 
-        // Push IncidentCreated for the new ICO.
+ // Push IncidentCreated for the new ICO.
         #[cfg(feature = "wasm")]
         {
             let ico_json = serde_json::to_value(&new_ico).unwrap_or(serde_json::Value::Null);
@@ -859,7 +859,7 @@ impl CausalContaminationEngine {
 
         self.incidents.insert(ico_id, new_ico);
 
-        // Populate the O(1) contaminated_rows index for this ICO (WASM).
+ // Populate the O(1) contaminated_rows index for this ICO (WASM).
         if let Some(ico) = self.incidents.get(&ico_id) {
             for row in &ico.affected_rows {
                 self.contaminated_rows
@@ -880,7 +880,7 @@ impl CausalContaminationEngine {
     ) -> Result<(), TirBaseError> {
         use crate::contamination::incident::{AuditEntry, AuditOperation};
 
-        // Auth check.
+ // Auth check.
         resolution::verify_manager_auth(
             &manager_did,
             &manager_sig,
@@ -891,7 +891,7 @@ impl CausalContaminationEngine {
 
         let at = now_micros();
 
-        // Append Resolved tag in the WASM tag store.
+ // Append Resolved tag in the WASM tag store.
         let _ = taint::append_tag(
             &root_delta_id,
             DeltaTag::Resolved {
@@ -900,7 +900,7 @@ impl CausalContaminationEngine {
             },
         );
 
-        // Find and update incidents containing this root.
+ // Find and update incidents containing this root.
         let ico_ids: Vec<IncidentId> = self
             .incidents
             .values()
@@ -922,7 +922,7 @@ impl CausalContaminationEngine {
             });
             ico.updated_at = at;
 
-            // Check if all roots are now resolved.
+ // Check if all roots are now resolved.
             let all_resolved = ico.contamination_roots.iter().all(|root_id| {
                 taint::read_tags_from_mem(root_id)
                     .iter()
@@ -940,7 +940,7 @@ impl CausalContaminationEngine {
                         },
                     );
                 }
-                // All roots resolved → IncidentClosed event.
+ // All roots resolved → IncidentClosed event.
                 #[cfg(feature = "wasm")]
                 {
                     let ico_json = self
@@ -951,7 +951,7 @@ impl CausalContaminationEngine {
                     crate::push_wasm_event(crate::WasmEvent::IncidentClosed { ico: ico_json });
                 }
             } else {
-                // Partial resolution → IncidentUpdated event.
+ // Partial resolution → IncidentUpdated event.
                 #[cfg(feature = "wasm")]
                 {
                     let ico_json = self
@@ -964,7 +964,7 @@ impl CausalContaminationEngine {
             }
         }
 
-        // Prune contaminated_rows for any row that no longer has an active OPEN incident.
+ // Prune contaminated_rows for any row that no longer has an active OPEN incident.
         self.contaminated_rows.retain(|_key, incident_id| {
             self.incidents
                 .get(incident_id)
@@ -996,7 +996,7 @@ impl CausalContaminationEngine {
             now_secs,
             &mut self.incidents,
         )?;
-        // Push IncidentClosed event after successful close (WASM path).
+ // Push IncidentClosed event after successful close (WASM path).
         #[cfg(feature = "wasm")]
         {
             let ico_json = self
@@ -1025,15 +1025,15 @@ impl CausalContaminationEngine {
             .collect())
     }
 
-    /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
-    /// contaminated by an active incident (Req 19.5).
+ /// O(1) check — returns `true` if the given `(table, row_key)` pair is currently
+ /// contaminated by an active incident (Req 19.5).
     pub fn is_row_contaminated(&self, table: &str, row_key: &str) -> bool {
         self.contaminated_rows
             .contains_key(&(table.to_string(), row_key.to_string()))
     }
 
-    /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
-    /// if the row is contaminated, or `None` otherwise (Req 19.5).
+ /// O(1) lookup — returns the active `IncidentId` for the given `(table, row_key)`
+ /// if the row is contaminated, or `None` otherwise (Req 19.5).
     pub fn active_incident_for_row(&self, table: &str, row_key: &str) -> Option<IncidentId> {
         self.contaminated_rows
             .get(&(table.to_string(), row_key.to_string()))
@@ -1053,7 +1053,7 @@ mod tests {
     use crate::store::sqlite;
     use std::sync::{Arc, Mutex};
 
-    // ─── Test helpers ────────────────────────────────────────────────────────
+ // ─── Test helpers ────────────────────────────────────────────────────────
 
     fn open_cce() -> CausalContaminationEngine {
         let conn = sqlite::open(":memory:").expect("open in-memory SQLite");
@@ -1068,7 +1068,7 @@ mod tests {
         (cce, conn)
     }
 
-    /// Insert a minimal DagNode into the DAG.
+ /// Insert a minimal DagNode into the DAG.
     fn insert_node(dag: &mut ChangesetDag, id: [u8; 32], parents: Vec<[u8; 32]>) {
         dag.insert(DagNode {
             delta_id: id,
@@ -1084,34 +1084,34 @@ mod tests {
         .expect("insert DagNode");
     }
 
-    /// Build a fresh manager identity and return (manager_did, signing_fn, token_expiry).
+ /// Build a fresh manager identity and return (manager_did, signing_fn, token_expiry).
     fn make_manager() -> (String, [u8; 32]) {
         let mgr = IdentityManager::init_in_memory().unwrap();
         let secret = mgr.signing_key_bytes();
         (mgr.did().to_string(), secret)
     }
 
-    /// Sign `payload` and return an `Ed25519Signature`.
+ /// Sign `payload` and return an `Ed25519Signature`.
     fn sign(secret: &[u8; 32], payload: &[u8]) -> Ed25519Signature {
         keypair::sign(secret, payload).expect("sign")
     }
 
-    /// A token expiry well in the future (now + 1 hour in micros).
+ /// A token expiry well in the future (now + 1 hour in micros).
     fn future_expiry() -> i64 {
         now_micros() + 3_600_000_000
     }
 
-    /// Current wall-clock time in seconds (for `now_secs` parameters).
+ /// Current wall-clock time in seconds (for `now_secs` parameters).
     fn now_secs() -> i64 {
         now_micros() / 1_000_000
     }
 
-    /// A token expiry well in the future (now + 1 hour in seconds).
+ /// A token expiry well in the future (now + 1 hour in seconds).
     fn future_expiry_secs() -> i64 {
         now_secs() + 3600
     }
 
-    // ─── Test 1: Single-root taint walk completeness ─────────────────────────
+ // ─── Test 1: Single-root taint walk completeness ─────────────────────────
 
     #[test]
     fn test_single_root_taint_walk_completeness() {
@@ -1121,7 +1121,7 @@ mod tests {
         let mid_id = [0x02u8; 32];
         let leaf_id = [0x03u8; 32];
 
-        // Build 3-node chain in the DAG.
+ // Build 3-node chain in the DAG.
         insert_node(&mut cce.dag, root_id, vec![]);
         insert_node(&mut cce.dag, mid_id, vec![root_id]);
         insert_node(&mut cce.dag, leaf_id, vec![mid_id]);
@@ -1133,7 +1133,7 @@ mod tests {
             .tag_contamination_root(root_id, source)
             .expect("tag_contamination_root should succeed");
 
-        // ICO must record all 3 deltas.
+ // ICO must record all 3 deltas.
         let ico = cce
             .get_incident(ico_id)
             .expect("get_incident ok")
@@ -1151,7 +1151,7 @@ mod tests {
             "leaf must be in contaminated_deltas"
         );
 
-        // Check dag_nodes.tags_json for each node.
+ // Check dag_nodes.tags_json for each node.
         let lock = conn.lock().unwrap();
         for id in [&root_id, &mid_id, &leaf_id] {
             let tags = taint::read_tags_from_db(&lock, id).expect("read tags");
@@ -1165,7 +1165,7 @@ mod tests {
         }
     }
 
-    // ─── Test 2: Multi-root DECONTAMINATED held until all roots resolved ──────
+ // ─── Test 2: Multi-root DECONTAMINATED held until all roots resolved ──────
 
     #[test]
     fn test_multi_root_decontaminated_held_until_all_resolved() {
@@ -1176,12 +1176,12 @@ mod tests {
         let root_b = [0x0Bu8; 32];
         let shared = [0x0Cu8; 32]; // descendant of both
 
-        // Build chain A: root_a → shared
+ // Build chain A: root_a → shared
         insert_node(&mut cce.dag, root_a, vec![]);
         insert_node(&mut cce.dag, root_b, vec![]);
         insert_node(&mut cce.dag, shared, vec![root_a]);
 
-        // Tag root_a → ICO_A covers {root_a, shared}
+ // Tag root_a → ICO_A covers {root_a, shared}
         let source_a = TaintSource::DeviceRevocation {
             revocation_delta_id: root_a,
         };
@@ -1189,7 +1189,7 @@ mod tests {
             .tag_contamination_root(root_a, source_a)
             .expect("tag root_a");
 
-        // Tag root_b → ICO_B covers {root_b} only (no shared edge from root_b in this DAG)
+ // Tag root_b → ICO_B covers {root_b} only (no shared edge from root_b in this DAG)
         let source_b = TaintSource::BadMigration {
             migration_id: [0x0Bu8; 32],
         };
@@ -1200,25 +1200,25 @@ mod tests {
         let expiry = future_expiry();
         let now_s = now_secs();
 
-        // Resolve root_a.
+ // Resolve root_a.
         let sig_a = sign(&mgr_secret, &root_a);
         cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s)
             .expect("verify_data root_a");
 
-        // shared should NOT yet have Decontaminated tag (root_b is still unresolved,
-        // though it's in a separate ICO).  For ICO_A all roots = [root_a] → root_a
-        // IS resolved now, so ICO_A will be decontaminated.  The shared node
-        // should have Decontaminated for ICO_A.
-        // The critical check is: the CONTAMINATED tag from ICO_A is still present.
+ // shared should NOT yet have Decontaminated tag (root_b is still unresolved,
+ // though it's in a separate ICO). For ICO_A all roots = [root_a] → root_a
+ // IS resolved now, so ICO_A will be decontaminated. The shared node
+ // should have Decontaminated for ICO_A.
+ // The critical check is: the CONTAMINATED tag from ICO_A is still present.
         let lock = conn.lock().unwrap();
         let tags = taint::read_tags_from_db(&lock, &shared).expect("read tags shared");
-        // Must still have the Contaminated tag.
+ // Must still have the Contaminated tag.
         assert!(
             tags.iter()
                 .any(|t| matches!(t, DeltaTag::Contaminated { .. })),
             "shared must still carry Contaminated tag even after root_a resolved"
         );
-        // Decontaminated should now be present for ICO_A (single-root ICO is now fully resolved).
+ // Decontaminated should now be present for ICO_A (single-root ICO is now fully resolved).
         assert!(
             tags.iter()
                 .any(|t| matches!(t, DeltaTag::Decontaminated { .. })),
@@ -1226,13 +1226,13 @@ mod tests {
         );
         drop(lock);
 
-        // Resolve root_b.
+ // Resolve root_b.
         let sig_b = sign(&mgr_secret, &root_b);
         cce.verify_data(root_b, mgr_did.clone(), sig_b, expiry, now_s)
             .expect("verify_data root_b");
 
-        // After both resolved, the shared node (in ICO_A) stays decontaminated
-        // and root_b's ICO is also fully resolved.
+ // After both resolved, the shared node (in ICO_A) stays decontaminated
+ // and root_b's ICO is also fully resolved.
         let lock = conn.lock().unwrap();
         let tags_root_b = taint::read_tags_from_db(&lock, &root_b).expect("read tags root_b");
         assert!(
@@ -1243,7 +1243,7 @@ mod tests {
         );
     }
 
-    // ─── Test 3: Composite merge on shared DAG node ───────────────────────────
+ // ─── Test 3: Composite merge on shared DAG node ───────────────────────────
 
     #[test]
     fn test_composite_merge_on_shared_dag_node() {
@@ -1253,15 +1253,15 @@ mod tests {
         let b1 = [0x02u8; 32];
         let a2 = [0x03u8; 32]; // shared child
 
-        // Chain A: a1 → a2
+ // Chain A: a1 → a2
         insert_node(&mut cce.dag, a1, vec![]);
         insert_node(&mut cce.dag, a2, vec![a1]);
-        // Chain B: b1 → a2 (b1 shares a2 with chain A)
+ // Chain B: b1 → a2 (b1 shares a2 with chain A)
         insert_node(&mut cce.dag, b1, vec![]);
-        // Note: a2 already inserted; add b1 → a2 edge by making a2 a child of b1.
-        // Since a2 is already in the DAG with parent a1 only, we need to reinsert
-        // with both parents — but dag INSERT OR IGNORE means we can't update.
-        // For the overlap detection test we use a fresh node that's a child of b1:
+ // Note: a2 already inserted; add b1 → a2 edge by making a2 a child of b1.
+ // Since a2 is already in the DAG with parent a1 only, we need to reinsert
+ // with both parents — but dag INSERT OR IGNORE means we can't update.
+ // For the overlap detection test we use a fresh node that's a child of b1:
         let b2 = [0x04u8; 32]; // b1 → b2, and a2 → b2 (diamond via b2)
         insert_node(&mut cce.dag, b2, vec![a2, b1]);
 
@@ -1270,7 +1270,7 @@ mod tests {
         };
         let result_a_id = cce.tag_contamination_root(a1, source_a).expect("tag a1");
 
-        // ICO_A covers {a1, a2, b2}.
+ // ICO_A covers {a1, a2, b2}.
         let ico_a = cce.incidents.get(&result_a_id).cloned();
 
         let source_b = TaintSource::BadMigration {
@@ -1278,11 +1278,11 @@ mod tests {
         };
         let result_b_id = cce.tag_contamination_root(b1, source_b).expect("tag b1");
 
-        // If b1's descendants include b2 which is already in ICO_A → composite formed.
-        // result_b_id should be the composite ID.
+ // If b1's descendants include b2 which is already in ICO_A → composite formed.
+ // result_b_id should be the composite ID.
         let is_composite = cce.composite_incidents.contains_key(&result_b_id);
         if is_composite {
-            // ICO_A should be marked SupersededBy.
+ // ICO_A should be marked SupersededBy.
             let ico_a_state = cce.incidents.get(&result_a_id).map(|i| i.state);
             assert!(
                 matches!(ico_a_state, Some(IncidentState::SupersededBy(_))),
@@ -1299,8 +1299,8 @@ mod tests {
                 "composite must contain b1"
             );
         } else {
-            // No overlap detected (b1 and a1 have disjoint descendants in this graph).
-            // The test confirms both ICOs are independently registered.
+ // No overlap detected (b1 and a1 have disjoint descendants in this graph).
+ // The test confirms both ICOs are independently registered.
             assert!(
                 cce.incidents.contains_key(&result_a_id)
                     || cce.incidents.contains_key(&result_b_id),
@@ -1309,7 +1309,7 @@ mod tests {
         }
     }
 
-    // ─── Test 4: ADMIN_CLOSE on non-OPEN ICO rejected ────────────────────────
+ // ─── Test 4: ADMIN_CLOSE on non-OPEN ICO rejected ────────────────────────
 
     #[test]
     fn test_admin_close_on_non_open_ico_rejected() {
@@ -1329,12 +1329,12 @@ mod tests {
         let expiry = future_expiry();
         let now_s = now_secs();
 
-        // First close — should succeed.
+ // First close — should succeed.
         let sig1 = sign(&mgr_secret, ico_id.as_bytes());
         cce.admin_close(ico_id, mgr_did.clone(), sig1, expiry, now_s)
             .expect("first admin_close should succeed");
 
-        // Second close — must return InvalidIncidentState.
+ // Second close — must return InvalidIncidentState.
         let sig2 = sign(&mgr_secret, ico_id.as_bytes());
         let result = cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry, now_s);
         assert!(
@@ -1348,7 +1348,7 @@ mod tests {
         );
     }
 
-    // ─── Test 5: Audit log immutability (only grows) ──────────────────────────
+ // ─── Test 5: Audit log immutability (only grows) ──────────────────────────
 
     #[test]
     fn test_audit_log_immutability() {
@@ -1368,11 +1368,11 @@ mod tests {
         let expiry = future_expiry();
         let now_s = now_secs();
 
-        // Audit log starts empty.
+ // Audit log starts empty.
         let ico = cce.get_incident(ico_id).unwrap().unwrap();
         let initial_len = ico.audit_log.len();
 
-        // verify_data adds one VerifyData entry.
+ // verify_data adds one VerifyData entry.
         let sig = sign(&mgr_secret, &root_id);
         cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_s)
             .expect("verify_data");
@@ -1388,7 +1388,7 @@ mod tests {
             AuditOperation::VerifyData
         );
 
-        // admin_close adds one AdminClose entry.
+ // admin_close adds one AdminClose entry.
         let sig2 = sign(&mgr_secret, ico_id.as_bytes());
         cce.admin_close(ico_id, mgr_did.clone(), sig2, expiry, now_s)
             .expect("admin_close");
@@ -1404,7 +1404,7 @@ mod tests {
             AuditOperation::AdminClose
         );
 
-        // Previous entry must be unchanged.
+ // Previous entry must be unchanged.
         assert_eq!(
             ico_after_ac.audit_log[initial_len].operation,
             AuditOperation::VerifyData,
@@ -1412,7 +1412,7 @@ mod tests {
         );
     }
 
-    // ─── Test 6: Human-reaction auto-tag ─────────────────────────────────────
+ // ─── Test 6: Human-reaction auto-tag ─────────────────────────────────────
 
     #[test]
     fn test_human_reaction_auto_tag_when_contaminated() {
@@ -1517,7 +1517,7 @@ mod tests {
         );
     }
 
-    // ─── Test 7: open_incidents returns only OPEN ICOs ────────────────────────    #[test]
+ // ─── Test 7: open_incidents returns only OPEN ICOs ──────────────────────── #[test]
     fn test_open_incidents_filters_correctly() {
         let (mut cce, _conn) = open_cce_with_conn();
         let (mgr_did, mgr_secret) = make_manager();
@@ -1544,7 +1544,7 @@ mod tests {
             )
             .unwrap();
 
-        // Close ICO_A.
+ // Close ICO_A.
         let sig = sign(&mgr_secret, ico_a.as_bytes());
         cce.admin_close(ico_a, mgr_did.clone(), sig, future_expiry(), now_secs())
             .unwrap();
@@ -1554,7 +1554,7 @@ mod tests {
         assert_eq!(open[0].id, ico_b, "the open incident must be ICO_B");
     }
 
-    // ─── Test 8: projection contamination flags round-trip ───────────────────
+ // ─── Test 8: projection contamination flags round-trip ───────────────────
 
     #[test]
     fn test_projection_contamination_flags_round_trip() {
@@ -1564,7 +1564,7 @@ mod tests {
         let root_id = [0xA1u8; 32];
         insert_node(&mut cce.dag, root_id, vec![]);
 
-        // Insert a projection row that resolve_affected_rows will discover.
+ // Insert a projection row that resolve_affected_rows will discover.
         {
             let lock = conn.lock().unwrap();
             lock.execute_batch(
@@ -1577,7 +1577,7 @@ mod tests {
             .expect("setup proj_reports");
         }
 
-        // Tag contamination root — should mark all projection rows contaminated.
+ // Tag contamination root — should mark all projection rows contaminated.
         let source = TaintSource::DeviceRevocation {
             revocation_delta_id: root_id,
         };
@@ -1600,14 +1600,14 @@ mod tests {
             );
         }
 
-        // The ICO's affected_rows must be populated.
+ // The ICO's affected_rows must be populated.
         let ico = cce.get_incident(ico_id).unwrap().unwrap();
         assert!(
             !ico.affected_rows.is_empty(),
             "ICO affected_rows must be non-empty after projection wiring"
         );
 
-        // verify_data resolves the single root → should clear the projection flag.
+ // verify_data resolves the single root → should clear the projection flag.
         let expiry = future_expiry();
         let sig = sign(&mgr_secret, &root_id);
         cce.verify_data(root_id, mgr_did.clone(), sig, expiry, now_secs())

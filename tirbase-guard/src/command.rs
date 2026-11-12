@@ -1,6 +1,6 @@
 //! `CommandMessage` signing and verification (PV-4.1, PV-4.2, CLAIM-11.1).
 //!
-//! The data type lives in [`tirbase_types::command`].  This module provides the
+//! The data type lives in [`tirbase_types::command`]. This module provides the
 //! production signing and verification helpers used by ingress paths and the
 //! guard: the signature covers the **canonical CBOR** of all fields except
 //! `signature`, prefixed by the domain-separation context
@@ -29,7 +29,7 @@ pub fn command_signing_bytes(cmd: &CommandMessage) -> Result<Vec<u8>, CommandErr
     Ok(out)
 }
 
-/// Sign `cmd` in place using `provider`.  The `signature` field is overwritten.
+/// Sign `cmd` in place using `provider`. The `signature` field is overwritten.
 pub fn sign_command(
     cmd: &mut CommandMessage,
     provider: &dyn KeyProvider,
@@ -45,7 +45,7 @@ pub fn sign_command(
 ///
 /// The issuer DID must resolve to an Ed25519 public key (multicodec 0xed01)
 /// and that key must verify the signature over the canonical, domain-separated
-/// signing bytes.  Unsigned / malformed / mismatched signatures are rejected.
+/// signing bytes. Unsigned / malformed / mismatched signatures are rejected.
 pub fn verify_command_signature(cmd: &CommandMessage) -> Result<(), CommandError> {
     let bytes = command_signing_bytes(cmd)?;
     let did_str = cmd.issuer_did.as_str().to_string();

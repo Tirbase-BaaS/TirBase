@@ -3,7 +3,7 @@
 //!
 //! `ActuationPermit` must NOT derive `Clone`, `Copy`, `Default`, or
 //! `Deserialize` (single-use by construction), and must not be constructible
-//! outside `tirbase-guard` (sealed).  The `trybuild` cases under
+//! outside `tirbase-guard` (sealed). The `trybuild` cases under
 //! `tests/compile_fail/` assert each property fails to compile.
 
 #[test]

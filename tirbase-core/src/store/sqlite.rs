@@ -1,11 +1,11 @@
 //! SQLite connection pool and schema creation (Req 3.1).
 //!
 //! The LocalStore SQLite schema:
-//!   - automerge_docs  — one Automerge doc per table (design §Per-Table Layout)
-//!   - dag_nodes       — ChangesetDag node storage
-//!   - dag_edges       — parent→child causal edge table
-//!   - quarantine_ledger
-//!   - sidecar_ledger
+//! - automerge_docs — one Automerge doc per table (design §Per-Table Layout)
+//! - dag_nodes — ChangesetDag node storage
+//! - dag_edges — parent→child causal edge table
+//! - quarantine_ledger
+//! - sidecar_ledger
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -120,36 +120,36 @@ pub fn open(path: &str) -> Result<rusqlite::Connection, TirBaseError> {
             reason: format!("SQLite open failed at {path}: {e}"),
         })?;
 
-    // Enable WAL journal mode for better concurrent read/write performance.
+ // Enable WAL journal mode for better concurrent read/write performance.
     conn.execute_batch("PRAGMA journal_mode=WAL;")
         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("PRAGMA journal_mode=WAL failed: {e}"),
         })?;
 
-    // Enable foreign key enforcement.
+ // Enable foreign key enforcement.
     conn.execute_batch("PRAGMA foreign_keys=ON;").map_err(|e| {
         TirBaseError::LocalStoreWriteFailed {
             reason: format!("PRAGMA foreign_keys=ON failed: {e}"),
         }
     })?;
 
-    // Create all tables on first open.
+ // Create all tables on first open.
     conn.execute_batch(CREATE_SCHEMA_SQL)
         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("Schema creation failed: {e}"),
         })?;
 
-    // ── Boot recovery (Subphase 7.3, CLAIM-31.4 / PV-9.2) ────────────────────
-    //
-    // WAL mode keeps committed data in `*-wal` and `*-shm` sidecar files.  If
-    // the process was killed mid-transaction (between BEGIN and COMMIT), SQLite
-    // replays the WAL on the next `open()` transparently — an incomplete
-    // transaction is rolled back automatically, so no partial rows survive
-    // (Req 3.2 atomicity).  We run `wal_checkpoint(TRUNCATE)` to fold the
-    // recovered WAL back into the main database file.  Boot uses
-    // `PRAGMA quick_check` (fast) on all ledgers; full `PRAGMA integrity_check`
-    // is deferred to the maintenance window and must not be required to
-    // complete within 30 seconds (CLAIM-31.4).
+ // ── Boot recovery (Subphase 7.3, CLAIM-31.4 / PV-9.2) ────────────────────
+ //
+ // WAL mode keeps committed data in `*-wal` and `*-shm` sidecar files. If
+ // the process was killed mid-transaction (between BEGIN and COMMIT), SQLite
+ // replays the WAL on the next `open()` transparently — an incomplete
+ // transaction is rolled back automatically, so no partial rows survive
+ // (Req 3.2 atomicity). We run `wal_checkpoint(TRUNCATE)` to fold the
+ // recovered WAL back into the main database file. Boot uses
+ // `PRAGMA quick_check` (fast) on all ledgers; full `PRAGMA integrity_check`
+ // is deferred to the maintenance window and must not be required to
+ // complete within 30 seconds (CLAIM-31.4).
     conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("WAL checkpoint failed during boot recovery: {e}"),
@@ -214,7 +214,7 @@ pub(crate) fn recover_from_crash(conn: &rusqlite::Connection) -> Result<(), TirB
 }
 
 /// WASM stub — on WASM the LocalStore is IndexedDB-backed (Subphase 6.3, see
-/// `store::indexed_db`); there is no SQLite connection.  This function is a
+/// `store::indexed_db`); there is no SQLite connection. This function is a
 /// no-op placeholder so callers that are guarded by
 /// `#[cfg(not(feature = "native"))]` can still reference the module without a
 /// build error.

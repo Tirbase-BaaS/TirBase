@@ -1,21 +1,21 @@
 // TirBase Schema Definition Language grammar (Req 20.1)
 //
 // Example:
-//   schema {
-//     version = "1.0.0"
+// schema {
+// version = "1.0.0"
 //
-//     table users {
-//       compaction = aggressive(500)
+// table users {
+// compaction = aggressive(500)
 //
-//       id     TEXT    NOT NULL
-//       name   TEXT    NOT NULL
-//       active BOOLEAN DEFAULT true
-//       score  REAL    DEFAULT 0.0
+// id TEXT NOT NULL
+// name TEXT NOT NULL
+// active BOOLEAN DEFAULT true
+// score REAL DEFAULT 0.0
 //
-//       PRIMARY KEY (id)
-//       UNIQUE (name)
-//     }
-//   }
+// PRIMARY KEY (id)
+// UNIQUE (name)
+// }
+// }
 
 // ─── Whitespace and comments ──────────────────────────────────────────────────
 

@@ -96,7 +96,7 @@ fn run_s13_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
     let issuer = InMemoryKeyProvider::generate().map_err(|error| format!("S13 keygen: {error}"))?;
     let store = SqliteStage16Store::open(db_path).map_err(|error| format!("S13 store: {error}"))?;
 
-    // Normal Stage 16–19 path: commit, dispatch, finalize.
+ // Normal Stage 16–19 path: commit, dispatch, finalize.
     let cmd = command(&issuer, [seed as u8; 16]);
     let mut wire = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut wire));
@@ -121,8 +121,8 @@ fn run_s13_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         ));
     }
 
-    // Retry after a crash between finalize and the client receiving the reply:
-    // the idempotency record must return the original result with no actuation.
+ // Retry after a crash between finalize and the client receiving the reply:
+ // the idempotency record must return the original result with no actuation.
     let mut retry_wire = Vec::new();
     let mut retry_proxy = DriverProxy::new(Cursor::new(&mut retry_wire));
     let mut retry_driver = Cursor::new(b"OK".to_vec());
@@ -146,8 +146,8 @@ fn run_s13_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         ));
     }
 
-    // Crash at each durable write boundary: insert the `Actuating` row and stop
-    // before the terminal update.  The next boot must reconcile every row.
+ // Crash at each durable write boundary: insert the `Actuating` row and stop
+ // before the terminal update. The next boot must reconcile every row.
     let mut connection =
         rusqlite::Connection::open(db_path).map_err(|error| format!("S13 open ledger: {error}"))?;
     applied_effects_ledger::create_table(&connection)

@@ -2,31 +2,31 @@
 //!
 //! Acceptance criteria:
 //! 1. A process is killed between `BEGIN` and `COMMIT` of the SQLite write
-//!    path (`LocalStore::write`).
+//! path (`LocalStore::write`).
 //! 2. On restart, no corrupted state is present.
 //!
 //! # Strategy
 //!
 //! The test spawns the `crash_writer` helper binary (declared as a
-//! `[[bin]]` target in Cargo.toml, `required-features = ["native"]`).  The
+//! `[[bin]]` target in Cargo.toml, `required-features = ["native"]`). The
 //! child opens a SQLite DB, writes one fully-committed baseline row, then
 //! begins a transaction, inserts a *partial* row, and calls
 //! `std::process::abort()` — simulating a hard process kill between `BEGIN`
-//! and `COMMIT` (no `ROLLBACK`, no graceful shutdown, WAL left dirty).  The
+//! and `COMMIT` (no `ROLLBACK`, no graceful shutdown, WAL left dirty). The
 //! child writes a marker file so the parent can confirm the crash point was
 //! reached.
 //!
 //! After the child aborts, the parent reopens the DB through the *production*
 //! store-open path — `LocalStore::open` → `sqlite::open` — which now runs
 //! crash recovery (`PRAGMA wal_checkpoint(TRUNCATE)` + `PRAGMA
-//! integrity_check`) on startup.  The test then reads back every row and
+//! integrity_check`) on startup. The test then reads back every row and
 //! asserts:
-//!   - `integrity_check` reports `ok` (no corruption),
-//!   - the baseline row is intact (committed-before-crash survives),
-//!   - the partial row inserted inside the uncommitted transaction is **not**
-//!     present (SQLite rolled it back during WAL replay),
-//!   - the projection table contains exactly the one surviving committed row
-//!     with a clean `contaminated` flag (no half-applied projection metadata).
+//! - `integrity_check` reports `ok` (no corruption),
+//! - the baseline row is intact (committed-before-crash survives),
+//! - the partial row inserted inside the uncommitted transaction is **not**
+//! present (SQLite rolled it back during WAL replay),
+//! - the projection table contains exactly the one surviving committed row
+//! with a clean `contaminated` flag (no half-applied projection metadata).
 //!
 //! ## Production caller
 //!
@@ -35,7 +35,7 @@
 //! reached from [`LocalStore::open`](crate::store::LocalStore::open), which
 //! is called by [`CoreHandle::init`](crate::api::CoreHandle::init) on every
 //! startup — this is the stated production caller that reaches the new
-//! recovery code.  The `check_integrity` method on `LocalStore` (the same
+//! recovery code. The `check_integrity` method on `LocalStore` (the same
 //! recovery step invoked from `init`) is covered by the in-crate unit tests
 //! in `store/mod.rs` for the `pub(crate)` path.
 
@@ -90,7 +90,7 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
     cleanup_db(&db_path);
     let _ = fs::remove_file(&marker_path);
 
-    // ── 1. Spawn the child that crashes between BEGIN and COMMIT ─────────────
+ // ── 1. Spawn the child that crashes between BEGIN and COMMIT ─────────────
     let exe = crash_writer_exe();
     let child = Command::new(&exe)
         .arg(&db_path)
@@ -98,9 +98,9 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
         .output()
         .expect("spawn crash_writer child");
 
-    // The child must have been killed by the signal we raised (abort =>
-    // SIGABRT).  On Unix `signal: 6` means SIGABRT; the child must NOT exit
-    // cleanly (status 0).
+ // The child must have been killed by the signal we raised (abort =>
+ // SIGABRT). On Unix `signal: 6` means SIGABRT; the child must NOT exit
+ // cleanly (status 0).
     #[cfg(unix)]
     {
         assert!(
@@ -120,7 +120,7 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
         );
     }
 
-    // The marker must show we reached the exact crash point.
+ // The marker must show we reached the exact crash point.
     let marker = fs::read_to_string(&marker_path).expect("marker file must exist after crash");
     assert_eq!(
         marker.trim(),
@@ -128,19 +128,19 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
         "child must have crashed after BEGIN but before COMMIT (marker was: {marker})",
     );
 
-    // ── 2. Reopen via the production path — LocalStore::open runs recovery ────
-    // `LocalStore::open` → `sqlite::open` → WAL checkpoint + integrity_check.
-    // This is the production startup path (api/mod.rs CoreHandle::init calls
-    // LocalStore::open, which calls sqlite::open that now runs recovery).
+ // ── 2. Reopen via the production path — LocalStore::open runs recovery ────
+ // `LocalStore::open` → `sqlite::open` → WAL checkpoint + integrity_check.
+ // This is the production startup path (api/mod.rs CoreHandle::init calls
+ // LocalStore::open, which calls sqlite::open that now runs recovery).
     let store = LocalStore::open(db_path.to_str().expect("db path is utf8"))
         .expect("LocalStore::open must succeed after a mid-write crash");
 
-    // 3a. `LocalStore::open` already ran WAL recovery + integrity_check (via
-    //     `sqlite::open`) during the call above; a successful open means the
-    //     post-crash DB passed `PRAGMA integrity_check`.  The remaining
-    //     assertions read back the rows to confirm no partial state survived.
+ // 3a. `LocalStore::open` already ran WAL recovery + integrity_check (via
+ // `sqlite::open`) during the call above; a successful open means the
+ // post-crash DB passed `PRAGMA integrity_check`. The remaining
+ // assertions read back the rows to confirm no partial state survived.
 
-    // 3b. Baseline row (committed before the crash) must survive intact.
+ // 3b. Baseline row (committed before the crash) must survive intact.
     let baseline = store.read("test_table", "baseline").expect("read baseline");
     assert_eq!(
         baseline.expect("baseline row must survive the crash"),
@@ -148,8 +148,8 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
         "the pre-crash committed row must be intact after recovery",
     );
 
-    // 3c. The partial row inserted inside the uncommitted transaction must NOT
-    //     exist — SQLite rolled it back during WAL replay.
+ // 3c. The partial row inserted inside the uncommitted transaction must NOT
+ // exist — SQLite rolled it back during WAL replay.
     let partial = store.read("test_table", "partial-after-begin");
     match &partial {
         Ok(None) => { /* expected: rolled back */ }
@@ -160,9 +160,9 @@ async fn process_crash_mid_write_leaves_no_corrupted_state() {
         Err(e) => panic!("reading partial row errored: {e}"),
     }
 
-    // 3d. The projection table must contain exactly the one committed row —
-    //     no half-applied projection metadata (contaminated flag left dirty,
-    //     a stray row, etc.).
+ // 3d. The projection table must contain exactly the one committed row —
+ // no half-applied projection metadata (contaminated flag left dirty,
+ // a stray row, etc.).
     {
         let conn = sqlite::open(db_path.to_str().expect("db path is utf8"))
             .expect("re-open for row count");

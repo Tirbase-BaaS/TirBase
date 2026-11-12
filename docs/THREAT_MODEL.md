@@ -82,76 +82,76 @@ delta log.
 **CommandIssuer**
 - Trust level: Authenticated via Biscuit token scoped to specific targets and parameters.
 - Capabilities: Submits desired-state commands (declarative: `target.parameter = value unit`).
-  Commands are bounded by the EnvelopeProfile regardless of credential. Critical parameters
-  additionally require M-of-N quorum. Cannot modify policy, sign updates, or read state.
+ Commands are bounded by the EnvelopeProfile regardless of credential. Critical parameters
+ additionally require M-of-N quorum. Cannot modify policy, sign updates, or read state.
 
 **PolicyAuthority**
 - Trust level: Authenticated via Biscuit token; Enroller sub-role requires PolicyAuthority-signed
-  delegation token.
+ delegation token.
 - Capabilities: Publishes, tightens, and initiates loosening of policy bundles. Enrolls devices
-  (Enroller sub-role). Co-signs LOCKDOWN exits and emergency profile activations. Cannot issue
-  commands or sign firmware.
+ (Enroller sub-role). Co-signs LOCKDOWN exits and emergency profile activations. Cannot issue
+ commands or sign firmware.
 
 **UpdateSigner**
 - Trust level: Authenticated via Biscuit token.
 - Capabilities: Signs migration deltas and firmware manifests. Co-signs migration revocations
-  jointly with RevocationManager. Cannot issue commands or modify policy.
+ jointly with RevocationManager. Cannot issue commands or modify policy.
 
 **RevocationManager**
 - Trust level: Authenticated via Biscuit token; M-of-N quorum required for most revocation actions.
 - Capabilities: Accumulates M-of-N revocation signatures; decommissions devices; co-signs policy
-  loosening and LOCKDOWN exits (counts toward M). Cannot issue commands or sign firmware.
+ loosening and LOCKDOWN exits (counts toward M). Cannot issue commands or sign firmware.
 
 **Auditor**
 - Trust level: Authenticated via Biscuit token; read-only.
 - Capabilities: Reads state and security events. No write or command authority. No policy or
-  revocation capability.
+ revocation capability.
 
 **TimeAnchor**
 - Trust level: Authenticated via Biscuit token.
 - Capabilities: Submits signed time beacons to update the authenticated-time estimate. Cannot issue
-  commands, modify policy, or sign updates. Ratchet resets of more than the configured max forward
-  jump require M-of-N TimeAnchor signatures (default M=2).
+ commands, modify policy, or sign updates. Ratchet resets of more than the configured max forward
+ jump require M-of-N TimeAnchor signatures (default M=2).
 
 **Root Keys (offline ceremony keys)**
 - Trust level: Highest — used only for root CA rotation ceremonies; stored offline.
 - Capabilities: Threshold k-of-n root key signatures for root CA rotation. Never issued as Biscuit
-  roles. Not used in normal operations.
+ roles. Not used in normal operations.
 
 ### Adversarial Actors
 
 **External attacker**
 - Trust level: None — unauthenticated.
 - Capabilities: May control the network, inject, replay, or drop packets, and forge messages lacking
-  a valid signature. Cannot satisfy Biscuit token verification, EnvelopeProfile signature check, or
-  the Noise XX peer authentication handshake. Constrained at the per-source token bucket on the
-  cloud API before any cryptographic processing.
+ a valid signature. Cannot satisfy Biscuit token verification, EnvelopeProfile signature check, or
+ the Noise XX peer authentication handshake. Constrained at the per-source token bucket on the
+ cloud API before any cryptographic processing.
 
 **Compromised cloud/vendor**
 - Trust level: Holds one valid role credential; no more.
 - Capabilities: May issue commands within the EnvelopeProfile bounds of their single role. Cannot
-  relax policy bounds, revoke DIDs, sign firmware, or act on behalf of any other role. EnvelopeProfile
-  bounds enforcement applies regardless of credential validity; M-of-N quorum required for critical
-  parameters even with a valid credential.
+ relax policy bounds, revoke DIDs, sign firmware, or act on behalf of any other role. EnvelopeProfile
+ bounds enforcement applies regardless of credential validity; M-of-N quorum required for critical
+ parameters even with a valid credential.
 
 **Compromised mesh peer**
 - Trust level: Has a legitimate node identity that may have been taken over.
 - Capabilities: Can send signed deltas and attempt CRDT poisoning. Replay of prior valid commands
-  is blocked by the anti-replay window. Revocation propagates to all peers within 60 seconds.
-  Quarantine ledger captures anomalous deltas with typed reason codes.
+ is blocked by the anti-replay window. Revocation propagates to all peers within 60 seconds.
+ Quarantine ledger captures anomalous deltas with typed reason codes.
 
 **Malicious driver**
 - Trust level: Runs as a child process of the gateway; isolated.
 - Capabilities: Receives only encoded frames over an inherited socketpair (`AF_UNIX SOCK_SEQPACKET`).
-  No device fd crosses the boundary. Constrained by `SO_PEERCRED`, seccomp-BPF, `no-new-privs`, and
-  Landlock. Cannot communicate outside its sandbox; external socket connections are blocked by the
-  seccomp filter.
+ No device fd crosses the boundary. Constrained by `SO_PEERCRED`, seccomp-BPF, `no-new-privs`, and
+ Landlock. Cannot communicate outside its sandbox; external socket connections are blocked by the
+ seccomp filter.
 
 **Insider with partial key access**
 - Trust level: Holds some but not all M keys of a threshold quorum.
 - Capabilities: Cannot complete any M-of-N operation alone. Cannot loosen policy, exit LOCKDOWN,
-  revoke a DID, or activate an emergency profile without assembling the full quorum. The 1-of-1
-  residual risk is documented in Section 7.
+ revoke a DID, or activate an emergency profile without assembling the full quorum. The 1-of-1
+ residual risk is documented in Section 7.
 
 ---
 
@@ -170,7 +170,7 @@ At this boundary:
 - Role extraction from token caveats (never from the command's own role field).
 - EnvelopeProfile presence check (absent profile → all commands rejected).
 - EnvelopeProfile bounds check (min/max, rate-of-change, drift window, dwell/min-off-time,
-  cross-parameter linear constraints).
+ cross-parameter linear constraints).
 - Unit canonicalization check (unit mismatch → rejection; no unit conversion).
 - Anti-replay window check per `(issuer, target)`.
 - Idempotency key deduplication (default 24-hour retention).
@@ -235,18 +235,18 @@ valid CommandIssuer (or even PolicyAuthority) credential and issues commands.*
 
 **Mitigations:**
 - **EnvelopeProfile bounds enforcement** — all commands must fall within the signed per-parameter
-  `min`/`max`/rate/dwell limits regardless of credential validity. A compromised credential cannot
-  relax these limits; only a policy loosening operation (requiring M-of-N) can widen them.
+ `min`/`max`/rate/dwell limits regardless of credential validity. A compromised credential cannot
+ relax these limits; only a policy loosening operation (requiring M-of-N) can widen them.
 - **M-of-N quorum for critical parameters** — `EnvelopeProfile` parameters marked `critical: true`
-  require M-of-N signatures (M ≥ 2 by default) before actuation.
+ require M-of-N signatures (M ≥ 2 by default) before actuation.
 - **Per-issuer rate limits and per-device write quotas** — enforced at the Guard boundary;
-  commands per 60-second window.
+ commands per 60-second window.
 - **Anti-replay window** — per `(issuer, target)` sliding bitmap; sequence number outside
-  `[highest_seen − W, highest_seen + G]` is rejected immediately.
+ `[highest_seen − W, highest_seen + G]` is rejected immediately.
 - **Authenticated-time expiry** — commands carry an absolute expiry evaluated against `now_est`
-  (TimeRatchet-backed); withheld-delivery attacks cannot extend command validity.
+ (TimeRatchet-backed); withheld-delivery attacks cannot extend command validity.
 - **SecurityEvent** emitted for every reject decision, including the rejection reason and the
-  issuer DID, enabling forensic review.
+ issuer DID, enabling forensic review.
 
 ### Failure Mode 2: Bad update or config push
 
@@ -255,19 +255,19 @@ firmware update, migration module, or policy bundle.*
 
 **Mitigations:**
 - **UpdateSigner credential** required for any firmware manifest or migration delta signature;
-  migration revocation requires both UpdateSigner and RevocationManager co-signatures.
+ migration revocation requires both UpdateSigner and RevocationManager co-signatures.
 - **WASM sandbox** with fuel metering, postcondition verification, and no host-clock or
-  host-randomness access; `DeterministicWasmProfile` validation at load time.
+ host-randomness access; `DeterministicWasmProfile` validation at load time.
 - **Expand-then-contract migration rule** — schema migrations must first add new fields, then
-  remove old ones in a subsequent migration; no single-step destructive schema changes.
+ remove old ones in a subsequent migration; no single-step destructive schema changes.
 - **Policy bundle anti-rollback counter** — backed by `MonotonicCounterTrait`; any bundle with a
-  version ≤ the last accepted version is rejected.
+ version ≤ the last accepted version is rejected.
 - **M-of-N for policy loosening** — any bundle that widens any parameter's range requires M-of-N
-  approval (M ≥ 2); time-lock and cancel-window durations come from the currently active policy,
-  not the incoming bundle.
+ approval (M ≥ 2); time-lock and cancel-window durations come from the currently active policy,
+ not the incoming bundle.
 - **Tightening floor** — a tightening bundle that makes limits more restrictive than the
-  `tightening_floor` in the EnvelopeProfile is rejected, preventing a single PolicyAuthority from
-  locking limits to an unusable state.
+ `tightening_floor` in the EnvelopeProfile is rejected, preventing a single PolicyAuthority from
+ locking limits to an unusable state.
 
 ### Failure Mode 3: Supplier or central-system outage
 
@@ -276,18 +276,18 @@ supplier's infrastructure becomes unavailable.*
 
 **Mitigations:**
 - **DEGRADED mode** — when communications are lost for longer than `degraded_timeout_secs`
-  (configurable, default 60 seconds), the node autonomously maintains the last-safe local loop for
-  each target, or reverts to the per-target `safe_default` value as configured in the
-  EnvelopeProfile.
+ (configurable, default 60 seconds), the node autonomously maintains the last-safe local loop for
+ each target, or reverts to the per-target `safe_default` value as configured in the
+ EnvelopeProfile.
 - **The system never fails open** — on comms loss the node holds the last safe state; it does not
-  widen limits, accept new commands from unauthenticated sources, or proceed without an installed
-  EnvelopeProfile.
+ widen limits, accept new commands from unauthenticated sources, or proceed without an installed
+ EnvelopeProfile.
 - **CRDT eventual consistency** — on reconnect, the CRDT engine reconciles divergent state
-  deterministically; the mesh pending-queue holds out-of-order deltas for up to 24 hours (
-  configurable) to handle store-and-forward mesh scenarios.
+ deterministically; the mesh pending-queue holds out-of-order deltas for up to 24 hours (
+ configurable) to handle store-and-forward mesh scenarios.
 - **TimeRatchet boot-id awareness** — after a reboot with no beacon, `now_est` uses the ratchet
-  floor; the node enters `UNVERIFIED` freshness mode until a beacon is received, without losing
-  the previously established time floor.
+ floor; the node enters `UNVERIFIED` freshness mode until a beacon is received, without losing
+ the previously established time floor.
 
 ### Failure Mode 4: Cascading control failure
 
@@ -296,19 +296,19 @@ operating bounds, or cross-parameter interactions produce a dangerous combined s
 
 **Mitigations:**
 - **EnvelopeProfile rate-of-change limits** — maximum change per second per parameter; the Guard
-  evaluates the cumulative drift window against the applied-state history.
+ evaluates the cumulative drift window against the applied-state history.
 - **Cumulative drift window limits** — the Guard tracks the total change within the
-  EnvelopeProfile-defined window duration; exceeding the bound produces a `DriftExceeded`
-  rejection.
+ EnvelopeProfile-defined window duration; exceeding the bound produces a `DriftExceeded`
+ rejection.
 - **Dwell and min-off-time interlocks** — configurable per parameter in the EnvelopeProfile;
-  enforced by the Guard before any actuation.
+ enforced by the Guard before any actuation.
 - **Cross-parameter linear inequality constraints** — conjunctions of linear inequalities over
-  parameter values; expressed in a non-Turing-complete constraint language in the EnvelopeProfile.
+ parameter values; expressed in a non-Turing-complete constraint language in the EnvelopeProfile.
 - **Per-device write quotas** — commands per 60-second window enforced by the Guard.
 - **M-of-N quorum for critical parameters** — protects the highest-risk actuators from a single
-  compromised or malfunctioning issuer.
+ compromised or malfunctioning issuer.
 - **`safe_default` value** — applied on LOCKDOWN, comms loss, or Guard process exit; the
-  supervisor holds the `safe_default` for each target and applies it before restarting the Guard.
+ supervisor holds the `safe_default` for each target and applies it before restarting the Guard.
 
 ### Failure Mode 5: Comms denial or partition
 
@@ -319,14 +319,14 @@ and policy updates from reaching the node.*
 - **DEGRADED mode** — autonomous operation on last-safe state; see Failure Mode 3.
 - **CRDT-based state** — eventual consistency after reconnect; no central coordinator required.
 - **Pending-queue for out-of-order deltas** — configurable 24-hour age-out for store-and-forward
-  mesh scenarios; global cap of 64 MiB / 8 MiB per-peer before `PENDING_QUEUE_OVERFLOW`
-  quarantine.
+ mesh scenarios; global cap of 64 MiB / 8 MiB per-peer before `PENDING_QUEUE_OVERFLOW`
+ quarantine.
 - **TimeRatchet boot-id-aware design** — reboots use the persisted ratchet floor; the node does
-  not lose its time floor on power-cycle, even during a prolonged partition.
+ not lose its time floor on power-cycle, even during a prolonged partition.
 - **UNVERIFIED freshness mode** — on prolonged beacon denial, non-critical commands are accepted
-  with `UNVERIFIED` flag per the `unverified_policy` profile setting; critical commands require a
-  device-issued challenge nonce. The residual risk of indefinite UNVERIFIED mode is documented in
-  Section 7.
+ with `UNVERIFIED` flag per the `unverified_policy` profile setting; critical commands require a
+ device-issued challenge nonce. The residual risk of indefinite UNVERIFIED mode is documented in
+ Section 7.
 
 ---
 
@@ -337,48 +337,48 @@ TirBase provides no mitigation for these threats; operators must address them th
 controls.
 
 1. **OS root compromise** — A node whose operating system is already compromised at the root level
-   is outside scope. All application-layer controls (Biscuit verification, EnvelopeProfile
-   enforcement, seccomp sandbox) execute within a process that the OS kernel can intercept or
-   modify. TirBase cannot protect what the OS can override.
+ is outside scope. All application-layer controls (Biscuit verification, EnvelopeProfile
+ enforcement, seccomp sandbox) execute within a process that the OS kernel can intercept or
+ modify. TirBase cannot protect what the OS can override.
 
 2. **Physical attacks on hardware** — Physical tampering, side-channel attacks (power analysis,
-   timing), cold-boot attacks, and RF extraction of key material are outside scope. TirBase assumes
-   the hardware and its environment are physically secured by the deploying organization.
+ timing), cold-boot attacks, and RF extraction of key material are outside scope. TirBase assumes
+ the hardware and its environment are physically secured by the deploying organization.
 
 3. **Bypass paths directly to legacy controllers** — If a legacy controller or actuator has a
-   communication path that bypasses TirBase entirely (e.g., a direct serial connection, a legacy
-   BMS protocol endpoint), TirBase cannot protect it. TirBase only enforces at the command guard
-   boundary over paths it controls.
+ communication path that bypasses TirBase entirely (e.g., a direct serial connection, a legacy
+ BMS protocol endpoint), TirBase cannot protect it. TirBase only enforces at the command guard
+ boundary over paths it controls.
 
 4. **Insiders holding all M keys simultaneously** — An insider who simultaneously holds all M keys
-   of a threshold quorum satisfies the quorum by definition. No technical control can prevent this;
-   it is a trust and organizational governance matter. The deploying organization must enforce
-   key-custody separation as a procedural control. The 1-of-1 residual risk is separately
-   documented in Section 7.
+ of a threshold quorum satisfies the quorum by definition. No technical control can prevent this;
+ it is a trust and organizational governance matter. The deploying organization must enforce
+ key-custody separation as a procedural control. The 1-of-1 residual risk is separately
+ documented in Section 7.
 
 5. **Bugs or vulnerabilities within TirBase itself** — TirBase is not a formally verified system.
-   The codebase is tested with property-based tests, integration tests, and adversary scenarios,
-   and an external cryptographic review and penetration test are scheduled before public security
-   claims are made (PV-29). However, the presence of unknown bugs or zero-day vulnerabilities
-   within TirBase code is outside the scope of this threat model.
+ The codebase is tested with property-based tests, integration tests, and adversary scenarios,
+ and an external cryptographic review and penetration test are scheduled before public security
+ claims are made (PV-29). However, the presence of unknown bugs or zero-day vulnerabilities
+ within TirBase code is outside the scope of this threat model.
 
 6. **Break-glass emergency override** — Break-glass is permanently excluded from TirBase per
-   design decision RD-4. Any operator requiring emergency override must use pre-signed emergency
-   profiles activated by M-of-N PolicyAuthority + RevocationManager (narrow scope, bounded
-   duration; activating an emergency profile replaces the active EnvelopeProfile so INV-1 continues
-   to hold). Any reconsideration of this exclusion requires explicit owner approval and a documented
-   threat model update (see Section 8).
+ design decision RD-4. Any operator requiring emergency override must use pre-signed emergency
+ profiles activated by M-of-N PolicyAuthority + RevocationManager (narrow scope, bounded
+ duration; activating an emergency profile replaces the active EnvelopeProfile so INV-1 continues
+ to hold). Any reconsideration of this exclusion requires explicit owner approval and a documented
+ threat model update (see Section 8).
 
 7. **Safety Integrity Level (SIL) claims** — TirBase is not a safety-instrumented system and makes
-   no SIL claims of any kind. See Section 1.
+ no SIL claims of any kind. See Section 1.
 
 8. **PLC replacement** — TirBase is not a Programmable Logic Controller and does not replace
-   safety-instrumented logic. See Section 1.
+ safety-instrumented logic. See Section 1.
 
 9. **Network monitoring** — TirBase does not inspect or monitor network traffic. It enforces
-   security only at the command guard boundary over the communication paths it owns. Out-of-band
-   network traffic, lateral movement within the local network, and infrastructure-level attacks on
-   the network stack are outside scope.
+ security only at the command guard boundary over the communication paths it owns. Out-of-band
+ network traffic, lateral movement within the local network, and infrastructure-level attacks on
+ the network stack are outside scope.
 
 ---
 
@@ -505,43 +505,43 @@ change is made. Changing any item on this list without documented approval const
 violation.
 
 1. **Software license terms** — Changes to the `LICENSE` file or SPDX identifiers in any source
-   file require CODEOWNERS approval. On every pull request that touches `LICENSE` or any SPDX
-   identifier, CI computes the SHA-256 hash of `LICENSE` and compares it against the known-good
-   hash stored in `CODEOWNERS`; the build fails and blocks merge if the hashes differ (PV-2.8).
+ file require CODEOWNERS approval. On every pull request that touches `LICENSE` or any SPDX
+ identifier, CI computes the SHA-256 hash of `LICENSE` and compares it against the known-good
+ hash stored in `CODEOWNERS`; the build fails and blocks merge if the hashes differ (PV-2.8).
 
 2. **Compact capability format for the Phase 11 verifier crate** — Working assumption per RD-5:
-   COSE_Sign1 over deterministic CBOR, Ed25519 only, fixed-point integers, compact role grants.
-   No Datalog, no floats. Final format choice is deferred to `docs/RFC-verifier.md`. Any change to
-   this working assumption requires owner approval.
+ COSE_Sign1 over deterministic CBOR, Ed25519 only, fixed-point integers, compact role grants.
+ No Datalog, no floats. Final format choice is deferred to `docs/RFC-verifier.md`. Any change to
+ this working assumption requires owner approval.
 
 3. **TUF adoption** — The TUF design has been adopted per RD-6 for migration, policy, and
-   firmware-manifest distribution. The specific crate choice is deferred to a spike requiring an
-   injected `TimeSource` and gossip transport. PV-11.6 is **BLOCKED** pending `docs/RFC-tuf.md`.
-   Any change to the TUF adoption decision requires owner approval.
+ firmware-manifest distribution. The specific crate choice is deferred to a spike requiring an
+ injected `TimeSource` and gossip transport. PV-11.6 is **BLOCKED** pending `docs/RFC-tuf.md`.
+ Any change to the TUF adoption decision requires owner approval.
 
 4. **Product naming** — Any change to the product name "TirBase" requires owner approval.
 
 5. **Compliance certification wording** — Compliance documents under `docs/compliance/` are
-   evidence aids only. They **SHALL NOT** claim certification with any standard (ISO, IEC, NIS2,
-   CRA, etc.) without legal counsel review. Any addition of certification language requires
-   documented owner approval (PV-14.6).
+ evidence aids only. They **SHALL NOT** claim certification with any standard (ISO, IEC, NIS2,
+ CRA, etc.) without legal counsel review. Any addition of certification language requires
+ documented owner approval (PV-14.6).
 
 6. **Protocol driver selection beyond the three reference drivers** — The three reference drivers
-   (Modbus, MQTT bridge, cold-room sim) are approved. Adding a fourth or later protocol driver
-   requires owner approval with a documented security review of the driver's trust boundary and
-   attack surface.
+ (Modbus, MQTT bridge, cold-room sim) are approved. Adding a fourth or later protocol driver
+ requires owner approval with a documented security review of the driver's trust boundary and
+ attack surface.
 
 7. **Break-glass emergency override** — Break-glass is permanently excluded from TirBase per RD-4.
-   Any reconsideration of this exclusion requires owner approval with a documented threat model
-   update, a revised risk analysis, and a new M-of-N activation design (see Section 6, exclusion 6).
+ Any reconsideration of this exclusion requires owner approval with a documented threat model
+ update, a revised risk analysis, and a new M-of-N activation design (see Section 6, exclusion 6).
 
 8. **Loosening M floor** — M ≥ 2 is the default floor for policy loosening, LOCKDOWN exits, and
-   all M-of-N quorum operations except where explicitly noted (1-of-1 is permitted with a startup
-   diagnostic warning per RR-1). Lowering M below 2 for any quorum in any deployment requires
-   documented owner approval (RD-9).
+ all M-of-N quorum operations except where explicitly noted (1-of-1 is permitted with a startup
+ diagnostic warning per RR-1). Lowering M below 2 for any quorum in any deployment requires
+ documented owner approval (RD-9).
 
 9. **Formal verification scope** — The scope of TLA+/Quint model coverage and Kani proof coverage
-   (PV-26) requires owner approval to reduce. Expanding coverage does not require approval.
+ (PV-26) requires owner approval to reduce. Expanding coverage does not require approval.
 
 ---
 

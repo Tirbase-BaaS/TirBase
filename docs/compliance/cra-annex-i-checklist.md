@@ -2,8 +2,8 @@
 
 > **Disclaimer (cannot-claim-compliance):** This document is an internal evidence aid only. It does **not** constitute, claim, or imply certification, conformity assessment, or compliance with the EU Cyber Resilience Act (CRA), Annex I, or any other standard or regulation. No external publication, customer representation, or regulatory submission may be made using this document without prior review and written approval by qualified legal counsel.
 
-**Release reviewed against:** `<fill at release>`  
-**Last reviewed (UTC):** `<YYYY-MM-DD>`  
+**Release reviewed against:** `<fill at release>` 
+**Last reviewed (UTC):** `<YYYY-MM-DD>` 
 **Owner:** `<name/team>`
 
 ## Scope and method

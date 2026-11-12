@@ -6,41 +6,41 @@
 # allowlist in docs/orphan-api-allowlist.md.
 #
 # Usage:
-#   bash scripts/check-orphan-api.sh
+# bash scripts/check-orphan-api.sh
 #
 # Exit codes:
-#   0 — All orphans are in the allowlist and no entry is past its expiry.
-#   1 — One or more unapproved orphans found, OR an allowlist entry has
-#       passed its expiry version.
+# 0 — All orphans are in the allowlist and no entry is past its expiry.
+# 1 — One or more unapproved orphans found, OR an allowlist entry has
+# passed its expiry version.
 #
 # Approach:
-#   1. Generate rustdoc JSON for each library crate using nightly rustdoc's
-#      --output-format json flag (--output-format json and -Z unstable-options).
-#      This enumerates every public item and its fully-qualified path.
-#   2. For each `pub` item in crate A, check whether ANY other crate B
-#      references that item.  Rustdoc JSON does not record `use` statements or
-#      type references to other crates, so this is supplemented by scanning the
-#      source of every workspace crate (library AND application crates such as
-#      tirbase-gateway/tirbase-admin) for qualified paths, `use` imports and
-#      parent-type references.  Items never referenced by another crate are
-#      orphan candidates.
-#   3. Cross-reference orphan candidates against docs/orphan-api-allowlist.md.
-#      Allowlisted items are approved orphans (skipped); others fail CI.
-#   4. Scan the allowlist for expired entries: if an entry's Expiry version
-#      is <= the current workspace version, CI fails.
+# 1. Generate rustdoc JSON for each library crate using nightly rustdoc's
+# --output-format json flag (-output-format json and -Z unstable-options).
+# This enumerates every public item and its fully-qualified path.
+# 2. For each `pub` item in crate A, check whether ANY other crate B
+# references that item. Rustdoc JSON does not record `use` statements or
+# type references to other crates, so this is supplemented by scanning the
+# source of every workspace crate (library AND application crates such as
+# tirbase-gateway/tirbase-admin) for qualified paths, `use` imports and
+# parent-type references. Items never referenced by another crate are
+# orphan candidates.
+# 3. Cross-reference orphan candidates against docs/orphan-api-allowlist.md.
+# Allowlisted items are approved orphans (skipped); others fail CI.
+# 4. Scan the allowlist for expired entries: if an entry's Expiry version
+# is <= the current workspace version, CI fails.
 #
 # Limitations:
-#   - The source scan is textual.  It can miss macro-generated references and
-#     references hidden behind type aliases (add those to the allowlist), and it
-#     can over-approximate usage when a name appears only in a comment or doc
-#     example.
-#   - Items used only within their own crate (no cross-crate callers) are NOT
-#     flagged here — the dead_code lint handles those (CLAIM-2.1).
-#   - pub use re-exports of an entire crate (e.g. `pub use tirbase_types;`)
-#     are detected via the external_crates section of the dependent crate's
-#     JSON, making all items of the re-exported crate transitively non-orphan.
-#   - Serde-generated private implementation items (paths containing `::_::`)
-#     are excluded as they are not part of the public API surface.
+# - The source scan is textual. It can miss macro-generated references and
+# references hidden behind type aliases (add those to the allowlist), and it
+# can over-approximate usage when a name appears only in a comment or doc
+# example.
+# - Items used only within their own crate (no cross-crate callers) are NOT
+# flagged here — the dead_code lint handles those (CLAIM-2.1).
+# - pub use re-exports of an entire crate (e.g. `pub use tirbase_types;`)
+# are detected via the external_crates section of the dependent crate's
+# JSON, making all items of the re-exported crate transitively non-orphan.
+# - Serde-generated private implementation items (paths containing `::_::`)
+# are excluded as they are not part of the public API surface.
 
 set -euo pipefail
 
@@ -48,7 +48,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ALLOWLIST="${REPO_ROOT}/docs/orphan-api-allowlist.md"
 DOC_DIR="${REPO_ROOT}/target/doc"
 
-# Library crates with a public API manifest.  These are the only crates whose
+# Library crates with a public API manifest. These are the only crates whose
 # rustdoc JSON is generated; the source-reference pass below additionally scans
 # every workspace member, including the application crates (gateway/admin).
 # Format: "crate-name:extra-flags"
@@ -64,8 +64,8 @@ CRATE_SPECS=(
 
 # ---------------------------------------------------------------------------
 # 1. Determine the current workspace version.
-#    The workspace root Cargo.toml has no [workspace.package]; each member
-#    crate carries its own version = "0.1.0".
+# The workspace root Cargo.toml has no [workspace.package]; each member
+# crate carries its own version = "0.1.0".
 # ---------------------------------------------------------------------------
 CURRENT_VERSION=""
 for SPEC in "${CRATE_SPECS[@]}"; do
@@ -114,7 +114,7 @@ for SPEC in "${CRATE_SPECS[@]}"; do
   EXTRA="${SPEC#*:}"
   CRATE_NAMES+=("$CRATE")
   echo "  cargo +nightly rustdoc -p ${CRATE} ${EXTRA} ..."
-  # shellcheck disable=SC2086
+ # shellcheck disable=SC2086
   cargo +nightly rustdoc -p "$CRATE" $EXTRA \
     -- -Z unstable-options --output-format json 2>/dev/null \
     || echo "  WARNING: rustdoc JSON generation failed for ${CRATE}" >&2
@@ -187,7 +187,7 @@ def collect_pub_items(doc):
         fqn = "::".join(parts)
         if is_serde_internal(fqn):
             continue
-        # Skip bare crate-root entries (just the crate name)
+ # Skip bare crate-root entries (just the crate name)
         if fqn in crate_names_u:
             continue
         result.add(fqn)
@@ -231,11 +231,11 @@ for crate, items in pub_items.items():
         for other, _doc in crate_docs.items():
             if other == crate:
                 continue
-            # Check: other crate re-exports our crate entirely
+ # Check: other crate re-exports our crate entirely
             if cu in reexports[other]:
                 referenced = True
                 break
-            # Check: fqn or a path starting with fqn:: appears in other crate
+ # Check: fqn or a path starting with fqn:: appears in other crate
             refs = str_refs[other]
             if fqn in refs:
                 referenced = True
@@ -252,8 +252,8 @@ for crate, items in pub_items.items():
 # ── source-based cross-crate references ──────────────────────────────────────
 #
 # The rustdoc-JSON pass above only sees items an external crate *re-exports*;
-# it cannot see `use` statements or type references.  Application crates
-# (tirbase-gateway, tirbase-admin) have no rustdoc entry at all.  So scan the
+# it cannot see `use` statements or type references. Application crates
+# (tirbase-gateway, tirbase-admin) have no rustdoc entry at all. So scan the
 # source of every workspace crate (library and application) for textual
 # references to each candidate orphan.
 repo_root = os.path.dirname(os.path.dirname(doc_dir))
@@ -307,8 +307,8 @@ for member in workspace_members:
         for p in found:
             imported.add(p)
             imported.add(base + "::" + p)
-    # Every non-crate-root prefix of a referenced path names a module/type that
-    # the other crate consumes, so its whole public surface is considered used.
+ # Every non-crate-root prefix of a referenced path names a module/type that
+ # the other crate consumes, so its whole public surface is considered used.
     modules = set()
     for p in ws_paths | imported:
         parts = p.split("::")
@@ -332,8 +332,8 @@ def source_referenced(fqn):
     for member, refs in source_refs.items():
         if member.replace("-", "_") == crate_u:
             continue
-        # A consumed module/type covers its entire public surface (variants,
-        # fields, methods, nested items).
+ # A consumed module/type covers its entire public surface (variants,
+ # fields, methods, nested items).
         for i in range(2, len(parts) + 1):
             if "::".join(parts[:i]) in refs["modules"]:
                 return True
@@ -343,9 +343,9 @@ def source_referenced(fqn):
             return True
         if pair and pair in refs["pairs"]:
             return True
-        # Enum variants, struct fields and methods are part of their parent
-        # type/module's surface: if another crate references the parent, the
-        # item is consumed API even though the member is never named alone.
+ # Enum variants, struct fields and methods are part of their parent
+ # type/module's surface: if another crate references the parent, the
+ # item is consumed API even though the member is never named alone.
         if len(parts) >= 3:
             parent_fqn = "::".join(parts[:-1])
             if parent_fqn in refs["imported"] or parent_fqn in refs["paths"]:

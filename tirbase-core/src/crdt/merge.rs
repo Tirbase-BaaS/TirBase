@@ -7,10 +7,10 @@
 //!
 //! ```text
 //! Receive Delta
-//!   → Schema-hash gate (unknown → Quarantine)
-//!   → Ed25519 signature validation (invalid → Rejected)
-//!   → Operation-type inspection → LWW path (scalar/map) or RGA path (list/text)
-//!   → CrdtEngine::apply() (Automerge merge + DAG + Lamport)
+//! → Schema-hash gate (unknown → Quarantine)
+//! → Ed25519 signature validation (invalid → Rejected)
+//! → Operation-type inspection → LWW path (scalar/map) or RGA path (list/text)
+//! → CrdtEngine::apply() (Automerge merge + DAG + Lamport)
 //! ```
 //!
 //! [`apply_incoming_delta`] is the entry point. [`CrdtEngine::apply()`] (in
@@ -33,35 +33,35 @@ pub use crate::crdt::inbound_caps::{InboundCapViolation, InboundCaps};
 /// Merge outcome after applying an incoming Delta.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergeOutcome {
-    /// Delta was successfully merged into the local store.
+ /// Delta was successfully merged into the local store.
     Merged { new_lamport: u64 },
-    /// Delta is held in the bounded pending queue because one or more causal
-    /// dependencies are not yet known (PV-6.1 / task 23). It will be retried
-    /// when dependency arrival advances the merge state.
+ /// Delta is held in the bounded pending queue because one or more causal
+ /// dependencies are not yet known (PV-6.1). It will be retried
+ /// when dependency arrival advances the merge state.
     Pending { reason: String },
-    /// Delta was placed in the Quarantine Ledger due to schema incompatibility.
+ /// Delta was placed in the Quarantine Ledger due to schema incompatibility.
     Quarantined { reason: QuarantineReason },
-    /// Delta was rejected (bad signature, revoked sender, etc.).
+ /// Delta was rejected (bad signature, revoked sender, etc.).
     Rejected { reason: String },
 }
 
 /// Reason a Delta was quarantined rather than merged.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QuarantineReason {
-    /// An existing field was removed, renamed, or its type changed (Req 17.4).
+ /// An existing field was removed, renamed, or its type changed (Req 17.4).
     BreakingSchemaChange,
-    /// The Schema_Identifier_Hash is not known to this device (Req 4.4).
+ /// The Schema_Identifier_Hash is not known to this device (Req 4.4).
     UnknownSchemaHash,
-    /// The Schema_Identifier_Hash field is absent or malformed (Req 17.6).
+ /// The Schema_Identifier_Hash field is absent or malformed (Req 17.6).
     MissingOrMalformedHash,
-    /// `start_op` deviates from the value implied by the change's causal
-    /// dependencies (dependency-relative clock/start_op poisoning, PV-6.1/S4).
+ /// `start_op` deviates from the value implied by the change's causal
+ /// dependencies (dependency-relative clock/start_op poisoning, PV-6.1/S4).
     ClockJump,
-    /// Pending dependency not received before age-out (PV-6.1, task 23).
+ /// Pending dependency not received before age-out (PV-6.1).
     MissingDependencyTimeout,
-    /// Pending queue byte cap exceeded (PV-6.1, S33).
+ /// Pending queue byte cap exceeded (PV-6.1, S33).
     PendingQueueOverflow,
-    /// Inbound hardening cap exceeded (PV-6.3/6.4, task 23/24).
+ /// Inbound hardening cap exceeded (PV-6.3/6.4, /24).
     RateExceeded,
     Oversize,
     OpCountExceeded,
@@ -101,18 +101,18 @@ pub(crate) fn is_rga_operation(automerge_bytes: &[u8]) -> Option<bool> {
         return None;
     }
 
-    // Load the bytes as an Automerge document.  If they cannot be parsed we
-    // return None so the caller falls back to the LWW default.
+ // Load the bytes as an Automerge document. If they cannot be parsed we
+ // return None so the caller falls back to the LWW default.
     let mut doc = automerge::AutoCommit::load(automerge_bytes).ok()?;
 
     let changes = doc.get_changes(&[]);
     if changes.is_empty() {
-        // Valid document but no changes (e.g. a freshly-created empty doc).
+ // Valid document but no changes (e.g. a freshly-created empty doc).
         return None;
     }
 
-    // Inspect each op across all changes.  A single sequence insertion
-    // (insert == true) is enough to classify the whole Delta as RGA.
+ // Inspect each op across all changes. A single sequence insertion
+ // (insert == true) is enough to classify the whole Delta as RGA.
     for change in changes {
         let expanded = change.decode();
         if expanded.operations.iter().any(|op| op.insert) {
@@ -120,7 +120,7 @@ pub(crate) fn is_rga_operation(automerge_bytes: &[u8]) -> Option<bool> {
         }
     }
 
-    // All ops were map-key sets or other non-insert ops → LWW path.
+ // All ops were map-key sets or other non-insert ops → LWW path.
     Some(false)
 }
 
@@ -132,10 +132,10 @@ pub(crate) fn is_rga_operation(automerge_bytes: &[u8]) -> Option<bool> {
 /// merge to the CRDT engine.
 ///
 /// Routing flowchart (design.md §CRDT Merge Logic):
-///   1. Schema-hash gate → unknown hash returns `Quarantined`
-///   2. Ed25519 signature validation → invalid returns `Rejected`
-///   3. Operation-type inspection → scalar/map → LWW path; list/text → RGA path
-///   4. Both paths call `CrdtEngine::apply()` for the Automerge-level merge
+/// 1. Schema-hash gate → unknown hash returns `Quarantined`
+/// 2. Ed25519 signature validation → invalid returns `Rejected`
+/// 3. Operation-type inspection → scalar/map → LWW path; list/text → RGA path
+/// 4. Both paths call `CrdtEngine::apply()` for the Automerge-level merge
 ///
 /// `CrdtEngine::apply()` is the Automerge-level merge primitive and handles
 /// steps 1 and 2 as well. This function adds the observable routing layer
@@ -175,20 +175,20 @@ pub fn apply_incoming_delta(
     engine: &mut CrdtEngine,
     delta: &Delta,
 ) -> Result<MergeOutcome, TirBaseError> {
-    // PV-6.1 / CLAIM-22.1 (S4): validate `start_op` against causal dependencies
-    // before merge. A deviation is a clock/start_op poisoning attempt and is
-    // quarantined as `ClockJump`. Missing dependencies are deferred (task 23
-    // pending queue); `NotAutomerge`/empty payloads keep legacy behavior.
+ // PV-6.1 / CLAIM-22.1 (S4): validate `start_op` against causal dependencies
+ // before merge. A deviation is a clock/start_op poisoning attempt and is
+ // quarantined as `ClockJump`. Missing dependencies are deferred (
+ // pending queue); `NotAutomerge`/empty payloads keep legacy behavior.
     {
         let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
         match crate::crdt::hardening::validate_start_op(delta, &known) {
             crate::crdt::hardening::StartOpValidation::Ok
             | crate::crdt::hardening::StartOpValidation::NotAutomerge => {
-                // proceed to normal merge path below
+ // proceed to normal merge path below
             }
             crate::crdt::hardening::StartOpValidation::MissingDependency => {
-                // PV-6.1 (task 23): defer when hardening pending queue is available.
-                // Without hardening state, preserve legacy apply behavior.
+ // PV-6.1 (): defer when hardening pending queue is available.
+ // Without hardening state, preserve legacy apply behavior.
                 let pending_outcome = if let Some(engine_hardening) = engine.hardening_mut() {
                     let now_mono = crate::traits::monotonic_now();
                     let pending_ev = engine_hardening.enqueue_pending(
@@ -217,7 +217,7 @@ pub fn apply_incoming_delta(
                 if let Some(outcome) = pending_outcome {
                     return outcome;
                 }
-                // legacy: fall through to normal merge/apply below
+ // legacy: fall through to normal merge/apply below
             }
             crate::crdt::hardening::StartOpValidation::ClockJump {
                 change_hash,
@@ -234,7 +234,7 @@ pub fn apply_incoming_delta(
         }
     }
 
-    // Classify operation type for routing decision (best-effort).
+ // Classify operation type for routing decision (best-effort).
     let is_rga = is_rga_operation(&delta.automerge_bytes);
 
     let path_name = match is_rga {
@@ -255,13 +255,13 @@ pub fn apply_incoming_delta(
         ),
     );
 
-    // Delegate to CrdtEngine::apply() which handles validation + Automerge merge.
-    // Both LWW and RGA paths ultimately go through the same Automerge merge step;
-    // the routing classification here is for observability and future dispatch hooks.
+ // Delegate to CrdtEngine::apply() which handles validation + Automerge merge.
+ // Both LWW and RGA paths ultimately go through the same Automerge merge step;
+ // the routing classification here is for observability and future dispatch hooks.
     let outcome = engine.apply(delta)?;
     if matches!(outcome, MergeOutcome::Merged { .. }) {
-        // PV-6.1 / task 23: dependency arrival may unblock pending deltas.
-        // Retry drained entries in deterministic order; re-enqueue if still missing deps.
+ // PV-6.1 / : dependency arrival may unblock pending deltas.
+ // Retry drained entries in deterministic order; re-enqueue if still missing deps.
         let mut progress = true;
         while progress {
             progress = false;
@@ -278,7 +278,7 @@ pub fn apply_incoming_delta(
                         progress = true;
                     }
                     Ok(MergeOutcome::Pending { .. }) => {
-                        // still missing deps; re-enqueue preserving original mono if possible
+ // still missing deps; re-enqueue preserving original mono if possible
                         if let Some(h) = engine.hardening_mut() {
                             let _ = h.enqueue_pending(
                                 entry.delta,
@@ -308,7 +308,7 @@ pub fn apply_incoming_delta(
                         let _ = reason;
                     }
                     Ok(MergeOutcome::Rejected { .. }) | Err(_) => {
-                        // drop rejected/errored pending entries
+ // drop rejected/errored pending entries
                     }
                 }
             }
@@ -325,7 +325,7 @@ pub fn apply_incoming_delta(
 /// 1. Higher Lamport timestamp wins.
 /// 2. Tie → lexicographically greater `actor_id` wins.
 /// 3. Both concurrent Deltas are recorded as causal parents in the DAG
-///    (handled by [`CrdtEngine::apply`]).
+/// (handled by [`CrdtEngine::apply`]).
 pub(crate) fn merge_lww(
     incoming_lamport: u64,
     incoming_actor_id: &[u8],
@@ -366,7 +366,7 @@ pub(crate) fn merge_rga(
 mod tests {
     use super::*;
 
-    // ── LWW ──────────────────────────────────────────────────────────────────
+ // ── LWW ──────────────────────────────────────────────────────────────────
 
     #[test]
     fn lww_higher_lamport_wins() {
@@ -391,7 +391,7 @@ mod tests {
         );
     }
 
-    // ── RGA ──────────────────────────────────────────────────────────────────
+ // ── RGA ──────────────────────────────────────────────────────────────────
 
     #[test]
     fn rga_higher_lamport_has_priority() {
@@ -407,14 +407,14 @@ mod tests {
 
     #[test]
     fn rga_concurrent_insertions_all_present_in_order() {
-        // Three concurrent insertions; sort them in RGA order.
+ // Three concurrent insertions; sort them in RGA order.
         let mut ops: Vec<(u64, Vec<u8>, &str)> = vec![
             (3, b"actor-a".to_vec(), "A"),
             (5, b"actor-b".to_vec(), "B"),
             (5, b"actor-c".to_vec(), "C"),
         ];
 
-        // Sort: (lamport DESC, actor DESC)
+ // Sort: (lamport DESC, actor DESC)
         ops.sort_by(|x, y| y.0.cmp(&x.0).then_with(|| y.1.cmp(&x.1)));
 
         let values: Vec<&str> = ops.iter().map(|(_, _, v)| *v).collect();
@@ -479,7 +479,7 @@ mod routing_tests {
         d
     }
 
-    /// A Delta with empty automerge_bytes (LWW/default path) is routed and returns Merged.
+ /// A Delta with empty automerge_bytes (LWW/default path) is routed and returns Merged.
     #[test]
     fn scalar_op_routed_via_lww_returns_merged() {
         let (secret_a, public_a) = generate_keypair().unwrap();
@@ -489,7 +489,7 @@ mod routing_tests {
         let schema = test_schema();
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
-        // Empty automerge_bytes → classified as LWW (default)
+ // Empty automerge_bytes → classified as LWW (default)
         let delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![]);
         let outcome = apply_incoming_delta(&mut engine, &delta).unwrap();
         assert!(
@@ -498,7 +498,7 @@ mod routing_tests {
         );
     }
 
-    /// A Delta with an unknown schema hash is quarantined.
+ /// A Delta with an unknown schema hash is quarantined.
     #[test]
     fn unknown_schema_hash_is_quarantined() {
         let (secret_a, public_a) = generate_keypair().unwrap();
@@ -520,7 +520,7 @@ mod routing_tests {
         );
     }
 
-    /// A Delta with a tampered signature is rejected.
+ /// A Delta with a tampered signature is rejected.
     #[test]
     fn tampered_signature_is_rejected() {
         let (secret_a, public_a) = generate_keypair().unwrap();
@@ -531,7 +531,7 @@ mod routing_tests {
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
         let mut delta = make_signed_delta(&secret_b, did_b, schema, 1, vec![1, 2, 3]);
-        // Tamper with the automerge_bytes after signing → sig mismatch
+ // Tamper with the automerge_bytes after signing → sig mismatch
         delta.automerge_bytes = vec![9, 9, 9];
 
         let outcome = apply_incoming_delta(&mut engine, &delta).unwrap();
@@ -541,9 +541,9 @@ mod routing_tests {
         );
     }
 
-    /// A Delta authored by a REVOKED DID is rejected through the routing entry
-    /// point (Req 8.6) — `apply_incoming_delta` must surface the gate that
-    /// lives in `CrdtEngine::apply`.
+ /// A Delta authored by a REVOKED DID is rejected through the routing entry
+ /// point (Req 8.6) — `apply_incoming_delta` must surface the gate that
+ /// lives in `CrdtEngine::apply`.
     #[test]
     fn revoked_author_delta_is_rejected_via_routing() {
         let (secret_a, public_a) = generate_keypair().unwrap();
@@ -553,7 +553,7 @@ mod routing_tests {
         let schema = test_schema();
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
-        // Mark B's DID revoked, then route B's validly-signed delta inbound.
+ // Mark B's DID revoked, then route B's validly-signed delta inbound.
         engine.mark_did_revoked(&did_b);
         let delta = make_signed_delta(&secret_b, did_b.clone(), schema, 1, vec![]);
         let outcome = apply_incoming_delta(&mut engine, &delta).unwrap();
@@ -573,11 +573,11 @@ mod routing_tests {
         }
     }
 
-    /// apply_incoming_delta and CrdtEngine::apply produce the same outcome (regression test).
+ /// apply_incoming_delta and CrdtEngine::apply produce the same outcome (regression test).
     #[test]
     fn routing_layer_produces_same_outcome_as_engine_apply() {
-        // Engine A uses apply_incoming_delta; Engine B uses apply directly.
-        // Both should return Merged for the same valid delta.
+ // Engine A uses apply_incoming_delta; Engine B uses apply directly.
+ // Both should return Merged for the same valid delta.
         let (secret_a, public_a) = generate_keypair().unwrap();
         let did_a = derive_did_from_public_key(&public_a);
         let (secret_b, public_b) = generate_keypair().unwrap();
@@ -598,19 +598,19 @@ mod routing_tests {
         );
     }
 
-    // ── is_rga_operation with real Automerge bytes ────────────────────────────
+ // ── is_rga_operation with real Automerge bytes ────────────────────────────
 
-    /// A Delta carrying a real scalar map-key write must classify as LWW (`Some(false)`).
+ /// A Delta carrying a real scalar map-key write must classify as LWW (`Some(false)`).
     #[test]
     fn is_rga_operation_scalar_write_returns_false() {
         use automerge::{transaction::Transactable, AutoCommit};
 
-        // Produce real Automerge bytes for a scalar integer write on ROOT["score"].
+ // Produce real Automerge bytes for a scalar integer write on ROOT["score"].
         let mut doc = AutoCommit::new();
         doc.put(automerge::ROOT, "score", 42_i64).unwrap();
         let bytes = doc.save();
 
-        // Must classify as LWW path (not RGA).
+ // Must classify as LWW path (not RGA).
         assert_eq!(
             is_rga_operation(&bytes),
             Some(false),
@@ -618,12 +618,12 @@ mod routing_tests {
         );
     }
 
-    /// A Delta carrying a real list insertion must classify as RGA (`Some(true)`).
+ /// A Delta carrying a real list insertion must classify as RGA (`Some(true)`).
     #[test]
     fn is_rga_operation_list_insert_returns_true() {
         use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
-        // Produce real Automerge bytes for a list insertion.
+ // Produce real Automerge bytes for a list insertion.
         let mut doc = AutoCommit::new();
         let list = doc
             .put_object(automerge::ROOT, "items", ObjType::List)
@@ -631,7 +631,7 @@ mod routing_tests {
         doc.insert(&list, 0, "hello").unwrap();
         let bytes = doc.save();
 
-        // Must classify as RGA path.
+ // Must classify as RGA path.
         assert_eq!(
             is_rga_operation(&bytes),
             Some(true),
@@ -639,12 +639,12 @@ mod routing_tests {
         );
     }
 
-    /// A Delta carrying a real text insertion must classify as RGA (`Some(true)`).
+ /// A Delta carrying a real text insertion must classify as RGA (`Some(true)`).
     #[test]
     fn is_rga_operation_text_insert_returns_true() {
         use automerge::{transaction::Transactable, AutoCommit, ObjType};
 
-        // Produce real Automerge bytes for a text insertion.
+ // Produce real Automerge bytes for a text insertion.
         let mut doc = AutoCommit::new();
         let text = doc
             .put_object(automerge::ROOT, "body", ObjType::Text)
@@ -659,13 +659,13 @@ mod routing_tests {
         );
     }
 
-    /// Empty bytes must return `None` (safe default).
+ /// Empty bytes must return `None` (safe default).
     #[test]
     fn is_rga_operation_empty_bytes_returns_none() {
         assert_eq!(is_rga_operation(&[]), None, "empty bytes must return None");
     }
 
-    /// Garbage bytes that cannot be parsed must return `None`.
+ /// Garbage bytes that cannot be parsed must return `None`.
     #[test]
     fn is_rga_operation_invalid_bytes_returns_none() {
         assert_eq!(
@@ -675,9 +675,9 @@ mod routing_tests {
         );
     }
 
-    /// A Delta containing only a `put_object` call (creates a list but inserts
-    /// nothing) should classify as LWW because `put_object` is a map-key set op
-    /// with `insert=false`.
+ /// A Delta containing only a `put_object` call (creates a list but inserts
+ /// nothing) should classify as LWW because `put_object` is a map-key set op
+ /// with `insert=false`.
     #[test]
     fn is_rga_operation_put_object_only_returns_false() {
         use automerge::{transaction::Transactable, AutoCommit, ObjType};
@@ -685,7 +685,7 @@ mod routing_tests {
         let mut doc = AutoCommit::new();
         doc.put_object(automerge::ROOT, "items", ObjType::List)
             .unwrap();
-        // No insertions into the list — only the map-key set for "items".
+ // No insertions into the list — only the map-key set for "items".
         let bytes = doc.save();
 
         assert_eq!(
@@ -695,8 +695,8 @@ mod routing_tests {
         );
     }
 
-    /// A Delta with mixed ops (scalar write + list insert) must classify as RGA
-    /// (conservative: any sequence insertion triggers the RGA path).
+ /// A Delta with mixed ops (scalar write + list insert) must classify as RGA
+ /// (conservative: any sequence insertion triggers the RGA path).
     #[test]
     fn is_rga_operation_mixed_ops_returns_true() {
         use automerge::{transaction::Transactable, AutoCommit, ObjType};
@@ -716,8 +716,8 @@ mod routing_tests {
         );
     }
 
-    /// A scalar-field Delta sent through `apply_incoming_delta()` must route via
-    /// the LWW path (classification logged as "LWW scalar") and return Merged.
+ /// A scalar-field Delta sent through `apply_incoming_delta()` must route via
+ /// the LWW path (classification logged as "LWW scalar") and return Merged.
     #[test]
     fn scalar_delta_routes_via_lww_in_apply_incoming() {
         use automerge::{transaction::Transactable, AutoCommit};
@@ -729,12 +729,12 @@ mod routing_tests {
         let schema = test_schema();
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
-        // Produce real scalar Automerge bytes.
+ // Produce real scalar Automerge bytes.
         let mut doc = AutoCommit::new();
         doc.put(automerge::ROOT, "score", 99_i64).unwrap();
         let bytes = doc.save();
 
-        // Confirm classification.
+ // Confirm classification.
         assert_eq!(is_rga_operation(&bytes), Some(false));
 
         let delta = make_signed_delta(&secret_b, did_b, schema, 1, bytes);
@@ -745,8 +745,8 @@ mod routing_tests {
         );
     }
 
-    /// A list-insert Delta sent through `apply_incoming_delta()` must route via
-    /// the RGA path (classification logged as "RGA sequence") and return Merged.
+ /// A list-insert Delta sent through `apply_incoming_delta()` must route via
+ /// the RGA path (classification logged as "RGA sequence") and return Merged.
     #[test]
     fn list_insert_delta_routes_via_rga_in_apply_incoming() {
         use automerge::{transaction::Transactable, AutoCommit, ObjType};
@@ -758,7 +758,7 @@ mod routing_tests {
         let schema = test_schema();
         let mut engine = make_engine(secret_a, public_a, did_a, schema);
 
-        // Produce real list Automerge bytes.
+ // Produce real list Automerge bytes.
         let mut doc = AutoCommit::new();
         let list = doc
             .put_object(automerge::ROOT, "items", ObjType::List)
@@ -766,7 +766,7 @@ mod routing_tests {
         doc.insert(&list, 0, "elem1").unwrap();
         let bytes = doc.save();
 
-        // Confirm classification.
+ // Confirm classification.
         assert_eq!(is_rga_operation(&bytes), Some(true));
 
         let delta = make_signed_delta(&secret_b, did_b, schema, 1, bytes);

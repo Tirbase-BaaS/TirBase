@@ -1,6 +1,6 @@
 # Dependency Review Record (per release)
 
-**Claim:** CLAIM-42.7 / PV-14.4  
+**Claim:** CLAIM-42.7 / PV-14.4 
 **Maintained at:** every release tag (update this record before publishing the GitHub Release)
 
 ## Release metadata
@@ -38,9 +38,9 @@ This record covers, for the release above:
 
 - Source of truth: `geiger-report-<tag>.json/.txt` attached to the GitHub Release (CLAIM-42.5).
 - Summary at release:
-  - Total crates with unsafe (used): `<fill>`
-  - Workspace crates with unsafe: `<fill>`
-  - New/changed unsafe relative to previous release: `<fill>` (review required)
+ - Total crates with unsafe (used): `<fill>`
+ - Workspace crates with unsafe: `<fill>`
+ - New/changed unsafe relative to previous release: `<fill>` (review required)
 
 | Crate | Unsafe usage (summary) | Workspace/direct/transitive | Review notes |
 |---|---|---|---|

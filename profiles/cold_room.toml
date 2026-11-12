@@ -1,5 +1,5 @@
 # EnvelopeProfile TOML (CLAIM-34.5, PV-10.6). Validated by install-time profile
-# validation (task 10.6) via tirbase-guard::envelope::install_profile.
+# validation () via tirbase-guard::envelope::install_profile.
 profile_id = "c01d0000-0000-0000-0000-000000000001"
 version = 1
 device_class = "cold_room"

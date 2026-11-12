@@ -12,9 +12,9 @@ use tirbase_types::{FixedPointValue, UNIT_DEG_C};
 pub fn run_s30(seed: u64) -> Result<(), String> {
     let canonical = -1 + (seed % 3) as i8;
 
-    // Stage 10: canonical-exponent enforcement.  Rescaling i64::MAX at
-    // exponent 100 down to a canonical fractional exponent requires 10^101,
-    // which cannot be represented; the production conversion must error.
+ // Stage 10: canonical-exponent enforcement. Rescaling i64::MAX at
+ // exponent 100 down to a canonical fractional exponent requires 10^101,
+ // which cannot be represented; the production conversion must error.
     let overflow_value = FixedPointValue::new(i64::MAX, 100, UNIT_DEG_C);
     match overflow_value.with_canonical_exponent(canonical) {
         Err(FixedPointError::OverflowOnConversion) => {}
@@ -25,8 +25,8 @@ pub fn run_s30(seed: u64) -> Result<(), String> {
         }
     }
 
-    // Stage 11: a bounds comparison whose exponent span exceeds i128 scale
-    // must error rather than wrap.
+ // Stage 11: a bounds comparison whose exponent span exceeds i128 scale
+ // must error rather than wrap.
     let huge = FixedPointValue::new(i64::MAX, 127, UNIT_DEG_C);
     let min = FixedPointValue::new(i64::MIN, -128, UNIT_DEG_C);
     let max = FixedPointValue::new(i64::MAX, -128, UNIT_DEG_C);
@@ -39,8 +39,8 @@ pub fn run_s30(seed: u64) -> Result<(), String> {
         }
     }
 
-    // Control: the same i64::MAX mantissa at a canonical exponent still
-    // compares correctly (no artificial rejection).
+ // Control: the same i64::MAX mantissa at a canonical exponent still
+ // compares correctly (no artificial rejection).
     let in_range = FixedPointValue::new(i64::MAX, -1, UNIT_DEG_C);
     let normal_min = FixedPointValue::new(0, -1, UNIT_DEG_C);
     let normal_max = FixedPointValue::new(1_000, -1, UNIT_DEG_C);

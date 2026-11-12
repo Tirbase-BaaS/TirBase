@@ -1,4 +1,4 @@
-# Gateway configuration for the OCI image (task 37.3, PV-11.1).
+# Gateway configuration for the OCI image (PV-11.1).
 # Paths point at the writable directories created in deploy/Dockerfile.
 key_path = "/var/lib/tirbase/device-key.json"
 counter_db_path = "/var/lib/tirbase/primary.db"

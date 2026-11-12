@@ -1,10 +1,10 @@
-# RFC: TUF adoption for migration/firmware/config update distribution (Task 30.7/30.10, PV-8.8, PV-11.6, RD-6)
+# RFC: TUF adoption for migration/firmware/config update distribution (30.10, PV-8.8, PV-11.6, RD-6)
 
-Status: **ACCEPTED — RD-6 is recorded in `docs/THREAT_MODEL.md`**: adopt TUF metadata semantics over TriBase's existing signed transport; the crate choice stays deferred to the task 30.10 spike. Task 30.9 is implemented against a signed manifest whose role keys come from deployment configuration.
+Status: **ACCEPTED — RD-6 is recorded in `docs/THREAT_MODEL.md`**: adopt TUF metadata semantics over TriBase's existing signed transport; the crate choice stays deferred to the spike. is implemented against a signed manifest whose role keys come from deployment configuration.
 
 ## Summary
 
-This RFC evaluates adopting [The Update Framework (TUF)](https://theupdateframework.io/) for distributing signed migration transforms, gateway firmware manifests, and signed config rollback artifacts over the mesh/gossip transport. TriBase currently relies on CA-signed migration transforms (`MigrationDelta.ca_signature` + SHA-256), manager/M-of-N revocation deltas, and deterministic WASM execution profiles (Tasks 18/29/30). TUF addresses freeze/mix-and-match/rollback/replay attacks and key compromise recovery better than a single-signature manifest model.
+This RFC evaluates adopting [The Update Framework (TUF)](https://theupdateframework.io) for distributing signed migration transforms, gateway firmware manifests, and signed config rollback artifacts over the mesh/gossip transport. TriBase currently relies on CA-signed migration transforms (`MigrationDelta.ca_signature` + SHA-256), manager/M-of-N revocation deltas, and deterministic WASM execution profiles (29/30). TUF addresses freeze/mix-and-match/rollback/replay attacks and key compromise recovery better than a single-signature manifest model.
 
 ## Threat model (PV-8.8)
 
@@ -32,7 +32,7 @@ Assumptions: devices may be offline/partitioned (RD-1/mesh); monotonic/wall time
 - Cons: server/repository model assumptions; timestamp freshness needs trustworthy time (conflicts with adversarial clocks unless `TimeSource`/monotonic policy is injected); metadata distribution over gossip is nonstandard; dependency footprint in constrained gateway/wasm targets.
 - **Recommendation (draft, pending RD-6):** adopt TUF metadata *semantics* for firmware/config manifests and optionally for migration catalogs; implement transport adapter over existing signed delta/gossip channels; keep TriBase CA+shadow+postcondition gates as defense-in-depth. Defer full repository service until RD-6 chooses deployment authority.
 
-## Task 30.10 spike findings
+## spike findings
 
 - **Crates considered:** `tough` (AWS, async-friendly, pluggable transport/storage traits) and `rust-tuf` (reference implementation; heavier sync/file assumptions historically). Spike target: evaluate `tough` first for trait injection.
 - **`TimeSource` injection:** TUF timestamp/snapshot expiry checks require current time. Spike requirement: no direct `std::time::{SystemTime,Instant}` in verification path; time must come from an injected clock compatible with TriBase `TimeSource`/monotonic policy. *Finding:* feasible only if the chosen crate exposes a clock abstraction or verification is wrapped with an application-supplied “trusted now” derived from `TimeSource`/ratchet policy; upstream crate audit required before production. **Action:** record crate API evidence in follow-up PR when RD-6 unblocks; do not add `tough`/`rust-tuf` dependency until that evidence exists.
@@ -42,6 +42,6 @@ Assumptions: devices may be offline/partitioned (RD-1/mesh); monotonic/wall time
 ## Decision / blockers
 
 - **RD-6 owner decision required:** adopt TUF fully, adopt metadata-only with custom transport, or defer with documented compensating controls.
-- **Task 30.9 is implemented.** `/admin/self-update` verifies the UpdateSigner-signed manifest, applies the new config atomically (restoring the previous bytes on a failed write), and accepts rollback only with a PolicyAuthority signature. See `tirbase-gateway/tests/self_update_admin.rs`.
+- ** is implemented.** `/admin/self-update` verifies the UpdateSigner-signed manifest, applies the new config atomically (restoring the previous bytes on a failed write), and accepts rollback only with a PolicyAuthority signature. See `tirbase-gateway/tests/self_update_admin.rs`.
 - Next step after RD-6: prototype `tough` repository adapter + injected time source in an isolated spike crate, then wire gateway `self_update` (30.9) to signed firmware manifests and PolicyAuthority-signed config rollback.
 

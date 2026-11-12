@@ -102,8 +102,8 @@ pub struct SchemaQuarantineLedger {
 }
 
 impl SchemaQuarantineLedger {
-    /// Open (or create) the ledger at `path`, creating the `schema_quarantine`
-    /// table if missing.
+ /// Open (or create) the ledger at `path`, creating the `schema_quarantine`
+ /// table if missing.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let conn = Connection::open(path).map_err(|e| TirBaseError::LocalStoreWriteFailed {
             reason: format!("open schema_quarantine db: {e}"),
@@ -111,7 +111,7 @@ impl SchemaQuarantineLedger {
         Self::init(conn)
     }
 
-    /// Wrap an existing connection (caller ensures table exists / WAL pragmas).
+ /// Wrap an existing connection (caller ensures table exists / WAL pragmas).
     pub fn from_connection(conn: Connection) -> Result<Self, TirBaseError> {
         Self::init(conn)
     }
@@ -157,7 +157,7 @@ impl SchemaQuarantineLedger {
     }
 
     fn now_micros() -> i64 {
-        // Untrusted wall-clock hint, read through the injected TimeSource (PV-3.12).
+ // Untrusted wall-clock hint, read through the injected TimeSource (PV-3.12).
         crate::traits::wall_hint().unwrap_or(0)
     }
 
@@ -165,9 +165,9 @@ impl SchemaQuarantineLedger {
         serde_json::to_vec(delta).unwrap_or_else(|_| delta.automerge_bytes.clone())
     }
 
-    /// Record an anomalous delta with a replayable structural reason code
-    /// (CLAIM-23.3). Emits a `CrdtHardening` security event and enforces
-    /// per-sender/global quotas (CLAIM-23.5).
+ /// Record an anomalous delta with a replayable structural reason code
+ /// (CLAIM-23.3). Emits a `CrdtHardening` security event and enforces
+ /// per-sender/global quotas (CLAIM-23.5).
     pub fn quarantine_delta(
         &mut self,
         delta: &Delta,
@@ -192,7 +192,7 @@ impl SchemaQuarantineLedger {
         Ok(id)
     }
 
-    /// Insert raw bytes (used for overflow/timeout evictions from pending queue).
+ /// Insert raw bytes (used for overflow/timeout evictions from pending queue).
     pub fn quarantine_raw(
         &mut self,
         sender_did: &str,
@@ -231,7 +231,7 @@ impl SchemaQuarantineLedger {
                 reason: format!("schema_quarantine transaction: {e}"),
             })?;
 
-        // Per-sender FIFO eviction (oldest by received_at, then id).
+ // Per-sender FIFO eviction (oldest by received_at, then id).
         let sender_count: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM schema_quarantine WHERE sender_did = ?1",
@@ -253,7 +253,7 @@ impl SchemaQuarantineLedger {
             .ok();
         }
 
-        // Global entry/byte caps (oldest-first FIFO across all senders).
+ // Global entry/byte caps (oldest-first FIFO across all senders).
         Self::enforce_global_caps_tx(&tx, raw_bytes.len(), self.global_entries, self.global_bytes)?;
 
         tx.execute(

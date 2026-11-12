@@ -6,18 +6,18 @@
 //! SQLite schema (created by `LocalStore::open`):
 //! ```sql
 //! CREATE TABLE dag_nodes (
-//!     id          BLOB PRIMARY KEY,
-//!     payload     BLOB,      -- zstd-compressed Delta bytes
-//!     lamport     INTEGER,
-//!     schema_hash BLOB,
-//!     compacted   INTEGER,   -- 0 | 1
-//!     author_did  TEXT,
-//!     tags_json   TEXT
+//! id BLOB PRIMARY KEY,
+//! payload BLOB, -- zstd-compressed Delta bytes
+//! lamport INTEGER,
+//! schema_hash BLOB,
+//! compacted INTEGER, -- 0 | 1
+//! author_did TEXT,
+//! tags_json TEXT
 //! );
 //! CREATE TABLE dag_edges (
-//!     parent_id BLOB,
-//!     child_id  BLOB,
-//!     PRIMARY KEY (parent_id, child_id)
+//! parent_id BLOB,
+//! child_id BLOB,
+//! PRIMARY KEY (parent_id, child_id)
 //! );
 //! ```
 
@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 
 /// Compress `data` with zstd (native) or return a plain copy (wasm).
 ///
-/// On the native build this uses the `zstd` C-backed crate.  The WASM build
+/// On the native build this uses the `zstd` C-backed crate. The WASM build
 /// cannot link zstd's C FFI into `wasm32-unknown-unknown`, so payloads are
 /// stored uncompressed. A pure-Rust deflate path is deferred to a post-v1 task
 /// if compression on WASM is later required.
@@ -49,7 +49,7 @@ pub fn compress_payload(data: &[u8]) -> Result<Vec<u8>, TirBaseError> {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        // No zstd on WASM — payloads stored uncompressed (pure-Rust deflate deferred to post-v1).
+ // No zstd on WASM — payloads stored uncompressed (pure-Rust deflate deferred to post-v1).
         Ok(data.to_vec())
     }
 }
@@ -73,25 +73,25 @@ pub fn decompress_payload(data: &[u8]) -> Result<Vec<u8>, TirBaseError> {
 /// A node in the Changeset DAG.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DagNode {
-    /// Delta ID (SHA-256 of canonical_bytes).
+ /// Delta ID (SHA-256 of canonical_bytes).
     pub delta_id: DeltaId,
-    /// zstd-compressed serialised Delta (native); uncompressed on WASM.
-    /// Use [`compress_payload`] / [`decompress_payload`] to encode/decode.
+ /// zstd-compressed serialised Delta (native); uncompressed on WASM.
+ /// Use [`compress_payload`] / [`decompress_payload`] to encode/decode.
     pub payload: Vec<u8>,
-    /// Full serialised Delta bytes (JSON), stored for re-fetch after compaction
-    /// (Req 14.8, 16.8).  `None` when the caller did not supply refetch bytes.
+ /// Full serialised Delta bytes (JSON), stored for re-fetch after compaction
+ /// (Req 14.8, 16.8). `None` when the caller did not supply refetch bytes.
     pub delta_bytes: Option<Vec<u8>>,
-    /// Inline copy of causal_parents for fast graph traversal.
+ /// Inline copy of causal_parents for fast graph traversal.
     pub parent_ids: Vec<DeltaId>,
-    /// Automerge actor ID (for LWW tiebreaking).
+ /// Automerge actor ID (for LWW tiebreaking).
     pub actor_id: ActorId,
     pub lamport: u64,
     pub schema_hash: SchemaIdentifierHash,
-    /// If true, the payload has been compacted from the hot read path.
-    /// The Delta is still retained in the Cloud Ledger outbound queue until Tier-2
-    /// durability is confirmed (Req 14.8).
+ /// If true, the payload has been compacted from the hot read path.
+ /// The Delta is still retained in the Cloud Ledger outbound queue until Tier-2
+ /// durability is confirmed (Req 14.8).
     pub compacted: bool,
-    /// DID of the Delta author.
+ /// DID of the Delta author.
     pub author_did: Did,
 }
 
@@ -101,30 +101,30 @@ pub struct DagNode {
 pub struct ChangesetDag {
     #[cfg(feature = "native")]
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
-    /// In-memory node store for WASM builds.
+ /// In-memory node store for WASM builds.
     #[cfg(not(feature = "native"))]
     nodes: std::collections::BTreeMap<DeltaId, DagNode>,
-    /// In-memory children edges for WASM builds: parent → [child, ...].
+ /// In-memory children edges for WASM builds: parent → [child, ...].
     #[cfg(not(feature = "native"))]
     children_map: std::collections::BTreeMap<DeltaId, Vec<DeltaId>>,
 }
 
 #[cfg(feature = "native")]
 impl ChangesetDag {
-    /// Create a new ChangesetDag backed by the given SQLite connection.
+ /// Create a new ChangesetDag backed by the given SQLite connection.
     pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
         ChangesetDag { conn }
     }
 
-    /// Borrow the underlying SQLite connection (production caller: compaction
-    /// via [`crate::store::compaction::compact_table`], Req 3.4).
+ /// Borrow the underlying SQLite connection (production caller: compaction
+ /// via [`crate::store::compaction::compact_table`], Req 3.4).
     pub(crate) fn conn(&self) -> &std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
         &self.conn
     }
 
-    /// Insert a new node and its parent edges into the DAG.
-    ///
-    /// The `tags_json` column stores an empty JSON array initially.
+ /// Insert a new node and its parent edges into the DAG.
+ ///
+ /// The `tags_json` column stores an empty JSON array initially.
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
         let conn = self
             .conn
@@ -133,11 +133,11 @@ impl ChangesetDag {
                 reason: format!("DAG mutex poisoned: {e}"),
             })?;
 
-        // Compress the payload before storing.
+ // Compress the payload before storing.
         let compressed = compress_payload(&node.payload)?;
 
-        // Serialise parent_ids as JSON for the tags_json column placeholder.
-        // The actual tags_json is separate — we store an empty array for new nodes.
+ // Serialise parent_ids as JSON for the tags_json column placeholder.
+ // The actual tags_json is separate — we store an empty array for new nodes.
         let tags_json = "[]".to_string();
         let schema_hash_bytes = node.schema_hash.as_ref();
         let id_bytes = node.delta_id.as_ref();
@@ -170,7 +170,7 @@ impl ChangesetDag {
             });
         }
 
-        // Insert parent→child edges.
+ // Insert parent→child edges.
         for parent_id in &node.parent_ids {
             let edge_result = conn.execute(
                 "INSERT OR IGNORE INTO dag_edges (parent_id, child_id) VALUES (?1, ?2);",
@@ -192,7 +192,7 @@ impl ChangesetDag {
         Ok(())
     }
 
-    /// Return all child Delta IDs of the given parent.
+ /// Return all child Delta IDs of the given parent.
     pub fn children(&self, parent_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         let conn = self
             .conn
@@ -221,7 +221,7 @@ impl ChangesetDag {
         Ok(ids)
     }
 
-    /// Return all parent Delta IDs of the given child.
+ /// Return all parent Delta IDs of the given child.
     pub fn parents(&self, child_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         let conn = self
             .conn
@@ -250,11 +250,11 @@ impl ChangesetDag {
         Ok(ids)
     }
 
-    /// Return all Delta IDs whose stored `schema_hash` matches `schema_hash`.
-    ///
-    /// Used by the migration revocation path (Req 19.1) to find every Delta
-    /// authored under a now-corrupted schema so they can be tagged
-    /// `ContaminatedByCorruptedMigration`.
+ /// Return all Delta IDs whose stored `schema_hash` matches `schema_hash`.
+ ///
+ /// Used by the migration revocation path (Req 19.1) to find every Delta
+ /// authored under a now-corrupted schema so they can be tagged
+ /// `ContaminatedByCorruptedMigration`.
     pub fn nodes_by_schema_hash(
         &self,
         schema_hash: &SchemaIdentifierHash,
@@ -286,11 +286,11 @@ impl ChangesetDag {
         Ok(ids)
     }
 
-    /// Return all Delta IDs whose stored `author_did` matches `author_did`.
-    ///
-    /// Used during contamination revocation (Req 10.1) to find every Delta
-    /// authored by a now-revoked device so they can be tagged
-    /// `Contaminated` and quarantined from future merges.
+ /// Return all Delta IDs whose stored `author_did` matches `author_did`.
+ ///
+ /// Used during contamination revocation (Req 10.1) to find every Delta
+ /// authored by a now-revoked device so they can be tagged
+ /// `Contaminated` and quarantined from future merges.
     pub fn nodes_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
         let conn = self
             .conn
@@ -319,9 +319,9 @@ impl ChangesetDag {
         Ok(ids)
     }
 
-    /// BFS walk from `root_id` following child edges (forward reachability).
-    ///
-    /// Returns all reachable Delta IDs including `root_id` itself.
+ /// BFS walk from `root_id` following child edges (forward reachability).
+ ///
+ /// Returns all reachable Delta IDs including `root_id` itself.
     pub fn bfs_descendants(&self, root_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         let mut visited: std::collections::HashSet<DeltaId> = std::collections::HashSet::new();
         let mut queue: std::collections::VecDeque<DeltaId> = std::collections::VecDeque::new();
@@ -346,21 +346,21 @@ impl ChangesetDag {
         Ok(result)
     }
 
-    /// Return all descendant Delta IDs of `delta_id` in the current DAG.
-    ///
-    /// This is a BFS walk over `dag_edges` following child edges forward
-    /// from `delta_id`.  The root itself is included in the result.
-    /// Used during late-arrival taint decontamination (the root may have
-    /// been tagged before some descendants existed in the DAG; this method
-    /// queries the *live* DAG to find descendants that arrived after tag-time).
+ /// Return all descendant Delta IDs of `delta_id` in the current DAG.
+ ///
+ /// This is a BFS walk over `dag_edges` following child edges forward
+ /// from `delta_id`. The root itself is included in the result.
+ /// Used during late-arrival taint decontamination (the root may have
+ /// been tagged before some descendants existed in the DAG; this method
+ /// queries the *live* DAG to find descendants that arrived after tag-time).
     pub fn descendants_of(&self, delta_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         self.bfs_descendants(delta_id)
     }
 
-    /// Number of nodes currently stored in the DAG.
-    ///
-    /// Used by the convergence test to assert that the native DAG persists
-    /// at least as many nodes as the WASM in-memory equivalent.
+ /// Number of nodes currently stored in the DAG.
+ ///
+ /// Used by the convergence test to assert that the native DAG persists
+ /// at least as many nodes as the WASM in-memory equivalent.
     pub fn is_empty(&self) -> Result<bool, TirBaseError> {
         Ok(self.len()? == 0)
     }
@@ -380,9 +380,9 @@ impl ChangesetDag {
         Ok(count as usize)
     }
 
-    /// Topological sort of the entire DAG (Kahn's algorithm, causal order).
-    ///
-    /// Returns Delta IDs in causal order: all parents before their children.
+ /// Topological sort of the entire DAG (Kahn's algorithm, causal order).
+ ///
+ /// Returns Delta IDs in causal order: all parents before their children.
     pub fn topological_sort(&self) -> Result<Vec<DeltaId>, TirBaseError> {
         let conn = self
             .conn
@@ -391,7 +391,7 @@ impl ChangesetDag {
                 reason: format!("DAG mutex poisoned: {e}"),
             })?;
 
-        // Fetch all node IDs.
+ // Fetch all node IDs.
         let all_ids: Vec<DeltaId> = {
             let mut stmt = conn.prepare("SELECT id FROM dag_nodes;").map_err(|e| {
                 TirBaseError::LocalStoreWriteFailed {
@@ -409,7 +409,7 @@ impl ChangesetDag {
             x
         };
 
-        // Fetch all edges (parent_id, child_id).
+ // Fetch all edges (parent_id, child_id).
         let all_edges: Vec<(DeltaId, DeltaId)> = {
             let mut stmt = conn
                 .prepare("SELECT parent_id, child_id FROM dag_edges;")
@@ -433,10 +433,10 @@ impl ChangesetDag {
             x
         };
 
-        // Drop the lock before doing the in-memory Kahn's computation.
+ // Drop the lock before doing the in-memory Kahn's computation.
         drop(conn);
 
-        // Build adjacency and in-degree maps.
+ // Build adjacency and in-degree maps.
         use std::collections::BTreeMap;
         let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
         let mut children_map: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
@@ -451,7 +451,7 @@ impl ChangesetDag {
             children_map.entry(*parent).or_default().push(*child);
         }
 
-        // Kahn's algorithm.
+ // Kahn's algorithm.
         let mut queue: std::collections::VecDeque<DeltaId> = in_degree
             .iter()
             .filter(|(_, &deg)| deg == 0)
@@ -476,7 +476,7 @@ impl ChangesetDag {
         Ok(sorted)
     }
 
-    /// Look up a single node by its Delta ID.
+ /// Look up a single node by its Delta ID.
     pub fn get(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
         let conn = self
             .conn
@@ -525,11 +525,11 @@ impl ChangesetDag {
                             reason: "Invalid schema_hash length in dag_nodes".to_string(),
                         })?;
 
-                // Decompress payload.
+ // Decompress payload.
                 drop(conn); // release the lock before decompression
                 let decompressed = decompress_payload(&payload_bytes)?;
 
-                // Fetch parent IDs for this node.
+ // Fetch parent IDs for this node.
                 let parent_ids = self.parents(&delta_id_arr)?;
 
                 Ok(Some(DagNode {
@@ -551,7 +551,7 @@ impl ChangesetDag {
         }
     }
 
-    /// Mark a node as compacted (hot-path payload pruned).
+ /// Mark a node as compacted (hot-path payload pruned).
     pub fn mark_compacted(&mut self, delta_id: &DeltaId) -> Result<(), TirBaseError> {
         let conn = self
             .conn
@@ -571,12 +571,12 @@ impl ChangesetDag {
         Ok(())
     }
 
-    /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG
-    /// (Req 14.8, 16.8).  This is the production refetch source for compacted
-    /// entries whose bytes were pruned from the cloud outbound queue.
-    ///
-    /// Returns `Ok(Some(bytes))` when the DAG row exists and carries
-    /// `delta_bytes`; `Ok(None)` when the row is absent or `delta_bytes` is NULL.
+ /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG
+ /// (Req 14.8, 16.8). This is the production refetch source for compacted
+ /// entries whose bytes were pruned from the cloud outbound queue.
+ ///
+ /// Returns `Ok(Some(bytes))` when the DAG row exists and carries
+ /// `delta_bytes`; `Ok(None)` when the row is absent or `delta_bytes` is NULL.
     pub fn delta_bytes(&self, delta_id: &DeltaId) -> Result<Option<Vec<u8>>, TirBaseError> {
         let conn = self
             .conn
@@ -605,7 +605,7 @@ impl ChangesetDag {
 
 #[cfg(not(feature = "native"))]
 impl ChangesetDag {
-    /// Create a new in-memory ChangesetDag (WASM build — no SQLite connection).
+ /// Create a new in-memory ChangesetDag (WASM build — no SQLite connection).
     pub fn new() -> Self {
         ChangesetDag {
             nodes: std::collections::BTreeMap::new(),
@@ -613,7 +613,7 @@ impl ChangesetDag {
         }
     }
 
-    /// Number of nodes currently stored in the DAG.
+ /// Number of nodes currently stored in the DAG.
     pub fn is_empty(&self) -> Result<bool, TirBaseError> {
         Ok(self.len()? == 0)
     }
@@ -623,14 +623,14 @@ impl ChangesetDag {
     }
 
     pub fn insert(&mut self, node: DagNode) -> Result<(), TirBaseError> {
-        // Register parent → child edges.
+ // Register parent → child edges.
         for parent_id in &node.parent_ids {
             self.children_map
                 .entry(*parent_id)
                 .or_default()
                 .push(node.delta_id);
         }
-        // Ensure the node itself has an (empty) entry in children_map.
+ // Ensure the node itself has an (empty) entry in children_map.
         self.children_map.entry(node.delta_id).or_default();
         self.nodes.insert(node.delta_id, node);
         Ok(())
@@ -652,8 +652,8 @@ impl ChangesetDag {
             .unwrap_or_default())
     }
 
-    /// Return all descendant Delta IDs of `delta_id` in the current DAG.
-    /// WASM variant — delegates to the in-memory `bfs_descendants`.
+ /// Return all descendant Delta IDs of `delta_id` in the current DAG.
+ /// WASM variant — delegates to the in-memory `bfs_descendants`.
     pub fn descendants_of(&self, delta_id: &DeltaId) -> Result<Vec<DeltaId>, TirBaseError> {
         self.bfs_descendants(delta_id)
     }
@@ -670,14 +670,14 @@ impl ChangesetDag {
             .collect())
     }
 
-    /// Return all Delta IDs in the DAG authored by `author_did` (WASM build).
-    ///
-    /// This is the in-memory analogue of the native SQL query
-    /// `SELECT id FROM dag_nodes WHERE author_did = ?`.  The WASM
-    /// `RevocationSubsystem` uses its own per-author `authored_deltas` index
-    /// for the CCE trigger path (fed by `record_authored_delta`), but this
-    /// method is provided for parity and for any caller that needs to
-    /// query the DAG directly (Req 10.1 WASM parity).
+ /// Return all Delta IDs in the DAG authored by `author_did` (WASM build).
+ ///
+ /// This is the in-memory analogue of the native SQL query
+ /// `SELECT id FROM dag_nodes WHERE author_did = ?`. The WASM
+ /// `RevocationSubsystem` uses its own per-author `authored_deltas` index
+ /// for the CCE trigger path (fed by `record_authored_delta`), but this
+ /// method is provided for parity and for any caller that needs to
+ /// query the DAG directly (Req 10.1 WASM parity).
     pub fn nodes_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
         Ok(self
             .nodes
@@ -712,7 +712,7 @@ impl ChangesetDag {
 
         let all_ids: Vec<DeltaId> = self.nodes.keys().copied().collect();
 
-        // Build in-degree map and children adjacency.
+ // Build in-degree map and children adjacency.
         let mut in_degree: BTreeMap<DeltaId, usize> = BTreeMap::new();
         let mut adj: BTreeMap<DeltaId, Vec<DeltaId>> = BTreeMap::new();
 
@@ -727,7 +727,7 @@ impl ChangesetDag {
             }
         }
 
-        // Kahn's algorithm.
+ // Kahn's algorithm.
         let mut queue: std::collections::VecDeque<DeltaId> = in_degree
             .iter()
             .filter(|(_, &deg)| deg == 0)
@@ -792,7 +792,7 @@ mod tests {
         assert_eq!(node.compacted, decoded.compacted);
     }
 
-    /// On native builds, compress → decompress must recover the original bytes.
+ /// On native builds, compress → decompress must recover the original bytes.
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
     fn compress_decompress_native_round_trip() {
@@ -802,7 +802,7 @@ mod tests {
         assert_eq!(data, recovered);
     }
 
-    /// On wasm, both operations are identity — bytes are returned unchanged.
+ /// On wasm, both operations are identity — bytes are returned unchanged.
     #[test]
     #[cfg(target_arch = "wasm32")]
     fn compress_decompress_wasm_identity() {

@@ -11,7 +11,7 @@ use crate::errors::TirBaseError;
 // Thread-local in-memory tag store for WASM builds.
 //
 // The native build writes tags directly to `dag_nodes.tags_json` in SQLite.
-// On WASM there is no SQLite, so we keep tags here.  The tag log is still
+// On WASM there is no SQLite, so we keep tags here. The tag log is still
 // append-only — entries are pushed but never removed (Req 10.4).
 #[cfg(not(feature = "native"))]
 thread_local! {
@@ -40,7 +40,7 @@ pub(crate) fn append_tag_to_db(
     delta_id: &DeltaId,
     tag: DeltaTag,
 ) -> Result<(), TirBaseError> {
-    // Read existing tags, deserialise, push, serialise back.
+ // Read existing tags, deserialise, push, serialise back.
     let existing_json: String = conn
         .query_row(
             "SELECT tags_json FROM dag_nodes WHERE id = ?1",
@@ -94,7 +94,7 @@ pub(crate) fn read_tags_from_db(
 ///
 /// This operation is **append-only** — existing tags are never modified (Req 10.4).
 ///
-/// On native this writes directly to `dag_nodes.tags_json`.  On WASM this stores
+/// On native this writes directly to `dag_nodes.tags_json`. On WASM this stores
 /// tags in a thread-local BTreeMap so the signature stays compatible with how the
 /// CCE calls it.
 #[cfg(feature = "native")]
@@ -148,7 +148,7 @@ pub(crate) fn walk_dag_descendants(
 /// This is needed because `ChangesetDag::bfs_descendants` internally locks the
 /// shared `Arc<Mutex<Connection>>`, which deadlocks when the connection is
 /// already locked by the caller (e.g. inside `verify_data` where the CCE holds
-/// `conn_guard` across the `resolution::verify_data` call).  This variant
+/// `conn_guard` across the `resolution::verify_data` call). This variant
 /// queries `dag_edges` directly on the already-locked connection, avoiding the
 /// re-entrant lock.
 #[cfg(feature = "native")]
@@ -170,7 +170,7 @@ pub(crate) fn bfs_descendants_raw(
         }
         result.push(current);
 
-        // Query children of `current` from the dag_edges table.
+ // Query children of `current` from the dag_edges table.
         let mut stmt = conn
             .prepare("SELECT child_id FROM dag_edges WHERE parent_id = ?1")
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -204,20 +204,20 @@ pub(crate) fn bfs_descendants_raw(
 /// When a contamination root is resolved (or remains unresolved) via `verify_data`,
 /// Deltas that descended from the root **after** the initial `tag_contamination_root`
 /// snapshot was taken are neither contaminated nor decontaminated during the
-/// snapshot-based walk.  This function performs a second live walk against the
+/// snapshot-based walk. This function performs a second live walk against the
 /// current DAG to find those late-arriving descendants.
 ///
-/// * `root_delta_id`  — the resolved (or still-unresolved) contamination root.
-/// * `dag`            — the live `ChangesetDag` (used only for its schema; the
-///   actual BFS uses `conn` directly to avoid re-entrant locking — see note on
-///   `decompose_composites_if_needed`).
+/// * `root_delta_id` — the resolved (or still-unresolved) contamination root.
+/// * `dag` — the live `ChangesetDag` (used only for its schema; the
+/// actual BFS uses `conn` directly to avoid re-entrant locking — see note on
+/// `decompose_composites_if_needed`).
 /// * `snapshot_deltas` — the `contaminated_deltas` snapshot captured at tag-time.
-///   Descendants already present in this set are skipped (they already carry
-///   their tags from the initial walk).
-/// * `resolved`       — if `true`, late arrivals receive `DeltaTag::Decontaminated`;
-///   if `false`, late arrivals receive `DeltaTag::Contaminated`.
-/// * `conn`           — SQLite connection for tag writes and live DAG queries.
-/// * `incident_id`    — the ICO these deltas belong to.
+/// Descendants already present in this set are skipped (they already carry
+/// their tags from the initial walk).
+/// * `resolved` — if `true`, late arrivals receive `DeltaTag::Decontaminated`;
+/// if `false`, late arrivals receive `DeltaTag::Contaminated`.
+/// * `conn` — SQLite connection for tag writes and live DAG queries.
+/// * `incident_id` — the ICO these deltas belong to.
 ///
 /// Returns the subset of descendants that were actually tagged by this call
 /// (i.e. those not already in `snapshot_deltas`).
@@ -232,11 +232,11 @@ pub(crate) fn walk_late_arrival_descendants(
 ) -> Result<Vec<DeltaId>, TirBaseError> {
     use std::collections::HashSet;
 
-    // 1. Query the live DAG for all descendants of the root using the raw
-    //    connection (avoids re-entrant Mutex lock — see decompose_composites_if_needed).
+ // 1. Query the live DAG for all descendants of the root using the raw
+ // connection (avoids re-entrant Mutex lock — see decompose_composites_if_needed).
     let live_descendants = bfs_descendants_raw(conn, root_delta_id)?;
 
-    // 2. Determine which descendants are late arrivals (not in the snapshot).
+ // 2. Determine which descendants are late arrivals (not in the snapshot).
     let snapshot_set: HashSet<DeltaId> = snapshot_deltas.iter().copied().collect();
     let late_arrivals: Vec<DeltaId> = live_descendants
         .iter()
@@ -244,7 +244,7 @@ pub(crate) fn walk_late_arrival_descendants(
         .filter(|d| !snapshot_set.contains(d))
         .collect();
 
-    // 3. Tag each late arrival.
+ // 3. Tag each late arrival.
     let at = crate::contamination::resolution::now_micros();
     for delta_id in &late_arrivals {
         if resolved {
@@ -275,7 +275,7 @@ pub(crate) fn walk_late_arrival_descendants(
 ///
 /// Same logic as the native `walk_late_arrival_descendants` but uses the
 /// thread-local tag store (`append_tag` / `read_tags_from_mem`) instead of
-/// SQLite.  The `dag` is the in-memory WASM `ChangesetDag`.
+/// SQLite. The `dag` is the in-memory WASM `ChangesetDag`.
 #[cfg(not(feature = "native"))]
 pub(crate) fn walk_late_arrival_descendants(
     root_delta_id: &DeltaId,
@@ -341,7 +341,7 @@ pub(crate) fn resolve_affected_rows(
 ) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
     use crate::contamination::incident::AffectedRow;
 
-    // 1. Enumerate all projection tables.
+ // 1. Enumerate all projection tables.
     let proj_tables: Vec<String> = {
         let mut stmt = conn
             .prepare(
@@ -361,7 +361,7 @@ pub(crate) fn resolve_affected_rows(
         tables
     };
 
-    // 2. For each projection table, collect all row keys.
+ // 2. For each projection table, collect all row keys.
     let mut affected = Vec::new();
     for proj_table in &proj_tables {
         let logical_table = proj_table.strip_prefix("proj_").unwrap_or(proj_table);
@@ -406,13 +406,13 @@ pub(crate) fn resolve_affected_rows(
     use crate::contamination::incident::AffectedRow;
     use std::collections::BTreeMap;
 
-    // Map (table, row_key) -> most-recent delta_id for deduplication.
+ // Map (table, row_key) -> most-recent delta_id for deduplication.
     let mut seen: BTreeMap<(String, String), DeltaId> = BTreeMap::new();
 
     for &delta_id in delta_ids {
         let rows = crate::store::projection::rows_by_delta_id(&delta_id);
         for (table, row_key) in rows {
-            // First writer wins for the delta_id association.
+ // First writer wins for the delta_id association.
             seen.entry((table, row_key)).or_insert(delta_id);
         }
     }

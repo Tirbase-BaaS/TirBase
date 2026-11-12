@@ -1,8 +1,8 @@
 //! SaturateMode state machine and Lease tracking (Req 13).
 //!
 //! State transitions:
-//!   NORMAL → SATURATE: valid Manager DISASTER_ALERT with `disaster-alert` Biscuit caveat
-//!   SATURATE → NORMAL: Lease expiry (60 min) without renewal, OR Lease Termination Delta (≥M sigs)
+//! NORMAL → SATURATE: valid Manager DISASTER_ALERT with `disaster-alert` Biscuit caveat
+//! SATURATE → NORMAL: Lease expiry (60 min) without renewal, OR Lease Termination Delta (≥M sigs)
 //!
 //! Invalid/absent/expired DISASTER_ALERTs or heartbeats are rejected with
 //! `SignatureVerificationFailed` and the current mode is preserved (Req 13.7).
@@ -34,24 +34,24 @@ pub enum SaturateState {
 /// A Saturate_Mode Lease (Req 13.3).
 #[derive(Debug, Clone)]
 pub struct SaturateLease {
-    /// UTC seconds when Saturate_Mode was activated.
+ /// UTC seconds when Saturate_Mode was activated.
     pub activated_at: i64,
-    /// UTC seconds when the Lease expires (activated_at + 3600s).
+ /// UTC seconds when the Lease expires (activated_at + 3600s).
     pub expires_at: i64,
-    /// UTC seconds of the last valid heartbeat renewal.
+ /// UTC seconds of the last valid heartbeat renewal.
     pub last_renewed_at: Option<i64>,
-    /// The Manager DID that activated this Lease.
+ /// The Manager DID that activated this Lease.
     pub activating_manager_did: Did,
 }
 
 impl SaturateLease {
-    /// Return true if the lease has expired at `now_secs`.
+ /// Return true if the lease has expired at `now_secs`.
     pub fn is_expired(&self, now_secs: i64) -> bool {
         now_secs >= self.expires_at
     }
 
-    /// Return true if the current time is within the renewal window (Req 13.4):
-    /// `expires_at - 15 min ≤ now < expires_at`.
+ /// Return true if the current time is within the renewal window (Req 13.4):
+ /// `expires_at - 15 min ≤ now < expires_at`.
     pub fn in_renewal_window(&self, now_secs: i64) -> bool {
         let window_start = self.expires_at - RENEWAL_WINDOW_SECS;
         now_secs >= window_start && now_secs < self.expires_at
@@ -61,39 +61,39 @@ impl SaturateLease {
 /// The Saturate_Mode state machine.
 ///
 /// Callers must provide a root CA public key slice (32 bytes) so that Biscuit
-/// tokens can be verified offline (Req 13.1, 13.7).  On WASM builds the
+/// tokens can be verified offline (Req 13.1, 13.7). On WASM builds the
 /// Biscuit verification layer returns an error stub; `activate()` will then
 /// return `SignatureVerificationFailed` as required.
 pub struct SaturateModeStateMachine {
     state: SaturateState,
     lease: Option<SaturateLease>,
-    /// Configured M-of-N termination threshold.
+ /// Configured M-of-N termination threshold.
     termination_threshold_m: usize,
-    /// Root CA public key used to verify Manager Biscuit tokens (32 bytes).
+ /// Root CA public key used to verify Manager Biscuit tokens (32 bytes).
     root_ca_public_key: Vec<u8>,
-    /// Lease duration in seconds (Req 13.3) — configured per deployment; a
-    /// lease opened by `activate()` expires `lease_duration_secs` after its
-    /// `activated_at`/renewal timestamp.
+ /// Lease duration in seconds (Req 13.3) — configured per deployment; a
+ /// lease opened by `activate()` expires `lease_duration_secs` after its
+ /// `activated_at`/renewal timestamp.
     lease_duration_secs: i64,
 }
 
 impl SaturateModeStateMachine {
-    /// Create a new state machine in `NORMAL` state.
-    ///
-    /// `termination_threshold_m` — number of distinct Manager DID signatures
-    /// required to terminate Saturate_Mode via a Lease Termination Delta
-    /// (Req 13.6).
-    ///
-    /// `root_ca_public_key` — 32-byte Ed25519 root CA public key for offline
-    /// Biscuit token verification.
-    ///
-    /// `lease_duration_secs` — lease window opened by a successful
-    /// activation/renewal (Req 13.3).  Pass
-    /// [`SATURATE_LEASE_DURATION_SECS`] (60 minutes) for the spec default.
-    /// The production wiring (`CoreHandle::init` → `TransportConfig` →
-    /// [`MeshTransport::new`](crate::transport::MeshTransport::new)) feeds the
-    /// deployment-configured value here; a short window is how the Subphase
-    /// 3.4 runtime test lets a lease expire through the wall clock.
+ /// Create a new state machine in `NORMAL` state.
+ ///
+ /// `termination_threshold_m` — number of distinct Manager DID signatures
+ /// required to terminate Saturate_Mode via a Lease Termination Delta
+ /// (Req 13.6).
+ ///
+ /// `root_ca_public_key` — 32-byte Ed25519 root CA public key for offline
+ /// Biscuit token verification.
+ ///
+ /// `lease_duration_secs` — lease window opened by a successful
+ /// activation/renewal (Req 13.3). Pass
+ /// [`SATURATE_LEASE_DURATION_SECS`] (60 minutes) for the spec default.
+ /// The production wiring (`CoreHandle::init` → `TransportConfig` →
+ /// [`MeshTransport::new`](crate::transport::MeshTransport::new)) feeds the
+ /// deployment-configured value here; a short window is how the Subphase
+ /// 3.4 runtime test lets a lease expire through the wall clock.
     pub fn new(
         termination_threshold_m: usize,
         root_ca_public_key: Vec<u8>,
@@ -108,39 +108,39 @@ impl SaturateModeStateMachine {
         }
     }
 
-    /// Current operating state.
+ /// Current operating state.
     pub fn state(&self) -> SaturateState {
         self.state
     }
 
-    /// Active lease, if any.
+ /// Active lease, if any.
     pub fn lease(&self) -> Option<&SaturateLease> {
         self.lease.as_ref()
     }
 
-    // ── Activate (NORMAL → SATURATE) ─────────────────────────────────────────
+ // ── Activate (NORMAL → SATURATE) ─────────────────────────────────────────
 
-    /// Activate Saturate_Mode via a DISASTER_ALERT (Req 13.1).
-    ///
-    /// The Biscuit token must:
-    ///   1. Be verifiable against the root CA public key.
-    ///   2. Carry the `disaster-alert` caveat.
-    ///   3. Not be expired at `now_secs`.
-    ///
-    /// On any failure returns `SignatureVerificationFailed` and preserves the
-    /// current mode (Req 13.7).  Calling `activate()` while already in
-    /// `SATURATE` state replaces the existing lease with a new
-    /// `lease_duration_secs` window (Req 13.3).
+ /// Activate Saturate_Mode via a DISASTER_ALERT (Req 13.1).
+ ///
+ /// The Biscuit token must:
+ /// 1. Be verifiable against the root CA public key.
+ /// 2. Carry the `disaster-alert` caveat.
+ /// 3. Not be expired at `now_secs`.
+ ///
+ /// On any failure returns `SignatureVerificationFailed` and preserves the
+ /// current mode (Req 13.7). Calling `activate()` while already in
+ /// `SATURATE` state replaces the existing lease with a new
+ /// `lease_duration_secs` window (Req 13.3).
     pub fn activate(
         &mut self,
         manager_did: Did,
         biscuit_token: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        // Verify the token and check for the disaster-alert caveat.
+ // Verify the token and check for the disaster-alert caveat.
         self.verify_disaster_alert_token(biscuit_token, now_secs)?;
 
-        // Token valid — activate the lease.
+ // Token valid — activate the lease.
         let expires_at = now_secs + self.lease_duration_secs;
         self.lease = Some(SaturateLease {
             activated_at: now_secs,
@@ -152,40 +152,40 @@ impl SaturateModeStateMachine {
         Ok(())
     }
 
-    // ── Renew (SATURATE → SATURATE, extend by 60 min) ────────────────────────
+ // ── Renew (SATURATE → SATURATE, extend by 60 min) ────────────────────────
 
-    /// Process a heartbeat renewal (Req 13.4).
-    ///
-    /// Valid only when in `SATURATE` state **and** within the 15-minute renewal
-    /// window before the lease expires.  A valid renewal extends the lease by
-    /// `lease_duration_secs` from `now_secs` (60 minutes with the spec default).
-    ///
-    /// An absent, expired, or unverifiable token returns
-    /// `SignatureVerificationFailed` and preserves the current mode (Req 13.7).
+ /// Process a heartbeat renewal (Req 13.4).
+ ///
+ /// Valid only when in `SATURATE` state **and** within the 15-minute renewal
+ /// window before the lease expires. A valid renewal extends the lease by
+ /// `lease_duration_secs` from `now_secs` (60 minutes with the spec default).
+ ///
+ /// An absent, expired, or unverifiable token returns
+ /// `SignatureVerificationFailed` and preserves the current mode (Req 13.7).
     pub fn renew(
         &mut self,
         manager_did: Did,
         biscuit_token: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        // Renewal only applies in SATURATE state.
+ // Renewal only applies in SATURATE state.
         if self.state != SaturateState::Saturate {
             return Err(TirBaseError::SignatureVerificationFailed {
                 reason: "heartbeat renewal rejected: not in SATURATE mode".to_string(),
             });
         }
 
-        // Verify the token carries a disaster-alert caveat.
+ // Verify the token carries a disaster-alert caveat.
         self.verify_disaster_alert_token(biscuit_token, now_secs)?;
 
-        // Extend the lease by `lease_duration_secs` from the renewal timestamp.
+ // Extend the lease by `lease_duration_secs` from the renewal timestamp.
         match self.lease.as_mut() {
             Some(lease) => {
                 lease.expires_at = now_secs + self.lease_duration_secs;
                 lease.last_renewed_at = Some(now_secs);
             }
             None => {
-                // Should not happen if state is SATURATE, but be defensive.
+ // Should not happen if state is SATURATE, but be defensive.
                 return Err(TirBaseError::SignatureVerificationFailed {
                     reason: "heartbeat renewal rejected: no active lease".to_string(),
                 });
@@ -195,34 +195,34 @@ impl SaturateModeStateMachine {
         Ok(())
     }
 
-    // ── Terminate (SATURATE → NORMAL via M-of-N) ─────────────────────────────
+ // ── Terminate (SATURATE → NORMAL via M-of-N) ─────────────────────────────
 
-    /// Process a Lease Termination Delta (Req 13.6).
-    ///
-    /// Requires at least `termination_threshold_m` valid **distinct** Manager
-    /// DID signatures provided as `(did, raw_ed25519_signature_over_message)`.
-    ///
-    /// `message` is the canonical bytes that each signature covers (callers
-    /// must supply the same serialised termination payload that was signed).
-    ///
-    /// - If `signatures.len() >= m` and all signatures are cryptographically
-    ///   valid for distinct DIDs → returns `Ok(())` and transitions to NORMAL.
-    /// - If fewer than `m` valid distinct signatures → returns
-    ///   `ThresholdNotMet` and preserves the current mode (invariant (b)).
-    ///
-    /// When not in SATURATE state the call is a no-op and returns `Ok(())`.
+ /// Process a Lease Termination Delta (Req 13.6).
+ ///
+ /// Requires at least `termination_threshold_m` valid **distinct** Manager
+ /// DID signatures provided as `(did, raw_ed25519_signature_over_message)`.
+ ///
+ /// `message` is the canonical bytes that each signature covers (callers
+ /// must supply the same serialised termination payload that was signed).
+ ///
+ /// - If `signatures.len() >= m` and all signatures are cryptographically
+ /// valid for distinct DIDs → returns `Ok(())` and transitions to NORMAL.
+ /// - If fewer than `m` valid distinct signatures → returns
+ /// `ThresholdNotMet` and preserves the current mode (invariant (b)).
+ ///
+ /// When not in SATURATE state the call is a no-op and returns `Ok(())`.
     pub fn terminate(
         &mut self,
         signatures: Vec<(Did, Vec<u8>)>,
         message: &[u8],
         now_secs: i64,
     ) -> Result<(), TirBaseError> {
-        // Only relevant in SATURATE state; otherwise this is a no-op.
+ // Only relevant in SATURATE state; otherwise this is a no-op.
         if self.state != SaturateState::Saturate {
             return Ok(());
         }
 
-        // Verify each signature and collect distinct valid Manager DIDs.
+ // Verify each signature and collect distinct valid Manager DIDs.
         let valid_distinct = self.count_valid_distinct_signatures(&signatures, message);
 
         if valid_distinct < self.termination_threshold_m {
@@ -232,16 +232,16 @@ impl SaturateModeStateMachine {
             });
         }
 
-        // Threshold met — terminate immediately.
+ // Threshold met — terminate immediately.
         self.state = SaturateState::Normal;
         self.lease = None;
         Ok(())
     }
 
-    // ── Tick (advance clock, expire lease if past deadline) ──────────────────
+ // ── Tick (advance clock, expire lease if past deadline) ──────────────────
 
-    /// Advance the clock — transitions to NORMAL if the Lease has expired
-    /// without renewal (Req 13.5, invariant (a) and (d)).
+ /// Advance the clock — transitions to NORMAL if the Lease has expired
+ /// without renewal (Req 13.5, invariant (a) and (d)).
     pub fn tick(&mut self, now_secs: i64) {
         if self.state == SaturateState::Saturate {
             if let Some(ref lease) = self.lease {
@@ -253,16 +253,16 @@ impl SaturateModeStateMachine {
         }
     }
 
-    /// Test-only: backdate the active lease's expiry so a real-clock tick
-    /// sees it as already expired.
-    ///
-    /// The production tick loop passes wall-clock seconds, so the Subphase 3.3
-    /// integration test could not wait out the 60-minute lease — it made the
-    /// lease look past-due instead and asserted the background loop (not a
-    /// manual `tick()` call) performs the demotion.  Subphase 3.4 supersedes
-    /// this with a genuinely runtime-expiring lease (a short configured lease
-    /// duration through the production config path), so new tests should not
-    /// reach for this helper.
+ /// Test-only: backdate the active lease's expiry so a real-clock tick
+ /// sees it as already expired.
+ ///
+ /// The production tick loop passes wall-clock seconds, so the Subphase 3.3
+ /// integration test could not wait out the 60-minute lease — it made the
+ /// lease look past-due instead and asserted the background loop (not a
+ /// manual `tick()` call) performs the demotion. Subphase 3.4 supersedes
+ /// this with a genuinely runtime-expiring lease (a short configured lease
+ /// duration through the production config path), so new tests should not
+ /// reach for this helper.
     #[cfg(test)]
     pub(crate) fn backdate_lease_expiry_for_test(&mut self, expires_at: i64) {
         if let Some(lease) = self.lease.as_mut() {
@@ -270,11 +270,11 @@ impl SaturateModeStateMachine {
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+ // ── Private helpers ───────────────────────────────────────────────────────
 
-    /// Verify a Biscuit token against the root CA and check for the
-    /// `disaster-alert` caveat.  Returns `SignatureVerificationFailed` on any
-    /// failure (Req 13.7).
+ /// Verify a Biscuit token against the root CA and check for the
+ /// `disaster-alert` caveat. Returns `SignatureVerificationFailed` on any
+ /// failure (Req 13.7).
     fn verify_disaster_alert_token(
         &self,
         biscuit_token: &[u8],
@@ -286,10 +286,10 @@ impl SaturateModeStateMachine {
             });
         }
 
-        // Verify the token signature, expiry, and caveat in a single Biscuit authorizer
-        // run.  Using verify_and_check_caveat (instead of the two-step
-        // verify_token + has_caveat) halves the number of Datalog authorizer runs,
-        // staying within the process-global Datalog execution budget (Req 13.1, 13.7).
+ // Verify the token signature, expiry, and caveat in a single Biscuit authorizer
+ // run. Using verify_and_check_caveat (instead of the two-step
+ // verify_token + has_caveat) halves the number of Datalog authorizer runs,
+ // staying within the process-global Datalog execution budget (Req 13.1, 13.7).
         let has_caveat = crate::auth::biscuit::verify_and_check_caveat(
             biscuit_token,
             "disaster-alert",
@@ -310,15 +310,15 @@ impl SaturateModeStateMachine {
         Ok(())
     }
 
-    /// Count the number of distinct DIDs with valid Ed25519 signatures over
-    /// `message`.  Uses `ed25519-dalek` for verification.
-    ///
-    /// A DID is considered valid if:
-    ///   1. Its raw public key (the multibase-decoded key material from the
-    ///      `did:key:` method) successfully verifies the provided signature.
-    ///   2. It appears exactly once in the valid set (deduplication).
-    ///
-    /// Invalid signatures are silently skipped; only valid distinct DIDs count.
+ /// Count the number of distinct DIDs with valid Ed25519 signatures over
+ /// `message`. Uses `ed25519-dalek` for verification.
+ ///
+ /// A DID is considered valid if:
+ /// 1. Its raw public key (the multibase-decoded key material from the
+ /// `did:key:` method) successfully verifies the provided signature.
+ /// 2. It appears exactly once in the valid set (deduplication).
+ ///
+ /// Invalid signatures are silently skipped; only valid distinct DIDs count.
     fn count_valid_distinct_signatures(
         &self,
         signatures: &[(Did, Vec<u8>)],
@@ -328,12 +328,12 @@ impl SaturateModeStateMachine {
         let mut seen_dids: HashSet<String> = HashSet::new();
 
         for (did, sig_bytes) in signatures {
-            // Skip duplicates.
+ // Skip duplicates.
             if seen_dids.contains(did) {
                 continue;
             }
 
-            // Attempt to verify the Ed25519 signature using the DID's public key.
+ // Attempt to verify the Ed25519 signature using the DID's public key.
             if verify_did_signature(did, sig_bytes, message) {
                 seen_dids.insert(did.clone());
             }
@@ -357,19 +357,19 @@ impl SaturateModeStateMachine {
 fn verify_did_signature(did: &str, sig_bytes: &[u8], message: &[u8]) -> bool {
     use ed25519_dalek::{Signature, VerifyingKey};
 
-    // Extract the multibase-encoded key material after "did:key:".
+ // Extract the multibase-encoded key material after "did:key:".
     let key_part = match did.strip_prefix("did:key:") {
         Some(k) => k,
         None => return false,
     };
 
-    // Decode multibase (base58btc, prefix 'z').
+ // Decode multibase (base58btc, prefix 'z').
     let raw = match decode_multibase_z(key_part) {
         Some(r) => r,
         None => return false,
     };
 
-    // Strip the multicodec Ed25519 prefix (0xED, 0x01 = 2 bytes).
+ // Strip the multicodec Ed25519 prefix (0xED, 0x01 = 2 bytes).
     let key_bytes = if raw.len() >= 2 && raw[0] == 0xED && raw[1] == 0x01 {
         &raw[2..]
     } else {
@@ -402,7 +402,7 @@ fn verify_did_signature(did: &str, sig_bytes: &[u8], message: &[u8]) -> bool {
 
 /// Decode a base58btc multibase string (prefix `z`) into raw bytes.
 fn decode_multibase_z(s: &str) -> Option<Vec<u8>> {
-    // Multibase base58btc strings start with 'z'.
+ // Multibase base58btc strings start with 'z'.
     let s = s.strip_prefix('z')?;
     bs58::decode(s).into_vec().ok()
 }
@@ -468,7 +468,7 @@ pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<
         .unwrap()
         .fact(format!("issued_at({issued_secs})").as_str())
         .unwrap()
-        // Intentionally NO disaster-alert caveat
+ // Intentionally NO disaster-alert caveat
         .check_expiration_date(expiry)
         .build(&KeyPair::from(
             &PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
@@ -484,10 +484,10 @@ pub(crate) fn make_token_without_disaster_alert_for_test(ttl_secs: u64) -> (Vec<
 mod tests {
     use super::*;
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+ // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /// Build a root CA keypair, create a valid disaster-alert Biscuit token,
-    /// and return (token_bytes, public_key_bytes).
+ /// Build a root CA keypair, create a valid disaster-alert Biscuit token,
+ /// and return (token_bytes, public_key_bytes).
     #[cfg(not(target_arch = "wasm32"))]
     fn make_disaster_alert_token(ttl_secs: u64) -> (Vec<u8>, Vec<u8>) {
         use biscuit_auth::{builder::Algorithm, KeyPair};
@@ -496,10 +496,10 @@ mod tests {
         let private_bytes = kp.private().to_bytes().to_vec();
         let public_bytes = kp.public().to_bytes().to_vec();
 
-        // We need to embed `disaster-alert` in the token.  The biscuit-auth
-        // builder API attenuates tokens by adding caveats as blocks.  Here we
-        // create a base token and then add an attenuation block containing the
-        // `disaster-alert` fact.
+ // We need to embed `disaster-alert` in the token. The biscuit-auth
+ // builder API attenuates tokens by adding caveats as blocks. Here we
+ // create a base token and then add an attenuation block containing the
+ // `disaster-alert` fact.
         use biscuit_auth::{builder_ext::BuilderExt, macros::*, Biscuit};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -548,7 +548,7 @@ mod tests {
             .unwrap()
             .fact(format!("issued_at({issued_secs})").as_str())
             .unwrap()
-            // Intentionally no disaster-alert caveat
+ // Intentionally no disaster-alert caveat
             .check_expiration_date(expiry)
             .build(&biscuit_auth::KeyPair::from(
                 &biscuit_auth::PrivateKey::from_bytes(&private_bytes, Algorithm::Ed25519).unwrap(),
@@ -564,7 +564,7 @@ mod tests {
         crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
-    // ── Activation tests ─────────────────────────────────────────────────────
+ // ── Activation tests ─────────────────────────────────────────────────────
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
@@ -613,7 +613,7 @@ mod tests {
         assert_eq!(sm.state(), SaturateState::Normal, "mode must be unchanged");
     }
 
-    // ── Lease expiry (tick) ──────────────────────────────────────────────────
+ // ── Lease expiry (tick) ──────────────────────────────────────────────────
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
@@ -626,7 +626,7 @@ mod tests {
             .unwrap();
         assert_eq!(sm.state(), SaturateState::Saturate);
 
-        // Advance clock past lease expiry.
+ // Advance clock past lease expiry.
         sm.tick(now + SATURATE_LEASE_DURATION_SECS + 1);
         assert_eq!(
             sm.state(),
@@ -643,7 +643,7 @@ mod tests {
         assert_eq!(sm.state(), SaturateState::Normal);
     }
 
-    // ── Renewal ──────────────────────────────────────────────────────────────
+ // ── Renewal ──────────────────────────────────────────────────────────────
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
@@ -667,8 +667,8 @@ mod tests {
         use biscuit_auth::{builder::Algorithm, KeyPair, PrivateKey};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-        // Create a single CA keypair and use it for BOTH tokens so the SM
-        // can verify both with the same registered root CA public key.
+ // Create a single CA keypair and use it for BOTH tokens so the SM
+ // can verify both with the same registered root CA public key.
         let kp = KeyPair::new();
         let private_bytes = kp.private().to_bytes().to_vec();
         let ca_pub = kp.public().to_bytes().to_vec();
@@ -704,7 +704,7 @@ mod tests {
             .expect("activate should succeed");
         assert_eq!(sm.state(), SaturateState::Saturate);
 
-        // Renew 5 minutes later.
+ // Renew 5 minutes later.
         let renew_time = now + 5 * 60;
         sm.renew("did:key:z6MkManager".to_string(), &renew_token, renew_time)
             .expect("renew should succeed");
@@ -718,17 +718,17 @@ mod tests {
         assert_eq!(sm.state(), SaturateState::Saturate);
     }
 
-    // ── Termination Delta ────────────────────────────────────────────────────
+ // ── Termination Delta ────────────────────────────────────────────────────
 
     #[test]
     fn termination_with_insufficient_sigs_preserves_mode() {
-        // Use a raw Ed25519 key for testing termination (no Biscuit needed here).
+ // Use a raw Ed25519 key for testing termination (no Biscuit needed here).
         use ed25519_dalek::{Signer, SigningKey};
         use rand::rngs::OsRng;
 
-        // Build state machine manually in SATURATE state.
+ // Build state machine manually in SATURATE state.
         let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
-        // Force into SATURATE state by directly manipulating (for test isolation).
+ // Force into SATURATE state by directly manipulating (for test isolation).
         sm.state = SaturateState::Saturate;
         sm.lease = Some(SaturateLease {
             activated_at: 0,
@@ -739,8 +739,8 @@ mod tests {
 
         let message = b"terminate";
 
-        // Only 1 valid signature, threshold is 2.
-        // Provide a completely invalid signature (wrong length) to simulate failure.
+ // Only 1 valid signature, threshold is 2.
+ // Provide a completely invalid signature (wrong length) to simulate failure.
         let sigs: Vec<(Did, Vec<u8>)> = vec![("did:key:z6MkA".to_string(), vec![0u8; 64])];
 
         let err = sm.terminate(sigs, message, 0).unwrap_err();
@@ -762,7 +762,7 @@ mod tests {
 
         let message = b"terminate-lease";
 
-        // Create two distinct signing keys and compute their did:key: DIDs.
+ // Create two distinct signing keys and compute their did:key: DIDs.
         let sk1 = SigningKey::from_bytes(&[1u8; 32]);
         let sk2 = SigningKey::from_bytes(&[2u8; 32]);
 
@@ -773,7 +773,7 @@ mod tests {
         let sig2 = sk2.sign(message).to_bytes().to_vec();
 
         let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
-        // Force SATURATE state.
+ // Force SATURATE state.
         sm.state = SaturateState::Saturate;
         sm.lease = Some(SaturateLease {
             activated_at: 0,
@@ -815,7 +815,7 @@ mod tests {
             activating_manager_did: did1.clone(),
         });
 
-        // Submit the same DID twice — should count as 1, not 2.
+ // Submit the same DID twice — should count as 1, not 2.
         let sigs = vec![(did1.clone(), sig1.clone()), (did1.clone(), sig1.clone())];
         let err = sm.terminate(sigs, message, 0).unwrap_err();
         assert_eq!(
@@ -838,13 +838,13 @@ mod tests {
         let sig2 = sk2.sign(message).to_bytes().to_vec();
 
         let mut sm = SaturateModeStateMachine::new(2, vec![], SATURATE_LEASE_DURATION_SECS);
-        // Already NORMAL — termination is a no-op.
+ // Already NORMAL — termination is a no-op.
         sm.terminate(vec![(did1, sig1), (did2, sig2)], message, 0)
             .expect("termination in NORMAL is a no-op");
         assert_eq!(sm.state(), SaturateState::Normal);
     }
 
-    // ── SaturateLease helpers ────────────────────────────────────────────────
+ // ── SaturateLease helpers ────────────────────────────────────────────────
 
     #[test]
     fn lease_is_expired_when_past_deadline() {
@@ -868,25 +868,25 @@ mod tests {
             last_renewed_at: None,
             activating_manager_did: "did:key:z6MkX".to_string(),
         };
-        // Just outside the window
+ // Just outside the window
         assert!(!lease.in_renewal_window(expires_at - RENEWAL_WINDOW_SECS - 1));
-        // Exactly at the window start
+ // Exactly at the window start
         assert!(lease.in_renewal_window(expires_at - RENEWAL_WINDOW_SECS));
-        // Inside the window
+ // Inside the window
         assert!(lease.in_renewal_window(expires_at - 1));
-        // Past expiry
+ // Past expiry
         assert!(!lease.in_renewal_window(expires_at));
     }
 
-    // ── Helper: derive did:key: from Ed25519 signing key ─────────────────────
+ // ── Helper: derive did:key: from Ed25519 signing key ─────────────────────
 
-    /// Encode a `SigningKey`'s verifying key as a `did:key:z6Mk…` DID.
+ /// Encode a `SigningKey`'s verifying key as a `did:key:z6Mk…` DID.
     fn keypair_to_did_key(sk: &ed25519_dalek::SigningKey) -> Did {
         let vk_bytes = sk.verifying_key().to_bytes();
-        // Prepend multicodec Ed25519 prefix: 0xED 0x01
+ // Prepend multicodec Ed25519 prefix: 0xED 0x01
         let mut raw = vec![0xED, 0x01];
         raw.extend_from_slice(&vk_bytes);
-        // Encode as base58btc multibase (prefix 'z')
+ // Encode as base58btc multibase (prefix 'z')
         format!("did:key:z{}", bs58::encode(&raw).into_string())
     }
 }

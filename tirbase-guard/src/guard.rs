@@ -2,16 +2,16 @@
 //! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3, CLAIM-13.1, CLAIM-14.1–14.17).
 //!
 //! * Signed [`CommandMessage`]s are accepted only after signature verification
-//!   over canonical CBOR of all fields except `signature` (CLAIM-11.1).
+//! over canonical CBOR of all fields except `signature` (CLAIM-11.1).
 //! * [`ActuationPermit`] is minted **only** by [`CommandGuard::admit()`] /
-//!   [`CommandGuard::admit_with_context()`] (CLAIM-11.2).
+//! [`CommandGuard::admit_with_context()`] (CLAIM-11.2).
 //! * Actuation frames reach the device only through [`DriverProxy`] after
-//!   admission (CLAIM-11.3); every ingress path must converge here.
+//! admission (CLAIM-11.3); every ingress path must converge here.
 //!
-//! Task 14.1 adds `ArcSwap<EnvelopeProfile>`/`ArcSwap<PolicyBundle>` config
-//! snapshots and `pub(crate)` actuator write handles. Task 14 implements the
+//! adds `ArcSwap<EnvelopeProfile>`/`ArcSwap<PolicyBundle>` config
+//! snapshots and `pub(crate)` actuator write handles. implements the
 //! fast admit path (Stages 0–15) in [`crate::admit`]; `admit()` preserves the
-//! task 11/13 signature for existing callers and runs the legacy
+//! /13 signature for existing callers and runs the legacy
 //! signature+epoch checks plus pipeline stages when a pipeline state is
 //! configured.
 
@@ -45,7 +45,7 @@ pub struct AdmittedCommand {
 
 /// Rejection reasons surfaced by the legacy admit dispatcher.
 ///
-/// `Pipeline(...)` carries the Stage 0–15 rejection category when the Task 14
+/// `Pipeline(...)` carries the Stage 0–15 rejection category when the 
 /// pipeline is enabled.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdmitError {
@@ -53,9 +53,9 @@ pub enum AdmitError {
     Epoch(EpochError),
     Dispatch(String),
     MissingParameter(String),
-    /// Stage 1: node mode does not permit command admission (CLAIM-13.1).
+ /// Stage 1: node mode does not permit command admission (CLAIM-13.1).
     ModeRejected(NodeMode),
-    /// Stage 0–15 pipeline rejection (CLAIM-14.x).
+ /// Stage 0–15 pipeline rejection (CLAIM-14.x).
     Pipeline {
         category: AdmitRejection,
         detail: String,
@@ -99,7 +99,7 @@ impl From<EpochError> for AdmitError {
 /// Minimal target admission context used by legacy/early pipeline wiring.
 #[derive(Debug, Clone)]
 pub struct TargetAdmission {
-    /// The local device identity for epoch checks.
+ /// The local device identity for epoch checks.
     pub device_id: String,
 }
 
@@ -115,31 +115,31 @@ pub struct GuardConfig {
 /// only the guard pipeline may mint permits and dispatch actuation.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ActuatorHandles {
-    /// Reserved for task 15 per-target driver sockets/executors.
+ /// Reserved for per-target driver sockets/executors.
     pub(crate) _reserved: (),
 }
 
 /// Unified command guard (CLAIM-14.1).
 ///
 /// Holds `ArcSwap` config snapshots for envelope/policy (lock-free hot swap),
-/// epoch state, node mode, and optional Task 14 pipeline state. Actuator write
+/// epoch state, node mode, and optional pipeline state. Actuator write
 /// handles are `pub(crate)` and inaccessible outside the guard crate.
 pub struct CommandGuard {
-    /// Per-target active envelope profile snapshot (hot-swappable).
+ /// Per-target active envelope profile snapshot (hot-swappable).
     pub(crate) envelope_profiles: Arc<BTreeMap<TargetId, Arc<ArcSwap<EnvelopeProfile>>>>,
-    /// Active policy bundle snapshot (hot-swappable); `None` before first install.
+ /// Active policy bundle snapshot (hot-swappable); `None` before first install.
     pub(crate) policy_bundle: Arc<ArcSwap<Option<PolicyBundle>>>,
-    /// Guard-owned actuator handles (not accessible outside this crate).
+ /// Guard-owned actuator handles (not accessible outside this crate).
     #[allow(dead_code)]
     pub(crate) actuator_handles: ActuatorHandles,
     epochs: Arc<EpochRegistry>,
     config: RwLock<GuardConfig>,
-    /// Stage 1 operational mode (CLAIM-13.1).  Shared with gateway/runtime.
+ /// Stage 1 operational mode (CLAIM-13.1). Shared with gateway/runtime.
     node_mode: Arc<NodeModeState>,
-    /// Monotonic entry-id source (task-11 placeholder; task 15/16 wire durable ledger IDs).
+ /// Monotonic entry-id source (task-11 placeholder; /16 wire durable ledger IDs).
     next_entry: AtomicU64,
-    /// Task 14 admit pipeline state (Stages 0–15). When absent, legacy
-    /// signature+epoch behavior is used for backward compatibility.
+ /// admit pipeline state (Stages 0–15). When absent, legacy
+ /// signature+epoch behavior is used for backward compatibility.
     pipeline: Option<Arc<AdmitPipelineState>>,
 }
 
@@ -154,12 +154,12 @@ impl std::fmt::Debug for CommandGuard {
 }
 
 impl CommandGuard {
-    /// Construct a guard in the default `Starting` mode.
+ /// Construct a guard in the default `Starting` mode.
     pub fn new(epochs: Arc<EpochRegistry>, config: GuardConfig) -> Self {
         Self::with_mode(epochs, config, NodeModeState::new(NodeMode::Starting))
     }
 
-    /// Construct a guard with an explicit shared mode state.
+ /// Construct a guard with an explicit shared mode state.
     pub fn with_mode(
         epochs: Arc<EpochRegistry>,
         config: GuardConfig,
@@ -177,7 +177,7 @@ impl CommandGuard {
         }
     }
 
-    /// Attach Task 14 pipeline state and config snapshots.
+ /// Attach pipeline state and config snapshots.
     pub fn with_pipeline(
         mut self,
         pipeline: Arc<AdmitPipelineState>,
@@ -194,7 +194,7 @@ impl CommandGuard {
         &self.epochs
     }
 
-    /// Shared operational mode state (Stage 1 / gateway runtime).
+ /// Shared operational mode state (Stage 1 / gateway runtime).
     pub fn node_mode(&self) -> &Arc<NodeModeState> {
         &self.node_mode
     }
@@ -210,7 +210,7 @@ impl CommandGuard {
         self.envelope_profiles.get(target).map(|c| c.load_full())
     }
 
-    /// Resolve the enrolled `device_id` for a target (CLAIM-16.1/16.3).
+ /// Resolve the enrolled `device_id` for a target (CLAIM-16.1/16.3).
     pub fn device_id_for_target(&self, target: &TargetId) -> Option<String> {
         self.config
             .read()
@@ -218,7 +218,7 @@ impl CommandGuard {
             .and_then(|cfg| cfg.targets.get(target).map(|t| t.device_id.clone()))
     }
 
-    /// True when the installed profile marks `param` on `target` as `critical`.
+ /// True when the installed profile marks `param` on `target` as `critical`.
     pub fn parameter_is_critical(&self, target: &TargetId, param: &str) -> bool {
         self.envelope_profile_for(target)
             .and_then(|p| {
@@ -244,8 +244,8 @@ impl CommandGuard {
         id
     }
 
-    /// Admit via legacy task 11/13 path (signature + mode + epoch) for callers
-    /// that do not supply Biscuit token context.
+ /// Admit via legacy /13 path (signature + mode + epoch) for callers
+ /// that do not supply Biscuit token context.
     pub fn admit<W: Write + Send>(
         &self,
         cmd: &CommandMessage,
@@ -254,9 +254,9 @@ impl CommandGuard {
         frame: &[u8],
     ) -> Result<AdmittedCommand, AdmitError> {
         if self.pipeline.is_some() {
-            // If pipeline is enabled but no token is provided, keep backward
-            // compatibility for existing callers by running legacy checks.
-            // Full Stage 3+ enforcement requires `admit_with_context`.
+ // If pipeline is enabled but no token is provided, keep backward
+ // compatibility for existing callers by running legacy checks.
+ // Full Stage 3+ enforcement requires `admit_with_context`.
             let sk = ingress_source_key(ingress, cmd);
             let ctx = AdmitContext {
                 ingress,
@@ -272,7 +272,7 @@ impl CommandGuard {
         self.admit_legacy(cmd, ingress, proxy, frame)
     }
 
-    /// Task 14 admit path (Stages 0–15) + dispatch.
+ /// admit path (Stages 0–15) + dispatch.
     pub fn admit_with_context<W: Write + Send>(
         &self,
         cmd: &CommandMessage,
@@ -339,7 +339,7 @@ impl CommandGuard {
         }
     }
 
-    /// Side-effect-free dry run (PV-4.17). Does not mint a permit or dispatch.
+ /// Side-effect-free dry run (PV-4.17). Does not mint a permit or dispatch.
     pub fn simulate(&self, cmd: &CommandMessage, ctx: &AdmitContext<'_>) -> AdmitDecision {
         let Some(pipeline) = self.pipeline.as_ref() else {
             return AdmitDecision::Simulated {
@@ -365,8 +365,8 @@ impl CommandGuard {
         )
     }
 
-    /// Task 15.6: evaluate Stages 0–15 only (no driver/network I/O, no permit
-    /// mint). Safe to run inside `spawn_blocking` for DB reads.
+ /// : evaluate Stages 0–15 only (no driver/network I/O, no permit
+ /// mint). Safe to run inside `spawn_blocking` for DB reads.
     pub fn admit_stages_0_to_15_with_pipeline(
         &self,
         cmd: &CommandMessage,
@@ -461,7 +461,7 @@ fn ingress_source_key(ingress: IngressSource, cmd: &CommandMessage) -> String {
 }
 
 /// Build a `CommandGuard` wired for a single local device/target (test helper
-/// and minimal production bootstrap).  Starts in `Normal` mode so existing
+/// and minimal production bootstrap). Starts in `Normal` mode so existing
 /// task-11/ingress tests remain meaningful; task-13 tests set mode explicitly.
 pub fn single_target_guard(
     epochs: Arc<EpochRegistry>,

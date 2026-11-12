@@ -83,17 +83,17 @@ impl KernelIsolationCaps {
             && (self.kernel_major > 5 || (self.kernel_major == 5 && self.kernel_minor >= 13))
     }
 
-    /// Detect the running kernel's isolation capabilities (CLAIM-33.6).
-    ///
-    /// `landlock_available` is true only when the kernel's active LSM list
-    /// includes `landlock`.  On non-Unix targets every capability is reported
-    /// false so callers fail closed.
+ /// Detect the running kernel's isolation capabilities (CLAIM-33.6).
+ ///
+ /// `landlock_available` is true only when the kernel's active LSM list
+ /// includes `landlock`. On non-Unix targets every capability is reported
+ /// false so callers fail closed.
     #[cfg(unix)]
     pub fn detect() -> Self {
-        // SAFETY: `uname` writes into a zeroed `utsname`; the pointer is valid.
+ // SAFETY: `uname` writes into a zeroed `utsname`; the pointer is valid.
         let mut uts: libc::utsname = unsafe { core::mem::zeroed() };
         let release = if unsafe { libc::uname(&mut uts) } == 0 {
-            // SAFETY: `release` is a NUL-terminated C string owned by `uts`.
+ // SAFETY: `release` is a NUL-terminated C string owned by `uts`.
             unsafe { std::ffi::CStr::from_ptr(uts.release.as_ptr()) }
                 .to_string_lossy()
                 .into_owned()
@@ -120,7 +120,7 @@ impl KernelIsolationCaps {
         }
     }
 
-    /// Non-Unix targets have no landlock; report every capability as absent.
+ /// Non-Unix targets have no landlock; report every capability as absent.
     #[cfg(not(unix))]
     pub fn detect() -> Self {
         Self {
@@ -139,7 +139,7 @@ mod detect_tests {
     fn detect_reports_a_kernel_version() {
         let caps = KernelIsolationCaps::detect();
         assert!(caps.kernel_major > 0, "unexpected caps: {caps:?}");
-        // supports_landlock is never true unless landlock is actually present.
+ // supports_landlock is never true unless landlock is actually present.
         assert!(!caps.supports_landlock() || caps.landlock_available);
     }
 }
@@ -156,12 +156,12 @@ mod detect_tests {
 #[cfg(unix)]
 pub fn create_driver_socketpair() -> Result<DriverSocketPair, IsolationError> {
     let mut fds = [0_i32; 2];
-    // SAFETY: `fds` is a valid 2-int array; libc writes exactly two fds on success.
+ // SAFETY: `fds` is a valid 2-int array; libc writes exactly two fds on success.
     let rc = unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_SEQPACKET, 0, fds.as_mut_ptr()) };
     if rc != 0 {
         let _e = io::Error::last_os_error();
-        // Fallback for platforms without AF_UNIX+SOCK_SEQPACKET (e.g. some macOS configs).
-        // SAFETY: same invariants as above.
+ // Fallback for platforms without AF_UNIX+SOCK_SEQPACKET (e.g. some macOS configs).
+ // SAFETY: same invariants as above.
         let rc2 =
             unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_STREAM, 0, fds.as_mut_ptr()) };
         if rc2 != 0 {
@@ -198,7 +198,7 @@ pub fn verify_peercred(
         gid: 0,
     };
     let mut len = core::mem::size_of::<libc::ucred>() as libc::socklen_t;
-    // SAFETY: `cred`/`len` are valid writable pointers for getsockopt output.
+ // SAFETY: `cred`/`len` are valid writable pointers for getsockopt output.
     let rc = unsafe {
         libc::getsockopt(
             parent_fd,
@@ -237,7 +237,7 @@ pub fn verify_peercred(
 /// **before any parsing begins** (CLAIM-33.6, PV-10.4, S35).
 ///
 /// Fail-closed: if landlock is unavailable (kernel < 5.13 or not exposed) and
-/// `degraded_isolation_opt_in_signed` is `false`, the child is refused.  When
+/// `degraded_isolation_opt_in_signed` is `false`, the child is refused. When
 /// the signed opt-in is present the child still installs `no_new_privs` and the
 /// seccomp-BPF filter, and only the landlock layer is skipped.
 ///
@@ -245,16 +245,16 @@ pub fn verify_peercred(
 ///
 /// 1. `prctl(PR_SET_NO_NEW_PRIVS, 1)` — required before seccomp and landlock.
 /// 2. `seccomp(SECCOMP_SET_MODE_FILTER)` — a deny-list filter that stops the
-///    child from creating/connecting sockets, passing fds (`sendmsg`/
-///    `sendmmsg`/`sendto`), tracing or executing another process.  Denied
-///    calls fail with `EPERM`.
+/// child from creating/connecting sockets, passing fds (`sendmsg`/
+/// `sendmmsg`/`sendto`), tracing or executing another process. Denied
+/// calls fail with `EPERM`.
 /// 3. `landlock_create_ruleset` + `landlock_restrict_self` with an empty
-///    ruleset, i.e. every handled filesystem access is denied.  The driver is
-///    a pure codec over the inherited socket/device fds and needs no
-///    filesystem access after init.
+/// ruleset, i.e. every handled filesystem access is denied. The driver is
+/// a pure codec over the inherited socket/device fds and needs no
+/// filesystem access after init.
 ///
 /// The caller must invoke this in the driver child process, before parsing any
-/// untrusted frame.  Any step that cannot be applied returns an error so the
+/// untrusted frame. Any step that cannot be applied returns an error so the
 /// child can exit rather than run unsandboxed.
 pub fn apply_child_sandbox(
     caps: KernelIsolationCaps,
@@ -299,7 +299,7 @@ mod linux_sandbox {
     use core::mem::size_of;
     use std::io;
 
-    // ── seccomp-BPF constants ────────────────────────────────────────────────
+ // ── seccomp-BPF constants ────────────────────────────────────────────────
     const BPF_LD_W_ABS: u16 = 0x20;
     const BPF_JMP_JEQ_K: u16 = 0x15;
     const BPF_RET_K: u16 = 0x06;
@@ -307,9 +307,9 @@ mod linux_sandbox {
     const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
     const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
     const EPERM_ERRNO: u32 = 1;
-    /// `offsetof(struct seccomp_data, arch)`
+ /// `offsetof(struct seccomp_data, arch)`
     const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
-    /// `offsetof(struct seccomp_data, nr)`
+ /// `offsetof(struct seccomp_data, nr)`
     const SECCOMP_DATA_NR_OFFSET: u32 = 0;
 
     #[cfg(target_arch = "x86_64")]
@@ -317,11 +317,11 @@ mod linux_sandbox {
     #[cfg(target_arch = "aarch64")]
     const AUDIT_ARCH: u32 = 0xc000_00b7;
 
-    // ── landlock constants ───────────────────────────────────────────────────
+ // ── landlock constants ───────────────────────────────────────────────────
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1;
-    /// `LANDLOCK_ACCESS_FS_{EXECUTE,WRITE_FILE,READ_FILE,READ_DIR,REMOVE_DIR,
-    /// REMOVE_FILE,MAKE_CHAR,MAKE_DIR,MAKE_REG,MAKE_SOCK,MAKE_FIFO,MAKE_BLOCK,
-    /// MAKE_SYM}` — the ABI-1 rights.
+ /// `LANDLOCK_ACCESS_FS_{EXECUTE,WRITE_FILE,READ_FILE,READ_DIR,REMOVE_DIR,
+ /// REMOVE_FILE,MAKE_CHAR,MAKE_DIR,MAKE_REG,MAKE_SOCK,MAKE_FIFO,MAKE_BLOCK,
+ /// MAKE_SYM}` — the ABI-1 rights.
     const LANDLOCK_ACCESS_FS_ABI1: u64 = (1 << 13) - 1;
     const LANDLOCK_ACCESS_FS_REFER: u64 = 1 << 13; // ABI 2
     const LANDLOCK_ACCESS_FS_TRUNCATE: u64 = 1 << 14; // ABI 3
@@ -350,9 +350,9 @@ mod linux_sandbox {
         }
     }
 
-    /// Syscalls the driver child never needs after init.  Denying them stops
-    /// network egress, fd passing via `SCM_RIGHTS`, process tracing and
-    /// re-exec, so a compromised codec cannot escape its inherited fds.
+ /// Syscalls the driver child never needs after init. Denying them stops
+ /// network egress, fd passing via `SCM_RIGHTS`, process tracing and
+ /// re-exec, so a compromised codec cannot escape its inherited fds.
     fn denied_syscalls() -> Vec<libc::c_long> {
         vec![
             libc::SYS_socket,
@@ -373,12 +373,12 @@ mod linux_sandbox {
         ]
     }
 
-    /// Installs the deny-list seccomp-BPF filter (CLAIM-33.6).
+ /// Installs the deny-list seccomp-BPF filter (CLAIM-33.6).
     fn install_seccomp() -> Result<(), IsolationError> {
         let denied = denied_syscalls();
         let mut filter = Vec::with_capacity(4 + denied.len() * 2);
-        // Reject a filter evaluated against a different ABI: kill the child
-        // instead of silently matching the wrong syscall numbers.
+ // Reject a filter evaluated against a different ABI: kill the child
+ // instead of silently matching the wrong syscall numbers.
         filter.push(stmt(BPF_LD_W_ABS, SECCOMP_DATA_ARCH_OFFSET));
         filter.push(jump(AUDIT_ARCH, 1, 0));
         filter.push(stmt(BPF_RET_K, SECCOMP_RET_KILL_PROCESS));
@@ -394,8 +394,8 @@ mod linux_sandbox {
             len: filter.len() as u16,
             filter: filter.as_mut_ptr(),
         };
-        // SAFETY: PR_SET_SECCOMP copies the `sock_fprog`/filter into the kernel;
-        // both live on this stack frame for the duration of the call.
+ // SAFETY: PR_SET_SECCOMP copies the `sock_fprog`/filter into the kernel;
+ // both live on this stack frame for the duration of the call.
         let rc = unsafe {
             libc::prctl(
                 libc::PR_SET_SECCOMP,
@@ -412,10 +412,10 @@ mod linux_sandbox {
         Ok(())
     }
 
-    /// Restricts the child to zero filesystem access (CLAIM-33.6).
+ /// Restricts the child to zero filesystem access (CLAIM-33.6).
     fn install_landlock() -> Result<(), IsolationError> {
-        // SAFETY: querying the ABI version uses a null attribute pointer and a
-        // zero size, which is the documented version-probe form.
+ // SAFETY: querying the ABI version uses a null attribute pointer and a
+ // zero size, which is the documented version-probe form.
         let abi = unsafe {
             libc::syscall(
                 libc::SYS_landlock_create_ruleset,
@@ -445,8 +445,8 @@ mod linux_sandbox {
         let attr = LandlockRulesetAttr {
             handled_access_fs: handled,
         };
-        // SAFETY: `attr` is a valid `landlock_ruleset_attr` for the stated size;
-        // the syscall only reads it.
+ // SAFETY: `attr` is a valid `landlock_ruleset_attr` for the stated size;
+ // the syscall only reads it.
         let ruleset_fd = unsafe {
             libc::syscall(
                 libc::SYS_landlock_create_ruleset,
@@ -462,12 +462,12 @@ mod linux_sandbox {
             )));
         }
         let ruleset_fd = ruleset_fd as libc::c_int;
-        // No LANDLOCK_RULE_PATH_BENEATH rules are added: every handled access
-        // is denied.  Inherited fds keep working.
-        // SAFETY: `ruleset_fd` is an owned ruleset fd from the call above.
+ // No LANDLOCK_RULE_PATH_BENEATH rules are added: every handled access
+ // is denied. Inherited fds keep working.
+ // SAFETY: `ruleset_fd` is an owned ruleset fd from the call above.
         let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, ruleset_fd, 0u32) };
         let err = io::Error::last_os_error();
-        // SAFETY: closing the ruleset fd; it is not used afterwards.
+ // SAFETY: closing the ruleset fd; it is not used afterwards.
         unsafe {
             libc::close(ruleset_fd);
         }
@@ -480,8 +480,8 @@ mod linux_sandbox {
     }
 
     pub(super) fn install(expect_landlock: bool) -> Result<(), IsolationError> {
-        // 1) no-new-privs must be set before seccomp/landlock install.
-        // SAFETY: prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) is a process-local syscall.
+ // 1) no-new-privs must be set before seccomp/landlock install.
+ // SAFETY: prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) is a process-local syscall.
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
         if rc != 0 {
             let e = io::Error::last_os_error();
@@ -489,9 +489,9 @@ mod linux_sandbox {
                 "no_new_privs failed: {e}"
             )));
         }
-        // 2) seccomp-BPF deny-list.
+ // 2) seccomp-BPF deny-list.
         install_seccomp()?;
-        // 3) landlock, unless the signed opt-in accepted a degraded posture.
+ // 3) landlock, unless the signed opt-in accepted a degraded posture.
         if expect_landlock {
             install_landlock()?;
         }
@@ -529,7 +529,7 @@ pub fn send_fd_via_scm_rights(socket_fd: i32, device_fd: i32) -> Result<(), Isol
         iov_base: data.as_mut_ptr().cast(),
         iov_len: data.len(),
     };
-    // Control buffer for one fd.
+ // Control buffer for one fd.
     let cmsg_space = unsafe { libc::CMSG_SPACE(std::mem::size_of::<i32>() as u32) } as usize;
     let mut cbuf = vec![0u8; cmsg_space];
     let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };

@@ -1,8 +1,8 @@
 # RFC-workspace: 8-Crate Workspace Layout for TirBase
 
-**Status:** Draft  
-**Requirement:** PV-2.9  
-**Claim:** [CLAIM-1.1]  
+**Status:** Draft 
+**Requirement:** PV-2.9 
+**Claim:** [CLAIM-1.1] 
 **Merge gate:** No workspace-restructuring changes may be merged until this RFC is committed to the main branch.
 
 ---
@@ -47,35 +47,35 @@ No workspace-restructuring changes (moving modules between crates, introducing n
 ### Table
 
 ```
-tirbase-types       → (no deps; no_std, serde only)
-tirbase-core        → tirbase-types
-tirbase-guard       → tirbase-core, tirbase-types
-tirbase-drivers     → tirbase-types  (NOT tirbase-guard, NOT tirbase-core)
-tirbase-gateway     → tirbase-core, tirbase-guard, tirbase-drivers
-tirbase-admin       → tirbase-core, tirbase-guard
-tirbase-sim         → tirbase-core, tirbase-guard, tirbase-drivers
-tirbase-demo        → tirbase-gateway, tirbase-sim
+tirbase-types → (no deps; no_std, serde only)
+tirbase-core → tirbase-types
+tirbase-guard → tirbase-core, tirbase-types
+tirbase-drivers → tirbase-types (NOT tirbase-guard, NOT tirbase-core)
+tirbase-gateway → tirbase-core, tirbase-guard, tirbase-drivers
+tirbase-admin → tirbase-core, tirbase-guard
+tirbase-sim → tirbase-core, tirbase-guard, tirbase-drivers
+tirbase-demo → tirbase-gateway, tirbase-sim
 ```
 
 ### Mermaid Diagram
 
 ```mermaid
 graph TD
-    T[tirbase-types]
-    C[tirbase-core] --> T
-    G[tirbase-guard] --> C
-    G --> T
-    D[tirbase-drivers] --> T
-    GW[tirbase-gateway] --> C
-    GW --> G
-    GW --> D
-    A[tirbase-admin] --> C
-    A --> G
-    S[tirbase-sim] --> C
-    S --> G
-    S --> D
-    DM[tirbase-demo] --> GW
-    DM --> S
+ T[tirbase-types]
+ C[tirbase-core] --> T
+ G[tirbase-guard] --> C
+ G --> T
+ D[tirbase-drivers] --> T
+ GW[tirbase-gateway] --> C
+ GW --> G
+ GW --> D
+ A[tirbase-admin] --> C
+ A --> G
+ S[tirbase-sim] --> C
+ S --> G
+ S --> D
+ DM[tirbase-demo] --> GW
+ DM --> S
 ```
 
 ### Rationale for Key Edges
@@ -100,7 +100,7 @@ The leaf crate. `no_std`-compatible and depends only on `serde`. This makes shar
 
 ## CI Enforcement
 
-Two dependency invariants are enforced as blocking CI steps (see also task 1.3, CLAIM-1.3, PV-10.3):
+Two dependency invariants are enforced as blocking CI steps (see also, CLAIM-1.3, PV-10.3):
 
 ### Invariant 1: tirbase-core isolation
 
@@ -130,14 +130,14 @@ The `.github/workflows/ci.yml` file must include these steps:
 
 ```yaml
 - name: Check tirbase-core isolation (no guard/driver imports)
-  run: |
-    cargo check -p tirbase-core
-    ! grep -r "tirbase_guard\|tirbase_drivers" tirbase-core/src/
+ run: |
+ cargo check -p tirbase-core
+ ! grep -r "tirbase_guard\|tirbase_drivers" tirbase-core/src/
 
 - name: Check tirbase-drivers isolation (no guard/core imports)
-  run: |
-    cargo check -p tirbase-drivers
-    ! grep -r "tirbase_guard\|tirbase_core" tirbase-drivers/src/
+ run: |
+ cargo check -p tirbase-drivers
+ ! grep -r "tirbase_guard\|tirbase_core" tirbase-drivers/src/
 ```
 
 ---
@@ -163,7 +163,7 @@ The following modules remain in `tirbase-core` and are not moved to any other cr
 | `tirbase-core/src/store/` | `LocalStore`, SQLite, IndexedDB, compaction, projection |
 | `tirbase-core/src/traits/` | `TimeSource`, `KeyProvider`, `MonotonicCounterTrait`, `SecurityEventSink` |
 
-The `src/traits/` module is new — it is added to `tirbase-core` as part of Phase 1 (tasks 5.1–5.4) to provide the trait definitions that downstream crates (`tirbase-guard`, `tirbase-gateway`) implement or consume.
+The `src/traits/` module is new — it is added to `tirbase-core` as part of Phase 1 (5.4) to provide the trait definitions that downstream crates (`tirbase-guard`, `tirbase-gateway`) implement or consume.
 
 The `src/events.rs` module is also new — `SecurityEvent` and related types are defined in `tirbase-core` rather than `tirbase-guard` because the `SecurityEventSink` trait in `tirbase-core/src/traits/` references them. Defining the event types in `tirbase-guard` would create a downward dependency (`tirbase-core` → `tirbase-guard`), which is forbidden by Invariant 1 above.
 
@@ -194,7 +194,7 @@ The following types are new and belong exclusively in `tirbase-guard`:
 - `SignedOperation<T>`, `SignatureEntry`
 - `NodeMode` (unified five-state mode model)
 
-`ActuationPermit` is intentionally `pub(crate)` within `tirbase-guard`. Its private `_sealed: ()` field prevents construction outside the crate. This is the mechanism that makes the guard bypass property compile-fail provable (see PV-4.3, PV-4.4).
+`ActuationPermit` is intentionally `pub(crate)` within `tirbase-guard`. Its private `_sealed: ` field prevents construction outside the crate. This is the mechanism that makes the guard bypass property compile-fail provable (see PV-4.3, PV-4.4).
 
 ### No Modules Move from `tirbase-core` to `tirbase-guard`
 
@@ -220,10 +220,10 @@ This RFC must be merged to the main branch before any such change is proposed. T
 
 ```bash
 if git diff --name-only origin/main...HEAD | grep -qE '^(Cargo\.toml|[^/]+/Cargo\.toml)$'; then
-  if ! git show origin/main:docs/RFC-workspace.md > /dev/null 2>&1; then
-    echo "ERROR: Workspace changes require docs/RFC-workspace.md on main branch (PV-2.9)"
-    exit 1
-  fi
+ if ! git show origin/main:docs/RFC-workspace.md > /dev/null 2>&1; then
+ echo "ERROR: Workspace changes require docs/RFC-workspace.md on main branch (PV-2.9)"
+ exit 1
+ fi
 fi
 ```
 
@@ -233,7 +233,7 @@ fi
 
 **Draft** — This RFC is pending review and merge to the main branch.
 
-Once merged, the status will change to **Accepted** and the merge gate described in PV-2.9 will be satisfied. Subsequent workspace-restructuring changes (task 1.2 and beyond) may then proceed.
+Once merged, the status will change to **Accepted** and the merge gate described in PV-2.9 will be satisfied. Subsequent workspace-restructuring changes ( and beyond) may then proceed.
 
 ---
 

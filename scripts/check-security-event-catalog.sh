@@ -7,17 +7,17 @@
 # `ReasonCode::Variant` references not present in the catalog.
 #
 # Production source roots scanned (tests/ subdirectories excluded):
-#   tirbase-core/src/
-#   tirbase-guard/src/
-#   tirbase-gateway/src/
-#   tirbase-drivers/src/
-#   tirbase-admin/src/
+# tirbase-core/src/
+# tirbase-guard/src/
+# tirbase-gateway/src/
+# tirbase-drivers/src/
+# tirbase-admin/src/
 #
 # Usage: bash scripts/check-security-event-catalog.sh [CATALOG_PATH]
 #
 # Exit codes:
-#   0 — all production references are listed in the catalog (or no references found)
-#   1 — one or more unlisted references found, or catalog file missing
+# 0 — all production references are listed in the catalog (or no references found)
+# 1 — one or more unlisted references found, or catalog file missing
 
 set -euo pipefail
 
@@ -52,9 +52,9 @@ touch "$ALLOWED_CATEGORIES_FILE" "$ALLOWED_REASON_CODES_FILE"
 # Parse catalog
 #
 # The catalog uses the format:
-#   ## Category: <CategoryName>
-#   | Reason Code | ... |
-#   | ActualCode  | ... |
+# ## Category: <CategoryName>
+# | Reason Code | ... |
+# | ActualCode | ... |
 #
 # We collect every CategoryName from the "## Category:" headings and every
 # first-column value from the data rows under each heading.
@@ -63,28 +63,28 @@ touch "$ALLOWED_CATEGORIES_FILE" "$ALLOWED_REASON_CODES_FILE"
 current_category=""
 
 while IFS= read -r line; do
-  # Match category headers: ## Category: FooBar
+ # Match category headers: ## Category: FooBar
   if [[ "$line" =~ ^##[[:space:]]Category:[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
     current_category="${BASH_REMATCH[1]}"
     echo "$current_category" >> "$ALLOWED_CATEGORIES_FILE"
     continue
   fi
 
-  # Skip non-table lines
+ # Skip non-table lines
   [[ "$line" != *\|* ]] && continue
 
-  # Skip separator rows (only dashes, pipes, spaces)
+ # Skip separator rows (only dashes, pipes, spaces)
   stripped="${line//|/}"
   stripped="${stripped// /}"
   stripped="${stripped//-/}"
   [[ -z "$stripped" ]] && continue
 
-  # Split on '|' and extract first column (reason code)
+ # Split on '|' and extract first column (reason code)
   IFS='|' read -ra cols <<< "$line"
   [[ "${#cols[@]}" -lt 2 ]] && continue
   reason_code="$(echo "${cols[1]}" | tr -d '[:space:]')"
 
-  # Skip header row and empty cells
+ # Skip header row and empty cells
   [[ -z "$reason_code" ]] && continue
   [[ "$reason_code" == "ReasonCode" ]] && continue
 
@@ -119,7 +119,7 @@ touch "$PRODUCTION_FILES_LIST"
 for root in "${SOURCE_ROOTS[@]}"; do
   if [[ -d "$root" ]]; then
     find "$root" -name "*.rs" -type f 2>/dev/null | while IFS= read -r f; do
-      # Exclude files inside a 'tests' subdirectory
+ # Exclude files inside a 'tests' subdirectory
       if [[ "$f" != */tests/* ]]; then
         echo "$f"
       fi
@@ -140,10 +140,10 @@ fi
 # Scan production files for SecurityEventCategory::Variant and ReasonCode::Variant
 #
 # For each .rs file we:
-#   1. Strip content inside #[cfg(test)] mod blocks (best-effort awk approach).
-#   2. Grep for the two enum-qualifier patterns.
-#   3. Extract the variant name (the part after '::').
-#   4. Check it against the catalog's allowed sets.
+# 1. Strip content inside #[cfg(test)] mod blocks (best-effort awk approach).
+# 2. Grep for the two enum-qualifier patterns.
+# 3. Extract the variant name (the part after '::').
+# 4. Check it against the catalog's allowed sets.
 # ---------------------------------------------------------------------------
 
 FAILING_CATEGORIES_FILE="$TMP_DIR/failing_categories.txt"
@@ -156,10 +156,10 @@ total_reason_refs=0
 while IFS= read -r src_file; do
   [[ -z "$src_file" ]] && continue
 
-  # Strip cfg(test) blocks: skip from #[cfg(test)] until the matching closing
-  # brace at depth 0.  This handles the common pattern:
-  #   #[cfg(test)]
-  #   mod tests { ... }
+ # Strip cfg(test) blocks: skip from #[cfg(test)] until the matching closing
+ # brace at depth 0. This handles the common pattern:
+ # #[cfg(test)]
+ # mod tests { ... }
   stripped_content=$(awk '
     BEGIN { skip=0; depth=0 }
     /^[[:space:]]*#\[cfg\(test\)\]/ { skip=1; next }
@@ -173,19 +173,19 @@ while IFS= read -r src_file; do
     { print }
   ' "$src_file")
 
-  # --- SecurityEventCategory references ---
+ # --- SecurityEventCategory references ---
   category_refs=$(echo "$stripped_content" | grep -oE 'SecurityEventCategory::[A-Za-z_][A-Za-z0-9_]*' || true)
   while IFS= read -r match; do
     [[ -z "$match" ]] && continue
     variant="${match##*::}"
     total_category_refs=$(( total_category_refs + 1 ))
-    # Check if variant is in the allowed categories file
+ # Check if variant is in the allowed categories file
     if ! grep -qxF "$variant" "$ALLOWED_CATEGORIES_FILE"; then
       echo "${src_file}: SecurityEventCategory::${variant}" >> "$FAILING_CATEGORIES_FILE"
     fi
   done <<< "$category_refs"
 
-  # --- ReasonCode references ---
+ # --- ReasonCode references ---
   reason_refs=$(echo "$stripped_content" | grep -oE 'ReasonCode::[A-Za-z_][A-Za-z0-9_]*' || true)
   while IFS= read -r match; do
     [[ -z "$match" ]] && continue

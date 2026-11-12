@@ -35,13 +35,13 @@ If `quick_check` fails, do not restore from this image.
 
 ```bash
 tirbase-admin restore \
-  --backup-db /path/to/backup.db \
-  --target-db /var/lib/tirbase/primary.db \
-  --epoch-store-db /var/lib/tirbase/epoch_store.db \
-  --lockdown-db /var/lib/tirbase/lockdown.db \
-  --signer-seed-hex <32-byte-ed25519-seed-hex> \
-  --output /var/lib/tirbase/restore-report.json \
-  [--delta-log /path/to/reviewed-delta-log.sql]
+ --backup-db /path/to/backup.db \
+ --target-db /var/lib/tirbase/primary.db \
+ --epoch-store-db /var/lib/tirbase/epoch_store.db \
+ --lockdown-db /var/lib/tirbase/lockdown.db \
+ --signer-seed-hex <32-byte-ed25519-seed-hex> \
+ --output /var/lib/tirbase/restore-report.json \
+ [--delta-log /path/to/reviewed-delta-log.sql]
 ```
 
 **Notes:**
@@ -51,16 +51,16 @@ tirbase-admin restore \
 **Expected output (stdout/file `restore-report.json`, illustrative):**
 ```json
 {
-  "quick_check_ok": true,
-  "restored_db": "/var/lib/tirbase/primary.db",
-  "delta_log_replayed": false,
-  "delta_entries_applied": 0,
-  "previous_enrollment_epoch": <u64>,
-  "new_enrollment_epoch": <u64>,
-  "epoch_bump_signature_hex": "<hex>",
-  "lockdown_entered": true,
-  "counters_silently_updated": false,
-  "post_restore_logical_dump_sha256": "<hex>"
+ "quick_check_ok": true,
+ "restored_db": "/var/lib/tirbase/primary.db",
+ "delta_log_replayed": false,
+ "delta_entries_applied": 0,
+ "previous_enrollment_epoch": <u64>,
+ "new_enrollment_epoch": <u64>,
+ "epoch_bump_signature_hex": "<hex>",
+ "lockdown_entered": true,
+ "counters_silently_updated": false,
+ "post_restore_logical_dump_sha256": "<hex>"
 }
 ```
 

@@ -5,13 +5,13 @@
 //! `admin_socket` (Unix domain socket, peer-UID authenticated).
 //!
 //! Covered production callers (see CLAIMS.md):
-//! * CLAIM-12.x  — `policy` push through `PolicyLifecycle`
-//! * CLAIM-13.1  — `mode` query / transitions
-//! * CLAIM-13.3  — `lockdown-exit` M-of-N exit
-//! * CLAIM-15.7  — `simulate` dry run
-//! * CLAIM-16.3  — `challenge` issuance and one-time-use verification
-//! * CLAIM-16.4  — challenge issuance rate limiting (store/pipeline wiring)
-//! * CLAIM-26.2  — `chain-recovery`
+//! * CLAIM-12.x — `policy` push through `PolicyLifecycle`
+//! * CLAIM-13.1 — `mode` query / transitions
+//! * CLAIM-13.3 — `lockdown-exit` M-of-N exit
+//! * CLAIM-15.7 — `simulate` dry run
+//! * CLAIM-16.3 — `challenge` issuance and one-time-use verification
+//! * CLAIM-16.4 — challenge issuance rate limiting (store/pipeline wiring)
+//! * CLAIM-26.2 — `chain-recovery`
 //!
 //! It also pins the documented blockers for the admin endpoints that have no
 //! implementation yet (`mint`, `rotate`, `events`, `status`): they must answer
@@ -142,9 +142,9 @@ struct Gateway {
 }
 
 impl Gateway {
-    /// Boot the real binary with a fully configured local target and the admin
-    /// socket enabled.  When `lockdown` is true the primary DB is pre-seeded so
-    /// the process boots straight into `NodeMode::Lockdown`.
+ /// Boot the real binary with a fully configured local target and the admin
+ /// socket enabled. When `lockdown` is true the primary DB is pre-seeded so
+ /// the process boots straight into `NodeMode::Lockdown`.
     fn start(tag: &str, lockdown: bool) -> Gateway {
         let dir = temp_dir(tag);
         let profile = cold_room_profile();
@@ -311,13 +311,13 @@ fn assert_non_501(endpoint: &str, response: &Value, gateway: &Gateway) {
 fn admin_policy_mode_simulate_challenge_and_unimplemented_endpoints_over_binary() {
     let gateway = Gateway::start("normal", false);
 
-    // ── mode query (CLAIM-13.1) ────────────────────────────────────────────
+ // ── mode query (CLAIM-13.1) ────────────────────────────────────────────
     let mode = gateway.cmd(json!({"cmd":"mode"}));
     assert_non_501("mode", &mode, &gateway);
     assert_eq!(mode["status"], 200, "mode response: {mode}");
     assert_eq!(mode["mode"], "Normal", "mode response: {mode}");
 
-    // ── policy push (CLAIM-12.5/12.6) ──────────────────────────────────────
+ // ── policy push (CLAIM-12.5/12.6) ──────────────────────────────────────
     let boot_bundle = make_bundle(
         gateway.profile.version,
         [0u8; 32],
@@ -362,7 +362,7 @@ fn admin_policy_mode_simulate_challenge_and_unimplemented_endpoints_over_binary(
     );
     assert_eq!(policy["version"], gateway.profile.version + 1);
 
-    // The next version without a PolicyAuthority co-signature must be rejected.
+ // The next version without a PolicyAuthority co-signature must be rejected.
     let mut untrusted = make_bundle(
         gateway.profile.version + 2,
         policy_bundle_body_hash(&make_bundle(
@@ -382,7 +382,7 @@ fn admin_policy_mode_simulate_challenge_and_unimplemented_endpoints_over_binary(
         "unsigned policy bundle must be rejected: {unsigned}"
     );
 
-    // ── simulate (CLAIM-15.7) ──────────────────────────────────────────────
+ // ── simulate (CLAIM-15.7) ──────────────────────────────────────────────
     let issuer = InMemoryKeyProvider::generate().expect("issuer");
     let mut command = CommandMessage {
         issuer_did: Did::new(issuer.did()),
@@ -407,7 +407,7 @@ fn admin_policy_mode_simulate_challenge_and_unimplemented_endpoints_over_binary(
         "simulate must run the dry-run pipeline: {simulate}"
     );
 
-    // ── challenge issue + one-time-use verification (CLAIM-16.3/16.4) ─────
+ // ── challenge issue + one-time-use verification (CLAIM-16.3/16.4) ─────
     let issued = gateway.cmd(json!({
         "cmd":"challenge",
         "payload":{"target_id": TARGET, "param": CRITICAL_PARAM}
@@ -438,7 +438,7 @@ fn admin_policy_mode_simulate_challenge_and_unimplemented_endpoints_over_binary(
         "second nonce use must be rejected: {replay}"
     );
 
-    // ── task 36.3e/36.3l: event inspection and rollout status ──────────────
+ // ── /36.3l: event inspection and rollout status ──────────────
     let events = gateway.cmd(json!({"cmd":"events","payload":{"since_est":0,"limit":5}}));
     assert_non_501("events", &events, &gateway);
     assert_eq!(events["status"], 200, "events: {events}");
@@ -516,7 +516,7 @@ fn admin_enroll_requires_matching_policy_authority_delegation_when_supplied() {
         .bootstrap(nonce, CommandRole::CommandIssuer)
         .expect("bootstrap request");
 
-    // A delegation bound to a different nonce must be rejected.
+ // A delegation bound to a different nonce must be rejected.
     let wrong_payload = EnrollmentDelegationPayload {
         device_did: request.device_did.clone(),
         role: request.role,
@@ -566,8 +566,8 @@ fn admin_enroll_requires_matching_policy_authority_delegation_when_supplied() {
         enrolled["status"], 200,
         "valid delegation must enroll: {enrolled}"
     );
-    // The dispatch function is the production caller; a direct call exercises
-    // the same path with an explicit local caller.
+ // The dispatch function is the production caller; a direct call exercises
+ // the same path with an explicit local caller.
     let _ = dispatch_admin_command_at;
 }
 
@@ -575,7 +575,7 @@ fn admin_enroll_requires_matching_policy_authority_delegation_when_supplied() {
 fn admin_status_and_additional_endpoints_over_binary() {
     let gateway = Gateway::start("task36l", false);
 
-    // ── 36.3k/36.7 Guard status API ────────────────────────────────────────
+ // ── 36.3k/36.7 Guard status API ────────────────────────────────────────
     let issuer = "did:key:status-issuer";
     {
         let conn = rusqlite::Connection::open(&gateway.primary_db).expect("open primary.db");
@@ -611,7 +611,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     assert_eq!(leases[0]["holder_issuer_did"], issuer);
     assert!(status["rate_limit"].is_object(), "rate_limit: {status}");
 
-    // ── 36.3l sequence-reset (PolicyAuthority signed) ──────────────────────
+ // ── 36.3l sequence-reset (PolicyAuthority signed) ──────────────────────
     let reset_payload = tirbase_guard::anti_replay::AntiReplayWindowReset {
         issuer_did: issuer.into(),
         target_id: TARGET.into(),
@@ -630,7 +630,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     }));
     assert_eq!(reset["status"], 200, "sequence-reset: {reset}");
 
-    // ── 36.3l lease-preempt (RevocationManager + PolicyAuthority) ──────────
+ // ── 36.3l lease-preempt (RevocationManager + PolicyAuthority) ──────────
     let lease_payload = tirbase_gateway::admin::LeasePreemptPayload {
         action: "lease-preempt".into(),
         target_id: TARGET.into(),
@@ -653,7 +653,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     }));
     assert_eq!(preempt["status"], 200, "lease-preempt: {preempt}");
 
-    // ── 36.3l unknown-clear (PolicyAuthority) ──────────────────────────────
+ // ── 36.3l unknown-clear (PolicyAuthority) ──────────────────────────────
     let unknown_payload = tirbase_gateway::admin::ClearUnknownPayload {
         action: "clear-unknown".into(),
         entry_id_hex: "11".repeat(16),
@@ -678,7 +678,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
         "signed clear-unknown reaches the ledger (no entry): {unknown}"
     );
 
-    // ── 36.3l quarantine-replay (PolicyAuthority) ──────────────────────────
+ // ── 36.3l quarantine-replay (PolicyAuthority) ──────────────────────────
     let entry_id = [0x42u8; 32];
     {
         let core_db = gateway.dir.join("core.db");
@@ -717,7 +717,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     assert_eq!(replay["status"], 200, "quarantine-replay: {replay}");
     assert_eq!(replay["replay_status"], "replayed");
 
-    // ── 36.3l time-reset (M-of-N TimeAnchor) ───────────────────────────────
+ // ── 36.3l time-reset (M-of-N TimeAnchor) ───────────────────────────────
     let time_payload = tirbase_guard::time::TimeResetPayload {
         new_floor_secs: 1_700_000_000,
         reason: "binary test reset".into(),
@@ -745,7 +745,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     assert_eq!(time_reset["status"], 200, "time-reset: {time_reset}");
     assert_eq!(time_reset["new_floor_secs"], 1_700_000_000i64);
 
-    // ── 36.3l restore (PolicyAuthority + RevocationManager) ────────────────
+ // ── 36.3l restore (PolicyAuthority + RevocationManager) ────────────────
     let restore_payload = tirbase_gateway::admin::RestorePayload {
         device_id: "did:key:restored-device".into(),
         backup_id: "backup-1".into(),
@@ -773,7 +773,7 @@ fn admin_status_and_additional_endpoints_over_binary() {
     assert_eq!(restored["status"], 200, "restore: {restored}");
     assert_eq!(restored["epoch"], 1);
 
-    // ── 36.3l epoch-bump (PolicyAuthority + RevocationManager) ─────────────
+ // ── 36.3l epoch-bump (PolicyAuthority + RevocationManager) ─────────────
     let bump_payload = tirbase_guard::epoch::EpochBump {
         device_id: "did:key:restored-device".into(),
         previous_epoch: 1,
@@ -815,7 +815,7 @@ fn admin_lockdown_exit_requires_m_of_n_and_transitions_mode_over_binary() {
         envelope_profile_id: gateway.profile.profile_id,
     };
 
-    // Single role must be rejected (M-of-N with >= 2 distinct roles).
+ // Single role must be rejected (M-of-N with >= 2 distinct roles).
     let mut single = SignedOperation::new(&payload, 1_000, None).expect("operation");
     single
         .sign_with(&gateway.pa, CommandRole::PolicyAuthority)
@@ -827,7 +827,7 @@ fn admin_lockdown_exit_requires_m_of_n_and_transitions_mode_over_binary() {
     assert_non_501("lockdown-exit", &rejected, &gateway);
     assert_eq!(rejected["status"], 409, "single-role exit: {rejected}");
 
-    // Full M-of-N across two distinct roles must succeed.
+ // Full M-of-N across two distinct roles must succeed.
     let mut joint = SignedOperation::new(&payload, 1_000, None).expect("operation");
     joint
         .sign_with(&gateway.pa, CommandRole::PolicyAuthority)
@@ -860,7 +860,7 @@ fn admin_chain_recovery_requires_signature_over_binary() {
         operator_reason: "binary test recovery".into(),
     };
 
-    // Unsigned recovery is rejected, not silently accepted.
+ // Unsigned recovery is rejected, not silently accepted.
     let unsigned = gateway.cmd(json!({
         "cmd":"chain-recovery",
         "payload":{"operation": {"context_string":"TirBase/v1/ChainRecovery","payload_hash":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"signatures":[],"created_est":0,"expires_est":null}, "payload": payload}
@@ -871,7 +871,7 @@ fn admin_chain_recovery_requires_signature_over_binary() {
         "unsigned recovery must fail: {unsigned}"
     );
 
-    // Valid PolicyAuthority signature applies the recovery.
+ // Valid PolicyAuthority signature applies the recovery.
     let mut operation = SignedOperation::new(&payload, 0, None).expect("operation");
     operation
         .sign_with(&gateway.pa, CommandRole::PolicyAuthority)
@@ -887,9 +887,9 @@ fn admin_chain_recovery_requires_signature_over_binary() {
 
 #[test]
 fn admin_endpoints_do_not_return_501_when_target_state_is_unconfigured() {
-    // A gateway without trust_root_path/target_id has no policy, trust root or
-    // envelope profile: those endpoints must explain the missing state with a
-    // 503, never a 501 that implies the endpoint does not exist.
+ // A gateway without trust_root_path/target_id has no policy, trust root or
+ // envelope profile: those endpoints must explain the missing state with a
+ // 503, never a 501 that implies the endpoint does not exist.
     let dir = temp_dir("bare");
     let config_path = dir.join("gateway.toml");
     std::fs::write(

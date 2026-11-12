@@ -2,7 +2,7 @@
 //!
 //! S16 drives the per-issuer rate limiter in the production admission pipeline:
 //! a bulk burst beyond the quota is rejected with `RateLimit` while the first
-//! command in the burst is accepted.  S17 presents a validly signed token whose
+//! command in the burst is accepted. S17 presents a validly signed token whose
 //! role is not `CommandIssuer`; Stage 4 must derive the role from the token (not
 //! `cmd.role`) and reject with `ScopeViolation`.
 
@@ -36,9 +36,9 @@ pub fn run_s16(seed: u64) -> Result<(), String> {
     let mut accepted = 0usize;
     let mut rate_limited = 0usize;
     for index in 0..burst {
-        // Distinct targets are not modelled by this single-target fixture, so
-        // the burst represents a compromised cloud endpoint fanning commands
-        // out through one issuer identity.  The quota is per issuer.
+ // Distinct targets are not modelled by this single-target fixture, so
+ // the burst represents a compromised cloud endpoint fanning commands
+ // out through one issuer identity. The quota is per issuer.
         let command = fixture.command(10 + index as i64, index as u8, index as u64 + 1)?;
         match fixture.admit(&command) {
             Ok(()) => accepted += 1,

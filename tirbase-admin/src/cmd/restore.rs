@@ -1,4 +1,4 @@
-//! `tirbase-admin restore` (Task 32.3, PV-9.5, RD-2, CLAIM-32.3).
+//! `tirbase-admin restore` (PV-9.5, RD-2, CLAIM-32.3).
 //!
 //! Backup/restore workflow:
 //! - `quick_check` on source DB.
@@ -25,7 +25,7 @@ pub struct RestoreArgs {
     pub delta_log: Option<PathBuf>,
     pub epoch_store_db: PathBuf,
     pub lockdown_db: PathBuf,
-    /// Hex 32-byte Ed25519 seed for signed epoch-bump authorization.
+ /// Hex 32-byte Ed25519 seed for signed epoch-bump authorization.
     pub signer_seed_hex: String,
     pub output: PathBuf,
 }
@@ -40,7 +40,7 @@ pub struct RestoreReport {
     pub new_enrollment_epoch: u64,
     pub epoch_bump_signature_hex: String,
     pub lockdown_entered: bool,
-    /// S22 invariant: sequence/anti-rollback counters are never silently reset.
+ /// S22 invariant: sequence/anti-rollback counters are never silently reset.
     pub counters_silently_updated: bool,
     pub post_restore_logical_dump_sha256: String,
 }
@@ -68,8 +68,8 @@ fn replay_delta_log(target_db: &Path, delta_log: &Path) -> Result<usize> {
         if line.starts_with('#') {
             continue;
         }
-        // Delta-log replay applies opaque SQL statements captured after restore point.
-        // Operators must review signed delta logs; this tool never synthesizes counters.
+ // Delta-log replay applies opaque SQL statements captured after restore point.
+ // Operators must review signed delta logs; this tool never synthesizes counters.
         conn.execute_batch(line)
             .with_context(|| format!("replay delta statement: {line}"))?;
         applied += 1;
@@ -185,7 +185,7 @@ pub fn run(args: &RestoreArgs) -> Result<RestoreReport> {
     .or_else(|_| sign_epoch_bump(&args.signer_seed_hex, 0, 1, &dump_sha))?;
     let (previous_enrollment_epoch, new_enrollment_epoch) =
         bump_enrollment_epoch(&args.epoch_store_db)?;
-    // Re-sign with actual epoch values for the report (operator audit trail).
+ // Re-sign with actual epoch values for the report (operator audit trail).
     let (_signer_pk, epoch_bump_signature_hex) = sign_epoch_bump(
         &args.signer_seed_hex,
         previous_enrollment_epoch,

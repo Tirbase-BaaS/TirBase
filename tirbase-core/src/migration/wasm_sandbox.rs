@@ -31,7 +31,7 @@ pub enum MigrationResult {
     Aborted {
         reason: String,
     },
-    /// The migration was revoked before it could commit (Req 18.6).
+ /// The migration was revoked before it could commit (Req 18.6).
     Revoked {
         reason: String,
     },
@@ -57,7 +57,7 @@ impl MigrationExecutionRegistry {
     }
 
     pub fn register_engine(&self, migration_id: MigrationId, _engine: ()) -> bool {
-        // Compatibility shim for older call sites.
+ // Compatibility shim for older call sites.
         let _ = self.register(migration_id);
         true
     }
@@ -182,7 +182,7 @@ fn execute_migration_inner(
 
     let mid_hex = hex::encode(migration_id);
 
-    // ── 1. PV-8.2: DeterministicWasmProfile validation at load time ────────
+ // ── 1. PV-8.2: DeterministicWasmProfile validation at load time ────────
     if let Err(e) = DeterministicWasmProfile::validate(transform, migration_id) {
         emit_migration(
             Severity::High,
@@ -195,7 +195,7 @@ fn execute_migration_inner(
         });
     }
 
-    // ── 2. PV-8.2a: ExecutionProfileVersion match (profile_id + fuel hash) ──
+ // ── 2. PV-8.2a: ExecutionProfileVersion match (profile_id + fuel hash) ──
     let active = ActiveExecutionProfile::default();
     if let Some(profile) = execution_profile {
         if !profile.matches_active(&active) {
@@ -220,7 +220,7 @@ fn execute_migration_inner(
         }
     }
 
-    // ── 3. Build restricted wasmi engine (fuel metering enabled) ────────────
+ // ── 3. Build restricted wasmi engine (fuel metering enabled) ────────────
     let mut config = Config::default();
     config.consume_fuel(true);
     let engine = Engine::new(&config);
@@ -234,7 +234,7 @@ fn execute_migration_inner(
         }
     };
 
-    // ── 4. PV-8.4 StoreLimits: 64 MiB memory, 1,000 tables, 10 instances ───
+ // ── 4. PV-8.4 StoreLimits: 64 MiB memory, 1,000 tables, 10 instances ───
     let limits = StoreLimitsBuilder::new()
         .memory_size(STORE_LIMIT_MEMORY_BYTES)
         .tables(STORE_LIMIT_TABLES)
@@ -442,15 +442,15 @@ fn execute_migration_inner(
 
     let timeout = timeout_secs.max(1);
     let total_fuel = timeout.saturating_mul(FUEL_PER_SEC).max(FUEL_CHUNK);
-    // Monotonic deadline in the injected TimeSource domain (PV-3.12).
+ // Monotonic deadline in the injected TimeSource domain (PV-3.12).
     let deadline_micros = crate::traits::monotonic_now().saturating_add(timeout * 1_000_000);
     let _spent: u64 = 0;
-    // wasmi 0.38 executes typed calls to completion; true mid-loop preemption is
-    // limited. We run with the full fuel budget (traps on exhaustion via
-    // ConsumeFuel metering) and preserve the G1.9 registry contract for callers.
-    // Revocation is enforced by the migration engine commit gate (finish_migration
-    // re-checks revocation and discards results) and by interrupt checks in host
-    // functions for cooperative modules.
+ // wasmi 0.38 executes typed calls to completion; true mid-loop preemption is
+ // limited. We run with the full fuel budget (traps on exhaustion via
+ // ConsumeFuel metering) and preserve the G1.9 registry contract for callers.
+ // Revocation is enforced by the migration engine commit gate (finish_migration
+ // re-checks revocation and discards results) and by interrupt checks in host
+ // functions for cooperative modules.
     wasm_store
         .set_fuel(total_fuel)
         .map_err(|e| TirBaseError::DeltaMalformed {
@@ -543,13 +543,13 @@ pub fn execute_migration_wasm(
 ) -> Result<MigrationResult, TirBaseError> {
     use wasmi::{Config, Engine, Linker, Module, Store, StoreLimitsBuilder};
 
-    // PV-8.2
+ // PV-8.2
     if let Err(e) = DeterministicWasmProfile::validate(transform, migration_id) {
         return Ok(MigrationResult::Aborted {
             reason: format!("deterministic profile violation: {e}"),
         });
     }
-    // PV-8.2a
+ // PV-8.2a
     let active = ActiveExecutionProfile::default();
     if let Some(profile) = execution_profile {
         if !profile.matches_active(&active) {
@@ -751,8 +751,8 @@ mod tests {
         .expect("parse log_message WAT")
     }
 
-    /// Identity transform used by the P12 property test: copies the raw JSON
-    /// bytes of row `(t,k)` into row `(t,o)`.
+ /// Identity transform used by the P12 property test: copies the raw JSON
+ /// bytes of row `(t,k)` into row `(t,o)`.
     fn identity_wasm() -> Vec<u8> {
         wat::parse_str(
             r#"(module
@@ -775,9 +775,9 @@ mod tests {
     proptest::proptest! {
         #![proptest_config(proptest::prelude::ProptestConfig::with_cases(48))]
 
-        /// P12 (task 29.5, PV-8.1): for **generated** inputs, the same migration
-        /// module executed twice produces byte-identical output. The previous
-        /// coverage was a single fixed vector, which is not a property test.
+ /// P12 (PV-8.1): for **generated** inputs, the same migration
+ /// module executed twice produces byte-identical output. The previous
+ /// coverage was a single fixed vector, which is not a property test.
         #[test]
         fn p12_repeated_execution_byte_identical_for_generated_inputs(
             n in proptest::prelude::any::<i64>(),
@@ -851,12 +851,12 @@ mod tests {
 
     #[test]
     fn registry_interrupt_marks_run_and_run_terminates_under_timeout() {
-        // CLAIM-G1.9 / Req 18.6 (wasmi path): registry tracks in-flight runs and
-        // delivers an interrupt signal. Pure-infinite-loop preemption is limited in
-        // wasmi 0.38; the authoritative safety gate is migration finish_migration's
-        // revocation re-check (CoreHandle integration: inbound_migration_revocation_
-        // interrupts_in_progress_transform). Here we require registration, successful
-        // interrupt delivery, eventual non-success termination, and cleanup.
+ // CLAIM-G1.9 / Req 18.6 (wasmi path): registry tracks in-flight runs and
+ // delivers an interrupt signal. Pure-infinite-loop preemption is limited in
+ // wasmi 0.38; the authoritative safety gate is migration finish_migration's
+ // revocation re-check (CoreHandle integration: inbound_migration_revocation_
+ // interrupts_in_progress_transform). Here we require registration, successful
+ // interrupt delivery, eventual non-success termination, and cleanup.
         let wasm = infinite_loop_wasm();
         let migration_id: MigrationId = [0x5Eu8; 32];
         let store = test_store();
@@ -946,20 +946,20 @@ mod tests {
         );
     }
 
-    /// The deterministic-migration conformance corpus (WAT modules + inputs).
+ /// The deterministic-migration conformance corpus (WAT modules + inputs).
     const CONFORMANCE_CORPUS_PATH: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/testdata/migration-conformance/corpus.json"
     );
-    /// The committed known-good output digest for the corpus above.
+ /// The committed known-good output digest for the corpus above.
     const CONFORMANCE_DIGEST_PATH: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/testdata/migration-conformance/known-good-output-digest.txt"
     );
     const CONFORMANCE_DIGEST_DOMAIN: &[u8] = b"TirBase/PV-8/migration-conformance/v1\0";
 
-    /// Execute one corpus case in a fresh store and return the canonical bytes
-    /// of the declared output row.
+ /// Execute one corpus case in a fresh store and return the canonical bytes
+ /// of the declared output row.
     fn run_conformance_case(case: &serde_json::Value) -> Vec<u8> {
         use sha2::{Digest, Sha256};
 
@@ -978,7 +978,7 @@ mod tests {
             .write(table, key, &case["input"])
             .expect("seed corpus input");
 
-        // Stable per-case migration id so a failure names the offending case.
+ // Stable per-case migration id so a failure names the offending case.
         let mut id_hasher = Sha256::new();
         id_hasher.update(b"TirBase/PV-8/migration-conformance/case\0");
         id_hasher.update(id.as_bytes());
@@ -1000,12 +1000,12 @@ mod tests {
         serde_json::to_vec(&value).expect("canonical output bytes")
     }
 
-    /// SHA-256 over the migration output corpus.
-    ///
-    /// The digest input is length-prefixed and domain-separated, so it is
-    /// independent of the host's JSON map ordering and unambiguous across case
-    /// boundaries. It covers only execution output, so any architectural
-    /// divergence in wasmi integer/memory semantics changes the digest.
+ /// SHA-256 over the migration output corpus.
+ ///
+ /// The digest input is length-prefixed and domain-separated, so it is
+ /// independent of the host's JSON map ordering and unambiguous across case
+ /// boundaries. It covers only execution output, so any architectural
+ /// divergence in wasmi integer/memory semantics changes the digest.
     fn compute_conformance_digest() -> [u8; 32] {
         use sha2::{Digest, Sha256};
 
@@ -1042,14 +1042,14 @@ mod tests {
 
     #[test]
     fn deterministic_cross_arch_hash_vector() {
-        // CLAIM-29.6 / PV-8.1: the migration output corpus must hash to the
-        // committed known-good digest on every architecture. CI runs this test
-        // natively on x86_64 and on an arm64 runner, then diffs the digests each
-        // leg emits via `TIRBASE_MIGRATION_DIGEST_OUT`.
-        //
-        // Emulation is not an option here: qemu-user deadlocks libtest's worker
-        // threads on aarch64 (a trivial `assert_eq!(1, 1)` test hangs), so the
-        // arm64 leg must execute natively.
+ // CLAIM-29.6 / PV-8.1: the migration output corpus must hash to the
+ // committed known-good digest on every architecture. CI runs this test
+ // natively on x86_64 and on an arm64 runner, then diffs the digests each
+ // leg emits via `TIRBASE_MIGRATION_DIGEST_OUT`.
+ //
+ // Emulation is not an option here: qemu-user deadlocks libtest's worker
+ // threads on aarch64 (a trivial `assert_eq!(1, 1)` test hangs), so the
+ // arm64 leg must execute natively.
         let actual = hex::encode(compute_conformance_digest());
         println!("MIGRATION_OUTPUT_DIGEST={actual}");
         if let Some(path) = std::env::var_os("TIRBASE_MIGRATION_DIGEST_OUT") {
@@ -1063,8 +1063,8 @@ mod tests {
 
     #[test]
     fn conformance_digest_comparison_detects_divergence() {
-        // Self-check for the harness: a single changed nibble must be rejected,
-        // otherwise a cross-architecture mismatch could slip through silently.
+ // Self-check for the harness: a single changed nibble must be rejected,
+ // otherwise a cross-architecture mismatch could slip through silently.
         let actual = hex::encode(compute_conformance_digest());
         assert!(compare_conformance_digest(&actual, &actual).is_ok());
 
@@ -1079,7 +1079,7 @@ mod tests {
 
     #[test]
     fn p12_repeated_execution_byte_identical_output() {
-        // CLAIM-29.5 / PV-8.1 P12: same wasmi input + module => byte-identical output.
+ // CLAIM-29.5 / PV-8.1 P12: same wasmi input + module => byte-identical output.
         let wat = r#"(module
           (import "host" "read_row"  (func $read  (param i32 i32 i32 i32 i32 i32) (result i32)))
           (import "host" "write_row" (func $write (param i32 i32 i32 i32 i32 i32)))
@@ -1166,7 +1166,7 @@ mod wasm_tests {
 
     #[test]
     fn wasm_forbidden_import_rejected() {
-        // DeterministicWasmProfile (PV-8.2) rejects imports before execution.
+ // DeterministicWasmProfile (PV-8.2) rejects imports before execution.
         let wasm = wat::parse_str(
             r#"(module (import "wasi_snapshot_preview1" "fd_write" (func (param i32 i32 i32 i32) (result i32))) (func (export "run")))"#,
         )

@@ -8,8 +8,8 @@
 # Usage: bash scripts/check-claim-markers.sh [path/to/CLAIMS.md]
 #
 # Exit codes:
-#   0 — no violations found
-#   1 — one or more Planned claim markers found without a planned qualifier
+# 0 — no violations found
+# 1 — one or more Planned claim markers found without a planned qualifier
 
 set -euo pipefail
 
@@ -24,11 +24,11 @@ fi
 
 # ---------------------------------------------------------------------------
 # Step 1: Build a newline-separated list of all claim IDs whose status is
-#         "Planned".  Stored in a temp file for bash-3-compatible lookup.
+# "Planned". Stored in a temp file for bash-3-compatible lookup.
 # ---------------------------------------------------------------------------
 # Uses the same pipe-separated table parsing logic as check-claims.sh.
 # Column layout after splitting on '|':
-#   col[0]=""  col[1]="Claim ID"  col[2]="Claim Text"  col[3]="Status"  col[4]="Test ID"  col[5]=""
+# col[0]="" col[1]="Claim ID" col[2]="Claim Text" col[3]="Status" col[4]="Test ID" col[5]=""
 
 planned_ids_file="$(mktemp)"
 trap 'rm -f "$planned_ids_file"' EXIT
@@ -103,7 +103,7 @@ echo "Scanning ${file_count} documentation file(s) for [CLAIM-{id}] markers..."
 # ---------------------------------------------------------------------------
 # Qualifiers that indicate a Planned claim is acceptably documented (case-insensitive,
 # checked against the same line as the marker):
-#   planned, not yet, todo, future, in progress, upcoming, will be, status: planned
+# planned, not yet, todo, future, in progress, upcoming, will be, status: planned
 
 MARKER_PATTERN='\[CLAIM-[A-Za-z0-9._-]*\]'
 
@@ -115,36 +115,36 @@ while IFS= read -r file; do
   full_path="$WORKSPACE_ROOT/$file"
   [[ ! -f "$full_path" ]] && continue
 
-  # Find all lines containing at least one [CLAIM-*] marker.
+ # Find all lines containing at least one [CLAIM-*] marker.
   while IFS= read -r match_line; do
     [[ -z "$match_line" ]] && continue
 
-    # match_line format from grep -n: "LINE_NUMBER:LINE_CONTENT"
+ # match_line format from grep -n: "LINE_NUMBER:LINE_CONTENT"
     line_num="${match_line%%:*}"
     line_content="${match_line#*:}"
 
-    # Extract all [CLAIM-{id}] markers from this line.
+ # Extract all [CLAIM-{id}] markers from this line.
     markers="$(echo "$line_content" | grep -oE "$MARKER_PATTERN" || true)"
     [[ -z "$markers" ]] && continue
 
     while IFS= read -r marker; do
       [[ -z "$marker" ]] && continue
 
-      # Strip surrounding brackets: [CLAIM-G1.1] → CLAIM-G1.1
+ # Strip surrounding brackets: [CLAIM-G1.1] → CLAIM-G1.1
       claim_id="${marker:1:${#marker}-2}"
 
-      # Only check Planned claims.
+ # Only check Planned claims.
       is_planned "$claim_id" || continue
 
-      # Check whether the line contains a planned qualifier (case-insensitive).
+ # Check whether the line contains a planned qualifier (case-insensitive).
       if echo "$line_content" | grep -qiE \
           '(planned|not yet|todo|future|in progress|upcoming|will be|status:[[:space:]]*planned)'; then
-        # Qualifier found — this reference is acceptable.
+ # Qualifier found — this reference is acceptable.
         continue
       fi
 
-      # No qualifier found — record violation as "file:linenum: CLAIM-ID"
-      # Normalize: strip leading "./" for cleaner output.
+ # No qualifier found — record violation as "file:linenum: CLAIM-ID"
+ # Normalize: strip leading "./" for cleaner output.
       display_file="${file#./}"
       echo "${display_file}:${line_num}: ${claim_id}" >> "$violations_file"
     done <<< "$markers"

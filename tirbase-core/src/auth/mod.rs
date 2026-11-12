@@ -24,39 +24,39 @@ use trust::TrustLevelStateMachine;
 /// The Capability Manager handles Biscuit token creation and offline verification,
 /// TrustLevel state transitions, and the M-of-N revocation accumulation.
 pub struct CapabilityManager {
-    /// TrustLevel state machine for the local device.
+ /// TrustLevel state machine for the local device.
     trust_state: TrustLevelStateMachine,
-    /// Read-only registry of root CA public keys.
+ /// Read-only registry of root CA public keys.
     root_ca_registry: RootCaRegistry,
-    /// Pending M-of-N revocation accumulation (retained for legacy callers).
+ /// Pending M-of-N revocation accumulation (retained for legacy callers).
     pending_revocations: PendingRevocationStore,
-    /// M threshold for revocation (minimum signatures required).
+ /// M threshold for revocation (minimum signatures required).
     revocation_m: usize,
-    /// N threshold for revocation (total managers in the set).
+ /// N threshold for revocation (total managers in the set).
     revocation_n: usize,
-    /// Whether the deployment has explicitly accepted the >24h TTL risk
-    /// (Req 8.7 "accepted risk" escape path).  Set when `biscuit_ttl_secs`
-    /// exceeds 24h at init, which triggers the EXTENDED_TTL diagnostic (Req 21.6).
-    /// Stored here so that `create_token` can be called via `CapabilityManager`
-    /// without re-reading the config.
+ /// Whether the deployment has explicitly accepted the >24h TTL risk
+ /// (Req 8.7 "accepted risk" escape path). Set when `biscuit_ttl_secs`
+ /// exceeds 24h at init, which triggers the EXTENDED_TTL diagnostic (Req 21.6).
+ /// Stored here so that `create_token` can be called via `CapabilityManager`
+ /// without re-reading the config.
     extended_ttl_accepted_risk: bool,
-    /// When the device's current Biscuit token expires.
-    /// Set by `present_token` when the token verifies successfully; used by the
-    /// token-expiry monitor loop (Req 8.4) to determine whether to transition
-    /// Verified → Unverified.
+ /// When the device's current Biscuit token expires.
+ /// Set by `present_token` when the token verifies successfully; used by the
+ /// token-expiry monitor loop (Req 8.4) to determine whether to transition
+ /// Verified → Unverified.
     current_token_expires_at: Option<i64>,
-    /// Optional timestamp of the last revocation delta applied.
+ /// Optional timestamp of the last revocation delta applied.
     last_revocation_ts: Option<i64>,
 }
 
 impl CapabilityManager {
-    /// Initialise the Capability Manager with the given deployment CA keys and M-of-N config.
-    ///
-    /// The initial trust level starts as `Unverified` until a valid Biscuit token is presented.
-    /// `extended_ttl_accepted_risk` should be `true` when the deployment has
-    /// explicitly opted into >24h Biscuit TTLs (via the EXTENDED_TTL diagnostic
-    /// at init — Req 21.6), allowing `create_token` to mint extended-window
-    /// tokens (Req 8.7).
+ /// Initialise the Capability Manager with the given deployment CA keys and M-of-N config.
+ ///
+ /// The initial trust level starts as `Unverified` until a valid Biscuit token is presented.
+ /// `extended_ttl_accepted_risk` should be `true` when the deployment has
+ /// explicitly opted into >24h Biscuit TTLs (via the EXTENDED_TTL diagnostic
+ /// at init — Req 21.6), allowing `create_token` to mint extended-window
+ /// tokens (Req 8.7).
     pub fn new(
         root_ca_keys: Vec<[u8; 32]>,
         revocation_m: usize,
@@ -75,23 +75,23 @@ impl CapabilityManager {
         }
     }
 
-    /// Verify a Biscuit token and update TrustLevel if valid (Req 8.3).
-    ///
-    /// On success: transitions to `Verified` and returns the current trust level.
-    /// On failure: returns the error without modifying state.
+ /// Verify a Biscuit token and update TrustLevel if valid (Req 8.3).
+ ///
+ /// On success: transitions to `Verified` and returns the current trust level.
+ /// On failure: returns the error without modifying state.
     pub fn verify_token(
         &mut self,
         token_bytes: &[u8],
         now_secs: i64,
     ) -> Result<TrustLevel, TirBaseError> {
-        // The device must not be in REVOKED state — a revoked device cannot re-verify.
+ // The device must not be in REVOKED state — a revoked device cannot re-verify.
         if self.trust_state.level() == TrustLevel::Revoked {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: "device is REVOKED; token verification is not permitted".to_string(),
             });
         }
 
-        // Try each registered root CA public key
+ // Try each registered root CA public key
         let ca_keys: Vec<[u8; 32]> = self.root_ca_registry.active_keys();
         let mut last_err: Option<TirBaseError> = None;
 
@@ -114,25 +114,25 @@ impl CapabilityManager {
         )
     }
 
-    /// Mark the token as expired and transition to UNVERIFIED (Req 8.4).
+ /// Mark the token as expired and transition to UNVERIFIED (Req 8.4).
     pub fn on_token_expired(&mut self, now_micros: i64) {
         self.trust_state.on_token_expired(now_micros);
     }
 
-    /// Present a Biscuit token for verification and update TrustLevel accordingly
-    /// (Req 8.3, 8.4, 8.8).
-    ///
-    /// - On success (token valid and not expired): transitions to `Verified` and
-    ///   returns `Verified`.
-    /// - On expiry (signature valid but `check_expiration_date` failed): calls
-    ///   `on_token_expired(now_micros)` to transition to `Unverified` and returns
-    ///   `Unverified` with a warning (Req 8.4).
-    /// - On any other failure (signature mismatch, parse error, etc.): returns
-    ///   `Unverified` without a state transition — the device remains at its
-    ///   current level but the operation is permitted with an UNVERIFIED warning
-    ///   (Req 8.8).
-    /// - If `root_ca_keys` is empty: returns `AuthorisationFailed` immediately
-    ///   (no keys registered, cannot verify).
+ /// Present a Biscuit token for verification and update TrustLevel accordingly
+ /// (Req 8.3, 8.4, 8.8).
+ ///
+ /// - On success (token valid and not expired): transitions to `Verified` and
+ /// returns `Verified`.
+ /// - On expiry (signature valid but `check_expiration_date` failed): calls
+ /// `on_token_expired(now_micros)` to transition to `Unverified` and returns
+ /// `Unverified` with a warning (Req 8.4).
+ /// - On any other failure (signature mismatch, parse error, etc.): returns
+ /// `Unverified` without a state transition — the device remains at its
+ /// current level but the operation is permitted with an UNVERIFIED warning
+ /// (Req 8.8).
+ /// - If `root_ca_keys` is empty: returns `AuthorisationFailed` immediately
+ /// (no keys registered, cannot verify).
     pub fn present_token(
         &mut self,
         token_bytes: &[u8],
@@ -151,7 +151,7 @@ impl CapabilityManager {
             match biscuit::verify_token_distinguish_expiry(token_bytes, ca_key, now_secs) {
                 Ok(claims) => {
                     self.trust_state.on_valid_token();
-                    // Store the token's real expiration time for the monitor loop (Req 8.4).
+ // Store the token's real expiration time for the monitor loop (Req 8.4).
                     self.current_token_expires_at = Some(claims.expires_at);
                     return Ok(self.trust_state.level());
                 }
@@ -179,75 +179,75 @@ impl CapabilityManager {
         Ok(TrustLevel::Unverified)
     }
 
-    /// Return the current TrustLevel of the local device (Req 2.4, 8.2).
+ /// Return the current TrustLevel of the local device (Req 2.4, 8.2).
     pub fn trust_level(&self) -> TrustLevel {
         self.trust_state.level()
     }
 
-    /// Return the expiration time (in seconds since epoch) of the currently
-    /// presented token, if any. Used by the token-expiry monitor loop to
-    /// determine whether to transition Verified → Unverified (Req 8.4).
+ /// Return the expiration time (in seconds since epoch) of the currently
+ /// presented token, if any. Used by the token-expiry monitor loop to
+ /// determine whether to transition Verified → Unverified (Req 8.4).
     pub fn current_token_expires_at(&self) -> Option<i64> {
         self.current_token_expires_at
     }
 
-    /// Apply the REVOKED trust level from a validated Revocation_Delta (Req 8.5, 9.4).
+ /// Apply the REVOKED trust level from a validated Revocation_Delta (Req 8.5, 9.4).
     pub fn apply_revocation(&mut self) -> Result<(), TirBaseError> {
         self.trust_state.on_revocation();
         self.last_revocation_ts = Some(current_timestamp_micros());
         Ok(())
     }
 
-    /// Return the UNVERIFIED warning if the device is currently unverified (Req 8.4).
-    ///
-    /// This warning must be attached to every operation response while in UNVERIFIED state.
+ /// Return the UNVERIFIED warning if the device is currently unverified (Req 8.4).
+ ///
+ /// This warning must be attached to every operation response while in UNVERIFIED state.
     pub fn unverified_warning(&self) -> Option<UnverifiedWarning> {
         self.trust_state.unverified_warning()
     }
 
-    /// Return a 1-of-1 configuration warning if applicable (Req 9.7).
-    ///
-    /// When M=1, N=1, a single Manager has unilateral exile power, which should
-    /// be surfaced to the operator at config load time.
+ /// Return a 1-of-1 configuration warning if applicable (Req 9.7).
+ ///
+ /// When M=1, N=1, a single Manager has unilateral exile power, which should
+ /// be surfaced to the operator at config load time.
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.revocation_m, self.revocation_n)
     }
 
-    /// Timestamp of the last revocation delta applied to this manager.
+ /// Timestamp of the last revocation delta applied to this manager.
     pub fn last_revocation_timestamp(&self) -> Option<i64> {
         self.last_revocation_ts
     }
 
-    /// Access the pending revocation store (for mesh gossip integration).
+ /// Access the pending revocation store (for mesh gossip integration).
     pub fn pending_revocations_mut(&mut self) -> &mut PendingRevocationStore {
         &mut self.pending_revocations
     }
 
-    /// Return the primary root CA public key for offline Biscuit token verification (Req 8.1).
-    ///
-    /// Returns `Some([u8; 32])` if at least one root CA key is registered, or `None` if
-    /// the registry is empty (e.g. not yet configured at init time for v1).
+ /// Return the primary root CA public key for offline Biscuit token verification (Req 8.1).
+ ///
+ /// Returns `Some([u8; 32])` if at least one root CA key is registered, or `None` if
+ /// the registry is empty (e.g. not yet configured at init time for v1).
     pub fn root_ca_primary_key(&self) -> Option<[u8; 32]> {
         self.root_ca_registry.primary_key().copied()
     }
 
-    /// Whether the deployment has explicitly accepted the >24h TTL risk (Req 8.7).
-    ///
-    /// Set when `biscuit_ttl_secs` exceeds 24h at init (which triggers the
-    /// `EXTENDED_TTL` diagnostic, Req 21.6).  When `true`, `create_token` can
-    /// mint tokens with TTLs beyond the default 24h cap (up to
-    /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`]).
+ /// Whether the deployment has explicitly accepted the >24h TTL risk (Req 8.7).
+ ///
+ /// Set when `biscuit_ttl_secs` exceeds 24h at init (which triggers the
+ /// `EXTENDED_TTL` diagnostic, Req 21.6). When `true`, `create_token` can
+ /// mint tokens with TTLs beyond the default 24h cap (up to
+ /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`]).
     pub fn extended_ttl_accepted_risk(&self) -> bool {
         self.extended_ttl_accepted_risk
     }
 
-    /// Mint a Biscuit token using the deployment's configured TTL and accepted-risk
-    /// flag (Req 8.7).  The token is signed by the deployment's root CA private key.
-    ///
-    /// The `ttl_secs` parameter overrides the configured `biscuit_ttl_secs` when
-    /// provided; otherwise the configured value is used.  The `extended_ttl_accepted_risk`
-    /// flag is passed through to `biscuit::create_token` so that tokens with TTL
-    /// > 24h are only created when the deployment has explicitly opted in.
+ /// Mint a Biscuit token using the deployment's configured TTL and accepted-risk
+ /// flag (Req 8.7). The token is signed by the deployment's root CA private key.
+ ///
+ /// The `ttl_secs` parameter overrides the configured `biscuit_ttl_secs` when
+ /// provided; otherwise the configured value is used. The `extended_ttl_accepted_risk`
+ /// flag is passed through to `biscuit::create_token` so that tokens with TTL
+ /// > 24h are only created when the deployment has explicitly opted in.
     pub fn mint_token(
         &self,
         did: &str,
@@ -265,15 +265,15 @@ impl CapabilityManager {
         )
     }
 
-    /// Register an additional root CA public key at runtime, and optionally
-    /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
-    ///
-    /// When `token_bytes` is `Some`, the token is verified immediately after
-    /// the key is registered, transitioning `TrustLevel` to `Verified` if valid.
-    /// Returns the current trust level after the operation.
-    ///
-    /// The key takes effect immediately for subsequent [`Self::verify_token`] calls
-    /// and is exposed via [`Self::root_ca_primary_key`] if it is the only/primary key.
+ /// Register an additional root CA public key at runtime, and optionally
+ /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
+ ///
+ /// When `token_bytes` is `Some`, the token is verified immediately after
+ /// the key is registered, transitioning `TrustLevel` to `Verified` if valid.
+ /// Returns the current trust level after the operation.
+ ///
+ /// The key takes effect immediately for subsequent [`Self::verify_token`] calls
+ /// and is exposed via [`Self::root_ca_primary_key`] if it is the only/primary key.
     pub(crate) fn register_root_ca_key(
         &mut self,
         key: [u8; 32],
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn test_on_token_expired_transitions_to_unverified_from_verified() {
         let mut mgr = CapabilityManager::new(vec![], 2, 3, false);
-        // Manually set to verified via trust_state
+ // Manually set to verified via trust_state
         mgr.trust_state.on_valid_token();
         assert_eq!(mgr.trust_level(), TrustLevel::Verified);
 
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_unverified_warning_present_when_unverified() {
         let mut mgr = make_manager(2, 3);
-        // Starts as Unverified but with no timestamp — need to trigger expiry
+ // Starts as Unverified but with no timestamp — need to trigger expiry
         mgr.trust_state.on_valid_token(); // VERIFIED
         mgr.on_token_expired(5_000_000); // UNVERIFIED
         let warning = mgr.unverified_warning();
@@ -389,7 +389,7 @@ mod tests {
     fn test_verify_token_with_valid_biscuit() {
         use biscuit_auth::{builder::Algorithm, KeyPair};
 
-        // Generate a root CA keypair for this test
+ // Generate a root CA keypair for this test
         let kp = KeyPair::new();
         let private_bytes = kp.private().to_bytes().to_vec();
         let public_bytes: [u8; 32] = kp
@@ -400,7 +400,7 @@ mod tests {
 
         let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
 
-        // Create a valid token
+ // Create a valid token
         let token_bytes =
             biscuit::create_token("did:key:z6MkTest", "admin", 3600, &private_bytes, false)
                 .expect("create_token should succeed");
@@ -457,7 +457,7 @@ mod tests {
 
         let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
 
-        // Create a token with 1h TTL, then present it far in the future.
+ // Create a token with 1h TTL, then present it far in the future.
         let token_bytes =
             biscuit::create_token("did:key:z6MkTest", "admin", 3600, &private_bytes, false)
                 .expect("create_token should succeed");
@@ -475,7 +475,7 @@ mod tests {
             "expired token should transition to UNVERIFIED"
         );
 
-        // Verify unverified_warning is present (Req 8.4)
+ // Verify unverified_warning is present (Req 8.4)
         let warning = mgr.unverified_warning();
         assert!(
             warning.is_some(),
@@ -509,7 +509,7 @@ mod tests {
 
         let mut mgr = CapabilityManager::new(vec![public_bytes], 2, 3, false);
 
-        // A completely bogus token — should fail signature verification.
+ // A completely bogus token — should fail signature verification.
         let result = mgr.present_token(b"not-a-real-token", 0);
         assert!(
             result.is_ok(),

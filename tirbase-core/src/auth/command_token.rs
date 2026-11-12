@@ -1,5 +1,5 @@
 //! Command-token verification and scope binding for the guard admit path
-//! (task 14.5, 14.6 — CLAIM-14.5, CLAIM-14.6, PV-3.2, PV-4.6).
+//! (CLAIM-14.5, CLAIM-14.6, PV-3.2, PV-4.6).
 //!
 //! Extends the base Biscuit token facts (`did`, `role`, `issued_at`,
 //! `expires_at`, `check_expiration_date`) with command-scope facts:
@@ -205,7 +205,7 @@ pub fn create_command_token(
             }
         })?;
     let keypair = KeyPair::from(&private_key);
-    // All clock reads go through the injected TimeSource (PV-3.12).
+ // All clock reads go through the injected TimeSource (PV-3.12).
     let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0).max(0) as u64;
     let expiry_secs = issued_secs + ttl_secs;
     let expiry = UNIX_EPOCH + Duration::from_secs(expiry_secs);

@@ -124,7 +124,7 @@ fn parse_signature(hex_s: &str) -> Result<DeviceSignature, ProfileTomlError> {
 fn toml_field_error(e: toml::de::Error) -> ProfileTomlError {
     let message = e.to_string();
     let mut field = "toml".to_string();
-    // toml errors often include `missing field `x`` or `unknown field `x``.
+ // toml errors often include `missing field `x`` or `unknown field `x``.
     for pat in [
         "missing field `",
         "unknown field `",
@@ -252,7 +252,7 @@ pub fn load_profile_from_path(path: &Path) -> Result<EnvelopeProfile, ProfileTom
 }
 
 /// Production install path (CLAIM-34.5): parse TOML, optionally sign/verify, and
-/// validate against device model via task 10.6 path.
+/// validate against device model via path.
 pub fn install_profile_toml(
     toml: &str,
     device_model: &DeviceModel,

@@ -17,15 +17,15 @@
 ## Detection and triage
 
 1. **Check mode and persistence:**
-   ```bash
-   printf '%s\n' '{"cmd":"mode"}' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
-   ```
-   Expect `Lockdown` when escalated; confirm indicators/logs.
+ ```bash
+ printf '%s\n' '{"cmd":"mode"}' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
+ ```
+ Expect `Lockdown` when escalated; confirm indicators/logs.
 2. **Collect diagnostics (no secret material):**
-   - Service supervisor logs (systemd/journald), crash timestamps/count.
-   - `tirbase-admin verify-log --db-path /var/lib/tirbase/primary.db --json`
-   - `sqlite3 /var/lib/tirbase/primary.db "PRAGMA quick_check;"`
-   - Recent security events (export) for `EnteredLockdown`, crash/fault reasons.
+ - Service supervisor logs (systemd/journald), crash timestamps/count.
+ - `tirbase-admin verify-log --db-path /var/lib/tirbase/primary.db --json`
+ - `sqlite3 /var/lib/tirbase/primary.db "PRAGMA quick_check;"`
+ - Recent security events (export) for `EnteredLockdown`, crash/fault reasons.
 3. **Identify fault class:** config/DB corruption, resource exhaustion, bad deployment, hardware fault, or security-induced failure. If tamper/rollback suspected, switch to `docs/runbooks/tamper.md` or `docs/runbooks/restore.md`.
 
 ## Stabilization

@@ -12,7 +12,7 @@
 
 ## Expected behavior in UNVERIFIED freshness
 
-- `TimeRatchet::freshness()` reports `Unverified` when beacons are stale or after reboot before new-beacon binding to current boot context (per ratchet state). `now_est` is floored at `persisted_floor` (never decreases; no monotonic subtraction across boot boundary) — S31.
+- `TimeRatchet::freshness` reports `Unverified` when beacons are stale or after reboot before new-beacon binding to current boot context (per ratchet state). `now_est` is floored at `persisted_floor` (never decreases; no monotonic subtraction across boot boundary) — S31.
 - **Critical-parameter commands** require challenge nonce / freshness gating per policy (Stage 9 / PV-22.3); non-critical handling follows configured freshness policy. Do not assume wall clock correctness.
 - Expired/withheld commands are rejected based on `now_est` even if wall clock is manipulated backwards (S19).
 

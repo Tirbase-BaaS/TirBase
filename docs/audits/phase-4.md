@@ -16,11 +16,11 @@ Task sections 22.x, 23.x, 24.x: 17 acceptance-criterion rows (17 complete, 0 ope
 Every row was traced against the repository; nothing was accepted on assertion. The audit:
 
 1. resolves each declared production-caller path on disk and each cited symbol to its
-   definition site (`file:line`);
+ definition site (`file:line`);
 2. resolves test identifiers in this order: a claim-named test (`claim_<task>`), a test
-   named in the task entry, the closest test in a test file named in the task entry, then
-   the test location committed in `docs/traceability-matrix.md` for the task's PV
-   requirement;
+ named in the task entry, the closest test in a test file named in the task entry, then
+ the test location committed in `docs/traceability-matrix.md` for the task's PV
+ requirement;
 3. records tasks with an open checkbox as `NOT IMPLEMENTED` or `BLOCKED` — never as verified.
 
 Evidence classes in the status column:
@@ -37,11 +37,11 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 
 | Task | Acceptance criterion (task) | Req | Production call site | Test evidence | Status |
 |---|---|---|---|---|---|
-| 22.1 | Implement validate_start_op() in tirbase-core/src/crdt/hardening.rs: expected = 1 + max(dep.start_op + dep.len… | PV-6.1 | `tirbase-core/src/crdt/hardening.rs:83` (`validate_start_op`)<br>`tirbase-core/src/crdt/mod.rs:619` (`hardening`) | — | TRACED-CALLER |
+| 22.1 | Implement validate_start_op in tirbase-core/src/crdt/hardening.rs: expected = 1 + max(dep.start_op + dep.len… | PV-6.1 | `tirbase-core/src/crdt/hardening.rs:83` (`validate_start_op`)<br>`tirbase-core/src/crdt/mod.rs:619` (`hardening`) | — | TRACED-CALLER |
 | 22.2 | Add characterization test: apply delta with inflated start_op to unprotected baseline; record that it wins eve… | PV-6.2 | `docs/perf-baseline.md:1` | — | TRACED-ARTIFACT |
-| 22.3 | Add regression test: same inflated start_op delta is quarantined to Schema_Quarantine_Ledger after validate_st… | PV-6.2 | `tirbase-gateway/tests/task19_applied_effects_ledger.rs:1` | — | TRACED-CALLER |
+| 22.3 | Add regression test: same inflated start_op delta is quarantined to Schema_Quarantine_Ledger after validate_st… | PV-6.2 | `tirbase-gateway/tests/applied_effects_ledger.rs:1` | — | TRACED-CALLER |
 | 22.4 | Add property test (P16): honest Automerge histories with valid dependency chains always pass validate_start_op… | PV-6.1 | `docs/releases/dependency-review.md:1` | — | TRACED-ARTIFACT |
-| 22.5 | Scenario S4 (CRDT clock/start_op poisoning) is wired in tirbase-sim and passing before CRDT hardening task 22 … | PV-12.5, PV-6.1 | `tirbase-sim/src/scenarios/s4_clock_poisoning.rs:24` | — | TRACED-CALLER |
+| 22.5 | Scenario S4 (CRDT clock/start_op poisoning) is wired in tirbase-sim and passing before CRDT hardening … | PV-12.5, PV-6.1 | `tirbase-sim/src/scenarios/s4_clock_poisoning.rs:24` | — | TRACED-CALLER |
 | 23.1 | Implement bounded pending queue: BTreeMap<DeltaId, (Delta, received_at_mono)>, 24h age-out (configurable up to… | PV-6.1 | `tirbase-core/src/crdt/merge.rs:35` | `tirbase-core/src/api/mod.rs:15112` (`claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival`) | VERIFIED-BY-TRACE |
 | 23.2 | Implement PENDING_QUEUE_OVERFLOW quarantine when byte cap is exceeded | PV-6.1 | `tirbase-core/src/crdt/merge.rs:35` | `tirbase-core/src/api/mod.rs:15201` (`claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine`) | VERIFIED-BY-TRACE |
 | 23.3 | Implement Schema_Quarantine_Ledger (replayable, requires PolicyAuthority signature for replay): schema_quarant… | PV-6.7 | `tirbase-core/src/crdt/hardening.rs:619` | `tirbase-core/src/api/mod.rs:15262` (`claim_23_3_schema_quarantine_ledger_records_replayable_reasons`) | VERIFIED-BY-TRACE |
@@ -53,7 +53,7 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 | 24.3 | Add cargo-fuzz targets: automerge_delta_decode and fragment_reassembly; each must have at least one committed … | PV-6.6 | `tirbase-core/src/crdt/delta.rs:96` (`Delta`)<br>`tirbase-core/src/transport/message.rs:16` (`GossipMessage`)<br>`tirbase-core/src/transport/fragment.rs:32` (`fragment`) | — | TRACED-CALLER |
 | 24.4 | Add CI fuzz target registry rule: compare list of untrusted-input parsers in tirbase-core and driver crates ag… | PV-6.8 | `.github/workflows/ci.yml:607` | — | TRACED-ARTIFACT |
 | 24.5 | Create memory-budget ledger: docs/memory-budget.md summing all configured caps against the RSS budget target (… | PV-6.5, PV-15 | `docs/memory-budget.md:1` | `tirbase-core/tests/memory_budget_gate.rs:58` (`configured_caps_load_and_peak_rss_stays_under_budget`) | TRACED-TEST |
-| 24.6 | Scenario S4 (clock poisoning) must be wired in tirbase-sim and passing before CRDT hardening (tasks 22–24) is … | PV-12.5 | `tirbase-sim/src/scenarios/s4_clock_poisoning.rs:24` | — | TRACED-CALLER |
+| 24.6 | Scenario S4 (clock poisoning) must be wired in tirbase-sim and passing before CRDT hardening (24) is … | PV-12.5 | `tirbase-sim/src/scenarios/s4_clock_poisoning.rs:24` | — | TRACED-CALLER |
 
 ## Gaps and open items
 

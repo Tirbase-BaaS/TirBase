@@ -197,7 +197,7 @@ pub tirbase_drivers::driver_trait::DeviceModel::device_class: alloc::string::Str
 pub tirbase_drivers::driver_trait::DeviceModel::parameters: alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>
 impl tirbase_drivers::driver_trait::DeviceModel
 pub fn tirbase_drivers::driver_trait::DeviceModel::try_new(alloc::string::String, alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>) -> core::result::Result<Self, tirbase_drivers::driver_trait::EmptyDeviceModelError>
-pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<(), tirbase_drivers::driver_trait::EmptyDeviceModelError>
+pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<, tirbase_drivers::driver_trait::EmptyDeviceModelError>
 impl core::clone::Clone for tirbase_drivers::driver_trait::DeviceModel
 pub fn tirbase_drivers::driver_trait::DeviceModel::clone(&self) -> tirbase_drivers::driver_trait::DeviceModel
 impl core::cmp::Eq for tirbase_drivers::driver_trait::DeviceModel
@@ -434,7 +434,7 @@ pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
-pub fn tirbase_drivers::driver_trait::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
+pub fn tirbase_drivers::driver_trait::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce -> tirbase_drivers::driver_trait::DriverResult<T>
 pub type tirbase_drivers::driver_trait::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
 pub type tirbase_drivers::driver_trait::Frame = alloc::vec::Vec<u8>
 pub mod tirbase_drivers::isolation
@@ -606,11 +606,11 @@ impl<T> core::convert::From<T> for tirbase_drivers::isolation::KernelIsolationCa
 pub fn tirbase_drivers::isolation::KernelIsolationCaps::from(T) -> T
 pub const tirbase_drivers::isolation::DEGRADED_ISOLATION_OPT_IN_FLAG: &str
 pub const tirbase_drivers::isolation::DRIVER_SOCKET_FD_ARG: &str
-pub fn tirbase_drivers::isolation::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
-pub fn tirbase_drivers::isolation::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::create_driver_socketpair -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::recv_fd_via_scm_rights(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
-pub fn tirbase_drivers::isolation::send_fd_via_scm_rights(i32, i32) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::isolation::send_fd_via_scm_rights(i32, i32) -> core::result::Result<, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::isolation::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
 pub mod tirbase_drivers::lifecycle
 pub enum tirbase_drivers::lifecycle::DriverRestartDecision
@@ -668,7 +668,7 @@ pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_stable(&mut self)
 impl core::clone::Clone for tirbase_drivers::lifecycle::DriverLifecycle
 pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone(&self) -> tirbase_drivers::lifecycle::DriverLifecycle
 impl core::default::Default for tirbase_drivers::lifecycle::DriverLifecycle
-pub fn tirbase_drivers::lifecycle::DriverLifecycle::default() -> Self
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::default -> Self
 impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverLifecycle
 pub fn tirbase_drivers::lifecycle::DriverLifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverLifecycle
@@ -939,8 +939,8 @@ pub fn tirbase_drivers::modbus::ModbusTcpCodec::from(T) -> T
 pub fn tirbase_drivers::modbus::build_rtu_frame(u8, &[u8]) -> tirbase_drivers::driver_trait::Frame
 pub fn tirbase_drivers::modbus::crc16_rtu(&[u8]) -> u16
 pub fn tirbase_drivers::modbus::decode_read_registers_response(&[u8], u8) -> tirbase_drivers::driver_trait::DriverResult<alloc::vec::Vec<u16>>
-pub fn tirbase_drivers::modbus::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
-pub fn tirbase_drivers::modbus::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::modbus::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<>
+pub fn tirbase_drivers::modbus::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<>
 pub fn tirbase_drivers::modbus::parse_exception(&[u8]) -> core::option::Option<(u8, u8)>
 pub fn tirbase_drivers::modbus::parse_rtu_frame(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<(u8, alloc::vec::Vec<u8>)>
 pub fn tirbase_drivers::modbus::parse_tcp_adu(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::modbus::ModbusTcpAdu>
@@ -1041,11 +1041,11 @@ pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_puback(&self, &[u8]) -> co
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>), tirbase_drivers::driver_trait::DriverError>
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_drivers::driver_trait::Frame
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_drivers::driver_trait::Frame, tirbase_drivers::driver_trait::DriverError>
-pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new() -> Self
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new -> Self
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeCodec
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeCodec
 impl core::default::Default for tirbase_drivers::mqtt::MqttBridgeCodec
-pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default() -> tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default -> tirbase_drivers::mqtt::MqttBridgeCodec
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeCodec
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeCodec
@@ -1082,7 +1082,7 @@ pub tirbase_drivers::mqtt::MqttConnectConfig::client_id: alloc::string::String
 pub tirbase_drivers::mqtt::MqttConnectConfig::tls_configured: bool
 pub tirbase_drivers::mqtt::MqttConnectConfig::uri: alloc::string::String
 impl tirbase_drivers::mqtt::MqttConnectConfig
-pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttSecurityError>
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<, tirbase_drivers::mqtt::MqttSecurityError>
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttConnectConfig
 pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone(&self) -> tirbase_drivers::mqtt::MqttConnectConfig
 impl core::cmp::Eq for tirbase_drivers::mqtt::MqttConnectConfig
@@ -1266,7 +1266,7 @@ impl core::cmp::Eq for tirbase_drivers::register_map::ModbusRegisterMap
 impl core::cmp::PartialEq for tirbase_drivers::register_map::ModbusRegisterMap
 pub fn tirbase_drivers::register_map::ModbusRegisterMap::eq(&self, &tirbase_drivers::register_map::ModbusRegisterMap) -> bool
 impl core::default::Default for tirbase_drivers::register_map::ModbusRegisterMap
-pub fn tirbase_drivers::register_map::ModbusRegisterMap::default() -> tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::default -> tirbase_drivers::register_map::ModbusRegisterMap
 impl core::fmt::Debug for tirbase_drivers::register_map::ModbusRegisterMap
 pub fn tirbase_drivers::register_map::ModbusRegisterMap::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::ModbusRegisterMap
@@ -1860,7 +1860,7 @@ pub tirbase_drivers::DeviceModel::device_class: alloc::string::String
 pub tirbase_drivers::DeviceModel::parameters: alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>
 impl tirbase_drivers::driver_trait::DeviceModel
 pub fn tirbase_drivers::driver_trait::DeviceModel::try_new(alloc::string::String, alloc::vec::Vec<tirbase_drivers::driver_trait::ParameterDescriptor>) -> core::result::Result<Self, tirbase_drivers::driver_trait::EmptyDeviceModelError>
-pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<(), tirbase_drivers::driver_trait::EmptyDeviceModelError>
+pub fn tirbase_drivers::driver_trait::DeviceModel::validate(&self) -> core::result::Result<, tirbase_drivers::driver_trait::EmptyDeviceModelError>
 impl core::clone::Clone for tirbase_drivers::driver_trait::DeviceModel
 pub fn tirbase_drivers::driver_trait::DeviceModel::clone(&self) -> tirbase_drivers::driver_trait::DeviceModel
 impl core::cmp::Eq for tirbase_drivers::driver_trait::DeviceModel
@@ -1947,7 +1947,7 @@ pub fn tirbase_drivers::lifecycle::DriverLifecycle::record_stable(&mut self)
 impl core::clone::Clone for tirbase_drivers::lifecycle::DriverLifecycle
 pub fn tirbase_drivers::lifecycle::DriverLifecycle::clone(&self) -> tirbase_drivers::lifecycle::DriverLifecycle
 impl core::default::Default for tirbase_drivers::lifecycle::DriverLifecycle
-pub fn tirbase_drivers::lifecycle::DriverLifecycle::default() -> Self
+pub fn tirbase_drivers::lifecycle::DriverLifecycle::default -> Self
 impl core::fmt::Debug for tirbase_drivers::lifecycle::DriverLifecycle
 pub fn tirbase_drivers::lifecycle::DriverLifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::lifecycle::DriverLifecycle
@@ -2243,7 +2243,7 @@ impl core::cmp::Eq for tirbase_drivers::register_map::ModbusRegisterMap
 impl core::cmp::PartialEq for tirbase_drivers::register_map::ModbusRegisterMap
 pub fn tirbase_drivers::register_map::ModbusRegisterMap::eq(&self, &tirbase_drivers::register_map::ModbusRegisterMap) -> bool
 impl core::default::Default for tirbase_drivers::register_map::ModbusRegisterMap
-pub fn tirbase_drivers::register_map::ModbusRegisterMap::default() -> tirbase_drivers::register_map::ModbusRegisterMap
+pub fn tirbase_drivers::register_map::ModbusRegisterMap::default -> tirbase_drivers::register_map::ModbusRegisterMap
 impl core::fmt::Debug for tirbase_drivers::register_map::ModbusRegisterMap
 pub fn tirbase_drivers::register_map::ModbusRegisterMap::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_drivers::register_map::ModbusRegisterMap
@@ -2380,11 +2380,11 @@ pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_puback(&self, &[u8]) -> co
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>), tirbase_drivers::driver_trait::DriverError>
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_drivers::driver_trait::Frame
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_drivers::mqtt::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_drivers::driver_trait::Frame, tirbase_drivers::driver_trait::DriverError>
-pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new() -> Self
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::new -> Self
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeCodec
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeCodec
 impl core::default::Default for tirbase_drivers::mqtt::MqttBridgeCodec
-pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default() -> tirbase_drivers::mqtt::MqttBridgeCodec
+pub fn tirbase_drivers::mqtt::MqttBridgeCodec::default -> tirbase_drivers::mqtt::MqttBridgeCodec
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeCodec
 pub fn tirbase_drivers::mqtt::MqttBridgeCodec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeCodec
@@ -2421,7 +2421,7 @@ pub tirbase_drivers::MqttConnectConfig::client_id: alloc::string::String
 pub tirbase_drivers::MqttConnectConfig::tls_configured: bool
 pub tirbase_drivers::MqttConnectConfig::uri: alloc::string::String
 impl tirbase_drivers::mqtt::MqttConnectConfig
-pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttSecurityError>
+pub fn tirbase_drivers::mqtt::MqttConnectConfig::validate_tls_required(&self) -> core::result::Result<, tirbase_drivers::mqtt::MqttSecurityError>
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttConnectConfig
 pub fn tirbase_drivers::mqtt::MqttConnectConfig::clone(&self) -> tirbase_drivers::mqtt::MqttConnectConfig
 impl core::cmp::Eq for tirbase_drivers::mqtt::MqttConnectConfig
@@ -2672,22 +2672,22 @@ pub fn tirbase_drivers::modbus::ModbusTcpCodec::decode_read_response(&self, &[u8
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_actuation(&self, &tirbase_drivers::driver_trait::ActuationPermitRef) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_health_check(&self) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
 pub fn tirbase_drivers::modbus::ModbusTcpCodec::encode_read(&self, &str) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::driver_trait::Frame>
-pub fn tirbase_drivers::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::apply_child_sandbox(tirbase_drivers::isolation::KernelIsolationCaps, bool) -> core::result::Result<, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::apply_restart_decision<S: tirbase_drivers::lifecycle::DriverCrashSupervisor + ?core::marker::Sized>(tirbase_drivers::lifecycle::DriverRestartDecision, &S)
 pub fn tirbase_drivers::build_rtu_frame(u8, &[u8]) -> tirbase_drivers::driver_trait::Frame
 pub fn tirbase_drivers::connect_tls_only(&tirbase_drivers::mqtt::MqttConnectConfig) -> core::result::Result<tirbase_drivers::mqtt::TlsValidatedEndpoint, tirbase_drivers::mqtt::MqttSecurityError>
 pub fn tirbase_drivers::crc16_rtu(&[u8]) -> u16
-pub fn tirbase_drivers::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::create_driver_socketpair -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::decode_read_registers_response(&[u8], u8) -> tirbase_drivers::driver_trait::DriverResult<alloc::vec::Vec<u16>>
-pub fn tirbase_drivers::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
-pub fn tirbase_drivers::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<()>
+pub fn tirbase_drivers::decode_write_multiple_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<>
+pub fn tirbase_drivers::decode_write_single_response(&[u8], u16, u16) -> tirbase_drivers::driver_trait::DriverResult<>
 pub fn tirbase_drivers::parse_exception(&[u8]) -> core::option::Option<(u8, u8)>
 pub fn tirbase_drivers::parse_rtu_frame(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<(u8, alloc::vec::Vec<u8>)>
 pub fn tirbase_drivers::parse_tcp_adu(&[u8]) -> tirbase_drivers::driver_trait::DriverResult<tirbase_drivers::modbus::ModbusTcpAdu>
 pub fn tirbase_drivers::recv_fd_via_scm_rights(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
-pub fn tirbase_drivers::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce() -> tirbase_drivers::driver_trait::DriverResult<T>
+pub fn tirbase_drivers::run_with_timeout<T, F>(&'static str, F) -> tirbase_drivers::driver_trait::DriverResult<T> where F: core::ops::function::FnOnce -> tirbase_drivers::driver_trait::DriverResult<T>
 pub fn tirbase_drivers::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
-pub fn tirbase_drivers::send_fd_via_scm_rights(i32, i32) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
+pub fn tirbase_drivers::send_fd_via_scm_rights(i32, i32) -> core::result::Result<, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
 pub type tirbase_drivers::DriverResult<T> = core::result::Result<T, tirbase_drivers::driver_trait::DriverError>
 pub type tirbase_drivers::Frame = alloc::vec::Vec<u8>

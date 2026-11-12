@@ -2,8 +2,8 @@
 
 > **Disclaimer (cannot-claim-compliance):** This document is an internal evidence aid only. It does **not** constitute, claim, or imply certification, conformity assessment, or compliance with IEC 62443 (including IEC 62443-4-1 and IEC 62443-4-2), or any other standard or regulation. No external publication, customer representation, or regulatory submission may be made using this document without prior review and written approval by qualified legal counsel.
 
-**Release reviewed against:** `<fill at release>`  
-**Last reviewed (UTC):** `<YYYY-MM-DD>`  
+**Release reviewed against:** `<fill at release>` 
+**Last reviewed (UTC):** `<YYYY-MM-DD>` 
 **Scope:** TirBase gateway/guard/core components relevant to secure product development lifecycle (4-1 oriented) and component technical security capabilities (4-2 oriented) as implemented in this repository.
 
 ## Method

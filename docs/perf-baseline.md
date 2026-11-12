@@ -2,7 +2,7 @@
 
 > **Measure-first policy:** numerical budgets are set at **120% of measured baseline** (20% headroom) on the reference hardware profile defined in `docs/reference-hardware.md` (profile **a** unless noted). This document is the committed record of baseline measurements and derived budgets.
 
-**Release reviewed against:** `<fill at release>`  
+**Release reviewed against:** `<fill at release>` 
 **Last reviewed (UTC):** `<YYYY-MM-DD>`
 
 ## Measurement status
@@ -47,12 +47,12 @@ cargo bench -p tirbase-core --bench core_iai
 
 | Benchmark | Baseline (median/p50) | Budget (120%) | Env (host/arch/commit) | Date |
 |---|---:|---:|---|---|
-| guard_decision_profile_signing_bytes | _TBD (profile a)_ | _TBD_ | RPi 4B 1GB / _arch_ / _commit_ |  |
-| ed25519_signature_verify (guard) | _TBD_ | _TBD_ | RPi 4B 1GB |  |
-| effects_ledger_write_sync_full | _TBD_ | _TBD_ | RPi 4B 1GB |  |
-| effects_ledger_write_sync_normal_group_commit | _TBD_ | _TBD_ | RPi 4B 1GB |  |
-| delta_apply_automerge_save_load | _TBD_ | _TBD_ | RPi 4B 1GB |  |
-| core_ed25519_signature_verify | _TBD_ | _TBD_ | RPi 4B 1GB |  |
+| guard_decision_profile_signing_bytes | _TBD (profile a)_ | _TBD_ | RPi 4B 1GB / _arch_ / _commit_ | |
+| ed25519_signature_verify (guard) | _TBD_ | _TBD_ | RPi 4B 1GB | |
+| effects_ledger_write_sync_full | _TBD_ | _TBD_ | RPi 4B 1GB | |
+| effects_ledger_write_sync_normal_group_commit | _TBD_ | _TBD_ | RPi 4B 1GB | |
+| delta_apply_automerge_save_load | _TBD_ | _TBD_ | RPi 4B 1GB | |
+| core_ed25519_signature_verify | _TBD_ | _TBD_ | RPi 4B 1GB | |
 
 ### iai-callgrind instruction-count baselines (committed)
 

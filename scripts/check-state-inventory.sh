@@ -4,7 +4,7 @@
 # The gate derives the list of stateful types from production source instead of
 # trusting hand-written annotations: every named-field `struct` under the
 # production source roots must have a row in docs/state-inventory.md that names
-# both the struct and its file.  Adding an unlisted struct fails the gate.
+# both the struct and its file. Adding an unlisted struct fails the gate.
 #
 # Usage: bash scripts/check-state-inventory.sh [INVENTORY_PATH]
 set -euo pipefail

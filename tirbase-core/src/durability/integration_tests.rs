@@ -1,4 +1,4 @@
-//! Integration tests for Cloud Ledger sync (Task 13 — Req 16.1–16.8).
+//! Integration tests for Cloud Ledger sync (Req 16.1–16.8).
 //!
 //! These tests exercise the full sync pipeline:
 //! - Two in-process "peer" devices produce Deltas and enqueue them.
@@ -56,9 +56,9 @@ fn make_engine(secret: [u8; 32], did: String, schema: SchemaIdentifierHash) -> C
 
 /// Produce a signed Delta using a `CrdtEngine`.
 fn produce_delta(engine: &mut CrdtEngine, _payload_label: Vec<u8>) -> Delta {
-    // Use empty Automerge bytes — the CrdtEngine treats empty bytes as a no-op
-    // merge (see `merge_automerge_bytes`), which is consistent with how all
-    // existing CRDT unit tests produce test Deltas.
+ // Use empty Automerge bytes — the CrdtEngine treats empty bytes as a no-op
+ // merge (see `merge_automerge_bytes`), which is consistent with how all
+ // existing CRDT unit tests produce test Deltas.
     engine
         .produce_delta(vec![], PriorityClass::Low, vec![])
         .expect("produce_delta")
@@ -82,37 +82,37 @@ fn enqueue(queue: &mut CloudOutboundQueue, delta: &Delta) {
 
 // ─── Test 1: Basic sync — peer produces Deltas, ledger merges them ────────────
 
-/// Two in-process peers each produce a Delta.  Both are enqueued in the
-/// outbound queue and synced to the Cloud Ledger.  After `cloud_sync_loop`
+/// Two in-process peers each produce a Delta. Both are enqueued in the
+/// outbound queue and synced to the Cloud Ledger. After `cloud_sync_loop`
 /// completes the queue must be empty and both Deltas committed on the ledger
 /// (Req 16.3, 16.1).
 #[test]
 fn two_peers_sync_to_cloud_ledger() {
     let schema = test_schema();
 
-    // Peer A
+ // Peer A
     let (secret_a, _, did_a) = make_identity();
     let mut engine_a = make_engine(secret_a, did_a.clone(), schema);
 
-    // Peer B
+ // Peer B
     let (secret_b, _, did_b) = make_identity();
     let mut engine_b = make_engine(secret_b, did_b.clone(), schema);
 
     let delta_a = produce_delta(&mut engine_a, b"report-a".to_vec());
     let delta_b = produce_delta(&mut engine_b, b"report-b".to_vec());
 
-    // Build outbound queue with both Deltas.
+ // Build outbound queue with both Deltas.
     let mut queue = CloudOutboundQueue::new();
     enqueue(&mut queue, &delta_a);
     enqueue(&mut queue, &delta_b);
     assert_eq!(queue.depth(), 2);
 
-    // Cloud Ledger (uses its own identity and accepts the same schema).
+ // Cloud Ledger (uses its own identity and accepts the same schema).
     let (ledger_secret, _, ledger_did) = make_identity();
     let mut ledger =
         CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
-    // Run sync loop.
+ // Run sync loop.
     let mut conn = CloudLedgerConnection::new(&mut ledger);
     let result = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
 
@@ -147,11 +147,11 @@ fn idempotent_resubmit_does_not_duplicate() {
     let mut ledger =
         CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
-    // First submission.
+ // First submission.
     let out1 = ledger.receive_delta(&delta).unwrap();
     assert_eq!(out1, ReceiveOutcome::Committed);
 
-    // Second submission — same Delta.
+ // Second submission — same Delta.
     let out2 = ledger.receive_delta(&delta).unwrap();
     assert_eq!(
         out2,
@@ -167,7 +167,7 @@ fn idempotent_resubmit_does_not_duplicate() {
 }
 
 /// Same scenario exercised through the full `cloud_sync_loop` path:
-/// enqueue the same Delta twice and run the loop twice.  The second run
+/// enqueue the same Delta twice and run the loop twice. The second run
 /// should ack 0 entries (already removed on first run) and the ledger
 /// should still have exactly 1 committed Delta.
 #[test]
@@ -184,7 +184,7 @@ fn sync_loop_idempotent_after_ack() {
     let mut queue = CloudOutboundQueue::new();
     enqueue(&mut queue, &delta);
 
-    // First run — Delta acked and removed from queue.
+ // First run — Delta acked and removed from queue.
     {
         let mut conn = CloudLedgerConnection::new(&mut ledger);
         let r = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
@@ -192,10 +192,10 @@ fn sync_loop_idempotent_after_ack() {
     }
     assert_eq!(queue.depth(), 0);
 
-    // Enqueue the same Delta again (simulating a retry after lost network ack).
+ // Enqueue the same Delta again (simulating a retry after lost network ack).
     enqueue(&mut queue, &delta);
 
-    // Second run — the CloudLedger returns AlreadyCommitted → loop still acks.
+ // Second run — the CloudLedger returns AlreadyCommitted → loop still acks.
     {
         let mut conn = CloudLedgerConnection::new(&mut ledger);
         let r = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
@@ -221,10 +221,10 @@ fn rejected_delta_retained_for_retry() {
     let mut engine = make_engine(secret, did.clone(), schema);
     let mut delta = produce_delta(&mut engine, b"tampered-report".to_vec());
 
-    // Tamper with the bytes AFTER signing so the signature is invalid.
+ // Tamper with the bytes AFTER signing so the signature is invalid.
     delta.automerge_bytes = vec![0xDE, 0xAD, 0xBE, 0xEF];
-    // (The delta.id still reflects the original canonical bytes, but the
-    //  signature no longer matches — the ledger will reject it.)
+ // (The delta.id still reflects the original canonical bytes, but the
+ // signature no longer matches — the ledger will reject it.)
 
     let (ledger_secret, _, ledger_did) = make_identity();
     let mut ledger =
@@ -240,7 +240,7 @@ fn rejected_delta_retained_for_retry() {
     assert_eq!(result.acknowledged, 0);
     assert_eq!(queue.depth(), 1, "rejected Delta must be retained in queue");
 
-    // The ledger logged the rejection.
+ // The ledger logged the rejection.
     assert_eq!(ledger.rejection_log.len(), 1);
     assert!(
         !ledger.is_committed(&delta.id),
@@ -249,7 +249,7 @@ fn rejected_delta_retained_for_retry() {
 }
 
 /// Selective rejection: two Deltas in the queue; the first is valid, the
-/// second is tampered.  The loop must ack the first and retain the second.
+/// second is tampered. The loop must ack the first and retain the second.
 #[test]
 fn partial_rejection_acks_valid_retains_invalid() {
     let schema = test_schema();
@@ -278,10 +278,10 @@ fn partial_rejection_acks_valid_retains_invalid() {
     assert_eq!(result.rejected, 1);
     assert_eq!(queue.depth(), 1, "only bad Delta retained");
 
-    // The remaining entry in the queue is the bad Delta.
+ // The remaining entry in the queue is the bad Delta.
     let remaining = queue.find(&bad_delta.id);
     assert!(remaining.is_some(), "bad Delta must still be in queue");
-    // Valid Delta removed.
+ // Valid Delta removed.
     assert!(
         queue.find(&valid_delta.id).is_none(),
         "valid Delta removed from queue"
@@ -310,7 +310,7 @@ fn append_only_committed_set_never_shrinks() {
         ledger.receive_delta(&delta).expect("receive");
         delta_ids.push(id);
 
-        // After each commit, all previously committed IDs must still be present.
+ // After each commit, all previously committed IDs must still be present.
         for prev_id in &delta_ids {
             assert!(
                 ledger.is_committed(prev_id),
@@ -336,10 +336,10 @@ fn cloud_ledger_rejects_same_invalid_delta_as_client_engine() {
     let mut engine = make_engine(secret, did.clone(), schema);
 
     let mut delta = produce_delta(&mut engine, b"real-data".to_vec());
-    // Tamper with the payload.
+ // Tamper with the payload.
     delta.automerge_bytes = vec![0xBA, 0xD0];
 
-    // Client-side engine.
+ // Client-side engine.
     let (peer_secret, _, peer_did) = make_identity();
     let mut peer_engine = make_engine(peer_secret, peer_did, schema);
     let peer_outcome = peer_engine.apply(&delta).unwrap();
@@ -351,7 +351,7 @@ fn cloud_ledger_rejects_same_invalid_delta_as_client_engine() {
         "client engine must reject tampered Delta: {peer_outcome:?}"
     );
 
-    // Cloud Ledger.
+ // Cloud Ledger.
     let (ledger_secret, _, ledger_did) = make_identity();
     let mut ledger =
         CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
@@ -376,24 +376,24 @@ fn sync_loop_sends_parent_before_child() {
     let (secret, _, did) = make_identity();
     let mut engine = make_engine(secret, did, schema);
 
-    // Produce parent Delta first.
+ // Produce parent Delta first.
     let parent = produce_delta(&mut engine, b"parent".to_vec());
-    // Child references the parent.
+ // Child references the parent.
     let child_delta = engine
         .produce_delta(b"child".to_vec(), PriorityClass::Low, vec![parent.id])
         .expect("child delta");
 
-    // Enqueue in REVERSE causal order (child first, parent second).
-    // The topological sort in cloud_sync_loop must correct this.
+ // Enqueue in REVERSE causal order (child first, parent second).
+ // The topological sort in cloud_sync_loop must correct this.
     let mut queue = CloudOutboundQueue::new();
-    // Child first (wrong order).
+ // Child first (wrong order).
     let child_entry = QueueEntry::new(
         child_delta.id,
         serialise_delta(&child_delta),
         child_delta.causal_parents.clone(), // [parent.id]
     );
     queue.enqueue(child_entry).expect("enqueue child");
-    // Parent second (wrong order).
+ // Parent second (wrong order).
     let parent_entry = QueueEntry::new(
         parent.id,
         serialise_delta(&parent),
@@ -401,7 +401,7 @@ fn sync_loop_sends_parent_before_child() {
     );
     queue.enqueue(parent_entry).expect("enqueue parent");
 
-    // Capture transmission order.
+ // Capture transmission order.
     let transmitted: Arc<Mutex<Vec<DeltaId>>> = Arc::new(Mutex::new(Vec::new()));
     let transmitted_clone = Arc::clone(&transmitted);
 
@@ -425,7 +425,7 @@ fn sync_loop_sends_parent_before_child() {
 
     let order = transmitted.lock().unwrap().clone();
     assert_eq!(order.len(), 2);
-    // Parent must come before child.
+ // Parent must come before child.
     let parent_pos = order.iter().position(|id| *id == parent.id).unwrap();
     let child_pos = order.iter().position(|id| *id == child_delta.id).unwrap();
     assert!(
@@ -446,7 +446,7 @@ fn compacted_delta_is_fetched_and_sent() {
 
     let delta_id: DeltaId = [0x42u8; 32];
 
-    // Pre-bake a Delta for the refetch to return.
+ // Pre-bake a Delta for the refetch to return.
     let schema = test_schema();
     let (secret, _, did) = make_identity();
     let mut engine = make_engine(secret, did, schema);
@@ -458,12 +458,12 @@ fn compacted_delta_is_fetched_and_sent() {
         CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
     let mut queue = CloudOutboundQueue::new();
-    // Compacted entry — no bytes, has a receipt holder.
+ // Compacted entry — no bytes, has a receipt holder.
     let compacted_entry =
         QueueEntry::new_compacted(real_delta.id, vec![], vec!["did:key:holder1".to_string()]);
     queue.enqueue(compacted_entry).expect("enqueue compacted");
 
-    // Refetch returns the real Delta bytes.
+ // Refetch returns the real Delta bytes.
     let real_bytes_clone = real_bytes.clone();
     let mut conn = CloudLedgerConnection::new(&mut ledger);
     let result = cloud_sync_loop(&mut queue, &mut conn, &move |_id, _holders| {
@@ -494,7 +494,7 @@ fn compacted_delta_deferred_when_refetch_fails() {
     queue.enqueue(compacted_entry).expect("enqueue");
 
     let mut conn = CloudLedgerConnection::new(&mut ledger);
-    // Refetch always fails.
+ // Refetch always fails.
     let result = cloud_sync_loop(&mut queue, &mut conn, &|_id, _holders| None);
 
     assert_eq!(
@@ -521,10 +521,10 @@ fn cloud_ledger_connection_maps_outcomes_correctly() {
     let mut ledger =
         CloudLedger::new_in_memory(ledger_secret, ledger_did, schema).expect("new_in_memory");
 
-    // Pre-commit the Delta so the next call returns AlreadyCommitted.
+ // Pre-commit the Delta so the next call returns AlreadyCommitted.
     ledger.receive_delta(&delta).expect("first receive");
 
-    // Re-submit via the connection adapter.
+ // Re-submit via the connection adapter.
     let mut conn = CloudLedgerConnection::new(&mut ledger);
     let result = conn.send_delta(&delta.id, &bytes);
     assert!(result.is_ok(), "AlreadyCommitted must map to Ok(())");

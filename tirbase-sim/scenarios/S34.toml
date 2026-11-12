@@ -1,5 +1,5 @@
 # Adversary scenario 34 — Partial-Signature Replay Across Commands
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S34"
 title = "Partial-Signature Replay Across Commands"
 seeds = 32

@@ -31,21 +31,21 @@ def load_flagged_components(vex_path: Path) -> list[dict]:
         affects = vuln.get("affects") or []
         for affect in affects:
             ref = affect.get("ref") or ""
-            # CycloneDX component refs often look like "pkg:cargo/name@version" or "name@version"
+ # CycloneDX component refs often look like "pkg:cargo/name@version" or "name@version"
             name = ref
             m = re.search(r"pkg:[^/]+/([^@/]+)", ref)
             if m:
                 name = m.group(1)
             elif "@" in ref:
                 name = ref.split("@", 1)[0].split("/")[-1]
-            # Prefer explicit component name from nested analysis when present
+ # Prefer explicit component name from nested analysis when present
             for analysis in affect.get("analysis") or []:
                 state = (analysis.get("state") or "").lower()
                 if state in NON_BLOCKING_STATES:
                     name = ""
                 elif state in BLOCKING_STATES and not name:
                     name = ref
-            # If any version/state entries indicate affected/unknown, block.
+ # If any version/state entries indicate affected/unknown, block.
             versions = affect.get("versions") or []
             states = {((v.get("status") or v.get("state") or "").lower()) for v in versions}
             states.discard("")
@@ -54,13 +54,13 @@ def load_flagged_components(vex_path: Path) -> list[dict]:
             if not name:
                 continue
             flagged.append({"name": name, "id": vid, "ref": ref})
-        # Also accept top-level components list when authoring simplified VEX
+ # Also accept top-level components list when authoring simplified VEX
         for comp in vuln.get("components") or []:
             cname = comp.get("name") or ""
             state = (comp.get("analysis", {}) or {}).get("state", "affected").lower()
             if cname and state not in NON_BLOCKING_STATES:
                 flagged.append({"name": cname, "id": vid, "ref": cname})
-    # de-dup by name
+ # de-dup by name
     uniq = {}
     for f in flagged:
         uniq.setdefault(f["name"], f)
@@ -68,7 +68,7 @@ def load_flagged_components(vex_path: Path) -> list[dict]:
 
 
 def lock_contains(lock_text: str, crate_name: str) -> bool:
-    # Cargo.lock package blocks: name = "crate"
+ # Cargo.lock package blocks: name = "crate"
     return re.search(rf'^name\s*=\s*"{re.escape(crate_name)}"\s*$', lock_text, re.M) is not None
 
 

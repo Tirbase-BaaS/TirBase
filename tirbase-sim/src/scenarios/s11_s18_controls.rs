@@ -36,7 +36,7 @@ pub fn run_s11(seed: u64) -> Result<(), String> {
         ));
     }
 
-    // Control: a threshold configuration must not emit the warning.
+ // Control: a threshold configuration must not emit the warning.
     let safe = InitConfig {
         deployment: DeploymentConfig {
             revocation_m: 2,

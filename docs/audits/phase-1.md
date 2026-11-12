@@ -16,11 +16,11 @@ Task sections 4.x, 5.x, 6.x, 7.x, 8.x, 9.x: 51 acceptance-criterion rows (49 com
 Every row was traced against the repository; nothing was accepted on assertion. The audit:
 
 1. resolves each declared production-caller path on disk and each cited symbol to its
-   definition site (`file:line`);
+ definition site (`file:line`);
 2. resolves test identifiers in this order: a claim-named test (`claim_<task>`), a test
-   named in the task entry, the closest test in a test file named in the task entry, then
-   the test location committed in `docs/traceability-matrix.md` for the task's PV
-   requirement;
+ named in the task entry, the closest test in a test file named in the task entry, then
+ the test location committed in `docs/traceability-matrix.md` for the task's PV
+ requirement;
 3. records tasks with an open checkbox as `NOT IMPLEMENTED` or `BLOCKED` — never as verified.
 
 Evidence classes in the status column:
@@ -48,7 +48,7 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 | 4.9.1 | Create tirbase-gateway binary entry point: parse GatewayConfig TOML, initialize CoreHandle, wire TimeSource (S… | PV-11.1 | `tirbase-gateway/Cargo.toml:1` | — | TRACED-ARTIFACT |
 | 4.9.2 | Create admin Unix-socket listener at /run/tirbase/admin.sock with SO_PEERCRED authentication; stub out all 12 … | PV-11.2 | `tirbase-gateway/tests/admin_endpoints_binary.rs:1` | — | TRACED-CALLER |
 | 4.9.3 | Create health endpoint GET /health on 127.0.0.1 returning 200 OK within 500ms; no guard state yet | PV-11.1 | `tirbase-gateway/tests/admin_endpoints_binary.rs:1` | — | TRACED-CALLER |
-| 5.1 | Create tirbase-core/src/traits.rs: TimeSource trait with monotonic_now() -> u64, wall_hint() -> Option<i64>, b… | PV-3.8, PV-3.9 | `tirbase-core/src/traits.rs:50` (`TimeSource`)<br>`tirbase-core/src/traits.rs:52` (`monotonic_now`)<br>`tirbase-core/src/traits.rs:56` (`wall_hint`) | — | TRACED-CALLER |
+| 5.1 | Create tirbase-core/src/traits.rs: TimeSource trait with monotonic_now -> u64, wall_hint -> Option<i64>, b… | PV-3.8, PV-3.9 | `tirbase-core/src/traits.rs:50` (`TimeSource`)<br>`tirbase-core/src/traits.rs:52` (`monotonic_now`)<br>`tirbase-core/src/traits.rs:56` (`wall_hint`) | — | TRACED-CALLER |
 | 5.2 | Add KeyProvider trait: sign(&[u8]) -> Result<DeviceSignature>, sign_async, public_key_bytes, key_type, did; pr… | PV-3.6 | `tirbase-core/src/traits.rs:213` (`KeyProvider`) | — | TRACED-CALLER |
 | 5.3 | Add MonotonicCounterTrait: read, increment, set_if_greater; two assurance levels documented | PV-9.8 | `tirbase-guard/src/policy.rs:900` | `tirbase-guard/tests/epoch.rs:82` (`epoch_starts_at_zero_and_prior_epoch_commands_are_rejected_after_bump`) — via PV-9.8 | TRACED-CALLER |
 | 5.4 | Add SecurityEventSink trait: emit(event: SecurityEvent) | PV-7.1 | `tirbase-guard/src/ (directory cited; no distinct call site named)`<br>`tirbase-core/src/traits.rs:299` | — | TRACED-CALLER |
@@ -68,8 +68,8 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 | 6.7b | BLOCKED (confirmed 2026-11-07: swtpm is not installed in the dev environment and no swtpm/TPM2 job exists in C… | PV-9.8, RD-2 | `tirbase-gateway/src/hw_counter_binding.rs:1` | `tirbase-guard/tests/epoch.rs:82` (`epoch_starts_at_zero_and_prior_epoch_commands_are_rejected_after_bump`) — via PV-9.8 | BLOCKED |
 | 7.1 | Implement SystemTimeSource: monotonic_now via CLOCK_BOOTTIME; wall_hint via CLOCK_REALTIME; boot_id from /proc… | PV-3.8 | `tirbase-gateway/src/main.rs:62` | — | TRACED-CALLER |
 | 7.2 | Implement TimeRatchet: fields last_beacon_time, mono_at_beacon, persisted_floor, beacon_boot_id, max_forward_j… | PV-22.2 | `tirbase-guard/src/time.rs:380` (`TimeRatchet`) | — | TRACED-CALLER |
-| 7.3 | Implement now_est(): if current_boot_id != beacon_boot_id return persisted_floor; else compute last_beacon_tim… | PV-22.1 | `tirbase-guard/src/guard.rs:249` (`admit`) | `tirbase-guard/tests/time_ratchet.rs:266` (`expired_command_is_rejected_after_simulated_time_advance`) — via PV-22.1 | TRACED-CALLER |
-| 7.4 | Implement TimeRatchet::advance(): reject beacon if wall_time − persisted_floor > max_forward_jump; require M-o… | PV-22.5 | `tirbase-gateway/src/time_beacon.rs:41` | — | TRACED-CALLER |
+| 7.3 | Implement now_est: if current_boot_id != beacon_boot_id return persisted_floor; else compute last_beacon_tim… | PV-22.1 | `tirbase-guard/src/guard.rs:249` (`admit`) | `tirbase-guard/tests/time_ratchet.rs:266` (`expired_command_is_rejected_after_simulated_time_advance`) — via PV-22.1 | TRACED-CALLER |
+| 7.4 | Implement TimeRatchet::advance: reject beacon if wall_time − persisted_floor > max_forward_jump; require M-o… | PV-22.5 | `tirbase-gateway/src/time_beacon.rs:41` | — | TRACED-CALLER |
 | 7.5 | Implement FreshnessState enum (Verified \| Unverified) with staleness window check (no beacon within configurab… | PV-22.3 | `tirbase-guard/src/guard.rs:249` (`admit`) | `tirbase-guard/tests/time_ratchet.rs:517` (`freshness_is_unverified_before_any_beacon_and_after_a_reboot`) — via PV-22.3 | TRACED-CALLER |
 | 7.6 | Create time_ratchet SQLite table with beacon_boot_id column in primary.db | PV-22.2 | `tirbase-gateway/src/db/time_ratchet.rs:30` | — | TRACED-CALLER |
 | 7.7 | Add TimeRatchet property test: ratchet value is monotonically non-decreasing across any sequence of beacon app… | PV-22 | `tirbase-guard/tests/time_ratchet_property.rs:1` | — | TRACED-CALLER |

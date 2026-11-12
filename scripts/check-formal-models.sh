@@ -29,8 +29,8 @@ for spec in "${SPECS[@]}"; do
     continue
   fi
   echo "== TLC: $spec =="
-  # TLC writes its state trace next to the spec; run from a scratch dir to keep
-  # the repository clean.
+ # TLC writes its state trace next to the spec; run from a scratch dir to keep
+ # the repository clean.
   work="$(mktemp -d)"
   cp "$cfg" "$tla" "$work/"
   if ( cd "$work" && java -XX:+UseParallelGC -cp "$JAR" tlc2.TLC \

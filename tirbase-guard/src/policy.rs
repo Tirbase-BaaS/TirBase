@@ -1,17 +1,17 @@
-//! Policy lifecycle (tasks 12.1–12.10 — CLAIM-12.1…12.10, PV-4.8–4.12,
+//! Policy lifecycle (12.10 — CLAIM-12.1…12.10, PV-4.8–4.12,
 //! INV-3, INV-8, RD-9).
 //!
 //! # Wire vs computed
 //!
-//! [`PolicyBundle`] is a wire type (`tirbase_types::policy`).  The guard **never**
+//! [`PolicyBundle`] is a wire type (`tirbase_types::policy`). The guard **never**
 //! trusts `bundle.kind`: classification is always recomputed by
-//! [`classify_bundle()`] (CLAIM-12.2).  `timelock_until_est` is computed at
+//! [`classify_bundle()`] (CLAIM-12.2). `timelock_until_est` is computed at
 //! ingest as `now_est + active_policy.timelock_secs` and stored in the pending
 //! approval record, not read from the bundle (PV-4.10).
 //!
 //! # Governance source of truth
 //!
-//! Loosening M/N/timelock come from the **active** policy/profile.  The
+//! Loosening M/N/timelock come from the **active** policy/profile. The
 //! `tightening_floor` is read from [`TrustRootRecord::device_class_floors`],
 //! never from the incoming bundle or the active profile (PV-4.11).
 
@@ -36,7 +36,7 @@ use crate::trust_root::{ParamFloor, TrustRootRecord};
 // ─── Comparison helpers ──────────────────────────────────────────────────────
 
 /// Compare two [`FixedPointValue`]s (same unit) by normalising to the finest
-/// exponent.  Returns `None` on unit mismatch or unrepresentable scale.
+/// exponent. Returns `None` on unit mismatch or unrepresentable scale.
 fn compare_fpv(a: &FixedPointValue, b: &FixedPointValue) -> Option<Ordering> {
     if a.unit_id != b.unit_id {
         return None;
@@ -74,7 +74,7 @@ fn range_subset(
     old_min: &FixedPointValue,
     old_max: &FixedPointValue,
 ) -> bool {
-    // new [min,max] ⊆ old [min,max]
+ // new [min,max] ⊆ old [min,max]
     geq(new_min, old_min) && leq(new_max, old_max)
 }
 
@@ -101,7 +101,7 @@ pub fn policy_bundle_signing_bytes(bundle: &PolicyBundle) -> Vec<u8> {
 }
 
 /// Verify one bundle co-signature against a `PolicyAuthority` DID in the trust
-/// root's role registry (PV-3.2/PV-3.3).  Signatures from DIDs not registered
+/// root's role registry (PV-3.2/PV-3.3). Signatures from DIDs not registered
 /// as PolicyAuthority are rejected by the trust root.
 pub fn verify_policy_cosignature(
     trust_root: &TrustRootRecord,
@@ -141,14 +141,14 @@ fn count_distinct_valid_policy_cosigs(
 ///
 /// A bundle is [`PolicyBundleKind::Tightening`] only if **all** criteria hold
 /// for every parameter; any ambiguity, mixed change, unit mismatch, or failure
-/// yields [`PolicyBundleKind::Loosening`].  This function is the sole authority:
+/// yields [`PolicyBundleKind::Loosening`]. This function is the sole authority:
 /// the guard never trusts `PolicyBundle.kind`.
 pub fn classify_bundle(
     old: &EnvelopeProfile,
     new: &EnvelopeProfile,
     trust_root: &TrustRootRecord,
 ) -> PolicyBundleKind {
-    // Device-class mismatch or structural ambiguity → loosening (conservative).
+ // Device-class mismatch or structural ambiguity → loosening (conservative).
     if old.device_class != new.device_class {
         return PolicyBundleKind::Loosening;
     }
@@ -164,8 +164,8 @@ pub fn classify_bundle(
         .map(|p| (p.name.as_str(), p))
         .collect();
 
-    // Criterion 7: no parameter removed.  Criterion 8: adding any new parameter
-    // is loosening.
+ // Criterion 7: no parameter removed. Criterion 8: adding any new parameter
+ // is loosening.
     for name in old_params.keys() {
         if !new_params.contains_key(name) {
             return PolicyBundleKind::Loosening;
@@ -177,7 +177,7 @@ pub fn classify_bundle(
         }
     }
 
-    // Per-parameter criteria 1–6 and 11.
+ // Per-parameter criteria 1–6 and 11.
     let floors = trust_root
         .device_class_floors
         .get(&old.device_class)
@@ -191,7 +191,7 @@ pub fn classify_bundle(
             return PolicyBundleKind::Loosening;
         };
 
-        // 1. Range/enum/bool tightening.
+ // 1. Range/enum/bool tightening.
         match (&op.kind, &np.kind) {
             (
                 ParameterKind::Range {
@@ -206,8 +206,8 @@ pub fn classify_bundle(
                 if !range_subset(nmin, nmax, omin, omax) {
                     return PolicyBundleKind::Loosening;
                 }
-                // 11. Tightening floor from TrustRootRecord: new [min,max] must
-                // remain within the safe operating floor [min_floor, max_ceiling].
+ // 11. Tightening floor from TrustRootRecord: new [min,max] must
+ // remain within the safe operating floor [min_floor, max_ceiling].
                 if let Some(floor) = floor_by_param.get(name) {
                     if !geq(nmin, &floor.min_floor) || !leq(nmax, &floor.max_ceiling) {
                         return PolicyBundleKind::Loosening;
@@ -215,35 +215,35 @@ pub fn classify_bundle(
                 }
             }
             (ParameterKind::Enum { variants: ov }, ParameterKind::Enum { variants: nv }) => {
-                // Subset of allowed variants (by value) is tightening.
+ // Subset of allowed variants (by value) is tightening.
                 if nv.iter().any(|(_, v)| !ov.iter().any(|(_, o)| o == v)) {
                     return PolicyBundleKind::Loosening;
                 }
             }
             (ParameterKind::Bool, ParameterKind::Bool) => {}
             _ => {
-                // Kind change is ambiguous → loosening.
+ // Kind change is ambiguous → loosening.
                 return PolicyBundleKind::Loosening;
             }
         }
 
-        // 2. max_rate_per_sec: new <= old (lower is tighter / slower change).
+ // 2. max_rate_per_sec: new <= old (lower is tighter / slower change).
         if !leq(&np.max_rate_per_sec, &op.max_rate_per_sec) {
             return PolicyBundleKind::Loosening;
         }
-        // 3. dwell_secs: new >= old.
+ // 3. dwell_secs: new >= old.
         if np.dwell_secs < op.dwell_secs {
             return PolicyBundleKind::Loosening;
         }
-        // 4. min_off_secs: new >= old.
+ // 4. min_off_secs: new >= old.
         if np.min_off_secs < op.min_off_secs {
             return PolicyBundleKind::Loosening;
         }
-        // 5. critical flag: false→true is tightening; true→false is loosening.
+ // 5. critical flag: false→true is tightening; true→false is loosening.
         if op.critical && !np.critical {
             return PolicyBundleKind::Loosening;
         }
-        // 6. safe_default: any change is loosening.
+ // 6. safe_default: any change is loosening.
         if !eq_fpv(&np.safe_default, &op.safe_default)
             || np.safe_default.unit_id != op.safe_default.unit_id
         {
@@ -251,25 +251,25 @@ pub fn classify_bundle(
         }
     }
 
-    // 9. Cross-constraints: new set ⊇ old (at least as restrictive).  We use a
-    // structural equality/subset check on the serialisable form; any constraint
-    // removed is loosening.  Added constraints are tightening.
+ // 9. Cross-constraints: new set ⊇ old (at least as restrictive). We use a
+ // structural equality/subset check on the serialisable form; any constraint
+ // removed is loosening. Added constraints are tightening.
     for old_c in &old.cross_constraints {
         if !new.cross_constraints.iter().any(|c| c == old_c) {
             return PolicyBundleKind::Loosening;
         }
     }
 
-    // 10. Governance fields:
-    // policy_loosen_m non-decreasing, policy_loosen_n may only INCREASE (any
-    // change to N alone is loosening per spec text: "any increase to N alone is
-    // loosening"; decreasing N is also loosening), timelock/cancel non-decreasing.
+ // 10. Governance fields:
+ // policy_loosen_m non-decreasing, policy_loosen_n may only INCREASE (any
+ // change to N alone is loosening per spec text: "any increase to N alone is
+ // loosening"; decreasing N is also loosening), timelock/cancel non-decreasing.
     if new.policy_loosen_m < old.policy_loosen_m {
         return PolicyBundleKind::Loosening;
     }
-    // N must not decrease; and spec states "any increase to N alone is loosening"
-    // but increases to M/timelock/cancel may count as tightening.  Treat any N
-    // change conservatively as loosening unless identical.
+ // N must not decrease; and spec states "any increase to N alone is loosening"
+ // but increases to M/timelock/cancel may count as tightening. Treat any N
+ // change conservatively as loosening unless identical.
     if new.policy_loosen_n != old.policy_loosen_n {
         return PolicyBundleKind::Loosening;
     }
@@ -288,32 +288,32 @@ pub fn classify_bundle(
 /// Policy lifecycle failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyError {
-    /// Bundle version is not strictly greater than the last accepted / committed.
+ /// Bundle version is not strictly greater than the last accepted / committed.
     Rollback { incoming: u64, committed: u64 },
-    /// `prev_version_hash` does not match the hash of the current active bundle.
+ /// `prev_version_hash` does not match the hash of the current active bundle.
     PrevHashMismatch,
-    /// A required co-signature is missing or invalid.
+ /// A required co-signature is missing or invalid.
     Signature(String),
-    /// Trust-root/role-registry error.
+ /// Trust-root/role-registry error.
     TrustRoot(crate::trust_root::TrustRootError),
-    /// Tightening violates the device-class floor from the trust root.
+ /// Tightening violates the device-class floor from the trust root.
     TighteningFloorViolation { param: String, detail: String },
-    /// Monotonic counter failure (anti-rollback persistence).
+ /// Monotonic counter failure (anti-rollback persistence).
     Counter(String),
-    /// Loosening time-lock has not elapsed.
+ /// Loosening time-lock has not elapsed.
     TimelockActive {
         timelock_until_est: i64,
         now_est: i64,
     },
-    /// Not enough co-signatures for loosening.
+ /// Not enough co-signatures for loosening.
     InsufficientCoSignatures { got: usize, need: usize },
-    /// No pending loosening operation to apply/cancel.
+ /// No pending loosening operation to apply/cancel.
     NoPendingLoosening,
-    /// Profile install/validation failure.
+ /// Profile install/validation failure.
     ProfileInstall(crate::envelope::ProfileInstallError),
-    /// Bundle targets a different device class than the active profile.
+ /// Bundle targets a different device class than the active profile.
     DeviceClassMismatch { active: String, incoming: String },
-    /// Internal invariant violation.
+ /// Internal invariant violation.
     Invariant(String),
 }
 
@@ -357,9 +357,9 @@ impl std::error::Error for PolicyError {}
 /// Outcome of [`PolicyLifecycle::ingest_bundle`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyIngestOutcome {
-    /// Tightening applied immediately (PV-4.9).
+ /// Tightening applied immediately (PV-4.9).
     TighteningApplied { version: u64 },
-    /// Loosening accepted for co-signature collection / time-lock.
+ /// Loosening accepted for co-signature collection / time-lock.
     LooseningPending {
         version: u64,
         required_m: u8,
@@ -373,16 +373,16 @@ pub enum PolicyIngestOutcome {
 /// `pending_approvals` for multi-sig accumulation).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingLoosenOperation {
-    /// The candidate bundle (its `kind` is ignored; kept for diagnostics).
+ /// The candidate bundle (its `kind` is ignored; kept for diagnostics).
     pub bundle: PolicyBundle,
-    /// M/N/timelock read from the **active** policy at ingest (PV-4.10).
+ /// M/N/timelock read from the **active** policy at ingest (PV-4.10).
     pub required_m: u8,
     pub required_n: u8,
-    /// `now_est + active.policy_timelock_secs` (computed at ingest).
+ /// `now_est + active.policy_timelock_secs` (computed at ingest).
     pub timelock_until_est: i64,
-    /// `timelock_until_est`-relative cancel window derived from active policy.
+ /// `timelock_until_est`-relative cancel window derived from active policy.
     pub cancel_deadline_est: i64,
-    /// Distinct verified co-signatures collected so far.
+ /// Distinct verified co-signatures collected so far.
     pub co_signatures: Vec<PolicyCoSignature>,
 }
 
@@ -404,8 +404,8 @@ pub struct PolicyLifecycle {
     profile_map: Arc<ProfileMap>,
     trust_root: Arc<ArcSwap<TrustRootRecord>>,
     pending: Option<PendingLoosenOperation>,
-    /// Records that an M=1 loosening warning has been emitted for the active
-    /// governance (RD-9) to avoid log spam on every ingest.
+ /// Records that an M=1 loosening warning has been emitted for the active
+ /// governance (RD-9) to avoid log spam on every ingest.
     m1_warning_emitted: bool,
 }
 
@@ -420,7 +420,7 @@ impl fmt::Debug for PolicyLifecycle {
 }
 
 impl PolicyLifecycle {
-    /// Construct a lifecycle with an initial active bundle and committed version.
+ /// Construct a lifecycle with an initial active bundle and committed version.
     pub fn new(
         target_id: tirbase_types::TargetId,
         initial: PolicyBundle,
@@ -487,23 +487,23 @@ impl PolicyLifecycle {
         }
     }
 
-    /// Ingest a candidate bundle (production path, CLAIM-12.2/3/4/5/6/7).
-    ///
-    /// * Recomputes classification — `bundle.kind` is ignored.
-    /// * Enforces strictly-greater version and anti-rollback counter commit.
-    /// * Tightening: verifies at least one valid PolicyAuthority co-signature
-    ///   (or accepts an unsigned single-PA path only when governance allows; we
-    ///   require a valid cosig here for safety), commits counter, hot-swaps
-    ///   profile, emits event, returns immediately.
-    /// * Loosening: reads M/N/timelock from the **active** policy, collects
-    ///   verified co-signatures, computes `timelock_until_est = now_est +
-    ///   active.timelock_secs`, and records a pending operation.
+ /// Ingest a candidate bundle (production path, CLAIM-12.2/3/4/5/6/7).
+ ///
+ /// * Recomputes classification — `bundle.kind` is ignored.
+ /// * Enforces strictly-greater version and anti-rollback counter commit.
+ /// * Tightening: verifies at least one valid PolicyAuthority co-signature
+ /// (or accepts an unsigned single-PA path only when governance allows; we
+ /// require a valid cosig here for safety), commits counter, hot-swaps
+ /// profile, emits event, returns immediately.
+ /// * Loosening: reads M/N/timelock from the **active** policy, collects
+ /// verified co-signatures, computes `timelock_until_est = now_est +
+ /// active.timelock_secs`, and records a pending operation.
     pub fn ingest_bundle(
         &mut self,
         bundle: PolicyBundle,
         now_est: i64,
     ) -> Result<PolicyIngestOutcome, PolicyError> {
-        // 12.6 / 12.7: strictly-greater version against committed counter.
+ // 12.6 / 12.7: strictly-greater version against committed counter.
         let committed = self
             .counter
             .read()
@@ -527,7 +527,7 @@ impl PolicyLifecycle {
             });
         }
 
-        // prev_version_hash binding to active bundle (PV-4.8 chaining).
+ // prev_version_hash binding to active bundle (PV-4.8 chaining).
         if bundle.prev_version_hash != self.active.body_hash {
             return Err(PolicyError::PrevHashMismatch);
         }
@@ -540,7 +540,7 @@ impl PolicyLifecycle {
 
         let trust_root = self.trust_root_snapshot();
 
-        // 12.2: ALWAYS recompute — ignore bundle.kind.
+ // 12.2: ALWAYS recompute — ignore bundle.kind.
         let computed = classify_bundle(&self.active.bundle.envelope, &bundle.envelope, &trust_root);
 
         match computed {
@@ -554,7 +554,7 @@ impl PolicyLifecycle {
         bundle: PolicyBundle,
         trust_root: &TrustRootRecord,
     ) -> Result<PolicyIngestOutcome, PolicyError> {
-        // Verify at least one valid PolicyAuthority signature for the bundle.
+ // Verify at least one valid PolicyAuthority signature for the bundle.
         let valid = count_distinct_valid_policy_cosigs(trust_root, &bundle)?;
         if valid == 0 {
             emit(
@@ -572,9 +572,9 @@ impl PolicyLifecycle {
             ));
         }
 
-        // 12.3: tightening_floor enforcement — classify_bundle already checked
-        // containment against TrustRootRecord floors; a belt-and-braces check
-        // defends against classification misuse.
+ // 12.3: tightening_floor enforcement — classify_bundle already checked
+ // containment against TrustRootRecord floors; a belt-and-braces check
+ // defends against classification misuse.
         if let Some(err) =
             check_tightening_floors(&bundle.envelope, trust_root, &bundle.envelope.device_class)
         {
@@ -610,7 +610,7 @@ impl PolicyLifecycle {
         now_est: i64,
         trust_root: &TrustRootRecord,
     ) -> Result<PolicyIngestOutcome, PolicyError> {
-        // 12.4: M/N/timelock from the ACTIVE policy, never the bundle.
+ // 12.4: M/N/timelock from the ACTIVE policy, never the bundle.
         let active_env = &self.active.bundle.envelope;
         let required_m = active_env.policy_loosen_m.max(1);
         let required_n = active_env.policy_loosen_n.max(required_m);
@@ -619,8 +619,8 @@ impl PolicyLifecycle {
         let timelock_until_est = now_est.saturating_add(timelock_secs);
         let cancel_deadline_est = timelock_until_est.saturating_add(cancel_window);
 
-        // RD-9: M=1 allowed with warning (governance-level).  We still enforce
-        // the time-lock and require a valid co-signature.
+ // RD-9: M=1 allowed with warning (governance-level). We still enforce
+ // the time-lock and require a valid co-signature.
         if required_m <= 1 {
             emit(
                 SecurityEvent::new(
@@ -636,7 +636,7 @@ impl PolicyLifecycle {
             );
         }
 
-        // Collect any valid co-signatures present on the bundle.
+ // Collect any valid co-signatures present on the bundle.
         let mut co_signatures: Vec<PolicyCoSignature> = Vec::new();
         let mut seen: Vec<String> = Vec::new();
         for cosig in &bundle.co_signatures {
@@ -668,7 +668,7 @@ impl PolicyLifecycle {
         })
     }
 
-    /// Add a co-signature to the pending loosening operation (12.4, 12.8).
+ /// Add a co-signature to the pending loosening operation (12.4, 12.8).
     pub fn add_loosening_cosignature(
         &mut self,
         cosig: PolicyCoSignature,
@@ -703,8 +703,8 @@ impl PolicyLifecycle {
         Ok(count)
     }
 
-    /// Apply the pending loosening bundle if M co-signatures are present and the
-    /// time-lock has elapsed (12.4, 12.10).
+ /// Apply the pending loosening bundle if M co-signatures are present and the
+ /// time-lock has elapsed (12.4, 12.10).
     pub fn apply_pending_loosening(
         &mut self,
         now_est: i64,
@@ -736,7 +736,7 @@ impl PolicyLifecycle {
         }
 
         let mut pending = self.pending.take().ok_or(PolicyError::NoPendingLoosening)?;
-        // Merge collected cosigs into the bundle for auditability.
+ // Merge collected cosigs into the bundle for auditability.
         for c in pending.co_signatures.drain(..) {
             if !pending
                 .bundle
@@ -748,14 +748,14 @@ impl PolicyLifecycle {
             }
         }
         let trust_root = self.trust_root_snapshot();
-        // Re-check floors defensively (classification at ingest was authoritative;
-        // this guards state corruption).
+ // Re-check floors defensively (classification at ingest was authoritative;
+ // this guards state corruption).
         if let Some(err) = check_tightening_floors(
             &pending.bundle.envelope,
             &trust_root,
             &pending.bundle.envelope.device_class,
         ) {
-            // Loosening should not trip tightening floors, but be safe.
+ // Loosening should not trip tightening floors, but be safe.
             emit(
                 SecurityEvent::new(
                     SecurityEventCategory::PolicyLifecycle,
@@ -783,8 +783,8 @@ impl PolicyLifecycle {
         Ok(PolicyIngestOutcome::TighteningApplied { version })
     }
 
-    /// Cancel a pending loosening (requires caller to have enforced PA auth;
-    /// this method records the state transition).
+ /// Cancel a pending loosening (requires caller to have enforced PA auth;
+ /// this method records the state transition).
     pub fn cancel_loosening(&mut self) -> Result<u64, PolicyError> {
         let pending = self.pending.take().ok_or(PolicyError::NoPendingLoosening)?;
         let version = pending.bundle.version;
@@ -802,25 +802,25 @@ impl PolicyLifecycle {
 
     fn commit_active(&mut self, bundle: PolicyBundle) -> Result<(), PolicyError> {
         let version = bundle.version;
-        // 12.6: commit anti-rollback counter before/with activation.
+ // 12.6: commit anti-rollback counter before/with activation.
         self.counter
             .set_if_greater(version)
             .map_err(|e| PolicyError::Counter(e.to_string()))?;
         let profile = bundle.envelope.clone();
         let body_hash = policy_bundle_body_hash(&bundle);
         self.active = ActivePolicyState { bundle, body_hash };
-        // Hot-swap the active profile for the target (best-effort structural
-        // update; the profile map is the guard's read path).
+ // Hot-swap the active profile for the target (best-effort structural
+ // update; the profile map is the guard's read path).
         let _ = self.profile_map.swap(&self.target_id, profile.clone());
-        // If target wasn't present, install it.
+ // If target wasn't present, install it.
         let replaced = Arc::new(ProfileMap::from_profiles([(
             self.target_id.clone(),
             profile.clone(),
         )]));
-        // `swap` above returns false if missing; install by rebuilding only when
-        // needed would require interior mutability redesign.  The map's
-        // `with_profile` is the safe additive path; callers that own the map can
-        // also do it.  For lifecycle-owned updates we rely on swap when present.
+ // `swap` above returns false if missing; install by rebuilding only when
+ // needed would require interior mutability redesign. The map's
+ // `with_profile` is the safe additive path; callers that own the map can
+ // also do it. For lifecycle-owned updates we rely on swap when present.
         let _ = replaced; // documented: target must be pre-installed in map.
         self.maybe_emit_m1_warning();
         Ok(())
@@ -981,7 +981,7 @@ mod tests {
     fn exceeds_tightening_floor_is_rejected_by_classifier_path() {
         let tr = trust_root_with_floor(); // floor ceiling 150.0°C
         let old = profile(1, -300, 1400, 2, 3, 300);
-        // new max 160.0°C > ceiling 150.0°C => floor violated => Loosening
+ // new max 160.0°C > ceiling 150.0°C => floor violated => Loosening
         let new = profile(2, -300, 1600, 2, 3, 300);
         assert_eq!(
             classify_bundle(&old, &new, &tr),
@@ -991,8 +991,8 @@ mod tests {
 
     #[test]
     fn bundle_kind_field_is_ignored_by_reclassification() {
-        // Demonstrates the invariant: caller-supplied kind does not affect
-        // computed classification (the guard discards it).
+ // Demonstrates the invariant: caller-supplied kind does not affect
+ // computed classification (the guard discards it).
         let tr = trust_root_with_floor();
         let old = profile(1, 0, 1000, 2, 3, 300);
         let new = profile(2, -10, 1000, 2, 3, 300); // actually loosening
@@ -1012,11 +1012,11 @@ mod tests {
 
     #[test]
     fn strictly_greater_version_allows_gaps() {
-        // Unit-level check for 12.7 semantics (version comparison logic).
+ // Unit-level check for 12.7 semantics (version comparison logic).
         let committed = 1u64;
         let incoming = 6u64;
         assert!(incoming > committed);
-        // exactly +1 not required
+ // exactly +1 not required
         let incoming2 = 2u64;
         assert!(incoming2 > committed);
     }

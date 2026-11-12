@@ -24,10 +24,10 @@ pub fn scenario_s8_malicious_migration_float_rejected() {
 }
 
 pub fn scenario_s8_malicious_migration_simd_forbidden() {
-    // SIMD is also outside the deterministic migration profile; parser/validator
-    // rejects or our scan rejects.
+ // SIMD is also outside the deterministic migration profile; parser/validator
+ // rejects or our scan rejects.
     let wasm = wat::parse_str(r#"(module (func (export "run") nop))"#).expect("parse");
-    // Valid deterministic module must succeed — ensures check is specific.
+ // Valid deterministic module must succeed — ensures check is specific.
     let result = execute_migration(&wasm, [0x89u8; 32], 30, &test_store()).expect("ok");
     assert_eq!(result, MigrationResult::Success);
 }

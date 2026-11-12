@@ -1,4 +1,4 @@
-//! Gateway integration test for Task 14 CommandGuard admit pipeline
+//! Gateway integration test for CommandGuard admit pipeline
 //! (CLAIM-14.1–14.17). Exercises the guard via gateway crate as a production
 //! integration boundary.
 
@@ -301,7 +301,7 @@ fn claim_14_7_revoked_issuer_14_8_epoch_14_9_expiry_14_11_envelope_14_13_bounds(
         &ca.secret_seed(),
     )
     .unwrap();
-    // 14.8 epoch
+ // 14.8 epoch
     let mut out = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut out));
     let e = guard
@@ -328,7 +328,7 @@ fn claim_14_7_revoked_issuer_14_8_epoch_14_9_expiry_14_11_envelope_14_13_bounds(
         ) || matches!(e, tirbase_guard::AdmitError::Epoch(_)),
         "{e:?}"
     );
-    // 14.9 expiry
+ // 14.9 expiry
     pipeline.set_max_ttl_secs(60);
     let mut cmd = CommandMessage {
         issuer_did: Did::new(issuer.did()),
@@ -373,7 +373,7 @@ fn claim_14_7_revoked_issuer_14_8_epoch_14_9_expiry_14_11_envelope_14_13_bounds(
         "{e:?}"
     );
     pipeline.set_max_ttl_secs(10_000_000_000);
-    // 14.13 bounds
+ // 14.13 bounds
     pipeline.set_max_ttl_secs(10_000_000_000);
     let mut out = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut out));
@@ -401,7 +401,7 @@ fn claim_14_7_revoked_issuer_14_8_epoch_14_9_expiry_14_11_envelope_14_13_bounds(
         ),
         "{e:?}"
     );
-    // 14.7 revoked
+ // 14.7 revoked
     pipeline.revoke_did(issuer.did());
     let mut out = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut out));
@@ -464,7 +464,7 @@ fn claim_14_11_decided_outcome_cache_returns_cached_without_second_actuation() {
     let r = guard
         .admit_with_context(&cmd, &ctx, &mut proxy2, b"f")
         .unwrap();
-    // cached path still dispatches in this simplified impl? decision is Accepted cache hit; admit_with_context dispatches on Accepted.
+ // cached path still dispatches in this simplified impl? decision is Accepted cache hit; admit_with_context dispatches on Accepted.
     assert!(!out2.is_empty() || r.permit_ref.target_id.as_str() == "pump-1");
 }
 
@@ -496,7 +496,7 @@ fn claim_14_14_constraints_14_15_drift_14_16_issuer_rate_limit_14_17_quorum() {
         now_est_secs: Some(1_000),
         simulate: false,
     };
-    // 14.14 constraint: speed 500 with coeff 1,0 and common scaling in impl gives large lhs? use direct test expectation as constraint evaluation exercised.
+ // 14.14 constraint: speed 500 with coeff 1,0 and common scaling in impl gives large lhs? use direct test expectation as constraint evaluation exercised.
     let mut out = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut out));
     let e = guard.admit_with_context(
@@ -505,9 +505,9 @@ fn claim_14_14_constraints_14_15_drift_14_16_issuer_rate_limit_14_17_quorum() {
         &mut proxy,
         b"f",
     );
-    // constraint evaluator is present (Stage 12); outcome depends on scaling - assert pipeline runs to constraint/bounds/auth path (not signature/CA)
+ // constraint evaluator is present (Stage 12); outcome depends on scaling - assert pipeline runs to constraint/bounds/auth path (not signature/CA)
     assert!(e.is_err() || e.is_ok());
-    // 14.17 quorum/critical freshness gate: critical+Unverified+no nonce is rejected before quorum.
+ // 14.17 quorum/critical freshness gate: critical+Unverified+no nonce is rejected before quorum.
     let ca2 = InMemoryKeyProvider::generate().unwrap();
     let issuer2 = InMemoryKeyProvider::generate().unwrap();
     let mut prof2 = base_profile(true);
@@ -643,7 +643,7 @@ fn claim_14_13_14_15_db_backed_stores_exercised() {
     let nonce_store =
         tirbase_gateway::db::challenge_nonces::SqliteChallengeNonceStore::open(dir.join("n.db"))
             .unwrap();
-    // basic store operations (production DB wiring hooks)
+ // basic store operations (production DB wiring hooks)
     drift
         .record(&tirbase_gateway::db::drift_rate_history::DriftHistoryRow {
             issuer_did: "d".into(),

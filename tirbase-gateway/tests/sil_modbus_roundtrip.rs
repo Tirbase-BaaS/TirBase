@@ -158,7 +158,7 @@ fn sil_modbus_fc03_fc04_fc06_fc16_round_trips() {
         vec![11, 22, 33]
     );
 
-    // The slave really holds the values (not just an echo).
+ // The slave really holds the values (not just an echo).
     assert_eq!(slave.registers.lock().unwrap()[5], 1234);
     assert_eq!(&slave.registers.lock().unwrap()[7..10], &[11, 22, 33]);
 }

@@ -26,16 +26,16 @@ tirbase-admin verify-log --db-path /var/lib/tirbase/primary.db --json
 ## Immediate containment
 
 1. **Preserve evidence:** snapshot/copy `primary.db` (and exports) read-only before repair attempts.
-   ```bash
-   sqlite3 /var/lib/tirbase/primary.db "PRAGMA quick_check;"
-   tirbase-admin export-evidence-bundle --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/evidence-bundle.json
-   tirbase-admin export-log --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/security-log.json --format json
-   ```
+ ```bash
+ sqlite3 /var/lib/tirbase/primary.db "PRAGMA quick_check;"
+ tirbase-admin export-evidence-bundle --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/evidence-bundle.json
+ tirbase-admin export-log --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/security-log.json --format json
+ ```
 2. **Do not** delete or rewrite security events in place.
 3. Confirm `Restricted`:
-   ```bash
-   printf '%s\n' '{"cmd":"mode"}' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
-   ```
+ ```bash
+ printf '%s\n' '{"cmd":"mode"}' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
+ ```
 
 ## Recovery procedure (signed chain-recovery)
 
@@ -52,17 +52,17 @@ Payload fields (per `tirbase_guard::lockdown::ChainRecoveryPayload`, context `Ti
 
 ```bash
 printf '%s\n' '{
-  "cmd":"chain-recovery",
-  "payload":{
-    "operation": <SignedOperation<ChainRecoveryPayload> JSON>,
-    "payload": {
-      "node_id":"<node-id>",
-      "issued_at_est": <i64>,
-      "reason":"<tamper recovery rationale>",
-      "from_seq": <u64>,
-      "new_segment_id": <u64>
-    }
-  }
+ "cmd":"chain-recovery",
+ "payload":{
+ "operation": <SignedOperation<ChainRecoveryPayload> JSON>,
+ "payload": {
+ "node_id":"<node-id>",
+ "issued_at_est": <i64>,
+ "reason":"<tamper recovery rationale>",
+ "from_seq": <u64>,
+ "new_segment_id": <u64>
+ }
+ }
 }' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
 ```
 
@@ -87,5 +87,5 @@ printf '%s\n' '{
 
 ## Verification
 
-- **Simulated fault:** interior hash-chain break injected into `security_events` (production `SecurityEventLog` verification path) triggers `Restricted` and `TamperDetection` (`tirbase-gateway/tests/task26_tamper_detection.rs::claim_26_1_verify_hash_chain_at_startup_enters_restricted_on_broken_link`).
+- **Simulated fault:** interior hash-chain break injected into `security_events` (production `SecurityEventLog` verification path) triggers `Restricted` and `TamperDetection` (`tirbase-gateway/tests/tamper_detection.rs::claim_26_1_verify_hash_chain_at_startup_enters_restricted_on_broken_link`).
 - **Procedure verification (detect break, apply signed chain recovery, mode Normal):** `tirbase-sim/tests/runbook_fault_verification.rs::runbook_tamper_detection_and_chain_recovery`.

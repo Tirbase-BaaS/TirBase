@@ -1,5 +1,4 @@
-//! Gateway integration tests for anti-replay and idempotency (task 20,
-//! CLAIM-20.1–20.5, PV-5.5, PV-5.6, INV-2, INV-10).
+//! Gateway integration tests for anti-replay and idempotency (//! CLAIM-20.1–20.5, PV-5.5, PV-5.6, INV-2, INV-10).
 
 use std::io::Cursor;
 
@@ -68,7 +67,7 @@ fn claim_20_1_sequence_outside_window_rejected() {
         w2.check(100u64.saturating_sub(DEFAULT_WINDOW_W + 1)),
         AntiReplayDecision::OutsideWindow
     );
-    // DB-layer check matches.
+ // DB-layer check matches.
     let row = AntiReplayWindowRow {
         issuer_did: "i".into(),
         target_id: "t".into(),
@@ -104,7 +103,7 @@ fn claim_20_2_duplicate_sequence_rejected_atomically_no_actuation() {
     assert_eq!(v1["status"], "accepted");
     assert!(!w1.is_empty());
 
-    // Same seq, different idempotency key => anti-replay must reject (not idempotency hit).
+ // Same seq, different idempotency key => anti-replay must reject (not idempotency hit).
     let cmd2 = mk_cmd(&issuer, 5, 99, 0);
     let req = Stage16Request {
         cmd: &cmd2,
@@ -143,7 +142,7 @@ fn claim_20_3_window_reset_allows_previously_rejected_sequence() {
         .unwrap();
         tx.commit().unwrap();
     }
-    // seq 1 is below window [136, 1224]
+ // seq 1 is below window [136, 1224]
     let row = {
         let conn = store.connection();
         let tx = conn.unchecked_transaction().unwrap();
@@ -193,11 +192,11 @@ fn claim_20_4_anti_replay_window_persists_across_restart() {
             Some(42)
         );
     }
-    // Restart: reopen store and verify replay of seq 42 is rejected.
+ // Restart: reopen store and verify replay of seq 42 is rejected.
     {
         let _store = SqliteStage16Store::open(&db).unwrap();
         let issuer2 = InMemoryKeyProvider::generate().unwrap(); // different object, same test not directly possible; check persisted highest
-                                                                // Use raw DB check for same logical window by scanning table.
+ // Use raw DB check for same logical window by scanning table.
         let conn = rusqlite::Connection::open(&db).unwrap();
         let highest: i64 = conn.query_row(
             "SELECT highest_seen FROM anti_replay_windows WHERE target_id='pump-1' AND enrollment_epoch=0",

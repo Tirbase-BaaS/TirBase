@@ -5,15 +5,15 @@
 //! The revocation flow has two layers:
 //!
 //! 1. **`PendingRevocationStore`** — accumulates partial `ManagerSignature` contributions
-//!    from mesh gossip until M signatures are collected. Verifies each signature against
-//!    the signing Manager's DID-derived public key and rejects signing keys that are
-//!    themselves REVOKED. This is a pure accumulation layer with no side-effects.
+//! from mesh gossip until M signatures are collected. Verifies each signature against
+//! the signing Manager's DID-derived public key and rejects signing keys that are
+//! themselves REVOKED. This is a pure accumulation layer with no side-effects.
 //!
 //! 2. **`RevocationSubsystem`** — orchestrates the full workflow: receives incoming
-//!    (possibly partial) RevocationDeltas, drives `PendingRevocationStore`, and when M
-//!    is reached applies `TrustLevel::Revoked` to the target device and invokes the
-//!    `CausalContaminationEngine::tag_contamination_root()` for all Deltas authored
-//!    by the revoked DID (Req 10.1).
+//! (possibly partial) RevocationDeltas, drives `PendingRevocationStore`, and when M
+//! is reached applies `TrustLevel::Revoked` to the target device and invokes the
+//! `CausalContaminationEngine::tag_contamination_root()` for all Deltas authored
+//! by the revoked DID (Req 10.1).
 //!
 //! ## Queryable Status (Req 9.5)
 //!
@@ -44,31 +44,31 @@ use crate::identity::{did as did_mod, keypair};
 /// A Manager DID signature contribution toward a RevocationDelta.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ManagerSignature {
-    /// The DID of the Manager who produced this signature.
+ /// The DID of the Manager who produced this signature.
     pub manager_did: Did,
-    /// Ed25519 signature over the canonical revocation payload.
-    ///
-    /// The signing payload is defined as: `SHA-256("revoke:" || target_did.as_bytes())`
-    /// This ensures the signature is unambiguous and cannot be replayed for other targets.
+ /// Ed25519 signature over the canonical revocation payload.
+ ///
+ /// The signing payload is defined as: `SHA-256("revoke:" || target_did.as_bytes())`
+ /// This ensures the signature is unambiguous and cannot be replayed for other targets.
     pub signature: Ed25519Signature,
 }
 
 /// A complete Revocation_Delta — produced when M signatures are accumulated (Req 9.1).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RevocationDelta {
-    /// DID of the device being revoked.
+ /// DID of the device being revoked.
     pub target_did: Did,
-    /// All M authorising Manager DID signatures.
+ /// All M authorising Manager DID signatures.
     pub signatures: Vec<ManagerSignature>,
-    /// UTC timestamp (microseconds) when the threshold was reached.
+ /// UTC timestamp (microseconds) when the threshold was reached.
     pub created_at: i64,
 }
 
 impl RevocationDelta {
-    /// Compute the canonical signing payload for a revocation targeting `target_did`.
-    ///
-    /// The payload is `SHA-256("revoke:" || target_did.as_bytes())` so that each
-    /// Manager signature is unambiguous and replay-resistant.
+ /// Compute the canonical signing payload for a revocation targeting `target_did`.
+ ///
+ /// The payload is `SHA-256("revoke:" || target_did.as_bytes())` so that each
+ /// Manager signature is unambiguous and replay-resistant.
     pub fn signing_payload(target_did: &str) -> Vec<u8> {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
@@ -88,7 +88,7 @@ pub struct PendingRevocation {
     pub threshold_m: usize,
     pub threshold_n: usize,
     pub initiated_at: i64,
-    /// UTC timestamp (microseconds) of the last RevocationDelta receipt.
+ /// UTC timestamp (microseconds) of the last RevocationDelta receipt.
     pub last_receipt_timestamp: Option<i64>,
 }
 
@@ -97,9 +97,9 @@ pub struct PendingRevocation {
 /// Current accumulation status returned by `add_signature`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RevocationStatus {
-    /// Not yet reached the M threshold.
+ /// Not yet reached the M threshold.
     Pending { collected: usize, required: usize },
-    /// M signatures collected; Revocation_Delta is ready to apply.
+ /// M signatures collected; Revocation_Delta is ready to apply.
     Applied,
 }
 
@@ -111,12 +111,12 @@ pub enum RevocationStatus {
 /// even when the Biscuit TTL has not yet expired.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceRevocationStatus {
-    /// DID of the device.
+ /// DID of the device.
     pub device_did: Did,
-    /// Last known trust level (may be stale if the device is isolated).
+ /// Last known trust level (may be stale if the device is isolated).
     pub last_known_trust_level: TrustLevel,
-    /// UTC timestamp (microseconds) of the last RevocationDelta receipt for this device.
-    /// `None` if no RevocationDelta has ever been received.
+ /// UTC timestamp (microseconds) of the last RevocationDelta receipt for this device.
+ /// `None` if no RevocationDelta has ever been received.
     pub last_revocation_delta_received_at: Option<i64>,
 }
 
@@ -137,19 +137,19 @@ pub struct PendingRevocationStore {
 }
 
 impl PendingRevocationStore {
-    /// Add a Manager signature for the given target DID.
-    ///
-    /// # Verification
-    ///
-    /// 1. Resolves the Manager's DID to its Ed25519 public key.
-    /// 2. Verifies the signature over `RevocationDelta::signing_payload(target_did)`.
-    /// 3. Checks that no prior signature from the same `manager_did` is present.
-    ///
-    /// Returns `Applied` when M valid, distinct signatures are accumulated; `Pending` otherwise.
-    ///
-    /// # Parameters
-    /// - `revoked_dids`: The set of DIDs currently known to be REVOKED. Any Manager DID
-    ///   present in this set is rejected as a signing key (Req 9.4).
+ /// Add a Manager signature for the given target DID.
+ ///
+ /// # Verification
+ ///
+ /// 1. Resolves the Manager's DID to its Ed25519 public key.
+ /// 2. Verifies the signature over `RevocationDelta::signing_payload(target_did)`.
+ /// 3. Checks that no prior signature from the same `manager_did` is present.
+ ///
+ /// Returns `Applied` when M valid, distinct signatures are accumulated; `Pending` otherwise.
+ ///
+ /// # Parameters
+ /// - `revoked_dids`: The set of DIDs currently known to be REVOKED. Any Manager DID
+ /// present in this set is rejected as a signing key (Req 9.4).
     pub fn add_signature(
         &mut self,
         target_did: Did,
@@ -158,7 +158,7 @@ impl PendingRevocationStore {
         threshold_n: usize,
         revoked_dids: &[Did],
     ) -> Result<RevocationStatus, TirBaseError> {
-        // Req 9.4 — reject if the signing Manager's key is itself REVOKED.
+ // Req 9.4 — reject if the signing Manager's key is itself REVOKED.
         if revoked_dids.contains(&sig.manager_did) {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: format!(
@@ -168,7 +168,7 @@ impl PendingRevocationStore {
             });
         }
 
-        // Verify the signature against the Manager's DID-resolved public key.
+ // Verify the signature against the Manager's DID-resolved public key.
         let payload = RevocationDelta::signing_payload(&target_did);
         let public_key = did_mod::resolve_did(&sig.manager_did)?;
         keypair::verify(&public_key, &payload, &sig.signature)?;
@@ -185,11 +185,11 @@ impl PendingRevocationStore {
                 last_receipt_timestamp: None,
             });
 
-        // Update thresholds in case they were updated (use latest provided values).
+ // Update thresholds in case they were updated (use latest provided values).
         entry.threshold_m = threshold_m;
         entry.threshold_n = threshold_n;
 
-        // Reject duplicate Manager DID (Req 9.3).
+ // Reject duplicate Manager DID (Req 9.3).
         if entry
             .signatures
             .iter()
@@ -200,7 +200,7 @@ impl PendingRevocationStore {
             });
         }
 
-        // Already applied — idempotent.
+ // Already applied — idempotent.
         if entry.signatures.len() >= threshold_m {
             return Ok(RevocationStatus::Applied);
         }
@@ -218,7 +218,7 @@ impl PendingRevocationStore {
         }
     }
 
-    /// Check the current accumulation state for a target DID without adding a signature.
+ /// Check the current accumulation state for a target DID without adding a signature.
     pub fn status(&self, target_did: &Did) -> Option<RevocationStatus> {
         self.pending.get(target_did).map(|p| {
             if p.signatures.len() >= p.threshold_m {
@@ -232,17 +232,17 @@ impl PendingRevocationStore {
         })
     }
 
-    /// Queryable status flag: last known timestamp of last RevocationDelta receipt
-    /// for the isolated-device scenario (Req 9.5).
+ /// Queryable status flag: last known timestamp of last RevocationDelta receipt
+ /// for the isolated-device scenario (Req 9.5).
     pub fn last_revocation_receipt_timestamp(&self, target_did: &Did) -> Option<i64> {
         self.pending
             .get(target_did)
             .and_then(|p| p.last_receipt_timestamp)
     }
 
-    /// Build a `RevocationDelta` from the accumulated signatures for a target DID.
-    ///
-    /// Returns `None` if the threshold has not been met.
+ /// Build a `RevocationDelta` from the accumulated signatures for a target DID.
+ ///
+ /// Returns `None` if the threshold has not been met.
     pub fn build_revocation_delta(&self, target_did: &Did) -> Option<RevocationDelta> {
         let entry = self.pending.get(target_did)?;
         if entry.signatures.len() < entry.threshold_m {
@@ -255,9 +255,9 @@ impl PendingRevocationStore {
         })
     }
 
-    /// Emit a warning string if M=1, N=1 (single manager has unilateral exile power).
-    ///
-    /// Returns `Some(warning)` when M=1 and N=1 (Req 9.7).
+ /// Emit a warning string if M=1, N=1 (single manager has unilateral exile power).
+ ///
+ /// Returns `Some(warning)` when M=1 and N=1 (Req 9.7).
     pub fn check_1_of_1_warning(threshold_m: usize, threshold_n: usize) -> Option<String> {
         if threshold_m == 1 && threshold_n == 1 {
             Some(
@@ -282,9 +282,9 @@ impl PendingRevocationStore {
 /// 1. Records the device as REVOKED in the device-status map (Req 9.4).
 /// 2. Records the timestamp of the application (Req 9.5).
 /// 3. Invokes the gossip callback to immediately gossip the complete
-///    `RevocationDelta` at HIGH priority (Req 9.2).
+/// `RevocationDelta` at HIGH priority (Req 9.2).
 /// 4. Invokes the CCE callback to tag all Deltas authored by the revoked DID
-///    with `TaintSource::DeviceRevocation` (Req 10.1).
+/// with `TaintSource::DeviceRevocation` (Req 10.1).
 ///
 /// # 30-Second Application Window (Req 9.4)
 ///
@@ -295,23 +295,23 @@ impl PendingRevocationStore {
 /// magnitude below 30 seconds.
 #[cfg(feature = "native")]
 pub struct RevocationSubsystem {
-    /// Accumulates partial signature contributions.
+ /// Accumulates partial signature contributions.
     store: PendingRevocationStore,
-    /// Per-DID device status — last known TrustLevel + last receipt timestamp.
+ /// Per-DID device status — last known TrustLevel + last receipt timestamp.
     device_status: BTreeMap<Did, DeviceRevocationStatus>,
-    /// M threshold.
+ /// M threshold.
     threshold_m: usize,
-    /// N threshold.
+ /// N threshold.
     threshold_n: usize,
-    /// DIDs that have been applied as REVOKED (for signing-key rejection).
+ /// DIDs that have been applied as REVOKED (for signing-key rejection).
     revoked_dids: Vec<Did>,
-    /// SQLite connection — used to query DAG for deltas authored by a revoked DID.
+ /// SQLite connection — used to query DAG for deltas authored by a revoked DID.
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
 }
 
 #[cfg(feature = "native")]
 impl RevocationSubsystem {
-    /// Create a new `RevocationSubsystem`.
+ /// Create a new `RevocationSubsystem`.
     pub fn new(
         threshold_m: usize,
         threshold_n: usize,
@@ -327,40 +327,40 @@ impl RevocationSubsystem {
         }
     }
 
-    /// Process an incoming partial or complete `RevocationDelta` (Req 9.3–9.4).
-    ///
-    /// For each signature in `delta.signatures`:
-    /// 1. Verifies the signature against the Manager's DID-resolved public key.
-    /// 2. Checks the signing Manager is not itself REVOKED.
-    /// 3. Rejects duplicates (same Manager DID already contributed).
-    ///
-    /// When M valid distinct signatures are accumulated:
-    /// 4. Records the target DID as REVOKED synchronously (≤30s by construction).
-    /// 5. Calls `on_revocation_applied(target_did, revocation_delta)` — the caller
-    ///    provides this callback to trigger HIGH-priority gossip (Req 9.2).
-    /// 6. Calls `on_cce_trigger(target_did)` — the caller provides this callback
-    ///    to invoke `CausalContaminationEngine::tag_contamination_root()` for all
-    ///    Deltas authored by the revoked DID (Req 10.1).
-    ///
-    /// Returns `Ok(RevocationStatus)`:
-    /// - `Pending` if threshold not yet met.
-    /// - `Applied` if threshold met (whether just now or previously).
-    ///
-    /// Returns `Err` if any signature check fails (Req 9.3, 9.4).
+ /// Process an incoming partial or complete `RevocationDelta` (Req 9.3–9.4).
+ ///
+ /// For each signature in `delta.signatures`:
+ /// 1. Verifies the signature against the Manager's DID-resolved public key.
+ /// 2. Checks the signing Manager is not itself REVOKED.
+ /// 3. Rejects duplicates (same Manager DID already contributed).
+ ///
+ /// When M valid distinct signatures are accumulated:
+ /// 4. Records the target DID as REVOKED synchronously (≤30s by construction).
+ /// 5. Calls `on_revocation_applied(target_did, revocation_delta)` — the caller
+ /// provides this callback to trigger HIGH-priority gossip (Req 9.2).
+ /// 6. Calls `on_cce_trigger(target_did)` — the caller provides this callback
+ /// to invoke `CausalContaminationEngine::tag_contamination_root()` for all
+ /// Deltas authored by the revoked DID (Req 10.1).
+ ///
+ /// Returns `Ok(RevocationStatus)`:
+ /// - `Pending` if threshold not yet met.
+ /// - `Applied` if threshold met (whether just now or previously).
+ ///
+ /// Returns `Err` if any signature check fails (Req 9.3, 9.4).
     pub fn process_incoming_delta(
         &mut self,
         delta: &RevocationDelta,
         on_revocation_applied: &mut dyn FnMut(&Did, &RevocationDelta),
         on_cce_trigger: &mut dyn FnMut(&Did, Vec<DeltaId>),
     ) -> Result<RevocationStatus, TirBaseError> {
-        // Validate: target_did must be non-empty (Req 9.4).
+ // Validate: target_did must be non-empty (Req 9.4).
         if delta.target_did.is_empty() {
             return Err(TirBaseError::DeltaMalformed {
                 reason: "RevocationDelta.target_did is empty".to_string(),
             });
         }
 
-        // Validate: must have at least one signature.
+ // Validate: must have at least one signature.
         if delta.signatures.is_empty() {
             return Err(TirBaseError::ThresholdNotMet {
                 got: 0,
@@ -382,18 +382,18 @@ impl RevocationSubsystem {
                     last_status = Some(status);
                 }
                 Err(TirBaseError::AuthorisationFailed { reason }) => {
-                    // Log and continue — other signatures in the delta may be valid.
-                    // A single bad signature does not invalidate the whole delta.
+ // Log and continue — other signatures in the delta may be valid.
+ // A single bad signature does not invalidate the whole delta.
                     log_revocation_failure(&delta.target_did, &reason);
                 }
                 Err(e) => {
-                    // DID resolution or crypto failure — log and continue.
+ // DID resolution or crypto failure — log and continue.
                     log_revocation_failure(&delta.target_did, &e.to_string());
                 }
             }
         }
 
-        // If we have never seen any signature yet, threshold not met.
+ // If we have never seen any signature yet, threshold not met.
         let current_status = last_status
             .or_else(|| self.store.status(&delta.target_did))
             .ok_or(TirBaseError::ThresholdNotMet {
@@ -402,11 +402,11 @@ impl RevocationSubsystem {
             })?;
 
         if current_status == RevocationStatus::Applied {
-            // Only trigger side effects once (idempotent).
+ // Only trigger side effects once (idempotent).
             if !self.revoked_dids.contains(&delta.target_did) {
                 let now = current_timestamp_micros();
 
-                // 1. Record REVOKED status (Req 9.4) — applied synchronously, ≤30s by construction.
+ // 1. Record REVOKED status (Req 9.4) — applied synchronously, ≤30s by construction.
                 self.revoked_dids.push(delta.target_did.clone());
                 let complete_delta = self
                     .store
@@ -422,15 +422,15 @@ impl RevocationSubsystem {
                     },
                 );
 
-                // 2. Query DAG for all Delta IDs authored by the revoked DID.
+ // 2. Query DAG for all Delta IDs authored by the revoked DID.
                 let authored_delta_ids = self
                     .query_deltas_by_author(&delta.target_did)
                     .unwrap_or_default();
 
-                // 3. Gossip callback — HIGH priority (Req 9.2).
+ // 3. Gossip callback — HIGH priority (Req 9.2).
                 on_revocation_applied(&delta.target_did, &complete_delta);
 
-                // 4. CCE trigger — tag all authored Deltas (Req 10.1).
+ // 4. CCE trigger — tag all authored Deltas (Req 10.1).
                 if !authored_delta_ids.is_empty() {
                     on_cce_trigger(&delta.target_did, authored_delta_ids);
                 }
@@ -440,14 +440,14 @@ impl RevocationSubsystem {
         Ok(current_status)
     }
 
-    /// Validate a received `RevocationDelta` for incoming verification without
-    /// applying side effects (Req 9.3–9.4 verification logic only).
-    ///
-    /// Returns `Ok(())` if:
-    /// - target_did is present
-    /// - at least M valid, distinct, non-REVOKED Manager signatures are present
-    ///
-    /// Returns `Err(ThresholdNotMet)` if fewer than M valid sigs present.
+ /// Validate a received `RevocationDelta` for incoming verification without
+ /// applying side effects (Req 9.3–9.4 verification logic only).
+ ///
+ /// Returns `Ok(())` if:
+ /// - target_did is present
+ /// - at least M valid, distinct, non-REVOKED Manager signatures are present
+ ///
+ /// Returns `Err(ThresholdNotMet)` if fewer than M valid sigs present.
     pub fn validate_revocation_delta(&self, delta: &RevocationDelta) -> Result<(), TirBaseError> {
         if delta.target_did.is_empty() {
             return Err(TirBaseError::DeltaMalformed {
@@ -460,17 +460,17 @@ impl RevocationSubsystem {
         let mut seen_dids: std::collections::HashSet<&str> = std::collections::HashSet::new();
 
         for sig in &delta.signatures {
-            // Reject REVOKED signing keys.
+ // Reject REVOKED signing keys.
             if self.revoked_dids.contains(&sig.manager_did) {
                 continue;
             }
 
-            // Skip duplicates.
+ // Skip duplicates.
             if !seen_dids.insert(sig.manager_did.as_str()) {
                 continue;
             }
 
-            // Verify signature.
+ // Verify signature.
             let Ok(public_key) = did_mod::resolve_did(&sig.manager_did) else {
                 continue;
             };
@@ -489,11 +489,11 @@ impl RevocationSubsystem {
         }
     }
 
-    /// Produce a new partial `RevocationDelta` signed by the given Manager (Req 9.1).
-    ///
-    /// The caller provides the Manager's signing key bytes. The returned delta
-    /// carries a single `ManagerSignature` and should be gossiped at HIGH priority
-    /// so that peer devices can accumulate further signatures.
+ /// Produce a new partial `RevocationDelta` signed by the given Manager (Req 9.1).
+ ///
+ /// The caller provides the Manager's signing key bytes. The returned delta
+ /// carries a single `ManagerSignature` and should be gossiped at HIGH priority
+ /// so that peer devices can accumulate further signatures.
     pub fn produce_partial_delta(
         &self,
         target_did: Did,
@@ -512,41 +512,41 @@ impl RevocationSubsystem {
         })
     }
 
-    /// Queryable device status: last known TrustLevel + last RevocationDelta receipt
-    /// timestamp for the isolated-device scenario (Req 9.5).
-    ///
-    /// Returns `None` if no RevocationDelta has ever been received for this DID.
+ /// Queryable device status: last known TrustLevel + last RevocationDelta receipt
+ /// timestamp for the isolated-device scenario (Req 9.5).
+ ///
+ /// Returns `None` if no RevocationDelta has ever been received for this DID.
     pub fn device_status(&self, device_did: &str) -> Option<&DeviceRevocationStatus> {
         self.device_status.get(device_did)
     }
 
-    /// Return all DIDs currently known to be REVOKED.
+ /// Return all DIDs currently known to be REVOKED.
     pub fn revoked_dids(&self) -> &[Did] {
         &self.revoked_dids
     }
 
-    /// Task 30.6: check whether a DID has completed revocation.
+ /// : check whether a DID has completed revocation.
     pub fn is_did_revoked(&self, did: &str) -> bool {
         self.revoked_dids.iter().any(|d| d == did)
     }
 
-    /// Return the M threshold.
+ /// Return the M threshold.
     pub fn threshold_m(&self) -> usize {
         self.threshold_m
     }
 
-    /// Check the accumulation state for a target DID (delegates to the inner store).
+ /// Check the accumulation state for a target DID (delegates to the inner store).
     pub fn store_status(&self, target_did: &Did) -> Option<RevocationStatus> {
         self.store.status(target_did)
     }
 
-    /// Emit a 1-of-1 revocation warning if applicable (Req 9.7).
+ /// Emit a 1-of-1 revocation warning if applicable (Req 9.7).
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
     }
 
-    /// Return all complete RevocationDeltas that were received/applied within
-    /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
+ /// Return all complete RevocationDeltas that were received/applied within
+ /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
     pub fn build_recent_revocation_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
         let cutoff = current_timestamp_micros() - within_micros;
         self.revoked_dids
@@ -562,10 +562,10 @@ impl RevocationSubsystem {
             .collect()
     }
 
-    /// Query the DAG for all Delta IDs authored by a given DID.
-    ///
-    /// This is used to collect the initial set of root Deltas to pass to the CCE
-    /// when a device is revoked (Req 10.1).
+ /// Query the DAG for all Delta IDs authored by a given DID.
+ ///
+ /// This is used to collect the initial set of root Deltas to pass to the CCE
+ /// when a device is revoked (Req 10.1).
     fn query_deltas_by_author(&self, author_did: &Did) -> Result<Vec<DeltaId>, TirBaseError> {
         let conn = self
             .conn
@@ -606,14 +606,14 @@ pub struct RevocationSubsystem {
     threshold_m: usize,
     threshold_n: usize,
     revoked_dids: Vec<Did>,
-    /// Delta IDs authored per DID — the WASM analogue of the native DAG query
-    /// (`query_deltas_by_author` over `dag_nodes`).
-    ///
-    /// Populated by [`Self::record_authored_delta`] from the two WASM paths
-    /// that prove authorship: `CoreHandle::write` (the local device produced a
-    /// signed Delta) and `CoreHandle::receive_inbound_wasm` (a peer Delta
-    /// passed signature verification and merged).  The CCE trigger for a
-    /// revoked DID (Req 10.1) is fed from this index instead of an empty list.
+ /// Delta IDs authored per DID — the WASM analogue of the native DAG query
+ /// (`query_deltas_by_author` over `dag_nodes`).
+ ///
+ /// Populated by [`Self::record_authored_delta`] from the two WASM paths
+ /// that prove authorship: `CoreHandle::write` (the local device produced a
+ /// signed Delta) and `CoreHandle::receive_inbound_wasm` (a peer Delta
+ /// passed signature verification and merged). The CCE trigger for a
+ /// revoked DID (Req 10.1) is fed from this index instead of an empty list.
     authored_deltas: BTreeMap<Did, std::collections::HashSet<DeltaId>>,
 }
 
@@ -630,14 +630,14 @@ impl RevocationSubsystem {
         }
     }
 
-    /// Record that `delta_id` was authored by `author_did` (WASM only).
-    ///
-    /// Idempotent.  Called by the production WASM paths that establish
-    /// authorship — [`crate::api::CoreHandle::write`] for locally produced
-    /// Deltas and [`crate::api::CoreHandle::receive_inbound_wasm`] for
-    /// signature-verified inbound Deltas that merged.  The CCE trigger for a
-    /// revoked DID reads this index ([`Self::authored_delta_ids`]), mirroring
-    /// the native `query_deltas_by_author` DAG query.
+ /// Record that `delta_id` was authored by `author_did` (WASM only).
+ ///
+ /// Idempotent. Called by the production WASM paths that establish
+ /// authorship — [`crate::api::CoreHandle::write`] for locally produced
+ /// Deltas and [`crate::api::CoreHandle::receive_inbound_wasm`] for
+ /// signature-verified inbound Deltas that merged. The CCE trigger for a
+ /// revoked DID reads this index ([`Self::authored_delta_ids`]), mirroring
+ /// the native `query_deltas_by_author` DAG query.
     pub(crate) fn record_authored_delta(&mut self, author_did: Did, delta_id: DeltaId) {
         self.authored_deltas
             .entry(author_did)
@@ -645,8 +645,8 @@ impl RevocationSubsystem {
             .insert(delta_id);
     }
 
-    /// Delta IDs authored by `did` that this WASM device has seen (locally
-    /// produced or signature-verified inbound), in arbitrary order.
+ /// Delta IDs authored by `did` that this WASM device has seen (locally
+ /// produced or signature-verified inbound), in arbitrary order.
     pub(crate) fn authored_delta_ids(&self, did: &Did) -> Vec<DeltaId> {
         self.authored_deltas
             .get(did)
@@ -719,7 +719,7 @@ impl RevocationSubsystem {
                 },
             );
 
-            // Push TrustLevelChanged event (WASM target only).
+ // Push TrustLevelChanged event (WASM target only).
             #[cfg(feature = "wasm")]
             crate::push_wasm_event(crate::WasmEvent::TrustLevelChanged {
                 previous: "Verified".to_string(),
@@ -728,12 +728,12 @@ impl RevocationSubsystem {
 
             on_revocation_applied(&delta.target_did, &complete_delta);
 
-            // Req 10.1 — CCE-tag every Delta authored by the revoked DID, fed
-            // from the per-author index maintained by
-            // `record_authored_delta` (the WASM analogue of the native
-            // `query_deltas_by_author` DAG query).  Subphase 6.3: the trigger
-            // receives the ACTUAL authored Delta IDs instead of an empty list,
-            // so the revoked device's own writes are tagged on WASM too.
+ // Req 10.1 — CCE-tag every Delta authored by the revoked DID, fed
+ // from the per-author index maintained by
+ // `record_authored_delta` (the WASM analogue of the native
+ // `query_deltas_by_author` DAG query). Subphase 6.3: the trigger
+ // receives the ACTUAL authored Delta IDs instead of an empty list,
+ // so the revoked device's own writes are tagged on WASM too.
             let authored_delta_ids = self.authored_delta_ids(&delta.target_did);
             if !authored_delta_ids.is_empty() {
                 on_cce_trigger(&delta.target_did, authored_delta_ids);
@@ -805,17 +805,17 @@ impl RevocationSubsystem {
         &self.revoked_dids
     }
 
-    /// Task 30.6: check whether a DID has completed revocation.
+ /// : check whether a DID has completed revocation.
     pub fn is_did_revoked(&self, did: &str) -> bool {
         self.revoked_dids.iter().any(|d| d == did)
     }
 
-    /// Return the M threshold.
+ /// Return the M threshold.
     pub fn threshold_m(&self) -> usize {
         self.threshold_m
     }
 
-    /// Check the accumulation state for a target DID (delegates to the inner store).
+ /// Check the accumulation state for a target DID (delegates to the inner store).
     pub fn store_status(&self, target_did: &Did) -> Option<RevocationStatus> {
         self.store.status(target_did)
     }
@@ -824,8 +824,8 @@ impl RevocationSubsystem {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
     }
 
-    /// Return all complete RevocationDeltas that were received/applied within
-    /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
+ /// Return all complete RevocationDeltas that were received/applied within
+ /// `within_micros` microseconds ago. Used to re-announce to newly discovered peers (Req 9.2).
     pub fn build_recent_revocation_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
         let cutoff = current_timestamp_micros() - within_micros;
         self.revoked_dids
@@ -853,8 +853,8 @@ pub fn current_timestamp_micros() -> i64 {
 
 /// Log a revocation verification failure (structured record, Req 9.4).
 fn log_revocation_failure(target_did: &str, reason: &str) {
-    // In a production build this would write to the structured diagnostic log.
-    // For v1 we use eprintln so the record is always visible without a log subscriber.
+ // In a production build this would write to the structured diagnostic log.
+ // For v1 we use eprintln so the record is always visible without a log subscriber.
     emit_revocation(
         Severity::High,
         ReasonCode::RevocationVerificationFailed,
@@ -874,7 +874,7 @@ mod tests {
     use crate::identity::IdentityManager;
     use crate::store::sqlite;
 
-    // ─── Test helpers ────────────────────────────────────────────────────────
+ // ─── Test helpers ────────────────────────────────────────────────────────
 
     fn open_conn() -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
         let conn = sqlite::open(":memory:").expect("open in-memory SQLite");
@@ -885,14 +885,14 @@ mod tests {
         RevocationSubsystem::new(m, n, open_conn())
     }
 
-    /// Make a Manager identity and return (RevocationSubsystem helper) + manager DID + signing key.
+ /// Make a Manager identity and return (RevocationSubsystem helper) + manager DID + signing key.
     fn make_manager() -> (String, [u8; 32]) {
         let mgr = IdentityManager::init_in_memory().unwrap();
         let sk = mgr.signing_key_bytes();
         (mgr.did().to_string(), sk)
     }
 
-    /// Build a partial delta signed by a single manager.
+ /// Build a partial delta signed by a single manager.
     fn partial_delta(
         sys: &RevocationSubsystem,
         target_did: &str,
@@ -903,11 +903,11 @@ mod tests {
             .expect("produce_partial_delta should succeed")
     }
 
-    /// No-op callbacks for testing (we verify effects via device_status).
+ /// No-op callbacks for testing (we verify effects via device_status).
     fn noop_gossip(_target: &Did, _delta: &RevocationDelta) {}
     fn noop_cce(_target: &Did, _delta_ids: Vec<DeltaId>) {}
 
-    // ─── Test 1: Below threshold → Pending ───────────────────────────────────
+ // ─── Test 1: Below threshold → Pending ───────────────────────────────────
 
     #[test]
     fn test_below_threshold_returns_pending() {
@@ -933,7 +933,7 @@ mod tests {
         );
     }
 
-    // ─── Test 2: Exactly at threshold → Applied ───────────────────────────────
+ // ─── Test 2: Exactly at threshold → Applied ───────────────────────────────
 
     #[test]
     fn test_at_threshold_returns_applied() {
@@ -946,7 +946,7 @@ mod tests {
         let d1 = partial_delta(&sys, &target, &mgr1_did, &mgr1_sk);
         let d2 = partial_delta(&sys, &target, &mgr2_did, &mgr2_sk);
 
-        // Merge both sigs into a combined delta (as mesh would do).
+ // Merge both sigs into a combined delta (as mesh would do).
         let combined = RevocationDelta {
             target_did: target.clone(),
             signatures: [d1.signatures, d2.signatures].concat(),
@@ -959,7 +959,7 @@ mod tests {
 
         assert_eq!(status, RevocationStatus::Applied, "expected Applied at M=2");
 
-        // Device must now be in the REVOKED map.
+ // Device must now be in the REVOKED map.
         let device_st = sys
             .device_status(&target)
             .expect("device status must exist");
@@ -967,7 +967,7 @@ mod tests {
         assert!(device_st.last_revocation_delta_received_at.is_some());
     }
 
-    // ─── Test 3: M-1 sigs rejected (threshold not met) ────────────────────────
+ // ─── Test 3: M-1 sigs rejected (threshold not met) ────────────────────────
 
     #[test]
     fn test_m_minus_1_sigs_returns_pending() {
@@ -997,7 +997,7 @@ mod tests {
             matches!(status, RevocationStatus::Pending { .. }),
             "expected Pending with M-1 sigs, got: {status:?}"
         );
-        // Device must NOT be revoked.
+ // Device must NOT be revoked.
         assert!(
             sys.device_status(&target).is_none()
                 || sys.device_status(&target).unwrap().last_known_trust_level
@@ -1006,7 +1006,7 @@ mod tests {
         );
     }
 
-    // ─── Test 4: 1-of-1 configuration ─────────────────────────────────────────
+ // ─── Test 4: 1-of-1 configuration ─────────────────────────────────────────
 
     #[test]
     fn test_1_of_1_revocation_applied() {
@@ -1033,12 +1033,12 @@ mod tests {
 
         assert_eq!(status, RevocationStatus::Applied);
         assert!(gossip_called, "gossip callback must be invoked");
-        // CCE not called because no DAG nodes exist for the target in this test.
+ // CCE not called because no DAG nodes exist for the target in this test.
         let device_st = sys.device_status(&target).unwrap();
         assert_eq!(device_st.last_known_trust_level, TrustLevel::Revoked);
     }
 
-    // ─── Test 5: 1-of-1 warning ────────────────────────────────────────────────
+ // ─── Test 5: 1-of-1 warning ────────────────────────────────────────────────
 
     #[test]
     fn test_1_of_1_warning_emitted() {
@@ -1058,21 +1058,21 @@ mod tests {
         assert!(sys.check_1_of_1_warning().is_none());
     }
 
-    // ─── Test 6: Signing-key-is-REVOKED rejection ─────────────────────────────
+ // ─── Test 6: Signing-key-is-REVOKED rejection ─────────────────────────────
 
     #[test]
     fn test_revoked_signing_key_rejected() {
         let mut sys = make_subsystem(1, 2);
         let target = "did:key:z6MkTarget555555555555555555555555555".to_string();
 
-        // First revoke manager A.
+ // First revoke manager A.
         let (mgr_a_did, mgr_a_sk) = make_manager();
         let delta_a = partial_delta(&sys, &mgr_a_did, &mgr_a_did, &mgr_a_sk);
-        // This revokes mgr_a_did (i.e., mgr_a becomes revoked by itself — unusual but tests the guard)
+ // This revokes mgr_a_did (i.e., mgr_a becomes revoked by itself — unusual but tests the guard)
         let _ = sys.process_incoming_delta(&delta_a, &mut noop_gossip, &mut noop_cce);
-        // mgr_a_did is now in revoked_dids.
+ // mgr_a_did is now in revoked_dids.
 
-        // Now mgr_a tries to contribute a signature toward revoking a different target.
+ // Now mgr_a tries to contribute a signature toward revoking a different target.
         let (target_did2, _) = make_manager();
         let payload = RevocationDelta::signing_payload(&target_did2);
         let sig = keypair::sign(&mgr_a_sk, &payload).expect("sign");
@@ -1085,17 +1085,17 @@ mod tests {
             created_at: current_timestamp_micros(),
         };
 
-        // The revoked manager's signature must be silently skipped (not crash).
-        // process_incoming_delta should return ThresholdNotMet because no valid sig got through.
+ // The revoked manager's signature must be silently skipped (not crash).
+ // process_incoming_delta should return ThresholdNotMet because no valid sig got through.
         let result = sys.process_incoming_delta(&bad_delta, &mut noop_gossip, &mut noop_cce);
-        // The revoked sig is filtered out; we have 0 valid sigs vs threshold_m=1 → ThresholdNotMet.
+ // The revoked sig is filtered out; we have 0 valid sigs vs threshold_m=1 → ThresholdNotMet.
         assert!(
             matches!(result, Err(TirBaseError::ThresholdNotMet { got: 0, .. })),
             "revoked signing key should yield ThresholdNotMet, got: {result:?}"
         );
     }
 
-    // ─── Test 7: Tampered signature rejected ──────────────────────────────────
+ // ─── Test 7: Tampered signature rejected ──────────────────────────────────
 
     #[test]
     fn test_tampered_manager_signature_rejected() {
@@ -1105,20 +1105,20 @@ mod tests {
         let (mgr_did, mgr_sk) = make_manager();
         let mut delta = partial_delta(&sys, &target, &mgr_did, &mgr_sk);
 
-        // Flip the first byte of the signature.
+ // Flip the first byte of the signature.
         if let Some(first) = delta.signatures[0].signature.0.first_mut() {
             *first ^= 0xFF;
         }
 
         let result = sys.process_incoming_delta(&delta, &mut noop_gossip, &mut noop_cce);
-        // Tampered sig fails crypto verification — threshold not met.
+ // Tampered sig fails crypto verification — threshold not met.
         assert!(
             matches!(result, Err(TirBaseError::ThresholdNotMet { got: 0, .. })),
             "tampered signature must not count toward threshold, got: {result:?}"
         );
     }
 
-    // ─── Test 8: Duplicate Manager DID rejected ───────────────────────────────
+ // ─── Test 8: Duplicate Manager DID rejected ───────────────────────────────
 
     #[test]
     fn test_duplicate_manager_did_not_double_counted() {
@@ -1139,14 +1139,14 @@ mod tests {
             .process_incoming_delta(&combined, &mut noop_gossip, &mut noop_cce)
             .expect("process should not hard-fail on duplicate");
 
-        // Should still be Pending because only 1 unique manager contributed.
+ // Should still be Pending because only 1 unique manager contributed.
         assert!(
             matches!(status, RevocationStatus::Pending { collected: 1, .. }),
             "duplicate manager should not count twice, got: {status:?}"
         );
     }
 
-    // ─── Test 9: validate_revocation_delta ────────────────────────────────────
+ // ─── Test 9: validate_revocation_delta ────────────────────────────────────
 
     #[test]
     fn test_validate_revocation_delta_pass() {
@@ -1202,7 +1202,7 @@ mod tests {
         );
     }
 
-    // ─── Test 10: device_status returns None before any receipt ───────────────
+ // ─── Test 10: device_status returns None before any receipt ───────────────
 
     #[test]
     fn test_device_status_none_before_receipt() {
@@ -1214,7 +1214,7 @@ mod tests {
         );
     }
 
-    // ─── Test 11: Idempotent — second identical delta doesn't retrigger ────────
+ // ─── Test 11: Idempotent — second identical delta doesn't retrigger ────────
 
     #[test]
     fn test_applied_delta_idempotent() {
@@ -1238,7 +1238,7 @@ mod tests {
         )
         .unwrap();
 
-        // Replay the same delta.
+ // Replay the same delta.
         let _ = sys.process_incoming_delta(
             &delta,
             &mut |_, _| {
@@ -1249,17 +1249,17 @@ mod tests {
             },
         );
 
-        // Gossip must only be called once.
+ // Gossip must only be called once.
         assert_eq!(gossip_count, 1, "gossip must only trigger once");
     }
 
-    // ─── Test 12: CCE trigger callback receives authored delta IDs ────────────
+ // ─── Test 12: CCE trigger callback receives authored delta IDs ────────────
 
     #[test]
     fn test_cce_trigger_receives_authored_delta_ids() {
         let conn = open_conn();
 
-        // Pre-insert some dag_nodes authored by our target.
+ // Pre-insert some dag_nodes authored by our target.
         {
             let lock = conn.lock().unwrap();
             lock.execute(
@@ -1314,7 +1314,7 @@ mod tests {
         assert!(cce_ids.contains(&[0x02u8; 32]));
     }
 
-    // ─── Test 13: PendingRevocationStore — low-level unit tests ──────────────
+ // ─── Test 13: PendingRevocationStore — low-level unit tests ──────────────
 
     #[test]
     fn test_store_add_signature_verified_and_counted() {
@@ -1358,7 +1358,7 @@ mod tests {
             signature: sig,
         };
 
-        // Mark mgr_did as revoked.
+ // Mark mgr_did as revoked.
         let revoked = vec![mgr_did.clone()];
         let result = store.add_signature(target.clone(), ms, 1, 1, &revoked);
 
@@ -1374,7 +1374,7 @@ mod tests {
         let (mgr_did, _mgr_sk) = make_manager();
         let target = "did:key:z6MkStoreTgt3".to_string();
 
-        // Produce a signature over the WRONG payload.
+ // Produce a signature over the WRONG payload.
         let (_, other_sk) = make_manager();
         let wrong_payload = b"not a revocation payload";
         let bad_sig = keypair::sign(&other_sk, wrong_payload).unwrap();
@@ -1390,7 +1390,7 @@ mod tests {
         );
     }
 
-    // ─── Test 14: Produce and verify full round-trip ──────────────────────────
+ // ─── Test 14: Produce and verify full round-trip ──────────────────────────
 
     #[test]
     fn test_produce_partial_delta_verifies_cleanly() {
@@ -1406,7 +1406,7 @@ mod tests {
         assert_eq!(delta.signatures.len(), 1);
         assert_eq!(delta.signatures[0].manager_did, mgr_did);
 
-        // Validate it passes the verification gate.
+ // Validate it passes the verification gate.
         sys.validate_revocation_delta(&delta)
             .expect("produced delta should validate cleanly");
     }
@@ -1419,7 +1419,7 @@ mod non_native_tests {
     use super::*;
     use crate::identity::IdentityManager;
 
-    /// Make a Manager identity (DID + Ed25519 signing key) for WASM tests.
+ /// Make a Manager identity (DID + Ed25519 signing key) for WASM tests.
     fn make_manager() -> (String, [u8; 32]) {
         let mgr = IdentityManager::init_in_memory().unwrap();
         let sk = mgr.signing_key_bytes();
@@ -1438,18 +1438,18 @@ mod non_native_tests {
         assert!(warning.is_none());
     }
 
-    // ─── WASM CCE trigger parity test (Req 10.1, Subphase 6.3) ───────────────────
+ // ─── WASM CCE trigger parity test (Req 10.1, Subphase 6.3) ───────────────────
 
-    /// Validates the WASM revocation-taint path passes the ACTUAL authored Delta
-    /// IDs to `on_cce_trigger` — not an empty Vec (audit Section 4, finding 5).
-    ///
-    /// Flow:
-    /// 1. Device A authors a Delta (recorded via `record_authored_delta`, the
-    ///    WASM analogue of the native DAG `query_deltas_by_author`).
-    /// 2. Device B (a Manager) issues a 1-of-1 RevocationDelta targeting Device A.
-    /// 3. `process_incoming_delta` applies the revocation and invokes
-    ///    `on_cce_trigger` with Device A's authored Delta ID.
-    /// 4. The captured `delta_ids` must be non-empty and contain the recorded ID.
+ /// Validates the WASM revocation-taint path passes the ACTUAL authored Delta
+ /// IDs to `on_cce_trigger` — not an empty Vec (audit Section 4, finding 5).
+ ///
+ /// Flow:
+ /// 1. Device A authors a Delta (recorded via `record_authored_delta`, the
+ /// WASM analogue of the native DAG `query_deltas_by_author`).
+ /// 2. Device B (a Manager) issues a 1-of-1 RevocationDelta targeting Device A.
+ /// 3. `process_incoming_delta` applies the revocation and invokes
+ /// `on_cce_trigger` with Device A's authored Delta ID.
+ /// 4. The captured `delta_ids` must be non-empty and contain the recorded ID.
     #[test]
     fn test_wasm_cce_trigger_receives_authored_delta_ids() {
         let device_a_did = "did:key:z6MkDeviceA".to_string();
@@ -1457,17 +1457,17 @@ mod non_native_tests {
 
         let mut sys = RevocationSubsystem::new(1, 1);
 
-        // Simulate Device A authoring a Delta — the WASM write path calls
-        // `record_authored_delta` (api/mod.rs Subphase 6.3).
+ // Simulate Device A authoring a Delta — the WASM write path calls
+ // `record_authored_delta` (api/mod.rs Subphase 6.3).
         sys.record_authored_delta(device_a_did.clone(), authored_delta_id);
 
-        // Manager produces a 1-of-1 partial RevocationDelta targeting Device A.
+ // Manager produces a 1-of-1 partial RevocationDelta targeting Device A.
         let (mgr_did, mgr_sk) = make_manager();
         let rev_delta = sys
             .produce_partial_delta(device_a_did.clone(), mgr_did.clone(), &mgr_sk)
             .expect("produce_partial_delta should succeed");
 
-        // Capture the delta IDs that the CCE trigger receives.
+ // Capture the delta IDs that the CCE trigger receives.
         let mut captured_ids: Vec<DeltaId> = Vec::new();
         let mut captured_did: Option<String> = None;
 
@@ -1484,7 +1484,7 @@ mod non_native_tests {
             "1-of-1 revocation should be Applied"
         );
 
-        // The CCE trigger must have been called — not skipped with an empty list.
+ // The CCE trigger must have been called — not skipped with an empty list.
         assert_eq!(
             captured_did.as_deref(),
             Some(device_a_did.as_str()),
@@ -1501,7 +1501,7 @@ mod non_native_tests {
             "CCE trigger must receive the actual authored Delta ID"
         );
 
-        // Device A must be marked REVOKED.
+ // Device A must be marked REVOKED.
         let dev_st = sys
             .device_status(&device_a_did)
             .expect("Device A must have a device_status entry");
@@ -1511,10 +1511,10 @@ mod non_native_tests {
         );
     }
 
-    /// Regression test: after a `record_authored_delta` call, the authored Delta
-    /// ID is present in the revocation subsystem's authored set — i.e. the WASM
-    /// write path correctly populates the per-author index that feeds the CCE
-    /// trigger (Req 10.1 parity with the native DAG `query_deltas_by_author`).
+ /// Regression test: after a `record_authored_delta` call, the authored Delta
+ /// ID is present in the revocation subsystem's authored set — i.e. the WASM
+ /// write path correctly populates the per-author index that feeds the CCE
+ /// trigger (Req 10.1 parity with the native DAG `query_deltas_by_author`).
     #[test]
     fn test_wasm_record_authored_delta_populates_authored_set() {
         let device_did = "did:key:z6MkIndexedDevice".to_string();
@@ -1523,7 +1523,7 @@ mod non_native_tests {
 
         let mut sys = RevocationSubsystem::new(1, 1);
 
-        // Simulate two WASM writes by Device A.
+ // Simulate two WASM writes by Device A.
         sys.record_authored_delta(device_did.clone(), delta_id_a);
         sys.record_authored_delta(device_did.clone(), delta_id_b);
 
@@ -1536,7 +1536,7 @@ mod non_native_tests {
         assert!(authored.contains(&delta_id_a));
         assert!(authored.contains(&delta_id_b));
 
-        // A different device's authored set must be empty.
+ // A different device's authored set must be empty.
         let other_authored = sys.authored_delta_ids(&"did:key:z6MkOtherDevice".to_string());
         assert!(
             other_authored.is_empty(),

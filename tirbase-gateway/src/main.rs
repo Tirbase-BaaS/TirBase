@@ -74,24 +74,24 @@ impl SignedOperationPayload for GatewayBootRecord {
     about = "TirBase hardened edge gateway"
 )]
 struct Cli {
-    /// Gateway config TOML path (plain, schema-validated)
+ /// Gateway config TOML path (plain, schema-validated)
     #[arg(value_name = "CONFIG", default_value = "/etc/tirbase/gateway.toml")]
     config: PathBuf,
 
-    /// PolicyAuthority-signed config bundle (JSON). Requires --config-bundle-trust-root.
+ /// PolicyAuthority-signed config bundle (JSON). Requires --config-bundle-trust-root.
     #[arg(long)]
     config_bundle: Option<PathBuf>,
 
-    /// Trust root used to verify a signed config bundle.
+ /// Trust root used to verify a signed config bundle.
     #[arg(long)]
     config_bundle_trust_root: Option<PathBuf>,
 
-    /// Task 34+ utility subcommands (compat).
+ /// + utility subcommands (compat).
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     passthrough: Vec<String>,
 }
 
-fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
+fn try_reference_cli(args: &[String]) -> Option<Result<()>> {
     if args.is_empty() {
         return None;
     }
@@ -102,7 +102,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
                     "usage: tirbase-gateway profile-install <profile.toml> <pa-trust-root.json>"
                 )));
             }
-            Some(tirbase_gateway::task34_cli::run_profile_install(
+            Some(tirbase_gateway::reference_cli::run_profile_install(
                 &PathBuf::from(&args[1]),
                 &PathBuf::from(&args[2]),
             ))
@@ -125,7 +125,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
                 Ok(v) => v,
                 Err(e) => return Some(Err(e)),
             };
-            Some(tirbase_gateway::task34_cli::run_modbus_smoke(
+            Some(tirbase_gateway::reference_cli::run_modbus_smoke(
                 &args[1], &args[2], reg, &vals,
             ))
         }
@@ -135,7 +135,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
                     "usage: tirbase-gateway mqtt-smoke <mqtts://uri> <ca-cert.pem> <topic> <payload>"
                 )));
             }
-            Some(tirbase_gateway::task34_cli::run_mqtt_smoke(
+            Some(tirbase_gateway::reference_cli::run_mqtt_smoke(
                 &args[1],
                 &PathBuf::from(&args[2]),
                 &args[3],
@@ -145,7 +145,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
         "cold-room-sim" => {
             let seed: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(42);
             let steps: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(256);
-            Some(tirbase_gateway::task34_cli::run_cold_room_step(seed, steps))
+            Some(tirbase_gateway::reference_cli::run_cold_room_step(seed, steps))
         }
         "modbus-register-map" => {
             if args.len() < 2 {
@@ -153,7 +153,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
                     "usage: tirbase-gateway modbus-register-map <register-map.toml>"
                 )));
             }
-            Some(tirbase_gateway::task34_cli::run_register_map_check(
+            Some(tirbase_gateway::reference_cli::run_register_map_check(
                 &PathBuf::from(&args[1]),
             ))
         }
@@ -164,7 +164,7 @@ fn try_task34_cli(args: &[String]) -> Option<Result<()>> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let raw: Vec<String> = std::env::args().skip(1).collect();
-    if let Some(res) = try_task34_cli(&raw) {
+    if let Some(res) = try_reference_cli(&raw) {
         return res;
     }
     let cli = Cli::parse();
@@ -184,9 +184,9 @@ async fn main() -> Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::new(filter))
         .init();
 
-    // ── Driver runtime posture ────────────────────────────────────────────────
-    // Report the kernel isolation capabilities the driver child will run under
-    // (CLAIM-33.6, PV-10.4) and initialise crash/restart accounting (CLAIM-33.7).
+ // ── Driver runtime posture ────────────────────────────────────────────────
+ // Report the kernel isolation capabilities the driver child will run under
+ // (CLAIM-33.6, PV-10.4) and initialise crash/restart accounting (CLAIM-33.7).
     {
         let caps = tirbase_drivers::isolation::KernelIsolationCaps::detect();
         if caps.supports_landlock() {
@@ -203,10 +203,10 @@ async fn main() -> Result<()> {
                 "driver isolation: landlock unavailable; driver children stay disabled unless degraded isolation is explicitly opted into"
             );
         }
-        // The persistent driver child is spawned and supervised through the
-        // guard-owned proxy: socketpair isolation, SO_PEERCRED verification,
-        // SCM_RIGHTS device handoff, and lifecycle-driven restart decisions
-        // (CLAIM-33.5/33.6/33.7).
+ // The persistent driver child is spawned and supervised through the
+ // guard-owned proxy: socketpair isolation, SO_PEERCRED verification,
+ // SCM_RIGHTS device handoff, and lifecycle-driven restart decisions
+ // (CLAIM-33.5/33.6/33.7).
         tracing::info!(
             max_retries = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX_RETRIES,
             initial_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_INITIAL.as_secs(),
@@ -217,7 +217,7 @@ async fn main() -> Result<()> {
         start_driver_supervision();
     }
 
-    // Prometheus metrics (CLAIM-35.5)
+ // Prometheus metrics (CLAIM-35.5)
     let metrics = tirbase_gateway::metrics::global_metrics();
     let metrics_addr = config.metrics_addr;
     let metrics_for_server = metrics.clone();
@@ -252,8 +252,8 @@ async fn main() -> Result<()> {
         tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Starting);
     let primary_db_path = config.counter_db_path.clone();
     let derived_db_path = config.effective_derived_db_path();
-    // Signed delta log source for derived-ledger rebuild (CLAIM-31.5, PV-9.3).
-    // CoreHandle stores the signed DAG/delta log in core.db beside primary.db.
+ // Signed delta log source for derived-ledger rebuild (CLAIM-31.5, PV-9.3).
+ // CoreHandle stores the signed DAG/delta log in core.db beside primary.db.
     let core_db_path = primary_db_path.with_file_name("core.db");
     {
         let _primary = match db::open_primary_with_key(
@@ -401,10 +401,10 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Task 53.1 (CLAIM-53.1, PV-28.1/28.2): broadcast our own signed
-    // `COSE_Sign1` time beacons when a cadence is configured. Before this was
-    // wired, `TimeAnchorService::spawn_periodic` had no production caller, so the
-    // gateway never actually broadcast a beacon.
+ // (CLAIM-53.1, PV-28.1/28.2): broadcast our own signed
+ // `COSE_Sign1` time beacons when a cadence is configured. Before this was
+ // wired, `TimeAnchorService::spawn_periodic` had no production caller, so the
+ // gateway never actually broadcast a beacon.
     let _time_anchor_broadcast = if let Some(interval_secs) =
         config.time_anchor_broadcast_interval_secs
     {
@@ -512,9 +512,9 @@ async fn main() -> Result<()> {
     security_log.set_retention(
         tirbase_gateway::security_log::SecurityLogRetentionConfig::from_gateway_config(&config),
     );
-    // CLAIM-26.1: verify the persisted hash chain at startup.  The log itself
-    // emits TamperDetection and enters Restricted on a broken link; the boot
-    // diagnostic makes the outcome observable to operators.
+ // CLAIM-26.1: verify the persisted hash chain at startup. The log itself
+ // emits TamperDetection and enters Restricted on a broken link; the boot
+ // diagnostic makes the outcome observable to operators.
     match security_log.verify_hash_chain() {
         Ok(None) => tracing::info!("security log hash chain verified intact at boot"),
         Ok(Some(first_broken_seq)) => tracing::error!(
@@ -534,9 +534,9 @@ async fn main() -> Result<()> {
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     let _retention_handle = security_log.spawn_retention_rotation_loop();
 
-    // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
-    // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
-    // throttling and are written immediately.
+ // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
+ // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
+ // throttling and are written immediately.
     let flash_budget_path = config
         .flash_budget_data_path
         .clone()
@@ -593,9 +593,9 @@ async fn main() -> Result<()> {
         ratchet.now_est(time_source.as_ref()),
     )?;
 
-    // Core runtime handle installed for the process lifetime (task 35.1).  It is
-    // initialised from the configured primary DB location so the CRDT/transport
-    // runtime lives beside the gateway ledgers rather than in a process-local DB.
+ // Core runtime handle installed for the process lifetime (). It is
+ // initialised from the configured primary DB location so the CRDT/transport
+ // runtime lives beside the gateway ledgers rather than in a process-local DB.
     let core_root_ca_keys = trust_root
         .as_ref()
         .map(|record| {
@@ -621,10 +621,10 @@ async fn main() -> Result<()> {
         "CoreHandle installed"
     );
 
-    // 26.3/26.4/26.7 + 28.3: wire the security log to the core mesh. This
-    // installs the checkpoint provider gossiped on peer connection, feeds peer
-    // checkpoint observations into tail-truncation detection, supplies the real
-    // witness state at checkpoint time, and publishes/merges security events.
+ // 26.3/26.4/26.7 + 28.3: wire the security log to the core mesh. This
+ // installs the checkpoint provider gossiped on peer connection, feeds peer
+ // checkpoint observations into tail-truncation detection, supplies the real
+ // witness state at checkpoint time, and publishes/merges security events.
     tirbase_gateway::mesh_wiring::wire_security_log_to_mesh(
         &core_handle,
         &security_log,
@@ -640,9 +640,9 @@ async fn main() -> Result<()> {
     );
     tracing::info!("security log wired to core mesh (CLAIM-26.3, 26.4, 26.7, 28.3)");
 
-    // 26.7a (PV-7.10): when a trusted cloud anchor is configured, report the
-    // latest checkpoint upstream and ingest its signed acknowledgement so tail
-    // truncation stays detectable without mesh peers.
+ // 26.7a (PV-7.10): when a trusted cloud anchor is configured, report the
+ // latest checkpoint upstream and ingest its signed acknowledgement so tail
+ // truncation stays detectable without mesh peers.
     match tirbase_gateway::cloud_anchor::CloudAnchorClient::from_config(
         &config,
         key_provider.clone(),
@@ -666,7 +666,7 @@ async fn main() -> Result<()> {
         ),
     }
 
-    // CommandGuard / Stage 16 runtime for the configured local target (task 35.1).
+ // CommandGuard / Stage 16 runtime for the configured local target ().
     let ratchet = Arc::new(Mutex::new(ratchet));
     let pipeline_time_source: Arc<dyn TimeSource> = time_source.clone();
     let command_runtime = build_command_runtime(
@@ -684,7 +684,7 @@ async fn main() -> Result<()> {
         now_est,
     )?;
 
-    // Persisted lockdown wins; otherwise leave boot mode and enter Normal.
+ // Persisted lockdown wins; otherwise leave boot mode and enter Normal.
     let lockdown_marker = primary_db_path.with_file_name("lockdown");
     let lockdown_store: Arc<dyn LockdownStore> =
         Arc::new(SqliteLockdownStore::new(&primary_db_path, &lockdown_marker));
@@ -716,9 +716,9 @@ async fn main() -> Result<()> {
     );
     let _pending_approvals = pending_approvals;
 
-    // Task 36.6/36.8a–36.8f: outbound-initiated cloud channel.  There is no
-    // inbound cloud listener anywhere in this binary; the connection is dialled
-    // from here and re-established with exponential backoff.
+ // /36.8a–36.8f: outbound-initiated cloud channel. There is no
+ // inbound cloud listener anywhere in this binary; the connection is dialled
+ // from here and re-established with exponential backoff.
     if config.cloud_endpoint.is_some() {
         match (
             command_runtime.guard.clone(),
@@ -753,9 +753,9 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Attach each handle independently: a gateway configured without an
-    // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
-    // handle may be dropped just because a sibling is absent.
+ // Attach each handle independently: a gateway configured without an
+ // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
+ // handle may be dropped just because a sibling is absent.
     let mint_root_ca_seed = match &config.enrollment_root_ca_private_key_path {
         Some(path) => match read_hex_key(path) {
             Ok(seed) => Some(Arc::new(seed)),
@@ -767,10 +767,10 @@ async fn main() -> Result<()> {
         None => None,
     };
     let rotator: Arc<dyn KeyRotator> = Arc::new(FileKeyRotator::new(config.key_path.clone()));
-    // Task 30.9 / RD-6: self-update requires the UpdateSigner and
-    // PolicyAuthority keys plus the live config path. Missing or malformed
-    // configuration leaves the capability unconfigured (the endpoint answers
-    // 503) rather than half-enabled.
+ // / RD-6: self-update requires the UpdateSigner and
+ // PolicyAuthority keys plus the live config path. Missing or malformed
+ // configuration leaves the capability unconfigured (the endpoint answers
+ // 503) rather than half-enabled.
     let self_update = match (
         &config.update_signer_public_key_hex,
         &config.policy_authority_public_key_hex,
@@ -828,11 +828,11 @@ async fn main() -> Result<()> {
     };
     let admin_state = Some(Arc::new(admin_state));
 
-    // Task 36.5 (PV-11.5): deny-all until a signed EnvelopeProfile is
-    // installed.  A command ingress socket is only bound when a profile is
-    // installed; otherwise no command socket exists and every attempted command
-    // is refused by construction.  The administrative/health surfaces remain
-    // available so an operator can install a profile and observe the state.
+ // (PV-11.5): deny-all until a signed EnvelopeProfile is
+ // installed. A command ingress socket is only bound when a profile is
+ // installed; otherwise no command socket exists and every attempted command
+ // is refused by construction. The administrative/health surfaces remain
+ // available so an operator can install a profile and observe the state.
     let profile_installed = command_runtime.envelope_profile.is_some();
     if !profile_installed {
         tracing::warn!(
@@ -852,9 +852,9 @@ async fn main() -> Result<()> {
         );
     }
 
-    // Local-admin command transport: the only ingress transport implemented in
-    // this gateway binary.  Mesh/cloud receivers are deliberately absent (see
-    // the "Task 35 Blocker Note" in CLAIMS.md).
+ // Local-admin command transport: the only ingress transport implemented in
+ // this gateway binary. Mesh/cloud receivers are deliberately absent (see
+ // the " Blocker Note" in CLAIMS.md).
     if let Some(command_addr) = config.local_admin_command_addr {
         if !profile_installed {
             tracing::warn!(
@@ -883,7 +883,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Keep the CoreHandle alive for the process lifetime (installed runtime).
+ // Keep the CoreHandle alive for the process lifetime (installed runtime).
     let _core_handle = core_handle;
 
     if config.admin_enabled {
@@ -896,10 +896,10 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Task 36.2 (PV-11.2): optional remote admin listener, mTLS-only.  Config
-    // validation already guarantees the four settings are either all present or
-    // all absent; a TLS material load failure leaves the listener unbound
-    // (fail closed) rather than falling back to plaintext.
+ // (PV-11.2): optional remote admin listener, mTLS-only. Config
+ // validation already guarantees the four settings are either all present or
+ // all absent; a TLS material load failure leaves the listener unbound
+ // (fail closed) rather than falling back to plaintext.
     if let (Some(addr), Some(cert), Some(key), Some(client_ca)) = (
         config.admin_remote_addr,
         config.admin_remote_cert_path.as_ref(),
@@ -928,7 +928,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Health endpoint (CLAIM-35.4)
+ // Health endpoint (CLAIM-35.4)
     let health_addr = config.health_addr;
     tokio::spawn(async move {
         if let Err(error) = tirbase_gateway::health::run_health_server(health_addr).await {
@@ -936,7 +936,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Health loop / watchdog forward progress (CLAIM-13.7)
+ // Health loop / watchdog forward progress (CLAIM-13.7)
     let health_state = tirbase_gateway::health::HealthLoopState::new();
     let watchdog: Arc<dyn tirbase_gateway::health::WatchdogNotifier> =
         Arc::new(tirbase_gateway::health::SdNotifyWatchdogNotifier);
@@ -980,7 +980,7 @@ async fn main() -> Result<()> {
 
 /// Command runtime constructed in `main` for the configured local target.
 ///
-/// Every handle is a real production store; nothing here is a stub.  When no
+/// Every handle is a real production store; nothing here is a stub. When no
 /// target/envelope profile is configured the guard is still built (so the
 /// decision pipeline and metrics are live) but policy/envelope admin endpoints
 /// report the explicit unconfigured state.
@@ -1009,10 +1009,10 @@ static GUARD_DEVICE_TRANSPORT: std::sync::OnceLock<tirbase_guard::DeviceTranspor
 /// Production driver-child supervision (CLAIM-33.5/33.6/33.7).
 ///
 /// Both the child program (`TIRBASE_DRIVER_CHILD`) and the device endpoint
-/// (`TIRBASE_DEVICE_ADDR`, Modbus TCP) are supplied by the deployment.  The
+/// (`TIRBASE_DEVICE_ADDR`, Modbus TCP) are supplied by the deployment. The
 /// guard owns the device transport and passes its fd to the child via
 /// `SCM_RIGHTS`; without a configured device the child is not started at all,
-/// so no unblocked driver ever runs.  The child applies its seccomp/landlock
+/// so no unblocked driver ever runs. The child applies its seccomp/landlock
 /// sandbox itself before parsing frames.
 #[cfg(unix)]
 fn start_driver_supervision() {
@@ -1052,8 +1052,8 @@ fn start_driver_supervision() {
         }
     };
     let device_fd = transport.as_raw_fd();
-    // The guard keeps ownership of the device fd; the child receives a dup via
-    // SCM_RIGHTS inside `SupervisedDriver::start`.
+ // The guard keeps ownership of the device fd; the child receives a dup via
+ // SCM_RIGHTS inside `SupervisedDriver::start`.
     if GUARD_DEVICE_TRANSPORT.set(transport).is_err() {
         tracing::error!("device transport already registered; driver child not started");
         return;
@@ -1148,8 +1148,8 @@ fn driver_supervision_loop(mut driver: tirbase_guard::driver_proxy::SupervisedDr
             }
             Ok(None) => {
                 stable_ticks = stable_ticks.saturating_add(1);
-                // 60s of uninterrupted uptime (120 x 500ms) clears the crash
-                // accounting, so a later isolated crash starts at 1s again.
+ // 60s of uninterrupted uptime (120 x 500ms) clears the crash
+ // accounting, so a later isolated crash starts at 1s again.
                 if stable_ticks >= 120 && driver.consecutive_crashes() > 0 {
                     driver.note_stable();
                     stable_ticks = 0;
@@ -1192,10 +1192,10 @@ fn build_command_runtime(
         root_ca_registry,
         time_source,
     } = setup;
-    // Stage 16–19 durable store (single atomic SQLite transaction per command).
+ // Stage 16–19 durable store (single atomic SQLite transaction per command).
     let stage16 = Arc::new(SqliteStage16Store::open(primary_db_path).map_err(anyhow::Error::msg)?);
 
-    // Explicitly constructed decision-state stores (task 35.3).
+ // Explicitly constructed decision-state stores ().
     let applied_effects =
         Arc::new(SqliteAppliedEffectsStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
     let anti_replay =
@@ -1211,7 +1211,7 @@ fn build_command_runtime(
     let challenge_store: Arc<dyn ChallengeNonceStore> =
         Arc::new(SqliteChallengeNonceStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
 
-    // Envelope profile + policy snapshot for the configured local target.
+ // Envelope profile + policy snapshot for the configured local target.
     let mut envelope_profiles = BTreeMap::new();
     let mut policy_lifecycle = None;
     let mut envelope_profile = None;
@@ -1273,9 +1273,9 @@ fn build_command_runtime(
     ));
     pipeline.set_drift_store(drift_rate.clone() as Arc<dyn DriftHistoryStore>);
     pipeline.set_challenge_store(challenge_store.clone());
-    guard::hydrate_task21_runtime(primary_db_path, &pipeline).map_err(anyhow::Error::msg)?;
+    guard::hydrate_runtime_state(primary_db_path, &pipeline).map_err(anyhow::Error::msg)?;
 
-    // Register the local device at epoch 0 before the guard admits commands.
+ // Register the local device at epoch 0 before the guard admits commands.
     epochs.ensure_enrolled(device_id, now_est)?;
 
     let mut targets = BTreeMap::new();

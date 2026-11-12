@@ -106,9 +106,9 @@ impl PendingQueue {
         self.entries.contains_key(id)
     }
 
-    /// Approximate serialized size for cap accounting.
+ /// Approximate serialized size for cap accounting.
     pub fn approx_delta_bytes(delta: &Delta) -> usize {
-        // automerge_bytes dominate; fixed overhead covers metadata/hash/ids.
+ // automerge_bytes dominate; fixed overhead covers metadata/hash/ids.
         delta
             .automerge_bytes
             .len()
@@ -116,12 +116,12 @@ impl PendingQueue {
             .saturating_add(256)
     }
 
-    /// Insert a delta with missing dependencies. Returns evictions that must be
-    /// quarantined as `PENDING_QUEUE_OVERFLOW` (replayable, PV-6.1).
-    ///
-    /// The newly inserted entry is never evicted by the same insertion unless it
-    /// alone exceeds the global cap (in which case it is accepted only if within
-    /// global cap; callers should size-check before enqueueing pathological data).
+ /// Insert a delta with missing dependencies. Returns evictions that must be
+ /// quarantined as `PENDING_QUEUE_OVERFLOW` (replayable, PV-6.1).
+ ///
+ /// The newly inserted entry is never evicted by the same insertion unless it
+ /// alone exceeds the global cap (in which case it is accepted only if within
+ /// global cap; callers should size-check before enqueueing pathological data).
     pub fn enqueue(
         &mut self,
         delta: Delta,
@@ -136,7 +136,7 @@ impl PendingQueue {
             return evictions;
         }
 
-        // Ensure per-peer cap by evicting this peer's oldest entries first.
+ // Ensure per-peer cap by evicting this peer's oldest entries first.
         let peer_before = self.peer_bytes(&sender_did);
         let mut peer_after = peer_before.saturating_add(approx_bytes);
         while peer_after > self.per_peer_cap_bytes {
@@ -149,7 +149,7 @@ impl PendingQueue {
             }
         }
 
-        // Ensure global cap by evicting globally oldest entries.
+ // Ensure global cap by evicting globally oldest entries.
         let mut total_after = self.total_bytes.saturating_add(approx_bytes);
         while total_after > self.global_cap_bytes {
             if let Some(ev) = self.evict_oldest_global("global byte cap exceeded") {
@@ -160,8 +160,8 @@ impl PendingQueue {
             }
         }
 
-        // If a single entry is larger than global cap, reject via overflow
-        // quarantine rather than retaining an over-cap entry.
+ // If a single entry is larger than global cap, reject via overflow
+ // quarantine rather than retaining an over-cap entry.
         if approx_bytes > self.global_cap_bytes {
             evictions.push(PendingEviction {
                 delta,
@@ -249,8 +249,8 @@ impl PendingQueue {
         })
     }
 
-    /// Evict entries older than `now_mono - age_out_micros`. Returns evictions
-    /// that must be quarantined as `MISSING_DEPENDENCY_TIMEOUT` (replayable).
+ /// Evict entries older than `now_mono - age_out_micros`. Returns evictions
+ /// that must be quarantined as `MISSING_DEPENDENCY_TIMEOUT` (replayable).
     pub fn evict_timed_out(&mut self, now_mono: u64) -> Vec<PendingEviction> {
         let cutoff = now_mono.saturating_sub(self.age_out_micros);
         let expired: Vec<DeltaId> = self
@@ -277,10 +277,10 @@ impl PendingQueue {
         ev
     }
 
-    /// Drain all pending entries in deterministic `received_at_mono`, then
-    /// `DeltaId` order so dependency arrival can retry them through the merge
-    /// path (PV-6.1). Callers are responsible for re-enqueueing entries that
-    /// still have missing dependencies.
+ /// Drain all pending entries in deterministic `received_at_mono`, then
+ /// `DeltaId` order so dependency arrival can retry them through the merge
+ /// path (PV-6.1). Callers are responsible for re-enqueueing entries that
+ /// still have missing dependencies.
     pub fn drain_all_ordered(&mut self) -> Vec<PendingEntry> {
         let mut items: Vec<(DeltaId, PendingEntry)> = self
             .entries
@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn global_cap_evicts_globally_oldest() {
-        // approx_delta_bytes: 300 + author.len() + automerge_bytes.len(); author "did:key:a" = 9.
+ // approx_delta_bytes: 300 + author.len() + automerge_bytes.len(); author "did:key:a" = 9.
         let mut q = PendingQueue::new(DEFAULT_PENDING_AGE_OUT_MICROS, 2000, 10000);
         let d1 = mk_delta(1, 600, "did:key:a"); // 909
         let d2 = mk_delta(2, 600, "did:key:b"); // 909

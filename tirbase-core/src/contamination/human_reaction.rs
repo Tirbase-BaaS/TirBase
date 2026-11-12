@@ -13,10 +13,10 @@
 //! `CrdtEngine::produce_delta_with_tags` — `canonical_bytes()` serialises
 //! `tags`, so a tag appended to an already-signed Delta would invalidate its
 //! own signature for every verifier (mesh peers and the Side-Car replay path,
-//! Req 19.3).  It then calls
+//! Req 19.3). It then calls
 //! `CausalContaminationEngine::tag_contamination_root` with
 //! `TaintSource::HumanReaction { triggered_by_incident_id }` to register the
-//! new Delta in the active ICO and update `affected_rows` (Req 19.5).  The
+//! new Delta in the active ICO and update `affected_rows` (Req 19.5). The
 //! CCE lock is taken only at that call site, avoiding a double-borrow of
 //! `CoreHandle` fields.
 //!
@@ -34,11 +34,11 @@ use crate::errors::TirBaseError;
 
 /// Context passed to `on_write_commit` to determine whether auto-tagging applies.
 pub struct WriteContext {
-    /// True if the local projection for the target table is currently tagged CONTAMINATED.
+ /// True if the local projection for the target table is currently tagged CONTAMINATED.
     pub local_projection_contaminated: bool,
-    /// True if the incoming Delta stream for this table is currently quarantined.
+ /// True if the incoming Delta stream for this table is currently quarantined.
     pub quarantine_active: bool,
-    /// The active Incident ID driving the contamination (if any).
+ /// The active Incident ID driving the contamination (if any).
     pub active_incident_id: Option<IncidentId>,
 }
 
@@ -49,9 +49,9 @@ pub struct WriteContext {
 ///
 /// Returns:
 /// - `Ok(Some((delta_id, incident_id)))` — a tag was appended; the caller must
-///   call `CausalContaminationEngine::tag_contamination_root` with
-///   `TaintSource::HumanReaction { triggered_by_incident_id: incident_id }` to
-///   register the new Delta in the active ICO and update `affected_rows` (Req 19.5).
+/// call `CausalContaminationEngine::tag_contamination_root` with
+/// `TaintSource::HumanReaction { triggered_by_incident_id: incident_id }` to
+/// register the new Delta in the active ICO and update `affected_rows` (Req 19.5).
 /// - `Ok(None)` — the write context is clean; no tagging was performed.
 /// - `Err(_)` — an unexpected error occurred.
 ///
@@ -71,6 +71,6 @@ pub fn on_write_commit(
             .push(DeltaTag::ContaminatedByHumanReaction { incident_id });
         return Ok(Some((delta.id, incident_id)));
     }
-    // Conditions were true but no incident_id was provided — tag is not appended.
+ // Conditions were true but no incident_id was provided — tag is not appended.
     Ok(None)
 }

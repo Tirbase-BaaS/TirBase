@@ -6,10 +6,10 @@ driver packs and parsed by `tirbase_drivers::ModbusRegisterMap` (`tirbase-driver
 ## Address notation
 
 - `register` is the **0-based** Modbus data-model/register address as used in
-  TirBase register-map files and by the reference codec/client helpers.
+ TirBase register-map files and by the reference codec/client helpers.
 - Vendor datasheets may publish 0-based, 1-based, or 4xxxx/3xxxx notation; map
-  files must normalize to the 0-based data address used in Modbus PDUs
-  (e.g. holding register 40001/1-based 1 → `register = 0`).
+ files must normalize to the 0-based data address used in Modbus PDUs
+ (e.g. holding register 40001/1-based 1 → `register = 0`).
 - `quantity` is the number of 16-bit Modbus registers consumed by the value.
 
 ## Function-code mapping
@@ -61,15 +61,15 @@ values are normalized as `big_endian`:
 ## RTU framing, CRC, exceptions, timeouts
 
 - **RTU request/response framing**: `[unit_id][PDU][CRC16_lo][CRC16_hi]`
-  (`build_rtu_frame`/`parse_rtu_frame`, Modbus CRC-16 polynomial 0xA001).
+ (`build_rtu_frame`/`parse_rtu_frame`, Modbus CRC-16 polynomial 0xA001).
 - **TCP framing**: MBAP header + PDU (`build_tcp_request`/`parse_tcp_response`).
 - **Exception responses**: PDU function code has bit 7 set (`fc | 0x80`) with an
-  exception code byte; clients/parsers surface this as a typed driver error.
+ exception code byte; clients/parsers surface this as a typed driver error.
 - **Timeouts**: real `ModbusTcpClient`/`ModbusRtuClient` accept I/O timeout
-  (`Duration`) and return `DriverError::Timeout` on bounded read/write timeout;
-  callers must not use unbounded blocking reads in production paths.
+ (`Duration`) and return `DriverError::Timeout` on bounded read/write timeout;
+ callers must not use unbounded blocking reads in production paths.
 - **Unit/slave id**: TCP client uses `unit_id` in MBAP; RTU uses frame unit id
-  and validates response unit id/FC.
+ and validates response unit id/FC.
 
 ## Document structure
 
@@ -77,18 +77,18 @@ values are normalized as `big_endian`:
 device_class = "cold_room_modbus"
 
 [[register]]
-name = "temperature_c"      # parameter name
-register = 0                # 0-based data address
-function = 4                # FC 3/4/6/16
-data_type = "i16"           # bool|u16|i16|u32|i32
-scale_mantissa = 1          # fixed-point scale
+name = "temperature_c" # parameter name
+register = 0 # 0-based data address
+function = 4 # FC 3/4/6/16
+data_type = "i16" # bool|u16|i16|u32|i32
+scale_mantissa = 1 # fixed-point scale
 scale_exponent = -1
 offset_mantissa = 0
 offset_exponent = 0
 word_order = "big_endian"
-unit_id = 1                 # docs/unit-registry.md (1 = degC)
+unit_id = 1 # docs/unit-registry.md (1 = degC)
 writable = false
-quantity = 1                # number of 16-bit registers
+quantity = 1 # number of 16-bit registers
 ```
 
 ## Example (cold room)
@@ -110,7 +110,7 @@ See `profiles/cold_room_modbus.register-map.toml` and
 - `(register, function)` pairs must be unique.
 - Unknown register fields are rejected.
 - Parser errors are field-level (`register map field '<field>': ...`) and are
-  suitable for operator diagnostics.
+ suitable for operator diagnostics.
 
 Fuzz: `tirbase-drivers/fuzz/fuzz_targets/register_map_parse.rs` with committed
 seed corpus (`register_map_parse/`, `register_map/`). CI smoke build/run is

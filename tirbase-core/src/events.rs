@@ -3,16 +3,16 @@
 //! Every security-relevant decision in the core (CRDT rejection, revocation,
 //! handshake result, migration outcome) is emitted as a [`SecurityEvent`]
 //! through [`emit`], which forwards to the installed
-//! [`SecurityEventSink`](crate::traits::SecurityEventSink).  Ad-hoc
+//! [`SecurityEventSink`](crate::traits::SecurityEventSink). Ad-hoc
 //! `eprintln!` diagnostics in those paths are replaced by typed events so the
 //! gateway can route them into a single, structured event log.
 //!
-//! # Relationship to the full log (task 25.1)
+//! # Relationship to the full log ()
 //!
 //! This module defines the *event payload* and the emission plumbing used by
-//! task 5.4 / 5.8.  The hash-chained, device-signed security event log
+//! / 5.8. The hash-chained, device-signed security event log
 //! (sequence numbers, `prev_hash`, checkpoints, retention, [`TimeSourceFlag`])
-//! is implemented in task 25.1; it subscribes as a [`SecurityEventSink`].
+//! is implemented in ; it subscribes as a [`SecurityEventSink`].
 //!
 //! The allowed category and reason-code names are governed by
 //! `docs/security-event-catalog.md`; `scripts/check-security-event-catalog.sh`
@@ -29,18 +29,18 @@ use crate::traits::SecurityEventSink;
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum Severity {
-    /// Informational; no operator action required.
+ /// Informational; no operator action required.
     Low,
-    /// Worth investigating in aggregate.
+ /// Worth investigating in aggregate.
     Medium,
-    /// A security decision went against the caller.
+ /// A security decision went against the caller.
     High,
-    /// The node's security posture is compromised or must change mode.
+ /// The node's security posture is compromised or must change mode.
     Critical,
 }
 
 impl Severity {
-    /// Canonical uppercase string used in exports and logs.
+ /// Canonical uppercase string used in exports and logs.
     pub fn as_str(&self) -> &'static str {
         match self {
             Severity::Low => "LOW",
@@ -54,17 +54,17 @@ impl Severity {
 // ─── Time source flag (PV-7.1, CLAIM-25.1) ───────────────────────────────────
 
 /// Indicates whether a security-event timestamp came from a trusted clock or a
-/// logical fallback (PV-7.1). Carried by chained log records (task 25.1).
+/// logical fallback (PV-7.1). Carried by chained log records ().
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum TimeSourceFlag {
-    /// Timestamp derived from an authenticated/trusted time source.
+ /// Timestamp derived from an authenticated/trusted time source.
     TrustedClock,
-    /// Best-effort local/monotonic fallback; not authenticated.
+ /// Best-effort local/monotonic fallback; not authenticated.
     LogicalFallback,
 }
 
 impl TimeSourceFlag {
-    /// Canonical string stored in `security_events.time_source_flag`.
+ /// Canonical string stored in `security_events.time_source_flag`.
     pub fn as_str(&self) -> &'static str {
         match self {
             TimeSourceFlag::TrustedClock => "TrustedClock",
@@ -91,44 +91,44 @@ impl std::str::FromStr for TimeSourceFlag {
 /// `docs/security-event-catalog.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SecurityEventCategory {
-    /// Command Guard accept/reject decisions (Stage 17).
+ /// Command Guard accept/reject decisions (Stage 17).
     CommandDecision,
-    /// Applied Effects Ledger state transitions.
+ /// Applied Effects Ledger state transitions.
     EffectsLedger,
-    /// Policy lifecycle transitions.
+ /// Policy lifecycle transitions.
     PolicyLifecycle,
-    /// Operational mode transitions.
+ /// Operational mode transitions.
     ModeTransition,
-    /// Revocation subsystem.
+ /// Revocation subsystem.
     Revocation,
-    /// Device enrollment and epoch handling.
+ /// Device enrollment and epoch handling.
     Enrollment,
-    /// Security event log integrity.
+ /// Security event log integrity.
     SecurityLog,
-    /// Anti-replay window.
+ /// Anti-replay window.
     AntiReplay,
-    /// Monotonic counter / anti-rollback.
+ /// Monotonic counter / anti-rollback.
     MonotonicCounter,
-    /// Authenticated time and TimeRatchet.
+ /// Authenticated time and TimeRatchet.
     TimeRatchet,
-    /// Mesh transport (libp2p / Noise / BLE).
+ /// Mesh transport (libp2p / Noise / BLE).
     MeshTransport,
-    /// CRDT inbound hardening and quarantine.
+ /// CRDT inbound hardening and quarantine.
     CrdtHardening,
-    /// Schema migration engine.
+ /// Schema migration engine.
     Migration,
-    /// Driver proxy and process lifecycle.
+ /// Driver proxy and process lifecycle.
     Driver,
-    /// Cloud synchronisation path.
+ /// Cloud synchronisation path.
     CloudSync,
-    /// Gateway boot and initialisation.
+ /// Gateway boot and initialisation.
     Startup,
-    /// Non-security informational diagnostics.
+ /// Non-security informational diagnostics.
     Diagnostic,
 }
 
 impl SecurityEventCategory {
-    /// Canonical string name, matching the catalog heading.
+ /// Canonical string name, matching the catalog heading.
     pub fn as_str(&self) -> &'static str {
         match self {
             SecurityEventCategory::CommandDecision => "CommandDecision",
@@ -157,273 +157,273 @@ impl SecurityEventCategory {
 /// Reason code attached to a [`SecurityEvent`].
 ///
 /// The variants implemented here are the ones emitted by the core paths wired
-/// in tasks 5.4 and 5.8.  Task 25.1 extends this enum to the full catalog.
+/// in . extends this enum to the full catalog.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ReasonCode {
-    // CrdtHardening
-    /// Inbound delta quarantined; `detail` carries the specific violation.
+ // CrdtHardening
+ /// Inbound delta quarantined; `detail` carries the specific violation.
     DeltaQuarantined,
-    /// `start_op` validation failed.
+ /// `start_op` validation failed.
     ClockJump,
     UnknownSchemaHash,
-    /// Delta depends on operations not yet received.
+ /// Delta depends on operations not yet received.
     MissingDependency,
-    /// Pending delta timed out waiting for dependencies.
+ /// Pending delta timed out waiting for dependencies.
     MissingDependencyTimeout,
-    /// Pending queue byte cap exceeded.
+ /// Pending queue byte cap exceeded.
     PendingQueueOverflow,
-    /// Per-sender rate cap exceeded.
+ /// Per-sender rate cap exceeded.
     RateExceeded,
-    /// Delta exceeded the maximum size.
+ /// Delta exceeded the maximum size.
     Oversize,
-    /// Delta exceeded the maximum operation count.
+ /// Delta exceeded the maximum operation count.
     OpCountExceeded,
-    /// Batch exceeded the maximum change count.
+ /// Batch exceeded the maximum change count.
     BatchExceeded,
-    /// DAG heads exceeded the maximum.
+ /// DAG heads exceeded the maximum.
     HeadCountExceeded,
-    /// Change has too many dependencies.
+ /// Change has too many dependencies.
     DepCountExceeded,
-    /// DAG traversal budget exceeded.
+ /// DAG traversal budget exceeded.
     TraversalBudgetExceeded,
-    /// Inbound mesh peer count exceeded the configured connection cap.
+ /// Inbound mesh peer count exceeded the configured connection cap.
     ConnectionCapExceeded,
-    /// Delta accepted for merge and routed via the LWW or RGA path.
+ /// Delta accepted for merge and routed via the LWW or RGA path.
     DeltaRouted,
-    /// An additive schema change was accepted and merged.
+ /// An additive schema change was accepted and merged.
     SchemaAdditiveAccepted,
-    /// Post-merge LWW/RGA verification completed.
+ /// Post-merge LWW/RGA verification completed.
     MergeVerified,
-    /// A payload was not in Automerge format; the Automerge merge was skipped.
+ /// A payload was not in Automerge format; the Automerge merge was skipped.
     NonAutomergePayload,
 
-    // CommandDecision
-    /// Pre-auth per-source token bucket exceeded before any crypto (Stage 0).
+ // CommandDecision
+ /// Pre-auth per-source token bucket exceeded before any crypto (Stage 0).
     PreAuthRateLimit,
-    /// Node is in Lockdown or Restricted mode; command rejected at Stage 1.
+ /// Node is in Lockdown or Restricted mode; command rejected at Stage 1.
     ModeLockdown,
-    /// A Biscuit token was invalid, expired, or from an unknown CA (Stage 3).
+ /// A Biscuit token was invalid, expired, or from an unknown CA (Stage 3).
     TokenInvalid,
-    /// A command signature failed verification (Stage 2).
+ /// A command signature failed verification (Stage 2).
     CommandSignatureInvalid,
-    /// Command passed the task-11 admission core and was dispatched.
+ /// Command passed the task-11 admission core and was dispatched.
     CommandAccepted,
-    /// Token does not authorise requested target/parameter/role binding (Stage 4).
+ /// Token does not authorise requested target/parameter/role binding (Stage 4).
     ScopeViolation,
-    /// Issuer DID is revoked (Stage 5).
+ /// Issuer DID is revoked (Stage 5).
     IssuerRevoked,
-    /// Command enrollment epoch is stale (Stage 6).
+ /// Command enrollment epoch is stale (Stage 6).
     StaleEpoch,
-    /// Target has an Unknown ledger entry (Stage 6.5).
+ /// Target has an Unknown ledger entry (Stage 6.5).
     TargetBusy,
-    /// Command expiry exceeded using `now_est` (Stage 8).
+ /// Command expiry exceeded using `now_est` (Stage 8).
     Expired,
-    /// Critical parameter in UNVERIFIED freshness requires challenge nonce (Stage 9).
+ /// Critical parameter in UNVERIFIED freshness requires challenge nonce (Stage 9).
     ChallengeMissing,
-    /// FixedPointValue invalid or non-canonical exponent (Stage 10).
+ /// FixedPointValue invalid or non-canonical exponent (Stage 10).
     ValueInvalid,
-    /// Value outside envelope bounds (Stage 11).
+ /// Value outside envelope bounds (Stage 11).
     EnvelopeViolation,
-    /// Cross-parameter linear constraint failed (Stage 12).
+ /// Cross-parameter linear constraint failed (Stage 12).
     ConstraintViolation,
-    /// Rate-of-change or cumulative drift window exceeded (Stage 13).
+ /// Rate-of-change or cumulative drift window exceeded (Stage 13).
     DriftExceeded,
-    /// Dwell timing violation (Stage 13, PV-4.7).
+ /// Dwell timing violation (Stage 13, PV-4.7).
     DwellViolation,
-    /// Min-off timing violation (Stage 13, PV-4.7).
+ /// Min-off timing violation (Stage 13, PV-4.7).
     MinOffViolation,
-    /// Per-issuer rate limit exceeded (Stage 14).
+ /// Per-issuer rate limit exceeded (Stage 14).
     RateLimit,
-    /// Critical parameter requires M-of-N co-signatures (Stage 15).
+ /// Critical parameter requires M-of-N co-signatures (Stage 15).
     QuorumRequired,
-    /// Atomic commit/sequence conflict (Stage 16).
+ /// Atomic commit/sequence conflict (Stage 16).
     CommitConflict,
-    /// Anti-replay sequence rejected: replay or outside window (PV-5.5).
+ /// Anti-replay sequence rejected: replay or outside window (PV-5.5).
     SequenceRejected,
-    /// Anti-replay window baseline reset by PolicyAuthority (PV-5.5).
+ /// Anti-replay window baseline reset by PolicyAuthority (PV-5.5).
     WindowReset,
-    /// Another issuer holds the SingleWriterLease (Stage 16).
+ /// Another issuer holds the SingleWriterLease (Stage 16).
     LeaseHeld,
-    /// No EnvelopeProfile installed for target.
+ /// No EnvelopeProfile installed for target.
     NoProfile,
-    /// Operation unsupported in this mode/version.
+ /// Operation unsupported in this mode/version.
     Unsupported,
 
-    // Revocation
-    /// A DID was added to the revocation set.
+ // Revocation
+ /// A DID was added to the revocation set.
     DidRevoked,
-    /// One M-of-N co-signature was received.
+ /// One M-of-N co-signature was received.
     RevocationSignatureReceived,
-    /// A lease held by a revoked DID was released.
+ /// A lease held by a revoked DID was released.
     RevocationLeaseReleased,
-    /// A migration author was revoked after execution.
+ /// A migration author was revoked after execution.
     RevocationPostExecution,
-    /// A revocation signature or revocation delta failed verification.
+ /// A revocation signature or revocation delta failed verification.
     RevocationVerificationFailed,
 
-    // MeshTransport
-    /// A mesh peer connected.
+ // MeshTransport
+ /// A mesh peer connected.
     PeerConnected,
-    /// A mesh peer disconnected.
+ /// A mesh peer disconnected.
     PeerDisconnected,
-    /// Noise IK handshake succeeded.
+ /// Noise IK handshake succeeded.
     HandshakeSuccess,
-    /// Noise IK handshake failed.
+ /// Noise IK handshake failed.
     HandshakeFailed,
-    /// A delta was routed through a relay peer because the destination is not
-    /// a direct neighbour.
+ /// A delta was routed through a relay peer because the destination is not
+ /// a direct neighbour.
     RelaySelected,
-    /// Fragment reassembly failed or produced an unparsable payload.
+ /// Fragment reassembly failed or produced an unparsable payload.
     FragmentReassemblyFailed,
-    /// Latest checkpoint hash gossiped to peer during sync (PV-7.10, CLAIM-26.3).
+ /// Latest checkpoint hash gossiped to peer during sync (PV-7.10, CLAIM-26.3).
     CheckpointGossiped,
 
-    // Migration
-    /// A migration transform was applied.
+ // Migration
+ /// A migration transform was applied.
     MigrationApplied,
-    /// A migration postcondition failed.
+ /// A migration postcondition failed.
     PostconditionFailed,
-    /// The WASM sandbox ran out of fuel.
+ /// The WASM sandbox ran out of fuel.
     FuelExhausted,
-    /// An in-progress migration was cancelled.
+ /// An in-progress migration was cancelled.
     MigrationCancelled,
-    /// The module's fuel-cost table does not match the active profile.
+ /// The module's fuel-cost table does not match the active profile.
     EngineVersionMismatch,
-    /// PV-8.2 / S8: migration WASM violated the deterministic execution profile.
+ /// PV-8.2 / S8: migration WASM violated the deterministic execution profile.
     DeterministicProfileViolation,
-    /// The module contains non-deterministic instructions.
+ /// The module contains non-deterministic instructions.
     NonDeterministicModule,
-    /// A contract migration violated the expand/contract rule.
+ /// A contract migration violated the expand/contract rule.
     ExpandContractViolation,
-    /// A contract migration omitted the fleet precondition hash.
+ /// A contract migration omitted the fleet precondition hash.
     FleetPreconditionMissing,
 
-    // MonotonicCounter (PV-9.8, CLAIM-6.7a)
-    /// Hardware counter ahead of the software counter at boot; device rollback
-    /// detected.
+ // MonotonicCounter (PV-9.8, CLAIM-6.7a)
+ /// Hardware counter ahead of the software counter at boot; device rollback
+ /// detected.
     MonotonicCounterRegression,
 
-    // Driver isolation (PV-10.4, S35, CLAIM-34.8)
-    /// Driver child exited abnormally or failed seccomp/landlock init.
+ // Driver isolation (PV-10.4, S35, CLAIM-34.8)
+ /// Driver child exited abnormally or failed seccomp/landlock init.
     IsolationFailure,
-    /// Driver child attempted or was blocked from passing an fd via SCM_RIGHTS (S35).
+ /// Driver child attempted or was blocked from passing an fd via SCM_RIGHTS (S35).
     SCMRightsAttempt,
-    /// Seccomp/landlock/no_new_privs sandbox violation in driver child.
+ /// Seccomp/landlock/no_new_privs sandbox violation in driver child.
     SandboxViolation,
 
-    // PolicyLifecycle (PV-4.8–4.12, CLAIM-12.1–12.11)
-    /// Tightening policy bundle applied after signature verification (PV-4.9).
+ // PolicyLifecycle (PV-4.8–4.12, CLAIM-12.1–12.11)
+ /// Tightening policy bundle applied after signature verification (PV-4.9).
     TighteningApplied,
-    /// Loosening co-signature collected; operation still pending.
+ /// Loosening co-signature collected; operation still pending.
     LooseningSignatureCollected,
-    /// Loosening policy applied after M-of-N threshold and time-lock.
+ /// Loosening policy applied after M-of-N threshold and time-lock.
     LooseningApplied,
-    /// Pending loosening operation cancelled by PolicyAuthority.
+ /// Pending loosening operation cancelled by PolicyAuthority.
     LooseningCancelled,
-    /// Bundle rejected: version not strictly greater than committed counter.
+ /// Bundle rejected: version not strictly greater than committed counter.
     PolicyRollbackBlocked,
-    /// Bundle rejected: tightening would violate device-class tightening floor.
+ /// Bundle rejected: tightening would violate device-class tightening floor.
     TighteningFloorViolation,
-    /// Bundle rejected: classification, signature, or governance check failed.
+ /// Bundle rejected: classification, signature, or governance check failed.
     PolicyRejected,
-    /// M=1 loosening governance accepted with a startup/operational warning (RD-9).
+ /// M=1 loosening governance accepted with a startup/operational warning (RD-9).
     PolicyLooseningM1Warning,
 
-    // TimeRatchet (PV-22, CLAIM-7.2–7.5)
-    /// A TimeAnchor beacon advanced the ratchet's persisted floor.
+ // TimeRatchet (PV-22, CLAIM-7.2–7.5)
+ /// A TimeAnchor beacon advanced the ratchet's persisted floor.
     BeaconAccepted,
-    /// A time beacon was rejected before the ratchet was updated.
+ /// A time beacon was rejected before the ratchet was updated.
     BeaconRejected,
-    /// Beacon wall time exceeded `max_forward_jump_secs` without an anchor
-    /// quorum (S23).
+ /// Beacon wall time exceeded `max_forward_jump_secs` without an anchor
+ /// quorum (S23).
     BeaconJumpTooLarge,
-    /// A beacon signature did not verify against a trusted TimeAnchor key.
+ /// A beacon signature did not verify against a trusted TimeAnchor key.
     BeaconSignatureInvalid,
-    /// The authenticated-time estimate is stale or unknown after a reboot.
+ /// The authenticated-time estimate is stale or unknown after a reboot.
     FreshnessUnverified,
-    /// A fresh beacon restored VERIFIED freshness.
+ /// A fresh beacon restored VERIFIED freshness.
     FreshnessRestored,
 
-    // Enrollment (PV-3.11, PV-3.13, PV-5.5)
-    /// A device completed enrollment and received a scoped token.
+ // Enrollment (PV-3.11, PV-3.13, PV-5.5)
+ /// A device completed enrollment and received a scoped token.
     DeviceEnrolled,
-    /// A signed enrollment-epoch bump was committed.
+ /// A signed enrollment-epoch bump was committed.
     EpochBumped,
-    /// A peer or issuer reported a lower epoch than previously witnessed.
+ /// A peer or issuer reported a lower epoch than previously witnessed.
     EpochRegression,
-    /// A bootstrap enrollment nonce was reused inside its retention window.
+ /// A bootstrap enrollment nonce was reused inside its retention window.
     NonceReused,
 
-    // SecurityLog (PV-7, task 25/26/28)
-    /// Signed checkpoint record written to the security event log (PV-7.3).
+ // SecurityLog (PV-7, /26/28)
+ /// Signed checkpoint record written to the security event log (PV-7.3).
     CheckpointWritten,
-    /// Hash-chain broken; entering Restricted mode (PV-7.4).
+ /// Hash-chain broken; entering Restricted mode (PV-7.4).
     TamperDetection,
-    /// Signed chain-recovery command accepted; new segment opened (PV-7.4).
+ /// Signed chain-recovery command accepted; new segment opened (PV-7.4).
     ChainRecovery,
-    /// Peer observed a higher checkpoint hash than local log (PV-7.10).
+ /// Peer observed a higher checkpoint hash than local log (PV-7.10).
     TailTruncation,
-    /// Per-category rate limit (100/s) hit; N events suppressed (PV-7.6, S14).
+ /// Per-category rate limit (100/s) hit; N events suppressed (PV-7.6, S14).
     SuppressionSummary,
-    /// No mesh peers or cloud connection; checkpoint cannot be externally witnessed (PV-7.10).
+ /// No mesh peers or cloud connection; checkpoint cannot be externally witnessed (PV-7.10).
     NoWitnessAvailable,
-    /// Security event mesh sync failed; retry scheduled (PV-7.9, CLAIM-28.3).
+ /// Security event mesh sync failed; retry scheduled (PV-7.9, CLAIM-28.3).
     SyncFailure,
-    /// Peer security-event sync rate limit (500 events/min) exceeded (PV-7.12, CLAIM-28.3).
+ /// Peer security-event sync rate limit (500 events/min) exceeded (PV-7.12, CLAIM-28.3).
     SyncRateLimitReached,
-    /// Oldest signed segment archived/removed by retention rotation (PV-7.13, CLAIM-28.2).
+ /// Oldest signed segment archived/removed by retention rotation (PV-7.13, CLAIM-28.2).
     LogRotated,
 
-    // Flash budget / storage wear (PV-15.4, CLAIM-44.5/44.6)
-    /// Non-critical write throttling activated because projected daily block writes exceed budget.
+ // Flash budget / storage wear (PV-15.4, CLAIM-44.5/44.6)
+ /// Non-critical write throttling activated because projected daily block writes exceed budget.
     FlashBudgetThrottlingActivated,
-    /// Flash-wear throttling deactivated (within budget).
+ /// Flash-wear throttling deactivated (within budget).
     FlashBudgetThrottlingDeactivated,
 
-    // Startup / Diagnostic
-    /// Gateway startup completed.
+ // Startup / Diagnostic
+ /// Gateway startup completed.
     BootCompleted,
-    /// A persisted lockdown flag was found at boot.
+ /// A persisted lockdown flag was found at boot.
     LockdownFlagFound,
-    /// PRAGMA quick_check detected database corruption at boot (PV-9.3).
+ /// PRAGMA quick_check detected database corruption at boot (PV-9.3).
     QuickCheckFailed,
-    /// `SQLITE_FULL` (ENOSPC): High severity; continue with reduced logging (PV-9, CLAIM-18.4).
+ /// `SQLITE_FULL` (ENOSPC): High severity; continue with reduced logging (PV-9, CLAIM-18.4).
     StorageFull,
-    /// `SQLITE_IOERR`: PrimaryLedger/DB I/O failure; enter Restricted mode (PV-9, CLAIM-18.4).
+ /// `SQLITE_IOERR`: PrimaryLedger/DB I/O failure; enter Restricted mode (PV-9, CLAIM-18.4).
     StorageError,
-    /// `SQLITE_CORRUPT`: enter Restricted mode; operator intervention required (PV-9, CLAIM-18.4).
+ /// `SQLITE_CORRUPT`: enter Restricted mode; operator intervention required (PV-9, CLAIM-18.4).
     StorageCorrupt,
-    /// Derived ledger rebuilt from signed delta log after corruption.
+ /// Derived ledger rebuilt from signed delta log after corruption.
     LedgerRebuilt,
-    /// Boot-time reconciliation of Actuating effects-ledger entries finished (PV-5.3).
+ /// Boot-time reconciliation of Actuating effects-ledger entries finished (PV-5.3).
     ReconciliationComplete,
-    /// One or more Actuating entries could not be reconciled within timeout (PV-5.3).
+ /// One or more Actuating entries could not be reconciled within timeout (PV-5.3).
     ReconciliationTimeout,
-    /// Pre-Actuating ledger entry from an older schema marked Failed at boot (PV-5.3, 19.3).
+ /// Pre-Actuating ledger entry from an older schema marked Failed at boot (PV-5.3, 19.3).
     OldSchemaEntry,
-    /// Effects-ledger pruning job removed old Complete/Failed entries (PV-5.12).
+ /// Effects-ledger pruning job removed old Complete/Failed entries (PV-5.12).
     LedgerPruned,
-    /// A trust-root record with a stale version was rejected at boot/rotation.
+ /// A trust-root record with a stale version was rejected at boot/rotation.
     TrustRootRollbackRejected,
 
-    // ModeTransition / lockdown (PV-4.13, PV-1.11, CLAIM-13.1–13.6)
-    /// Node entered LOCKDOWN.
+ // ModeTransition / lockdown (PV-4.13, PV-1.11, CLAIM-13.1–13.6)
+ /// Node entered LOCKDOWN.
     EnteredLockdown,
-    /// Node exited LOCKDOWN after M-of-N authorization.
+ /// Node exited LOCKDOWN after M-of-N authorization.
     ExitedLockdown,
-    /// Node entered Restricted mode.
+ /// Node entered Restricted mode.
     EnteredRestricted,
-    /// Crash-loop threshold exceeded; LOCKDOWN escalation triggered.
+ /// Crash-loop threshold exceeded; LOCKDOWN escalation triggered.
     CrashLoopEscalation,
-    /// A valid M-of-N lockdown-exit command was applied.
+ /// A valid M-of-N lockdown-exit command was applied.
     LockdownExitApplied,
-    /// A lockdown-exit command was rejected (signature/quorum/profile).
+ /// A lockdown-exit command was rejected (signature/quorum/profile).
     LockdownExitRejected,
-    // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
+ // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
 }
 
 impl ReasonCode {
-    /// Canonical string name, matching the catalog row.
+ /// Canonical string name, matching the catalog row.
     pub fn as_str(&self) -> &'static str {
         match self {
             ReasonCode::DeltaQuarantined => "DeltaQuarantined",
@@ -553,24 +553,24 @@ impl ReasonCode {
 /// Fields are deliberately plain data: the hash-chain fields (`seq`,
 /// `prev_hash`, `best_effort_wall_time`, `time_source_flag`) are attached by
 /// the [`SecurityEventLog`](crate::traits::SecurityEventSink) implementation in
-/// task 25.1, so emission sites never have to know about chain state.
+///, so emission sites never have to know about chain state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SecurityEvent {
-    /// Category this event belongs to.
+ /// Category this event belongs to.
     pub category: SecurityEventCategory,
-    /// Severity of the event.
+ /// Severity of the event.
     pub severity: Severity,
-    /// DID of the actor that caused the event, when known.
+ /// DID of the actor that caused the event, when known.
     pub actor_did: Option<String>,
-    /// Target identifier (device, parameter, peer, delta id), when known.
+ /// Target identifier (device, parameter, peer, delta id), when known.
     pub target: Option<String>,
-    /// Typed reason code.
+ /// Typed reason code.
     pub reason_code: ReasonCode,
-    /// Human-readable detail (never parsed by machine consumers).
+ /// Human-readable detail (never parsed by machine consumers).
     pub detail: Option<String>,
-    /// GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3). Plaintext is stored
-    /// in `security_event_personal_fields`; only salted commitments
-    /// `SHA-256(random_salt ‖ value)` enter the hash chain. Empty by default.
+ /// GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3). Plaintext is stored
+ /// in `security_event_personal_fields`; only salted commitments
+ /// `SHA-256(random_salt ‖ value)` enter the hash chain. Empty by default.
     pub personal_fields: Vec<PersonalField>,
 }
 
@@ -593,7 +593,7 @@ impl PersonalField {
 }
 
 impl SecurityEvent {
-    /// Construct an event with the required fields and no actor/target/detail.
+ /// Construct an event with the required fields and no actor/target/detail.
     pub fn new(
         category: SecurityEventCategory,
         severity: Severity,
@@ -610,27 +610,27 @@ impl SecurityEvent {
         }
     }
 
-    /// Attach the actor DID.
+ /// Attach the actor DID.
     pub fn with_actor(mut self, actor_did: impl Into<String>) -> Self {
         self.actor_did = Some(actor_did.into());
         self
     }
 
-    /// Attach the target identifier.
+ /// Attach the target identifier.
     pub fn with_target(mut self, target: impl Into<String>) -> Self {
         self.target = Some(target.into());
         self
     }
 
-    /// Attach free-form detail.
+ /// Attach free-form detail.
     pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
         self
     }
 
-    /// Attach a GDPR personal field (CLAIM-27.1, PV-7.7, RD-3). The plaintext
-    /// is stored in `security_event_personal_fields`; the salted commitment
-    /// enters the hash chain.
+ /// Attach a GDPR personal field (CLAIM-27.1, PV-7.7, RD-3). The plaintext
+ /// is stored in `security_event_personal_fields`; the salted commitment
+ /// enters the hash chain.
     pub fn with_personal_field(
         mut self,
         field_name: impl Into<String>,
@@ -644,7 +644,7 @@ impl SecurityEvent {
 
 // ─── Process-wide sink ───────────────────────────────────────────────────────
 
-/// The installed sink, if any.  A process-global slot keeps every core
+/// The installed sink, if any. A process-global slot keeps every core
 /// subsystem on one event log without threading a sink handle through every
 /// constructor.
 static SECURITY_EVENT_SINK: RwLock<Option<Arc<dyn SecurityEventSink>>> = RwLock::new(None);
@@ -675,7 +675,7 @@ pub fn security_event_sink() -> Option<Arc<dyn SecurityEventSink>> {
 ///
 /// A missing sink is a deliberate no-op: the core library stays usable in
 /// environments that have not wired an event log yet (for example the WASM
-/// build before the SDK installs one).  The sink handle is cloned out of the
+/// build before the SDK installs one). The sink handle is cloned out of the
 /// registry before `emit` is called, so a re-entrant emit from inside the sink
 /// cannot deadlock on the registry lock.
 pub fn emit(event: SecurityEvent) {
@@ -794,8 +794,8 @@ mod tests {
     use crate::traits::SecurityEventSink;
     use std::sync::Mutex;
 
-    /// Serialises tests that replace the process-wide sink so parallel test
-    /// threads cannot observe each other's sinks.
+ /// Serialises tests that replace the process-wide sink so parallel test
+ /// threads cannot observe each other's sinks.
     pub(crate) static SINK_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Debug, Default)]
@@ -825,13 +825,13 @@ mod tests {
             .with_detail("noise handshake failed"),
         );
 
-        // Restore before asserting so a panic cannot leave the test sink
-        // installed for other tests.
+ // Restore before asserting so a panic cannot leave the test sink
+ // installed for other tests.
         install_security_event_sink(previous.unwrap_or_else(|| Arc::new(RecordingSink::default())));
 
         let events = sink.events.lock().unwrap();
-        // Other parallel tests may emit into the same sink while it is
-        // installed, so match on this event instead of asserting a count.
+ // Other parallel tests may emit into the same sink while it is
+ // installed, so match on this event instead of asserting a count.
         let event = events
             .iter()
             .find(|event| event.target.as_deref() == Some("peer-1"))

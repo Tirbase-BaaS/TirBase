@@ -1,7 +1,7 @@
-//! Virtual-time soak test harness (task 45.1 — CLAIM-45.1, PV-15.5).
+//! Virtual-time soak test harness (CLAIM-45.1, PV-15.5).
 //!
 //! Runs 72h of simulated operation on the accelerated [`SimClock`] with
-//! deterministic fault injection and per-tick invariant checking.  Because
+//! deterministic fault injection and per-tick invariant checking. Because
 //! time is virtual, the full 72h completes in seconds of wall-clock time and
 //! fits comfortably within a 2-hour CI job.
 //!
@@ -22,15 +22,15 @@ pub const DEFAULT_SOAK_TICK_MS: u64 = 1_000;
 /// Configuration for a virtual-time soak run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SoakConfig {
-    /// Scenario seed (printed on failure so the run is reproducible).
+ /// Scenario seed (printed on failure so the run is reproducible).
     pub seed: u64,
-    /// Total simulated duration in seconds (72h for PV-15.5).
+ /// Total simulated duration in seconds (72h for PV-15.5).
     pub duration_secs: u64,
-    /// Virtual milliseconds advanced by each tick.
+ /// Virtual milliseconds advanced by each tick.
     pub tick_ms: u64,
-    /// Number of simulated nodes.
+ /// Number of simulated nodes.
     pub nodes: usize,
-    /// Inject deterministic network faults during the run.
+ /// Inject deterministic network faults during the run.
     pub fault_injection: bool,
 }
 
@@ -47,7 +47,7 @@ impl Default for SoakConfig {
 }
 
 impl SoakConfig {
-    /// CI configuration: 72h simulated with fault injection.
+ /// CI configuration: 72h simulated with fault injection.
     pub fn ci_72h(seed: u64) -> Self {
         Self {
             seed,
@@ -55,7 +55,7 @@ impl SoakConfig {
         }
     }
 
-    /// Total virtual ticks implied by this configuration (>= 1).
+ /// Total virtual ticks implied by this configuration (>= 1).
     pub fn total_ticks(&self) -> u64 {
         let total_ms = self.duration_secs.saturating_mul(1_000);
         total_ms.div_ceil(self.tick_ms.max(1)).max(1)
@@ -75,9 +75,9 @@ pub struct SoakReport {
 /// Errors produced by the soak harness.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SoakError {
-    /// The underlying simulation violated an invariant.
+ /// The underlying simulation violated an invariant.
     Simulation(SimError),
-    /// The run did not cover the requested virtual duration.
+ /// The run did not cover the requested virtual duration.
     Incomplete { simulated_secs: u64, required_secs: u64 },
 }
 
@@ -111,7 +111,7 @@ impl From<SimError> for SoakError {
 pub fn run_soak(config: &SoakConfig) -> Result<SoakReport, SoakError> {
     let tick_ms = config.tick_ms.max(1);
     let mut sim = TirBaseSim::with_nodes(config.seed, config.nodes.max(1));
-    // Align the sim clock tick length with the soak cadence.
+ // Align the sim clock tick length with the soak cadence.
     *sim.clock_mut() = crate::SimClock::new(0, tick_ms);
 
     let mut rng = ChaCha8Rng::seed_from_u64(config.seed ^ 0x5A0A_5A0A);
@@ -120,9 +120,9 @@ pub fn run_soak(config: &SoakConfig) -> Result<SoakReport, SoakError> {
 
     for tick in 0..total_ticks {
         if config.fault_injection {
-            // Reconfigure faults at deterministic, sparse intervals so the
-            // network experiences partitions/delay/drop/reorder/duplicate
-            // churn without dominating the run.
+ // Reconfigure faults at deterministic, sparse intervals so the
+ // network experiences partitions/delay/drop/reorder/duplicate
+ // churn without dominating the run.
             maybe_inject_faults(&mut sim, &mut rng, tick, &mut faults_injected);
         }
         if let Err(err) = sim.tick() {
@@ -159,9 +159,9 @@ fn maybe_inject_faults(
     tick: u64,
     faults_injected: &mut u64,
 ) {
-    // Refresh the fault set every 300 simulated ticks and otherwise leave the
-    // network in its current (possibly faulted) state so scenarios exercise
-    // sustained partitions/delays as well as churn.
+ // Refresh the fault set every 300 simulated ticks and otherwise leave the
+ // network in its current (possibly faulted) state so scenarios exercise
+ // sustained partitions/delays as well as churn.
     if !tick.is_multiple_of(300) {
         return;
     }
@@ -169,9 +169,9 @@ fn maybe_inject_faults(
     if node_count < 2 {
         return;
     }
-    // Heal prior directional faults between the chosen pair by reinstalling a
-    // fresh schedule (faults are additive; a partition will still block, which
-    // is the point — but we vary which pair is affected).
+ // Heal prior directional faults between the chosen pair by reinstalling a
+ // fresh schedule (faults are additive; a partition will still block, which
+ // is the point — but we vary which pair is affected).
     let a = NodeId::new(rng.gen_range(0..node_count as u16));
     let mut b_idx = rng.gen_range(0..node_count as u16);
     if b_idx == a.as_u16() {
@@ -199,7 +199,7 @@ fn maybe_inject_faults(
             copies: rng.gen_range(1..=5),
         },
     };
-    // Invalid combinations are ignored; the soak must keep running.
+ // Invalid combinations are ignored; the soak must keep running.
     if sim.inject_fault(fault).is_ok() {
         *faults_injected = faults_injected.saturating_add(1);
     }
@@ -254,10 +254,10 @@ mod tests {
 
     #[test]
     fn ci_72h_soak_completes_within_wall_clock_budget() {
-        // CLAIM-45.1 / PV-15.5: 72h simulated via the accelerated virtual clock
-        // with fault injection, completing well within the 2-hour CI wall-clock
-        // limit.  A 1-second virtual tick keeps 259,200 steps fast in release
-        // and comfortably under budget in debug on CI hardware.
+ // CLAIM-45.1 / PV-15.5: 72h simulated via the accelerated virtual clock
+ // with fault injection, completing well within the 2-hour CI wall-clock
+ // limit. A 1-second virtual tick keeps 259,200 steps fast in release
+ // and comfortably under budget in debug on CI hardware.
         let start = tirbase_core::traits::monotonic_now();
         let report = run_ci_72h_soak(0xCAFE_BABE).expect("72h virtual soak must pass");
         let elapsed = std::time::Duration::from_micros(

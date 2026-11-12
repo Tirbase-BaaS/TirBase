@@ -2,7 +2,7 @@
 //! Provides the CommandGuard, EnvelopeProfile, PolicyLifecycle,
 //! AppliedEffectsLedger, AntiReplayWindow, SingleWriterLease,
 //! TimeRatchet, ActuationPermit, and SecurityEventLog.
-//! Full implementation in tasks 7–16.
+//! Full implementation in –16.
 
 #![deny(unsafe_code)]
 // Narrow `unsafe` is allowed only in modules that explicitly opt in for
@@ -10,7 +10,7 @@
 // Warn on dead private code across this crate. `pub` items are naturally exempt
 // (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]
-// HashMap is banned in guard/sim (task 38.7, PV-12): iteration order is not
+// HashMap is banned in guard/sim (PV-12): iteration order is not
 // deterministic. Use BTreeMap (ordered) or IndexMap (insertion-ordered).
 #![deny(clippy::disallowed_types)]
 
@@ -18,34 +18,33 @@ pub mod signed_operation;
 
 /// Policy lifecycle: bundle types (wire), 11-criterion tightening classification,
 /// tightening-floor enforcement, loosening M-of-N/timelock path, anti-rollback,
-/// and pending-approval accumulation (tasks 12.1–12.10 — CLAIM-12.1…12.10).
+/// and pending-approval accumulation (12.10 — CLAIM-12.1…12.10).
 pub mod policy;
 
 /// `TimeRatchet`, authenticated-time estimate, and freshness state
-/// (tasks 7.2–7.5 — CLAIM-7.2…7.5, PV-22).
+/// (7.5 — CLAIM-7.2…7.5, PV-22).
 pub mod time;
 
-/// Single-writer lease type (Task 21.1, PV-5.8/5.8a).
+/// Single-writer lease type (PV-5.8/5.8a).
 pub mod single_writer_lease;
 
 /// Anti-replay sliding window and PolicyAuthority-signed reset
-/// (tasks 20.1–20.3 — CLAIM-20.1…20.3, PV-5.5, INV-10).
+/// (20.3 — CLAIM-20.1…20.3, PV-5.5, INV-10).
 pub mod anti_replay;
 
-/// Node operational mode and mode × operation matrix (task 13.1 —
-/// CLAIM-13.1, PV-4.13).
+/// Node operational mode and mode × operation matrix (/// CLAIM-13.1, PV-4.13).
 pub mod node_mode;
 
 /// LOCKDOWN entry/exit, persistence, crash-loop escalation, and safe-default
-/// arming (tasks 13.2, 13.3, 13.5, 13.6 — CLAIM-13.2/3/5/6, PV-4.13, PV-4.15).
+/// arming (CLAIM-13.2/3/5/6, PV-4.13, PV-4.15).
 pub mod lockdown;
 pub use lockdown::{apply_chain_recovery, ChainRecoveryPayload};
 
 /// Envelope profile install/validation and target-to-profile hot-swap
-/// (tasks 10.4–10.6 — CLAIM-10.4…10.6, PV-4.5).
+/// (10.6 — CLAIM-10.4…10.6, PV-4.5).
 pub mod envelope;
 
-/// Trust root record and per-role registry (tasks 8.3/8.3a — CLAIM-8.3,
+/// Trust root record and per-role registry (8.3a — CLAIM-8.3,
 /// CLAIM-8.3a, PV-3.2, PV-3.3, PV-3.4).
 pub mod trust_root;
 
@@ -57,23 +56,23 @@ pub mod epoch;
 /// (PV-3.3, CLAIM-56.1).
 pub mod auth_matrix;
 
-/// `CommandMessage` signing/verification (task 11.1, CLAIM-11.1, PV-4.1/4.2).
+/// `CommandMessage` signing/verification (CLAIM-11.1, PV-4.1/4.2).
 pub mod command;
 
-/// Unforgeable actuation capability (task 11.2, CLAIM-11.2, PV-4.3).
+/// Unforgeable actuation capability (CLAIM-11.2, PV-4.3).
 pub mod permit;
 
-/// Guard-owned dispatch to the device/driver boundary (task 11.3, CLAIM-11.3).
+/// Guard-owned dispatch to the device/driver boundary (CLAIM-11.3).
 pub mod device_transport;
 pub mod driver_proxy;
 
-/// Unified command admission: the only `ActuationPermit` issuer (tasks 11/13).
+/// Unified command admission: the only `ActuationPermit` issuer (13).
 pub mod admit;
 pub mod commit;
 pub mod guard;
 
 /// First-boot device identity generation, replay-safe bootstrap, and scoped
-/// token issuance (task 8.6 — CLAIM-8.6, PV-3.11).
+/// token issuance (CLAIM-8.6, PV-3.11).
 pub mod enrollment;
 
 pub use enrollment::{

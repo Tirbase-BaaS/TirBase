@@ -1,4 +1,4 @@
-//! Gateway integration tests for policy lifecycle (tasks 12.1–12.8, 12.10,
+//! Gateway integration tests for policy lifecycle (12.8, 12.10,
 //! CLAIM-12.1–12.8, 12.10, PV-4.8–4.12, INV-3, INV-8).
 //!
 //! Exercises the production policy-push path through gateway admin dispatch,
@@ -178,7 +178,7 @@ fn admin_policy_push_tightening_advances_version_and_recomputes_classification()
         PolicyIngestOutcome::TighteningApplied { version: 2 }
     );
 
-    // Gateway admin endpoint is wired as production caller for /admin/policy.
+ // Gateway admin endpoint is wired as production caller for /admin/policy.
     let state = admin_state();
     let resp = dispatch_admin_command_at(
         &serde_json::json!({"cmd":"policy","payload":{"version":2}}).to_string(),
@@ -186,8 +186,8 @@ fn admin_policy_push_tightening_advances_version_and_recomputes_classification()
         1_000,
     );
     let v: serde_json::Value = serde_json::from_str(resp.trim()).unwrap();
-    // Endpoint may be 501 in unconfigured admin state; the guard path above is the
-    // authoritative production caller. Assert dispatch remains stable.
+ // Endpoint may be 501 in unconfigured admin state; the guard path above is the
+ // authoritative production caller. Assert dispatch remains stable.
     assert!(v["status"].is_number(), "policy dispatch returned: {v}");
 }
 
@@ -247,9 +247,9 @@ fn timelock_bypass_version_gap_and_rollback_attempts_rejected_via_lifecycle() {
         lc.ingest_bundle(lo, 1_000).unwrap(),
         PolicyIngestOutcome::LooseningPending { .. }
     ));
-    // timelock bypass attempt
+ // timelock bypass attempt
     assert!(lc.apply_pending_loosening(1_499).is_err());
-    // version gap after applying a jump
+ // version gap after applying a jump
     let mut lc2_seed = lc; // not applied; create fresh accepted state
     let pa2 = InMemoryKeyProvider::generate().unwrap();
     let tr2 = Arc::new(ArcSwap::from_pointee(trust_root(&pa2)));

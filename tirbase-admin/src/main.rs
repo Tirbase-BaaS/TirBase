@@ -1,4 +1,4 @@
-//! `tirbase-admin` CLI entry point (tasks 9, 27).
+//! `tirbase-admin` CLI entry point ().
 
 #![warn(dead_code)]
 
@@ -182,7 +182,7 @@ fn print_usage() {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn cli_declares_all_task9_and_27_subcommands() {
+    fn cli_declares_all_admin_subcommands() {
         let names: Vec<_> = tirbase_admin::cli_commands()
             .into_iter()
             .map(|c| c.name)

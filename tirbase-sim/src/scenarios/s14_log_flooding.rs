@@ -1,10 +1,10 @@
-//! Scenario S14 (security log flooding / sync controls, PV-7.6/PV-7.12, tasks 26/28).
+//! Scenario S14 (security log flooding / sync controls, PV-7.6/PV-7.12, /28).
 //!
 //! Proves:
 //! - 28.1/PV-7.6: per-category rate limiting (100 events/sec) with
-//!   `SuppressionSummary`, HIGH/CRITICAL bypass, bounded retention.
+//! `SuppressionSummary`, HIGH/CRITICAL bypass, bounded retention.
 //! - 28.3/PV-7.12 (wiring mutation for 28.3 rate limit): removing the per-peer
-//!   500 events/min security-event mesh sync limit must fail this scenario.
+//! 500 events/min security-event mesh sync limit must fail this scenario.
 
 use std::sync::Arc;
 
@@ -22,8 +22,8 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
     let log = Arc::new(SecurityEventLog::new_memory());
     log.set_rate_limit_enabled(true);
 
-    // Flood low-severity events in one category (>100/sec window context is
-    // simulated by rapid emission; limiter uses tokens/refill but must bound).
+ // Flood low-severity events in one category (>100/sec window context is
+ // simulated by rapid emission; limiter uses tokens/refill but must bound).
     let cat = SecurityEventCategory::CommandDecision;
     for i in 0..500u64 {
         log.emit(
@@ -58,7 +58,7 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
         ));
     }
 
-    // HIGH/CRITICAL bypass.
+ // HIGH/CRITICAL bypass.
     let before = log.chained_events().len();
     for i in 0..50u64 {
         log.emit(
@@ -96,7 +96,7 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
         ));
     }
 
-    // Ring bounded to 10k while retaining anchors + most recent.
+ // Ring bounded to 10k while retaining anchors + most recent.
     let log2 = Arc::new(SecurityEventLog::new_memory());
     log2.set_rate_limit_enabled(false);
     for i in 0..10_500u64 {
@@ -136,8 +136,8 @@ pub fn run_s14(_seed: u64) -> Result<(), String> {
         ));
     }
 
-    // 28.3/PV-7.12 wiring-mutation check: per-peer 500 events/min security-event
-    // sync rate limit must cap floods and surface rate limiting.
+ // 28.3/PV-7.12 wiring-mutation check: per-peer 500 events/min security-event
+ // sync rate limit must cap floods and surface rate limiting.
     let mut sync = SecurityEventSyncHandler::new();
     let records: Vec<SecurityEventSyncRecord> = (1..=700)
         .map(|i| SecurityEventSyncRecord {

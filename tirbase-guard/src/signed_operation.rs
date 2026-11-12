@@ -1,8 +1,8 @@
 //! `SignedOperation<T>` — domain-separated multi-party signed wrapper
-//! (task 6.7 — CLAIM-6.7, PV-3.6).
+//! (CLAIM-6.7, PV-3.6).
 //!
 //! Every multi-signature artefact in the guard (policy bundles, lockdown exit,
-//! enrollment-epoch bump) is wrapped in a [`SignedOperation<T>`].  The wrapper
+//! enrollment-epoch bump) is wrapped in a [`SignedOperation<T>`]. The wrapper
 //! binds three things together:
 //!
 //! 1. a **context string** identifying the artefact type,
@@ -38,49 +38,49 @@ pub const CONTEXT_EPOCH_BUMP: &str = "TirBase/v1/EpochBump";
 
 /// A payload type that can be wrapped in a [`SignedOperation`].
 ///
-/// `CONTEXT` is the single authoritative domain string for the type.  It is
+/// `CONTEXT` is the single authoritative domain string for the type. It is
 /// included in every signature and re-checked at verification time, which is
 /// what makes cross-type signature reuse impossible.
 pub trait SignedOperationPayload: Serialize {
-    /// Domain-separation string, for example [`CONTEXT_POLICY_BUNDLE`].
+ /// Domain-separation string, for example [`CONTEXT_POLICY_BUNDLE`].
     const CONTEXT: &'static str;
 }
 
 /// One co-signature in a [`SignedOperation`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureEntry {
-    /// DID of the signer.
+ /// DID of the signer.
     pub signer_did: String,
-    /// Role the signer claims for this operation.
+ /// Role the signer claims for this operation.
     pub role: CommandRole,
-    /// Signature over the domain-separated signing bytes.
+ /// Signature over the domain-separated signing bytes.
     pub signature: DeviceSignature,
 }
 
 /// Failure modes of [`SignedOperation`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SignedOperationError {
-    /// The payload could not be encoded as deterministic CBOR.
+ /// The payload could not be encoded as deterministic CBOR.
     Serialization(String),
-    /// The wrapper's context string does not match the payload type's domain.
+ /// The wrapper's context string does not match the payload type's domain.
     ContextMismatch {
-        /// Domain expected for `T`.
+ /// Domain expected for `T`.
         expected: &'static str,
-        /// Context string embedded in the wrapper.
+ /// Context string embedded in the wrapper.
         actual: String,
     },
-    /// The payload hash does not match the wrapper.
+ /// The payload hash does not match the wrapper.
     PayloadHashMismatch,
-    /// No signatures were collected.
+ /// No signatures were collected.
     EmptySignatures,
-    /// The key type is not supported by this build.
+ /// The key type is not supported by this build.
     UnsupportedKeyType(DeviceSignature),
-    /// A signature failed verification.
+ /// A signature failed verification.
     SignatureVerification {
-        /// DID of the entry that failed.
+ /// DID of the entry that failed.
         signer_did: String,
     },
-    /// A signer DID could not be resolved to a public key.
+ /// A signer DID could not be resolved to a public key.
     UnknownSigner(String),
 }
 
@@ -122,23 +122,23 @@ impl std::error::Error for SignedOperationError {}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct SignedOperation<T> {
-    /// Domain-separation string (`"TirBase/v1/PolicyBundle"`, …).
+ /// Domain-separation string (`"TirBase/v1/PolicyBundle"`, …).
     pub context_string: String,
-    /// SHA-256 of the deterministic CBOR encoding of the payload.
+ /// SHA-256 of the deterministic CBOR encoding of the payload.
     pub payload_hash: [u8; 32],
-    /// Co-signatures over the domain-separated signing bytes.
+ /// Co-signatures over the domain-separated signing bytes.
     pub signatures: Vec<SignatureEntry>,
-    /// Creation time (authenticated-time estimate, seconds).
+ /// Creation time (authenticated-time estimate, seconds).
     pub created_est: i64,
-    /// Optional expiry (authenticated-time estimate, seconds).
+ /// Optional expiry (authenticated-time estimate, seconds).
     pub expires_est: Option<i64>,
-    /// Phantom payload type.
+ /// Phantom payload type.
     #[serde(skip)]
     pub _payload: PhantomData<T>,
 }
 
 impl<T: SignedOperationPayload> SignedOperation<T> {
-    /// Wrap `payload` for the domain declared by `T::CONTEXT`.
+ /// Wrap `payload` for the domain declared by `T::CONTEXT`.
     pub fn new(
         payload: &T,
         created_est: i64,
@@ -154,10 +154,10 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         })
     }
 
-    /// The exact bytes a co-signature covers.
-    ///
-    /// Format: `context_string || 0x00 || payload_hash`.  The NUL separator
-    /// makes the concatenation unambiguous (context strings never contain NUL).
+ /// The exact bytes a co-signature covers.
+ ///
+ /// Format: `context_string || 0x00 || payload_hash`. The NUL separator
+ /// makes the concatenation unambiguous (context strings never contain NUL).
     pub fn signing_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(self.context_string.len() + 1 + 32);
         bytes.extend_from_slice(self.context_string.as_bytes());
@@ -166,7 +166,7 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         bytes
     }
 
-    /// Sign this operation with `provider` under `role` and append the entry.
+ /// Sign this operation with `provider` under `role` and append the entry.
     pub fn sign_with(
         &mut self,
         provider: &dyn KeyProvider,
@@ -184,10 +184,10 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         Ok(())
     }
 
-    /// Check the wrapper against `payload`: context string and payload hash.
-    ///
-    /// This is the domain-separation gate.  A wrapper built for another
-    /// payload type fails here even if its signature is otherwise valid.
+ /// Check the wrapper against `payload`: context string and payload hash.
+ ///
+ /// This is the domain-separation gate. A wrapper built for another
+ /// payload type fails here even if its signature is otherwise valid.
     pub fn verify_payload(&self, payload: &T) -> Result<(), SignedOperationError> {
         if self.context_string != T::CONTEXT {
             return Err(SignedOperationError::ContextMismatch {
@@ -201,7 +201,7 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         Ok(())
     }
 
-    /// Verify one entry against a raw Ed25519 public key.
+ /// Verify one entry against a raw Ed25519 public key.
     pub fn verify_entry(
         &self,
         entry: &SignatureEntry,
@@ -229,7 +229,7 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         }
     }
 
-    /// Verify every signature using a DID → public-key resolver.
+ /// Verify every signature using a DID → public-key resolver.
     pub fn verify_signatures(
         &self,
         resolve: impl Fn(&str) -> Option<Vec<u8>>,
@@ -245,11 +245,11 @@ impl<T: SignedOperationPayload> SignedOperation<T> {
         Ok(())
     }
 
-    /// Full verification: domain separation, payload binding, then signatures.
-    ///
-    /// Verification order is deliberate — the domain check runs before any
-    /// signature or role logic, so a cross-type signature is rejected for the
-    /// right reason.
+ /// Full verification: domain separation, payload binding, then signatures.
+ ///
+ /// Verification order is deliberate — the domain check runs before any
+ /// signature or role logic, so a cross-type signature is rejected for the
+ /// right reason.
     pub fn verify(
         &self,
         payload: &T,
@@ -341,8 +341,8 @@ mod tests {
             .expect("sign");
         op.verify(&payload, resolver(&provider)).expect("valid");
 
-        // Re-use the signature verbatim in a different artefact type with the
-        // same payload shape.  The context check rejects it.
+ // Re-use the signature verbatim in a different artefact type with the
+ // same payload shape. The context check rejects it.
         let reused = SignedOperation::<LockdownExitLike> {
             context_string: op.context_string.clone(),
             payload_hash: op.payload_hash,
@@ -398,8 +398,8 @@ mod tests {
         op.sign_with(&provider, CommandRole::PolicyAuthority)
             .unwrap();
 
-        // Same type, altered domain string: verify_payload catches the
-        // mismatch before signatures are even considered.
+ // Same type, altered domain string: verify_payload catches the
+ // mismatch before signatures are even considered.
         let mut altered = op.clone();
         altered.context_string = "TirBase/v1/Other".to_string();
         assert!(matches!(

@@ -72,7 +72,7 @@ pub struct GroupCommitBatcher {
     state: Mutex<BatcherState>,
     cv: Condvar,
     backend: Arc<dyn EventBatchBackend>,
-    /// In-memory mirror for gateway compatibility/readers.
+ /// In-memory mirror for gateway compatibility/readers.
     mirror: Mutex<Vec<SecurityEvent>>,
 }
 
@@ -114,7 +114,7 @@ impl GroupCommitBatcher {
             return;
         }
         let mut state = self.state.lock().unwrap();
-        // Prepend any concurrently queued events in this flush boundary.
+ // Prepend any concurrently queued events in this flush boundary.
         let mut queued = Self::take_queue(&mut state);
         queued.append(&mut batch);
         state.flush_count += 1;
@@ -140,7 +140,7 @@ impl GroupCommitBatcher {
             if state.stop && state.queue.is_empty() {
                 return;
             }
-            // Flush on timeout or explicit wake when stop/high-priority drained path queued work.
+ // Flush on timeout or explicit wake when stop/high-priority drained path queued work.
             let should_flush = wait.timed_out() || !state.queue.is_empty();
             if should_flush {
                 let batch = Self::take_queue(&mut state);
@@ -186,7 +186,7 @@ impl GroupCommitBatcher {
         state.stop = true;
         self.cv.notify_all();
         drop(state);
-        // Give worker a moment to flush; tests may also call stop explicitly.
+ // Give worker a moment to flush; tests may also call stop explicitly.
         let deadline = tirbase_core::traits::monotonic_now() + 250_000;
         while tirbase_core::traits::monotonic_now() < deadline {
             if self.pending_len() == 0 {
@@ -194,7 +194,7 @@ impl GroupCommitBatcher {
             }
             thread::sleep(Duration::from_millis(5));
         }
-        // Final synchronous flush for determinism.
+ // Final synchronous flush for determinism.
         let mut state = self.state.lock().unwrap();
         let batch = Self::take_queue(&mut state);
         state.flush_count += 1;
@@ -215,14 +215,14 @@ impl SecurityEventSink for GroupCommitBatcher {
             m.push(event.clone());
         }
         if Self::is_high_priority(&event) {
-            // 19.4: High/Critical bypass the batcher and are written immediately.
+ // 19.4: High/Critical bypass the batcher and are written immediately.
             self.flush_now(vec![event]);
             self.cv.notify_all();
             return;
         }
         let mut state = self.state.lock().unwrap();
         state.queue.push_back(event);
-        // Non-urgent events wait for the 50ms window/worker flush.
+ // Non-urgent events wait for the 50ms window/worker flush.
         self.cv.notify_all();
     }
 }

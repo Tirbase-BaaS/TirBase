@@ -54,23 +54,23 @@ pub use revocation::resolve_did_key_to_public_key;
 /// epoch-interrupt the running transform instead of queueing behind it under
 /// the shared mutex.
 pub(crate) struct PreparedMigration {
-    /// SHA-256(transform_bytes) — the migration's identifier.
+ /// SHA-256(transform_bytes) — the migration's identifier.
     pub(crate) migration_id: MigrationId,
-    /// Schema hash the device must advance to on a clean, non-revoked run.
+ /// Schema hash the device must advance to on a clean, non-revoked run.
     pub(crate) target_schema_hash: crate::schema::hash::SchemaIdentifierHash,
-    /// CA-validated WASM bytecode to hand to the sandbox.
+ /// CA-validated WASM bytecode to hand to the sandbox.
     pub(crate) transform_bytes: Vec<u8>,
-    /// Epoch-interrupt timeout in seconds (Req 18.4 default: 30).
+ /// Epoch-interrupt timeout in seconds (Req 18.4 default: 30).
     pub(crate) timeout_secs: u64,
-    /// PV-8.2a signed execution profile metadata, if present.
+ /// PV-8.2a signed execution profile metadata, if present.
     pub(crate) execution_profile: Option<crate::migration::profile::ExecutionProfileVersion>,
-    /// Task 30.3/30.4: expand/contract kind.
+ /// /30.4: expand/contract kind.
     pub(crate) migration_kind: migration_delta::MigrationKind,
-    /// Task 30.3: fleet precondition hash (Contract migrations; 37.5 inventory hook).
+ /// : fleet precondition hash (Contract migrations; 37.5 inventory hook).
     pub(crate) fleet_precondition_hash: Option<[u8; 32]>,
-    /// Task 30.2/PV-8.4: signed postconditions for shadow evaluation.
+ /// /PV-8.4: signed postconditions for shadow evaluation.
     pub(crate) postconditions: Option<migration_delta::SignedPostconditions>,
-    /// Task 30.6: transform author DID (post-execution revocation check).
+ /// : transform author DID (post-execution revocation check).
     pub(crate) author_did: String,
 }
 
@@ -79,89 +79,89 @@ pub(crate) struct PreparedMigration {
 /// The Schema Migration Engine orchestrates the zero-trust gate, sandbox
 /// execution, quarantine management, Side-Car replay, and CCE tagging.
 pub struct SchemaMigrationEngine {
-    /// Ed25519 public key of the deployment's Certificate Authority.
-    /// Used to verify `MigrationDelta.ca_signature` (Req 18.2).
+ /// Ed25519 public key of the deployment's Certificate Authority.
+ /// Used to verify `MigrationDelta.ca_signature` (Req 18.2).
     ca_public_key: [u8; 32],
-    /// Task 30.3 (PV-8.5a, dep 37.5): fleet precondition verifier for Contract migrations.
+ /// (PV-8.5a, dep 37.5): fleet precondition verifier for Contract migrations.
     fleet_precondition: fleet_precondition::DynFleetPreconditionVerifier,
 
-    /// Current schema hash of this device's local store.
+ /// Current schema hash of this device's local store.
     local_schema_hash: crate::schema::hash::SchemaIdentifierHash,
 
-    /// Ordered version path for step-validation (Req 18.3a).
+ /// Ordered version path for step-validation (Req 18.3a).
     version_path: SchemaVersionPath,
 
-    /// Registry tracking revoked and in-progress migrations (Req 18.5–18.7).
+ /// Registry tracking revoked and in-progress migrations (Req 18.5–18.7).
     revocation_registry: RevokedMigrationRegistry,
 
-    /// Set of sender DIDs blacklisted due to CA sig or hash failures (Req 18.3).
+ /// Set of sender DIDs blacklisted due to CA sig or hash failures (Req 18.3).
     blacklisted_senders: HashSet<crate::crdt::delta::Did>,
 
-    /// Minimum number of Manager DID signatures required for a revocation delta.
+ /// Minimum number of Manager DID signatures required for a revocation delta.
     revocation_threshold_m: usize,
 
-    /// Task 29.3 (PV-8.2a): UpdateSigner key used to authenticate signed
-    /// `ExecutionProfileVersion` metadata. `None` means "not configured":
-    /// profile metadata is matched but not signature-verified.
+ /// (PV-8.2a): UpdateSigner key used to authenticate signed
+ /// `ExecutionProfileVersion` metadata. `None` means "not configured":
+ /// profile metadata is matched but not signature-verified.
     update_signer_public_key: Option<[u8; 32]>,
 
-    /// Handle to the local store for migration sandbox host functions (native only).
+ /// Handle to the local store for migration sandbox host functions (native only).
     #[cfg(feature = "native")]
     store: Arc<Mutex<crate::store::LocalStore>>,
 
-    /// Quarantine ledger for schema-incompatible Deltas (Req 17.4–17.6).
-    ///
-    /// Native: SQLite-backed via a dedicated connection.
-    /// WASM: in-memory Vec.
+ /// Quarantine ledger for schema-incompatible Deltas (Req 17.4–17.6).
+ ///
+ /// Native: SQLite-backed via a dedicated connection.
+ /// WASM: in-memory Vec.
     #[cfg(feature = "native")]
     quarantine_ledger: QuarantineLedger,
 
     #[cfg(not(feature = "native"))]
     quarantine_ledger: QuarantineLedger,
 
-    /// Side-Car Ledger — non-destructive preservation of writes made against
-    /// a corrupted schema, for replay when a corrected migration arrives
-    /// (Req 19.1–19.6).
-    ///
-    /// Native: SQLite-backed via the migration's dedicated connection.
-    /// WASM: in-memory Vec.
+ /// Side-Car Ledger — non-destructive preservation of writes made against
+ /// a corrupted schema, for replay when a corrected migration arrives
+ /// (Req 19.1–19.6).
+ ///
+ /// Native: SQLite-backed via the migration's dedicated connection.
+ /// WASM: in-memory Vec.
     sidecar_ledger: SideCarLedger,
 
-    /// Migration hash → target schema hash, recorded at prepare time so a
-    /// revocation can identify which schema a corrupted migration produced
-    /// (Req 19.1/19.2 corruption-window scoping).
+ /// Migration hash → target schema hash, recorded at prepare time so a
+ /// revocation can identify which schema a corrupted migration produced
+ /// (Req 19.1/19.2 corruption-window scoping).
     migration_targets: BTreeMap<MigrationId, crate::schema::hash::SchemaIdentifierHash>,
 
-    /// Schema hashes currently under a corruption window → the migration IDs
-    /// whose revocations opened them (Req 19.1/19.2).  A window opens when a
-    /// revoked migration's target schema is the device's current schema;
-    /// while it is open, writes stamped with that schema are captured in the
-    /// Side-Car Ledger and the window's entries are replayed onto the
-    /// corrected projection when a migration off that schema commits (Req
-    /// 19.3).
+ /// Schema hashes currently under a corruption window → the migration IDs
+ /// whose revocations opened them (Req 19.1/19.2). A window opens when a
+ /// revoked migration's target schema is the device's current schema;
+ /// while it is open, writes stamped with that schema are captured in the
+ /// Side-Car Ledger and the window's entries are replayed onto the
+ /// corrected projection when a migration off that schema commits (Req
+ /// 19.3).
     corrupted_schema_windows: BTreeMap<crate::schema::hash::SchemaIdentifierHash, Vec<MigrationId>>,
 
-    /// Registered schema definitions keyed by their `SchemaIdentifierHash`,
-    /// enabling parser-backed validation of version-path entries (Req 20).
-    ///
-    /// Populated from `DeploymentConfig.schema_definitions` at init time; each
-    /// entry maps a version-path hash to its parseable `Schema` document so
-    /// `verify_version_path` can confirm that the source and target hashes
-    /// correspond to real, well-formed schemas — not just opaque byte values.
+ /// Registered schema definitions keyed by their `SchemaIdentifierHash`,
+ /// enabling parser-backed validation of version-path entries (Req 20).
+ ///
+ /// Populated from `DeploymentConfig.schema_definitions` at init time; each
+ /// entry maps a version-path hash to its parseable `Schema` document so
+ /// `verify_version_path` can confirm that the source and target hashes
+ /// correspond to real, well-formed schemas — not just opaque byte values.
     schema_definitions: BTreeMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>,
 }
 
 impl SchemaMigrationEngine {
-    /// Create a new SchemaMigrationEngine.
-    ///
-    /// - `ca_public_key`: 32-byte Ed25519 public key of the deployment CA.
-    /// - `local_schema_hash`: current schema hash of the local store.
-    /// - `version_path`: deployment's ordered schema version path.
-    /// - `revocation_threshold_m`: M value for M-of-N manager signature requirement.
-    /// - `store`: handle to the local store for sandbox host functions (native only).
-    /// - `migration_conn`: dedicated SQLite connection for the quarantine ledger (native only).
-    /// - `schema_definitions`: registered schema definitions keyed by hash for
-    ///   parser-backed version-path validation (native and WASM).
+ /// Create a new SchemaMigrationEngine.
+ ///
+ /// - `ca_public_key`: 32-byte Ed25519 public key of the deployment CA.
+ /// - `local_schema_hash`: current schema hash of the local store.
+ /// - `version_path`: deployment's ordered schema version path.
+ /// - `revocation_threshold_m`: M value for M-of-N manager signature requirement.
+ /// - `store`: handle to the local store for sandbox host functions (native only).
+ /// - `migration_conn`: dedicated SQLite connection for the quarantine ledger (native only).
+ /// - `schema_definitions`: registered schema definitions keyed by hash for
+ /// parser-backed version-path validation (native and WASM).
     pub fn new(
         ca_public_key: [u8; 32],
         local_schema_hash: crate::schema::hash::SchemaIdentifierHash,
@@ -181,8 +181,8 @@ impl SchemaMigrationEngine {
         #[cfg(not(feature = "native"))]
         let quarantine_ledger = QuarantineLedger::new(db.clone());
 
-        // The Side-Car Ledger shares the migration's dedicated connection
-        // (native) or uses the IndexedDB-backed store (WASM).
+ // The Side-Car Ledger shares the migration's dedicated connection
+ // (native) or uses the IndexedDB-backed store (WASM).
         #[cfg(feature = "native")]
         let sidecar_ledger = SideCarLedger::new(migration_conn);
 
@@ -208,18 +208,18 @@ impl SchemaMigrationEngine {
         }
     }
 
-    /// Check whether a sender DID has been blacklisted.
+ /// Check whether a sender DID has been blacklisted.
     pub fn is_blacklisted(&self, did: &str) -> bool {
         self.blacklisted_senders.contains(did)
     }
 
-    /// Check whether a migration has been revoked.
+ /// Check whether a migration has been revoked.
     pub fn is_revoked(&self, migration_id: &MigrationId) -> bool {
         self.revocation_registry.is_revoked(migration_id)
     }
 
-    /// Look up the target schema hash recorded for `migration_id` during
-    /// [`prepare_migration`](Self::prepare_migration), if any.
+ /// Look up the target schema hash recorded for `migration_id` during
+ /// [`prepare_migration`](Self::prepare_migration), if any.
     pub(crate) fn target_schema_for_migration(
         &self,
         migration_id: &MigrationId,
@@ -227,33 +227,32 @@ impl SchemaMigrationEngine {
         self.migration_targets.get(migration_id).copied()
     }
 
-    /// Register the deployment's Migration CA Ed25519 public key at runtime
-    /// (Req 18.2).
-    ///
-    /// Takes effect immediately: subsequent [`receive_migration_delta`]
-    /// calls verify `ca_signature` against this key.  Replaces any key
-    /// registered at construction (deployment config).
-    ///
-    /// Production caller: [`crate::api::CoreHandle::register_migration_ca_key`],
-    /// which is reachable from native host applications and the
-    /// `core_register_migration_ca_key` WASM export.
+ /// Register the deployment's Migration CA Ed25519 public key at runtime
+ /// (Req 18.2).
+ ///
+ /// Takes effect immediately: subsequent [`receive_migration_delta`]
+ /// calls verify `ca_signature` against this key. Replaces any key
+ /// registered at construction (deployment config).
+ ///
+ /// Production caller: [`crate::api::CoreHandle::register_migration_ca_key`],
+ /// which is reachable from native host applications and the
+ /// `core_register_migration_ca_key` WASM export.
     pub(crate) fn register_ca_public_key(&mut self, key: [u8; 32]) {
         self.ca_public_key = key;
     }
 
-    /// Register the deployment's `UpdateSigner` Ed25519 public key used to
-    /// authenticate signed `ExecutionProfileVersion` metadata (task 29.3,
-    /// PV-8.2a). Takes effect for subsequent migration deltas.
-    ///
-    /// Production caller: `CoreHandle::init` (from
-    /// `DeploymentConfig.update_signer_public_key`).
+ /// Register the deployment's `UpdateSigner` Ed25519 public key used to
+ /// authenticate signed `ExecutionProfileVersion` metadata ( /// PV-8.2a). Takes effect for subsequent migration deltas.
+ ///
+ /// Production caller: `CoreHandle::init` (from
+ /// `DeploymentConfig.update_signer_public_key`).
     pub fn set_update_signer_public_key(&mut self, key: [u8; 32]) {
         self.update_signer_public_key = Some(key);
     }
 
-    /// Task 30.1/30.2/30.5: run shadow migration and evaluate postconditions.
-    /// Does NOT commit schema hash or projections; caller must perform 30.6
-    /// author-revocation check then commit projections and call `finish_migration`.
+ /// /30.2/30.5: run shadow migration and evaluate postconditions.
+ /// Does NOT commit schema hash or projections; caller must perform 30.6
+ /// author-revocation check then commit projections and call `finish_migration`.
     #[cfg(feature = "native")]
     pub(crate) fn run_shadow_prepared(
         &mut self,
@@ -281,7 +280,7 @@ impl SchemaMigrationEngine {
         )
     }
 
-    /// Record a quarantine entry (Task 30.x helpers).
+ /// Record a quarantine entry ( helpers).
     #[cfg(feature = "native")]
     pub(crate) fn revocation_registry_clear_in_progress_public(
         &mut self,
@@ -290,9 +289,9 @@ impl SchemaMigrationEngine {
         self.revocation_registry.clear_in_progress(migration_id);
     }
 
-    /// Native-only: the WASM `QuarantineLedger::quarantine` is async (IndexedDB
-    /// transactions must be awaited), so the synchronous migration helper has
-    /// no WASM counterpart; the WASM pipeline awaits the ledger directly.
+ /// Native-only: the WASM `QuarantineLedger::quarantine` is async (IndexedDB
+ /// transactions must be awaited), so the synchronous migration helper has
+ /// no WASM counterpart; the WASM pipeline awaits the ledger directly.
     #[cfg(feature = "native")]
     pub(crate) fn quarantine_transform(
         &mut self,
@@ -326,32 +325,32 @@ impl SchemaMigrationEngine {
         self.schema_definitions.get(hash)
     }
 
-    /// The device's current (deployed) schema hash — starts at the first
-    /// version of the registered path and advances as migrations apply.
-    ///
-    /// CoreHandle mirrors this into the CRDT engine's current schema after a
-    /// successful inbound migration so that locally produced Deltas stamp the
-    /// new hash (Req 4.6) and the data-Delta gate classifies against the new
-    /// schema (Subphase 5.3, Req 17.3/17.4).
+ /// The device's current (deployed) schema hash — starts at the first
+ /// version of the registered path and advances as migrations apply.
+ ///
+ /// CoreHandle mirrors this into the CRDT engine's current schema after a
+ /// successful inbound migration so that locally produced Deltas stamp the
+ /// new hash (Req 4.6) and the data-Delta gate classifies against the new
+ /// schema (Subphase 5.3, Req 17.3/17.4).
     pub(crate) fn current_schema_hash(&self) -> crate::schema::hash::SchemaIdentifierHash {
         self.local_schema_hash
     }
 
-    /// Return `true` if the QuarantineLedger holds any unreleased entry whose
-    /// schema hash matches the engine's current `local_schema_hash`.
-    ///
-    /// The quarantine is keyed by schema hash, not by table name. The `table`
-    /// parameter is accepted for call-site compatibility but the check applies
-    /// schema-wide.
-    ///
-    /// Used by `CoreHandle::write()` to determine whether to auto-tag writes as
-    /// `ContaminatedByHumanReaction` (Req 19.5).
-    /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
+ /// Return `true` if the QuarantineLedger holds any unreleased entry whose
+ /// schema hash matches the engine's current `local_schema_hash`.
+ ///
+ /// The quarantine is keyed by schema hash, not by table name. The `table`
+ /// parameter is accepted for call-site compatibility but the check applies
+ /// schema-wide.
+ ///
+ /// Used by `CoreHandle::write()` to determine whether to auto-tag writes as
+ /// `ContaminatedByHumanReaction` (Req 19.5).
+ /// Production caller: `CoreHandle::write` → `CrdtEngine::compaction_policy_for`.
     pub(crate) fn is_schema_quarantined(&self, table: &str) -> bool {
         #[cfg(feature = "native")]
         {
-            // Query all quarantined entries and check if any match our local schema
-            // hash without having been released for migration.
+ // Query all quarantined entries and check if any match our local schema
+ // hash without having been released for migration.
             match self.quarantine_ledger.get_all() {
                 Ok(entries) => entries.iter().any(|e| {
                     e.schema_hash == Some(self.local_schema_hash) && e.migration_id.is_none()
@@ -361,23 +360,23 @@ impl SchemaMigrationEngine {
         }
         #[cfg(not(feature = "native"))]
         {
-            // WASM: `is_schema_quarantined` is async on WASM because the
-            // quarantine ledger reads from IndexedDB.  The sync wrapper
-            // returns `false` optimistically — the real async version is
-            // `is_schema_quarantined_async` and is called from `CoreHandle::write`.
+ // WASM: `is_schema_quarantined` is async on WASM because the
+ // quarantine ledger reads from IndexedDB. The sync wrapper
+ // returns `false` optimistically — the real async version is
+ // `is_schema_quarantined_async` and is called from `CoreHandle::write`.
             let _ = table;
             false
         }
     }
 
-    /// Async version of `is_schema_quarantined` for WASM builds (Req 19.5).
-    ///
-    /// On native this is never used — the sync `is_schema_quarantined` calls
-    /// SQLite directly.
+ /// Async version of `is_schema_quarantined` for WASM builds (Req 19.5).
+ ///
+ /// On native this is never used — the sync `is_schema_quarantined` calls
+ /// SQLite directly.
     #[cfg(not(feature = "native"))]
     pub(crate) async fn is_schema_quarantined_async(&self, _table: &str) -> bool {
-        // Query all quarantined entries from IndexedDB and check if any
-        // match our local schema hash without having been released.
+ // Query all quarantined entries from IndexedDB and check if any
+ // match our local schema hash without having been released.
         match self.quarantine_ledger.get_all().await {
             Ok(entries) => entries
                 .iter()
@@ -386,54 +385,54 @@ impl SchemaMigrationEngine {
         }
     }
 
-    /// Validate an incoming MigrationDelta and prepare it for execution
-    /// (Req 18.2–18.3a).
-    ///
-    /// Checks in order:
-    /// 1. Sender not blacklisted.
-    /// 2. Migration not already revoked.
-    /// 3. CA signature over transform_bytes is valid.
-    /// 4. SHA-256 of transform_bytes matches embedded hash.
-    ///
-    /// Step 4a: Record the migration hash as known / previously-seen (Req 18.7): once the CA signature and hash integrity cleared, this is a real migration this device has seen, and the only kind a manager-signed `MigrationRevocationDelta` may target. Recorded even when a later gate below rejects the delta (e.g. version-path mismatch), so a corrupt-but-CA-signed migration can be revoked before it becomes applicable.
-    ///
-    /// 5. source_schema_hash == local current schema.
-    /// 6. target_schema_hash == next step in registered version path.
-    /// 7. No other transform is currently executing (migrations are strictly
-    ///    serialised — each step validates against the device's current
-    ///    schema hash, which only advances when the previous step commits).
-    ///
-    /// On success the migration is marked in-progress and a
-    /// [`PreparedMigration`] is returned.  The caller then executes the
-    /// transform OFF this engine's lock and reports the outcome through
-    /// [`SchemaMigrationEngine::finish_migration`]; the synchronous
-    /// [`SchemaMigrationEngine::receive_migration_delta`] convenience wrapper
-    /// does exactly that without releasing the lock (direct-call path).
-    ///
-    /// On CA sig or hash failure: blacklist sender (Req 18.3) and the hash is
-    /// NOT recorded as known (an unauthenticated hash must not become
-    /// revocable).
-    /// On version path mismatch: reject + log (no blacklist).
+ /// Validate an incoming MigrationDelta and prepare it for execution
+ /// (Req 18.2–18.3a).
+ ///
+ /// Checks in order:
+ /// 1. Sender not blacklisted.
+ /// 2. Migration not already revoked.
+ /// 3. CA signature over transform_bytes is valid.
+ /// 4. SHA-256 of transform_bytes matches embedded hash.
+ ///
+ /// Step 4a: Record the migration hash as known / previously-seen (Req 18.7): once the CA signature and hash integrity cleared, this is a real migration this device has seen, and the only kind a manager-signed `MigrationRevocationDelta` may target. Recorded even when a later gate below rejects the delta (e.g. version-path mismatch), so a corrupt-but-CA-signed migration can be revoked before it becomes applicable.
+ ///
+ /// 5. source_schema_hash == local current schema.
+ /// 6. target_schema_hash == next step in registered version path.
+ /// 7. No other transform is currently executing (migrations are strictly
+ /// serialised — each step validates against the device's current
+ /// schema hash, which only advances when the previous step commits).
+ ///
+ /// On success the migration is marked in-progress and a
+ /// [`PreparedMigration`] is returned. The caller then executes the
+ /// transform OFF this engine's lock and reports the outcome through
+ /// [`SchemaMigrationEngine::finish_migration`]; the synchronous
+ /// [`SchemaMigrationEngine::receive_migration_delta`] convenience wrapper
+ /// does exactly that without releasing the lock (direct-call path).
+ ///
+ /// On CA sig or hash failure: blacklist sender (Req 18.3) and the hash is
+ /// NOT recorded as known (an unauthenticated hash must not become
+ /// revocable).
+ /// On version path mismatch: reject + log (no blacklist).
     pub(crate) fn prepare_migration(
         &mut self,
         delta: MigrationDelta,
         sender_did: &str,
     ) -> Result<PreparedMigration, TirBaseError> {
-        // ── 1. Blacklist check ────────────────────────────────────────────────
+ // ── 1. Blacklist check ────────────────────────────────────────────────
         if self.blacklisted_senders.contains(sender_did) {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: format!("sender {sender_did} is blacklisted"),
             });
         }
 
-        // ── 2. Revocation check ──────────────────────────────────────────────
+ // ── 2. Revocation check ──────────────────────────────────────────────
         if self.revocation_registry.is_revoked(&delta.id) {
             return Err(TirBaseError::AuthorisationFailed {
                 reason: format!("migration {:?} has been revoked", delta.id),
             });
         }
 
-        // ── 3. CA signature verification ─────────────────────────────────────
+ // ── 3. CA signature verification ─────────────────────────────────────
         if let Err(e) = self.verify_ca_signature(&delta) {
             emit_migration(
                 Severity::High,
@@ -448,7 +447,7 @@ impl SchemaMigrationEngine {
             });
         }
 
-        // ── 4. SHA-256 hash integrity check ──────────────────────────────────
+ // ── 4. SHA-256 hash integrity check ──────────────────────────────────
         if let Err(e) = self.verify_transform_hash(&delta) {
             emit_migration(
                 Severity::High,
@@ -463,7 +462,7 @@ impl SchemaMigrationEngine {
             });
         }
 
-        // ── 4b. Task 30.3/30.4 (PV-8.5a): expand-then-contract + fleet precondition ──
+ // ── 4b. /30.4 (PV-8.5a): expand-then-contract + fleet precondition ──
         if delta.migration_kind == migration_delta::MigrationKind::Contract {
             let Some(fleet_hash) = delta.fleet_precondition_hash else {
                 let _ = self.quarantine_ledger.quarantine(
@@ -486,8 +485,8 @@ impl SchemaMigrationEngine {
                     migration_id: hex::encode(delta.id),
                 });
             };
-            // Fleet inventory verifier hook (task 37.5 dependency). Default engine uses
-            // UnverifiedFleetInventory and rejects until 37.5 is wired.
+ // Fleet inventory verifier hook ( dependency). Default engine uses
+ // UnverifiedFleetInventory and rejects until 37.5 is wired.
             if let Err(e) = self
                 .fleet_precondition
                 .verify_contract(&delta.id, &fleet_hash)
@@ -564,9 +563,9 @@ impl SchemaMigrationEngine {
             }
         }
 
-        // ── 4b. PV-8.2 / PV-8.2a pre-execution profile gate (S8/S9) ─────────
-        // Validate deterministic profile and execution-profile metadata BEFORE
-        // marking the migration in-progress or handing bytes to the sandbox.
+ // ── 4b. PV-8.2 / PV-8.2a pre-execution profile gate (S8/S9) ─────────
+ // Validate deterministic profile and execution-profile metadata BEFORE
+ // marking the migration in-progress or handing bytes to the sandbox.
         if let Err(e) = crate::migration::profile::DeterministicWasmProfile::validate(
             &delta.transform_bytes,
             delta.id,
@@ -615,10 +614,10 @@ impl SchemaMigrationEngine {
                 });
             }
 
-            // Task 29.3 (PV-8.2a): when an UpdateSigner key is configured, the
-            // profile metadata must carry a valid UpdateSigner signature. A
-            // missing/invalid signature is treated like an engine mismatch:
-            // quarantine the transform and refuse it.
+ // (PV-8.2a): when an UpdateSigner key is configured, the
+ // profile metadata must carry a valid UpdateSigner signature. A
+ // missing/invalid signature is treated like an engine mismatch:
+ // quarantine the transform and refuse it.
             if let Some(update_signer_key) = self.update_signer_public_key {
                 if let Err(signature_error) = p.verify_signature(&update_signer_key) {
                     let _ = self.quarantine_ledger.quarantine(
@@ -641,39 +640,39 @@ impl SchemaMigrationEngine {
             }
         }
 
-        // ── 4a. Known-hash recording (Req 18.7) ──────────────────────────────
-        // The CA signature (3) and embedded SHA-256 (4) both verified, so this
-        // hash is a genuine migration this device has now seen.  Record it:
-        // `apply_revocation` only accepts a MigrationRevocationDelta whose
-        // target is in this known set, so an arbitrary-hash revocation is
-        // rejected rather than silently poisoning the registry.  Recorded
-        // before the version-path gate on purpose: a corrupt-but-CA-signed
-        // migration for a *future* schema step is still a real hash managers
-        // may legitimately revoke before it becomes applicable.
+ // ── 4a. Known-hash recording (Req 18.7) ──────────────────────────────
+ // The CA signature (3) and embedded SHA-256 (4) both verified, so this
+ // hash is a genuine migration this device has now seen. Record it:
+ // `apply_revocation` only accepts a MigrationRevocationDelta whose
+ // target is in this known set, so an arbitrary-hash revocation is
+ // rejected rather than silently poisoning the registry. Recorded
+ // before the version-path gate on purpose: a corrupt-but-CA-signed
+ // migration for a *future* schema step is still a real hash managers
+ // may legitimately revoke before it becomes applicable.
         self.revocation_registry.record_known_migration(delta.id);
 
-        // Remember the migration's target schema hash so a later revocation
-        // can open the corruption window on the exact schema this migration
-        // produces (Req 19.1/19.2).
+ // Remember the migration's target schema hash so a later revocation
+ // can open the corruption window on the exact schema this migration
+ // produces (Req 19.1/19.2).
         self.migration_targets
             .insert(delta.id, delta.target_schema_hash);
 
-        // ── 5 & 6. Version path validation ───────────────────────────────────
+ // ── 5 & 6. Version path validation ───────────────────────────────────
         self.verify_version_path(&delta)?;
 
-        // ── 7. Serialisation gate ────────────────────────────────────────────
-        // At most one transform may execute at a time: schema steps are
-        // ordered, and a second migration can only validate once the first
-        // has committed (or been revoked) and the local schema hash reflects
-        // it.  The CoreHandle inbound pipeline retries on this error instead
-        // of dropping the delta.
+ // ── 7. Serialisation gate ────────────────────────────────────────────
+ // At most one transform may execute at a time: schema steps are
+ // ordered, and a second migration can only validate once the first
+ // has committed (or been revoked) and the local schema hash reflects
+ // it. The CoreHandle inbound pipeline retries on this error instead
+ // of dropping the delta.
         if self.revocation_registry.has_in_progress() {
             return Err(TirBaseError::MigrationInProgress {
                 migration_id: hex::encode(delta.id),
             });
         }
 
-        // ── 8. Mark in-progress and hand execution to the caller ────────────
+ // ── 8. Mark in-progress and hand execution to the caller ────────────
         self.revocation_registry.mark_in_progress(delta.id);
 
         Ok(PreparedMigration {
@@ -689,16 +688,16 @@ impl SchemaMigrationEngine {
         })
     }
 
-    /// Report the outcome of a prepared transform back to the engine.
-    ///
-    /// - Clears the in-progress marker unconditionally (the migration is no
-    ///   longer executing regardless of how it ended).
-    /// - **Re-checks revocation before committing**: if the migration was
-    ///   revoked while the transform ran (or between sandbox exit and this
-    ///   call), the local schema hash must NOT advance to the target — the
-    ///   outcome is returned as [`MigrationResult::Revoked`] instead of
-    ///   `Success` (Req 18.6).  This is the authoritative commit gate for the
-    ///   off-lock execution path.
+ /// Report the outcome of a prepared transform back to the engine.
+ ///
+ /// - Clears the in-progress marker unconditionally (the migration is no
+ /// longer executing regardless of how it ended).
+ /// - **Re-checks revocation before committing**: if the migration was
+ /// revoked while the transform ran (or between sandbox exit and this
+ /// call), the local schema hash must NOT advance to the target — the
+ /// outcome is returned as [`MigrationResult::Revoked`] instead of
+ /// `Success` (Req 18.6). This is the authoritative commit gate for the
+ /// off-lock execution path.
     pub(crate) fn finish_migration(
         &mut self,
         migration_id: &MigrationId,
@@ -707,14 +706,14 @@ impl SchemaMigrationEngine {
     ) -> Result<MigrationResult, TirBaseError> {
         self.revocation_registry.clear_in_progress(migration_id);
 
-        // CLAIM-G1.9 — mid-flight revocation commit gate (Req 18.6, PV-1.13).
-        // If a MigrationRevocationDelta arrived while the sandbox was executing
-        // (off-lock), `receive_revocation_delta` will have called
-        // `apply_revocation` which marks this id in `revocation_registry`.
-        // This check is the **only** place that can stop a revoked transform's
-        // result from advancing the local schema hash — removing it would allow
-        // a revoked migration to commit, which is the wiring-mutation condition
-        // for CLAIM-G1.9 (see `docs/audits/gate-g1.md`).
+ // CLAIM-G1.9 — mid-flight revocation commit gate (Req 18.6, PV-1.13).
+ // If a MigrationRevocationDelta arrived while the sandbox was executing
+ // (off-lock), `receive_revocation_delta` will have called
+ // `apply_revocation` which marks this id in `revocation_registry`.
+ // This check is the **only** place that can stop a revoked transform's
+ // result from advancing the local schema hash — removing it would allow
+ // a revoked migration to commit, which is the wiring-mutation condition
+ // for CLAIM-G1.9 (see `docs/audits/gate-g1.md`).
         if self.revocation_registry.is_revoked(migration_id) {
             let migration_id_hex = hex::encode(migration_id);
             emit_migration(
@@ -741,28 +740,28 @@ impl SchemaMigrationEngine {
         }
     }
 
-    /// Whether a migration transform is currently executing (prepared but not
-    /// yet finished).  At most one may run at a time.
+ /// Whether a migration transform is currently executing (prepared but not
+ /// yet finished). At most one may run at a time.
     pub(crate) fn any_migration_in_progress(&self) -> bool {
         self.revocation_registry.has_in_progress()
     }
 
-    /// Whether the given migration id is currently executing.
+ /// Whether the given migration id is currently executing.
     pub(crate) fn is_migration_in_progress(&self, migration_id: &MigrationId) -> bool {
         self.revocation_registry.is_in_progress(migration_id)
     }
 
-    /// Receive and validate an incoming MigrationDelta, execute it in the
-    /// sandbox, and commit the schema-hash advance (Req 18.2–18.4).
-    ///
-    /// This is the synchronous convenience path: the transform runs while the
-    /// caller holds the engine lock, so a concurrently arriving revocation
-    /// cannot interrupt it mid-flight (it will be processed after this call
-    /// returns and only block *future* applies).  Production inbound traffic
-    /// that must satisfy Req 18.6 goes through [`SchemaMigrationEngine::prepare_migration`]
-    /// → off-lock sandbox execution → [`SchemaMigrationEngine::finish_migration`]
-    /// (see the CoreHandle inbound pipeline).  Regardless of path, the
-    /// post-run revocation re-check in `finish_migration` protects the commit.
+ /// Receive and validate an incoming MigrationDelta, execute it in the
+ /// sandbox, and commit the schema-hash advance (Req 18.2–18.4).
+ ///
+ /// This is the synchronous convenience path: the transform runs while the
+ /// caller holds the engine lock, so a concurrently arriving revocation
+ /// cannot interrupt it mid-flight (it will be processed after this call
+ /// returns and only block *future* applies). Production inbound traffic
+ /// that must satisfy Req 18.6 goes through [`SchemaMigrationEngine::prepare_migration`]
+ /// → off-lock sandbox execution → [`SchemaMigrationEngine::finish_migration`]
+ /// (see the CoreHandle inbound pipeline). Regardless of path, the
+ /// post-run revocation re-check in `finish_migration` protects the commit.
     pub fn receive_migration_delta(
         &mut self,
         delta: MigrationDelta,
@@ -815,7 +814,7 @@ impl SchemaMigrationEngine {
             bool,
             Option<Vec<(String, Vec<(String, serde_json::Value)>)>>,
         ) = {
-            // WASM shadow: run against fresh in-memory handle (projection-equivalent for sandbox).
+ // WASM shadow: run against fresh in-memory handle (projection-equivalent for sandbox).
             let mut handle = crate::migration::wasm_sandbox::InMemoryStoreHandle::new();
             let result = crate::migration::wasm_sandbox::execute_migration_wasm(
                 &prepared.transform_bytes,
@@ -824,11 +823,11 @@ impl SchemaMigrationEngine {
                 prepared.migration_id,
                 prepared.execution_profile.as_ref(),
             )?;
-            // Postconditions on WASM shadow are best-effort via handle snapshot semantics;
-            // if postconditions present and unsigned checks-only, allow_unsigned.
+ // Postconditions on WASM shadow are best-effort via handle snapshot semantics;
+ // if postconditions present and unsigned checks-only, allow_unsigned.
             let failed = if let Some(pc) = postconditions.as_ref() {
-                // WASM path: cannot evaluate against LocalStore projection SQL; treat presence
-                // of explicit failing marker as N/A in legacy; production callers provide native.
+ // WASM path: cannot evaluate against LocalStore projection SQL; treat presence
+ // of explicit failing marker as N/A in legacy; production callers provide native.
                 let _ = pc;
                 false
             } else {
@@ -847,8 +846,8 @@ impl SchemaMigrationEngine {
             });
         }
 
-        // Task 30.6: author DID revocation is checked by caller-supplied hook in
-        // production dispatch paths; sync convenience path has no auth subsystem.
+ // : author DID revocation is checked by caller-supplied hook in
+ // production dispatch paths; sync convenience path has no auth subsystem.
         let _ = author_did;
         #[cfg(feature = "native")]
         if matches!(result, MigrationResult::Success) {
@@ -949,20 +948,20 @@ impl SchemaMigrationEngine {
         }
     }
 
-    /// Receive a MigrationRevocationDelta (Req 18.5–18.7).
-    ///
-    /// Rejects with [`TirBaseError::UnknownMigrationHash`] unless the target
-    /// is a known, previously-seen migration hash (Req 18.7) — one this
-    /// engine recorded in [`Self::prepare_migration`] after its CA signature
-    /// cleared.  Then verifies the M-of-N Manager signature threshold,
-    /// permanently blocks the target migration id, and halts any in-progress
-    /// transform for it.
-    ///
-    /// Returns `Ok(true)` when a transform for the target was executing and
-    /// has been halted.  The caller must then epoch-interrupt the running
-    /// sandbox via the execution registry so it actually stops (Req 18.6) —
-    /// the engine merely clears the in-progress marker here; the CoreHandle
-    /// inbound pipeline/registry performs interrupt and the commit gate enforces revocation.
+ /// Receive a MigrationRevocationDelta (Req 18.5–18.7).
+ ///
+ /// Rejects with [`TirBaseError::UnknownMigrationHash`] unless the target
+ /// is a known, previously-seen migration hash (Req 18.7) — one this
+ /// engine recorded in [`Self::prepare_migration`] after its CA signature
+ /// cleared. Then verifies the M-of-N Manager signature threshold,
+ /// permanently blocks the target migration id, and halts any in-progress
+ /// transform for it.
+ ///
+ /// Returns `Ok(true)` when a transform for the target was executing and
+ /// has been halted. The caller must then epoch-interrupt the running
+ /// sandbox via the execution registry so it actually stops (Req 18.6) —
+ /// the engine merely clears the in-progress marker here; the CoreHandle
+ /// inbound pipeline/registry performs interrupt and the commit gate enforces revocation.
     pub fn receive_revocation_delta(
         &mut self,
         delta: MigrationRevocationDelta,
@@ -972,14 +971,14 @@ impl SchemaMigrationEngine {
             .revocation_registry
             .apply_revocation(delta, self.revocation_threshold_m)?;
 
-        // ── Req 19.1/19.2: corruption window ────────────────────────────────
-        // The revoked migration is now flagged corrupted.  If it produced the
-        // schema this device is currently on, open a corruption window so
-        // every subsequent write stamped with that schema is preserved in the
-        // Side-Car Ledger (scoped to this migration id) instead of being
-        // silently trusted.  A migration revoked before it was ever applied
-        // (local schema != its target) opens nothing — the device never moved
-        // onto the corrupted schema, so there is nothing to capture.
+ // ── Req 19.1/19.2: corruption window ────────────────────────────────
+ // The revoked migration is now flagged corrupted. If it produced the
+ // schema this device is currently on, open a corruption window so
+ // every subsequent write stamped with that schema is preserved in the
+ // Side-Car Ledger (scoped to this migration id) instead of being
+ // silently trusted. A migration revoked before it was ever applied
+ // (local schema != its target) opens nothing — the device never moved
+ // onto the corrupted schema, so there is nothing to capture.
         if let Some(target) = self.migration_targets.get(&revoked_id).copied() {
             if target == self.local_schema_hash {
                 self.corrupted_schema_windows
@@ -1003,9 +1002,9 @@ impl SchemaMigrationEngine {
         Ok(halted)
     }
 
-    // ─── Private helpers ───────────────────────────────────────────────────────
+ // ─── Private helpers ───────────────────────────────────────────────────────
 
-    /// Verify the CA's Ed25519 signature over `transform_bytes` (Req 18.2).
+ /// Verify the CA's Ed25519 signature over `transform_bytes` (Req 18.2).
     fn verify_ca_signature(&self, delta: &MigrationDelta) -> Result<(), TirBaseError> {
         use ed25519_dalek::{Signature, VerifyingKey};
 
@@ -1035,7 +1034,7 @@ impl SchemaMigrationEngine {
             })
     }
 
-    /// Verify SHA-256(transform_bytes) == embedded hash (Req 18.2).
+ /// Verify SHA-256(transform_bytes) == embedded hash (Req 18.2).
     fn verify_transform_hash(&self, delta: &MigrationDelta) -> Result<(), TirBaseError> {
         use sha2::{Digest, Sha256};
 
@@ -1048,15 +1047,15 @@ impl SchemaMigrationEngine {
         Ok(())
     }
 
-    /// Verify source_schema_hash == local AND target_schema_hash == next in path (Req 18.3a).
-    ///
-    /// Additionally, performs parser-backed pre-migration validation (Req 20):
-    /// if a schema definition is registered for the target hash, the printer
-    /// output is re-parsed through `schema::parser::parse` and its
-    /// `identifier_hash` is recomputed to confirm the hash is consistent —
-    /// a corrupt or tampered schema definition document would produce a
-    /// different hash and is rejected here before the migration transform
-    /// executes.  This is the production caller of `schema/parser.rs`.
+ /// Verify source_schema_hash == local AND target_schema_hash == next in path (Req 18.3a).
+ ///
+ /// Additionally, performs parser-backed pre-migration validation (Req 20):
+ /// if a schema definition is registered for the target hash, the printer
+ /// output is re-parsed through `schema::parser::parse` and its
+ /// `identifier_hash` is recomputed to confirm the hash is consistent —
+ /// a corrupt or tampered schema definition document would produce a
+ /// different hash and is rejected here before the migration transform
+ /// executes. This is the production caller of `schema/parser.rs`.
     fn verify_version_path(&self, delta: &MigrationDelta) -> Result<(), TirBaseError> {
         if delta.source_schema_hash != self.local_schema_hash {
             return Err(TirBaseError::VersionPathMismatch {
@@ -1087,15 +1086,15 @@ impl SchemaMigrationEngine {
             });
         }
 
-        // Req 20: parser-backed pre-migration validation of the target schema.
-        //
-        // If we have a registered schema definition for the target hash, round-trip
-        // it through print → parse → re-hash to confirm the version-path entry is
-        // a genuine, well-formed schema document — not just an opaque 32-byte
-        // value.  A schema definition that fails to parse (or whose recomputed
-        // hash diverges from the registered target hash) is treated as a version-
-        // path integrity failure: the migration is rejected before the transform
-        // executes.
+ // Req 20: parser-backed pre-migration validation of the target schema.
+ //
+ // If we have a registered schema definition for the target hash, round-trip
+ // it through print → parse → re-hash to confirm the version-path entry is
+ // a genuine, well-formed schema document — not just an opaque 32-byte
+ // value. A schema definition that fails to parse (or whose recomputed
+ // hash diverges from the registered target hash) is treated as a version-
+ // path integrity failure: the migration is rejected before the transform
+ // executes.
         if let Some(schema) = self.schema_definitions.get(&delta.target_schema_hash) {
             let printed = crate::schema::printer::print(schema);
             match crate::schema::parser::parse(&printed) {
@@ -1134,13 +1133,13 @@ impl SchemaMigrationEngine {
 // ─── Public quarantine helper ─────────────────────────────────────────────────
 
 impl SchemaMigrationEngine {
-    /// Quarantine a raw incoming Delta that is incompatible with the current schema.
-    ///
-    /// This is called by the inbound pipeline (e.g. `CoreHandle::receive_inbound`)
-    /// when a Delta's schema hash does not match the local schema hash. The Delta
-    /// is stored byte-for-byte in the quarantine ledger without modification (Req 17.5).
-    ///
-    /// Returns the quarantine entry ID (SHA-256 of `raw_bytes`).
+ /// Quarantine a raw incoming Delta that is incompatible with the current schema.
+ ///
+ /// This is called by the inbound pipeline (e.g. `CoreHandle::receive_inbound`)
+ /// when a Delta's schema hash does not match the local schema hash. The Delta
+ /// is stored byte-for-byte in the quarantine ledger without modification (Req 17.5).
+ ///
+ /// Returns the quarantine entry ID (SHA-256 of `raw_bytes`).
     #[cfg(feature = "native")]
     pub fn quarantine_incoming(
         &mut self,
@@ -1159,7 +1158,7 @@ impl SchemaMigrationEngine {
         )
     }
 
-    /// WASM async version — awaits IndexedDB write.
+ /// WASM async version — awaits IndexedDB write.
     #[cfg(not(feature = "native"))]
     pub async fn quarantine_incoming(
         &mut self,
@@ -1180,17 +1179,17 @@ impl SchemaMigrationEngine {
             .await
     }
 
-    /// Return all entries currently held in the quarantine ledger.
-    ///
-    /// Used by the inbound integration tests to assert that a quarantined
-    /// Delta's raw bytes were persisted byte-for-byte (Subphase 5.2); also the
-    /// inspection entry point for quarantine replay tooling (Req 17.4–17.6).
+ /// Return all entries currently held in the quarantine ledger.
+ ///
+ /// Used by the inbound integration tests to assert that a quarantined
+ /// Delta's raw bytes were persisted byte-for-byte (Subphase 5.2); also the
+ /// inspection entry point for quarantine replay tooling (Req 17.4–17.6).
     #[cfg(feature = "native")]
     pub(crate) fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         self.quarantine_ledger.get_all()
     }
 
-    /// WASM async version — awaits IndexedDB scan.
+ /// WASM async version — awaits IndexedDB scan.
     #[cfg(not(feature = "native"))]
     pub(crate) async fn quarantined_entries(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         self.quarantine_ledger.get_all().await
@@ -1200,26 +1199,26 @@ impl SchemaMigrationEngine {
 // ─── Corruption-window + Side-Car capture/replay (Req 19.1–19.6) ───────────────
 
 impl SchemaMigrationEngine {
-    /// If the device's current schema is under an active corruption window — a
-    /// revoked (corrupted) migration produced it — return the migration ID
-    /// that opened the window: the scope under which writes against the
-    /// corrupted schema are preserved in the Side-Car Ledger (Req 19.2).
-    ///
-    /// Returns `None` when the current schema is not corrupted.
+ /// If the device's current schema is under an active corruption window — a
+ /// revoked (corrupted) migration produced it — return the migration ID
+ /// that opened the window: the scope under which writes against the
+ /// corrupted schema are preserved in the Side-Car Ledger (Req 19.2).
+ ///
+ /// Returns `None` when the current schema is not corrupted.
     pub(crate) fn active_corruption_migration(&self) -> Option<MigrationId> {
         self.corrupted_schema_windows
             .get(&self.local_schema_hash)
             .and_then(|ids| ids.first().copied())
     }
 
-    /// Record a write made against the corrupted schema in the Side-Car
-    /// Ledger, byte-for-byte and scoped to the corrupting migration's ID
-    /// (Req 19.2).
-    ///
-    /// Returns `Ok(None)` when no corruption window is active for the current
-    /// schema (nothing to capture); `Ok(Some(entry_id))` when the write was
-    /// preserved.  The caller (the production write path) treats capture as
-    /// best-effort: a capture failure must not fail the write itself.
+ /// Record a write made against the corrupted schema in the Side-Car
+ /// Ledger, byte-for-byte and scoped to the corrupting migration's ID
+ /// (Req 19.2).
+ ///
+ /// Returns `Ok(None)` when no corruption window is active for the current
+ /// schema (nothing to capture); `Ok(Some(entry_id))` when the write was
+ /// preserved. The caller (the production write path) treats capture as
+ /// best-effort: a capture failure must not fail the write itself.
     #[cfg(feature = "native")]
     pub(crate) fn record_corrupted_window_write(
         &mut self,
@@ -1239,7 +1238,7 @@ impl SchemaMigrationEngine {
         Ok(Some(entry_id))
     }
 
-    /// WASM async version — awaits IndexedDB write for Side-Car capture (Req 19.2).
+ /// WASM async version — awaits IndexedDB write for Side-Car capture (Req 19.2).
     #[cfg(not(feature = "native"))]
     pub(crate) async fn record_corrupted_window_write(
         &mut self,
@@ -1257,15 +1256,15 @@ impl SchemaMigrationEngine {
         Ok(Some(entry_id))
     }
 
-    /// Replay every Side-Car entry captured while `pre_migration_schema` was
-    /// under a corruption window against the corrected projection (Req 19.3).
-    ///
-    /// Called by the inbound migration success path once a corrected
-    /// migration has committed and the CRDT engine has advanced to
-    /// `corrected_schema_hash`.  Entries are replayed in recorded-timestamp
-    /// order; replay conflicts are flagged, never aborting the pass or the
-    /// already-committed migration (Req 19.4).  The corruption window is
-    /// closed once replayed — the device has left the corrupted schema.
+ /// Replay every Side-Car entry captured while `pre_migration_schema` was
+ /// under a corruption window against the corrected projection (Req 19.3).
+ ///
+ /// Called by the inbound migration success path once a corrected
+ /// migration has committed and the CRDT engine has advanced to
+ /// `corrected_schema_hash`. Entries are replayed in recorded-timestamp
+ /// order; replay conflicts are flagged, never aborting the pass or the
+ /// already-committed migration (Req 19.4). The corruption window is
+ /// closed once replayed — the device has left the corrupted schema.
     #[cfg(feature = "native")]
     pub(crate) fn replay_corrupted_windows(
         &mut self,
@@ -1299,8 +1298,8 @@ impl SchemaMigrationEngine {
                     );
                 }
                 Err(e) => {
-                    // Best-effort: the migration has already committed and the
-                    // entries stay PENDING in the ledger for a later retry.
+ // Best-effort: the migration has already committed and the
+ // entries stay PENDING in the ledger for a later retry.
                     emit_migration(
                         Severity::High,
                         ReasonCode::PostconditionFailed,
@@ -1317,7 +1316,7 @@ impl SchemaMigrationEngine {
         Ok(())
     }
 
-    /// WASM async version — awaits IndexedDB scans during replay (Req 19.3).
+ /// WASM async version — awaits IndexedDB scans during replay (Req 19.3).
     #[cfg(not(feature = "native"))]
     pub(crate) async fn replay_corrupted_windows(
         &mut self,
@@ -1368,9 +1367,9 @@ impl SchemaMigrationEngine {
         Ok(())
     }
 
-    /// All Side-Car entries scoped to `migration_id`, in recorded-timestamp
-    /// order — the replay-order view used by the corruption-recovery
-    /// integration test to assert capture and replay status transitions.
+ /// All Side-Car entries scoped to `migration_id`, in recorded-timestamp
+ /// order — the replay-order view used by the corruption-recovery
+ /// integration test to assert capture and replay status transitions.
     #[cfg(feature = "native")]
     pub(crate) fn sidecar_entries(
         &self,
@@ -1379,7 +1378,7 @@ impl SchemaMigrationEngine {
         self.sidecar_ledger.load_entries_ordered(*migration_id)
     }
 
-    /// WASM async version — awaits IndexedDB scan.
+ /// WASM async version — awaits IndexedDB scan.
     #[cfg(not(feature = "native"))]
     pub(crate) async fn sidecar_entries(
         &self,
@@ -1408,9 +1407,9 @@ mod tests {
     use crate::store::sqlite::CREATE_SCHEMA_SQL;
     use sha2::{Digest, Sha256};
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+ // ─── Helpers ─────────────────────────────────────────────────────────────
 
-    /// Generate a CA keypair + sign transform_bytes.
+ /// Generate a CA keypair + sign transform_bytes.
     fn make_ca_signed_delta(
         ca_secret: &[u8; 32],
         source_hash: [u8; 32],
@@ -1453,9 +1452,9 @@ mod tests {
     }
 
     fn trivial_wasm_bytes() -> Vec<u8> {
-        // Minimal WASM module: (module (func (export "run")))
-        // Hard-coded bytes to avoid requiring `wat` at test time when not native.
-        // Generated from: wat::parse_str(r#"(module (func (export "run")))"#)
+ // Minimal WASM module: (module (func (export "run")))
+ // Hard-coded bytes to avoid requiring `wat` at test time when not native.
+ // Generated from: wat::parse_str(r#"(module (func (export "run")))"#)
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
             0x01, 0x00, 0x00, 0x00, // version
@@ -1466,15 +1465,15 @@ mod tests {
         ]
     }
 
-    /// A valid-but-distinct WASM module for the "corrected" migration so it
-    /// gets a different SHA-256 (migration_id) than the bad one.  The extra
-    /// custom section (section id 0x00) is legally ignored by the runtime.
+ /// A valid-but-distinct WASM module for the "corrected" migration so it
+ /// gets a different SHA-256 (migration_id) than the bad one. The extra
+ /// custom section (section id 0x00) is legally ignored by the runtime.
     fn trivial_wasm_bytes_corrected() -> Vec<u8> {
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
             0x01, 0x00, 0x00, 0x00, // version
-            // Custom section (id 0x00): "corrected" marker — does not affect execution.
-            // Format: [0x00] [size=10] [name_len=9] [name="corrected"]
+ // Custom section (id 0x00): "corrected" marker — does not affect execution.
+ // Format: [0x00] [size=10] [name_len=9] [name="corrected"]
             0x00, 0x0a, 0x09, 0x63, 0x6f, 0x72, 0x72, 0x65, 0x63, 0x74, 0x65, 0x64, 0x01, 0x04,
             0x01, 0x60, 0x00, 0x00, // type section: () -> ()
             0x03, 0x02, 0x01, 0x00, // function section
@@ -1539,7 +1538,7 @@ mod tests {
         (secret, did)
     }
 
-    // ─── Test: CA signature invalid → reject + blacklist ─────────────────────
+ // ─── Test: CA signature invalid → reject + blacklist ─────────────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1548,12 +1547,12 @@ mod tests {
         let source = [0x10u8; 32];
         let target = [0x11u8; 32];
 
-        // Build a delta but sign with a DIFFERENT (wrong) secret key.
+ // Build a delta but sign with a DIFFERENT (wrong) secret key.
         let (wrong_secret, _) = generate_keypair().expect("keygen");
         let (mut delta, _) =
             make_ca_signed_delta(&ca_secret, source, target, trivial_wasm_bytes(), false);
 
-        // Replace the CA signature with one from the wrong key.
+ // Replace the CA signature with one from the wrong key.
         let wrong_sig = sign(&wrong_secret, &delta.transform_bytes).expect("wrong sign");
         delta.ca_signature = CaSignature(wrong_sig.0);
 
@@ -1573,7 +1572,7 @@ mod tests {
         );
     }
 
-    // ─── Test: hash mismatch → reject + blacklist ─────────────────────────────
+ // ─── Test: hash mismatch → reject + blacklist ─────────────────────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1590,7 +1589,7 @@ mod tests {
             true, /* tamper hash */
         );
 
-        // Re-sign with the real CA key so the CA sig passes, but hash is wrong.
+ // Re-sign with the real CA key so the CA sig passes, but hash is wrong.
         let ca_sig = sign(&ca_secret, &delta.transform_bytes).expect("ca sign");
         let mut delta = delta;
         delta.ca_signature = CaSignature(ca_sig.0);
@@ -1608,7 +1607,7 @@ mod tests {
         );
     }
 
-    // ─── Test: version path mismatch → reject (no blacklist) ─────────────────
+ // ─── Test: version path mismatch → reject (no blacklist) ─────────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1652,7 +1651,7 @@ mod tests {
         );
     }
 
-    // ─── Test: UpdateSigner-gated execution profile (task 29.3) ───────────────
+ // ─── Test: UpdateSigner-gated execution profile () ───────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1697,7 +1696,7 @@ mod tests {
         let mut engine = make_engine_with_path(ca_public, source, target);
         engine.set_update_signer_public_key(update_signer_public_key);
 
-        // Unsigned profile metadata must be refused at the ingress gate.
+ // Unsigned profile metadata must be refused at the ingress gate.
         let rejected = engine.receive_migration_delta(
             build_delta(unsigned.clone()),
             "did:key:z6MkUnsignedProfile",
@@ -1710,8 +1709,8 @@ mod tests {
             "unsigned ExecutionProfileVersion must be rejected: {rejected:?}"
         );
 
-        // The same metadata, signed by the configured UpdateSigner, is accepted
-        // and the migration proceeds to completion.
+ // The same metadata, signed by the configured UpdateSigner, is accepted
+ // and the migration proceeds to completion.
         let mut signed = unsigned;
         signed.update_signer_signature = signing_key
             .sign(&signed.canonical_bytes())
@@ -1730,7 +1729,7 @@ mod tests {
         );
     }
 
-    // ─── Test: successful migration + schema update ───────────────────────────
+ // ─── Test: successful migration + schema update ───────────────────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1772,12 +1771,12 @@ mod tests {
         );
     }
 
-    // ─── Test: revocation blocks future apply of a seen migration hash ────────
-    //
-    // The migration delta is received first — that is what makes its
-    // CA-validated hash a known, previously-seen migration hash (Req 18.7) —
-    // then a manager-signed revocation permanently blocks it, and a later
-    // re-delivery of the same migration is rejected at the revocation gate.
+ // ─── Test: revocation blocks future apply of a seen migration hash ────────
+ //
+ // The migration delta is received first — that is what makes its
+ // CA-validated hash a known, previously-seen migration hash (Req 18.7) —
+ // then a manager-signed revocation permanently blocks it, and a later
+ // re-delivery of the same migration is rejected at the revocation gate.
 
     #[test]
     fn revocation_blocks_migration() {
@@ -1812,16 +1811,16 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // 1. Deliver the migration: prepare validates it (CA sig + hash) and
-        // records the hash as known (Req 18.7).  In production the transform
-        // runs off-lock after this; here we hold the prepared run.
+ // 1. Deliver the migration: prepare validates it (CA sig + hash) and
+ // records the hash as known (Req 18.7). In production the transform
+ // runs off-lock after this; here we hold the prepared run.
         let prepared = engine
             .prepare_migration(delta.clone(), "did:key:z6MkSender")
             .expect("prepare must succeed");
         assert!(!engine.is_revoked(&migration_id), "not revoked yet");
 
-        // 2. A manager-signed revocation for the seen hash is accepted and
-        // halts the in-progress run.
+ // 2. A manager-signed revocation for the seen hash is accepted and
+ // halts the in-progress run.
         let halted = engine
             .receive_revocation_delta(revocation)
             .expect("revocation should succeed");
@@ -1831,8 +1830,8 @@ mod tests {
             "migration must be revoked"
         );
 
-        // 3. The sandbox job exits: the commit gate converts the run to
-        // Revoked — the schema never advances for a revoked migration.
+ // 3. The sandbox job exits: the commit gate converts the run to
+ // Revoked — the schema never advances for a revoked migration.
         let outcome = engine
             .finish_migration(
                 &prepared.migration_id,
@@ -1845,7 +1844,7 @@ mod tests {
             "revoked run must not commit as Success: {outcome:?}"
         );
 
-        // 4. Attempting to apply the revoked migration again must fail.
+ // 4. Attempting to apply the revoked migration again must fail.
         let result = engine.receive_migration_delta(delta, "did:key:z6MkSender");
         assert!(
             matches!(result, Err(TirBaseError::AuthorisationFailed { .. })),
@@ -1853,11 +1852,11 @@ mod tests {
         );
     }
 
-    // ─── Test: a revocation for a never-seen (arbitrary) hash is rejected ────
-    //
-    // Req 18.7: even a revocation carrying a threshold-valid Manager
-    // signature is rejected when the target hash was never received as a
-    // CA-validated MigrationDelta — arbitrary hashes are no longer accepted.
+ // ─── Test: a revocation for a never-seen (arbitrary) hash is rejected ────
+ //
+ // Req 18.7: even a revocation carrying a threshold-valid Manager
+ // signature is rejected when the target hash was never received as a
+ // CA-validated MigrationDelta — arbitrary hashes are no longer accepted.
 
     #[test]
     fn revocation_for_never_seen_hash_is_rejected() {
@@ -1865,8 +1864,8 @@ mod tests {
         let source = [0x10u8; 32];
         let target = [0x11u8; 32];
 
-        // A hash this engine has never seen: nothing was ever prepared or
-        // delivered for it.
+ // A hash this engine has never seen: nothing was ever prepared or
+ // delivered for it.
         let arbitrary: MigrationId = [0xEEu8; 32];
         let (mgr_secret, mgr_did) = make_manager_identity();
         let revocation = make_revocation(arbitrary, &[(mgr_secret, mgr_did)]);
@@ -1889,14 +1888,14 @@ mod tests {
         );
     }
 
-    // ─── Test: a revocation landing between prepare and finish blocks the ────
-    //
-    // ── schema-hash commit (Req 18.6 commit gate) ───────────────────────────
-    //
-    // The off-lock execution path prepares a migration, runs the transform
-    // without the engine lock, and finishes afterwards.  If a revocation is
-    // applied while the transform runs, `finish_migration` must NOT advance
-    // the local schema hash even though the transform itself succeeded.
+ // ─── Test: a revocation landing between prepare and finish blocks the ────
+ //
+ // ── schema-hash commit (Req 18.6 commit gate) ───────────────────────────
+ //
+ // The off-lock execution path prepares a migration, runs the transform
+ // without the engine lock, and finishes afterwards. If a revocation is
+ // applied while the transform runs, `finish_migration` must NOT advance
+ // the local schema hash even though the transform itself succeeded.
     #[test]
     #[cfg(feature = "native")]
     fn revocation_between_prepare_and_finish_blocks_schema_commit() {
@@ -1928,15 +1927,15 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // Prepare (validates + marks in-progress) but do NOT run yet — this
-        // models the off-lock window in which the CoreHandle pipeline runs the
-        // sandbox while the engine lock is free.
+ // Prepare (validates + marks in-progress) but do NOT run yet — this
+ // models the off-lock window in which the CoreHandle pipeline runs the
+ // sandbox while the engine lock is free.
         let prepared = engine
             .prepare_migration(delta, "did:key:z6MkSender")
             .expect("prepare must succeed");
         assert!(engine.is_migration_in_progress(&migration_id));
 
-        // A revocation arrives and halts the in-progress transform.
+ // A revocation arrives and halts the in-progress transform.
         let (mgr_secret, mgr_did) = make_manager_identity();
         let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
         let halted = engine
@@ -1947,8 +1946,8 @@ mod tests {
             "revocation must report that it halted the in-progress run"
         );
 
-        // The transform (which "succeeded") reports back: the commit gate must
-        // convert it to Revoked and leave the schema at the source hash.
+ // The transform (which "succeeded") reports back: the commit gate must
+ // convert it to Revoked and leave the schema at the source hash.
         let outcome = engine
             .finish_migration(
                 &prepared.migration_id,
@@ -1970,7 +1969,7 @@ mod tests {
         );
     }
 
-    // ─── Test: blacklisted sender is blocked on next attempt ─────────────────
+ // ─── Test: blacklisted sender is blocked on next attempt ─────────────────
 
     #[test]
     #[cfg(feature = "native")]
@@ -1980,7 +1979,7 @@ mod tests {
         let target = [0x11u8; 32];
         let sender = "did:key:z6MkBlacklist";
 
-        // First request: wrong sig → blacklist.
+ // First request: wrong sig → blacklist.
         let (wrong_secret, _) = generate_keypair().expect("keygen");
         let wasm = trivial_wasm_bytes();
         let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
@@ -2006,7 +2005,7 @@ mod tests {
         let mut engine = make_engine_with_path(ca_public, source, target);
         let _ = engine.receive_migration_delta(delta1, sender); // should fail + blacklist
 
-        // Second request: even with valid sig, should be blocked.
+ // Second request: even with valid sig, should be blocked.
         let good_ca_sig = sign(&ca_secret, &wasm).expect("good sign");
         let delta2 = MigrationDelta {
             id: transform_sha256,
@@ -2032,7 +2031,7 @@ mod tests {
         );
     }
 
-    // ─── Test: quarantine entry → is_schema_quarantined returns true ──────────
+ // ─── Test: quarantine entry → is_schema_quarantined returns true ──────────
 
     #[test]
     fn quarantine_entry_causes_is_schema_quarantined_to_return_true() {
@@ -2042,13 +2041,13 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // Initially no quarantined entries → should be false.
+ // Initially no quarantined entries → should be false.
         assert!(
             !engine.is_schema_quarantined("any_table"),
             "is_schema_quarantined must be false when ledger is empty"
         );
 
-        // Add a raw delta to the quarantine ledger matching the engine's local schema hash.
+ // Add a raw delta to the quarantine ledger matching the engine's local schema hash.
         let raw_bytes = b"fake-raw-delta-bytes".to_vec();
         engine
             .quarantine_incoming(
@@ -2060,14 +2059,14 @@ mod tests {
             )
             .expect("quarantine_incoming must succeed");
 
-        // Now should be true.
+ // Now should be true.
         assert!(
             engine.is_schema_quarantined("any_table"),
             "is_schema_quarantined must be true after adding an unreleased quarantine entry"
         );
     }
 
-    // ─── Test: after release_for_migration → is_schema_quarantined returns false ──
+ // ─── Test: after release_for_migration → is_schema_quarantined returns false ──
 
     #[test]
     #[cfg(feature = "native")]
@@ -2078,7 +2077,7 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // Quarantine an entry.
+ // Quarantine an entry.
         let raw_bytes = b"raw-delta-to-release".to_vec();
         engine
             .quarantine_incoming(
@@ -2095,21 +2094,21 @@ mod tests {
             "must be quarantined before release"
         );
 
-        // Release via quarantine_ledger directly.
+ // Release via quarantine_ledger directly.
         let migration_id = [0xCCu8; 32];
         engine
             .quarantine_ledger
             .release_for_migration(&source, migration_id)
             .expect("release_for_migration must succeed");
 
-        // After release (migration_id is now set) → should be false.
+ // After release (migration_id is now set) → should be false.
         assert!(
             !engine.is_schema_quarantined("tbl"),
             "is_schema_quarantined must be false after entry is released for migration"
         );
     }
 
-    // ─── Test: in-progress sandbox (no quarantine entries) → is_schema_quarantined false ──
+ // ─── Test: in-progress sandbox (no quarantine entries) → is_schema_quarantined false ──
 
     #[test]
     fn no_quarantine_entries_means_not_quarantined_even_if_migration_in_progress() {
@@ -2119,22 +2118,22 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // Simulate a migration that is "in progress" via the revocation registry.
+ // Simulate a migration that is "in progress" via the revocation registry.
         let migration_id: [u8; 32] = [0xABu8; 32];
         engine.revocation_registry.mark_in_progress(migration_id);
 
-        // No quarantine entries have been added.
+ // No quarantine entries have been added.
         assert!(
             !engine.is_schema_quarantined("any_table"),
             "is_schema_quarantined must be false when ledger is empty, even if a migration is in-progress"
         );
     }
 
-    // ─── Test: revoking an *applied* migration opens the corruption window ──
-    //
-    // Req 19.1/19.2: once a migration that produced the device's current
-    // schema is flagged corrupted (revoked), writes against that schema must
-    // be captured in the Side-Car Ledger scoped to the corrupting migration.
+ // ─── Test: revoking an *applied* migration opens the corruption window ──
+ //
+ // Req 19.1/19.2: once a migration that produced the device's current
+ // schema is flagged corrupted (revoked), writes against that schema must
+ // be captured in the Side-Car Ledger scoped to the corrupting migration.
 
     #[test]
     #[cfg(feature = "native")]
@@ -2168,7 +2167,7 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // 1. Apply the migration: the device now runs schema `target`.
+ // 1. Apply the migration: the device now runs schema `target`.
         let prepared = engine
             .prepare_migration(delta, "did:key:z6MkSender")
             .expect("prepare must succeed");
@@ -2182,7 +2181,7 @@ mod tests {
         assert_eq!(outcome, MigrationResult::Success);
         assert_eq!(engine.local_schema_hash, target);
 
-        // 2. Revoke the applied migration → the corruption window opens.
+ // 2. Revoke the applied migration → the corruption window opens.
         let (mgr_secret, mgr_did) = make_manager_identity();
         let revocation = make_revocation(migration_id, &[(mgr_secret, mgr_did)]);
         engine
@@ -2193,8 +2192,8 @@ mod tests {
             "corruption window must open on the revoked migration's target schema"
         );
 
-        // 3. Writes during the corrupted window are Side-Car captured, scoped
-        // to the corrupting migration (Req 19.2), byte-for-byte.
+ // 3. Writes during the corrupted window are Side-Car captured, scoped
+ // to the corrupting migration (Req 19.2), byte-for-byte.
         let raw = b"user-write-during-corrupted-window".to_vec();
         let entry = engine
             .record_corrupted_window_write("reports", raw.clone(), 1234)
@@ -2210,10 +2209,10 @@ mod tests {
         assert_eq!(entries[0].delta_bytes, raw, "Req 19.2: no modification");
         assert_eq!(entries[0].recorded_ts, 1234);
 
-        // 4. A corrected migration commits → replay runs against the corrected
-        // projection (Req 19.3).  The captured entry is garbage JSON here, so
-        // it flags CONFLICT rather than aborting the pass (Req 19.4) — the
-        // window is still closed afterwards, so capture stops.
+ // 4. A corrected migration commits → replay runs against the corrected
+ // projection (Req 19.3). The captured entry is garbage JSON here, so
+ // it flags CONFLICT rather than aborting the pass (Req 19.4) — the
+ // window is still closed afterwards, so capture stops.
         let (secret, public) = generate_keypair().expect("keygen");
         let did = crate::crdt::derive_did_from_public_key(&public);
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory");
@@ -2255,11 +2254,11 @@ mod tests {
         );
     }
 
-    // ─── Test: revoking a *never-applied* migration opens no window ─────────
-    //
-    // If the revoked migration never moved the device onto its target schema
-    // (revoked before apply), the device has no corrupted-window writes to
-    // preserve — capture must stay off.
+ // ─── Test: revoking a *never-applied* migration opens no window ─────────
+ //
+ // If the revoked migration never moved the device onto its target schema
+ // (revoked before apply), the device has no corrupted-window writes to
+ // preserve — capture must stay off.
 
     #[test]
     #[cfg(feature = "native")]
@@ -2292,9 +2291,9 @@ mod tests {
 
         let mut engine = make_engine_with_path(ca_public, source, target);
 
-        // Prepare records the migration as known (Req 18.7) and remembers its
-        // target, but the transform never commits — the device stays on
-        // `source`.
+ // Prepare records the migration as known (Req 18.7) and remembers its
+ // target, but the transform never commits — the device stays on
+ // `source`.
         let _prepared = engine
             .prepare_migration(delta, "did:key:z6MkSender")
             .expect("prepare must succeed");
@@ -2318,39 +2317,39 @@ mod tests {
         );
     }
 
-    // ─── Subphase 7.2: Full migration-corruption chain ───────────────────────
-    //
-    // Acceptance criteria (from the spec at
-    // `.kiro/specs/tirbase-core-protocol/master prompts/7.2.md`):
-    //  1. A bad migration is distributed and revoked.
-    //  2. Corrupted data is preserved/tagged (not deleted).
-    //  3. Side-Car replay executes correctly when a corrected migration arrives.
-    //  4. Human-reaction auto-tagging on writes during the corrupted window
-    //     is verified.
-    //
-    // This test exercises the full chain through the real non-test code paths:
-    //  - `SchemaMigrationEngine::receive_revocation_delta` opens the corruption
-    //    window (production caller: `CoreHandle::receive_inbound` →
-    //    `InboundMigrationRevocationDelta` arm, api/mod.rs:2404).
-    //  - `CoreHandle::write` produces a real signed Delta, bakes the
-    //    `ContaminatedByHumanReaction` tag into the signed payload, then calls
-    //    `record_corrupted_window_write` for Side-Car capture (api/mod.rs:1139).
-    //    This test simulates those exact steps using the same public/crate APIs
-    //    the write path invokes: `CrdtEngine::write_scalar` +
-    //    `produce_delta_with_tags` + `on_write_commit` +
-    //    `CausalContaminationEngine::tag_contamination_root` +
-    //    `SchemaMigrationEngine::record_corrupted_window_write`.
-    //  - `SchemaMigrationEngine::replay_corrupted_windows` drives Side-Car
-    //    replay (production caller: `CoreHandle::dispatch_inbound_migration`,
-    //    api/mod.rs:2617).
-    //
-    // A single shared SQLite connection backs the CrdtEngine DAG, the CCE, and
-    // the migration engine's Side-Car/Quarantine ledgers — mirroring the
-    // production `CoreHandle::init` layout (api/mod.rs:393–408) where one
-    // conn is shared across CrdtEngine, CCE, and the migration subsystem.
+ // ─── Subphase 7.2: Full migration-corruption chain ───────────────────────
+ //
+ // Acceptance criteria (from the spec at
+ // `.kiro/specs/tirbase-core-protocol/master prompts/7.2.md`):
+ // 1. A bad migration is distributed and revoked.
+ // 2. Corrupted data is preserved/tagged (not deleted).
+ // 3. Side-Car replay executes correctly when a corrected migration arrives.
+ // 4. Human-reaction auto-tagging on writes during the corrupted window
+ // is verified.
+ //
+ // This test exercises the full chain through the real non-test code paths:
+ // - `SchemaMigrationEngine::receive_revocation_delta` opens the corruption
+ // window (production caller: `CoreHandle::receive_inbound` →
+ // `InboundMigrationRevocationDelta` arm, api/mod.rs:2404).
+ // - `CoreHandle::write` produces a real signed Delta, bakes the
+ // `ContaminatedByHumanReaction` tag into the signed payload, then calls
+ // `record_corrupted_window_write` for Side-Car capture (api/mod.rs:1139).
+ // This test simulates those exact steps using the same public/crate APIs
+ // the write path invokes: `CrdtEngine::write_scalar` +
+ // `produce_delta_with_tags` + `on_write_commit` +
+ // `CausalContaminationEngine::tag_contamination_root` +
+ // `SchemaMigrationEngine::record_corrupted_window_write`.
+ // - `SchemaMigrationEngine::replay_corrupted_windows` drives Side-Car
+ // replay (production caller: `CoreHandle::dispatch_inbound_migration`,
+ // api/mod.rs:2617).
+ //
+ // A single shared SQLite connection backs the CrdtEngine DAG, the CCE, and
+ // the migration engine's Side-Car/Quarantine ledgers — mirroring the
+ // production `CoreHandle::init` layout (api/mod.rs:393–408) where one
+ // conn is shared across CrdtEngine, CCE, and the migration subsystem.
 
-    /// Three-version schema path: v0 (clean) → v1 (corrupted) → v2 (corrected).
-    /// Helper: build a migration delta with the given source/target and CA sig.
+ /// Three-version schema path: v0 (clean) → v1 (corrupted) → v2 (corrected).
+ /// Helper: build a migration delta with the given source/target and CA sig.
     fn make_migration_delta(
         ca_secret: &[u8; 32],
         source: [u8; 32],
@@ -2359,8 +2358,8 @@ mod tests {
         make_migration_delta_with_transform(ca_secret, source, target, trivial_wasm_bytes())
     }
 
-    /// Helper: build a migration delta with custom transform bytes, so a
-    /// corrected migration can have a distinct migration_id from the bad one.
+ /// Helper: build a migration delta with custom transform bytes, so a
+ /// corrected migration can have a distinct migration_id from the bad one.
     fn make_migration_delta_with_transform(
         ca_secret: &[u8; 32],
         source: [u8; 32],
@@ -2387,7 +2386,7 @@ mod tests {
         }
     }
 
-    /// Helper: build a SchemaMigrationEngine with a 3-version path and a shared conn.
+ /// Helper: build a SchemaMigrationEngine with a 3-version path and a shared conn.
     fn make_engine_3version(
         ca_public: [u8; 32],
         v0: [u8; 32],
@@ -2410,8 +2409,8 @@ mod tests {
         )
     }
 
-    /// Helper: create a CrdtEngine + CCE sharing the same connection (mirroring
-    /// the production CoreHandle::init layout at api/mod.rs:393–408).
+ /// Helper: create a CrdtEngine + CCE sharing the same connection (mirroring
+ /// the production CoreHandle::init layout at api/mod.rs:393–408).
     fn make_crdt_and_cce(
         secret: [u8; 32],
         public: [u8; 32],
@@ -2424,9 +2423,9 @@ mod tests {
         (crdt, cce)
     }
 
-    /// Helper: open a single in-memory SQLite connection with the full schema,
-    /// wrapped in the shared Arc<Mutex<>> used by CrdtEngine, CCE, and the
-    /// migration engine's Side-Car/Quarantine ledgers.
+ /// Helper: open a single in-memory SQLite connection with the full schema,
+ /// wrapped in the shared Arc<Mutex<>> used by CrdtEngine, CCE, and the
+ /// migration engine's Side-Car/Quarantine ledgers.
     fn make_shared_conn() -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
         let conn = rusqlite::Connection::open_in_memory().expect("open in-memory shared conn");
         conn.execute_batch(crate::store::sqlite::CREATE_SCHEMA_SQL)
@@ -2441,28 +2440,28 @@ mod tests {
         use crate::contamination::incident::TaintSource;
         use crate::crdt::derive_did_from_public_key;
 
-        // ── Schema versions: v0 (clean) → v1 (corrupted) → v2 (corrected) ──
+ // ── Schema versions: v0 (clean) → v1 (corrupted) → v2 (corrected) ──
         let v0: [u8; 32] = [0x10u8; 32];
         let v1: [u8; 32] = [0x11u8; 32]; // the corrupted schema
         let v2: [u8; 32] = [0x52u8; 32]; // the corrected schema
 
-        // ── CA keypair ──
+ // ── CA keypair ──
         let (ca_secret, ca_public) = generate_keypair().expect("keygen");
 
-        // ── Device identity ──
+ // ── Device identity ──
         let (dev_secret, dev_public) = generate_keypair().expect("keygen");
         let dev_did = derive_did_from_public_key(&dev_public);
 
-        // ── Manager identity ──
+ // ── Manager identity ──
         let (mgr_secret, mgr_did) = make_manager_identity();
 
-        // ── Shared SQLite connection (mirrors CoreHandle::init production layout) ──
+ // ── Shared SQLite connection (mirrors CoreHandle::init production layout) ──
         let shared_conn = make_shared_conn();
 
-        // ── Step 1: Build the engine at v0 with path [v0, v1, v2] ──
+ // ── Step 1: Build the engine at v0 with path [v0, v1, v2] ──
         let mut engine = make_engine_3version(ca_public, v0, v1, v2, shared_conn.clone());
 
-        // CrdtEngine + CCE share the same conn (production layout).
+ // CrdtEngine + CCE share the same conn (production layout).
         let (mut crdt, mut cce) = make_crdt_and_cce(
             dev_secret,
             dev_public,
@@ -2471,10 +2470,10 @@ mod tests {
             shared_conn.clone(),
         );
 
-        // ── Step 2: Distribute the BAD migration (v0 → v1) ──
-        // `receive_migration_delta` is the production entry point (the sync
-        // convenience path; the async inbound pipeline uses prepare→sandbox→
-        // finish via dispatch_inbound_migration at api/mod.rs:2487).
+ // ── Step 2: Distribute the BAD migration (v0 → v1) ──
+ // `receive_migration_delta` is the production entry point (the sync
+ // convenience path; the async inbound pipeline uses prepare→sandbox→
+ // finish via dispatch_inbound_migration at api/mod.rs:2487).
         let bad_delta = make_migration_delta(&ca_secret, v0, v1);
         let bad_migration_id = bad_delta.id;
         let result = engine
@@ -2491,12 +2490,12 @@ mod tests {
             "device schema must advance to v1 (the corrupted schema)"
         );
 
-        // ── Step 3: Manager signs and delivers a revocation for the bad migration ──
+ // ── Step 3: Manager signs and delivers a revocation for the bad migration ──
         let revocation = make_revocation(bad_migration_id, &[(mgr_secret, mgr_did)]);
         let halted = engine
             .receive_revocation_delta(revocation)
             .expect("revocation must succeed");
-        // The bad migration was already applied (not in-progress), so halted=false.
+ // The bad migration was already applied (not in-progress), so halted=false.
         assert!(
             !halted,
             "revocation of an already-applied migration does not halt a running transform"
@@ -2506,17 +2505,17 @@ mod tests {
             "the bad migration must be in the revoked set (Req 18.7)"
         );
 
-        // ── Step 3a: Corruption window opens ──
+ // ── Step 3a: Corruption window opens ──
         assert_eq!(
             engine.active_corruption_migration(),
             Some(bad_migration_id),
             "corruption window must open on the revoked migration's target schema (Req 19.1)"
         );
 
-        // ── Step 3b: CCE tags the corrupted schema root ──
-        // Mirrors `CoreHandle::receive_inbound` InboundMigrationRevocationDelta arm
-        // (api/mod.rs:2444) which calls tag_contamination_root with
-        // TaintSource::BadMigration.
+ // ── Step 3b: CCE tags the corrupted schema root ──
+ // Mirrors `CoreHandle::receive_inbound` InboundMigrationRevocationDelta arm
+ // (api/mod.rs:2444) which calls tag_contamination_root with
+ // TaintSource::BadMigration.
         let _bad_mig_incident_id = cce
             .tag_contamination_root(
                 bad_migration_id,
@@ -2526,27 +2525,27 @@ mod tests {
             )
             .expect("CCE BadMigration tagging must succeed");
 
-        // ── Step 4: Write during the corrupted window ──
-        // Simulate CoreHandle::write (api/mod.rs:1139) steps 3a–5b:
-        //   3a. Check contamination state for human-reaction auto-tag.
-        //   3b. write_scalar + produce_delta_with_tags (bakes tag into signed payload).
-        //   4.  tag_contamination_root with HumanReaction (registers new Delta as ICO root).
-        //   5b. record_corrupted_window_write (Side-Car capture).
+ // ── Step 4: Write during the corrupted window ──
+ // Simulate CoreHandle::write (api/mod.rs:1139) steps 3a–5b:
+ // 3a. Check contamination state for human-reaction auto-tag.
+ // 3b. write_scalar + produce_delta_with_tags (bakes tag into signed payload).
+ // 4. tag_contamination_root with HumanReaction (registers new Delta as ICO root).
+ // 5b. record_corrupted_window_write (Side-Car capture).
         let table = "reports";
         let key = "row-1";
 
-        // To exercise the human-reaction auto-tagging path, the row must be
-        // marked contaminated. In production this happens via
-        // tag_contamination_root(BadMigration) → resolve_affected_rows →
-        // mark_row_contaminated. Since the BadMigration root has no DAG nodes
-        // (the migration hash is not a DeltaId in the DAG), resolve_affected_rows
-        // returns empty. We use the CCE's test helper to mark the row, mirroring
-        // what resolve_affected_rows would have done had the bad migration
-        // authored a Delta in the DAG.
+ // To exercise the human-reaction auto-tagging path, the row must be
+ // marked contaminated. In production this happens via
+ // tag_contamination_root(BadMigration) → resolve_affected_rows →
+ // mark_row_contaminated. Since the BadMigration root has no DAG nodes
+ // (the migration hash is not a DeltaId in the DAG), resolve_affected_rows
+ // returns empty. We use the CCE's test helper to mark the row, mirroring
+ // what resolve_affected_rows would have done had the bad migration
+ // authored a Delta in the DAG.
         cce.test_set_contaminated_row(table, key, _bad_mig_incident_id);
 
-        // Simulate CoreHandle::write step 3a: check live contamination state
-        // (mirrors api/mod.rs:1181–1202).
+ // Simulate CoreHandle::write step 3a: check live contamination state
+ // (mirrors api/mod.rs:1181–1202).
         let local_projection_contaminated = cce.is_row_contaminated(table, key);
         let quarantine_active = engine.is_schema_quarantined(table);
         let active_incident_id = cce.active_incident_for_row(table, key);
@@ -2565,13 +2564,13 @@ mod tests {
 
         let incident_id = active_incident_id.unwrap();
 
-        // Verify on_write_commit would auto-tag this write (Req 19.5).
-        // We test the helper in isolation with a probe Delta so the
-        // already-signed `written_delta` below is not mutated.  In production,
-        // CoreHandle::write computes the tag in step 3a and bakes it into the
-        // signed payload in step 3b — on_write_commit is not called on the
-        // final Delta (it is the pure decision helper described in the module
-        // docs, used by CCE unit tests and tooling).
+ // Verify on_write_commit would auto-tag this write (Req 19.5).
+ // We test the helper in isolation with a probe Delta so the
+ // already-signed `written_delta` below is not mutated. In production,
+ // CoreHandle::write computes the tag in step 3a and bakes it into the
+ // signed payload in step 3b — on_write_commit is not called on the
+ // final Delta (it is the pure decision helper described in the module
+ // docs, used by CCE unit tests and tooling).
         {
             let mut probe_delta = crate::crdt::delta::Delta {
                 id: [0u8; 32],
@@ -2617,10 +2616,10 @@ mod tests {
             );
         }
 
-        // Step 3b: Produce a signed Delta with the ContaminatedByHumanReaction
-        // tag baked into the signed payload (mirrors api/mod.rs:1236–1248).
-        // The tag must be present BEFORE signing so canonical_bytes() includes
-        // it and the signature covers it (Req 19.5).
+ // Step 3b: Produce a signed Delta with the ContaminatedByHumanReaction
+ // tag baked into the signed payload (mirrors api/mod.rs:1236–1248).
+ // The tag must be present BEFORE signing so canonical_bytes() includes
+ // it and the signature covers it (Req 19.5).
         let human_reaction_tag = DeltaTag::ContaminatedByHumanReaction { incident_id };
         let app_data = serde_json::json!({ "score": 42.0 });
         let automerge_bytes = crdt
@@ -2635,7 +2634,7 @@ mod tests {
             )
             .expect("produce_delta_with_tags must succeed");
 
-        // Verify the tag was baked into the signed payload.
+ // Verify the tag was baked into the signed payload.
         assert!(
             written_delta
                 .tags
@@ -2644,8 +2643,8 @@ mod tests {
             "the write Delta must carry ContaminatedByHumanReaction in its signed tags (Req 19.5)"
         );
 
-        // Step 4: register the write Delta as a contamination root with the CCE
-        // (mirrors api/mod.rs:1299–1306).
+ // Step 4: register the write Delta as a contamination root with the CCE
+ // (mirrors api/mod.rs:1299–1306).
         cce.tag_contamination_root(
             written_delta.id,
             TaintSource::HumanReaction {
@@ -2654,7 +2653,7 @@ mod tests {
         )
         .expect("CCE HumanReaction tagging must succeed");
 
-        // Step 5b: Side-Car capture — serialize the Delta and capture it.
+ // Step 5b: Side-Car capture — serialize the Delta and capture it.
         let delta_bytes = serde_json::to_vec(&written_delta).expect("serialise Delta");
         let recorded_ts = written_delta.created_at;
         let capture_id = engine
@@ -2662,7 +2661,7 @@ mod tests {
             .expect("Side-Car capture must not error")
             .expect("capture must return an entry id while the window is open");
 
-        // ── Step 4 (assertion): corrupted data is preserved/tagged, not deleted ──
+ // ── Step 4 (assertion): corrupted data is preserved/tagged, not deleted ──
         let entries = engine
             .sidecar_entries(&bad_migration_id)
             .expect("read sidecar entries");
@@ -2693,8 +2692,8 @@ mod tests {
             "entry must start in Pending status before replay"
         );
 
-        // Verify the write Delta carries the ContaminatedByHumanReaction tag in
-        // its signed payload (baked in by produce_delta_with_tags, Req 19.5).
+ // Verify the write Delta carries the ContaminatedByHumanReaction tag in
+ // its signed payload (baked in by produce_delta_with_tags, Req 19.5).
         assert!(
             written_delta
                 .tags
@@ -2703,8 +2702,8 @@ mod tests {
             "the signed Delta must carry ContaminatedByHumanReaction (Req 19.5)"
         );
 
-        // Verify the DAG node carries the Contaminated tag (append-only DAG-level
-        // tag, appended by tag_contamination_root during the HumanReaction call).
+ // Verify the DAG node carries the Contaminated tag (append-only DAG-level
+ // tag, appended by tag_contamination_root during the HumanReaction call).
         let tags = crate::contamination::taint::read_tags_from_db(
             &shared_conn.lock().expect("conn lock for tag read"),
             &written_delta.id,
@@ -2717,10 +2716,10 @@ mod tests {
             tags
         );
 
-        // ── Step 5: Apply the CORRECTED migration (v1 → v2) ──
-        // Use distinct transform bytes so the corrected migration has a
-        // different migration_id from the revoked bad one.  The bytes must
-        // still be a valid (parseable) WASM module with a "run" export.
+ // ── Step 5: Apply the CORRECTED migration (v1 → v2) ──
+ // Use distinct transform bytes so the corrected migration has a
+ // different migration_id from the revoked bad one. The bytes must
+ // still be a valid (parseable) WASM module with a "run" export.
         let corrected_transform = trivial_wasm_bytes_corrected();
         let corrected_delta =
             make_migration_delta_with_transform(&ca_secret, v1, v2, corrected_transform);
@@ -2737,18 +2736,18 @@ mod tests {
             "device schema must advance to v2 (the corrected schema)"
         );
 
-        // Advance the CRDT engine to the corrected schema (mirrors
-        // CoreHandle::dispatch_inbound_migration api/mod.rs:2601).
+ // Advance the CRDT engine to the corrected schema (mirrors
+ // CoreHandle::dispatch_inbound_migration api/mod.rs:2601).
         crdt.set_current_schema(v2);
 
-        // ── Step 5b: Side-Car replay against the corrected projection ──
-        // This is the production caller: SchemaMigrationEngine::replay_corrupted_windows
-        // (api/mod.rs:2617, reached from dispatch_inbound_migration's Success arm).
+ // ── Step 5b: Side-Car replay against the corrected projection ──
+ // This is the production caller: SchemaMigrationEngine::replay_corrupted_windows
+ // (api/mod.rs:2617, reached from dispatch_inbound_migration's Success arm).
         engine
             .replay_corrupted_windows(&v1, v2, &mut crdt)
             .expect("replay must not error");
 
-        // ── Step 6: Verify replay outcome ──
+ // ── Step 6: Verify replay outcome ──
         assert!(
             engine.active_corruption_migration().is_none(),
             "the corruption window must close once replay has run (Req 19.3)"
@@ -2770,14 +2769,14 @@ mod tests {
             "the entry must no longer be Pending after replay"
         );
 
-        // The replayed Delta was a valid serialized Delta (not garbage bytes
-        // like the unit test's raw bytes), so it should merge cleanly.
+ // The replayed Delta was a valid serialized Delta (not garbage bytes
+ // like the unit test's raw bytes), so it should merge cleanly.
         match &entries_after[0].replay_status {
             crate::migration::sidecar::ReplayStatus::Replayed => {
-                // Clean replay — expected since we used real Delta bytes.
+ // Clean replay — expected since we used real Delta bytes.
             }
             crate::migration::sidecar::ReplayStatus::Complete => {
-                // All entries replayed with zero conflicts → COMPLETE.
+ // All entries replayed with zero conflicts → COMPLETE.
             }
             crate::migration::sidecar::ReplayStatus::Conflict { conflict_info } => {
                 panic!("Side-Car replay of a valid Delta must not conflict: {conflict_info}");
@@ -2787,10 +2786,10 @@ mod tests {
             }
         }
 
-        // Verify the replayed Delta was applied to the CrdtEngine's doc and
-        // the data is queryable (not lost).  write_scalar stores composite
-        // (object) values as a JSON-encoded string under the key, so
-        // read_scalar returns the string form.
+ // Verify the replayed Delta was applied to the CrdtEngine's doc and
+ // the data is queryable (not lost). write_scalar stores composite
+ // (object) values as a JSON-encoded string under the key, so
+ // read_scalar returns the string form.
         let replayed_value = crdt.read_scalar(key);
         assert!(
             replayed_value.is_some(),
@@ -2798,7 +2797,7 @@ mod tests {
         );
         let replayed_str = replayed_value.unwrap();
         if let serde_json::Value::String(s) = &replayed_str {
-            // Composite values are stored as JSON strings; parse back to compare.
+ // Composite values are stored as JSON strings; parse back to compare.
             let parsed: serde_json::Value =
                 serde_json::from_str(s).expect("replayed value must be valid JSON string");
             assert_eq!(
@@ -2812,8 +2811,8 @@ mod tests {
             );
         }
 
-        // Verify the ReplayComplete tag was appended to the replayed Delta's
-        // dag_nodes entry (only when conflicts == 0, Req 19.6).
+ // Verify the ReplayComplete tag was appended to the replayed Delta's
+ // dag_nodes entry (only when conflicts == 0, Req 19.6).
         let final_tags = crate::contamination::taint::read_tags_from_db(
             &shared_conn.lock().expect("conn lock for final tag read"),
             &written_delta.id,
@@ -2828,10 +2827,10 @@ mod tests {
             final_tags
         );
 
-        // Verify the ContaminatedByHumanReaction tag is still present (append-only):
-        // it lives in the Delta's signed `tags` field (baked in by
-        // produce_delta_with_tags at write time), not in dag_nodes.tags_json.
-        // Replay does not mutate the signed Delta — the tag persists (Req 10.4).
+ // Verify the ContaminatedByHumanReaction tag is still present (append-only):
+ // it lives in the Delta's signed `tags` field (baked in by
+ // produce_delta_with_tags at write time), not in dag_nodes.tags_json.
+ // Replay does not mutate the signed Delta — the tag persists (Req 10.4).
         assert!(
             written_delta
                 .tags
@@ -2840,7 +2839,7 @@ mod tests {
             "ContaminatedByHumanReaction tag must persist after replay (append-only, Req 10.4)"
         );
 
-        // ── Step 7: No further captures after the window closed ──
+ // ── Step 7: No further captures after the window closed ──
         let post_capture = engine
             .record_corrupted_window_write(table, b"post-replay".to_vec(), 9999)
             .expect("post-replay capture call must not error");
@@ -2850,12 +2849,12 @@ mod tests {
         );
     }
 
-    // ─── Test: parser-backed version-path validation (Req 20) ──────────────────
-    //
-    // When a schema definition is registered for the target hash, verify_version_path
-    // round-trips it through print → parse → re-hash to confirm the target hash
-    // corresponds to a genuine, well-formed schema document before the migration
-    // transform executes.
+ // ─── Test: parser-backed version-path validation (Req 20) ──────────────────
+ //
+ // When a schema definition is registered for the target hash, verify_version_path
+ // round-trips it through print → parse → re-hash to confirm the target hash
+ // corresponds to a genuine, well-formed schema document before the migration
+ // transform executes.
 
     #[test]
     fn parser_backed_version_path_validation_accepts_valid_schema() {
@@ -2873,8 +2872,8 @@ mod tests {
         let schema = parse_schema(schema_src).expect("parse should succeed");
         let target_hash = schema.identifier_hash();
 
-        // Build a version path with source → target, where target is a real
-        // parsed schema. Register the schema definition in the engine.
+ // Build a version path with source → target, where target is a real
+ // parsed schema. Register the schema definition in the engine.
         let source = [0x10u8; 32];
         let path = SchemaVersionPath::new(vec![source, target_hash]);
 
@@ -2906,7 +2905,7 @@ mod tests {
             postconditions: None,
         };
 
-        // Native-only because SchemaMigrationEngine::new requires a store conn.
+ // Native-only because SchemaMigrationEngine::new requires a store conn.
         #[cfg(feature = "native")]
         {
             let engine = SchemaMigrationEngine::new(
@@ -2926,8 +2925,8 @@ mod tests {
                 schema_defs,
             );
 
-            // verify_version_path should succeed: the target hash has a valid
-            // registered schema that round-trips through print → parse.
+ // verify_version_path should succeed: the target hash has a valid
+ // registered schema that round-trips through print → parse.
             let result = engine.verify_version_path(&delta);
             assert!(
                 result.is_ok(),
@@ -2938,10 +2937,10 @@ mod tests {
 
     #[test]
     fn parser_backed_version_path_validation_without_schema_defs_still_works() {
-        // When no schema definitions are registered (the legacy/empty case),
-        // verify_version_path falls back to pure hash-based validation —
-        // confirming backward compatibility for deployments without schema
-        // definition documents.
+ // When no schema definitions are registered (the legacy/empty case),
+ // verify_version_path falls back to pure hash-based validation —
+ // confirming backward compatibility for deployments without schema
+ // definition documents.
         let ca_secret = [0u8; 32];
         let ca_public = [0u8; 32];
         let _ = (ca_secret, ca_public); // suppress unused warnings
@@ -2967,9 +2966,9 @@ mod tests {
             postconditions: None,
         };
 
-        // Build engine with an empty schema_definitions map — the parser
-        // validation step is skipped, and the hash-based step still validates
-        // the version path.
+ // Build engine with an empty schema_definitions map — the parser
+ // validation step is skipped, and the hash-based step still validates
+ // the version path.
         #[cfg(feature = "native")]
         {
             let engine = SchemaMigrationEngine::new(
@@ -2989,7 +2988,7 @@ mod tests {
                 BTreeMap::new(),
             );
 
-            // verify_version_path succeeds with hash-based validation only.
+ // verify_version_path succeeds with hash-based validation only.
             let result = engine.verify_version_path(&delta);
             assert!(
                 result.is_ok(),

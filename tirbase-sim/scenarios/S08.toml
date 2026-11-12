@@ -1,5 +1,5 @@
 # Adversary scenario 8 — Malicious Migration (Float / SIMD)
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S8"
 title = "Malicious Migration (Float / SIMD)"
 seeds = 32

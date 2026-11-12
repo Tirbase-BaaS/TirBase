@@ -1,5 +1,4 @@
-//! Proptest offline soundness proof for classify_bundle (task 12.9,
-//! CLAIM-12.9, PV-4.11, INV-3).
+//! Proptest offline soundness proof for classify_bundle (//! CLAIM-12.9, PV-4.11, INV-3).
 
 use std::collections::BTreeMap;
 
@@ -139,7 +138,7 @@ proptest! {
         );
         let kind = classify_bundle(&old, &new, &tr);
         if kind == PolicyBundleKind::Tightening {
-            // For a sample of values accepted by new, old must also accept.
+ // For a sample of values accepted by new, old must also accept.
             let step = ((nmax - nmin) / 10).max(1);
             let mut v = nmin;
             while v <= nmax {
@@ -148,7 +147,7 @@ proptest! {
                 prop_assert!(accepts_range(&old, &fv), "tightening broke subset at {v}");
                 v += step;
             }
-            // Explicit boundary containment.
+ // Explicit boundary containment.
             if let (ParameterKind::Range { min: nmi, max: nma }, ParameterKind::Range { min: omi, max: oma }) =
                 (&new.parameters[0].kind, &old.parameters[0].kind)
             {
@@ -167,7 +166,7 @@ proptest! {
         let omax = omin + ospan;
         let tr = trust_root(-1000, 2000);
         let old = profile(param(omin, omax, orate, 5, 2, false, 0), 2, 2, 100, 30);
-        // widen min downward = loosening
+ // widen min downward = loosening
         let new = profile(param(omin - widen_min, omax, orate, 5, 2, false, 0), 2, 2, 100, 30);
         prop_assert_ne!(classify_bundle(&old, &new, &tr), PolicyBundleKind::Tightening);
     }

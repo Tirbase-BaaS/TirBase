@@ -40,10 +40,10 @@ Record: reason/events in security log (`ReasonCode::EnteredLockdown` / mode tran
 Build `payload`:
 ```json
 {
-  "node_id": "<node-id>",
-  "issued_at_est": <i64>,
-  "reason": "<operator reason>",
-  "envelope_profile_id": [/* 16 bytes matching installed profile.profile_id */]
+ "node_id": "<node-id>",
+ "issued_at_est": <i64>,
+ "reason": "<operator reason>",
+ "envelope_profile_id": [/* 16 bytes matching installed profile.profile_id */]
 }
 ```
 Wrap as `SignedOperation<LockdownExitPayload>` (context `TirBase/v1/LockdownExit`) and collect co-signatures from **at least two distinct roles** (e.g. `PolicyAuthority` + `RevocationManager`). Single-role or M<2 must be rejected.
@@ -52,11 +52,11 @@ Wrap as `SignedOperation<LockdownExitPayload>` (context `TirBase/v1/LockdownExit
 
 ```bash
 printf '%s\n' '{
-  "cmd":"lockdown-exit",
-  "payload":{
-    "operation": <SignedOperation<LockdownExitPayload> JSON>,
-    "payload": <LockdownExitPayload JSON>
-  }
+ "cmd":"lockdown-exit",
+ "payload":{
+ "operation": <SignedOperation<LockdownExitPayload> JSON>,
+ "payload": <LockdownExitPayload JSON>
+ }
 }' | socat - UNIX-CONNECT:/run/tirbase/admin.sock
 ```
 

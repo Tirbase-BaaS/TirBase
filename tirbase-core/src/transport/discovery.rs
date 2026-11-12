@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 pub struct DiscoveredPeer {
     pub did: Did,
     pub transport: PeerTransport,
-    /// Number of hops to reach this peer (multi-hop relay — Req 5.5).
+ /// Number of hops to reach this peer (multi-hop relay — Req 5.5).
     pub hop_count: u8,
 }
 
@@ -27,16 +27,16 @@ pub struct DiscoveredPeer {
 /// The transport mechanism used to reach a discovered peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PeerTransport {
-    /// Direct mDNS-discovered peer on a local IP network (Req 5.2).
+ /// Direct mDNS-discovered peer on a local IP network (Req 5.2).
     Mdns { multiaddr: String },
-    /// Peer reachable via a BLE routing bridge (Req 5.3).
+ /// Peer reachable via a BLE routing bridge (Req 5.3).
     BleBridge { bridge_did: Did },
-    /// Peer reachable via multi-hop relay (Req 5.5).
+ /// Peer reachable via multi-hop relay (Req 5.5).
     MultiHopRelay { next_hop_did: Did },
-    /// Peer connected via an explicitly configured address (application-initiated
-    /// dial — `CoreHandle::dial_peer`, Subphase 1.5).  Used for topologies where
-    /// mDNS discovery is unavailable (WAN peers, cloud relay) and recorded when
-    /// the libp2p connection is established.
+ /// Peer connected via an explicitly configured address (application-initiated
+ /// dial — `CoreHandle::dial_peer`, Subphase 1.5). Used for topologies where
+ /// mDNS discovery is unavailable (WAN peers, cloud relay) and recorded when
+ /// the libp2p connection is established.
     Explicit { multiaddr: String },
 }
 
@@ -46,11 +46,11 @@ pub enum PeerTransport {
 #[derive(Debug, Clone)]
 pub struct RetryEntry {
     pub peer_did: Did,
-    /// Serialised Delta bytes.
+ /// Serialised Delta bytes.
     pub delta_bytes: Vec<u8>,
-    /// Next retry wall-clock time (UTC microseconds).
+ /// Next retry wall-clock time (UTC microseconds).
     pub next_retry_at: i64,
-    /// Number of delivery attempts so far.
+ /// Number of delivery attempts so far.
     pub attempts: u32,
 }
 
@@ -60,9 +60,9 @@ pub struct RetryEntry {
 #[derive(Debug, Clone)]
 pub struct PeerState {
     pub peer: DiscoveredPeer,
-    /// UTC microseconds when this peer was last seen/contacted successfully.
+ /// UTC microseconds when this peer was last seen/contacted successfully.
     pub last_seen_us: i64,
-    /// Whether this peer is currently considered active.
+ /// Whether this peer is currently considered active.
     pub active: bool,
 }
 
@@ -70,23 +70,23 @@ pub struct PeerState {
 
 /// Discovery and retry state for the mesh transport (Req 5.2–5.6).
 pub struct PeerDiscovery {
-    /// Configurable maximum hop count (Req 5.5).
+ /// Configurable maximum hop count (Req 5.5).
     pub max_hop_count: u8,
-    /// How long (seconds) without a successful contact before a peer is
-    /// considered unreachable and removed from the active list (Req 5.6).
+ /// How long (seconds) without a successful contact before a peer is
+ /// considered unreachable and removed from the active list (Req 5.6).
     pub peer_timeout_secs: u64,
-    /// How long (seconds) between delivery retry attempts (Req 5.6).
+ /// How long (seconds) between delivery retry attempts (Req 5.6).
     pub retry_interval_secs: u64,
-    /// Bounded retry queue (Req 5.6).
+ /// Bounded retry queue (Req 5.6).
     retry_queue: std::collections::VecDeque<RetryEntry>,
-    /// Maximum entries in the retry queue (Req 5.6).
+ /// Maximum entries in the retry queue (Req 5.6).
     pub max_retry_queue: usize,
-    /// Active peer table: DID → PeerState.
+ /// Active peer table: DID → PeerState.
     peers: BTreeMap<Did, PeerState>,
 }
 
 impl PeerDiscovery {
-    /// Create a new `PeerDiscovery` with the given configuration.
+ /// Create a new `PeerDiscovery` with the given configuration.
     pub fn new(
         max_hop_count: u8,
         peer_timeout_secs: u64,
@@ -103,21 +103,21 @@ impl PeerDiscovery {
         }
     }
 
-    // ── Peer lifecycle ────────────────────────────────────────────────────────
+ // ── Peer lifecycle ────────────────────────────────────────────────────────
 
-    /// Handle a newly discovered peer.
-    ///
-    /// Rejects multi-hop peers whose hop count exceeds `max_hop_count` (Req 5.5).
-    /// Adds accepted peers to the active peer table.
-    /// In production this would trigger a Noise session initiation (Req 5.4),
-    /// which is performed by `SessionManager::initiate()` in `transport/mod.rs`.
+ /// Handle a newly discovered peer.
+ ///
+ /// Rejects multi-hop peers whose hop count exceeds `max_hop_count` (Req 5.5).
+ /// Adds accepted peers to the active peer table.
+ /// In production this would trigger a Noise session initiation (Req 5.4),
+ /// which is performed by `SessionManager::initiate()` in `transport/mod.rs`.
     pub fn on_peer_discovered(
         &mut self,
         peer: DiscoveredPeer,
         now_us: i64,
     ) -> Result<(), TirBaseError> {
         if peer.hop_count > self.max_hop_count {
-            // Peer exceeds configured hop-count limit — silently discard (Req 5.5).
+ // Peer exceeds configured hop-count limit — silently discard (Req 5.5).
             return Ok(());
         }
 
@@ -132,7 +132,7 @@ impl PeerDiscovery {
         Ok(())
     }
 
-    /// Record a successful contact with a peer (resets its timeout clock).
+ /// Record a successful contact with a peer (resets its timeout clock).
     pub fn touch_peer(&mut self, peer_did: &Did, now_us: i64) {
         if let Some(state) = self.peers.get_mut(peer_did) {
             state.last_seen_us = now_us;
@@ -140,15 +140,15 @@ impl PeerDiscovery {
         }
     }
 
-    /// Remove a peer from the active peer list immediately (Req 5.6).
+ /// Remove a peer from the active peer list immediately (Req 5.6).
     pub fn remove_peer(&mut self, peer_did: &Did) {
         self.peers.remove(peer_did);
     }
 
-    /// Tick the peer timeout clock.
-    ///
-    /// Removes peers that have not been seen for longer than
-    /// `peer_timeout_secs` from the active list (Req 5.6).
+ /// Tick the peer timeout clock.
+ ///
+ /// Removes peers that have not been seen for longer than
+ /// `peer_timeout_secs` from the active list (Req 5.6).
     pub fn tick_timeouts(&mut self, now_us: i64) {
         let timeout_us = self.peer_timeout_secs as i64 * 1_000_000;
         self.peers.retain(|_, state| {
@@ -157,34 +157,34 @@ impl PeerDiscovery {
         });
     }
 
-    /// Return the list of currently active peer DIDs.
+ /// Return the list of currently active peer DIDs.
     pub fn active_peers(&self) -> Vec<Did> {
         self.peers.keys().cloned().collect()
     }
 
-    /// Return `true` if the given DID is an active peer.
+ /// Return `true` if the given DID is an active peer.
     pub fn is_active(&self, peer_did: &Did) -> bool {
         self.peers.contains_key(peer_did)
     }
 
-    // ── Retry queue ───────────────────────────────────────────────────────────
+ // ── Retry queue ───────────────────────────────────────────────────────────
 
-    /// Queue an undelivered Delta for retry (Req 5.6).
-    ///
-    /// Silently drops the entry if the queue is full (bounded per Req 5.6).
+ /// Queue an undelivered Delta for retry (Req 5.6).
+ ///
+ /// Silently drops the entry if the queue is full (bounded per Req 5.6).
     pub fn enqueue_retry(&mut self, entry: RetryEntry) -> Result<(), TirBaseError> {
         if self.retry_queue.len() >= self.max_retry_queue {
-            // Queue is full — drop new entry to preserve bound (Req 5.6).
+ // Queue is full — drop new entry to preserve bound (Req 5.6).
             return Ok(());
         }
         self.retry_queue.push_back(entry);
         Ok(())
     }
 
-    /// Drain entries from the retry queue that are due for reattempt
-    /// (`next_retry_at` ≤ `now_us`).
-    ///
-    /// Returns the entries to attempt; removes them from the queue.
+ /// Drain entries from the retry queue that are due for reattempt
+ /// (`next_retry_at` ≤ `now_us`).
+ ///
+ /// Returns the entries to attempt; removes them from the queue.
     pub fn drain_due_retries(&mut self, now_us: i64) -> Vec<RetryEntry> {
         let mut due = Vec::new();
         let mut remaining = std::collections::VecDeque::new();
@@ -199,15 +199,15 @@ impl PeerDiscovery {
         due
     }
 
-    /// Current retry queue depth.
+ /// Current retry queue depth.
     pub fn retry_queue_len(&self) -> usize {
         self.retry_queue.len()
     }
 
-    /// Find a relay peer for the given destination DID.
-    ///
-    /// Returns the relay peer's DID if a peer with `PeerTransport::MultiHopRelay`
-    /// is in the active list; otherwise `None`.
+ /// Find a relay peer for the given destination DID.
+ ///
+ /// Returns the relay peer's DID if a peer with `PeerTransport::MultiHopRelay`
+ /// is in the active list; otherwise `None`.
     pub fn find_relay_peer(&self, destination_did: &Did) -> Option<Did> {
         self.peers
             .values()
@@ -217,12 +217,12 @@ impl PeerDiscovery {
             .map(|state| state.peer.did.clone())
     }
 
-    /// Return `true` if the given DID is a direct neighbor (active peer).
+ /// Return `true` if the given DID is a direct neighbor (active peer).
     pub fn is_direct_neighbor(&self, peer_did: &Did) -> bool {
         self.peers.contains_key(peer_did)
     }
 
-    /// Return the `PeerTransport` for a known peer, if present.
+ /// Return the `PeerTransport` for a known peer, if present.
     pub fn peer_transport(&self, peer_did: &Did) -> Option<&PeerTransport> {
         self.peers.get(peer_did).map(|state| &state.peer.transport)
     }
@@ -241,8 +241,8 @@ pub mod ble_adapter {
     pub const TIRBASE_BLE_SERVICE_UUID: uuid::Uuid =
         uuid::Uuid::from_u128(0x0000beef_0000_1000_8000_00805f9b34fb);
 
-    /// Scan for BLE peripherals advertising the TirBase service UUID and
-    /// return `(did, bridge_did)` pairs for each discovered device.
+ /// Scan for BLE peripherals advertising the TirBase service UUID and
+ /// return `(did, bridge_did)` pairs for each discovered device.
     pub async fn scan_ble_peers(scan_timeout_secs: u64) -> Result<Vec<(Did, Did)>, TirBaseError> {
         let manager = Manager::new()
             .await
@@ -334,20 +334,20 @@ pub mod mdns_adapter {
     use libp2p::mdns::Event as MdnsEvent;
     use libp2p::PeerId;
 
-    /// Map a libp2p `PeerId` to a TirBase DID.
-    ///
-    /// TirBase DIDs are `did:key:` DIDs derived from the peer's Ed25519 key.
-    /// For peers discovered via libp2p mDNS we use the `PeerId`'s multihash
-    /// encoding as a stable identifier until the full DID exchange has
-    /// occurred during the Noise handshake.
+ /// Map a libp2p `PeerId` to a TirBase DID.
+ ///
+ /// TirBase DIDs are `did:key:` DIDs derived from the peer's Ed25519 key.
+ /// For peers discovered via libp2p mDNS we use the `PeerId`'s multihash
+ /// encoding as a stable identifier until the full DID exchange has
+ /// occurred during the Noise handshake.
     pub fn peer_id_to_did(peer_id: &PeerId) -> Did {
         format!("did:key:{}", peer_id)
     }
 
-    /// Handle an `MdnsEvent` from the libp2p Swarm.
-    ///
-    /// - `Discovered`: add each peer to the active list (hop_count = 0).
-    /// - `Expired`:    remove each peer from the active list (Req 5.6).
+ /// Handle an `MdnsEvent` from the libp2p Swarm.
+ ///
+ /// - `Discovered`: add each peer to the active list (hop_count = 0).
+ /// - `Expired`: remove each peer from the active list (Req 5.6).
     pub fn handle_mdns_event(discovery: &mut PeerDiscovery, event: MdnsEvent, now_us: i64) {
         match event {
             MdnsEvent::Discovered(peers) => {
@@ -360,8 +360,8 @@ pub mod mdns_adapter {
                         },
                         hop_count: 0,
                     };
-                    // On discovery failure (e.g. hop-count exceeded) we log
-                    // and continue — a single bad peer must not block others.
+ // On discovery failure (e.g. hop-count exceeded) we log
+ // and continue — a single bad peer must not block others.
                     let _ = discovery.on_peer_discovered(discovered, now_us);
                 }
             }
@@ -395,7 +395,7 @@ mod tests {
         }
     }
 
-    // ── on_peer_discovered ────────────────────────────────────────────────────
+ // ── on_peer_discovered ────────────────────────────────────────────────────
 
     #[test]
     fn discovered_peer_added_to_active_list() {
@@ -433,7 +433,7 @@ mod tests {
         assert!(disc.is_active(&"did:key:relay3".to_string()));
     }
 
-    // ── peer timeout ──────────────────────────────────────────────────────────
+ // ── peer timeout ──────────────────────────────────────────────────────────
 
     #[test]
     fn peer_timeout_removes_stale_peer() {
@@ -442,7 +442,7 @@ mod tests {
             .unwrap();
         assert!(disc.is_active(&"did:key:stale".to_string()));
 
-        // 31 seconds later (in microseconds)
+ // 31 seconds later (in microseconds)
         disc.tick_timeouts(31 * 1_000_000);
         assert!(!disc.is_active(&"did:key:stale".to_string()));
     }
@@ -464,12 +464,12 @@ mod tests {
             .unwrap();
 
         disc.touch_peer(&"did:key:renew".to_string(), 20 * 1_000_000);
-        // Now 50s from original discovery but only 29s since touch
+ // Now 50s from original discovery but only 29s since touch
         disc.tick_timeouts(49 * 1_000_000);
         assert!(disc.is_active(&"did:key:renew".to_string()));
     }
 
-    // ── retry queue ───────────────────────────────────────────────────────────
+ // ── retry queue ───────────────────────────────────────────────────────────
 
     #[test]
     fn retry_queue_bounded_at_max() {
@@ -510,7 +510,7 @@ mod tests {
         assert_eq!(disc.retry_queue_len(), 1); // b still in queue
     }
 
-    // ── BLE bridge peer ───────────────────────────────────────────────────────
+ // ── BLE bridge peer ───────────────────────────────────────────────────────
 
     #[test]
     fn ble_bridge_peer_added_to_active_list() {
@@ -526,7 +526,7 @@ mod tests {
         assert!(disc.is_active(&"did:key:ble-peer".to_string()));
     }
 
-    // ── remove_peer ───────────────────────────────────────────────────────────
+ // ── remove_peer ───────────────────────────────────────────────────────────
 
     #[test]
     fn remove_peer_makes_peer_inactive() {
@@ -537,7 +537,7 @@ mod tests {
         assert!(!disc.is_active(&"did:key:remove-me".to_string()));
     }
 
-    // ── active_peers ─────────────────────────────────────────────────────────
+ // ── active_peers ─────────────────────────────────────────────────────────
 
     #[test]
     fn active_peers_returns_all_active_dids() {

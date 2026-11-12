@@ -9,7 +9,7 @@
 # Syntax reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default: every file requires review from a core maintainer.
-*                               @tirbase-maintainers
+* @tirbase-maintainers
 
 # Security-sensitive paths require an additional security-team review.
 SECURITY.md                     @tirbase-maintainers @tirbase-security

@@ -1,4 +1,4 @@
-//! Determinism and seeded-scenario integration tests (tasks 38.1/38.4/38.5 —
+//! Determinism and seeded-scenario integration tests (38.4/38.5 —
 //! CLAIM-38.1, CLAIM-38.4, CLAIM-38.5, PV-12.1, PV-12.3).
 //!
 //! CI executes 1,000 seeded scenarios in `thousand_seeded_scenarios_per_run`.
@@ -24,8 +24,8 @@ fn thousand_seeded_scenarios_per_run() {
         assert_eq!(report.ticks, 16);
         digests.insert(report.digest);
     }
-    // Seeds must actually vary the trajectory; identical digests for 1,000
-    // seeds would mean the RNG is not feeding the scenario.
+ // Seeds must actually vary the trajectory; identical digests for 1,000
+ // seeds would mean the RNG is not feeding the scenario.
     assert!(
         digests.len() > 900,
         "expected distinct trajectories, got {} unique digests",
@@ -105,9 +105,9 @@ fn battery_model_is_bit_identical_from_the_same_seed() {
 
 #[test]
 fn emit_cross_arch_digest() {
-    // CI runs this test natively on x86_64 and aarch64 and compares the two
-    // digest artifacts (CLAIM-38.4/38.5, PV-12.3). The digest covers the
-    // thermal trajectory, the battery trajectory, and a seeded scenario.
+ // CI runs this test natively on x86_64 and aarch64 and compares the two
+ // digest artifacts (CLAIM-38.4/38.5, PV-12.3). The digest covers the
+ // thermal trajectory, the battery trajectory, and a seeded scenario.
     fn fnv(mut hash: u64, values: impl IntoIterator<Item = u64>) -> u64 {
         for value in values {
             hash ^= value;
@@ -135,8 +135,8 @@ fn emit_cross_arch_digest() {
             .unwrap_or_else(|err| panic!("write digest to {path}: {err}"));
     }
 
-    // Golden values are architecture independent because the models use libm
-    // and every random draw comes from the seeded ChaCha8 stream.
+ // Golden values are architecture independent because the models use libm
+ // and every random draw comes from the seeded ChaCha8 stream.
     assert_eq!(thermal_digest, 0x6685_5de9_5161_dfb7);
     assert_eq!(battery_digest, 0xf728_c2c0_3ab8_5f19);
     assert_eq!(scenario.digest, 0x3fd0_e16b_b8e7_a941);
@@ -144,10 +144,10 @@ fn emit_cross_arch_digest() {
 
 #[test]
 fn thermal_and_battery_golden_bits_are_platform_independent() {
-    // The thermal/battery modules pin golden bit patterns in their unit tests.
-    // This integration test re-checks that reconstruction from the same seed
-    // reproduces them exactly from outside the crate: the same seed on x86_64
-    // and ARM must yield the same bits because `libm` is pure Rust.
+ // The thermal/battery modules pin golden bit patterns in their unit tests.
+ // This integration test re-checks that reconstruction from the same seed
+ // reproduces them exactly from outside the crate: the same seed on x86_64
+ // and ARM must yield the same bits because `libm` is pure Rust.
     let mut model = ThermalModel::new(0xC01D);
     let bits = model.run_steps_bits(8);
     assert_eq!(bits[0], 0x401f_f886_b00a_52d7);

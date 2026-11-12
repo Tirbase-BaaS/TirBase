@@ -20,32 +20,32 @@ pub type ReceiptId = Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DurabilityReceipt {
     pub id: ReceiptId,
-    /// SHA-256 hash of the committed Delta set.
+ /// SHA-256 hash of the committed Delta set.
     pub state_hash: [u8; 32],
-    /// The peer that issued this receipt.
+ /// The peer that issued this receipt.
     pub issuer_did: Did,
-    /// Ed25519 signature over `receipt_signing_payload(state_hash, receipt_id)`.
+ /// Ed25519 signature over `receipt_signing_payload(state_hash, receipt_id)`.
     pub issuer_signature: Ed25519Signature,
-    /// Spatial diversity tag of the issuing peer (squad or tunnel_sector).
+ /// Spatial diversity tag of the issuing peer (squad or tunnel_sector).
     pub spatial_tag: Option<String>,
-    /// Beacon-attested location token (if Anchor_Attested_Location is enabled).
+ /// Beacon-attested location token (if Anchor_Attested_Location is enabled).
     pub beacon_token: Option<BeaconToken>,
-    /// UTC timestamp (microseconds) when this receipt was issued.
+ /// UTC timestamp (microseconds) when this receipt was issued.
     pub issued_at: i64,
 }
 
 /// An optional beacon-signed location token for verifiable Spatial_Diversity (Req 15.1).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BeaconToken {
-    /// DID of the fixed beacon that issued this token.
+ /// DID of the fixed beacon that issued this token.
     pub beacon_did: Did,
-    /// Ed25519 signature over the location claim and epoch.
+ /// Ed25519 signature over the location claim and epoch.
     pub beacon_signature: Ed25519Signature,
-    /// Lamport epoch from the beacon (used to reject stale replay tokens — Req 15.3).
+ /// Lamport epoch from the beacon (used to reject stale replay tokens — Req 15.3).
     pub epoch: u64,
-    /// Human-readable location claim.
+ /// Human-readable location claim.
     pub location_claim: String,
-    /// UTC timestamp (microseconds) when this token was issued.
+ /// UTC timestamp (microseconds) when this token was issued.
     pub issued_at: i64,
 }
 
@@ -76,7 +76,7 @@ pub fn verify_receipt(
     issuer_public_key: &[u8; 32],
     expected_state_hash: &[u8; 32],
 ) -> Result<(), TirBaseError> {
-    // Check 1: state-hash match.
+ // Check 1: state-hash match.
     if &receipt.state_hash != expected_state_hash {
         let reason = format!(
             "state-hash mismatch for peer {}: expected {}, got {}",
@@ -88,7 +88,7 @@ pub fn verify_receipt(
         return Err(TirBaseError::SignatureVerificationFailed { reason });
     }
 
-    // Check 2: Ed25519 signature.
+ // Check 2: Ed25519 signature.
     let payload = receipt_signing_payload(&receipt.state_hash, &receipt.id);
     keypair::verify(issuer_public_key, &payload, &receipt.issuer_signature).map_err(|e| {
         let reason = format!(
@@ -106,10 +106,10 @@ pub fn verify_receipt(
 /// rejection events are not routed through the structured diagnostics channel,
 /// which is startup-only in v1).
 fn log_receipt_rejection(peer_did: &str, reason: &str) {
-    // In v1 this uses eprintln! as the structured diagnostics channel is
-    // startup-only (see diagnostics/mod.rs).  The caller is responsible for
-    // constructing the full reason string that identifies both the peer DID
-    // and the failure reason (Req 14.6).
+ // In v1 this uses eprintln! as the structured diagnostics channel is
+ // startup-only (see diagnostics/mod.rs). The caller is responsible for
+ // constructing the full reason string that identifies both the peer DID
+ // and the failure reason (Req 14.6).
     eprintln!("[durability] receipt rejected from {peer_did}: {reason}");
 }
 
@@ -120,7 +120,7 @@ mod tests {
     use super::*;
     use crate::identity::keypair::{generate_keypair, sign};
 
-    /// Create a properly signed receipt for testing.
+ /// Create a properly signed receipt for testing.
     fn make_signed_receipt(
         state_hash: [u8; 32],
         secret_key: &[u8; 32],
@@ -209,7 +209,7 @@ mod tests {
         );
     }
 
-    // ── verify_receipt ───────────────────────────────────────────────────────
+ // ── verify_receipt ───────────────────────────────────────────────────────
 
     #[test]
     fn verify_receipt_valid_passes() {
@@ -234,7 +234,7 @@ mod tests {
         let (secret, public) = generate_keypair().unwrap();
         let state_hash = [0xAB; 32];
         let mut receipt = make_signed_receipt(state_hash, &secret, "did:key:z6MkP3", None);
-        // Flip first byte of signature
+ // Flip first byte of signature
         if let Some(b) = receipt.issuer_signature.0.first_mut() {
             *b ^= 0xFF;
         }

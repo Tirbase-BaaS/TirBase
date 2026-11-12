@@ -40,11 +40,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// TTL must be between 1 hour (3600s) and 24 hours (86400s) by default (Req 8.7).
 ///
 /// If `extended_ttl_accepted_risk` is `true`, the 24-hour maximum is relaxed
-/// (up to [`TTL_OVERRIDE_CEILING_SECS`], currently 7 days).  This is the
+/// (up to [`TTL_OVERRIDE_CEILING_SECS`], currently 7 days). This is the
 /// documented "accepted risk" escape path: at `CoreHandle::init` time, a
 /// `biscuit_ttl_secs` value exceeding 24h triggers the `EXTENDED_TTL`
 /// diagnostic (Req 21.6), which serves as the deployment's explicit
-/// acknowledgment of the extended-window trade-off.  A token created with
+/// acknowledgment of the extended-window trade-off. A token created with
 /// the override carries a `ttl_override("true")` fact so that offline
 /// verifiers can detect extended-window tokens (Req 8.7).
 pub fn create_token(
@@ -79,14 +79,14 @@ pub fn create_token(
         }
     }
 
-    // Wall clock comes from the injected TimeSource (PV-3.8, PV-3.12); the
-    // hint is untrusted, which is why token expiry is bounded by TTL too.
+ // Wall clock comes from the injected TimeSource (PV-3.8, PV-3.12); the
+ // hint is untrusted, which is why token expiry is bounded by TTL too.
     let now = crate::traits::wall_hint_system_time();
     let issued_secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
-    // When the override is active and the TTL exceeds the default 24h cap,
-    // add a `ttl_override("true")` fact so offline verifiers can detect
-    // extended-window tokens.
+ // When the override is active and the TTL exceeds the default 24h cap,
+ // add a `ttl_override("true")` fact so offline verifiers can detect
+ // extended-window tokens.
     let extra_facts: Vec<&str> = if extended_ttl_accepted_risk && ttl_secs > TTL_MAX_SECS {
         vec!["ttl_override(\"true\")"]
     } else {
@@ -117,7 +117,7 @@ fn build_token(
 ) -> Result<Vec<u8>, TirBaseError> {
     let expiry = now + Duration::from_secs(ttl_secs);
 
-    // Build key from raw private key seed
+ // Build key from raw private key seed
     let private_key =
         PrivateKey::from_bytes(root_ca_private_key, Algorithm::Ed25519).map_err(|e| {
             TirBaseError::AuthorisationFailed {
@@ -126,7 +126,7 @@ fn build_token(
         })?;
     let keypair = KeyPair::from(&private_key);
 
-    // Use Datalog builder API to add facts
+ // Use Datalog builder API to add facts
     let did_str = did.to_string();
     let role_str = role.to_string();
     let issued_at_val = issued_secs as i64;
@@ -216,11 +216,11 @@ pub fn verify_token(
             reason: format!("failed to parse/verify Biscuit token: {e}"),
         })?;
 
-    // Build a "now" SystemTime from now_secs for expiration checking
+ // Build a "now" SystemTime from now_secs for expiration checking
     let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
     let time_fact = fact("time", &[date(&fake_now)]);
 
-    // Build authorizer with the provided "now" time for expiration check
+ // Build authorizer with the provided "now" time for expiration check
     let mut authorizer = AuthorizerBuilder::new()
         .fact(time_fact)
         .map_err(|e| TirBaseError::AuthorisationFailed {
@@ -232,8 +232,8 @@ pub fn verify_token(
             reason: format!("authorizer construction failed: {e}"),
         })?;
 
-    // Use generous limits so that authorize() + three query() calls don't
-    // exhaust the default 100-iteration Datalog budget (Req 8.1).
+ // Use generous limits so that authorize() + three query() calls don't
+ // exhaust the default 100-iteration Datalog budget (Req 8.1).
     let generous = biscuit_auth::AuthorizerLimits {
         max_facts: 10_000,
         max_iterations: 10_000,
@@ -246,7 +246,7 @@ pub fn verify_token(
             reason: format!("token authorization failed (possibly expired): {e}"),
         })?;
 
-    // Extract claims via datalog queries (use generous limits to share budget).
+ // Extract claims via datalog queries (use generous limits to share budget).
     let did_results: Vec<(String,)> = authorizer
         .query_with_limits("data($did) <- did($did)", generous.clone())
         .map_err(|e| TirBaseError::AuthorisationFailed {
@@ -279,7 +279,7 @@ pub fn verify_token(
 
     let issued_at = issued_results.into_iter().next().map(|(t,)| t).unwrap_or(0);
 
-    // Query the expires_at fact to get the token's real expiration time.
+ // Query the expires_at fact to get the token's real expiration time.
     let expires_results: Vec<(i64,)> = authorizer
         .query_with_limits("data($t) <- expires_at($t)", generous)
         .map_err(|e| TirBaseError::AuthorisationFailed {
@@ -323,8 +323,8 @@ pub fn verify_token_distinguish_expiry(
             })
         })?;
 
-    // Phase 1: signature + structure verification (Biscuit::from).
-    // A failure here means the token is malformed or tampered — NOT an expiry.
+ // Phase 1: signature + structure verification (Biscuit::from).
+ // A failure here means the token is malformed or tampered — NOT an expiry.
     let token = match Biscuit::from(token_bytes, public_key) {
         Ok(t) => t,
         Err(e) => {
@@ -336,10 +336,10 @@ pub fn verify_token_distinguish_expiry(
         }
     };
 
-    // Phase 2: expiry + policy authorization (authorize_with_limits).
-    // With an allow_all authorizer, the only check that can fail is the
-    // check_expiration_date constraint — so any authorize() failure at this
-    // point is a token expiry.
+ // Phase 2: expiry + policy authorization (authorize_with_limits).
+ // With an allow_all authorizer, the only check that can fail is the
+ // check_expiration_date constraint — so any authorize() failure at this
+ // point is a token expiry.
     let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
     let time_fact = fact("time", &[date(&fake_now)]);
 
@@ -365,10 +365,10 @@ pub fn verify_token_distinguish_expiry(
     };
 
     if let Err(e) = authorizer.authorize_with_limits(generous.clone()) {
-        // The signature already passed (Biscuit::from succeeded). With an
-        // allow_all authorizer the only failing check is the expiration
-        // constraint added by check_expiration_date. Double-check the error
-        // string for "expired" as an additional guard.
+ // The signature already passed (Biscuit::from succeeded). With an
+ // allow_all authorizer the only failing check is the expiration
+ // constraint added by check_expiration_date. Double-check the error
+ // string for "expired" as an additional guard.
         let msg = e.to_string().to_lowercase();
         if msg.contains("expired") || msg.contains("authorization failed") {
             return Err(TokenVerifyError::TokenExpired);
@@ -380,7 +380,7 @@ pub fn verify_token_distinguish_expiry(
         ));
     }
 
-    // Extract claims (same as verify_token).
+ // Extract claims (same as verify_token).
     let did_results: Vec<(String,)> = authorizer
         .query_with_limits("data($did) <- did($did)", generous.clone())
         .map_err(|e| {
@@ -419,7 +419,7 @@ pub fn verify_token_distinguish_expiry(
 
     let issued_at = issued_results.into_iter().next().map(|(t,)| t).unwrap_or(0);
 
-    // Query the expires_at fact to get the token's real expiration time.
+ // Query the expires_at fact to get the token's real expiration time.
     let expires_results: Vec<(i64,)> = authorizer
         .query_with_limits("data($t) <- expires_at($t)", generous)
         .map_err(|e| {
@@ -447,10 +447,10 @@ pub fn verify_token_distinguish_expiry(
 /// transition (Req 8.4 vs Req 8.8).
 #[derive(Debug)]
 pub enum TokenVerifyError {
-    /// The Biscuit token's signature verified successfully, but the
-    /// `check_expiration_date` policy failed — the token has expired.
+ /// The Biscuit token's signature verified successfully, but the
+ /// `check_expiration_date` policy failed — the token has expired.
     TokenExpired,
-    /// Any other failure: signature mismatch, parse error, invalid key, etc.
+ /// Any other failure: signature mismatch, parse error, invalid key, etc.
     OtherFailure(TirBaseError),
 }
 
@@ -486,12 +486,12 @@ pub fn has_caveat(
         Err(_) => return false,
     };
 
-    // Build a fake_now SystemTime from now_secs for expiration checking (same pattern as verify_token).
+ // Build a fake_now SystemTime from now_secs for expiration checking (same pattern as verify_token).
     let fake_now = UNIX_EPOCH + Duration::from_secs(now_secs.max(0) as u64);
     let time_fact = fact("time", &[date(&fake_now)]);
 
-    // Build the authorizer: inject time fact so check_expiration_date works,
-    // then allow_all so we can do our own caveat query afterward.
+ // Build the authorizer: inject time fact so check_expiration_date works,
+ // then allow_all so we can do our own caveat query afterward.
     let mut authorizer = match AuthorizerBuilder::new()
         .fact(time_fact)
         .map_err(|_| ())
@@ -501,12 +501,12 @@ pub fn has_caveat(
         Err(_) => return false,
     };
 
-    // authorize() enforces TTL (check_expiration_date) and signature; fail fast if expired/invalid.
+ // authorize() enforces TTL (check_expiration_date) and signature; fail fast if expired/invalid.
     if authorizer.authorize().is_err() {
         return false;
     }
 
-    // Query for the caveat fact: caveat($x) where $x == caveat string.
+ // Query for the caveat fact: caveat($x) where $x == caveat string.
     let results: Vec<(String,)> = authorizer
         .query("data($x) <- caveat($x)")
         .unwrap_or_default();
@@ -556,9 +556,9 @@ pub fn verify_and_check_caveat(
             reason: format!("authorizer construction failed: {e}"),
         })?;
 
-    // Use authorize_with_limits with a generous per-call budget so that cumulative
-    // world.iterations from the initial run() pass does not exhaust the 100-iteration
-    // default limit when authorize() and query() are both called on the same authorizer.
+ // Use authorize_with_limits with a generous per-call budget so that cumulative
+ // world.iterations from the initial run() pass does not exhaust the 100-iteration
+ // default limit when authorize() and query() are both called on the same authorizer.
     let generous = biscuit_auth::AuthorizerLimits {
         max_facts: 10_000,
         max_iterations: 10_000,
@@ -570,7 +570,7 @@ pub fn verify_and_check_caveat(
             reason: format!("token authorization failed (possibly expired): {e}"),
         })?;
 
-    // Query for the caveat fact in the same authorizer run (no additional authorize() call).
+ // Query for the caveat fact in the same authorizer run (no additional authorize() call).
     let results: Result<Vec<(String,)>, _> =
         authorizer.query_with_limits("data($x) <- caveat($x)", generous);
     let has_it = results
@@ -680,12 +680,12 @@ mod tests {
     #[test]
     fn test_ttl_extended_with_accepted_risk_override() {
         let (priv_key, pub_key) = make_ca_keys();
-        // 48h with the override flag — should succeed.
+ // 48h with the override flag — should succeed.
         let token_bytes = create_token("did:key:z6MkExtended", "admin", 48 * 3600, &priv_key, true)
             .expect("create_token with accepted-risk override should succeed for 48h");
         assert!(!token_bytes.is_empty(), "token bytes should not be empty");
 
-        // Verify it still works at the 48h expiry window.
+ // Verify it still works at the 48h expiry window.
         let claims = verify_token(&token_bytes, &pub_key, now_secs())
             .expect("extended token should verify at issue time");
         assert_eq!(claims.did, "did:key:z6MkExtended");
@@ -694,7 +694,7 @@ mod tests {
     #[test]
     fn test_ttl_extended_without_override_rejected() {
         let (priv_key, _) = make_ca_keys();
-        // 48h without the override flag — should be rejected.
+ // 48h without the override flag — should be rejected.
         let result = create_token("did:key:z6MkExtended", "admin", 48 * 3600, &priv_key, false);
         assert!(
             result.is_err(),
@@ -710,7 +710,7 @@ mod tests {
     #[test]
     fn test_ttl_above_ceiling_rejected_even_with_override() {
         let (priv_key, _) = make_ca_keys();
-        // 8 days — above the 7-day ceiling even with the override.
+ // 8 days — above the 7-day ceiling even with the override.
         let result = create_token(
             "did:key:z6MkTooLong",
             "admin",
@@ -732,11 +732,11 @@ mod tests {
     #[test]
     fn test_expired_token_rejected() {
         let (priv_key, pub_key) = make_ca_keys();
-        // Create a token with 1h TTL
+ // Create a token with 1h TTL
         let token_bytes =
             create_token("did:key:z6MkExp", "viewer", 3600, &priv_key, false).unwrap();
 
-        // Verify at a time far in the future (25 hours from now)
+ // Verify at a time far in the future (25 hours from now)
         let future_secs = now_secs() + 25 * 3600;
         let result = verify_token(&token_bytes, &pub_key, future_secs);
         assert!(result.is_err(), "expired token should be rejected");
@@ -755,9 +755,9 @@ mod tests {
         );
     }
 
-    // ── has_caveat() tests ────────────────────────────────────────────────────
+ // ── has_caveat() tests ────────────────────────────────────────────────────
 
-    /// Helper: build a token with an arbitrary extra role fact, using the given CA keypair bytes.
+ /// Helper: build a token with an arbitrary extra role fact, using the given CA keypair bytes.
     fn make_token_with_facts(priv_key: &[u8], extra_facts: &[&str], ttl_secs: u64) -> Vec<u8> {
         use biscuit_auth::{builder_ext::BuilderExt, Biscuit};
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -798,7 +798,7 @@ mod tests {
     #[test]
     fn has_caveat_returns_false_for_token_without_disaster_alert() {
         let (priv_key, pub_key) = make_ca_keys();
-        // Build a token with NO disaster-alert fact.
+ // Build a token with NO disaster-alert fact.
         let token_bytes = make_token_with_facts(&priv_key, &[], 3600);
         let now = now_secs();
         assert!(
@@ -810,9 +810,9 @@ mod tests {
     #[test]
     fn has_caveat_returns_false_for_expired_token_with_disaster_alert() {
         let (priv_key, pub_key) = make_ca_keys();
-        // Token has disaster-alert but only 1h TTL.
+ // Token has disaster-alert but only 1h TTL.
         let token_bytes = make_token_with_facts(&priv_key, &["caveat(\"disaster-alert\")"], 3600);
-        // Check 25 hours in the future — well past the 1h TTL.
+ // Check 25 hours in the future — well past the 1h TTL.
         let far_future = now_secs() + 25 * 3600;
         assert!(
             !has_caveat(&token_bytes, "disaster-alert", &pub_key, far_future),
@@ -822,9 +822,9 @@ mod tests {
 
     #[test]
     fn has_caveat_returns_false_when_token_text_contains_alert_as_substring_of_other_fact() {
-        // Regression test for the old string-search bug:
-        // A token containing a role like "disaster_alert_manager" textually includes
-        // "alert" and even "disaster" but must NOT match a check for caveat("disaster-alert").
+ // Regression test for the old string-search bug:
+ // A token containing a role like "disaster_alert_manager" textually includes
+ // "alert" and even "disaster" but must NOT match a check for caveat("disaster-alert").
         let (priv_key, pub_key) = make_ca_keys();
         let token_bytes =
             make_token_with_facts(&priv_key, &["role(\"disaster_alert_manager\")"], 3600);

@@ -1,5 +1,5 @@
 //! `tirbase-admin inspect-identities` — report identity material for operator
-//! inspection (task 9.5 — CLAIM-9.5, PV-3.10).
+//! inspection (CLAIM-9.5, PV-3.10).
 //!
 //! Only public identity fields are reported (DID, public key, key type/path).
 //! Private key material is never printed.
@@ -11,23 +11,23 @@ use anyhow::Result;
 /// Arguments for `tirbase-admin inspect-identities`.
 #[derive(Debug, Clone)]
 pub struct InspectIdentitiesArgs {
-    /// One or more identity JSON files to inspect.
+ /// One or more identity JSON files to inspect.
     pub identities: Vec<PathBuf>,
 }
 
 /// A redacted identity record.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct IdentityRecord {
-    /// Source file path.
+ /// Source file path.
     pub path: String,
-    /// DID, if present.
+ /// DID, if present.
     pub did: Option<String>,
-    /// Hex-encoded public key, if present.
+ /// Hex-encoded public key, if present.
     pub public_key_hex: Option<String>,
-    /// Whether a private seed field is present in the file.  The seed itself
-    /// is never included.
+ /// Whether a private seed field is present in the file. The seed itself
+ /// is never included.
     pub has_private_key: bool,
-    /// Parse/load error, if the file could not be inspected.
+ /// Parse/load error, if the file could not be inspected.
     pub error: Option<String>,
 }
 

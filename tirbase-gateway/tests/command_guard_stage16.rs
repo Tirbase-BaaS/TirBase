@@ -1,4 +1,4 @@
-//! Task 15: Stage 16–19 atomic commit/dispatch, Stage 17 redaction,
+//! : Stage 16–19 atomic commit/dispatch, Stage 17 redaction,
 //! simulate (15.7), and token-cannot-relax proptest wiring (15.8).
 
 use std::collections::BTreeMap;
@@ -131,8 +131,8 @@ fn claim_15_1_stage16_atomic_commit_and_lease_failure_rolls_back_all_state() {
         Some(issuer.did())
     );
 
-    // Force lease failure by holding target lease for another issuer in same DB tx boundary:
-    // second command same target, different issuer, same target => LeaseHeld; must not touch idem/replay for that issuer+key.
+ // Force lease failure by holding target lease for another issuer in same DB tx boundary:
+ // second command same target, different issuer, same target => LeaseHeld; must not touch idem/replay for that issuer+key.
     let issuer2 = InMemoryKeyProvider::generate().unwrap();
     let cmd2 = mk_cmd(&issuer2, 1, 2, 500);
     let req2 = Stage16Request {
@@ -148,7 +148,7 @@ fn claim_15_1_stage16_atomic_commit_and_lease_failure_rolls_back_all_state() {
     };
     let err = store.commit_actuating(&req2).unwrap_err();
     assert!(matches!(err, Stage16Error::LeaseHeld { .. }), "{err:?}");
-    // rollback means issuer2 idempotency and anti-replay state not created
+ // rollback means issuer2 idempotency and anti-replay state not created
     assert_eq!(
         store
             .count_idempotency_keys(issuer2.did(), "pump-1")
@@ -162,7 +162,7 @@ fn claim_15_1_stage16_atomic_commit_and_lease_failure_rolls_back_all_state() {
         None
     );
     assert_eq!(store.effect_state(&[2u8; 16]).unwrap(), None);
-    // original issuer state intact
+ // original issuer state intact
     assert_eq!(
         store
             .count_idempotency_keys(issuer.did(), "pump-1")
@@ -234,7 +234,7 @@ fn claim_15_4_15_5_stage18_dispatch_after_commit_stage19_finalize_releases_lease
         store.effect_state(&entry_id).unwrap().as_deref(),
         Some("Complete")
     );
-    // lease released after completion
+ // lease released after completion
     assert_eq!(store.lease_holder("pump-1").unwrap(), None);
     assert!(!wire.is_empty(), "driver must receive dispatch frame");
     let _ = std::fs::remove_dir_all(db.parent().unwrap());
@@ -359,7 +359,7 @@ fn claim_15_7_simulate_returns_rejection_without_actuation() {
         &ca.secret_seed(),
     )
     .unwrap();
-    // critical + Unverified freshness and no nonce would normally need challenge consumption; simulate must not consume nonce/tokens.
+ // critical + Unverified freshness and no nonce would normally need challenge consumption; simulate must not consume nonce/tokens.
     let cmd = mk_cmd(&issuer, 77, 77, 500);
     let sim_ctx = AdmitContext {
         ingress: IngressSource::LocalAdmin,
@@ -370,7 +370,7 @@ fn claim_15_7_simulate_returns_rejection_without_actuation() {
     };
     let d1 = guard.simulate(&cmd, &sim_ctx);
     let d2 = guard.simulate(&cmd, &sim_ctx);
-    // Side-effect-free: returns exact typed rejection (no nonce consumed, no tokens consumed, no actuation).
+ // Side-effect-free: returns exact typed rejection (no nonce consumed, no tokens consumed, no actuation).
     assert!(
         matches!(
             d1,
@@ -387,7 +387,7 @@ fn claim_15_7_simulate_returns_rejection_without_actuation() {
         ),
         "{d2:?}"
     );
-    // Critical+Unverified+no nonce => ChallengeMissing rejection reason.
+ // Critical+Unverified+no nonce => ChallengeMissing rejection reason.
     let detail = format!("{d1:?}");
     assert!(
         detail.contains("ChallengeMissing") || detail.contains("Simulated"),

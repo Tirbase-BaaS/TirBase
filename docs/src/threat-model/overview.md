@@ -17,10 +17,10 @@ exclusions).
 
 - **Guard boundary:** only guard-admitted commands produce actuation.
 - **Role separation:** credentials are role-scoped (CommandIssuer, PolicyAuthority,
-  UpdateSigner, RevocationManager, Auditor, TimeAnchor) and cross-role use is rejected.
+ UpdateSigner, RevocationManager, Auditor, TimeAnchor) and cross-role use is rejected.
 - **Driver isolation:** drivers are codec/sandbox processes; device I/O is guard-owned.
 - **Time/authentication:** expiry and freshness use authenticated-time estimates and
-  monotonic ratchets, not trusted wall clock.
+ monotonic ratchets, not trusted wall clock.
 
 See also the adversary catalog in
 [`docs/adversary-scenarios.md`](../../adversary-scenarios.md).

@@ -1,11 +1,11 @@
 //! Property test: the TimeRatchet value is monotonically non-decreasing across
 //! any sequence of beacon applications, time advances, and simulated reboots
-//! (task 7.7 — CLAIM-7.7, PV-22, S23).
+//! (CLAIM-7.7, PV-22, S23).
 //!
 //! The property under test is the ratchet *value* (`persisted_floor`): it may
 //! never decrease, no matter what beacons arrive (including replayed or hostile
 //! ones), and after a simulated reboot `now_est` collapses to that floor without
-//! going below it.  Removing the `max(persisted_floor, wall_time)` enforcement in
+//! going below it. Removing the `max(persisted_floor, wall_time)` enforcement in
 //! `advance()` makes the generated backwards beacons succeed and this test fail.
 
 use std::sync::{Arc, Mutex};
@@ -41,7 +41,7 @@ impl FakeTimeSource {
         *mono = mono.saturating_add(secs.saturating_mul(MICROS_PER_SEC));
     }
 
-    /// A reboot always changes the boot id and restarts the monotonic domain.
+ /// A reboot always changes the boot id and restarts the monotonic domain.
     fn reboot(&self) {
         let mut boot = self.boot.lock().unwrap();
         *boot += 1;
@@ -161,7 +161,7 @@ proptest! {
                 }
             }
 
-            // The ratchet value never decreases, and it is what was persisted.
+ // The ratchet value never decreases, and it is what was persisted.
             prop_assert!(ratchet.persisted_floor() >= last_floor);
             prop_assert!(ratchet.persisted_floor() >= ratchet.last_beacon_time());
             match store.load().unwrap() {

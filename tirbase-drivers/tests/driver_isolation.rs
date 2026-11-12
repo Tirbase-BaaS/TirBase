@@ -19,7 +19,7 @@ fn socketpair_af_unix_seqpacket_is_created() {
     assert!(pair.parent_fd >= 0);
     assert!(pair.child_fd >= 0);
     assert_ne!(pair.parent_fd, pair.child_fd);
-    // Clean up fds.
+ // Clean up fds.
     unsafe {
         libc::close(pair.parent_fd);
         libc::close(pair.child_fd);

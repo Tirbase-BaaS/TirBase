@@ -1,4 +1,4 @@
-//! Scenario S21 — Lease starvation (Task 21.14, CLAIM-21.14, PV-5.8a, INV-13).
+//! Scenario S21 — Lease starvation (CLAIM-21.14, PV-5.8a, INV-13).
 
 /// S21 — the consecutive-renewal cap triggers cooldown, another issuer can
 /// acquire the lease, and revocation releases all of the issuer's leases.

@@ -1,4 +1,4 @@
-//! Anti-replay sliding window (task 20.1/20.2/20.3, CLAIM-20.1–20.3, PV-5.5, INV-10).
+//! Anti-replay sliding window (20.2/20.3, CLAIM-20.1–20.3, PV-5.5, INV-10).
 //!
 //! Per `(issuer_did, target_id, enrollment_epoch)`, a sliding bitmap of width
 //! `W` (default 64) tracks accepted sequence numbers. The window slides to the
@@ -30,11 +30,11 @@ pub const DEFAULT_FORWARD_GAP_G: u64 = 1024;
 /// Outcome of a non-mutating anti-replay check (CLAIM-20.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AntiReplayDecision {
-    /// Sequence is acceptable; commit should persist `new_highest`/`new_bitmap`.
+ /// Sequence is acceptable; commit should persist `new_highest`/`new_bitmap`.
     Accept { new_highest: u64, new_bitmap: u64 },
-    /// Sequence was already seen in the current window.
+ /// Sequence was already seen in the current window.
     Replay,
-    /// Sequence is outside `[highest_seen - W, highest_seen + G]`.
+ /// Sequence is outside `[highest_seen - W, highest_seen + G]`.
     OutsideWindow,
 }
 
@@ -53,7 +53,7 @@ pub struct AntiReplayWindow {
     pub target_id: String,
     pub enrollment_epoch: u64,
     pub highest_seen: u64,
-    /// Little-endian u64 bitmap over `[highest_seen - (W-1), highest_seen]`.
+ /// Little-endian u64 bitmap over `[highest_seen - (W-1), highest_seen]`.
     pub seen_bitmap: u64,
     pub forward_gap: u64,
     pub window_w: u64,
@@ -88,7 +88,7 @@ impl AntiReplayWindow {
         }
     }
 
-    /// Rehydrate from persisted fields.
+ /// Rehydrate from persisted fields.
     pub fn from_persisted(
         issuer_did: String,
         target_id: String,
@@ -109,7 +109,7 @@ impl AntiReplayWindow {
         }
     }
 
-    /// Non-mutating check (CLAIM-20.2). Does **not** modify `self`.
+ /// Non-mutating check (CLAIM-20.2). Does **not** modify `self`.
     pub fn check(&self, seq: u64) -> AntiReplayDecision {
         check_sequence(
             self.highest_seen,
@@ -125,7 +125,7 @@ impl AntiReplayWindow {
         self.highest_seen == 0 && self.seen_bitmap == 0
     }
 
-    /// Apply an accepted decision (call only after Stage 16 atomic commit).
+ /// Apply an accepted decision (call only after Stage 16 atomic commit).
     pub fn apply_accepted(&mut self, decision: AntiReplayDecision) {
         if let AntiReplayDecision::Accept {
             new_highest,
@@ -137,9 +137,9 @@ impl AntiReplayWindow {
         }
     }
 
-    /// PolicyAuthority-signed sequence-window reset for issuer re-enrollment or
-    /// wrap-around (CLAIM-20.3, PV-5.5). Advances the baseline; clears the bitmap
-    /// below the new baseline.
+ /// PolicyAuthority-signed sequence-window reset for issuer re-enrollment or
+ /// wrap-around (CLAIM-20.3, PV-5.5). Advances the baseline; clears the bitmap
+ /// below the new baseline.
     pub fn reset_to_baseline(&mut self, new_baseline: u64) {
         self.highest_seen = new_baseline;
         self.seen_bitmap = 1;
@@ -232,7 +232,7 @@ pub struct AntiReplayWindowReset {
     pub target_id: String,
     pub enrollment_epoch: u64,
     pub new_baseline_sequence: u64,
-    /// Replay-protection / audit timestamp (authenticated estimate seconds).
+ /// Replay-protection / audit timestamp (authenticated estimate seconds).
     pub requested_at_est: i64,
     pub reason: String,
 }
@@ -286,7 +286,7 @@ mod tests {
         let d = w.check(10);
         w.apply_accepted(d);
         let before = w.highest_seen;
-        // Far future beyond forward gap G=1024 is rejected and must not advance.
+ // Far future beyond forward gap G=1024 is rejected and must not advance.
         assert_eq!(
             w.check(before + DEFAULT_FORWARD_GAP_G + 1),
             AntiReplayDecision::OutsideWindow
@@ -321,7 +321,7 @@ mod tests {
     fn reset_allows_previously_rejected_sequence() {
         let mut w = AntiReplayWindow::new("i".into(), "t".into(), 0);
         w.apply_accepted(w.check(200));
-        // 1 is now below window
+ // 1 is now below window
         assert_eq!(w.check(1), AntiReplayDecision::OutsideWindow);
         w.reset_to_baseline(0);
         let d = w.check(1);

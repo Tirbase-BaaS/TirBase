@@ -3,12 +3,12 @@
 > **Status: Partially implemented** — The typed event plumbing (`SecurityEvent`,
 > `SecurityEventCategory`, `ReasonCode`, `Severity`) now lives in
 > `tirbase-core/src/events.rs`, and every emission site in `crdt/`, `auth/`,
-> `transport/`, and `migration/` emits through `SecurityEventSink` (tasks 5.4 and
-> 5.8).  The `ReasonCode` enum currently defines the variants those paths emit;
-> task 25.1 extends it to the full catalog and adds the hash-chained log
+> `transport/`, and `migration/` emits through `SecurityEventSink` ( and
+> 5.8). The `ReasonCode` enum currently defines the variants those paths emit;
+> extends it to the full catalog and adds the hash-chained log
 > (`seq`, `prev_hash`, `best_effort_wall_time`, `TimeSourceFlag`, checkpoints).
 > The **Status** column below tracks the full hash-chained implementation, so
-> most rows remain `Planned` until task 25.1 lands.
+> most rows remain `Planned` until lands.
 
 ## Purpose
 
@@ -22,10 +22,10 @@ reference in production Rust source that is not listed below.
 ## Machine-readable format
 
 - Each category is introduced with a `## Category: <CategoryName>` heading.
-  `CategoryName` must match the `SecurityEventCategory` enum variant name exactly.
+ `CategoryName` must match the `SecurityEventCategory` enum variant name exactly.
 - Each row in the table beneath the heading names one `ReasonCode` variant.
 - The CI script uses these headings and the *first column* of each table row to
-  build the allowed set; other columns are for human readers only.
+ build the allowed set; other columns are for human readers only.
 
 ---
 

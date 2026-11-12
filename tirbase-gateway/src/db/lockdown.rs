@@ -1,7 +1,7 @@
-//! LOCKDOWN persistence for the gateway (task 13.2 — CLAIM-13.2, PV-4.13).
+//! LOCKDOWN persistence for the gateway (CLAIM-13.2, PV-4.13).
 //!
 //! Persists to `primary.db` `monotonic_counters(lockdown_state)` (durable) and
-//! writes `/var/lib/tirbase/lockdown` as a secondary indicator.  `/run` is
+//! writes `/var/lib/tirbase/lockdown` as a secondary indicator. `/run` is
 //! tmpfs and never used as sole persistence.
 
 use std::path::{Path, PathBuf};

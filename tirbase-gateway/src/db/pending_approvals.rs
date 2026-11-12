@@ -1,27 +1,27 @@
-//! `pending_approvals` SQLite store (task 12.8 — CLAIM-12.8, PV-4.10).
+//! `pending_approvals` SQLite store (CLAIM-12.8, PV-4.10).
 //!
 //! Stores partial multi-signature operations (policy loosening, lockdown-exit,
 //! epoch bump, time-ratchet reset) until they reach quorum or are cancelled.
 //!
 //! ```sql
 //! CREATE TABLE IF NOT EXISTS pending_approvals (
-//!     op_id              TEXT PRIMARY KEY,
-//!     op_type            TEXT NOT NULL,
-//!     target             TEXT,
-//!     payload_json       TEXT NOT NULL,
-//!     required_m         INTEGER NOT NULL,
-//!     required_n         INTEGER NOT NULL,
-//!     timelock_until_est INTEGER,
-//!     cancel_deadline_est INTEGER,
-//!     created_est        INTEGER NOT NULL,
-//!     status             TEXT NOT NULL
+//! op_id TEXT PRIMARY KEY,
+//! op_type TEXT NOT NULL,
+//! target TEXT,
+//! payload_json TEXT NOT NULL,
+//! required_m INTEGER NOT NULL,
+//! required_n INTEGER NOT NULL,
+//! timelock_until_est INTEGER,
+//! cancel_deadline_est INTEGER,
+//! created_est INTEGER NOT NULL,
+//! status TEXT NOT NULL
 //! );
 //! CREATE TABLE IF NOT EXISTS pending_approval_signatures (
-//!     op_id      TEXT NOT NULL,
-//!     signer_did TEXT NOT NULL,
-//!     signature_json TEXT NOT NULL,
-//!     role       TEXT,
-//!     PRIMARY KEY (op_id, signer_did)
+//! op_id TEXT NOT NULL,
+//! signer_did TEXT NOT NULL,
+//! signature_json TEXT NOT NULL,
+//! role TEXT,
+//! PRIMARY KEY (op_id, signer_did)
 //! );
 //! ```
 

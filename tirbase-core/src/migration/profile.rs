@@ -3,16 +3,16 @@
 //!
 //! Production callers:
 //! - `tirbase-core/src/migration/wasm_sandbox.rs` validates every module at
-//!   load time before instantiation/execution and rejects/quarantines failures.
+//! load time before instantiation/execution and rejects/quarantines failures.
 //! - `tirbase-core/src/migration/mod.rs` matches `ExecutionProfileVersion`
-//!   metadata (`profile_id`, `fuel_cost_table_hash`) and quarantines with
-//!   `ENGINE_VERSION_MISMATCH` on mismatch.
+//! metadata (`profile_id`, `fuel_cost_table_hash`) and quarantines with
+//! `ENGINE_VERSION_MISMATCH` on mismatch.
 //!
 //! Wiring mutation checks:
 //! - Loading a module with `f32`/`f64`/SIMD/atomics imports without this
-//!   validator must fail S8 / `test_float_simd_rejection`.
+//! validator must fail S8 / `test_float_simd_rejection`.
 //! - Skipping profile/fuel-hash matching must fail S9 /
-//!   `test_fuel_hash_mismatch`.
+//! `test_fuel_hash_mismatch`.
 //! - Removing StoreLimits must fail the memory-limit quarantine test.
 
 #![forbid(unsafe_code)]
@@ -59,17 +59,17 @@ pub const CONFORMANCE_CORPUS_HASH: [u8; 32] = [
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionProfileVersion {
     pub profile_id: [u8; 16],
-    /// SHA-256 of the explicit wasmi instruction fuel-cost / StoreLimits config.
+ /// SHA-256 of the explicit wasmi instruction fuel-cost / StoreLimits config.
     pub fuel_cost_table_hash: [u8; 32],
-    /// SHA-256 of the test vector corpus used for conformance testing.
+ /// SHA-256 of the test vector corpus used for conformance testing.
     pub conformance_corpus_hash: [u8; 32],
-    /// UpdateSigner signature over canonical bytes of this metadata.
+ /// UpdateSigner signature over canonical bytes of this metadata.
     #[serde(with = "serde_bytes")]
     pub update_signer_signature: Vec<u8>,
 }
 
 impl ExecutionProfileVersion {
-    /// Canonical bytes covered by the UpdateSigner signature.
+ /// Canonical bytes covered by the UpdateSigner signature.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(16 + 32 + 32);
         out.extend_from_slice(&self.profile_id);
@@ -78,7 +78,7 @@ impl ExecutionProfileVersion {
         out
     }
 
-    /// Verify the UpdateSigner signature over [`Self::canonical_bytes`].
+ /// Verify the UpdateSigner signature over [`Self::canonical_bytes`].
     pub fn verify_signature(
         &self,
         update_signer_public_key: &[u8; 32],
@@ -111,9 +111,9 @@ impl ExecutionProfileVersion {
             })
     }
 
-    /// Match against the node's active pinned profile. Version strings are not
-    /// used (PV-8.2a): only `profile_id` and `fuel_cost_table_hash` identify
-    /// compatible execution.
+ /// Match against the node's active pinned profile. Version strings are not
+ /// used (PV-8.2a): only `profile_id` and `fuel_cost_table_hash` identify
+ /// compatible execution.
     pub fn matches_active(&self, active: &ActiveExecutionProfile) -> bool {
         self.profile_id == active.profile_id
             && self.fuel_cost_table_hash == active.fuel_cost_table_hash
@@ -176,9 +176,9 @@ pub fn pinned_fuel_cost_table_hash() -> [u8; 32] {
 /// - SIMD (`v128`, relaxed SIMD, SIMD operators)
 /// - threads/atomics/shared memory
 /// - bulk memory ops beyond deterministic baseline are allowed only when they
-///   do not involve non-deterministic features; we reject all atomic/thread ops
+/// do not involve non-deterministic features; we reject all atomic/thread ops
 /// - imports (no WASI, no host clock, no host randomness, no env beyond
-///   explicit migration host ABI validated separately at instantiation)
+/// explicit migration host ABI validated separately at instantiation)
 /// - reference-types/function-references/gc features not needed for migrations
 ///
 /// The validator uses `wasmparser::Validator` with a restrictive feature set
@@ -190,9 +190,9 @@ impl DeterministicWasmProfile {
     pub fn validate(wasm_bytes: &[u8], migration_id: MigrationId) -> Result<(), TirBaseError> {
         let mid = hex::encode(migration_id);
 
-        // Phase 1: structural validation with deterministic-only features.
-        // `default()` in wasmparser 0.254 is permissive for many proposals; we
-        // construct restrictive features by disabling proposals that conflict.
+ // Phase 1: structural validation with deterministic-only features.
+ // `default()` in wasmparser 0.254 is permissive for many proposals; we
+ // construct restrictive features by disabling proposals that conflict.
         let mut features = wasmparser::WasmFeatures::default();
         features.remove(wasmparser::WasmFeatures::FLOATS);
         features.remove(wasmparser::WasmFeatures::SIMD);
@@ -204,7 +204,7 @@ impl DeterministicWasmProfile {
         features.remove(wasmparser::WasmFeatures::EXCEPTIONS);
         features.remove(wasmparser::WasmFeatures::MEMORY64);
         features.remove(wasmparser::WasmFeatures::COMPONENT_MODEL);
-        // Keep core integer/memory/control flow needed for deterministic migrations.
+ // Keep core integer/memory/control flow needed for deterministic migrations.
         let mut validator = Validator::new_with_features(features);
         if let Err(e) = validator.validate_all(wasm_bytes) {
             return Err(TirBaseError::MigrationDeterministicProfileViolation {
@@ -213,8 +213,8 @@ impl DeterministicWasmProfile {
             });
         }
 
-        // Phase 2: explicit operator/type/import walk. This is the
-        // wiring-mutation guard: removing it must allow forbidden modules.
+ // Phase 2: explicit operator/type/import walk. This is the
+ // wiring-mutation guard: removing it must allow forbidden modules.
         Self::scan_forbidden_constructs(wasm_bytes, migration_id)
     }
 
@@ -343,10 +343,10 @@ fn check_val_type(vt: ValType, mid: &str, ctx: &str) -> Result<(), TirBaseError>
 
 fn check_operator(op: &Operator<'_>, mid: &str) -> Result<(), TirBaseError> {
     use Operator::*;
-    // Reject by operator class/name pattern (robust across wasmparser minor
-    // variants). Float: F32*/F64*/I32TruncSatF*/I64TruncSatF* reinterpret/trunc
-    // forms. SIMD: V128*/I8x16*/I16x8*/I32x4*/I64x2*/F32x4*/F64x2*. Atomics:
-    // I32Atomic*/I64Atomic*/Atomic*/MemoryAtomic*.
+ // Reject by operator class/name pattern (robust across wasmparser minor
+ // variants). Float: F32*/F64*/I32TruncSatF*/I64TruncSatF* reinterpret/trunc
+ // forms. SIMD: V128*/I8x16*/I16x8*/I32x4*/I64x2*/F32x4*/F64x2*. Atomics:
+ // I32Atomic*/I64Atomic*/Atomic*/MemoryAtomic*.
     let dbg = format!("{op:?}");
     let forbidden = dbg.starts_with("F32")
         || dbg.starts_with("F64")
@@ -368,9 +368,9 @@ fn check_operator(op: &Operator<'_>, mid: &str) -> Result<(), TirBaseError> {
             format!("forbidden non-deterministic operator: {dbg}"),
         ));
     }
-    // Explicit high-signal checks (cheap) + allowlist fallthrough.
+ // Explicit high-signal checks (cheap) + allowlist fallthrough.
     match op {
-        // Float const/load/store/ops covered by prefix, but keep explicit for clarity.
+ // Float const/load/store/ops covered by prefix, but keep explicit for clarity.
         F32Const { .. }
         | F64Const { .. }
         | F32Load { .. }
@@ -380,9 +380,9 @@ fn check_operator(op: &Operator<'_>, mid: &str) -> Result<(), TirBaseError> {
         | MemoryAtomicNotify { .. }
         | MemoryAtomicWait32 { .. }
         | MemoryAtomicWait64 { .. } => Err(profile_err(mid, format!("forbidden operator: {dbg}"))),
-        // Call/CallIndirect are structurally allowed only in modules with no
-        // imports and only self-contained integer logic; imports were rejected
-        // above, so remaining calls are intra-module.
+ // Call/CallIndirect are structurally allowed only in modules with no
+ // imports and only self-contained integer logic; imports were rejected
+ // above, so remaining calls are intra-module.
         _ => Ok(()),
     }
 }
@@ -448,8 +448,8 @@ mod tests {
 
     #[test]
     fn conformance_corpus_hash_matches_committed_corpus() {
-        // PV-8.2a: the pinned corpus hash must be the real SHA-256 of the
-        // committed corpus file, never a placeholder.
+ // PV-8.2a: the pinned corpus hash must be the real SHA-256 of the
+ // committed corpus file, never a placeholder.
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/testdata/migration-conformance/corpus.json"

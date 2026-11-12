@@ -16,11 +16,11 @@ Task sections 46.x, 47.x, 48.x: 11 acceptance-criterion rows (11 complete, 0 ope
 Every row was traced against the repository; nothing was accepted on assertion. The audit:
 
 1. resolves each declared production-caller path on disk and each cited symbol to its
-   definition site (`file:line`);
+ definition site (`file:line`);
 2. resolves test identifiers in this order: a claim-named test (`claim_<task>`), a test
-   named in the task entry, the closest test in a test file named in the task entry, then
-   the test location committed in `docs/traceability-matrix.md` for the task's PV
-   requirement;
+ named in the task entry, the closest test in a test file named in the task entry, then
+ the test location committed in `docs/traceability-matrix.md` for the task's PV
+ requirement;
 3. records tasks with an open checkbox as `NOT IMPLEMENTED` or `BLOCKED` — never as verified.
 
 Evidence classes in the status column:

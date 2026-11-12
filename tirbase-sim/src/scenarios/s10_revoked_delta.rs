@@ -58,7 +58,7 @@ pub fn run_s10(seed: u64) -> Result<(), String> {
     }
     let before = victim.doc_map_range_root();
 
-    // Revocation is applied through the production engine gate.
+ // Revocation is applied through the production engine gate.
     victim.mark_did_revoked(&revoked_did);
 
     let attack = signed_delta(

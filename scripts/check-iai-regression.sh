@@ -31,10 +31,10 @@ base = open(base_path, 'r', errors='ignore').read()
 log = open(log_path, 'r', errors='ignore').read()
 def parse(txt):
     vals = {}
-    # patterns: "Instructions: 12345" or "Ir: 12345" or "  Instructions:  1,234"
+ # patterns: "Instructions: 12345" or "Ir: 12345" or " Instructions: 1,234"
     for name, num in re.findall(r'([\w:./-]+)\n\s*(?:Instructions|Ir|instructions)\s*[:=]?\s*([0-9,]+)', txt):
         vals[name.strip()] = int(num.replace(',',''))
-    # fallback: benchmark name then Instructions line nearby
+ # fallback: benchmark name then Instructions line nearby
     lines = txt.splitlines()
     cur = None
     for i,l in enumerate(lines):

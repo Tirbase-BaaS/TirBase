@@ -2,7 +2,7 @@
 
 > **Status:** Reference profile defined for baseline/performance and assurance validation. All numerical resource/performance budgets apply to profile **(a)** unless explicitly stated otherwise.
 
-**Release reviewed against:** `<fill at release>`  
+**Release reviewed against:** `<fill at release>` 
 **Last reviewed (UTC):** `<YYYY-MM-DD>`
 
 ## Profiles
@@ -45,10 +45,10 @@
 
 | Item | Required for | Present | Identifier/notes |
 |---|---|---:|---|
-| RPi 4B 1 GB (profile a) | Baseline perf/RSS/flash budgets | ☐ |  |
-| Second gateway + TPM2 (profile b) | Level 2 assurance (RD-2, RD-7) | ☐ |  |
-| Smart PDU (profile c) | Power-cut / durability tests | ☐ |  |
-| USB RS-485 adapter + Modbus device/sim host (profile d) | Driver/field-bus validation | ☐ |  |
+| RPi 4B 1 GB (profile a) | Baseline perf/RSS/flash budgets | ☐ | |
+| Second gateway + TPM2 (profile b) | Level 2 assurance (RD-2, RD-7) | ☐ | |
+| Smart PDU (profile c) | Power-cut / durability tests | ☐ | |
+| USB RS-485 adapter + Modbus device/sim host (profile d) | Driver/field-bus validation | ☐ | |
 
 ---
 *Reference hardware definition for PV-15.1/CLAIM-44.1. Budgets derived per PV-15.2 measure-first process.*

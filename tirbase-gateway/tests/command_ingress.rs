@@ -1,6 +1,5 @@
 //! Gateway/production integration test: all three command ingress paths
-//! converge on `CommandGuard::admit()` before `DriverProxy` dispatch (task 11.3,
-//! CLAIM-11.3, PV-4.4, INV-6).
+//! converge on `CommandGuard::admit()` before `DriverProxy` dispatch (//! CLAIM-11.3, PV-4.4, INV-6).
 //!
 //! This test exercises the same convergence contract the gateway ingress
 //! handlers implement (mesh/cloud/local admin each call `guard.admit()` with

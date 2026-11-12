@@ -1,4 +1,4 @@
-//! Property tests for anti-replay window (task 20.6, CLAIM-20.6, PV-5.5).
+//! Property tests for anti-replay window (CLAIM-20.6, PV-5.5).
 //! P7: sequence numbers outside the window are always rejected.
 //! P8: accepted sequence numbers are never re-accepted within the same enrollment epoch.
 
@@ -10,7 +10,7 @@ use tirbase_guard::anti_replay::{
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]
 
-    /// P7: any seq outside [highest_seen - W, highest_seen + G] is rejected.
+ /// P7: any seq outside [highest_seen - W, highest_seen + G] is rejected.
     #[test]
     fn p7_sequences_outside_window_always_rejected(
         highest in 1u64..10_000,
@@ -25,7 +25,7 @@ proptest! {
         } else {
             highest.saturating_add(DEFAULT_FORWARD_GAP_G + delta)
         };
-        // Only assert "outside" when it truly is (saturating_sub can collapse).
+ // Only assert "outside" when it truly is (saturating_sub can collapse).
         let lower = highest.saturating_sub(DEFAULT_WINDOW_W);
         let upper = highest.saturating_add(DEFAULT_FORWARD_GAP_G);
         if seq < lower || seq > upper {
@@ -37,9 +37,9 @@ proptest! {
         }
     }
 
-    /// P8: once accepted in an epoch, the same (issuer,target,seq,epoch) is never re-accepted.
-    /// It may be reported as `Replay` (still in bitmap) or `OutsideWindow` (window slid past);
-    /// both satisfy INV-10's "accepted at most once".
+ /// P8: once accepted in an epoch, the same (issuer,target,seq,epoch) is never re-accepted.
+ /// It may be reported as `Replay` (still in bitmap) or `OutsideWindow` (window slid past);
+ /// both satisfy INV-10's "accepted at most once".
     #[test]
     fn p8_accepted_sequence_never_reaccepted_same_epoch(
         seqs in prop::collection::vec(1u64..500, 1..32),
@@ -59,14 +59,14 @@ proptest! {
                     "P8: accepted seq must never be re-accepted (seq={}, got={:?})", seq, d
                 );
             }
-            // Re-check every accepted seq: must never be accepted again.
+ // Re-check every accepted seq: must never be accepted again.
             for &a in &accepted {
                 prop_assert!(!w.check(a).is_accepted(), "P8: accepted seq re-accepted in same epoch (seq={})", a);
             }
         }
     }
 
-    /// Enrollment epoch scoping: same seq in a different epoch window instance is independent.
+ /// Enrollment epoch scoping: same seq in a different epoch window instance is independent.
     #[test]
     fn epoch_scoping_independent_windows(
         seq in 1u64..200,

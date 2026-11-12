@@ -1,5 +1,5 @@
 //! LOCKDOWN entry/exit, persistence, crash-loop escalation, and safe-default
-//! arming (tasks 13.2, 13.3, 13.5, 13.6 — CLAIM-13.2/3/5/6, PV-1.11, PV-4.13,
+//! arming (CLAIM-13.2/3/5/6, PV-1.11, PV-4.13,
 //! PV-4.15, INV-5, S24).
 
 use std::fmt;
@@ -80,9 +80,9 @@ impl From<TrustRootError> for LockdownError {
     }
 }
 
-/// Durable LOCKDOWN persistence.  Production implementation persists to
+/// Durable LOCKDOWN persistence. Production implementation persists to
 /// `primary.db` `monotonic_counters(lockdown_state)` AND a secondary file
-/// indicator (CLAIM-13.2).  `/run` must never be the sole persistence.
+/// indicator (CLAIM-13.2). `/run` must never be the sole persistence.
 pub trait LockdownStore: Send + Sync + fmt::Debug {
     fn set_lockdown(&self, reason: LockdownEntryReason) -> Result<(), LockdownError>;
     fn clear_lockdown(&self) -> Result<(), LockdownError>;
@@ -375,8 +375,8 @@ pub fn apply_chain_recovery(
         return Err(e.into());
     }
 
-    // 26.2: require at least one valid, authorized signature (threshold verified by SignedOperation+trust root resolver).
-    // Multi-party/high-trust policy is enforced by the TrustRootRecord role thresholds on the authorized signers.
+ // 26.2: require at least one valid, authorized signature (threshold verified by SignedOperation+trust root resolver).
+ // Multi-party/high-trust policy is enforced by the TrustRootRecord role thresholds on the authorized signers.
     let mut distinct_roles: Vec<CommandRole> = Vec::new();
     let mut distinct_signers = std::collections::HashSet::new();
     for entry in &operation.signatures {
@@ -503,7 +503,7 @@ pub fn apply_crash_decision(
 // Option (a): proactively program controller fallback/watchdog registers while
 // the guard is healthy so the controller self-reverts on loss of command.
 // ExecStopPost= cannot drive safe defaults because driver children die with the
-// guard.  See docs/safe-default-guard-death.md.
+// guard. See docs/safe-default-guard-death.md.
 
 pub trait SafeDefaultBinding: Send + Sync + fmt::Debug {
     fn controller_id(&self) -> &str;

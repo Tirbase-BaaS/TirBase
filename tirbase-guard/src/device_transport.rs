@@ -15,12 +15,12 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 /// Parent-owned physical device transport.
 #[derive(Debug)]
 pub enum DeviceTransport {
-    /// Modbus TCP client socket owned by the guard/parent.
+ /// Modbus TCP client socket owned by the guard/parent.
     ModbusTcp(TcpStream),
-    /// Modbus RTU / serial device fd owned by the guard/parent.
+ /// Modbus RTU / serial device fd owned by the guard/parent.
     #[cfg(unix)]
     ModbusRtu(OwnedFd),
-    /// Generic pre-opened device fd owned by the guard/parent.
+ /// Generic pre-opened device fd owned by the guard/parent.
     #[cfg(unix)]
     Raw(OwnedFd),
 }
@@ -44,9 +44,9 @@ impl DeviceTransport {
         Ok(DeviceTransport::ModbusTcp(stream))
     }
 
-    /// Open/configure a Modbus RTU serial device. Real termios configuration is
-    /// performed by the platform opener (typically `tirbase-drivers`); the guard
-    /// takes ownership of the resulting fd.
+ /// Open/configure a Modbus RTU serial device. Real termios configuration is
+ /// performed by the platform opener (typically `tirbase-drivers`); the guard
+ /// takes ownership of the resulting fd.
     #[cfg(unix)]
     pub fn open_modbus_rtu_with<F>(opener: F) -> io::Result<Self>
     where
@@ -65,19 +65,19 @@ impl DeviceTransport {
         DeviceTransport::Raw(fd)
     }
 
-    /// Legacy unsafe-shaped API retained for compatibility; callers should prefer
-    /// `from_modbus_rtu_fd(OwnedFd)`.
-    ///
-    /// # Safety
-    /// `fd` must be a valid, open file descriptor not owned elsewhere.
+ /// Legacy unsafe-shaped API retained for compatibility; callers should prefer
+ /// `from_modbus_rtu_fd(OwnedFd)`.
+ ///
+ /// # Safety
+ /// `fd` must be a valid, open file descriptor not owned elsewhere.
     #[cfg(unix)]
     pub unsafe fn from_raw_modbus_rtu(fd: RawFd) -> Self {
         DeviceTransport::ModbusRtu(OwnedFd::from_raw_fd(fd))
     }
 
-    /// Real Modbus RTU serial open/config via platform opener (CLAIM-34.8).
-    /// Production callers pass `tirbase_drivers::open_modbus_rtu` with a
-    /// `ModbusRtuSerialConfig` (termios-configured fd); the guard owns the fd.
+ /// Real Modbus RTU serial open/config via platform opener (CLAIM-34.8).
+ /// Production callers pass `tirbase_drivers::open_modbus_rtu` with a
+ /// `ModbusRtuSerialConfig` (termios-configured fd); the guard owns the fd.
     #[cfg(unix)]
     pub fn open_modbus_rtu(
         path: &Path,
@@ -97,8 +97,8 @@ impl DeviceTransport {
         Self::open_modbus_rtu_with(|| tirbase_drivers::open_modbus_rtu(path, cfg))
     }
 
-    /// Placeholder path-based RTU open for non-Unix or when no platform opener is
-    /// supplied. Production callers must use `open_modbus_rtu_with` / `open_modbus_rtu`.
+ /// Placeholder path-based RTU open for non-Unix or when no platform opener is
+ /// supplied. Production callers must use `open_modbus_rtu_with` / `open_modbus_rtu`.
     pub fn modbus_rtu_path_unavailable(_path: &Path) -> io::Result<Self> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
@@ -134,11 +134,11 @@ impl GuardDeviceTransport {
         Self { transport }
     }
 
-    /// Pass the device fd to the child using the provided SCM_RIGHTS sender.
-    ///
-    /// `send_fd(socket_fd, device_fd)` must transfer `device_fd` via SCM_RIGHTS on
-    /// `socket_fd`. Wiring mutation check (34.8): omitting SCM_RIGHTS passing must
-    /// fail tests.
+ /// Pass the device fd to the child using the provided SCM_RIGHTS sender.
+ ///
+ /// `send_fd(socket_fd, device_fd)` must transfer `device_fd` via SCM_RIGHTS on
+ /// `socket_fd`. Wiring mutation check (34.8): omitting SCM_RIGHTS passing must
+ /// fail tests.
     #[cfg(unix)]
     pub fn pass_device_fd_with<F>(&self, socket_fd: RawFd, send_fd: F) -> io::Result<()>
     where
@@ -148,15 +148,15 @@ impl GuardDeviceTransport {
         let device_fd = dup.into_raw_fd();
         let res = send_fd(socket_fd, device_fd);
         if res.is_err() {
-            // Reclaim the dup on sender failure; sender owns on success.
-            // SAFETY: `device_fd` came from `into_raw_fd()` above and sender did not take it.
+ // Reclaim the dup on sender failure; sender owns on success.
+ // SAFETY: `device_fd` came from `into_raw_fd()` above and sender did not take it.
             drop(unsafe { OwnedFd::from_raw_fd(device_fd) });
         }
         res
     }
 
     #[cfg(unix)]
-    /// Convenience: pass fd using a sender with a typed error.
+ /// Convenience: pass fd using a sender with a typed error.
     pub fn pass_device_fd_result<E, F>(&self, socket_fd: RawFd, send_fd: F) -> Result<(), E>
     where
         F: FnOnce(RawFd, RawFd) -> Result<(), E>,

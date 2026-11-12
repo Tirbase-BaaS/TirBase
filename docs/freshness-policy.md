@@ -1,8 +1,8 @@
 # Freshness Policy for Non-Critical Commands When `FreshnessState::Unverified`
 
-**Version:** 1.0  
-**Last Updated:** 2025-07-14  
-**CLAIMS Entry:** CLAIM-3.12  
+**Version:** 1.0 
+**Last Updated:** 2025-07-14 
+**CLAIMS Entry:** CLAIM-3.12 
 **Requirement:** PV-22.3
 
 ---
@@ -18,16 +18,16 @@ unavailable, the system enters `FreshnessState::Unverified`.
 `FreshnessState::Unverified` occurs in the following situations:
 
 - **No beacon has been received since boot.** After a reboot the system cannot reconstruct a
-  trusted monotonic offset relative to a new beacon; `now_est` falls back to `persisted_floor` but
-  freshness is unknown.
+ trusted monotonic offset relative to a new beacon; `now_est` falls back to `persisted_floor` but
+ freshness is unknown.
 - **Beacon gap exceeds the staleness window.** No `TimeBeacon` has been accepted within the
-  configurable staleness window (default: 3600 seconds / 1 hour; set by `staleness_window_secs` in
-  `DeploymentConfig`). This covers satellite link loss, NTS server unavailability, or Galileo
-  OSNMA signal outage.
+ configurable staleness window (default: 3600 seconds / 1 hour; set by `staleness_window_secs` in
+ `DeploymentConfig`). This covers satellite link loss, NTS server unavailability, or Galileo
+ OSNMA signal outage.
 - **Cross-boot monotonic subtraction is invalid.** If `current_boot_id != beacon_boot_id`, the
-  `mono_now − mono_at_beacon` subtraction is invalid (different boot session). The ratchet falls
-  back to `persisted_floor` and freshness becomes Unverified until a new beacon arrives in this
-  boot.
+ `mono_now − mono_at_beacon` subtraction is invalid (different boot session). The ratchet falls
+ back to `persisted_floor` and freshness becomes Unverified until a new beacon arrives in this
+ boot.
 
 While in `Unverified` state the system cannot reliably evaluate command expiry using `now_est`
 (PV-22.1). This does not mean the system must halt; it must apply a defined degraded-operation
@@ -52,9 +52,9 @@ the parameter's criticality level.
 
 **Cons:**
 - Unacceptable for cold-chain, energy-edge, or building-automation deployments where devices must
-  remain operational during intermittent NTS/Roughtime/Galileo outages.
+ remain operational during intermittent NTS/Roughtime/Galileo outages.
 - A brief beacon gap (e.g., a 10-minute NTS reconnect) would halt all non-safety-critical
-  actuation across the site.
+ actuation across the site.
 - This effectively makes beacon availability a hard availability dependency.
 
 ### Option (b) — Flag with `UNVERIFIED` SecurityEvent and Allow with Narrowed Envelope
@@ -71,9 +71,9 @@ enforces a tighter envelope (e.g., ±5 % of the normal bounds). A `FreshnessUnve
 - Requires a second set of narrowed envelope parameters per profile, doubling the policy surface.
 - Operators must manage and update both normal and narrowed bounds per device class.
 - The narrowed envelope is not currently defined in `EnvelopeProfile`; adding it would be a
-  significant schema change.
+ significant schema change.
 - Envelope narrowing does not address the core problem: the system does not know *how long* it has
-  been operating without a beacon.
+ been operating without a beacon.
 
 ### Option (c) — Allow Within a Configurable Timeout After Last Beacon (CHOSEN)
 
@@ -89,13 +89,13 @@ every command that is accepted while the window is open.
 - No schema changes to `EnvelopeProfile`.
 - Consistent with the challenge-nonce model already used for critical parameters.
 - The threshold parameter (`beacon_signal_loss_threshold_secs`) already exists in the design's
-  `DeploymentConfig`.
+ `DeploymentConfig`.
 
 **Cons:**
 - Commands accepted near the end of the tolerance window use an increasingly stale time estimate.
 - A brief `Verified → Unverified → Verified` flicker (e.g., NTS reconnect mid-command) may cause
-  a short burst of `FreshnessUnverified` events that operators must distinguish from a sustained
-  outage.
+ a short burst of `FreshnessUnverified` events that operators must distinguish from a sustained
+ outage.
 
 ---
 
@@ -137,9 +137,9 @@ This value is chosen to:
 
 - Absorb normal NTS server jitter and brief link interruptions in European infrastructure.
 - Remain well within the 3600-second staleness window (`staleness_window_secs`) that governs the
-  transition from `Verified` to `Unverified`.
+ transition from `Verified` to `Unverified`.
 - Provide a measurable audit trail: every command accepted in this window carries a
-  `FreshnessUnverified` SecurityEvent.
+ `FreshnessUnverified` SecurityEvent.
 
 Operators in high-assurance deployments who want a tighter window should set
 `beacon_signal_loss_threshold_secs` to a smaller value (e.g., `60`). Operators who need longer
@@ -156,11 +156,11 @@ elapsed_secs = mono_now - mono_at_beacon
 ```
 
 - If `current_boot_id != beacon_boot_id` (post-reboot cross-boot case), `mono_at_beacon` is from a
-  different boot session and the subtraction is invalid. In this case `elapsed_secs` is treated as
-  **infinite** (i.e., the tolerance window is considered already expired). The device must receive a
-  fresh beacon in the new boot session before non-critical commands are accepted while in Unverified
-  state.
-- This is the same boot-ID-awareness already applied in `TimeRatchet::now_est()`.
+ different boot session and the subtraction is invalid. In this case `elapsed_secs` is treated as
+ **infinite** (i.e., the tolerance window is considered already expired). The device must receive a
+ fresh beacon in the new boot session before non-critical commands are accepted while in Unverified
+ state.
+- This is the same boot-ID-awareness already applied in `TimeRatchet::now_est`.
 
 ---
 
@@ -216,38 +216,38 @@ check. The pseudocode for non-critical parameters under this policy is:
 let freshness = ratchet.freshness_state(time_source, deployment_config.staleness_window_secs);
 
 match freshness {
-    FreshnessState::Verified => {
-        // No freshness concern; critical and non-critical proceed normally.
-    }
-    FreshnessState::Unverified => {
-        if param.critical {
-            // Critical params always require a challenge nonce in Unverified state.
-            let nonce = cmd.challenge_nonce.ok_or(ChallengeMissing)?;
-            verify_challenge_nonce(nonce, &cmd)?;
-        } else {
-            // Non-critical params: apply the staleness tolerance window.
-            let elapsed = if time_source.boot_id() != ratchet.beacon_boot_id {
-                // Cross-boot: treat elapsed as infinite.
-                u64::MAX
-            } else {
-                time_source.monotonic_now().saturating_sub(ratchet.mono_at_beacon)
-            };
+ FreshnessState::Verified => {
+ // No freshness concern; critical and non-critical proceed normally.
+ }
+ FreshnessState::Unverified => {
+ if param.critical {
+ // Critical params always require a challenge nonce in Unverified state.
+ let nonce = cmd.challenge_nonce.ok_or(ChallengeMissing)?;
+ verify_challenge_nonce(nonce, &cmd)?;
+ } else {
+ // Non-critical params: apply the staleness tolerance window.
+ let elapsed = if time_source.boot_id != ratchet.beacon_boot_id {
+ // Cross-boot: treat elapsed as infinite.
+ u64::MAX
+ } else {
+ time_source.monotonic_now.saturating_sub(ratchet.mono_at_beacon)
+ };
 
-            if elapsed > deployment_config.beacon_signal_loss_threshold_secs as u64 {
-                // Window expired: reject with the same code as critical parameters.
-                return Err(RejectionCategory::ChallengeMissing);
-            }
+ if elapsed > deployment_config.beacon_signal_loss_threshold_secs as u64 {
+ // Window expired: reject with the same code as critical parameters.
+ return Err(RejectionCategory::ChallengeMissing);
+ }
 
-            // Within tolerance window: allow, but emit a FreshnessUnverified SecurityEvent.
-            // (Event is emitted at Stage 17 by the caller; this stage returns Ok.)
-            ctx.mark_freshness_unverified(elapsed); // deferred to Stage 17
-        }
-    }
+ // Within tolerance window: allow, but emit a FreshnessUnverified SecurityEvent.
+ // (Event is emitted at Stage 17 by the caller; this stage returns Ok.)
+ ctx.mark_freshness_unverified(elapsed); // deferred to Stage 17
+ }
+ }
 }
 ```
 
-Note: `simulate()` returns the exact `RejectionCategory` that would be used without performing any
-actuation, SecurityEvent emission, or nonce consumption (per the `simulate()` contract in
+Note: `simulate` returns the exact `RejectionCategory` that would be used without performing any
+actuation, SecurityEvent emission, or nonce consumption (per the `simulate` contract in
 `design.md` §4.5).
 
 ---
@@ -262,10 +262,10 @@ of the verification for CLAIM-3.12 and PV-22.3.
 **Setup:**
 
 1. Initialize the simulator with a fully enrolled device, a valid `EnvelopeProfile` containing:
-   - A non-critical parameter `temperature_setpoint` (`critical: false`)
-   - A critical parameter `emergency_shutoff` (`critical: true`)
+ - A non-critical parameter `temperature_setpoint` (`critical: false`)
+ - A critical parameter `emergency_shutoff` (`critical: true`)
 2. Issue a valid `TimeBeacon` at `T=0`. The `TimeRatchet` advances; `FreshnessState` becomes
-   `Verified`.
+ `Verified`.
 3. Set `beacon_signal_loss_threshold_secs = 300` in `DeploymentConfig`.
 
 **Step 1 — Baseline in Verified state:**
@@ -276,17 +276,17 @@ of the verification for CLAIM-3.12 and PV-22.3.
 **Step 2 — Advance clock to within the tolerance window (T=290s, elapsed=290s < 300s):**
 
 - Stop issuing beacons. Advance the mock monotonic clock by 290 seconds so that
-  `mono_now - mono_at_beacon = 290`.
+ `mono_now - mono_at_beacon = 290`.
 - At this point, `staleness_window_secs` has NOT been exceeded (1 hour default), so strictly
-  `FreshnessState` depends on the staleness window. To ensure `Unverified` state for the test,
-  configure `staleness_window_secs = 60` so the system enters `Unverified` after 60s without a
-  beacon.
+ `FreshnessState` depends on the staleness window. To ensure `Unverified` state for the test,
+ configure `staleness_window_secs = 60` so the system enters `Unverified` after 60s without a
+ beacon.
 - **Verify `FreshnessState::Unverified`** (elapsed since beacon > `staleness_window_secs`).
 - Send a non-critical command (`temperature_setpoint`).
 - **Expected:**
-  - Command **accepted** (elapsed 290s < threshold 300s).
-  - One `FreshnessUnverified` SecurityEvent emitted with `elapsed_secs ≈ 290`, `threshold_secs = 300`.
-  - `simulate()` called with the same command returns `Simulated { would_accept: true, rejection_reason: None }`.
+ - Command **accepted** (elapsed 290s < threshold 300s).
+ - One `FreshnessUnverified` SecurityEvent emitted with `elapsed_secs ≈ 290`, `threshold_secs = 300`.
+ - `simulate` called with the same command returns `Simulated { would_accept: true, rejection_reason: None }`.
 
 **Step 3 — Advance clock past the tolerance window (T=310s, elapsed=310s > 300s):**
 
@@ -294,10 +294,10 @@ of the verification for CLAIM-3.12 and PV-22.3.
 - `FreshnessState::Unverified` (still no beacon).
 - Send a non-critical command (`temperature_setpoint`).
 - **Expected:**
-  - Command **rejected** with `RejectionCategory::ChallengeMissing` (external code: `CHALLENGE_REQUIRED`).
-  - No actuation occurs.
-  - No `FreshnessUnverified` SecurityEvent (command was rejected before Stage 17).
-  - `simulate()` returns `Simulated { would_accept: false, rejection_reason: Some(ChallengeMissing) }`.
+ - Command **rejected** with `RejectionCategory::ChallengeMissing` (external code: `CHALLENGE_REQUIRED`).
+ - No actuation occurs.
+ - No `FreshnessUnverified` SecurityEvent (command was rejected before Stage 17).
+ - `simulate` returns `Simulated { would_accept: false, rejection_reason: Some(ChallengeMissing) }`.
 
 **Step 4 — Critical parameter rejects throughout (T=10s, Verified state):**
 
@@ -308,7 +308,7 @@ of the verification for CLAIM-3.12 and PV-22.3.
 **Step 4b — Critical parameter rejects in Unverified state without a nonce:**
 
 - With `FreshnessState::Unverified` and elapsed = 10s (within the 300s window for non-critical),
-  send a critical command (`emergency_shutoff`) **without** a challenge nonce.
+ send a critical command (`emergency_shutoff`) **without** a challenge nonce.
 - **Expected:** Command **rejected** with `ChallengeMissing`. The tolerance window does not apply.
 
 **Step 5 — Cross-boot: tolerance window expired immediately:**
@@ -342,10 +342,10 @@ critical), the rejection must be recorded in the decided-outcome cache. A subseq
 same command:
 
 - **If the cache entry was not written** (rejection before Stage 16): the command may be
-  re-submitted with a fresh sequence number or (for critical params) with a challenge nonce after
-  one is issued.
+ re-submitted with a fresh sequence number or (for critical params) with a challenge nonce after
+ one is issued.
 - **If the cache entry was written** (idempotent retry path): the cached outcome (rejected) is
-  returned without re-evaluating Stage 9.
+ returned without re-evaluating Stage 9.
 
 The freshness-related rejection occurs at **Stage 9**, which is before the Stage 16 atomic commit.
 Therefore freshness-rejected commands do NOT consume sequence numbers or idempotency keys.

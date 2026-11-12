@@ -1,5 +1,5 @@
 #!/bin/sh
-# tirbase-gateway prerm (task 37.2, PV-11.4).
+# tirbase-gateway prerm (PV-11.4).
 set -e
 
 if command -v systemctl >/dev/null 2>&1; then

@@ -64,7 +64,7 @@ def strip_noise(text: str) -> str:
                 out[k] = " "
             i = j
         elif c == "/" and nxt == "*":
-            # Rust block comments nest.
+ # Rust block comments nest.
             depth = 1
             j = i + 2
             while j < n and depth:
@@ -95,8 +95,8 @@ def strip_noise(text: str) -> str:
                     out[k] = " "
             i = j
         elif c == "'":
-            # Character literal (`'a'`) vs lifetime (`'a`).  Only strip the
-            # former; lifetimes do not contain braces or quotes.
+ # Character literal (`'a'`) vs lifetime (`'a`). Only strip the
+ # former; lifetimes do not contain braces or quotes.
             j = i + 1
             if j < n and text[j] == "\\":
                 j += 2
@@ -136,14 +136,14 @@ def excluded_ranges(stripped: str) -> list[tuple[int, int]]:
         cond = match.group(1)
         if "test" not in cond:
             continue
-        # Attribute may be part of a cfg(any(test, ...)) group; only skip when
-        # the condition actually enables the item for tests (not `not(test)`).
+ # Attribute may be part of a cfg(any(test, ...)) group; only skip when
+ # the condition actually enables the item for tests (not `not(test)`).
         if re.search(r"\bnot\s*\(\s*test\s*\)", cond):
             continue
         j = match.end()
         while j < len(stripped) and stripped[j] in " \t\r\n":
             j += 1
-        # Skip further attributes on the same item.
+ # Skip further attributes on the same item.
         while stripped.startswith("#", j):
             close = stripped.find("]", j)
             if close == -1:
@@ -186,8 +186,8 @@ def scan_file(path: Path, repo_root: Path) -> list[StatefulStruct]:
         brace = stripped.find("{", match.end())
         if brace == -1:
             continue
-        # A `;` before the next `{` means a tuple/unit struct, not a stateful
-        # named-field container.
+ # A `;` before the next `{` means a tuple/unit struct, not a stateful
+ # named-field container.
         semi = stripped.find(";", match.end())
         if semi != -1 and semi < brace:
             continue

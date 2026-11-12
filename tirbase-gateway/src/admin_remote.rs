@@ -1,15 +1,15 @@
-//! Remote admin listener with mandatory mutual TLS (task 36.2, PV-11.2).
+//! Remote admin listener with mandatory mutual TLS (PV-11.2).
 //!
 //! The local admin API is authenticated by kernel peer credentials on a Unix
-//! socket.  Remote admin is a **separate, explicitly configured** TCP listener
+//! socket. Remote admin is a **separate, explicitly configured** TCP listener
 //! that only accepts clients presenting a certificate chaining to the
-//! configured client CA.  There is no plaintext or optional-client-cert mode:
+//! configured client CA. There is no plaintext or optional-client-cert mode:
 //! a missing or untrusted client certificate fails the TLS handshake before any
 //! request bytes are read.
 //!
 //! Requests use a deliberately small HTTP/1.1 surface (one request per
 //! connection, `Content-Length` bounded) and are translated into the same JSON
-//! command envelope as the local socket.  Privileged operations additionally
+//! command envelope as the local socket. Privileged operations additionally
 //! require a scoped Biscuit token (`Authorization: Bearer <hex>`), because a
 //! client certificate proves transport identity but not an admin role.
 
@@ -77,7 +77,7 @@ fn load_private_key(path: &Path) -> Result<rustls::pki_types::PrivateKeyDer<'sta
     rustls_pemfile::private_key(&mut reader)?.context("no PEM private key found")
 }
 
-/// Bind the remote admin listener.  This is only called when
+/// Bind the remote admin listener. This is only called when
 /// [`crate::config::GatewayConfig::admin_remote_addr`] and all mTLS material are
 /// configured.
 pub async fn run_remote_admin_listener(
@@ -100,8 +100,8 @@ pub async fn run_remote_admin_listener(
                     }
                 }
                 Err(error) => {
-                    // Fail closed: without a valid client certificate no request
-                    // bytes are processed at all.
+ // Fail closed: without a valid client certificate no request
+ // bytes are processed at all.
                     tracing::warn!(%peer, %error, "remote admin TLS handshake rejected");
                 }
             }

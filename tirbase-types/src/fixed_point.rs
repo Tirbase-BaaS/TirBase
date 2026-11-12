@@ -23,13 +23,13 @@ use crate::UnitId;
 /// - `UnitMismatch` → caller tried to compare values with different `unit_id`s (CLAIM-4.4)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FixedPointError {
-    /// The input was NaN, +∞, or −∞ (IEEE 754 non-finite).
+ /// The input was NaN, +∞, or −∞ (IEEE 754 non-finite).
     NonFiniteInput,
-    /// Rescaling to the canonical exponent would overflow an `i64` mantissa.
+ /// Rescaling to the canonical exponent would overflow an `i64` mantissa.
     OverflowOnConversion,
-    /// Rescaling to the canonical exponent would be lossy (remainder is non-zero).
+ /// Rescaling to the canonical exponent would be lossy (remainder is non-zero).
     LossyConversion,
-    /// The two values have different `unit_id`s; comparison is undefined.
+ /// The two values have different `unit_id`s; comparison is undefined.
     UnitMismatch,
 }
 
@@ -38,11 +38,11 @@ pub enum FixedPointError {
 /// Result of an envelope bounds check (INV-1, CLAIM-4.4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundsCheck {
-    /// `min ≤ self ≤ max` in the same unit.
+ /// `min ≤ self ≤ max` in the same unit.
     WithinBounds,
-    /// `self < min`.
+ /// `self < min`.
     BelowMin,
-    /// `self > max`.
+ /// `self > max`.
     AboveMax,
 }
 
@@ -63,22 +63,22 @@ pub enum BoundsCheck {
 /// conversion boundary. There is no negative-zero issue in this type itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct FixedPointValue {
-    /// Signed integer mantissa.
+ /// Signed integer mantissa.
     pub mantissa: i64,
-    /// Power-of-ten exponent: value = `mantissa × 10^exponent`.
+ /// Power-of-ten exponent: value = `mantissa × 10^exponent`.
     pub exponent: i8,
-    /// Unit identifier (from `docs/unit-registry.md`).
+ /// Unit identifier (from `docs/unit-registry.md`).
     pub unit_id: UnitId,
 }
 
 impl FixedPointValue {
-    // ── Constructors ─────────────────────────────────────────────────────────
+ // ── Constructors ─────────────────────────────────────────────────────────
 
-    /// Construct a new `FixedPointValue` directly from its components.
-    ///
-    /// No canonicalisation is performed here; use
-    /// [`with_canonical_exponent`][Self::with_canonical_exponent] to enforce a profile
-    /// canonical exponent before passing to the guard.
+ /// Construct a new `FixedPointValue` directly from its components.
+ ///
+ /// No canonicalisation is performed here; use
+ /// [`with_canonical_exponent`][Self::with_canonical_exponent] to enforce a profile
+ /// canonical exponent before passing to the guard.
     #[inline]
     pub const fn new(mantissa: i64, exponent: i8, unit_id: UnitId) -> Self {
         Self {
@@ -88,41 +88,41 @@ impl FixedPointValue {
         }
     }
 
-    // ── Float-to-fixed conversion (CLAIM-4.3, PV-21.1, PV-21.3) ─────────────
+ // ── Float-to-fixed conversion (CLAIM-4.3, PV-21.1, PV-21.3) ─────────────
 
-    /// Convert a finite `f64` to a `FixedPointValue` at the given
-    /// `target_exponent` and `unit_id`.
-    ///
-    /// This is the **ingress boundary** for any floating-point value entering the
-    /// guard pipeline. It enforces the following invariants required by CLAIM-4.3:
-    ///
-    /// | Input   | Result |
-    /// |---------|--------|
-    /// | NaN     | `Err(FixedPointError::NonFiniteInput)` |
-    /// | +∞      | `Err(FixedPointError::NonFiniteInput)` |
-    /// | −∞      | `Err(FixedPointError::NonFiniteInput)` |
-    /// | −0.0    | `Ok(…)` with `mantissa == 0` (normalised) |
-    /// | overflow i64 | `Err(FixedPointError::OverflowOnConversion)` |
-    ///
-    /// # Scaling
-    ///
-    /// `mantissa = round(value × 10^(−target_exponent))`
-    ///
-    /// Example: `value = 25.5`, `target_exponent = -1` → `mantissa = 255`.
-    ///
-    /// # Wiring note (CLAIM-4.3 mutation check)
-    /// The three non-finite checks are tagged with `// CLAIM-4.3` comments.
-    /// Removing **any** of those three `return Err(…)` branches will cause the
-    /// corresponding unit test (`from_f64_nan_rejected`, `from_f64_pos_inf_rejected`,
-    /// `from_f64_neg_inf_rejected`) and the ingress-boundary integration test in
-    /// `tirbase-guard` to fail.
+ /// Convert a finite `f64` to a `FixedPointValue` at the given
+ /// `target_exponent` and `unit_id`.
+ ///
+ /// This is the **ingress boundary** for any floating-point value entering the
+ /// guard pipeline. It enforces the following invariants required by CLAIM-4.3:
+ ///
+ /// | Input | Result |
+ /// |---------|--------|
+ /// | NaN | `Err(FixedPointError::NonFiniteInput)` |
+ /// | +∞ | `Err(FixedPointError::NonFiniteInput)` |
+ /// | −∞ | `Err(FixedPointError::NonFiniteInput)` |
+ /// | −0.0 | `Ok(…)` with `mantissa == 0` (normalised) |
+ /// | overflow i64 | `Err(FixedPointError::OverflowOnConversion)` |
+ ///
+ /// # Scaling
+ ///
+ /// `mantissa = round(value × 10^(−target_exponent))`
+ ///
+ /// Example: `value = 25.5`, `target_exponent = -1` → `mantissa = 255`.
+ ///
+ /// # Wiring note (CLAIM-4.3 mutation check)
+ /// The three non-finite checks are tagged with `// CLAIM-4.3` comments.
+ /// Removing **any** of those three `return Err(…)` branches will cause the
+ /// corresponding unit test (`from_f64_nan_rejected`, `from_f64_pos_inf_rejected`,
+ /// `from_f64_neg_inf_rejected`) and the ingress-boundary integration test in
+ /// `tirbase-guard` to fail.
     pub fn from_f64(
         value: f64,
         target_exponent: i8,
         unit_id: UnitId,
     ) -> Result<Self, FixedPointError> {
-        // ── CLAIM-4.3: non-finite rejection ──────────────────────────────────
-        // NaN must be checked first because NaN comparisons always return false.
+ // ── CLAIM-4.3: non-finite rejection ──────────────────────────────────
+ // NaN must be checked first because NaN comparisons always return false.
         if value.is_nan() {
             return Err(FixedPointError::NonFiniteInput); // CLAIM-4.3 NaN check
         }
@@ -132,19 +132,19 @@ impl FixedPointValue {
         if value == f64::NEG_INFINITY {
             return Err(FixedPointError::NonFiniteInput); // CLAIM-4.3 −∞ check
         }
-        // ─────────────────────────────────────────────────────────────────────
+ // ─────────────────────────────────────────────────────────────────────
 
-        // Normalise IEEE 754 −0 to +0.  Integer types have no negative zero;
-        // this is the only place in the codebase where float −0 can appear.
+ // Normalise IEEE 754 −0 to +0. Integer types have no negative zero;
+ // this is the only place in the codebase where float −0 can appear.
         let value = if value == 0.0_f64 { 0.0_f64 } else { value };
 
-        // Scale: mantissa = round(value × 10^(−target_exponent)).
-        // `libm` is used so this compiles under `no_std` (core `f64` has no inherent `powi`/`round`).
+ // Scale: mantissa = round(value × 10^(−target_exponent)).
+ // `libm` is used so this compiles under `no_std` (core `f64` has no inherent `powi`/`round`).
         let scale = libm::pow(10.0_f64, -(target_exponent as f64));
         let scaled = value * scale;
 
-        // Reject values that cannot be represented as i64 before casting.
-        // `i64::MAX as f64` is the largest representable f64 that fits in i64.
+ // Reject values that cannot be represented as i64 before casting.
+ // `i64::MAX as f64` is the largest representable f64 that fits in i64.
         if scaled > i64::MAX as f64 || scaled < i64::MIN as f64 {
             return Err(FixedPointError::OverflowOnConversion);
         }
@@ -157,34 +157,34 @@ impl FixedPointValue {
         })
     }
 
-    // ── Canonical-exponent enforcement (CLAIM-4.2, PV-21.1) ─────────────────
+ // ── Canonical-exponent enforcement (CLAIM-4.2, PV-21.1) ─────────────────
 
-    /// Rescale this value to `canonical` exponent.
-    ///
-    /// Returns `Ok(rescaled)` only when the rescaling is *exact* and does not overflow
-    /// an `i64` mantissa. Errors otherwise:
-    ///
-    /// - If `self.exponent == canonical`: returns `Ok(*self)` (identity).
-    /// - If `canonical < self.exponent` (multiply): computes `scale = 10^(self.exponent −
-    ///   canonical)` and uses [`i64::checked_mul`] to detect overflow.
-    /// - If `canonical > self.exponent` (divide): only succeeds if `mantissa % scale == 0`.
-    ///
-    /// The `unit_id` is preserved unchanged.
-    ///
-    /// # Errors
-    /// - [`FixedPointError::OverflowOnConversion`] — scale factor overflows `i64`.
-    /// - [`FixedPointError::LossyConversion`] — divide path has a non-zero remainder.
+ /// Rescale this value to `canonical` exponent.
+ ///
+ /// Returns `Ok(rescaled)` only when the rescaling is *exact* and does not overflow
+ /// an `i64` mantissa. Errors otherwise:
+ ///
+ /// - If `self.exponent == canonical`: returns `Ok(*self)` (identity).
+ /// - If `canonical < self.exponent` (multiply): computes `scale = 10^(self.exponent −
+ /// canonical)` and uses [`i64::checked_mul`] to detect overflow.
+ /// - If `canonical > self.exponent` (divide): only succeeds if `mantissa % scale == 0`.
+ ///
+ /// The `unit_id` is preserved unchanged.
+ ///
+ /// # Errors
+ /// - [`FixedPointError::OverflowOnConversion`] — scale factor overflows `i64`.
+ /// - [`FixedPointError::LossyConversion`] — divide path has a non-zero remainder.
     pub fn with_canonical_exponent(&self, canonical: i8) -> Result<Self, FixedPointError> {
         if self.exponent == canonical {
             return Ok(*self);
         }
 
-        // exp_delta > 0 means we need to multiply (canonical is more negative).
-        // exp_delta < 0 means we need to divide (canonical is less negative / larger).
+ // exp_delta > 0 means we need to multiply (canonical is more negative).
+ // exp_delta < 0 means we need to divide (canonical is less negative / larger).
         let exp_delta = self.exponent as i16 - canonical as i16;
 
         if exp_delta > 0 {
-            // self.exponent > canonical → multiply mantissa by 10^exp_delta
+ // self.exponent > canonical → multiply mantissa by 10^exp_delta
             let scale =
                 checked_pow10(exp_delta as u32).ok_or(FixedPointError::OverflowOnConversion)?;
             let new_mantissa = self
@@ -197,7 +197,7 @@ impl FixedPointValue {
                 unit_id: self.unit_id,
             })
         } else {
-            // self.exponent < canonical → divide mantissa by 10^(-exp_delta)
+ // self.exponent < canonical → divide mantissa by 10^(exp_delta)
             let neg_delta = (-exp_delta) as u32;
             let scale = checked_pow10(neg_delta).ok_or(FixedPointError::OverflowOnConversion)?;
             if self.mantissa % scale != 0 {
@@ -211,22 +211,22 @@ impl FixedPointValue {
         }
     }
 
-    // ── Envelope bounds comparison (CLAIM-4.4, INV-1) ────────────────────────
+ // ── Envelope bounds comparison (CLAIM-4.4, INV-1) ────────────────────────
 
-    /// Compare `self` against envelope bounds `[min, max]` using **i128 arithmetic**
-    /// to prevent overflow (CLAIM-4.4).
-    ///
-    /// All three values (`self`, `min`, `max`) must carry the same `unit_id`; otherwise
-    /// [`FixedPointError::UnitMismatch`] is returned.
-    ///
-    /// The comparison normalises all three to the most-negative common exponent so no
-    /// precision is lost, then compares the resulting i128 mantissas.
-    ///
-    /// # Errors
-    /// - [`FixedPointError::UnitMismatch`] — unit IDs differ.
-    /// - [`FixedPointError::OverflowOnConversion`] — scale factor does not fit i128
-    ///   (can only occur with exponent spans > 38; practically impossible for PV-21
-    ///   values which use `i8` exponents spanning at most 255 steps, but safely handled).
+ /// Compare `self` against envelope bounds `[min, max]` using **i128 arithmetic**
+ /// to prevent overflow (CLAIM-4.4).
+ ///
+ /// All three values (`self`, `min`, `max`) must carry the same `unit_id`; otherwise
+ /// [`FixedPointError::UnitMismatch`] is returned.
+ ///
+ /// The comparison normalises all three to the most-negative common exponent so no
+ /// precision is lost, then compares the resulting i128 mantissas.
+ ///
+ /// # Errors
+ /// - [`FixedPointError::UnitMismatch`] — unit IDs differ.
+ /// - [`FixedPointError::OverflowOnConversion`] — scale factor does not fit i128
+ /// (can only occur with exponent spans > 38; practically impossible for PV-21
+ /// values which use `i8` exponents spanning at most 255 steps, but safely handled).
     pub fn compare_with_bounds(
         &self,
         min: &FixedPointValue,
@@ -236,7 +236,7 @@ impl FixedPointValue {
             return Err(FixedPointError::UnitMismatch);
         }
 
-        // Choose the most-negative (finest-resolution) exponent as the common base.
+ // Choose the most-negative (finest-resolution) exponent as the common base.
         let common_exp = self.exponent.min(min.exponent).min(max.exponent);
 
         let self_m = scale_to_i128(self.mantissa, self.exponent, common_exp)?;
@@ -258,7 +258,7 @@ impl FixedPointValue {
 /// Compute `10^exp` as `i64`, returning `None` on overflow.
 /// Only called with exponents derived from `i8` differences, so max is 255.
 fn checked_pow10(exp: u32) -> Option<i64> {
-    // i64::MAX ≈ 9.2 × 10^18; 10^19 overflows.
+ // i64::MAX ≈ 9.2 × 10^18; 10^19 overflows.
     if exp > 18 {
         return None;
     }
@@ -333,9 +333,9 @@ pub const UNIT_HZ: UnitId = 12;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnitDescriptor {
     pub id: UnitId,
-    /// Short symbol, e.g. `"degC"`.
+ /// Short symbol, e.g. `"degC"`.
     pub label: &'static str,
-    /// Physical dimension, e.g. `"temperature"`.
+ /// Physical dimension, e.g. `"temperature"`.
     pub dimension: &'static str,
 }
 
@@ -419,36 +419,36 @@ pub fn unit_descriptor(id: UnitId) -> Option<&'static UnitDescriptor> {
 mod tests {
     use super::*;
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+ // ── Helpers ──────────────────────────────────────────────────────────────
 
     fn fpv(mantissa: i64, exponent: i8) -> FixedPointValue {
         FixedPointValue::new(mantissa, exponent, UNIT_DEG_C)
     }
 
-    // ── from_f64 (CLAIM-4.3, PV-21.1, PV-21.3) ──────────────────────────────
+ // ── from_f64 (CLAIM-4.3, PV-21.1, PV-21.3) ──────────────────────────────
 
-    /// NaN must be rejected (CLAIM-4.3 wiring check — removing the NaN branch fails this test).
+ /// NaN must be rejected (CLAIM-4.3 wiring check — removing the NaN branch fails this test).
     #[test]
     fn from_f64_nan_rejected() {
         let result = FixedPointValue::from_f64(f64::NAN, -1, UNIT_DEG_C);
         assert_eq!(result, Err(FixedPointError::NonFiniteInput));
     }
 
-    /// +∞ must be rejected (CLAIM-4.3 wiring check — removing the +∞ branch fails this test).
+ /// +∞ must be rejected (CLAIM-4.3 wiring check — removing the +∞ branch fails this test).
     #[test]
     fn from_f64_pos_inf_rejected() {
         let result = FixedPointValue::from_f64(f64::INFINITY, -1, UNIT_DEG_C);
         assert_eq!(result, Err(FixedPointError::NonFiniteInput));
     }
 
-    /// −∞ must be rejected (CLAIM-4.3 wiring check — removing the −∞ branch fails this test).
+ /// −∞ must be rejected (CLAIM-4.3 wiring check — removing the −∞ branch fails this test).
     #[test]
     fn from_f64_neg_inf_rejected() {
         let result = FixedPointValue::from_f64(f64::NEG_INFINITY, -1, UNIT_DEG_C);
         assert_eq!(result, Err(FixedPointError::NonFiniteInput));
     }
 
-    /// IEEE 754 −0.0 normalises to integer 0; the mantissa must be 0 (PV-21.3).
+ /// IEEE 754 −0.0 normalises to integer 0; the mantissa must be 0 (PV-21.3).
     #[test]
     fn from_f64_negative_zero_normalises_to_zero() {
         let fpv = FixedPointValue::from_f64(-0.0_f64, -1, UNIT_DEG_C).unwrap();
@@ -457,14 +457,14 @@ mod tests {
         assert_eq!(fpv.unit_id, UNIT_DEG_C);
     }
 
-    /// +0.0 also converts to mantissa 0.
+ /// +0.0 also converts to mantissa 0.
     #[test]
     fn from_f64_positive_zero() {
         let fpv = FixedPointValue::from_f64(0.0_f64, -1, UNIT_DEG_C).unwrap();
         assert_eq!(fpv.mantissa, 0);
     }
 
-    /// 25.5 °C with exponent -1 → mantissa 255 (canonical example from PV-21.1).
+ /// 25.5 °C with exponent -1 → mantissa 255 (canonical example from PV-21.1).
     #[test]
     fn from_f64_25_5_celsius_exp_neg1() {
         let fpv = FixedPointValue::from_f64(25.5_f64, -1, UNIT_DEG_C).unwrap();
@@ -473,7 +473,7 @@ mod tests {
         assert_eq!(fpv.unit_id, UNIT_DEG_C);
     }
 
-    /// Negative temperature: −3.7 °C with exponent -1 → mantissa −37.
+ /// Negative temperature: −3.7 °C with exponent -1 → mantissa −37.
     #[test]
     fn from_f64_neg_3_7_celsius() {
         let fpv = FixedPointValue::from_f64(-3.7_f64, -1, UNIT_DEG_C).unwrap();
@@ -481,7 +481,7 @@ mod tests {
         assert_eq!(fpv.exponent, -1);
     }
 
-    /// Integer value with exponent 0: 100.0 → mantissa 100.
+ /// Integer value with exponent 0: 100.0 → mantissa 100.
     #[test]
     fn from_f64_integer_exponent_zero() {
         let fpv = FixedPointValue::from_f64(100.0_f64, 0, UNIT_DEG_C).unwrap();
@@ -489,7 +489,7 @@ mod tests {
         assert_eq!(fpv.exponent, 0);
     }
 
-    /// Positive exponent: 25000.0 with exponent 3 → mantissa 25.
+ /// Positive exponent: 25000.0 with exponent 3 → mantissa 25.
     #[test]
     fn from_f64_positive_exponent() {
         let fpv = FixedPointValue::from_f64(25000.0_f64, 3, UNIT_DEG_C).unwrap();
@@ -497,36 +497,36 @@ mod tests {
         assert_eq!(fpv.exponent, 3);
     }
 
-    /// Value too large to fit in i64 → OverflowOnConversion.
+ /// Value too large to fit in i64 → OverflowOnConversion.
     #[test]
     fn from_f64_overflow_positive() {
-        // 1e30 scaled by 10^18 (exponent -18) overflows i64
+ // 1e30 scaled by 10^18 (exponent -18) overflows i64
         let result = FixedPointValue::from_f64(1e30_f64, -18, UNIT_DEG_C);
         assert_eq!(result, Err(FixedPointError::OverflowOnConversion));
     }
 
-    /// Negative value too large to fit in i64 → OverflowOnConversion.
+ /// Negative value too large to fit in i64 → OverflowOnConversion.
     #[test]
     fn from_f64_overflow_negative() {
         let result = FixedPointValue::from_f64(-1e30_f64, -18, UNIT_DEG_C);
         assert_eq!(result, Err(FixedPointError::OverflowOnConversion));
     }
 
-    /// Different unit IDs are stored correctly.
+ /// Different unit IDs are stored correctly.
     #[test]
     fn from_f64_unit_id_preserved() {
         let fpv = FixedPointValue::from_f64(101.325_f64, -3, UNIT_KPA).unwrap();
         assert_eq!(fpv.unit_id, UNIT_KPA);
     }
 
-    // ── with_canonical_exponent ───────────────────────────────────────────────    /// Identity: exponent already canonical → Ok, unchanged.
+ // ── with_canonical_exponent ─────────────────────────────────────────────── /// Identity: exponent already canonical → Ok, unchanged.
     #[test]
     fn canonical_identity() {
         let v = fpv(123, -2);
         assert_eq!(v.with_canonical_exponent(-2), Ok(fpv(123, -2)));
     }
 
-    /// Multiply path (canonical more negative): 123 × 10^-2 → 12300 × 10^-4.
+ /// Multiply path (canonical more negative): 123 × 10^-2 → 12300 × 10^-4.
     #[test]
     fn canonical_multiply_exact() {
         let v = fpv(123, -2);
@@ -535,7 +535,7 @@ mod tests {
         assert_eq!(r.exponent, -4);
     }
 
-    /// Multiply overflow: huge mantissa that would overflow i64.
+ /// Multiply overflow: huge mantissa that would overflow i64.
     #[test]
     fn canonical_multiply_overflow() {
         let v = fpv(i64::MAX, 0);
@@ -545,7 +545,7 @@ mod tests {
         );
     }
 
-    /// Divide path (canonical less negative / larger): 12300 × 10^-4 → 123 × 10^-2.
+ /// Divide path (canonical less negative / larger): 12300 × 10^-4 → 123 × 10^-2.
     #[test]
     fn canonical_divide_exact() {
         let v = fpv(12300, -4);
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(r.exponent, -2);
     }
 
-    /// Divide path lossy: 12301 × 10^-4 cannot be exactly represented at 10^-2.
+ /// Divide path lossy: 12301 × 10^-4 cannot be exactly represented at 10^-2.
     #[test]
     fn canonical_divide_lossy() {
         let v = fpv(12301, -4);
@@ -564,7 +564,7 @@ mod tests {
         );
     }
 
-    /// Large exponent difference still works correctly (e.g. 1 × 10^0 → 1000000 × 10^-6).
+ /// Large exponent difference still works correctly (e.g. 1 × 10^0 → 1000000 × 10^-6).
     #[test]
     fn canonical_large_delta_exact() {
         let v = fpv(1, 0);
@@ -573,18 +573,18 @@ mod tests {
         assert_eq!(r.exponent, -6);
     }
 
-    /// Exponent delta > 18 overflows.
+ /// Exponent delta > 18 overflows.
     #[test]
     fn canonical_delta_too_large_overflows() {
         let v = fpv(1, 0);
-        // canonical = -19 → delta = 19 → 10^19 > i64::MAX
+ // canonical = -19 → delta = 19 → 10^19 > i64::MAX
         assert_eq!(
             v.with_canonical_exponent(-19),
             Err(FixedPointError::OverflowOnConversion)
         );
     }
 
-    /// unit_id is preserved across rescaling.
+ /// unit_id is preserved across rescaling.
     #[test]
     fn canonical_preserves_unit_id() {
         let v = FixedPointValue::new(42, -1, UNIT_PA);
@@ -592,7 +592,7 @@ mod tests {
         assert_eq!(r.unit_id, UNIT_PA);
     }
 
-    // ── compare_with_bounds ───────────────────────────────────────────────────
+ // ── compare_with_bounds ───────────────────────────────────────────────────
 
     fn bounds_check(
         v: i64,
@@ -608,7 +608,7 @@ mod tests {
         val.compare_with_bounds(&min, &max)
     }
 
-    /// 5.0 in [0.0, 10.0] → WithinBounds.
+ /// 5.0 in [0.0, 10.0] → WithinBounds.
     #[test]
     fn bounds_within() {
         assert_eq!(
@@ -617,13 +617,13 @@ mod tests {
         );
     }
 
-    /// −1 < 0 → BelowMin.
+ /// −1 < 0 → BelowMin.
     #[test]
     fn bounds_below_min() {
         assert_eq!(bounds_check(-1, 0, 0, 0, 100, 0), Ok(BoundsCheck::BelowMin));
     }
 
-    /// 101 > 100 → AboveMax.
+ /// 101 > 100 → AboveMax.
     #[test]
     fn bounds_above_max() {
         assert_eq!(
@@ -632,7 +632,7 @@ mod tests {
         );
     }
 
-    /// Exact boundary values are WithinBounds (inclusive).
+ /// Exact boundary values are WithinBounds (inclusive).
     #[test]
     fn bounds_at_min_exact() {
         assert_eq!(
@@ -649,19 +649,19 @@ mod tests {
         );
     }
 
-    /// Mixed exponents: 5.0 (as 50 × 10^-1) against bounds in different exponents.
+ /// Mixed exponents: 5.0 (as 50 × 10^-1) against bounds in different exponents.
     #[test]
     fn bounds_mixed_exponents() {
-        // val  = 500 × 10^-2 = 5.0
-        // min  = 0   × 10^0  = 0.0
-        // max  = 100 × 10^-1 = 10.0
+ // val = 500 × 10^-2 = 5.0
+ // min = 0 × 10^0 = 0.0
+ // max = 100 × 10^-1 = 10.0
         assert_eq!(
             bounds_check(500, -2, 0, 0, 100, -1),
             Ok(BoundsCheck::WithinBounds)
         );
     }
 
-    /// Unit mismatch returns an error.
+ /// Unit mismatch returns an error.
     #[test]
     fn bounds_unit_mismatch_self_vs_min() {
         let val = FixedPointValue::new(50, -1, UNIT_DEG_C);
@@ -684,10 +684,10 @@ mod tests {
         );
     }
 
-    /// Large i64 values use i128 intermediates without overflow.
+ /// Large i64 values use i128 intermediates without overflow.
     #[test]
     fn bounds_large_values_no_overflow() {
-        // mantissa near i64::MAX in the same exponent — must compare without overflow
+ // mantissa near i64::MAX in the same exponent — must compare without overflow
         let val = FixedPointValue::new(i64::MAX - 1, 0, UNIT_DEG_C);
         let min = FixedPointValue::new(0, 0, UNIT_DEG_C);
         let max = FixedPointValue::new(i64::MAX, 0, UNIT_DEG_C);
@@ -697,7 +697,7 @@ mod tests {
         );
     }
 
-    // ── UnitId constants ─────────────────────────────────────────────────────
+ // ── UnitId constants ─────────────────────────────────────────────────────
 
     #[test]
     fn unit_ids_match_registry() {
@@ -713,7 +713,7 @@ mod tests {
         assert_eq!(UNIT_V, 10);
         assert_eq!(UNIT_A, 11);
         assert_eq!(UNIT_HZ, 12);
-        // 0 is reserved
+ // 0 is reserved
         assert_eq!(UNIT_UNKNOWN, 0);
     }
 
@@ -726,7 +726,7 @@ mod tests {
         assert!(unit_descriptor(99).is_none());
     }
 
-    // ── serde round-trip ─────────────────────────────────────────────────────
+ // ── serde round-trip ─────────────────────────────────────────────────────
 
     #[cfg(test)]
     #[test]
@@ -745,7 +745,7 @@ mod tests {
         assert_eq!(e, back);
     }
 
-    // ── checked_pow10 ────────────────────────────────────────────────────────
+ // ── checked_pow10 ────────────────────────────────────────────────────────
 
     #[test]
     fn checked_pow10_edge_cases() {
@@ -777,12 +777,12 @@ mod prop_tests {
     use super::*;
     use proptest::prelude::*;
 
-    // ── Strategies ────────────────────────────────────────────────────────────
+ // ── Strategies ────────────────────────────────────────────────────────────
 
-    /// Safe exponent range: [-18, 18].
-    /// Exponents outside this range risk i128 overflow in scale_to_i128 when the
-    /// span between two exponents exceeds 38; that error path is tested separately
-    /// in the unit tests above.
+ /// Safe exponent range: [-18, 18].
+ /// Exponents outside this range risk i128 overflow in scale_to_i128 when the
+ /// span between two exponents exceeds 38; that error path is tested separately
+ /// in the unit tests above.
     fn safe_exp() -> impl Strategy<Value = i8> {
         -18_i8..=18_i8
     }
@@ -799,16 +799,16 @@ mod prop_tests {
         safe_exp().prop_flat_map(move |e| fpv_with_exp(unit_id, e))
     }
 
-    // ── Properties ────────────────────────────────────────────────────────────
+ // ── Properties ────────────────────────────────────────────────────────────
 
     proptest! {
-        // ── P1: compare_with_bounds is self-consistent at min boundary ────────
-        //
-        // For any value V and any max ≥ V (same exponent), V.compare_with_bounds(V, max)
-        // must be WithinBounds.
-        //
-        // This property catches an off-by-one in the < vs ≤ boundary; it also
-        // detects sign errors that would arise from a naive i64 cast.
+ // ── P1: compare_with_bounds is self-consistent at min boundary ────────
+ //
+ // For any value V and any max ≥ V (same exponent), V.compare_with_bounds(V, max)
+ // must be WithinBounds.
+ //
+ // This property catches an off-by-one in the < vs ≤ boundary; it also
+ // detects sign errors that would arise from a naive i64 cast.
         #[test]
         fn p1_at_min_boundary_is_within_bounds(
             base in (-10_000_i64..=10_000_i64),
@@ -826,7 +826,7 @@ mod prop_tests {
             }
         }
 
-        // ── P2: compare_with_bounds is self-consistent at max boundary ────────
+ // ── P2: compare_with_bounds is self-consistent at max boundary ────────
         #[test]
         fn p2_at_max_boundary_is_within_bounds(
             base in (-10_000_i64..=10_000_i64),
@@ -844,7 +844,7 @@ mod prop_tests {
             }
         }
 
-        // ── P3: unit mismatch always returns UnitMismatch ─────────────────────
+ // ── P3: unit mismatch always returns UnitMismatch ─────────────────────
         #[test]
         fn p3_unit_mismatch_always_errors(
             v  in fpv_any(UNIT_DEG_C),
@@ -857,10 +857,10 @@ mod prop_tests {
             );
         }
 
-        // ── P4: value one mantissa unit below min → BelowMin ─────────────────
-        //
-        // When all three values share the same exponent and val = min − 1,
-        // the result must be BelowMin (no overflow possible for small values).
+ // ── P4: value one mantissa unit below min → BelowMin ─────────────────
+ //
+ // When all three values share the same exponent and val = min − 1,
+ // the result must be BelowMin (no overflow possible for small values).
         #[test]
         fn p4_one_below_min_is_below_min(
             min_m in (i64::MIN + 2..=10_000_i64),
@@ -874,7 +874,7 @@ mod prop_tests {
             );
         }
 
-        // ── P5: value one mantissa unit above max → AboveMax ─────────────────
+ // ── P5: value one mantissa unit above max → AboveMax ─────────────────
         #[test]
         fn p5_one_above_max_is_above_max(
             max_m in (-10_000_i64..=i64::MAX - 2),
@@ -888,31 +888,31 @@ mod prop_tests {
             );
         }
 
-        // ── P6 (CLAIM-4.4 wiring mutation check) ─────────────────────────────
-        //
-        // For any large_m in [i64::MAX/10 + 1, i64::MAX], compare:
-        //   val = large_m × 10^0  against bounds  [0 × 10^0, large_m × 10^1].
-        //
-        // Correct result: WithinBounds (val equals the min, and max = 10 × val ≥ val).
-        //
-        // With i64 arithmetic:
-        //   common_exp = min(0, 0, 1) = 0.
-        //   max_scaled = large_m * 10 → OVERFLOWS i64 for large_m ≥ i64::MAX/10.
-        //   The overflow either panics (debug) or wraps to a negative value (release),
-        //   causing the comparison to return AboveMax instead of WithinBounds.
-        //
-        // With i128 arithmetic (CLAIM-4.4):
-        //   max_scaled = large_m as i128 * 10 — always fits in i128.
-        //   Correct result: WithinBounds.
-        //
-        // Removing the i128 cast in `scale_to_i128` will make this property fail.
+ // ── P6 (CLAIM-4.4 wiring mutation check) ─────────────────────────────
+ //
+ // For any large_m in [i64::MAX/10 + 1, i64::MAX], compare:
+ // val = large_m × 10^0 against bounds [0 × 10^0, large_m × 10^1].
+ //
+ // Correct result: WithinBounds (val equals the min, and max = 10 × val ≥ val).
+ //
+ // With i64 arithmetic:
+ // common_exp = min(0, 0, 1) = 0.
+ // max_scaled = large_m * 10 → OVERFLOWS i64 for large_m ≥ i64::MAX/10.
+ // The overflow either panics (debug) or wraps to a negative value (release),
+ // causing the comparison to return AboveMax instead of WithinBounds.
+ //
+ // With i128 arithmetic (CLAIM-4.4):
+ // max_scaled = large_m as i128 * 10 — always fits in i128.
+ // Correct result: WithinBounds.
+ //
+ // Removing the i128 cast in `scale_to_i128` will make this property fail.
         #[test]
         fn p6_boundary_i64_overflow_caught_by_i128(
             large_m in ((i64::MAX / 10 + 1)..=i64::MAX),
         ) {
             let val = FixedPointValue::new(large_m, 0, UNIT_DEG_C);
             let min = FixedPointValue::new(0,        0, UNIT_DEG_C);
-            // max = large_m × 10^1 > val × 10^0, so val is WithinBounds.
+ // max = large_m × 10^1 > val × 10^0, so val is WithinBounds.
             let max = FixedPointValue::new(large_m,  1, UNIT_DEG_C);
 
             match val.compare_with_bounds(&min, &max) {
@@ -933,18 +933,18 @@ mod prop_tests {
             }
         }
 
-        // ── P7: symmetric i64::MIN boundary (negative overflow) ───────────────
-        //
-        // Mirrors P6 for negative mantissa values.  With i64 arithmetic:
-        //   min_scaled = i64::MIN as i64 * 10 → OVERFLOWS (undefined behaviour or wraps).
-        // With i128: correct.
+ // ── P7: symmetric i64::MIN boundary (negative overflow) ───────────────
+ //
+ // Mirrors P6 for negative mantissa values. With i64 arithmetic:
+ // min_scaled = i64::MIN as i64 * 10 → OVERFLOWS (undefined behaviour or wraps).
+ // With i128: correct.
         #[test]
         fn p7_neg_boundary_i64_overflow_caught_by_i128(
             large_neg in (i64::MIN..=(i64::MIN / 10 - 1)),
         ) {
-            // min = large_neg × 10^1 (very negative)
-            // max = 0 × 10^0
-            // val = large_neg × 10^0 → should be WithinBounds (min ≤ val ≤ max).
+ // min = large_neg × 10^1 (very negative)
+ // max = 0 × 10^0
+ // val = large_neg × 10^0 → should be WithinBounds (min ≤ val ≤ max).
             let val = FixedPointValue::new(large_neg, 0, UNIT_DEG_C);
             let min = FixedPointValue::new(large_neg, 1, UNIT_DEG_C);  // 10× more negative
             let max = FixedPointValue::new(0,          0, UNIT_DEG_C);
@@ -967,11 +967,11 @@ mod prop_tests {
             }
         }
 
-        // ── P8: compare_with_bounds result is internally consistent ───────────
-        //
-        // If a value is WithinBounds it must be ≥ min and ≤ max when evaluated
-        // with same-exponent comparison.  This catches subtle boundary errors
-        // that affect all arithmetic widths equally.
+ // ── P8: compare_with_bounds result is internally consistent ───────────
+ //
+ // If a value is WithinBounds it must be ≥ min and ≤ max when evaluated
+ // with same-exponent comparison. This catches subtle boundary errors
+ // that affect all arithmetic widths equally.
         #[test]
         fn p8_within_bounds_agrees_with_direct_compare(
             v_m in (-1_000_i64..=1_000_i64),

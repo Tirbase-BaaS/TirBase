@@ -1,8 +1,8 @@
-//! Signed `TimeBeacon` ingress (task 7.4 — CLAIM-7.4, PV-22.5, PV-28).
+//! Signed `TimeBeacon` ingress (CLAIM-7.4, PV-22.5, PV-28).
 //!
 //! This is the gateway's production entry point for authenticated time: a
 //! `TimeAnchor` beacon arrives as a [`SignedOperation<TimeBeacon>`] envelope and
-//! is admitted (or rejected) by [`TimeRatchet::advance`].  The file-based form
+//! is admitted (or rejected) by [`TimeRatchet::advance`]. The file-based form
 //! below is what the gateway consumes at boot; the same admission path serves
 //! mesh and admin ingress once those transports carry beacons.
 //!
@@ -18,8 +18,8 @@
 //!
 //! ```json
 //! { "beacon": { "wall_time_secs": 1800000000, "issuer_did": "did:key:z6Mk...",
-//!               "mono_seq": 1, "valid_for_secs": 300 },
-//!   "signed_operation": { "context_string": "TirBase/v1/TimeBeacon", ... } }
+//! "mono_seq": 1, "valid_for_secs": 300 },
+//! "signed_operation": { "context_string": "TirBase/v1/TimeBeacon", ... } }
 //! ```
 //!
 //! Signatures cover `context || 0x00 || SHA-256(CBOR(beacon))`, so a time-anchor
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn beacon_file_is_admitted_and_advances_the_ratchet() {
         let anchor = InMemoryKeyProvider::generate().expect("key");
-        // A jump this large requires the default quorum of two distinct anchors.
+ // A jump this large requires the default quorum of two distinct anchors.
         let second_anchor = InMemoryKeyProvider::generate().expect("key");
         let beacon = TimeBeacon {
             wall_time_secs: 1_800_000_000,

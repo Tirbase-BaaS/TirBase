@@ -1,4 +1,4 @@
-//! Simulated network with deterministic fault injection (task 38.3 — CLAIM-38.3,
+//! Simulated network with deterministic fault injection (CLAIM-38.3,
 //! PV-12.1).
 //!
 //! The network is virtual-time based: [`SimNetwork::send`] never delivers
@@ -74,15 +74,15 @@ impl fmt::Display for MessageId {
 /// A controllable fault applied to the simulated network (PV-12.1).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NetworkFault {
-    /// Bidirectional partition between `src` and `dst`.
+ /// Bidirectional partition between `src` and `dst`.
     Partition { src: NodeId, dst: NodeId },
-    /// Add `ms` of latency to every message from `src` to `dst` (1–30,000 ms).
+ /// Add `ms` of latency to every message from `src` to `dst` (1–30,000 ms).
     Delay { src: NodeId, dst: NodeId, ms: u64 },
-    /// Drop each message from `src` to `dst` with probability `rate` (0.0–1.0).
+ /// Drop each message from `src` to `dst` with probability `rate` (0.0–1.0).
     Drop { src: NodeId, dst: NodeId, rate: f64 },
-    /// Deliver consecutive messages from `src` to `dst` in reverse order.
+ /// Deliver consecutive messages from `src` to `dst` in reverse order.
     Reorder { src: NodeId, dst: NodeId },
-    /// Deliver `copies` copies of each message from `src` to `dst` (1–5).
+ /// Deliver `copies` copies of each message from `src` to `dst` (1–5).
     Duplicate {
         src: NodeId,
         dst: NodeId,
@@ -93,11 +93,11 @@ pub enum NetworkFault {
 /// Fault configuration/validation failures.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NetworkError {
-    /// Delay outside the 1–30,000 ms range from PV-12.1.
+ /// Delay outside the 1–30,000 ms range from PV-12.1.
     DelayOutOfRange { ms: u64 },
-    /// Drop probability outside `0.0..=1.0` or NaN.
+ /// Drop probability outside `0.0..=1.0` or NaN.
     InvalidDropRate { rate: f64 },
-    /// Duplicate copies outside 1–5 (PV-12.1 allows at most 5 per message).
+ /// Duplicate copies outside 1–5 (PV-12.1 allows at most 5 per message).
     TooManyCopies { copies: u8 },
 }
 
@@ -128,11 +128,11 @@ pub struct DeliveredMessage {
     pub src: NodeId,
     pub dst: NodeId,
     pub payload: Vec<u8>,
-    /// Virtual time at which the message was put on the wire.
+ /// Virtual time at which the message was put on the wire.
     pub sent_at_ms: u64,
-    /// Virtual time at which the message became deliverable.
+ /// Virtual time at which the message became deliverable.
     pub deliver_at_ms: u64,
-    /// Zero-based copy index; non-zero for duplicates.
+ /// Zero-based copy index; non-zero for duplicates.
     pub copy: u8,
 }
 
@@ -140,7 +140,7 @@ pub struct DeliveredMessage {
 #[derive(Debug, Clone)]
 struct QueuedMessage {
     delivered: DeliveredMessage,
-    /// Deterministic ordering key inside a `(deliver_at_ms)` bucket.
+ /// Deterministic ordering key inside a `(deliver_at_ms)` bucket.
     order_key: u64,
 }
 
@@ -151,7 +151,7 @@ pub struct SimNetwork {
     faults: Vec<NetworkFault>,
     queue: Vec<QueuedMessage>,
     next_id: u64,
-    /// Per-link send counter, used to reverse delivery order under `Reorder`.
+ /// Per-link send counter, used to reverse delivery order under `Reorder`.
     link_seq: BTreeMap<(NodeId, NodeId), u64>,
     log: Vec<DeliveredMessage>,
     sent_messages: u64,
@@ -160,10 +160,10 @@ pub struct SimNetwork {
 }
 
 impl SimNetwork {
-    /// Create a network whose random decisions derive from `seed`.
+ /// Create a network whose random decisions derive from `seed`.
     pub fn new(seed: u64) -> Self {
         Self {
-            // Domain-separate the network stream from the scenario RNG.
+ // Domain-separate the network stream from the scenario RNG.
             rng: ChaCha8Rng::seed_from_u64(seed ^ 0x5349_4D4E_4554_0001),
             faults: Vec::new(),
             queue: Vec::new(),
@@ -176,12 +176,12 @@ impl SimNetwork {
         }
     }
 
-    /// Currently configured faults.
+ /// Currently configured faults.
     pub fn faults(&self) -> &[NetworkFault] {
         &self.faults
     }
 
-    /// Install a fault, validating its parameters (PV-12.1 bounds).
+ /// Install a fault, validating its parameters (PV-12.1 bounds).
     pub fn add_fault(&mut self, fault: NetworkFault) -> Result<(), NetworkError> {
         match fault {
             NetworkFault::Delay { ms, .. } if !(MIN_DELAY_MS..=MAX_DELAY_MS).contains(&ms) => {
@@ -202,13 +202,13 @@ impl SimNetwork {
         }
     }
 
-    /// Remove every configured fault (the link returns to healthy behaviour).
+ /// Remove every configured fault (the link returns to healthy behaviour).
     pub fn heal_all(&mut self) {
         self.faults.clear();
         self.link_seq.clear();
     }
 
-    /// True when a partition is active between `a` and `b` in either direction.
+ /// True when a partition is active between `a` and `b` in either direction.
     pub fn is_partitioned(&self, a: NodeId, b: NodeId) -> bool {
         self.faults.iter().any(|f| match *f {
             NetworkFault::Partition { src, dst } => {
@@ -218,8 +218,8 @@ impl SimNetwork {
         })
     }
 
-    /// Effective one-way latency for `src -> dst` (validated delay fault wins;
-    /// otherwise the default link latency).
+ /// Effective one-way latency for `src -> dst` (validated delay fault wins;
+ /// otherwise the default link latency).
     pub fn latency_ms(&self, src: NodeId, dst: NodeId) -> u64 {
         self.faults
             .iter()
@@ -268,10 +268,10 @@ impl SimNetwork {
         })
     }
 
-    /// Send `payload` from `src` to `dst` at virtual time `now_ms`.
-    ///
-    /// Returns the message ids that were accepted onto the wire (empty when the
-    /// link is partitioned or the message is dropped).
+ /// Send `payload` from `src` to `dst` at virtual time `now_ms`.
+ ///
+ /// Returns the message ids that were accepted onto the wire (empty when the
+ /// link is partitioned or the message is dropped).
     pub fn send(
         &mut self,
         now_ms: u64,
@@ -299,8 +299,8 @@ impl SimNetwork {
         let reorders = self.reorders(src, dst);
         let seq = self.link_seq.entry((src, dst)).or_insert(0);
         *seq += 1;
-        // Under `Reorder`, later sends sort *before* earlier sends inside the
-        // same delivery bucket, so the last message sent arrives first.
+ // Under `Reorder`, later sends sort *before* earlier sends inside the
+ // same delivery bucket, so the last message sent arrives first.
         let order_key = if reorders { u64::MAX - *seq } else { *seq };
 
         let copies = self.copies(src, dst);
@@ -323,7 +323,7 @@ impl SimNetwork {
         ids
     }
 
-    /// Release every message due at `now_ms`, in deterministic order.
+ /// Release every message due at `now_ms`, in deterministic order.
     pub fn deliver(&mut self, now_ms: u64) -> Vec<DeliveredMessage> {
         let mut due: Vec<QueuedMessage> = Vec::new();
         let mut pending: Vec<QueuedMessage> = Vec::with_capacity(self.queue.len());
@@ -354,27 +354,27 @@ impl SimNetwork {
         out
     }
 
-    /// Number of messages queued but not yet delivered.
+ /// Number of messages queued but not yet delivered.
     pub fn in_flight(&self) -> usize {
         self.queue.len()
     }
 
-    /// Number of `send` calls observed (including dropped sends).
+ /// Number of `send` calls observed (including dropped sends).
     pub fn sent_messages(&self) -> u64 {
         self.sent_messages
     }
 
-    /// Number of message copies delivered so far.
+ /// Number of message copies delivered so far.
     pub fn delivered_messages(&self) -> u64 {
         self.delivered_messages
     }
 
-    /// Number of sends dropped by partition or `Drop`.
+ /// Number of sends dropped by partition or `Drop`.
     pub fn dropped_messages(&self) -> u64 {
         self.dropped_messages
     }
 
-    /// Complete delivery log, in delivery order.
+ /// Complete delivery log, in delivery order.
     pub fn delivery_log(&self) -> &[DeliveredMessage] {
         &self.log
     }
@@ -473,7 +473,7 @@ mod tests {
         }
         assert_eq!(net.dropped_messages(), 10);
 
-        // Same seed => same drop pattern at an intermediate rate.
+ // Same seed => same drop pattern at an intermediate rate.
         let runs: Vec<Vec<u64>> = (0..2)
             .map(|_| {
                 let mut net = SimNetwork::new(7);

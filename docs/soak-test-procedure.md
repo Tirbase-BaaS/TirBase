@@ -24,19 +24,19 @@ fault injection.
 - Built release binaries for the target (`tirbase-gateway`, drivers as needed).
 - A cold-chain (or representative) `EnvelopeProfile` installed and validated.
 - Fault-injection controls available: network partition/delay/drop tooling and a
-  power-cut or process-restart mechanism equivalent to the crash-loop scenarios.
+ power-cut or process-restart mechanism equivalent to the crash-loop scenarios.
 - Baseline measurement captured at t=0 (RSS/heap and open handles).
 
 ## Setup
 
 1. Install the release build and configuration on the reference gateway.
 2. Verify the device boots to `Normal` mode with a signed `EnvelopeProfile`
-   installed (`/health` 200, metrics endpoint reachable).
+ installed (`/health` 200, metrics endpoint reachable).
 3. Enable the metrics/telemetry collection needed for the thresholds below
-   (process RSS, heap if available, and open file descriptors/handles).
+ (process RSS, heap if available, and open file descriptors/handles).
 4. Start the workload driver: a steady command/admission mix plus the S1/S2/S3
-   adversary traffic used by the cold-chain demo pack, at a rate representative
-   of the target deployment.
+ adversary traffic used by the cold-chain demo pack, at a rate representative
+ of the target deployment.
 
 ## Fault injection during the run
 
@@ -45,7 +45,7 @@ virtual-time soak's coverage):
 
 - Network: partition, delay (1–30,000 ms), drop, reorder, duplicate (≤5 copies).
 - Process: supervised restarts consistent with crash-loop escalation bounds
-  (must not escalate to unintended LOCKDOWN under the configured window).
+ (must not escalate to unintended LOCKDOWN under the configured window).
 - Time/rate churn representative of normal operation (no forged time anchors).
 
 Log every injected fault with a wall-clock timestamp so observed behaviour can be
@@ -64,11 +64,11 @@ correlated with the injection schedule.
 1. Record t=0 baseline (RSS, heap, handle count).
 2. Run continuously for **72 hours** under the workload and fault schedule.
 3. Sample RSS/heap and handle counts at a fixed cadence (recommended: every 15
-   minutes) and retain the time series.
+ minutes) and retain the time series.
 4. At 72h, stop fault injection, quiesce the workload, and record the final
-   measurements.
+ measurements.
 5. Compute net growth (final − baseline, using a steady-state baseline after warmup
-   if startup transients are present; document the baseline point chosen).
+ if startup transients are present; document the baseline point chosen).
 
 ## Reporting
 
@@ -79,7 +79,7 @@ Produce a short report containing:
 - Pass/fail against each threshold above.
 - Any injected faults that produced unexpected behaviour (with timestamps).
 - Confirmation that `docs/soak-test-procedure.md` thresholds (≤5 MiB heap growth,
-  ≤50 handle growth over 72h) were met.
+ ≤50 handle growth over 72h) were met.
 
 Archive the report with the release audit artifacts. A failure blocks the release
 until investigated and resolved (or the threshold is re-baselined via the

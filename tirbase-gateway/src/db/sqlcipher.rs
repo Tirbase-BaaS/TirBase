@@ -41,7 +41,7 @@ pub fn derive_db_key(
     let sig = provider
         .sign(&msg)
         .map_err(|e| SqlCipherError::KeyProvider(e.to_string()))?;
-    // Serialize signature deterministically (no key bytes exposed/persisted).
+ // Serialize signature deterministically (no key bytes exposed/persisted).
     let sig_bytes =
         serde_json::to_vec(&sig).map_err(|e| SqlCipherError::KeyProvider(e.to_string()))?;
     let mut hasher = Sha256::new();
@@ -65,11 +65,11 @@ pub fn apply_sqlcipher_key(
 ) -> Result<(), SqlCipherError> {
     let key = derive_db_key(provider, db_label)?;
     let hex_key = Zeroizing::new(hex::encode(key.as_ref()));
-    // Use hex key form; raw key never written to storage.
+ // Use hex key form; raw key never written to storage.
     let pragma = format!("PRAGMA key = \"x'{}'\";", hex_key.as_str());
     conn.execute_batch(&pragma)
         .map_err(|e| SqlCipherError::SqlCipher(e.to_string()))?;
-    // Verify encryption is usable.
+ // Verify encryption is usable.
     conn.query_row("SELECT count(*) FROM sqlite_master;", [], |_r| Ok(()))
         .map_err(|e| SqlCipherError::SqlCipher(format!("key verification failed: {e}")))?;
     Ok(())
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(a.as_ref(), b.as_ref());
         let c = derive_db_key(&kp, "derived.db").unwrap();
         assert_ne!(a.as_ref(), c.as_ref());
-        // wiring mutation: DB key must not be written to storage
+ // wiring mutation: DB key must not be written to storage
         assert!(!dir.join("primary.db.key").exists());
         assert!(!dir.join("db.key").exists());
         let _ = std::fs::remove_dir_all(dir);
@@ -163,6 +163,6 @@ mod tests {
         }
         let err = derive_db_key(&BadKp, "primary.db").unwrap_err();
         assert!(err.to_string().contains("KeyProvider"));
-        // wiring mutation: writing key to config/storage must be caught by tests above
+ // wiring mutation: writing key to config/storage must be caught by tests above
     }
 }

@@ -16,11 +16,11 @@ Task sections 29.x, 30.x: 17 acceptance-criterion rows (14 complete, 3 open in `
 Every row was traced against the repository; nothing was accepted on assertion. The audit:
 
 1. resolves each declared production-caller path on disk and each cited symbol to its
-   definition site (`file:line`);
+ definition site (`file:line`);
 2. resolves test identifiers in this order: a claim-named test (`claim_<task>`), a test
-   named in the task entry, the closest test in a test file named in the task entry, then
-   the test location committed in `docs/traceability-matrix.md` for the task's PV
-   requirement;
+ named in the task entry, the closest test in a test file named in the task entry, then
+ the test location committed in `docs/traceability-matrix.md` for the task's PV
+ requirement;
 3. records tasks with an open checkbox as `NOT IMPLEMENTED` or `BLOCKED` — never as verified.
 
 Evidence classes in the status column:
@@ -37,7 +37,7 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 
 | Task | Acceptance criterion (task) | Req | Production call site | Test evidence | Status |
 |---|---|---|---|---|---|
-| 29.1 | Replace wasmtime with wasmi as the sole migration WASM engine on all targets (native gateway and WASM builds);… | PV-8.1 | `Cargo.toml:1` | `tirbase-gateway/tests/task29_migration_sandbox.rs:66` (`gateway_deterministic_migration_executes_with_wasmi`) | TRACED-TEST |
+| 29.1 | Replace wasmtime with wasmi as the sole migration WASM engine on all targets (native gateway and WASM builds);… | PV-8.1 | `Cargo.toml:1` | `tirbase-gateway/tests/migration_sandbox.rs:66` (`gateway_deterministic_migration_executes_with_wasmi`) | TRACED-TEST |
 | 29.2 | Implement DeterministicWasmProfile validation via wasmparser at module load time: forbid all f32/f64 instructi… | PV-8.2 | `tirbase-core/src/migration/profile.rs:187` | — | TRACED-CALLER |
 | 29.3 | Implement ExecutionProfileVersion: profile_id, wasmi_version, fuel_cost_table_hash (SHA-256 of wasmi Config), … | PV-8.2a | `tirbase-core/src/migration/profile.rs:60` | — | NOT IMPLEMENTED |
 | 29.4 | Apply StoreLimits to every migration instance: 64 MiB memory, 1,000 tables, 10 instances, 512 KiB stack | PV-8.1 | `tirbase-core/src/migration/wasm_sandbox.rs:26` | — | TRACED-CALLER |

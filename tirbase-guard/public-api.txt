@@ -447,7 +447,7 @@ impl core::cmp::Eq for tirbase_guard::admit::DriftTimingSummary
 impl core::cmp::PartialEq for tirbase_guard::admit::DriftTimingSummary
 pub fn tirbase_guard::admit::DriftTimingSummary::eq(&self, &tirbase_guard::admit::DriftTimingSummary) -> bool
 impl core::default::Default for tirbase_guard::admit::DriftTimingSummary
-pub fn tirbase_guard::admit::DriftTimingSummary::default() -> tirbase_guard::admit::DriftTimingSummary
+pub fn tirbase_guard::admit::DriftTimingSummary::default -> tirbase_guard::admit::DriftTimingSummary
 impl core::fmt::Debug for tirbase_guard::admit::DriftTimingSummary
 pub fn tirbase_guard::admit::DriftTimingSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_guard::admit::DriftTimingSummary
@@ -508,13 +508,13 @@ pub const tirbase_guard::admit::DEFAULT_CHALLENGE_NONCE_TTL_SECS: u64
 pub const tirbase_guard::admit::DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE: u32
 pub trait tirbase_guard::admit::ChallengeNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::ChallengeNonceStore::consume_if_valid(&self, &[u8; 32], &str, &str, &str, i64, bool) -> core::result::Result<bool, alloc::string::String>
-pub fn tirbase_guard::admit::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::admit::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<, alloc::string::String>
 pub trait tirbase_guard::admit::DecidedOutcomeStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::DecidedOutcomeStore::lookup(&self, &str, &str, u64, u64) -> core::result::Result<core::option::Option<tirbase_guard::admit::AdmitDecision>, alloc::string::String>
-pub fn tirbase_guard::admit::DecidedOutcomeStore::store(&self, &str, &str, u64, u64, &tirbase_guard::admit::AdmitDecision) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::admit::DecidedOutcomeStore::store(&self, &str, &str, u64, u64, &tirbase_guard::admit::AdmitDecision) -> core::result::Result<, alloc::string::String>
 pub trait tirbase_guard::admit::DriftHistoryStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::DriftHistoryStore::recent(&self, &str, &str, &str, i64) -> core::result::Result<alloc::vec::Vec<tirbase_guard::admit::DriftRecord>, alloc::string::String>
-pub fn tirbase_guard::admit::DriftHistoryStore::record(&self, &str, &str, &str, i64, i64, i8, u16) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::admit::DriftHistoryStore::record(&self, &str, &str, &str, i64, i64, i8, u16) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_guard::admit::DriftHistoryStore::timing_summary(&self, &str, &str) -> core::result::Result<core::option::Option<tirbase_guard::admit::DriftTimingSummary>, alloc::string::String>
 pub trait tirbase_guard::admit::PendingApprovalQuorum: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::admit::PendingApprovalQuorum::has_quorum(&self, &str, &str, &str, u64, usize) -> core::result::Result<bool, alloc::string::String>
@@ -750,7 +750,7 @@ pub const tirbase_guard::anti_replay::CONTEXT_ANTI_REPLAY_WINDOW_RESET: &str
 pub const tirbase_guard::anti_replay::DEFAULT_FORWARD_GAP_G: u64
 pub const tirbase_guard::anti_replay::DEFAULT_WINDOW_W: u64
 pub fn tirbase_guard::anti_replay::check_sequence(u64, u64, u64, u64, u64, bool) -> tirbase_guard::anti_replay::AntiReplayDecision
-pub fn tirbase_guard::anti_replay::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::anti_replay::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
 pub mod tirbase_guard::command
 pub enum tirbase_guard::command::CommandError
 pub tirbase_guard::command::CommandError::InvalidIssuerDid(alloc::string::String)
@@ -829,8 +829,8 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::command::CommandError where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_guard::command::CommandError::vzip(self) -> V
 pub fn tirbase_guard::command::command_signing_bytes(&tirbase_types::command::CommandMessage) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_guard::command::CommandError>
-pub fn tirbase_guard::command::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<(), tirbase_guard::command::CommandError>
-pub fn tirbase_guard::command::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<(), tirbase_guard::command::CommandError>
+pub fn tirbase_guard::command::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<, tirbase_guard::command::CommandError>
+pub fn tirbase_guard::command::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<, tirbase_guard::command::CommandError>
 pub mod tirbase_guard::commit
 pub enum tirbase_guard::commit::CoarseRejection
 pub tirbase_guard::commit::CoarseRejection::AntiReplay
@@ -1110,8 +1110,8 @@ pub const tirbase_guard::commit::DEFAULT_IDEMPOTENCY_RETENTION_SECS: i64
 pub const tirbase_guard::commit::MAX_IDEMPOTENCY_RETENTION_SECS: i64
 pub const tirbase_guard::commit::MIN_IDEMPOTENCY_RETENTION_SECS: i64
 pub trait tirbase_guard::commit::Stage16Store: core::marker::Send + core::marker::Sync
-pub fn tirbase_guard::commit::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<(), tirbase_guard::commit::Stage16Error>
-pub fn tirbase_guard::commit::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::commit::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<, tirbase_guard::commit::Stage16Error>
+pub fn tirbase_guard::commit::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_guard::commit::clamp_idempotency_retention_secs(i64) -> i64
 pub fn tirbase_guard::commit::coarse_for_rejection(tirbase_guard::admit::AdmitRejection) -> tirbase_guard::commit::CoarseRejection
 pub fn tirbase_guard::commit::commit_dispatch_finalize<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], i64, i64, i64, &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64) -> serde_json::value::Value where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
@@ -1131,7 +1131,7 @@ pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_fd(std::os::fd
 pub unsafe fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
 pub fn tirbase_guard::device_transport::DeviceTransport::modbus_rtu_path_unavailable(&std::path::Path) -> core::io::error::Result<Self>
 pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu(&std::path::Path, u32, u8, tirbase_drivers::modbus::ModbusRtuParity, u8, u32) -> core::io::error::Result<Self>
-pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce() -> core::io::error::Result<std::os::fd::owned::OwnedFd>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 pub fn tirbase_guard::device_transport::DeviceTransport::try_clone_fd(&self) -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 impl core::fmt::Debug for tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -1180,8 +1180,8 @@ pub struct tirbase_guard::device_transport::GuardDeviceTransport
 pub tirbase_guard::device_transport::GuardDeviceTransport::transport: tirbase_guard::device_transport::DeviceTransport
 impl tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::new(tirbase_guard::device_transport::DeviceTransport) -> Self
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<()> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<()>
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<, E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<, E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<>
 impl core::fmt::Debug for tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::device_transport::GuardDeviceTransport
@@ -1413,7 +1413,7 @@ pub fn tirbase_guard::driver_proxy::DriverChildSocket::read(&mut self, &mut [u8]
 impl core::fmt::Debug for tirbase_guard::driver_proxy::DriverChildSocket
 pub fn tirbase_guard::driver_proxy::DriverChildSocket::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::io::write::Write for tirbase_guard::driver_proxy::DriverChildSocket
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::io::error::Result<()>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::io::error::Result<>
 pub fn tirbase_guard::driver_proxy::DriverChildSocket::write(&mut self, &[u8]) -> core::io::error::Result<usize>
 impl core::marker::Freeze for tirbase_guard::driver_proxy::DriverChildSocket
 impl core::marker::Send for tirbase_guard::driver_proxy::DriverChildSocket
@@ -1435,11 +1435,11 @@ pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = <U as core::con
 pub fn tirbase_guard::driver_proxy::DriverChildSocket::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
 impl<T> ciborium_io::Read for tirbase_guard::driver_proxy::DriverChildSocket where T: alloc::io::read::Read
 pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = core::io::error::Error
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::read_exact(&mut self, &mut [u8]) -> core::result::Result<(), <T as ciborium_io::Read>::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::read_exact(&mut self, &mut [u8]) -> core::result::Result<, <T as ciborium_io::Read>::Error>
 impl<T> ciborium_io::Write for tirbase_guard::driver_proxy::DriverChildSocket where T: core::io::write::Write
 pub type tirbase_guard::driver_proxy::DriverChildSocket::Error = core::io::error::Error
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::result::Result<(), <T as ciborium_io::Write>::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::write_all(&mut self, &[u8]) -> core::result::Result<(), <T as ciborium_io::Write>::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::flush(&mut self) -> core::result::Result<, <T as ciborium_io::Write>::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::write_all(&mut self, &[u8]) -> core::result::Result<, <T as ciborium_io::Write>::Error>
 impl<T> core::any::Any for tirbase_guard::driver_proxy::DriverChildSocket where T: 'static + ?core::marker::Sized
 pub fn tirbase_guard::driver_proxy::DriverChildSocket::type_id(&self) -> core::any::TypeId
 impl<T> core::borrow::Borrow<T> for tirbase_guard::driver_proxy::DriverChildSocket where T: ?core::marker::Sized
@@ -1468,16 +1468,16 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::driver_proxy::DriverChi
 pub fn tirbase_guard::driver_proxy::DriverChildSocket::vzip(self) -> V
 impl<W> byteorder::io::WriteBytesExt for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write + ?core::marker::Sized
 impl<W> der::writer::Writer for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::write(&mut self, &[u8]) -> core::result::Result<(), der::error::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::write(&mut self, &[u8]) -> core::result::Result<, der::error::Error>
 impl<W> quick_protobuf::writer::WriterBackend for tirbase_guard::driver_proxy::DriverChildSocket where W: core::io::write::Write
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_all(&mut self, &[u8]) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f32(&mut self, f32) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f64(&mut self, f64) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i32(&mut self, i32) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i64(&mut self, i64) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u32(&mut self, u32) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u64(&mut self, u64) -> core::result::Result<(), quick_protobuf::errors::Error>
-pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u8(&mut self, u8) -> core::result::Result<(), quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_all(&mut self, &[u8]) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f32(&mut self, f32) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_f64(&mut self, f64) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i32(&mut self, i32) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_i64(&mut self, i64) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u32(&mut self, u32) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u64(&mut self, u64) -> core::result::Result<, quick_protobuf::errors::Error>
+pub fn tirbase_guard::driver_proxy::DriverChildSocket::pb_write_u8(&mut self, u8) -> core::result::Result<, quick_protobuf::errors::Error>
 pub struct tirbase_guard::driver_proxy::DriverProxy<W: core::io::write::Write + core::marker::Send>
 impl tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>
 pub fn tirbase_guard::driver_proxy::DriverProxy<tirbase_guard::driver_proxy::DriverChildSocket>::spawn_child(&tirbase_guard::driver_proxy::ChildDriverConfig, tirbase_drivers::lifecycle::DriverLifecycle) -> core::result::Result<tirbase_guard::driver_proxy::SupervisedDriver, tirbase_guard::driver_proxy::DriverSupervisionError>
@@ -1594,7 +1594,7 @@ impl tirbase_guard::enrollment::DeviceIdentity
 pub fn tirbase_guard::enrollment::DeviceIdentity::bootstrap(&self, [u8; 32], tirbase_types::CommandRole) -> core::result::Result<tirbase_guard::enrollment::EnrollmentRequest, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::DeviceIdentity::device_id(&self) -> alloc::string::String
 pub fn tirbase_guard::enrollment::DeviceIdentity::from_seed([u8; 32]) -> Self
-pub fn tirbase_guard::enrollment::DeviceIdentity::generate() -> core::result::Result<Self, tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::enrollment::DeviceIdentity::generate -> core::result::Result<Self, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::DeviceIdentity::public_key(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::enrollment::DeviceIdentity::seed(&self) -> [u8; 32]
 pub fn tirbase_guard::enrollment::DeviceIdentity::sign_bootstrap(&self, [u8; 32], tirbase_types::CommandRole) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_guard::epoch::EpochError>
@@ -1786,7 +1786,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::enrollment::EnrollmentR
 pub fn tirbase_guard::enrollment::EnrollmentRequest::vzip(self) -> V
 pub struct tirbase_guard::enrollment::EnrollmentService
 impl tirbase_guard::enrollment::EnrollmentService
-pub fn tirbase_guard::enrollment::EnrollmentService::decommission(&self, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::enrollment::EnrollmentService::decommission(&self, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::EnrollmentService::decommission_message(&str) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::enrollment::EnrollmentService::enroll(&self, &tirbase_guard::enrollment::EnrollmentRequest, i64) -> core::result::Result<tirbase_guard::enrollment::EnrolledDevice, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::EnrollmentService::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
@@ -1984,13 +1984,13 @@ pub struct tirbase_guard::envelope::ProfileMap
 impl tirbase_guard::envelope::ProfileMap
 pub fn tirbase_guard::envelope::ProfileMap::from_profiles(impl core::iter::traits::collect::IntoIterator<Item = (tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile)>) -> Self
 pub fn tirbase_guard::envelope::ProfileMap::load(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::sync::Arc<tirbase_types::envelope::EnvelopeProfile>>
-pub fn tirbase_guard::envelope::ProfileMap::new() -> Self
+pub fn tirbase_guard::envelope::ProfileMap::new -> Self
 pub fn tirbase_guard::envelope::ProfileMap::swap(&self, &tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile) -> bool
 pub fn tirbase_guard::envelope::ProfileMap::with_profile(&self, tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile) -> Self
 impl core::clone::Clone for tirbase_guard::envelope::ProfileMap
 pub fn tirbase_guard::envelope::ProfileMap::clone(&self) -> tirbase_guard::envelope::ProfileMap
 impl core::default::Default for tirbase_guard::envelope::ProfileMap
-pub fn tirbase_guard::envelope::ProfileMap::default() -> tirbase_guard::envelope::ProfileMap
+pub fn tirbase_guard::envelope::ProfileMap::default -> tirbase_guard::envelope::ProfileMap
 impl core::marker::Freeze for tirbase_guard::envelope::ProfileMap
 impl core::marker::Send for tirbase_guard::envelope::ProfileMap
 impl core::marker::Sync for tirbase_guard::envelope::ProfileMap
@@ -2040,7 +2040,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::envelope::ProfileMap wh
 pub fn tirbase_guard::envelope::ProfileMap::vzip(self) -> V
 pub fn tirbase_guard::envelope::install_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel, &tirbase_guard::trust_root::TrustRootRecord) -> core::result::Result<alloc::string::String, tirbase_guard::envelope::ProfileInstallError>
 pub fn tirbase_guard::envelope::profile_signing_bytes(&tirbase_types::envelope::EnvelopeProfile) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::envelope::validate_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel) -> core::result::Result<(), tirbase_guard::envelope::ProfileInstallError>
+pub fn tirbase_guard::envelope::validate_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel) -> core::result::Result<, tirbase_guard::envelope::ProfileInstallError>
 pub fn tirbase_guard::envelope::verify_profile_signature(&tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord) -> core::result::Result<alloc::string::String, tirbase_guard::envelope::ProfileInstallError>
 pub mod tirbase_guard::epoch
 pub enum tirbase_guard::epoch::EpochError
@@ -2422,7 +2422,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::epoch::EpochBump where 
 pub fn tirbase_guard::epoch::EpochBump::vzip(self) -> V
 pub struct tirbase_guard::epoch::EpochCommandGuard
 impl tirbase_guard::epoch::EpochCommandGuard
-pub fn tirbase_guard::epoch::EpochCommandGuard::admit(&self, &tirbase_guard::epoch::CommandEnvelope) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochCommandGuard::admit(&self, &tirbase_guard::epoch::CommandEnvelope) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochCommandGuard::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
 pub fn tirbase_guard::epoch::EpochCommandGuard::new(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>) -> Self
 impl core::fmt::Debug for tirbase_guard::epoch::EpochCommandGuard
@@ -2471,12 +2471,12 @@ pub fn tirbase_guard::epoch::EpochCommandGuard::vzip(self) -> V
 pub struct tirbase_guard::epoch::EpochRegistry
 impl tirbase_guard::epoch::EpochRegistry
 pub fn tirbase_guard::epoch::EpochRegistry::apply_bump(&self, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::epoch::EpochBump>, &tirbase_guard::epoch::EpochBump, &tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<tirbase_guard::epoch::DeviceEpoch, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::EpochRegistry::check_command_epoch(&self, &str, u64) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochRegistry::check_command_epoch(&self, &str, u64) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::current_epoch(&self, &str) -> core::result::Result<u64, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::current_record(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::ensure_enrolled(&self, &str, i64) -> core::result::Result<tirbase_guard::epoch::DeviceEpoch, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::new(alloc::sync::Arc<dyn tirbase_guard::epoch::DeviceEpochStore>) -> Self
-pub fn tirbase_guard::epoch::EpochRegistry::observe_epoch(&self, &str, u64) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochRegistry::observe_epoch(&self, &str, u64) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::witnessed_epoch(&self, &str) -> core::option::Option<u64>
 impl core::fmt::Debug for tirbase_guard::epoch::EpochRegistry
 pub fn tirbase_guard::epoch::EpochRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -2523,12 +2523,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::epoch::EpochRegistry wh
 pub fn tirbase_guard::epoch::EpochRegistry::vzip(self) -> V
 pub struct tirbase_guard::epoch::InMemoryEpochStore
 impl core::default::Default for tirbase_guard::epoch::InMemoryEpochStore
-pub fn tirbase_guard::epoch::InMemoryEpochStore::default() -> tirbase_guard::epoch::InMemoryEpochStore
+pub fn tirbase_guard::epoch::InMemoryEpochStore::default -> tirbase_guard::epoch::InMemoryEpochStore
 impl core::fmt::Debug for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::epoch::DeviceEpochStore for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 impl !core::marker::Freeze for tirbase_guard::epoch::InMemoryEpochStore
 impl core::marker::Send for tirbase_guard::epoch::InMemoryEpochStore
 impl core::marker::Sync for tirbase_guard::epoch::InMemoryEpochStore
@@ -2572,11 +2572,11 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::epoch::InMemoryEpochSto
 pub fn tirbase_guard::epoch::InMemoryEpochStore::vzip(self) -> V
 pub struct tirbase_guard::epoch::InMemoryNonceStore
 impl tirbase_guard::epoch::InMemoryNonceStore
-pub fn tirbase_guard::epoch::InMemoryNonceStore::new() -> Self
+pub fn tirbase_guard::epoch::InMemoryNonceStore::new -> Self
 pub fn tirbase_guard::epoch::InMemoryNonceStore::with_capacity(self, usize) -> Self
 pub fn tirbase_guard::epoch::InMemoryNonceStore::with_retention(i64) -> Self
 impl core::default::Default for tirbase_guard::epoch::InMemoryNonceStore
-pub fn tirbase_guard::epoch::InMemoryNonceStore::default() -> Self
+pub fn tirbase_guard::epoch::InMemoryNonceStore::default -> Self
 impl core::fmt::Debug for tirbase_guard::epoch::InMemoryNonceStore
 pub fn tirbase_guard::epoch::InMemoryNonceStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::epoch::EnrollmentNonceStore for tirbase_guard::epoch::InMemoryNonceStore
@@ -2629,10 +2629,10 @@ pub const tirbase_guard::epoch::DEFAULT_ENROLLMENT_NONCE_CAPACITY: usize
 pub const tirbase_guard::epoch::DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS: i64
 pub trait tirbase_guard::epoch::DeviceEpochStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::epoch::DeviceEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::DeviceEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::DeviceEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 impl tirbase_guard::epoch::DeviceEpochStore for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub trait tirbase_guard::epoch::EnrollmentNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::epoch::EnrollmentNonceStore::contains(&self, &[u8; 32]) -> core::result::Result<bool, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EnrollmentNonceStore::len(&self) -> core::result::Result<usize, tirbase_guard::epoch::EpochError>
@@ -2644,7 +2644,7 @@ pub fn tirbase_guard::epoch::InMemoryNonceStore::len(&self) -> core::result::Res
 pub fn tirbase_guard::epoch::InMemoryNonceStore::purge_expired(&self, i64) -> core::result::Result<usize, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::InMemoryNonceStore::record(&self, [u8; 32], i64) -> core::result::Result<bool, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::decommission_message(&str) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::epoch::verify_decommission_credential(&tirbase_guard::trust_root::TrustRootRecord, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::verify_decommission_credential(&tirbase_guard::trust_root::TrustRootRecord, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::verify_ed25519(&[u8], &[u8], &tirbase_types::DeviceSignature) -> bool
 pub mod tirbase_guard::guard
 pub enum tirbase_guard::guard::AdmitError
@@ -2836,7 +2836,7 @@ pub fn tirbase_guard::guard::CommandGuard::vzip(self) -> V
 pub struct tirbase_guard::guard::GuardConfig
 pub tirbase_guard::guard::GuardConfig::targets: alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, tirbase_guard::guard::TargetAdmission>
 impl core::default::Default for tirbase_guard::guard::GuardConfig
-pub fn tirbase_guard::guard::GuardConfig::default() -> tirbase_guard::guard::GuardConfig
+pub fn tirbase_guard::guard::GuardConfig::default -> tirbase_guard::guard::GuardConfig
 impl core::fmt::Debug for tirbase_guard::guard::GuardConfig
 pub fn tirbase_guard::guard::GuardConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::guard::GuardConfig
@@ -3218,7 +3218,7 @@ pub tirbase_guard::lockdown::CrashLoopTracker::window_secs: u64
 impl tirbase_guard::lockdown::CrashLoopTracker
 pub fn tirbase_guard::lockdown::CrashLoopTracker::crashes_in_window(&self, u64) -> usize
 pub fn tirbase_guard::lockdown::CrashLoopTracker::new(usize, u64) -> Self
-pub fn tirbase_guard::lockdown::CrashLoopTracker::new_default() -> Self
+pub fn tirbase_guard::lockdown::CrashLoopTracker::new_default -> Self
 pub fn tirbase_guard::lockdown::CrashLoopTracker::record_crash(&mut self, u64) -> tirbase_guard::lockdown::CrashLoopEscalation
 impl core::clone::Clone for tirbase_guard::lockdown::CrashLoopTracker
 pub fn tirbase_guard::lockdown::CrashLoopTracker::clone(&self) -> tirbase_guard::lockdown::CrashLoopTracker
@@ -3273,16 +3273,16 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::CrashLoopTrac
 pub fn tirbase_guard::lockdown::CrashLoopTracker::vzip(self) -> V
 pub struct tirbase_guard::lockdown::InMemoryLockdownStore
 impl tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::new() -> Self
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::new -> Self
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::with_marker(tirbase_guard::lockdown::LockdownFileMarker) -> Self
 impl core::default::Default for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::default() -> tirbase_guard::lockdown::InMemoryLockdownStore
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::default -> tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::fmt::Debug for tirbase_guard::lockdown::InMemoryLockdownStore
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::lockdown::LockdownStore for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl !core::marker::Freeze for tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::marker::Send for tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::marker::Sync for tirbase_guard::lockdown::InMemoryLockdownStore
@@ -3399,12 +3399,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::LockdownExitP
 pub fn tirbase_guard::lockdown::LockdownExitPayload::vzip(self) -> V
 pub struct tirbase_guard::lockdown::LockdownFileMarker
 impl tirbase_guard::lockdown::LockdownFileMarker
-pub fn tirbase_guard::lockdown::LockdownFileMarker::default_path() -> Self
+pub fn tirbase_guard::lockdown::LockdownFileMarker::default_path -> Self
 pub fn tirbase_guard::lockdown::LockdownFileMarker::exists(&self) -> bool
 pub fn tirbase_guard::lockdown::LockdownFileMarker::new(impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn tirbase_guard::lockdown::LockdownFileMarker::path(&self) -> &std::path::Path
-pub fn tirbase_guard::lockdown::LockdownFileMarker::remove(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::LockdownFileMarker::write(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownFileMarker::remove(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownFileMarker::write(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl core::clone::Clone for tirbase_guard::lockdown::LockdownFileMarker
 pub fn tirbase_guard::lockdown::LockdownFileMarker::clone(&self) -> tirbase_guard::lockdown::LockdownFileMarker
 impl core::fmt::Debug for tirbase_guard::lockdown::LockdownFileMarker
@@ -3461,23 +3461,23 @@ pub const tirbase_guard::lockdown::CONTEXT_LOCKDOWN_EXIT: &str
 pub const tirbase_guard::lockdown::LOCKDOWN_DB_KEY: &str
 pub const tirbase_guard::lockdown::LOCKDOWN_FILE_PATH: &str
 pub trait tirbase_guard::lockdown::LockdownStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn tirbase_guard::lockdown::LockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::LockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::LockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl tirbase_guard::lockdown::LockdownStore for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub trait tirbase_guard::lockdown::SafeDefaultBinding: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn tirbase_guard::lockdown::SafeDefaultBinding::arm_watchdog(&self, u32, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::lockdown::SafeDefaultBinding::arm_watchdog(&self, u32, &str) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_guard::lockdown::SafeDefaultBinding::controller_id(&self) -> &str
 pub fn tirbase_guard::lockdown::SafeDefaultBinding::current_value(&self) -> alloc::string::String
-pub fn tirbase_guard::lockdown::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_guard::lockdown::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::ChainRecoveryPayload>, &tirbase_guard::lockdown::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<(), alloc::string::String>
-pub fn tirbase_guard::lockdown::enter_lockdown(&dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_guard::lockdown::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::ChainRecoveryPayload>, &tirbase_guard::lockdown::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<, alloc::string::String>
+pub fn tirbase_guard::lockdown::enter_lockdown(&dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub mod tirbase_guard::node_mode
 #[repr(u8)] pub enum tirbase_guard::node_mode::NodeMode
 pub tirbase_guard::node_mode::NodeMode::Degraded = 2
@@ -3573,7 +3573,7 @@ pub fn tirbase_guard::node_mode::NodeModeState::get(&self) -> tirbase_guard::nod
 pub fn tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode) -> alloc::sync::Arc<Self>
 pub fn tirbase_guard::node_mode::NodeModeState::set(&self, tirbase_guard::node_mode::NodeMode) -> tirbase_guard::node_mode::NodeMode
 impl core::default::Default for tirbase_guard::node_mode::NodeModeState
-pub fn tirbase_guard::node_mode::NodeModeState::default() -> Self
+pub fn tirbase_guard::node_mode::NodeModeState::default -> Self
 impl core::fmt::Debug for tirbase_guard::node_mode::NodeModeState
 pub fn tirbase_guard::node_mode::NodeModeState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_guard::node_mode::NodeModeState
@@ -4085,7 +4085,7 @@ pub fn tirbase_guard::policy::classify_bundle(&tirbase_types::envelope::Envelope
 pub fn tirbase_guard::policy::make_bundle(u64, [u8; 32], tirbase_types::envelope::EnvelopeProfile, alloc::vec::Vec<tirbase_types::policy::PolicyCoSignature>) -> tirbase_types::policy::PolicyBundle
 pub fn tirbase_guard::policy::policy_bundle_body_hash(&tirbase_types::policy::PolicyBundle) -> [u8; 32]
 pub fn tirbase_guard::policy::policy_bundle_signing_bytes(&tirbase_types::policy::PolicyBundle) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::policy::verify_policy_cosignature(&tirbase_guard::trust_root::TrustRootRecord, &tirbase_types::policy::PolicyBundle, &tirbase_types::policy::PolicyCoSignature) -> core::result::Result<(), tirbase_guard::policy::PolicyError>
+pub fn tirbase_guard::policy::verify_policy_cosignature(&tirbase_guard::trust_root::TrustRootRecord, &tirbase_types::policy::PolicyBundle, &tirbase_types::policy::PolicyCoSignature) -> core::result::Result<, tirbase_guard::policy::PolicyError>
 pub mod tirbase_guard::signed_operation
 pub enum tirbase_guard::signed_operation::SignedOperationError
 pub tirbase_guard::signed_operation::SignedOperationError::ContextMismatch
@@ -4249,12 +4249,12 @@ pub tirbase_guard::signed_operation::SignedOperation::payload_hash: [u8; 32]
 pub tirbase_guard::signed_operation::SignedOperation::signatures: alloc::vec::Vec<tirbase_guard::signed_operation::SignatureEntry>
 impl<T: tirbase_guard::signed_operation::SignedOperationPayload> tirbase_guard::signed_operation::SignedOperation<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::new(&T, i64, core::option::Option<i64>) -> core::result::Result<Self, tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::signing_bytes(&self) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
 impl<'de, T> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignedOperation<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl<T: core::clone::Clone> core::clone::Clone for tirbase_guard::signed_operation::SignedOperation<T>
@@ -4783,7 +4783,7 @@ impl core::cmp::Eq for tirbase_guard::time::TimeRatchetConfig
 impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetConfig
 pub fn tirbase_guard::time::TimeRatchetConfig::eq(&self, &tirbase_guard::time::TimeRatchetConfig) -> bool
 impl core::default::Default for tirbase_guard::time::TimeRatchetConfig
-pub fn tirbase_guard::time::TimeRatchetConfig::default() -> Self
+pub fn tirbase_guard::time::TimeRatchetConfig::default -> Self
 impl core::fmt::Debug for tirbase_guard::time::TimeRatchetConfig
 pub fn tirbase_guard::time::TimeRatchetConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_guard::time::TimeRatchetConfig
@@ -4853,7 +4853,7 @@ impl core::cmp::Eq for tirbase_guard::time::TimeRatchetRecord
 impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetRecord
 pub fn tirbase_guard::time::TimeRatchetRecord::eq(&self, &tirbase_guard::time::TimeRatchetRecord) -> bool
 impl core::default::Default for tirbase_guard::time::TimeRatchetRecord
-pub fn tirbase_guard::time::TimeRatchetRecord::default() -> tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::default -> tirbase_guard::time::TimeRatchetRecord
 impl core::fmt::Debug for tirbase_guard::time::TimeRatchetRecord
 pub fn tirbase_guard::time::TimeRatchetRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_guard::time::TimeRatchetRecord
@@ -4922,7 +4922,7 @@ pub const tirbase_guard::time::DEFAULT_REQUIRED_ANCHOR_SIGNATURES: usize
 pub const tirbase_guard::time::DEFAULT_STALENESS_WINDOW_SECS: i64
 pub trait tirbase_guard::time::TimeRatchetStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::time::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
-pub fn tirbase_guard::time::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::time::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<, tirbase_guard::time::TimeRatchetError>
 pub mod tirbase_guard::trust_root
 pub enum tirbase_guard::trust_root::TrustRootError
 pub tirbase_guard::trust_root::TrustRootError::Counter(alloc::string::String)
@@ -5241,7 +5241,7 @@ impl tirbase_guard::trust_root::TrustRootManager
 pub fn tirbase_guard::trust_root::TrustRootManager::committed_version(&self) -> core::result::Result<u64, tirbase_guard::trust_root::TrustRootError>
 pub fn tirbase_guard::trust_root::TrustRootManager::install(tirbase_guard::trust_root::TrustRootRecord, alloc::sync::Arc<dyn tirbase_core::traits::MonotonicCounterTrait>, i64) -> core::result::Result<Self, tirbase_guard::trust_root::TrustRootError>
 pub fn tirbase_guard::trust_root::TrustRootManager::record(&self) -> &tirbase_guard::trust_root::TrustRootRecord
-pub fn tirbase_guard::trust_root::TrustRootManager::rotate(&mut self, tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootManager::rotate(&mut self, tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
 impl core::fmt::Debug for tirbase_guard::trust_root::TrustRootManager
 pub fn tirbase_guard::trust_root::TrustRootManager::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::trust_root::TrustRootManager
@@ -5304,10 +5304,10 @@ pub fn tirbase_guard::trust_root::TrustRootRecord::role_policy(&self, tirbase_ty
 pub fn tirbase_guard::trust_root::TrustRootRecord::role_threshold(&self, tirbase_types::CommandRole) -> core::option::Option<u8>
 pub fn tirbase_guard::trust_root::TrustRootRecord::signing_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::trust_root::TrustRootRecord::threshold_warning(&self) -> core::option::Option<alloc::string::String>
-pub fn tirbase_guard::trust_root::TrustRootRecord::validate(&self, i64) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_cosignature(&self, tirbase_types::CommandRole, &str, &[u8], &tirbase_types::DeviceSignature) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_signatures(&self, tirbase_types::CommandRole, &[u8], &[tirbase_guard::signed_operation::SignatureEntry]) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_threshold_signatures(&self) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::validate(&self, i64) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_cosignature(&self, tirbase_types::CommandRole, &str, &[u8], &tirbase_types::DeviceSignature) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_signatures(&self, tirbase_types::CommandRole, &[u8], &[tirbase_guard::signed_operation::SignatureEntry]) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_threshold_signatures(&self) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
 impl core::clone::Clone for tirbase_guard::trust_root::TrustRootRecord
 pub fn tirbase_guard::trust_root::TrustRootRecord::clone(&self) -> tirbase_guard::trust_root::TrustRootRecord
 impl core::cmp::Eq for tirbase_guard::trust_root::TrustRootRecord
@@ -5988,7 +5988,7 @@ pub fn tirbase_guard::device_transport::DeviceTransport::from_raw_fd(std::os::fd
 pub unsafe fn tirbase_guard::device_transport::DeviceTransport::from_raw_modbus_rtu(std::os::fd::raw::RawFd) -> Self
 pub fn tirbase_guard::device_transport::DeviceTransport::modbus_rtu_path_unavailable(&std::path::Path) -> core::io::error::Result<Self>
 pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu(&std::path::Path, u32, u8, tirbase_drivers::modbus::ModbusRtuParity, u8, u32) -> core::io::error::Result<Self>
-pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce() -> core::io::error::Result<std::os::fd::owned::OwnedFd>
+pub fn tirbase_guard::device_transport::DeviceTransport::open_modbus_rtu_with<F>(F) -> core::io::error::Result<Self> where F: core::ops::function::FnOnce -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 pub fn tirbase_guard::device_transport::DeviceTransport::try_clone_fd(&self) -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 impl core::fmt::Debug for tirbase_guard::device_transport::DeviceTransport
 pub fn tirbase_guard::device_transport::DeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -7983,7 +7983,7 @@ pub tirbase_guard::CrashLoopTracker::window_secs: u64
 impl tirbase_guard::lockdown::CrashLoopTracker
 pub fn tirbase_guard::lockdown::CrashLoopTracker::crashes_in_window(&self, u64) -> usize
 pub fn tirbase_guard::lockdown::CrashLoopTracker::new(usize, u64) -> Self
-pub fn tirbase_guard::lockdown::CrashLoopTracker::new_default() -> Self
+pub fn tirbase_guard::lockdown::CrashLoopTracker::new_default -> Self
 pub fn tirbase_guard::lockdown::CrashLoopTracker::record_crash(&mut self, u64) -> tirbase_guard::lockdown::CrashLoopEscalation
 impl core::clone::Clone for tirbase_guard::lockdown::CrashLoopTracker
 pub fn tirbase_guard::lockdown::CrashLoopTracker::clone(&self) -> tirbase_guard::lockdown::CrashLoopTracker
@@ -8183,7 +8183,7 @@ impl tirbase_guard::enrollment::DeviceIdentity
 pub fn tirbase_guard::enrollment::DeviceIdentity::bootstrap(&self, [u8; 32], tirbase_types::CommandRole) -> core::result::Result<tirbase_guard::enrollment::EnrollmentRequest, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::DeviceIdentity::device_id(&self) -> alloc::string::String
 pub fn tirbase_guard::enrollment::DeviceIdentity::from_seed([u8; 32]) -> Self
-pub fn tirbase_guard::enrollment::DeviceIdentity::generate() -> core::result::Result<Self, tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::enrollment::DeviceIdentity::generate -> core::result::Result<Self, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::DeviceIdentity::public_key(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::enrollment::DeviceIdentity::seed(&self) -> [u8; 32]
 pub fn tirbase_guard::enrollment::DeviceIdentity::sign_bootstrap(&self, [u8; 32], tirbase_types::CommandRole) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_guard::epoch::EpochError>
@@ -8424,7 +8424,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::enrollment::EnrollmentR
 pub fn tirbase_guard::enrollment::EnrollmentRequest::vzip(self) -> V
 pub struct tirbase_guard::EnrollmentService
 impl tirbase_guard::enrollment::EnrollmentService
-pub fn tirbase_guard::enrollment::EnrollmentService::decommission(&self, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::enrollment::EnrollmentService::decommission(&self, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::EnrollmentService::decommission_message(&str) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::enrollment::EnrollmentService::enroll(&self, &tirbase_guard::enrollment::EnrollmentRequest, i64) -> core::result::Result<tirbase_guard::enrollment::EnrolledDevice, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::enrollment::EnrollmentService::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
@@ -8552,7 +8552,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::epoch::EpochBump where 
 pub fn tirbase_guard::epoch::EpochBump::vzip(self) -> V
 pub struct tirbase_guard::EpochCommandGuard
 impl tirbase_guard::epoch::EpochCommandGuard
-pub fn tirbase_guard::epoch::EpochCommandGuard::admit(&self, &tirbase_guard::epoch::CommandEnvelope) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochCommandGuard::admit(&self, &tirbase_guard::epoch::CommandEnvelope) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochCommandGuard::epochs(&self) -> &alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>
 pub fn tirbase_guard::epoch::EpochCommandGuard::new(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>) -> Self
 impl core::fmt::Debug for tirbase_guard::epoch::EpochCommandGuard
@@ -8601,12 +8601,12 @@ pub fn tirbase_guard::epoch::EpochCommandGuard::vzip(self) -> V
 pub struct tirbase_guard::EpochRegistry
 impl tirbase_guard::epoch::EpochRegistry
 pub fn tirbase_guard::epoch::EpochRegistry::apply_bump(&self, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::epoch::EpochBump>, &tirbase_guard::epoch::EpochBump, &tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<tirbase_guard::epoch::DeviceEpoch, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::EpochRegistry::check_command_epoch(&self, &str, u64) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochRegistry::check_command_epoch(&self, &str, u64) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::current_epoch(&self, &str) -> core::result::Result<u64, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::current_record(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::ensure_enrolled(&self, &str, i64) -> core::result::Result<tirbase_guard::epoch::DeviceEpoch, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::new(alloc::sync::Arc<dyn tirbase_guard::epoch::DeviceEpochStore>) -> Self
-pub fn tirbase_guard::epoch::EpochRegistry::observe_epoch(&self, &str, u64) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::EpochRegistry::observe_epoch(&self, &str, u64) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::EpochRegistry::witnessed_epoch(&self, &str) -> core::option::Option<u64>
 impl core::fmt::Debug for tirbase_guard::epoch::EpochRegistry
 pub fn tirbase_guard::epoch::EpochRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -8720,7 +8720,7 @@ pub fn tirbase_guard::envelope::FieldError::vzip(self) -> V
 pub struct tirbase_guard::GuardConfig
 pub tirbase_guard::GuardConfig::targets: alloc::collections::btree::map::BTreeMap<tirbase_types::TargetId, tirbase_guard::guard::TargetAdmission>
 impl core::default::Default for tirbase_guard::guard::GuardConfig
-pub fn tirbase_guard::guard::GuardConfig::default() -> tirbase_guard::guard::GuardConfig
+pub fn tirbase_guard::guard::GuardConfig::default -> tirbase_guard::guard::GuardConfig
 impl core::fmt::Debug for tirbase_guard::guard::GuardConfig
 pub fn tirbase_guard::guard::GuardConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::guard::GuardConfig
@@ -8768,8 +8768,8 @@ pub struct tirbase_guard::GuardDeviceTransport
 pub tirbase_guard::GuardDeviceTransport::transport: tirbase_guard::device_transport::DeviceTransport
 impl tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::new(tirbase_guard::device_transport::DeviceTransport) -> Self
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<(), E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<(), E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
-pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<()> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<()>
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_result<E, F>(&self, std::os::fd::raw::RawFd, F) -> core::result::Result<, E> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::result::Result<, E>, E: core::convert::From<core::io::error::Error> + core::fmt::Display
+pub fn tirbase_guard::device_transport::GuardDeviceTransport::pass_device_fd_with<F>(&self, std::os::fd::raw::RawFd, F) -> core::io::error::Result<> where F: core::ops::function::FnOnce(std::os::fd::raw::RawFd, std::os::fd::raw::RawFd) -> core::io::error::Result<>
 impl core::fmt::Debug for tirbase_guard::device_transport::GuardDeviceTransport
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::device_transport::GuardDeviceTransport
@@ -8815,12 +8815,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::device_transport::Guard
 pub fn tirbase_guard::device_transport::GuardDeviceTransport::vzip(self) -> V
 pub struct tirbase_guard::InMemoryEpochStore
 impl core::default::Default for tirbase_guard::epoch::InMemoryEpochStore
-pub fn tirbase_guard::epoch::InMemoryEpochStore::default() -> tirbase_guard::epoch::InMemoryEpochStore
+pub fn tirbase_guard::epoch::InMemoryEpochStore::default -> tirbase_guard::epoch::InMemoryEpochStore
 impl core::fmt::Debug for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::epoch::DeviceEpochStore for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 impl !core::marker::Freeze for tirbase_guard::epoch::InMemoryEpochStore
 impl core::marker::Send for tirbase_guard::epoch::InMemoryEpochStore
 impl core::marker::Sync for tirbase_guard::epoch::InMemoryEpochStore
@@ -8864,16 +8864,16 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::epoch::InMemoryEpochSto
 pub fn tirbase_guard::epoch::InMemoryEpochStore::vzip(self) -> V
 pub struct tirbase_guard::InMemoryLockdownStore
 impl tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::new() -> Self
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::new -> Self
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::with_marker(tirbase_guard::lockdown::LockdownFileMarker) -> Self
 impl core::default::Default for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::default() -> tirbase_guard::lockdown::InMemoryLockdownStore
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::default -> tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::fmt::Debug for tirbase_guard::lockdown::InMemoryLockdownStore
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::lockdown::LockdownStore for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl !core::marker::Freeze for tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::marker::Send for tirbase_guard::lockdown::InMemoryLockdownStore
 impl core::marker::Sync for tirbase_guard::lockdown::InMemoryLockdownStore
@@ -8917,11 +8917,11 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::InMemoryLockd
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::vzip(self) -> V
 pub struct tirbase_guard::InMemoryNonceStore
 impl tirbase_guard::epoch::InMemoryNonceStore
-pub fn tirbase_guard::epoch::InMemoryNonceStore::new() -> Self
+pub fn tirbase_guard::epoch::InMemoryNonceStore::new -> Self
 pub fn tirbase_guard::epoch::InMemoryNonceStore::with_capacity(self, usize) -> Self
 pub fn tirbase_guard::epoch::InMemoryNonceStore::with_retention(i64) -> Self
 impl core::default::Default for tirbase_guard::epoch::InMemoryNonceStore
-pub fn tirbase_guard::epoch::InMemoryNonceStore::default() -> Self
+pub fn tirbase_guard::epoch::InMemoryNonceStore::default -> Self
 impl core::fmt::Debug for tirbase_guard::epoch::InMemoryNonceStore
 pub fn tirbase_guard::epoch::InMemoryNonceStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_guard::epoch::EnrollmentNonceStore for tirbase_guard::epoch::InMemoryNonceStore
@@ -9045,12 +9045,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_guard::lockdown::LockdownExitP
 pub fn tirbase_guard::lockdown::LockdownExitPayload::vzip(self) -> V
 pub struct tirbase_guard::LockdownFileMarker
 impl tirbase_guard::lockdown::LockdownFileMarker
-pub fn tirbase_guard::lockdown::LockdownFileMarker::default_path() -> Self
+pub fn tirbase_guard::lockdown::LockdownFileMarker::default_path -> Self
 pub fn tirbase_guard::lockdown::LockdownFileMarker::exists(&self) -> bool
 pub fn tirbase_guard::lockdown::LockdownFileMarker::new(impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn tirbase_guard::lockdown::LockdownFileMarker::path(&self) -> &std::path::Path
-pub fn tirbase_guard::lockdown::LockdownFileMarker::remove(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::LockdownFileMarker::write(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownFileMarker::remove(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::LockdownFileMarker::write(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl core::clone::Clone for tirbase_guard::lockdown::LockdownFileMarker
 pub fn tirbase_guard::lockdown::LockdownFileMarker::clone(&self) -> tirbase_guard::lockdown::LockdownFileMarker
 impl core::fmt::Debug for tirbase_guard::lockdown::LockdownFileMarker
@@ -9109,7 +9109,7 @@ pub fn tirbase_guard::node_mode::NodeModeState::get(&self) -> tirbase_guard::nod
 pub fn tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode) -> alloc::sync::Arc<Self>
 pub fn tirbase_guard::node_mode::NodeModeState::set(&self, tirbase_guard::node_mode::NodeMode) -> tirbase_guard::node_mode::NodeMode
 impl core::default::Default for tirbase_guard::node_mode::NodeModeState
-pub fn tirbase_guard::node_mode::NodeModeState::default() -> Self
+pub fn tirbase_guard::node_mode::NodeModeState::default -> Self
 impl core::fmt::Debug for tirbase_guard::node_mode::NodeModeState
 pub fn tirbase_guard::node_mode::NodeModeState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_guard::node_mode::NodeModeState
@@ -9347,13 +9347,13 @@ pub struct tirbase_guard::ProfileMap
 impl tirbase_guard::envelope::ProfileMap
 pub fn tirbase_guard::envelope::ProfileMap::from_profiles(impl core::iter::traits::collect::IntoIterator<Item = (tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile)>) -> Self
 pub fn tirbase_guard::envelope::ProfileMap::load(&self, &tirbase_types::TargetId) -> core::option::Option<alloc::sync::Arc<tirbase_types::envelope::EnvelopeProfile>>
-pub fn tirbase_guard::envelope::ProfileMap::new() -> Self
+pub fn tirbase_guard::envelope::ProfileMap::new -> Self
 pub fn tirbase_guard::envelope::ProfileMap::swap(&self, &tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile) -> bool
 pub fn tirbase_guard::envelope::ProfileMap::with_profile(&self, tirbase_types::TargetId, tirbase_types::envelope::EnvelopeProfile) -> Self
 impl core::clone::Clone for tirbase_guard::envelope::ProfileMap
 pub fn tirbase_guard::envelope::ProfileMap::clone(&self) -> tirbase_guard::envelope::ProfileMap
 impl core::default::Default for tirbase_guard::envelope::ProfileMap
-pub fn tirbase_guard::envelope::ProfileMap::default() -> tirbase_guard::envelope::ProfileMap
+pub fn tirbase_guard::envelope::ProfileMap::default -> tirbase_guard::envelope::ProfileMap
 impl core::marker::Freeze for tirbase_guard::envelope::ProfileMap
 impl core::marker::Send for tirbase_guard::envelope::ProfileMap
 impl core::marker::Sync for tirbase_guard::envelope::ProfileMap
@@ -9621,12 +9621,12 @@ pub tirbase_guard::SignedOperation::payload_hash: [u8; 32]
 pub tirbase_guard::SignedOperation::signatures: alloc::vec::Vec<tirbase_guard::signed_operation::SignatureEntry>
 impl<T: tirbase_guard::signed_operation::SignedOperationPayload> tirbase_guard::signed_operation::SignedOperation<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::new(&T, i64, core::option::Option<i64>) -> core::result::Result<Self, tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::sign_with(&mut self, &dyn tirbase_core::traits::KeyProvider, tirbase_types::CommandRole) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::signing_bytes(&self) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify(&self, &T, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_entry(&self, &tirbase_guard::signed_operation::SignatureEntry, &[u8]) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_payload(&self, &T) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::signed_operation::SignedOperation<T>::verify_signatures(&self, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
 impl<'de, T> serde_core::de::Deserialize<'de> for tirbase_guard::signed_operation::SignedOperation<T>
 pub fn tirbase_guard::signed_operation::SignedOperation<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl<T: core::clone::Clone> core::clone::Clone for tirbase_guard::signed_operation::SignedOperation<T>
@@ -10021,7 +10021,7 @@ impl core::cmp::Eq for tirbase_guard::time::TimeRatchetConfig
 impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetConfig
 pub fn tirbase_guard::time::TimeRatchetConfig::eq(&self, &tirbase_guard::time::TimeRatchetConfig) -> bool
 impl core::default::Default for tirbase_guard::time::TimeRatchetConfig
-pub fn tirbase_guard::time::TimeRatchetConfig::default() -> Self
+pub fn tirbase_guard::time::TimeRatchetConfig::default -> Self
 impl core::fmt::Debug for tirbase_guard::time::TimeRatchetConfig
 pub fn tirbase_guard::time::TimeRatchetConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_guard::time::TimeRatchetConfig
@@ -10091,7 +10091,7 @@ impl core::cmp::Eq for tirbase_guard::time::TimeRatchetRecord
 impl core::cmp::PartialEq for tirbase_guard::time::TimeRatchetRecord
 pub fn tirbase_guard::time::TimeRatchetRecord::eq(&self, &tirbase_guard::time::TimeRatchetRecord) -> bool
 impl core::default::Default for tirbase_guard::time::TimeRatchetRecord
-pub fn tirbase_guard::time::TimeRatchetRecord::default() -> tirbase_guard::time::TimeRatchetRecord
+pub fn tirbase_guard::time::TimeRatchetRecord::default -> tirbase_guard::time::TimeRatchetRecord
 impl core::fmt::Debug for tirbase_guard::time::TimeRatchetRecord
 pub fn tirbase_guard::time::TimeRatchetRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_guard::time::TimeRatchetRecord
@@ -10159,7 +10159,7 @@ impl tirbase_guard::trust_root::TrustRootManager
 pub fn tirbase_guard::trust_root::TrustRootManager::committed_version(&self) -> core::result::Result<u64, tirbase_guard::trust_root::TrustRootError>
 pub fn tirbase_guard::trust_root::TrustRootManager::install(tirbase_guard::trust_root::TrustRootRecord, alloc::sync::Arc<dyn tirbase_core::traits::MonotonicCounterTrait>, i64) -> core::result::Result<Self, tirbase_guard::trust_root::TrustRootError>
 pub fn tirbase_guard::trust_root::TrustRootManager::record(&self) -> &tirbase_guard::trust_root::TrustRootRecord
-pub fn tirbase_guard::trust_root::TrustRootManager::rotate(&mut self, tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootManager::rotate(&mut self, tirbase_guard::trust_root::TrustRootRecord, i64) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
 impl core::fmt::Debug for tirbase_guard::trust_root::TrustRootManager
 pub fn tirbase_guard::trust_root::TrustRootManager::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_guard::trust_root::TrustRootManager
@@ -10222,10 +10222,10 @@ pub fn tirbase_guard::trust_root::TrustRootRecord::role_policy(&self, tirbase_ty
 pub fn tirbase_guard::trust_root::TrustRootRecord::role_threshold(&self, tirbase_types::CommandRole) -> core::option::Option<u8>
 pub fn tirbase_guard::trust_root::TrustRootRecord::signing_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::trust_root::TrustRootRecord::threshold_warning(&self) -> core::option::Option<alloc::string::String>
-pub fn tirbase_guard::trust_root::TrustRootRecord::validate(&self, i64) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_cosignature(&self, tirbase_types::CommandRole, &str, &[u8], &tirbase_types::DeviceSignature) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_signatures(&self, tirbase_types::CommandRole, &[u8], &[tirbase_guard::signed_operation::SignatureEntry]) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
-pub fn tirbase_guard::trust_root::TrustRootRecord::verify_threshold_signatures(&self) -> core::result::Result<(), tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::validate(&self, i64) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_cosignature(&self, tirbase_types::CommandRole, &str, &[u8], &tirbase_types::DeviceSignature) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_role_signatures(&self, tirbase_types::CommandRole, &[u8], &[tirbase_guard::signed_operation::SignatureEntry]) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
+pub fn tirbase_guard::trust_root::TrustRootRecord::verify_threshold_signatures(&self) -> core::result::Result<, tirbase_guard::trust_root::TrustRootError>
 impl core::clone::Clone for tirbase_guard::trust_root::TrustRootRecord
 pub fn tirbase_guard::trust_root::TrustRootRecord::clone(&self) -> tirbase_guard::trust_root::TrustRootRecord
 impl core::cmp::Eq for tirbase_guard::trust_root::TrustRootRecord
@@ -10380,13 +10380,13 @@ pub const tirbase_guard::LOCKDOWN_DB_KEY: &str
 pub const tirbase_guard::LOCKDOWN_FILE_PATH: &str
 pub trait tirbase_guard::ChallengeNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::ChallengeNonceStore::consume_if_valid(&self, &[u8; 32], &str, &str, &str, i64, bool) -> core::result::Result<bool, alloc::string::String>
-pub fn tirbase_guard::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::ChallengeNonceStore::insert(&self, &tirbase_guard::admit::ChallengeNonce) -> core::result::Result<, alloc::string::String>
 pub trait tirbase_guard::DeviceEpochStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::DeviceEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::DeviceEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::DeviceEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 impl tirbase_guard::epoch::DeviceEpochStore for tirbase_guard::epoch::InMemoryEpochStore
 pub fn tirbase_guard::epoch::InMemoryEpochStore::load(&self, &str) -> core::result::Result<core::option::Option<tirbase_guard::epoch::DeviceEpoch>, tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::epoch::InMemoryEpochStore::save(&self, &tirbase_guard::epoch::DeviceEpoch) -> core::result::Result<, tirbase_guard::epoch::EpochError>
 pub trait tirbase_guard::EnrollmentNonceStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::EnrollmentNonceStore::contains(&self, &[u8; 32]) -> core::result::Result<bool, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::EnrollmentNonceStore::len(&self) -> core::result::Result<usize, tirbase_guard::epoch::EpochError>
@@ -10398,18 +10398,18 @@ pub fn tirbase_guard::epoch::InMemoryNonceStore::len(&self) -> core::result::Res
 pub fn tirbase_guard::epoch::InMemoryNonceStore::purge_expired(&self, i64) -> core::result::Result<usize, tirbase_guard::epoch::EpochError>
 pub fn tirbase_guard::epoch::InMemoryNonceStore::record(&self, [u8; 32], i64) -> core::result::Result<bool, tirbase_guard::epoch::EpochError>
 pub trait tirbase_guard::LockdownStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn tirbase_guard::LockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::LockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::LockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::LockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::LockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 impl tirbase_guard::lockdown::LockdownStore for tirbase_guard::lockdown::InMemoryLockdownStore
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::clear_lockdown(&self) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::lockdown::InMemoryLockdownStore::is_lockdown(&self) -> core::result::Result<bool, tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::lockdown::InMemoryLockdownStore::set_lockdown(&self, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub trait tirbase_guard::SafeDefaultBinding: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn tirbase_guard::SafeDefaultBinding::arm_watchdog(&self, u32, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::SafeDefaultBinding::arm_watchdog(&self, u32, &str) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_guard::SafeDefaultBinding::controller_id(&self) -> &str
 pub fn tirbase_guard::SafeDefaultBinding::current_value(&self) -> alloc::string::String
-pub fn tirbase_guard::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::SafeDefaultBinding::refresh_watchdog(&self) -> core::result::Result<, alloc::string::String>
 pub trait tirbase_guard::SignedOperationPayload: serde_core::ser::Serialize
 pub const tirbase_guard::SignedOperationPayload::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::anti_replay::AntiReplayWindowReset
@@ -10423,16 +10423,16 @@ pub const tirbase_guard::lockdown::LockdownExitPayload::CONTEXT: &'static str
 impl tirbase_guard::signed_operation::SignedOperationPayload for tirbase_guard::time::TimeBeacon
 pub const tirbase_guard::time::TimeBeacon::CONTEXT: &'static str
 pub trait tirbase_guard::Stage16Store: core::marker::Send + core::marker::Sync
-pub fn tirbase_guard::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<(), tirbase_guard::commit::Stage16Error>
-pub fn tirbase_guard::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::Stage16Store::commit_actuating(&self, &tirbase_guard::commit::Stage16Request<'_>) -> core::result::Result<, tirbase_guard::commit::Stage16Error>
+pub fn tirbase_guard::Stage16Store::finalize_terminal(&self, &[u8; 16], &str, &str, tirbase_guard::commit::EffectTerminalState, i64, core::option::Option<&[u8]>) -> core::result::Result<, alloc::string::String>
 pub trait tirbase_guard::TimeRatchetStore: core::marker::Send + core::marker::Sync + core::fmt::Debug
 pub fn tirbase_guard::TimeRatchetStore::load(&self) -> core::result::Result<core::option::Option<tirbase_guard::time::TimeRatchetRecord>, tirbase_guard::time::TimeRatchetError>
-pub fn tirbase_guard::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<(), tirbase_guard::time::TimeRatchetError>
+pub fn tirbase_guard::TimeRatchetStore::save(&self, &tirbase_guard::time::TimeRatchetRecord) -> core::result::Result<, tirbase_guard::time::TimeRatchetError>
 pub fn tirbase_guard::admit_stages_0_to_15(&tirbase_types::command::CommandMessage, &tirbase_guard::admit::AdmitContext<'_>, &tirbase_guard::node_mode::NodeModeState, &tirbase_guard::epoch::EpochRegistry, &tirbase_guard::admit::AdmitPipelineState, core::option::Option<&str>) -> tirbase_guard::admit::AdmitDecision
-pub fn tirbase_guard::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::ChainRecoveryPayload>, &tirbase_guard::lockdown::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
-pub fn tirbase_guard::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_guard::apply_chain_recovery(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::ChainRecoveryPayload>, &tirbase_guard::lockdown::ChainRecoveryPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&dyn tirbase_guard::lockdown::LockdownStore>, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::apply_crash_decision(tirbase_guard::lockdown::CrashLoopEscalation, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::apply_lockdown_exit(&tirbase_guard::signed_operation::SignedOperation<tirbase_guard::lockdown::LockdownExitPayload>, &tirbase_guard::lockdown::LockdownExitPayload, &tirbase_guard::trust_root::TrustRootRecord, core::option::Option<&tirbase_types::envelope::EnvelopeProfile>, &dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::arm_controller_watchdogs(&[&dyn tirbase_guard::lockdown::SafeDefaultBinding], u32, &str) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_guard::check_sequence(u64, u64, u64, u64, u64, bool) -> tirbase_guard::anti_replay::AntiReplayDecision
 pub fn tirbase_guard::check_tightening_floors(&tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord, &str) -> core::option::Option<tirbase_guard::policy::PolicyError>
 pub fn tirbase_guard::classify_bundle(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord) -> tirbase_types::policy::PolicyBundleKind
@@ -10442,19 +10442,19 @@ pub fn tirbase_guard::commit_dispatch_finalize<W, R, S>(&S, &tirbase_types::comm
 pub fn tirbase_guard::decommission_message(&str) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::dispatch_and_await<W, R, S>(&S, &tirbase_types::command::CommandMessage, [u8; 16], &mut tirbase_guard::driver_proxy::DriverProxy<W>, &[u8], &mut R, i64, core::time::Duration) -> core::result::Result<tirbase_guard::commit::EffectTerminalState, alloc::string::String> where W: core::io::write::Write + core::marker::Send, R: alloc::io::read::Read, S: tirbase_guard::commit::Stage16Store + ?core::marker::Sized
 pub fn tirbase_guard::enrollment_message(&str, &[u8], &[u8; 32], tirbase_types::CommandRole) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::enter_lockdown(&dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<(), tirbase_guard::lockdown::LockdownError>
+pub fn tirbase_guard::enter_lockdown(&dyn tirbase_guard::lockdown::LockdownStore, &tirbase_guard::node_mode::NodeModeState, tirbase_guard::lockdown::LockdownEntryReason) -> core::result::Result<, tirbase_guard::lockdown::LockdownError>
 pub fn tirbase_guard::install_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel, &tirbase_guard::trust_root::TrustRootRecord) -> core::result::Result<alloc::string::String, tirbase_guard::envelope::ProfileInstallError>
 pub fn tirbase_guard::make_bundle(u64, [u8; 32], tirbase_types::envelope::EnvelopeProfile, alloc::vec::Vec<tirbase_types::policy::PolicyCoSignature>) -> tirbase_types::policy::PolicyBundle
 pub fn tirbase_guard::policy_bundle_body_hash(&tirbase_types::policy::PolicyBundle) -> [u8; 32]
 pub fn tirbase_guard::policy_bundle_signing_bytes(&tirbase_types::policy::PolicyBundle) -> alloc::vec::Vec<u8>
 pub fn tirbase_guard::profile_signing_bytes(&tirbase_types::envelope::EnvelopeProfile) -> alloc::vec::Vec<u8>
-pub fn tirbase_guard::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<(), tirbase_guard::command::CommandError>
+pub fn tirbase_guard::sign_command(&mut tirbase_types::command::CommandMessage, &dyn tirbase_core::traits::KeyProvider) -> core::result::Result<, tirbase_guard::command::CommandError>
 pub fn tirbase_guard::single_target_guard(alloc::sync::Arc<tirbase_guard::epoch::EpochRegistry>, tirbase_types::TargetId, alloc::string::String) -> tirbase_guard::guard::CommandGuard
 pub fn tirbase_guard::stage17_acceptance(&tirbase_types::command::CommandMessage, &[u8; 16])
 pub fn tirbase_guard::stage17_rejection(&tirbase_types::command::CommandMessage, tirbase_guard::admit::AdmitRejection, &str, bool) -> serde_json::value::Value
-pub fn tirbase_guard::validate_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel) -> core::result::Result<(), tirbase_guard::envelope::ProfileInstallError>
-pub fn tirbase_guard::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<(), tirbase_guard::signed_operation::SignedOperationError>
-pub fn tirbase_guard::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<(), tirbase_guard::command::CommandError>
-pub fn tirbase_guard::verify_decommission_credential(&tirbase_guard::trust_root::TrustRootRecord, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<(), tirbase_guard::epoch::EpochError>
-pub fn tirbase_guard::verify_policy_cosignature(&tirbase_guard::trust_root::TrustRootRecord, &tirbase_types::policy::PolicyBundle, &tirbase_types::policy::PolicyCoSignature) -> core::result::Result<(), tirbase_guard::policy::PolicyError>
+pub fn tirbase_guard::validate_profile(&tirbase_types::envelope::EnvelopeProfile, &tirbase_types::envelope::DeviceModel) -> core::result::Result<, tirbase_guard::envelope::ProfileInstallError>
+pub fn tirbase_guard::verify_and_apply_window_reset(&mut tirbase_guard::anti_replay::AntiReplayWindow, &tirbase_guard::signed_operation::SignedOperation<tirbase_guard::anti_replay::AntiReplayWindowReset>, &tirbase_guard::anti_replay::AntiReplayWindowReset, impl core::ops::function::Fn(&str) -> core::option::Option<alloc::vec::Vec<u8>>) -> core::result::Result<, tirbase_guard::signed_operation::SignedOperationError>
+pub fn tirbase_guard::verify_command_signature(&tirbase_types::command::CommandMessage) -> core::result::Result<, tirbase_guard::command::CommandError>
+pub fn tirbase_guard::verify_decommission_credential(&tirbase_guard::trust_root::TrustRootRecord, &str, &tirbase_guard::epoch::DecommissionCredential) -> core::result::Result<, tirbase_guard::epoch::EpochError>
+pub fn tirbase_guard::verify_policy_cosignature(&tirbase_guard::trust_root::TrustRootRecord, &tirbase_types::policy::PolicyBundle, &tirbase_types::policy::PolicyCoSignature) -> core::result::Result<, tirbase_guard::policy::PolicyError>
 pub fn tirbase_guard::verify_profile_signature(&tirbase_types::envelope::EnvelopeProfile, &tirbase_guard::trust_root::TrustRootRecord) -> core::result::Result<alloc::string::String, tirbase_guard::envelope::ProfileInstallError>

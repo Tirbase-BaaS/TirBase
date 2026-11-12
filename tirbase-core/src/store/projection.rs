@@ -24,7 +24,7 @@ pub fn project_table(
 
     let proj_table = format!("proj_{table_name}");
 
-    // Ensure the projection table exists.
+ // Ensure the projection table exists.
     let create_sql = format!(
         "CREATE TABLE IF NOT EXISTS \"{proj_table}\" \
          (key TEXT PRIMARY KEY, data_json TEXT NOT NULL, contaminated INTEGER NOT NULL DEFAULT 0);"
@@ -34,11 +34,11 @@ pub fn project_table(
             reason: format!("CREATE TABLE {proj_table} failed: {e}"),
         })?;
 
-    // Walk all keys at ROOT in the automerge doc.
+ // Walk all keys at ROOT in the automerge doc.
     let items: Vec<(String, String)> = doc
         .map_range(ROOT, ..)
         .filter_map(|item| {
-            // Convert the automerge ValueRef to a JSON string.
+ // Convert the automerge ValueRef to a JSON string.
             let json_val = match item.value {
                 ValueRef::Scalar(sv) => match sv {
                     ScalarValueRef::Str(s) => serde_json::Value::String(s.to_string()),
@@ -58,9 +58,9 @@ pub fn project_table(
                     }
                 },
                 ValueRef::Object(_) => {
-                    // Composite objects are not projected to flat rows.
-                    // Nested structures are flattened to Null in v1; full nested
-                    // projection support is deferred to a post-v1 task.
+ // Composite objects are not projected to flat rows.
+ // Nested structures are flattened to Null in v1; full nested
+ // projection support is deferred to a post-v1 task.
                     serde_json::Value::Null
                 }
             };
@@ -69,7 +69,7 @@ pub fn project_table(
         })
         .collect();
 
-    // Upsert each (key, json) pair into the projection table.
+ // Upsert each (key, json) pair into the projection table.
     let upsert_sql = format!(
         "INSERT INTO \"{proj_table}\" (key, data_json) VALUES (?1, ?2) \
          ON CONFLICT(key) DO UPDATE SET data_json = excluded.data_json;"
@@ -103,7 +103,7 @@ pub fn mark_row_contaminated(
 ) -> Result<(), TirBaseError> {
     let proj_table = format!("proj_{table}");
 
-    // Ensure the projection table exists (idempotent — same DDL as project_table).
+ // Ensure the projection table exists (idempotent — same DDL as project_table).
     let create_sql = format!(
         "CREATE TABLE IF NOT EXISTS \"{proj_table}\" \
          (key TEXT PRIMARY KEY, data_json TEXT NOT NULL, \
@@ -215,9 +215,9 @@ pub fn rows_by_delta_id(delta_id: &crate::crdt::delta::DeltaId) -> Vec<(String, 
 /// path for cross-build API parity with the WASM build.
 #[cfg(feature = "native")]
 pub fn record_delta_row(_delta_id: &crate::crdt::delta::DeltaId, _table: &str, _row_key: &str) {
-    // Native CCE resolves affected rows from the DAG directly — no delta-row
-    // index needed. This stub satisfies the call sites in the shared inbound
-    // projection path.
+ // Native CCE resolves affected rows from the DAG directly — no delta-row
+ // index needed. This stub satisfies the call sites in the shared inbound
+ // projection path.
 }
 
 #[cfg(all(test, feature = "native"))]
@@ -229,7 +229,7 @@ mod tests {
         Connection::open_in_memory().expect("in-memory SQLite")
     }
 
-    // ─── Test 1: mark_row_contaminated sets contaminated=1 ───────────────────
+ // ─── Test 1: mark_row_contaminated sets contaminated=1 ───────────────────
 
     #[test]
     fn test_mark_row_contaminated_sets_flag() {
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(contaminated, 1, "contaminated flag should be 1 after mark");
     }
 
-    // ─── Test 2: clear_row_contamination resets contaminated=0 ───────────────
+ // ─── Test 2: clear_row_contamination resets contaminated=0 ───────────────
 
     #[test]
     fn test_clear_row_contamination_clears_flag() {
@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(contaminated, 0, "contaminated flag should be 0 after clear");
     }
 
-    // ─── Test 3: clear_row_contamination is a no-op for non-existent row ─────
+ // ─── Test 3: clear_row_contamination is a no-op for non-existent row ─────
 
     #[test]
     fn test_clear_row_contamination_nonexistent_is_noop() {
@@ -292,7 +292,7 @@ mod tests {
         )
         .unwrap();
 
-        // Should not error even though the row doesn't exist.
+ // Should not error even though the row doesn't exist.
         let result = clear_row_contamination(&conn, "logs", "nonexistent-key");
         assert!(
             result.is_ok(),
@@ -300,19 +300,19 @@ mod tests {
         );
     }
 
-    // ─── Test 4: mark_row_contaminated creates table if missing ──────────────
+ // ─── Test 4: mark_row_contaminated creates table if missing ──────────────
 
     #[test]
     fn test_mark_row_contaminated_creates_table_if_missing() {
         let conn = open_conn();
-        // proj_new_table does NOT exist yet — the function must create it.
+ // proj_new_table does NOT exist yet — the function must create it.
         let result = mark_row_contaminated(&conn, "new_table", "row-x");
         assert!(
             result.is_ok(),
             "should succeed even when the projection table doesn't exist yet"
         );
 
-        // Table must now exist.
+ // Table must now exist.
         let table_exists: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' \
@@ -327,7 +327,7 @@ mod tests {
         );
     }
 
-    // ─── Test 5: mark then clear round-trip ──────────────────────────────────
+ // ─── Test 5: mark then clear round-trip ──────────────────────────────────
 
     #[test]
     fn test_mark_then_clear_round_trip() {
@@ -367,12 +367,12 @@ mod wasm_tests {
     use super::*;
     use crate::contamination::taint::resolve_affected_rows;
 
-    // ─── Helper: clear the WASM_DELTA_INDEX between tests ────────────────────
+ // ─── Helper: clear the WASM_DELTA_INDEX between tests ────────────────────
     fn clear_delta_index() {
         WASM_DELTA_INDEX.with(|idx| idx.borrow_mut().clear());
     }
 
-    // ─── Test 1: record_delta_row then rows_by_delta_id returns correct row ──
+ // ─── Test 1: record_delta_row then rows_by_delta_id returns correct row ──
 
     #[test]
     fn test_record_and_lookup_single_delta() {
@@ -386,7 +386,7 @@ mod wasm_tests {
         assert_eq!(rows[0], ("reports".to_string(), "row-1".to_string()));
     }
 
-    // ─── Test 2: unknown delta_id returns empty vec ───────────────────────────
+ // ─── Test 2: unknown delta_id returns empty vec ───────────────────────────
 
     #[test]
     fn test_rows_by_delta_id_unknown_returns_empty() {
@@ -397,9 +397,9 @@ mod wasm_tests {
         assert!(rows.is_empty(), "unknown delta must yield empty vec");
     }
 
-    // ─── Test 3: resolve_affected_rows with single delta ─────────────────────
-    //
-    // **Validates: Requirements 10.7**
+ // ─── Test 3: resolve_affected_rows with single delta ─────────────────────
+ //
+ // **Validates: Requirements 10.7**
 
     #[test]
     fn test_resolve_affected_rows_single_delta() {
@@ -418,12 +418,12 @@ mod wasm_tests {
         assert_eq!(row.delta_id, delta_id);
     }
 
-    // ─── Test 4: deduplication — two deltas writing the same row ─────────────
-    //
-    // The first delta_id in the slice wins for the delta_id association.
-    // Only one AffectedRow must be returned.
-    //
-    // **Validates: Requirements 10.7**
+ // ─── Test 4: deduplication — two deltas writing the same row ─────────────
+ //
+ // The first delta_id in the slice wins for the delta_id association.
+ // Only one AffectedRow must be returned.
+ //
+ // **Validates: Requirements 10.7**
 
     #[test]
     fn test_resolve_affected_rows_deduplication() {
@@ -432,7 +432,7 @@ mod wasm_tests {
         let delta_a = [0x0Au8; 32];
         let delta_b = [0x0Bu8; 32];
 
-        // Both deltas wrote the same (table, row_key).
+ // Both deltas wrote the same (table, row_key).
         record_delta_row(&delta_a, "users", "user-1");
         record_delta_row(&delta_b, "users", "user-1");
 
@@ -444,15 +444,15 @@ mod wasm_tests {
             1,
             "two deltas writing the same row must produce one AffectedRow"
         );
-        // First writer (delta_a) should be the attributed delta_id.
+ // First writer (delta_a) should be the attributed delta_id.
         assert_eq!(result[0].delta_id, delta_a);
         assert_eq!(result[0].table, "users");
         assert_eq!(result[0].row_key, "user-1");
     }
 
-    // ─── Test 5: multiple deltas across multiple tables ───────────────────────
-    //
-    // **Validates: Requirements 10.7**
+ // ─── Test 5: multiple deltas across multiple tables ───────────────────────
+ //
+ // **Validates: Requirements 10.7**
 
     #[test]
     fn test_resolve_affected_rows_multiple_deltas_multiple_tables() {
@@ -474,7 +474,7 @@ mod wasm_tests {
             "three distinct (table, row_key) pairs expected"
         );
 
-        // All three rows must appear.
+ // All three rows must appear.
         let contains =
             |table: &str, key: &str| result.iter().any(|r| r.table == table && r.row_key == key);
         assert!(contains("products", "prod-1"), "prod-1 missing");
@@ -482,7 +482,7 @@ mod wasm_tests {
         assert!(contains("shipments", "ship-1"), "ship-1 missing");
     }
 
-    // ─── Test 6: record_delta_row is idempotent ───────────────────────────────
+ // ─── Test 6: record_delta_row is idempotent ───────────────────────────────
 
     #[test]
     fn test_record_delta_row_idempotent() {
@@ -490,7 +490,7 @@ mod wasm_tests {
 
         let delta_id = [0x20u8; 32];
 
-        // Record the same row three times.
+ // Record the same row three times.
         record_delta_row(&delta_id, "items", "item-1");
         record_delta_row(&delta_id, "items", "item-1");
         record_delta_row(&delta_id, "items", "item-1");
@@ -499,7 +499,7 @@ mod wasm_tests {
         assert_eq!(rows.len(), 1, "duplicate records must not accumulate");
     }
 
-    // ─── Test 7: resolve_affected_rows with empty delta list ─────────────────
+ // ─── Test 7: resolve_affected_rows with empty delta list ─────────────────
 
     #[test]
     fn test_resolve_affected_rows_empty_delta_list() {

@@ -2,18 +2,18 @@
 //!
 //! Closes the loop on the mesh-facing security-log surfaces:
 //! - 26.3 (PV-7.10): installs the checkpoint provider so the transport loop
-//!   gossips the latest local checkpoint hash when a peer connection is
-//!   established.
+//! gossips the latest local checkpoint hash when a peer connection is
+//! established.
 //! - 26.4 (PV-7.10): forwards peer checkpoint observations delivered by the
-//!   mesh receive path into [`SecurityEventLog::observe_peer_checkpoint`], which
-//!   performs the tail-truncation comparison.
+//! mesh receive path into [`SecurityEventLog::observe_peer_checkpoint`], which
+//! performs the tail-truncation comparison.
 //! - 26.7 (PV-7.10): supplies the real mesh-peer witness state at checkpoint
-//!   time instead of a hardcoded "no witness" value. The cloud-anchor half of
-//!   the witness state is set by [`crate::cloud_anchor`] when a verified anchor
-//!   acknowledgement is ingested.
+//! time instead of a hardcoded "no witness" value. The cloud-anchor half of
+//! the witness state is set by [`crate::cloud_anchor`] when a verified anchor
+//! acknowledgement is ingested.
 //! - 28.3 (PV-7.9): installs the local security-event sync publisher and the
-//!   receive-path merge that persists peer records into
-//!   `synced_security_events`.
+//! receive-path merge that persists peer records into
+//! `synced_security_events`.
 //!
 //! Production caller: `tirbase-gateway/src/main.rs` after `CoreHandle::init`.
 
@@ -38,18 +38,18 @@ pub fn wire_security_log_to_mesh<P>(
 ) where
     P: Fn(SecurityEventSyncBatch) + Send + Sync + 'static,
 {
-    // 26.3: the transport loop reads this provider on ConnectionEstablished.
+ // 26.3: the transport loop reads this provider on ConnectionEstablished.
     let provider_log = Arc::clone(log);
     core.set_checkpoint_provider(move || provider_log.latest_checkpoint_hash().ok().flatten());
 
-    // 26.7: real observed mesh-peer witness state at checkpoint time.
+ // 26.7: real observed mesh-peer witness state at checkpoint time.
     let witness_core = Arc::clone(core);
     log.set_witness_source(move || witness_core.mesh_status().peer_count > 0);
 
-    // 28.3: outbound publisher for appended security events.
+ // 28.3: outbound publisher for appended security events.
     log.set_security_event_sync_publisher(sender_did, publisher);
 
-    // 26.4: consume observations published by `CoreHandle::receive_inbound`.
+ // 26.4: consume observations published by `CoreHandle::receive_inbound`.
     let mut observations = core.subscribe_checkpoint_observations();
     let observer_log = Arc::clone(log);
     tokio::spawn(async move {
@@ -66,7 +66,7 @@ pub fn wire_security_log_to_mesh<P>(
         }
     });
 
-    // 28.3: receive path — persist accepted peer records (append-only merge).
+ // 28.3: receive path — persist accepted peer records (append-only merge).
     let mut inbound = core.subscribe_security_event_sync();
     let ingest_log = Arc::clone(log);
     tokio::spawn(async move {

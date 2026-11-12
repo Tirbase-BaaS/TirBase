@@ -3,7 +3,7 @@
 //! Req 18.7 known-hash gate: a `MigrationRevocationDelta` is only accepted
 //! when its `target_migration_id` is a **known, previously-seen** migration
 //! hash — one this device received as a CA-validated `MigrationDelta`
-//! (recorded by `SchemaMigrationEngine::prepare_migration`).  An
+//! (recorded by `SchemaMigrationEngine::prepare_migration`). An
 //! arbitrary-hash revocation is rejected with
 //! [`TirBaseError::UnknownMigrationHash`] instead of permanently poisoning
 //! the registry with a block on a migration that was never distributed.
@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 /// Decode a `did:key:z6Mk…` DID to its 32-byte Ed25519 public key.
 ///
-/// Delegates to the canonical [`crate::identity::did::resolve_did`].  (This
+/// Delegates to the canonical [`crate::identity::did::resolve_did`]. (This
 /// helper previously re-implemented resolution but forgot the multibase `z`
 /// marker, so real manager DIDs — always `did:key:z6Mk…` — could never be
 /// resolved and every migration-revocation signature failed verification.)
@@ -34,9 +34,9 @@ pub fn resolve_did_key_to_public_key(did: &str) -> Result<[u8; 32], TirBaseError
 #[derive(Debug, Clone)]
 pub struct RevocationRecord {
     pub migration_id: MigrationId,
-    /// Manager DIDs that authorised this revocation.
+ /// Manager DIDs that authorised this revocation.
     pub authorised_by: Vec<Did>,
-    /// UTC timestamp (microseconds) when revocation was applied.
+ /// UTC timestamp (microseconds) when revocation was applied.
     pub revoked_at: i64,
 }
 
@@ -46,101 +46,101 @@ pub struct RevocationRecord {
 /// Once a migration is revoked it can never be applied again.
 #[derive(Debug, Default)]
 pub struct RevokedMigrationRegistry {
-    /// Set of permanently blocked migration IDs.
+ /// Set of permanently blocked migration IDs.
     revoked: HashSet<MigrationId>,
-    /// Migration hashes this device has genuinely **seen**: every
-    /// CA-validated `MigrationDelta` received (its SHA-256 cleared the
-    /// zero-trust gate) is recorded here by
-    /// [`record_known_migration`](Self::record_known_migration).
-    ///
-    /// A `MigrationRevocationDelta` is only accepted when it targets a hash
-    /// in this set (Req 18.7) — revoking a hash that was never distributed
-    /// would permanently block nothing real while letting an attacker poison
-    /// the audit log and block future, unrelated migrations under a
-    /// compromised signer.
+ /// Migration hashes this device has genuinely **seen**: every
+ /// CA-validated `MigrationDelta` received (its SHA-256 cleared the
+ /// zero-trust gate) is recorded here by
+ /// [`record_known_migration`](Self::record_known_migration).
+ ///
+ /// A `MigrationRevocationDelta` is only accepted when it targets a hash
+ /// in this set (Req 18.7) — revoking a hash that was never distributed
+ /// would permanently block nothing real while letting an attacker poison
+ /// the audit log and block future, unrelated migrations under a
+ /// compromised signer.
     known: HashSet<MigrationId>,
-    /// Append-only audit log of all revocation events.
+ /// Append-only audit log of all revocation events.
     revocation_log: Vec<RevocationRecord>,
-    /// Migrations that are currently in-progress (sandbox running).
-    /// On revocation these must be halted (Req 18.6).
+ /// Migrations that are currently in-progress (sandbox running).
+ /// On revocation these must be halted (Req 18.6).
     in_progress: HashSet<MigrationId>,
 }
 
 impl RevokedMigrationRegistry {
-    /// Record `id` as a known, previously-seen migration hash (Req 18.7).
-    ///
-    /// Production caller: [`crate::migration::SchemaMigrationEngine::prepare_migration`]
-    /// records every migration whose CA signature and embedded SHA-256 clear
-    /// the zero-trust gate — the funnel every inbound `MigrationDelta` passes
-    /// through (the native CoreHandle dispatch job and the synchronous
-    /// `receive_migration_delta` path, which is the WASM inbound arm).  A hash
-    /// is only ever recorded after its transform bytes verified, so junk can
-    /// never mark itself as known.
+ /// Record `id` as a known, previously-seen migration hash (Req 18.7).
+ ///
+ /// Production caller: [`crate::migration::SchemaMigrationEngine::prepare_migration`]
+ /// records every migration whose CA signature and embedded SHA-256 clear
+ /// the zero-trust gate — the funnel every inbound `MigrationDelta` passes
+ /// through (the native CoreHandle dispatch job and the synchronous
+ /// `receive_migration_delta` path, which is the WASM inbound arm). A hash
+ /// is only ever recorded after its transform bytes verified, so junk can
+ /// never mark itself as known.
     pub(crate) fn record_known_migration(&mut self, id: MigrationId) {
         self.known.insert(id);
     }
 
-    /// Whether `id` is a known, previously-seen migration hash (Req 18.7).
+ /// Whether `id` is a known, previously-seen migration hash (Req 18.7).
     pub(crate) fn is_known_migration(&self, id: &MigrationId) -> bool {
         self.known.contains(id)
     }
 
-    /// Check if a migration has been revoked.
+ /// Check if a migration has been revoked.
     pub fn is_revoked(&self, id: &MigrationId) -> bool {
         self.revoked.contains(id)
     }
 
-    /// Mark a migration as currently executing in the sandbox.
-    ///
-    /// Call this before starting `execute_migration()`; call `clear_in_progress()`
-    /// when the sandbox exits (regardless of outcome).
+ /// Mark a migration as currently executing in the sandbox.
+ ///
+ /// Call this before starting `execute_migration()`; call `clear_in_progress()`
+ /// when the sandbox exits (regardless of outcome).
     pub fn mark_in_progress(&mut self, id: MigrationId) {
         self.in_progress.insert(id);
     }
 
-    /// Clear the in-progress flag (called when sandbox finishes or is halted).
+ /// Clear the in-progress flag (called when sandbox finishes or is halted).
     pub fn clear_in_progress(&mut self, id: &MigrationId) {
         self.in_progress.remove(id);
     }
 
-    /// Check whether a migration is currently executing.
+ /// Check whether a migration is currently executing.
     pub fn is_in_progress(&self, id: &MigrationId) -> bool {
         self.in_progress.contains(id)
     }
 
-    /// Check whether any migration is currently executing.
+ /// Check whether any migration is currently executing.
     pub fn has_in_progress(&self) -> bool {
         !self.in_progress.is_empty()
     }
 
-    /// Process an incoming MigrationRevocationDelta (Req 18.5–18.7).
-    ///
-    /// Steps:
-    /// 0. Reject if `target_migration_id` is not a known, previously-seen
-    ///    migration hash (Req 18.7).  This is checked first — before any
-    ///    signature work — because a revocation for a hash this device never
-    ///    received cannot refer to a real migration and must not poison the
-    ///    registry.
-    /// 1. Verify each Manager DID signature over `target_migration_id`.
-    /// 2. Check that at least `threshold_m` distinct, valid signatures are present.
-    /// 3. If in-progress: mark as halted (caller must check `is_revoked` before executing).
-    /// 4. Permanently block the migration ID.
-    /// 5. Append a RevocationRecord to the audit log.
-    ///
-    /// Returns `Ok(true)` when a transform for `target_migration_id` was
-    /// executing and has been halted — the caller is then responsible for
-    /// actually interrupting the sandbox run (epoch interrupt via the
-    /// execution registry) so the run is interrupted/cooperatively bounded before its
-    /// timeout instead of running to completion behind the revoker.
+ /// Process an incoming MigrationRevocationDelta (Req 18.5–18.7).
+ ///
+ /// Steps:
+ /// 0. Reject if `target_migration_id` is not a known, previously-seen
+ /// migration hash (Req 18.7). This is checked first — before any
+ /// signature work — because a revocation for a hash this device never
+ /// received cannot refer to a real migration and must not poison the
+ /// registry.
+ /// 1. Verify each Manager DID signature over `target_migration_id`.
+ /// 2. Check that at least `threshold_m` distinct, valid signatures are present.
+ /// 3. If in-progress: mark as halted (caller must check `is_revoked` before executing).
+ /// 4. Permanently block the migration ID.
+ /// 5. Append a RevocationRecord to the audit log.
+ ///
+ /// Returns `Ok(true)` when a transform for `target_migration_id` was
+ /// executing and has been halted — the caller is then responsible for
+ /// actually interrupting the sandbox run (epoch interrupt via the
+ /// execution registry) so the run is interrupted/cooperatively bounded before its
+ /// timeout instead of running to completion behind the revoker.
     pub fn apply_revocation(
         &mut self,
         revocation: MigrationRevocationDelta,
         threshold_m: usize,
     ) -> Result<bool, TirBaseError> {
-        // ── 0: known-hash gate (Req 18.7) ───────────────────────────────────
-        // A revocation may only target a migration hash this device has
-        // genuinely seen (a CA-validated MigrationDelta for it was received).
-        // Arbitrary hashes are rejected rather than accepted.
+ // ── 0: known-hash gate (Req 18.7) ───────────────────────────────────
+ // A revocation may only target a migration hash this device has
+ // genuinely seen (a CA-validated MigrationDelta for it was received).
+ // Arbitrary hashes are rejected rather than accepted.
         if !self.known.contains(&revocation.target_migration_id) {
             let migration_id_hex = hex::encode(revocation.target_migration_id);
             emit_revocation(
@@ -158,12 +158,12 @@ impl RevokedMigrationRegistry {
         }
 
         let mut halted = false;
-        // ── 1 & 2: verify signatures and count valid distinct ones ──────────
+ // ── 1 & 2: verify signatures and count valid distinct ones ──────────
         let signed_payload = &revocation.target_migration_id[..];
         let mut valid_managers: Vec<Did> = Vec::new();
 
         for ms in &revocation.signatures {
-            // Resolve the manager's DID to its public key.
+ // Resolve the manager's DID to its public key.
             let public_key = match resolve_did_key_to_public_key(&ms.manager_did) {
                 Ok(pk) => pk,
                 Err(e) => {
@@ -180,7 +180,7 @@ impl RevokedMigrationRegistry {
                 }
             };
 
-            // Verify the Ed25519 signature.
+ // Verify the Ed25519 signature.
             let sig_bytes = match ms.signature.as_bytes() {
                 Some(b) => b,
                 None => {
@@ -217,7 +217,7 @@ impl RevokedMigrationRegistry {
             let sig = Signature::from_bytes(&sig_bytes);
             match verifying_key.verify_strict(signed_payload, &sig) {
                 Ok(_) => {
-                    // Only count distinct manager DIDs.
+ // Only count distinct manager DIDs.
                     if !valid_managers.contains(&ms.manager_did) {
                         valid_managers.push(ms.manager_did.clone());
                     }
@@ -236,7 +236,7 @@ impl RevokedMigrationRegistry {
             }
         }
 
-        // Check threshold (Req 18.7).
+ // Check threshold (Req 18.7).
         if valid_managers.len() < threshold_m {
             return Err(TirBaseError::ThresholdNotMet {
                 got: valid_managers.len(),
@@ -244,15 +244,15 @@ impl RevokedMigrationRegistry {
             });
         }
 
-        // ── 3: halt in-progress execution ────────────────────────────────────
-        // If a transform for the target is executing, flag the halt for the
-        // caller (which must epoch-interrupt the running sandbox — Req 18.6).
-        // The `in_progress` marker itself is deliberately NOT cleared here:
-        // it is only removed when the sandbox run actually exits (the caller's
-        // `finish_migration`), so schema-migration serialisation holds even if
-        // the interrupt misses the run and it has to fall through to its epoch
-        // timeout — a revoked-but-still-running transform can never overlap a
-        // subsequent migration.
+ // ── 3: halt in-progress execution ────────────────────────────────────
+ // If a transform for the target is executing, flag the halt for the
+ // caller (which must epoch-interrupt the running sandbox — Req 18.6).
+ // The `in_progress` marker itself is deliberately NOT cleared here:
+ // it is only removed when the sandbox run actually exits (the caller's
+ // `finish_migration`), so schema-migration serialisation holds even if
+ // the interrupt misses the run and it has to fall through to its epoch
+ // timeout — a revoked-but-still-running transform can never overlap a
+ // subsequent migration.
         if self.in_progress.contains(&revocation.target_migration_id) {
             emit_revocation(
                 Severity::High,
@@ -266,10 +266,10 @@ impl RevokedMigrationRegistry {
             halted = true;
         }
 
-        // ── 4: permanently block ─────────────────────────────────────────────
+ // ── 4: permanently block ─────────────────────────────────────────────
         self.revoked.insert(revocation.target_migration_id);
 
-        // ── 5: audit log ──────────────────────────────────────────────────────
+ // ── 5: audit log ──────────────────────────────────────────────────────
         let revoked_at = crate::traits::wall_hint().unwrap_or(0);
 
         self.revocation_log.push(RevocationRecord {
@@ -291,7 +291,7 @@ impl RevokedMigrationRegistry {
         Ok(halted)
     }
 
-    /// Return the full revocation audit log.
+ /// Return the full revocation audit log.
     pub fn revocation_log(&self) -> &[RevocationRecord] {
         &self.revocation_log
     }
@@ -335,10 +335,10 @@ mod tests {
         (secret, did)
     }
 
-    /// A fresh registry in which `target` is already a known, previously-seen
-    /// migration hash (Req 18.7): revocation tests that exercise the
-    /// signature/threshold/halt logic must seed the known-hash set the way
-    /// `prepare_migration` does in production.
+ /// A fresh registry in which `target` is already a known, previously-seen
+ /// migration hash (Req 18.7): revocation tests that exercise the
+ /// signature/threshold/halt logic must seed the known-hash set the way
+ /// `prepare_migration` does in production.
     fn registry_that_has_seen(target: MigrationId) -> RevokedMigrationRegistry {
         let mut registry = RevokedMigrationRegistry::default();
         registry.record_known_migration(target);
@@ -411,8 +411,8 @@ mod tests {
         );
         assert!(registry.is_revoked(&target));
 
-        // Simulate the sandbox run exiting: the caller's finish path clears
-        // the marker.
+ // Simulate the sandbox run exiting: the caller's finish path clears
+ // the marker.
         registry.clear_in_progress(&target);
         assert!(!registry.is_in_progress(&target));
     }
@@ -426,10 +426,10 @@ mod tests {
         let revocation = make_signed_revocation(target, std::slice::from_ref(&id1));
         registry.apply_revocation(revocation, 1).expect("revoke");
 
-        // Trying to revoke again: is_revoked returns true
+ // Trying to revoke again: is_revoked returns true
         assert!(registry.is_revoked(&target));
 
-        // The registry correctly tracks the audit log grows
+ // The registry correctly tracks the audit log grows
         assert_eq!(registry.revocation_log().len(), 1);
     }
 
@@ -439,7 +439,7 @@ mod tests {
         let mut registry = registry_that_has_seen(target);
 
         let (_secret, did) = make_identity();
-        // Use a different secret to sign (wrong key — signature should fail verify)
+ // Use a different secret to sign (wrong key — signature should fail verify)
         let (wrong_secret, _) = generate_keypair().expect("keygen");
         let bad_sig = sign(&wrong_secret, &target).expect("sign with wrong key");
 
@@ -461,9 +461,9 @@ mod tests {
 
     #[test]
     fn revocation_for_unknown_migration_hash_is_rejected() {
-        // Req 18.7: a revocation for a hash this device has never seen — even
-        // one carrying threshold-valid Manager signatures — must be rejected,
-        // not silently recorded.
+ // Req 18.7: a revocation for a hash this device has never seen — even
+ // one carrying threshold-valid Manager signatures — must be rejected,
+ // not silently recorded.
         let mut registry = RevokedMigrationRegistry::default();
         let target: MigrationId = [0x06u8; 32];
         let id1 = make_identity();
@@ -493,8 +493,8 @@ mod tests {
 
     #[test]
     fn revocation_of_known_hash_succeeds_but_never_of_arbitrary_ones() {
-        // The known-hash gate is target-specific: recording one hash as known
-        // does not make any other hash revocable.
+ // The known-hash gate is target-specific: recording one hash as known
+ // does not make any other hash revocable.
         let seen: MigrationId = [0x07u8; 32];
         let other: MigrationId = [0x08u8; 32];
         let mut registry = registry_that_has_seen(seen);
@@ -502,14 +502,14 @@ mod tests {
         let id1 = make_identity();
         let id2 = make_identity();
 
-        // The seen hash revokes fine...
+ // The seen hash revokes fine...
         let revocation = make_signed_revocation(seen, &[id1]);
         registry
             .apply_revocation(revocation, 1)
             .expect("revocation of a seen hash must succeed");
         assert!(registry.is_revoked(&seen));
 
-        // ...but an arbitrary sibling hash is still rejected.
+ // ...but an arbitrary sibling hash is still rejected.
         let revocation_other = make_signed_revocation(other, &[id2]);
         let result = registry.apply_revocation(revocation_other, 1);
         assert!(

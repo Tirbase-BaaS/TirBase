@@ -16,7 +16,7 @@ pub struct ColdRoomThermalSim {
 impl ColdRoomThermalSim {
     pub fn new(seed: u64) -> Self {
         Self {
-            // Canonical defaults match the reference cold-room device.
+ // Canonical defaults match the reference cold-room device.
             inner: FirstOrderThermalModel::new(seed, 8_000, 22_000),
         }
     }

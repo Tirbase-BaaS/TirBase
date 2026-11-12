@@ -74,7 +74,7 @@ proptest! {
         let pipeline=Arc::new(AdmitPipelineState::new(Arc::new(pm.clone()),Arc::new(ArcSwap::from_pointee(None)),reg,ratchet,ts));
         pipeline.set_max_ttl_secs(10_000_000_000);
         let guard=CommandGuard::with_mode(epochs,GuardConfig{targets},NodeModeState::new(tirbase_guard::node_mode::NodeMode::Normal)).with_pipeline(pipeline,Arc::new(pm),Arc::new(ArcSwap::from_pointee(None)));
-        // Token is validly minted (any key / standard attenuation) — must not relax envelope.
+ // Token is validly minted (any key / standard attenuation) — must not relax envelope.
         let tok=create_command_token(issuer.did(),"CommandIssuer",3600,"pump-1","speed",&[],&ca.secret_seed()).unwrap();
         let mut cmd=CommandMessage{issuer_did:Did::new(issuer.did()),role:CommandRole::CommandIssuer,target_id:target,param:"speed".into(),desired_state:fpv(out_of_bounds_mantissa),sequence_number:1,idempotency_key:[3;16],expiry_est:9_999_999_999,policy_version:1,enrollment_epoch:0,challenge_nonce:None,co_signatures:vec![],signature:DeviceSignature::Ed25519([0;64])};
         sign_command(&mut cmd,&issuer).unwrap();

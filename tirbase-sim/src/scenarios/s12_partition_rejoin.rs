@@ -69,7 +69,7 @@ pub fn run_s12(seed: u64) -> Result<(), String> {
         11,
     );
 
-    // Partition A <-> B: both messages are dropped on the wire.
+ // Partition A <-> B: both messages are dropped on the wire.
     let mut network = SimNetwork::new(seed);
     network
         .add_fault(NetworkFault::Partition {
@@ -90,14 +90,14 @@ pub fn run_s12(seed: u64) -> Result<(), String> {
         return Err("S12 FAIL: partition did not drop B's delta".to_string());
     }
 
-    // Local writes are visible on each side while partitioned.
+ // Local writes are visible on each side while partitioned.
     apply(&mut node_a, &delta_a)?;
     apply(&mut node_b, &delta_b)?;
     if node_a.doc_map_range_root().len() != 1 || node_b.doc_map_range_root().len() != 1 {
         return Err("S12 FAIL: local write did not land during partition".to_string());
     }
 
-    // Heal and exchange the withheld deltas.
+ // Heal and exchange the withheld deltas.
     network.heal_all();
     if network.is_partitioned(NodeId::new(0), NodeId::new(1)) {
         return Err("S12 FAIL: partition did not heal".to_string());

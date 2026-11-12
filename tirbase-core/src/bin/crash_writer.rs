@@ -1,7 +1,7 @@
 //! Subphase 7.3 — crash-writer helper binary.
 //!
 //! This binary is spawned by the integration test in
-//! `tests/crash_recovery.rs`.  It opens a SQLite database at the path given
+//! `tests/crash_recovery.rs`. It opens a SQLite database at the path given
 //! as `argv[1]`, creates a projection table, commits one *baseline* row
 //! (transaction 1: `BEGIN` → `INSERT` → `COMMIT`), then begins a *second*
 //! transaction, inserts a *partial* row, and immediately calls
@@ -31,8 +31,8 @@ fn main() {
     let db_path = &args[1];
     let marker_path = &args[2];
 
-    // Write the marker *first* so the parent can detect the crash even if the
-    // open fails.
+ // Write the marker *first* so the parent can detect the crash even if the
+ // open fails.
     {
         let dir = std::path::Path::new(marker_path).parent().unwrap();
         fs::create_dir_all(dir).expect("create marker dir");
@@ -41,14 +41,14 @@ fn main() {
         f.flush().ok();
     }
 
-    // Open the DB exactly as production does — `sqlite::open` enables WAL mode,
-    // foreign keys, runs schema creation, and (on the production path) the
-    // crash-recovery checkpoint + integrity check.  The crash_writer opens a
-    // fresh DB, so recovery is a no-op here; its job is to crash mid-write.
+ // Open the DB exactly as production does — `sqlite::open` enables WAL mode,
+ // foreign keys, runs schema creation, and (on the production path) the
+ // crash-recovery checkpoint + integrity check. The crash_writer opens a
+ // fresh DB, so recovery is a no-op here; its job is to crash mid-write.
     let conn = tirbase_core::store::sqlite::open(db_path)
         .expect("crash_writer: sqlite::open must succeed on a fresh DB");
 
-    // 1. Baseline committed row (transaction 1 — commits successfully).
+ // 1. Baseline committed row (transaction 1 — commits successfully).
     conn.execute_batch("BEGIN;")
         .expect("crash_writer: BEGIN baseline");
     conn.execute(
@@ -66,19 +66,19 @@ fn main() {
     conn.execute_batch("COMMIT;")
         .expect("crash_writer: COMMIT baseline");
 
-    // Mark that the baseline committed.
+ // Mark that the baseline committed.
     {
         let mut f = fs::File::create(marker_path).expect("crash_writer: marker");
         writeln!(f, "baseline_committed").expect("crash_writer: marker");
         f.flush().ok();
     }
 
-    // 2. Begin the crash transaction — BETWEEN BEGIN AND COMMIT we will die.
+ // 2. Begin the crash transaction — BETWEEN BEGIN AND COMMIT we will die.
     conn.execute_batch("BEGIN;")
         .expect("crash_writer: BEGIN crash-tx");
 
-    // The partial row: inserted but never committed.  After WAL recovery it
-    // must be absent.
+ // The partial row: inserted but never committed. After WAL recovery it
+ // must be absent.
     conn.execute(
         "INSERT INTO proj_test_table (key, data_json, contaminated) \
          VALUES (?1, ?2, ?3);",
@@ -90,16 +90,16 @@ fn main() {
     )
     .expect("crash_writer: INSERT partial");
 
-    // Prove we reached the crash point (post-BEGIN, pre-COMMIT).
+ // Prove we reached the crash point (post-BEGIN, pre-COMMIT).
     {
         let mut f = fs::File::create(marker_path).expect("crash_writer: marker pre-crash");
         writeln!(f, "crashed_between_begin_and_commit").expect("crash_writer: marker");
         f.flush().ok();
     }
 
-    // 3. Simulate a hard process kill: SIGABRT.  No ROLLBACK, no COMMIT,
-    //    no graceful connection close — the WAL is left dirty so the next
-    //    opener must replay it.
+ // 3. Simulate a hard process kill: SIGABRT. No ROLLBACK, no COMMIT,
+ // no graceful connection close — the WAL is left dirty so the next
+ // opener must replay it.
     eprintln!("crash_writer: aborting mid-transaction (between BEGIN and COMMIT)");
     process::abort();
 }

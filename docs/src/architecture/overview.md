@@ -16,7 +16,7 @@ TirBase is organized as an 8-crate Rust workspace:
 ## Guarded command path
 
 All command ingress (mesh, cloud, local admin) converges on
-`CommandGuard::admit()` before any actuation. Accepted commands yield an
+`CommandGuard::admit` before any actuation. Accepted commands yield an
 `ActuationPermit` that is only constructible inside `tirbase-guard` and
 dispatched to sandboxed driver processes over guard-owned channels.
 

@@ -1,4 +1,4 @@
-//! Policy lifecycle integration tests (tasks 12.1–12.7, 12.10 — CLAIM-12.1–7,10,
+//! Policy lifecycle integration tests (12.7, 12.10 — CLAIM-12.1–7,10,
 //! PV-4.8–4.12, INV-3, INV-8).
 
 use std::collections::BTreeMap;
@@ -155,7 +155,7 @@ fn tightening_applies_and_commits_rollback_counter() {
     let prev_hash = lc.active().body_hash;
     let mut b = make_bundle(2, prev_hash, profile(2, 10, 900, 2, 3, 300), vec![]);
     b.co_signatures = vec![sign_bundle(&b, &pa)];
-    // Claim loosening in wire kind — guard must ignore and recompute as tightening.
+ // Claim loosening in wire kind — guard must ignore and recompute as tightening.
     b.kind = PolicyBundleKind::Loosening;
     let out = lc.ingest_bundle(b, 1_000).unwrap();
     assert_eq!(out, PolicyIngestOutcome::TighteningApplied { version: 2 });
@@ -195,10 +195,10 @@ fn strictly_greater_version_gap_is_accepted() {
 #[test]
 fn tightening_floor_violation_is_rejected() {
     let pa = InMemoryKeyProvider::generate().unwrap();
-    // Floor requires temp min >= 5.0°C (50). Active starts above it so we can
-    // attempt to "tighten" the min down below the floor — a subset of old range
-    // in the wrong direction is not tightening, but a valid tightening that
-    // would push the bound past the safe floor must be rejected (CLAIM-12.3).
+ // Floor requires temp min >= 5.0°C (50). Active starts above it so we can
+ // attempt to "tighten" the min down below the floor — a subset of old range
+ // in the wrong direction is not tightening, but a valid tightening that
+ // would push the bound past the safe floor must be rejected (CLAIM-12.3).
     let mut tr = trust_root(&pa);
     tr.device_class_floors.insert(
         "cold_room".to_string(),
@@ -217,9 +217,9 @@ fn tightening_floor_violation_is_rejected() {
     let mut lc = PolicyLifecycle::new(target, b0, counter, map, tr).unwrap();
     let prev_hash = lc.active().body_hash;
 
-    // Attempt: set min to 0 (below floor 5.0). Range [0,1000] is NOT a subset of
-    // [100,1000] so classifier returns Loosening (conservative) — the guard must
-    // never apply it immediately as a tightening.
+ // Attempt: set min to 0 (below floor 5.0). Range [0,1000] is NOT a subset of
+ // [100,1000] so classifier returns Loosening (conservative) — the guard must
+ // never apply it immediately as a tightening.
     let mut b = make_bundle(2, prev_hash, profile(2, 0, 1000, 2, 3, 300), vec![]);
     b.co_signatures = vec![sign_bundle(&b, &pa)];
     b.kind = PolicyBundleKind::Tightening; // lie — guard ignores
@@ -230,8 +230,8 @@ fn tightening_floor_violation_is_rejected() {
     );
     assert_eq!(lc.active().bundle.version, 1, "active version unchanged");
 
-    // Direct floor-check API: a profile that would tighten within the old range
-    // but cross the floor is rejected.
+ // Direct floor-check API: a profile that would tighten within the old range
+ // but cross the floor is rejected.
     let tr2 = trust_root(&pa);
     let mut floors = std::collections::BTreeMap::new();
     floors.insert(
@@ -254,10 +254,10 @@ fn tightening_floor_violation_is_rejected() {
 #[test]
 fn loosening_uses_active_m_n_timelock_not_bundle() {
     let pa = InMemoryKeyProvider::generate().unwrap();
-    // active has M=2, timelock=500
+ // active has M=2, timelock=500
     let (mut lc, _counter) = lifecycle(&pa, 2, 500);
     let prev_hash = lc.active().body_hash;
-    // bundle tries to loosen range AND claims m=1,timelock=0 in envelope (attacker-controlled)
+ // bundle tries to loosen range AND claims m=1,timelock=0 in envelope (attacker-controlled)
     let mut env = profile(2, -100, 1100, 1, 1, 0);
     env.policy_loosen_m = 1;
     env.policy_loosen_n = 1;
@@ -282,7 +282,7 @@ fn loosening_uses_active_m_n_timelock_not_bundle() {
         }
         other => panic!("expected loosening pending, got {other:?}"),
     }
-    // cannot apply before timelock even if cosigs present
+ // cannot apply before timelock even if cosigs present
     let err = lc.apply_pending_loosening(1_499).unwrap_err();
     assert!(matches!(err, PolicyError::TimelockActive { .. }));
 }
@@ -318,14 +318,14 @@ fn version_gap_trick_and_rollback_replay_bypass_attempts_rejected() {
     let mut b5 = make_bundle(5, prev_hash, profile(5, 10, 900, 2, 3, 300), vec![]);
     b5.co_signatures = vec![sign_bundle(&b5, &pa)];
     lc.ingest_bundle(b5, 1_000).unwrap();
-    // replay v2 after v5 accepted
+ // replay v2 after v5 accepted
     let mut old = make_bundle(2, prev_hash, profile(2, 10, 900, 2, 3, 300), vec![]);
     old.co_signatures = vec![sign_bundle(&old, &pa)];
     assert!(matches!(
         lc.ingest_bundle(old, 1_100),
         Err(PolicyError::Rollback { .. })
     ));
-    // equal version
+ // equal version
     let mut eq = make_bundle(
         5,
         lc.active().body_hash,
@@ -344,7 +344,7 @@ fn guard_ignores_bundle_kind_by_reclassifying() {
     let pa = InMemoryKeyProvider::generate().unwrap();
     let tr = trust_root(&pa);
     let old = profile(1, 0, 1000, 2, 3, 300);
-    // actually loosening
+ // actually loosening
     let new = profile(2, -100, 1000, 2, 3, 300);
     let bundle = make_bundle(2, [0; 32], new.clone(), vec![]);
     assert_eq!(bundle.kind, PolicyBundleKind::Loosening); // default conservative
@@ -352,5 +352,5 @@ fn guard_ignores_bundle_kind_by_reclassifying() {
         classify_bundle(&old, &new, &tr),
         PolicyBundleKind::Loosening
     );
-    // a forged "Tightening" claim in data is irrelevant to the computed result.
+ // a forged "Tightening" claim in data is irrelevant to the computed result.
 }

@@ -14,13 +14,13 @@ use serde::{Deserialize, Serialize};
 /// A single fragment of a larger Delta payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaFragment {
-    /// Identifies which Delta this fragment belongs to.
+ /// Identifies which Delta this fragment belongs to.
     pub delta_id: [u8; 32],
-    /// Zero-indexed fragment number within the complete Delta.
+ /// Zero-indexed fragment number within the complete Delta.
     pub fragment_index: u32,
-    /// Total number of fragments for this Delta.
+ /// Total number of fragments for this Delta.
     pub total_fragments: u32,
-    /// Payload bytes (≤ MTU).
+ /// Payload bytes (≤ MTU).
     pub payload: Vec<u8>,
 }
 
@@ -77,7 +77,7 @@ pub fn reassemble(
         });
     }
 
-    // Validate all fragments share the same delta_id and total_fragments
+ // Validate all fragments share the same delta_id and total_fragments
     let delta_id = fragments[0].delta_id;
     for f in &fragments {
         if f.delta_id != delta_id || f.total_fragments != total_fragments {
@@ -88,7 +88,7 @@ pub fn reassemble(
         }
     }
 
-    // Check for duplicates
+ // Check for duplicates
     if fragments.len() != total_fragments as usize {
         return Err(TirBaseError::FragmentReassemblyFailed {
             sender_did: sender_did.clone(),
@@ -96,11 +96,11 @@ pub fn reassemble(
         });
     }
 
-    // Sort by index
+ // Sort by index
     let mut sorted = fragments;
     sorted.sort_by_key(|f| f.fragment_index);
 
-    // Verify all indices are present (0..total_fragments-1)
+ // Verify all indices are present (0..total_fragments-1)
     for (expected_idx, frag) in sorted.iter().enumerate() {
         if frag.fragment_index != expected_idx as u32 {
             return Err(TirBaseError::FragmentReassemblyFailed {
@@ -110,7 +110,7 @@ pub fn reassemble(
         }
     }
 
-    // Concatenate payloads
+ // Concatenate payloads
     let result: Vec<u8> = sorted.into_iter().flat_map(|f| f.payload).collect();
     Ok(result)
 }
@@ -124,7 +124,7 @@ pub const MAX_FRAGMENTS_PER_DELTA: u32 = 4096;
 /// Partial reassembly buffer held until all fragments arrive.
 #[derive(Debug, Default)]
 pub struct ReassemblyBuffer {
-    /// Keyed by delta_id.  Each entry is a slot array sized to total_fragments.
+ /// Keyed by delta_id. Each entry is a slot array sized to total_fragments.
     pending: std::collections::BTreeMap<[u8; 32], Vec<Option<DeltaFragment>>>,
 }
 
@@ -141,17 +141,17 @@ impl ReassemblyBuffer {
 }
 
 impl ReassemblyBuffer {
-    /// Add a fragment to the buffer.
-    ///
-    /// Returns the complete Delta bytes if all fragments for this Delta have
-    /// arrived; otherwise returns `None`.  Returns `FragmentReassemblyFailed`
-    /// if the fragment metadata is inconsistent with previously buffered
-    /// fragments for the same `delta_id`, if `total_fragments` exceeds
-    /// `MAX_FRAGMENTS_PER_DELTA`, or if the slot count would exceed
-    /// `MAX_REASSEMBLY_SLOTS` (in which case the oldest entry is evicted
-    /// before inserting the new one).
-    ///
-    /// Discards the partial Delta and logs `{sender_did, fragment_count}` on failure.
+ /// Add a fragment to the buffer.
+ ///
+ /// Returns the complete Delta bytes if all fragments for this Delta have
+ /// arrived; otherwise returns `None`. Returns `FragmentReassemblyFailed`
+ /// if the fragment metadata is inconsistent with previously buffered
+ /// fragments for the same `delta_id`, if `total_fragments` exceeds
+ /// `MAX_FRAGMENTS_PER_DELTA`, or if the slot count would exceed
+ /// `MAX_REASSEMBLY_SLOTS` (in which case the oldest entry is evicted
+ /// before inserting the new one).
+ ///
+ /// Discards the partial Delta and logs `{sender_did, fragment_count}` on failure.
     pub fn add_fragment(
         &mut self,
         fragment: DeltaFragment,
@@ -161,7 +161,7 @@ impl ReassemblyBuffer {
         let total = fragment.total_fragments as usize;
         let idx = fragment.fragment_index as usize;
 
-        // Guard 1: reject oversized total_fragments to prevent slot-vector allocation attacks
+ // Guard 1: reject oversized total_fragments to prevent slot-vector allocation attacks
         if fragment.total_fragments > MAX_FRAGMENTS_PER_DELTA {
             emit_transport(
                 Severity::Medium,
@@ -186,9 +186,9 @@ impl ReassemblyBuffer {
             });
         }
 
-        // Guard 2: evict the entry with the fewest filled slots when the cap is reached
+ // Guard 2: evict the entry with the fewest filled slots when the cap is reached
         if !self.pending.contains_key(&delta_id) && self.pending.len() >= MAX_REASSEMBLY_SLOTS {
-            // Find the key with the fewest Some slots (oldest / least-progressed)
+ // Find the key with the fewest Some slots (oldest / least-progressed)
             let evict_key = self
                 .pending
                 .iter()
@@ -208,13 +208,13 @@ impl ReassemblyBuffer {
             );
         }
 
-        // Initialise slot array on first fragment for this delta_id
+ // Initialise slot array on first fragment for this delta_id
         let slots = self
             .pending
             .entry(delta_id)
             .or_insert_with(|| vec![None; total]);
 
-        // Validate total_fragments is consistent
+ // Validate total_fragments is consistent
         if slots.len() != total {
             return Err(TirBaseError::FragmentReassemblyFailed {
                 sender_did: sender_did.clone(),
@@ -222,10 +222,10 @@ impl ReassemblyBuffer {
             });
         }
 
-        // Store the fragment (ignore duplicate — idempotent)
+ // Store the fragment (ignore duplicate — idempotent)
         slots[idx] = Some(fragment);
 
-        // Check if all slots are filled
+ // Check if all slots are filled
         if slots.iter().all(|s| s.is_some()) {
             let fragments: Vec<DeltaFragment> = self
                 .pending
@@ -250,7 +250,7 @@ mod tests {
     const SENDER_DID: &str = "did:key:z6MkTest";
     const DELTA_ID: [u8; 32] = [0xAA; 32];
 
-    // ── fragment() ────────────────────────────────────────────────────────────
+ // ── fragment() ────────────────────────────────────────────────────────────
 
     #[test]
     fn fragment_empty_input_returns_empty() {
@@ -289,14 +289,14 @@ mod tests {
 
     #[test]
     fn fragment_uneven_split_last_chunk_smaller() {
-        // 250 bytes / 100 MTU → [100, 100, 50]
+ // 250 bytes / 100 MTU → [100, 100, 50]
         let data: Vec<u8> = (0u8..250).collect();
         let frags = fragment(DELTA_ID, &data, 100);
         assert_eq!(frags.len(), 3);
         assert_eq!(frags[2].payload.len(), 50);
     }
 
-    // ── reassemble() ─────────────────────────────────────────────────────────
+ // ── reassemble() ─────────────────────────────────────────────────────────
 
     #[test]
     fn reassemble_round_trip_500_bytes_mtu_100() {
@@ -340,7 +340,7 @@ mod tests {
         assert!(matches!(err, TirBaseError::FragmentReassemblyFailed { .. }));
     }
 
-    // ── ReassemblyBuffer ──────────────────────────────────────────────────────
+ // ── ReassemblyBuffer ──────────────────────────────────────────────────────
 
     #[test]
     fn reassembly_buffer_returns_none_until_all_fragments_arrive() {
@@ -367,7 +367,7 @@ mod tests {
         let mut buf = ReassemblyBuffer::default();
         let did = SENDER_DID.to_string();
 
-        // Insert in reverse order
+ // Insert in reverse order
         assert!(buf.add_fragment(frags[2].clone(), &did).unwrap().is_none());
         assert!(buf.add_fragment(frags[0].clone(), &did).unwrap().is_none());
         let result = buf.add_fragment(frags[1].clone(), &did).unwrap();
@@ -388,7 +388,7 @@ mod tests {
         assert!(matches!(err, TirBaseError::FragmentReassemblyFailed { .. }));
     }
 
-    // ── Cap / eviction tests ──────────────────────────────────────────────────
+ // ── Cap / eviction tests ──────────────────────────────────────────────────
 
     #[test]
     fn fragment_with_total_exceeding_max_returns_error() {
@@ -409,8 +409,8 @@ mod tests {
         let did = SENDER_DID.to_string();
         let mut buf = ReassemblyBuffer::default();
 
-        // Open MAX_REASSEMBLY_SLOTS distinct assemblies, each with total_fragments=2,
-        // sending only fragment_index=0.
+ // Open MAX_REASSEMBLY_SLOTS distinct assemblies, each with total_fragments=2,
+ // sending only fragment_index=0.
         let mut delta_ids: Vec<[u8; 32]> = Vec::with_capacity(MAX_REASSEMBLY_SLOTS);
         for i in 0..MAX_REASSEMBLY_SLOTS {
             let mut delta_id = [0u8; 32];
@@ -427,7 +427,7 @@ mod tests {
         }
         assert_eq!(buf.pending_count(), MAX_REASSEMBLY_SLOTS);
 
-        // Opening one more new assembly should evict exactly one entry
+ // Opening one more new assembly should evict exactly one entry
         let mut new_delta_id = [0u8; 32];
         new_delta_id[0..8].copy_from_slice(&(MAX_REASSEMBLY_SLOTS as u64).to_le_bytes());
         let new_frag = DeltaFragment {
@@ -438,10 +438,10 @@ mod tests {
         };
         buf.add_fragment(new_frag, &did).unwrap();
 
-        // Total must not grow beyond the cap
+ // Total must not grow beyond the cap
         assert_eq!(buf.pending_count(), MAX_REASSEMBLY_SLOTS);
 
-        // Exactly one of the original entries must have been evicted
+ // Exactly one of the original entries must have been evicted
         let retained_count = delta_ids.iter().filter(|id| buf.has_delta(id)).count();
         assert_eq!(
             retained_count,
@@ -449,7 +449,7 @@ mod tests {
             "exactly one original entry should have been evicted"
         );
 
-        // The new entry must be present
+ // The new entry must be present
         assert!(
             buf.has_delta(&new_delta_id),
             "newly inserted delta must be present"
@@ -461,7 +461,7 @@ mod tests {
         let did = SENDER_DID.to_string();
         let mut buf = ReassemblyBuffer::default();
 
-        // Fill to the cap
+ // Fill to the cap
         for i in 0..MAX_REASSEMBLY_SLOTS {
             let mut delta_id = [0u8; 32];
             delta_id[0..8].copy_from_slice(&(i as u64).to_le_bytes());
@@ -474,7 +474,7 @@ mod tests {
             buf.add_fragment(frag, &did).unwrap();
         }
 
-        // Insert a new delta that triggers eviction
+ // Insert a new delta that triggers eviction
         let mut new_delta_id = [0u8; 32];
         new_delta_id[0..8].copy_from_slice(&(MAX_REASSEMBLY_SLOTS as u64).to_le_bytes());
         let frag0 = DeltaFragment {
@@ -490,7 +490,7 @@ mod tests {
             "new delta should be present after eviction"
         );
 
-        // Sending the second fragment should complete the reassembly
+ // Sending the second fragment should complete the reassembly
         let frag1 = DeltaFragment {
             delta_id: new_delta_id,
             fragment_index: 1,
@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn normal_reassembly_within_limits_completes() {
-        // Regression guard: standard 3-fragment round-trip with total_fragments=3
+ // Regression guard: standard 3-fragment round-trip with total_fragments=3
         let data: Vec<u8> = (0u8..=99).collect();
         let frags = fragment(DELTA_ID, &data, 34); // gives 3 chunks: 34, 34, 32
         assert_eq!(frags.len(), 3);

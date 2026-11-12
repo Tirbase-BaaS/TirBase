@@ -4,7 +4,7 @@
 //! Delta's Automerge bytes, this module reads back the **actual** winning
 //! value / ordering from the merged document and compares it against the
 //! Lamport-rule prediction (`lww_incoming_wins` / `rga_incoming_has_priority`,
-//! Req 4.5 / 4.5a).  On divergence in the *definitive* zone — the incoming
+//! Req 4.5 / 4.5a). On divergence in the *definitive* zone — the incoming
 //! Delta's Lamport strictly exceeds the local engine's clock, so the rule
 //! mandates the incoming op wins regardless of actor bytes — the divergence is
 //! logged and the document is **overridden** so the merged state honours the
@@ -13,18 +13,18 @@
 //! The read-back catches the failure modes the audit flagged: a peer whose
 //! payload changes use a non-DID actor (Automerge then tiebreaks on the wrong
 //! bytes) or a payload whose Automerge counter ordering disagrees with the
-//! Delta's Lamport ordering.  Both manifest as "the merged doc resolved to the
+//! Delta's Lamport ordering. Both manifest as "the merged doc resolved to the
 //! local op although the rule says the incoming op must win".
 //!
 //! Zones:
 //! - **Definitive** (`delta.lamport > local_lamport`): the prediction is
-//!   provably exact (the incoming Lamport beats *every* local write, since all
-//!   local writes carry a Lamport ≤ the engine's clock).  Divergence here is a
-//!   real spec violation and is overridden.
+//! provably exact (the incoming Lamport beats *every* local write, since all
+//! local writes carry a Lamport ≤ the engine's clock). Divergence here is a
+//! real spec violation and is overridden.
 //! - **Indeterminate** (`delta.lamport <= local_lamport`): the engine-wide
-//!   local Lamport is only an estimate of the conflicting local write's Lamport
-//!   (per-key write Lamports are not tracked), so the read-back is logged for
-//!   observability but never overridden — an override here could corrupt data.
+//! local Lamport is only an estimate of the conflicting local write's Lamport
+//! (per-key write Lamports are not tracked), so the read-back is logged for
+//! observability but never overridden — an override here could corrupt data.
 
 use std::collections::BTreeMap;
 
@@ -39,17 +39,17 @@ use super::{lww_incoming_wins, rga_incoming_has_priority};
 /// tests to assert the machinery ran).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerificationReport {
-    /// Number of conflicting ROOT-level scalar keys read back.
+ /// Number of conflicting ROOT-level scalar keys read back.
     pub lww_checked: usize,
-    /// Number of conflicting same-position list insertions read back.
+ /// Number of conflicting same-position list insertions read back.
     pub rga_checked: usize,
-    /// Number of definitive-zone divergences detected.
+ /// Number of definitive-zone divergences detected.
     pub divergences: usize,
-    /// Number of overrides successfully applied to the doc.
+ /// Number of overrides successfully applied to the doc.
     pub overrides_applied: usize,
-    /// Number of overrides that failed (logged; the merge itself still stands).
+ /// Number of overrides that failed (logged; the merge itself still stands).
     pub overrides_failed: usize,
-    /// Number of conflicts read back in the indeterminate zone (log-only).
+ /// Number of conflicts read back in the indeterminate zone (log-only).
     pub indeterminate: usize,
 }
 
@@ -84,7 +84,7 @@ pub(crate) struct ConflictSnapshot {
 }
 
 /// Snapshot the conflicts between `local` (pre-merge) and `incoming`
-/// (pre-merge).  Must be called before the merge — after it, the local doc no
+/// (pre-merge). Must be called before the merge — after it, the local doc no
 /// longer distinguishes the two sides.
 pub(crate) fn capture_conflicts(local: &AutoCommit, incoming: &AutoCommit) -> ConflictSnapshot {
     ConflictSnapshot {
@@ -101,7 +101,7 @@ fn capture_lww(local: &AutoCommit, incoming: &AutoCommit) -> Vec<LwwConflict> {
         .into_iter()
         .filter_map(|(key, (incoming_exid, incoming_value))| {
             let (local_exid, local_value) = local_map.get(&key)?;
-            // Same element on both sides (shared history) → no conflict.
+ // Same element on both sides (shared history) → no conflict.
             if local_exid == &incoming_exid {
                 return None;
             }
@@ -162,8 +162,8 @@ fn capture_rga(local: &AutoCommit, incoming: &AutoCommit) -> Vec<RgaConflict> {
 /// Decode every scalar-valued list insertion op in `doc`'s history.
 fn list_inserts(doc: &AutoCommit) -> Vec<InsertOp> {
     let mut out = Vec::new();
-    // `AutoCommit::get_changes` needs `&mut self`; cloning the read-only handle
-    // keeps this a pure read of the pre-merge state.
+ // `AutoCommit::get_changes` needs `&mut self`; cloning the read-only handle
+ // keeps this a pure read of the pre-merge state.
     let mut doc = doc.clone();
     for change in doc.get_changes(&[]) {
         let expanded = change.decode();
@@ -176,8 +176,8 @@ fn list_inserts(doc: &AutoCommit) -> Vec<InsertOp> {
             let Some(value) = op.primitive_value() else {
                 continue;
             };
-            // An op at 0-based index `i` of a change carries op ID
-            // `(start_op + i, change actor)`.
+ // An op at 0-based index `i` of a change carries op ID
+ // `(start_op + i, change actor)`.
             let element = (start_op + i as u64, actor.clone());
             let predecessor = op.key.as_element_id().and_then(|eid| {
                 eid.as_opid()
@@ -206,7 +206,7 @@ pub(crate) fn verify_and_override(
     let mut report = VerificationReport::default();
     let definitive = delta_lamport > local_lamport;
 
-    // ── LWW scalar read-back ───────────────────────────────────────────────
+ // ── LWW scalar read-back ───────────────────────────────────────────────
     for conflict in &snapshot.lww {
         let Some(actual) = current_exid(doc, &conflict.key) else {
             continue;
@@ -233,7 +233,7 @@ pub(crate) fn verify_and_override(
             continue;
         }
 
-        // Definitive zone: the rule mandates the incoming op wins.
+ // Definitive zone: the rule mandates the incoming op wins.
         if actual_incoming_won {
             emit_crdt(
                 Severity::Low,
@@ -247,7 +247,7 @@ pub(crate) fn verify_and_override(
             continue;
         }
         if !actual_local_won {
-            // A third concurrent writer won — cannot attribute, never override.
+ // A third concurrent writer won — cannot attribute, never override.
             report.indeterminate += 1;
             emit_crdt(
                 Severity::Low,
@@ -285,11 +285,11 @@ pub(crate) fn verify_and_override(
         }
     }
 
-    // ── RGA ordering read-back ─────────────────────────────────────────────
-    // Post-merge element index per ROOT-level list object, keyed by the
-    // element's `(counter, actor)` identity so decoded insert ops can be
-    // matched to their position in the merged sequence.
-    /// `(list_key, object_id, (counter, actor) → position)` for one ROOT-level list.
+ // ── RGA ordering read-back ─────────────────────────────────────────────
+ // Post-merge element index per ROOT-level list object, keyed by the
+ // element's `(counter, actor)` identity so decoded insert ops can be
+ // matched to their position in the merged sequence.
+ /// `(list_key, object_id, (counter, actor) → position)` for one ROOT-level list.
 type ObjectElementIndex = (String, ObjId, BTreeMap<(u64, Vec<u8>), usize>);
 
 let mut index_maps: Vec<ObjectElementIndex> = Vec::new();
@@ -307,9 +307,9 @@ let mut index_maps: Vec<ObjectElementIndex> = Vec::new();
     }
 
     for conflict in &snapshot.rga {
-        // Both elements must land in the SAME merged list for the ordering
-        // rule to apply; pairs whose insertions targeted different lists (the
-        // decoded op does not carry the ROOT key) self-filter here.
+ // Both elements must land in the SAME merged list for the ordering
+ // rule to apply; pairs whose insertions targeted different lists (the
+ // decoded op does not carry the ROOT key) self-filter here.
         let mut found = None;
         for (key, obj, map) in &index_maps {
             if let (Some(&idx_local), Some(&idx_incoming)) = (
@@ -354,10 +354,10 @@ let mut index_maps: Vec<ObjectElementIndex> = Vec::new();
              merged order has local first — OVERRIDING order",
             key, delta_lamport, local_lamport,
         ));
-        // Delete both conflicting elements (higher index first so the lower one
-        // does not shift) and re-insert them in the rule order at the run
-        // start.  The corrective write is local, so every future peer merge
-        // converges on the rule ordering.
+ // Delete both conflicting elements (higher index first so the lower one
+ // does not shift) and re-insert them in the rule order at the run
+ // start. The corrective write is local, so every future peer merge
+ // converges on the rule ordering.
         let (lo, hi) = (idx_local.min(idx_incoming), idx_local.max(idx_incoming));
         let result = (|| -> Result<(), automerge::AutomergeError> {
             doc.delete(&obj, hi)?;
@@ -393,7 +393,7 @@ fn current_exid(doc: &AutoCommit, key: &str) -> Option<ObjId> {
 /// `ObjId`'s variant fields are crate-private, so we parse its documented
 /// serialised layout (`ObjId::to_bytes`, see `automerge::exid`):
 /// `[tag][LEB128 actor_len][actor bytes][LEB128 actor-index hint][LEB128
-/// counter]`, version tag 0, type 1.  The actor-index hint is written first
+/// counter]`, version tag 0, type 1. The actor-index hint is written first
 /// and discarded; the counter is the `(counter, actor)` value that `Ord` and
 /// `Display` use.
 fn exid_parts(exid: &ObjId) -> Option<(u64, Vec<u8>)> {
@@ -440,8 +440,8 @@ mod tests {
         let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(b"actor-bytes"));
         doc.put(ROOT, "k", 42_i64).unwrap();
 
-        // The winning element's ExId must parse back to the same (counter,
-        // actor) the change decoder computes for its single op.
+ // The winning element's ExId must parse back to the same (counter,
+ // actor) the change decoder computes for its single op.
         let items: Vec<_> = doc.map_range(ROOT, ..).collect();
         assert_eq!(items.len(), 1);
         let parts = exid_parts(&items[0].id()).expect("parse element ID");
@@ -461,7 +461,7 @@ mod tests {
             ));
         }
         let (start_op, actor, n_ops) = decoded.expect("a put change exists");
-        // The put is the only op of its change → its ID is (start_op, actor).
+ // The put is the only op of its change → its ID is (start_op, actor).
         assert_eq!(parts.0, start_op);
         assert_eq!(parts.1, actor);
         assert_eq!(n_ops, 1);

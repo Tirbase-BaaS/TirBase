@@ -1,4 +1,4 @@
-//! `target_state` SQLite store (Task 21.12, PV-4.5, CLAIM-21.12).
+//! `target_state` SQLite store (PV-4.5, CLAIM-21.12).
 //!
 //! Persists the last committed desired state `(target_id, param) -> FixedPointValue`
 //! in `primary.db`. Stage 16 updates this atomically with the Actuating write.

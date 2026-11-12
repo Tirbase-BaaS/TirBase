@@ -1,4 +1,4 @@
-//! P2P mesh command ingress (tasks 11.3/14 production callers).
+//! P2P mesh command ingress (14 production callers).
 //!
 //! Commands delivered from the mesh (Paxos-confirmed) pass through the local
 //! guard's `admit()` before actuation — mesh consensus is advisory, not
@@ -18,7 +18,7 @@ pub fn handle_mesh_command<W: std::io::Write + Send>(
     guard.admit(cmd, IngressSource::Mesh, proxy, frame)
 }
 
-/// Admit a mesh-delivered command with full Task 14 pipeline context.
+/// Admit a mesh-delivered command with full pipeline context.
 pub fn handle_mesh_command_with_context<W: std::io::Write + Send>(
     guard: &CommandGuard,
     proxy: &mut DriverProxy<W>,

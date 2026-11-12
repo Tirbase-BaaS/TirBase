@@ -9,7 +9,7 @@ disallowed-methods = [
     { path = "tokio::time::Instant::now", reason = "Use TimeSource::monotonic_now() instead (PV-3.12)" },
 ]
 
-# "No HashMap in the guard or simulator" policy (task 38.7, PV-12):
+# "No HashMap in the guard or simulator" policy (PV-12):
 # HashMap iteration order is not deterministic, which breaks simulator
 # reproducibility. The guard and simulator must use BTreeMap (ordered) or
 # IndexMap (insertion-ordered). No crate carries an allow: `tirbase-core` and

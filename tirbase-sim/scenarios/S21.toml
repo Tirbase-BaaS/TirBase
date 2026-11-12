@@ -1,5 +1,5 @@
 # Adversary scenario 21 — Lease Starvation
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S21"
 title = "Lease Starvation"
 seeds = 32

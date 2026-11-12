@@ -28,7 +28,7 @@ Demonstrates TirBase defending a simulated inverter/battery edge controller
 
 - **Physical compromise of inverter, BMS, or sensors.** Tampered hardware can report false SOC/power or ignore commands.
 - **A root-compromised gateway host/OS.** Kernel/root attackers can bypass userspace guard enforcement.
-- **Direct actuation paths bypassing the guard.** Local or legacy control paths not mediated by `CommandGuard::admit()` are out of scope.
+- **Direct actuation paths bypassing the guard.** Local or legacy control paths not mediated by `CommandGuard::admit` are out of scope.
 - **Grid-safety and electrical protection functions.** TirBase is not a protection relay, safety PLC, or anti-islanding device.
 - **Availability under sustained DoS.** Rate limits bound abuse but cannot guarantee delivery during attack.
 - **Correctness of the installed profile.** A legitimately signed but misconfigured envelope is enforced as specified.

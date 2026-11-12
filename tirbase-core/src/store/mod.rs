@@ -7,7 +7,7 @@
 //! (Req 3.1, Subphase 6.3): `write()` persists each row through an awaited
 //! IndexedDB transaction before returning, and `open()` eagerly reloads every
 //! row into an in-memory view, so data survives page reloads instead of living
-//! in a throwaway BTreeMap.  See [`indexed_db`] for the browser glue.
+//! in a throwaway BTreeMap. See [`indexed_db`] for the browser glue.
 
 #![allow(dead_code, unused_variables, unused_imports)]
 
@@ -38,16 +38,16 @@ use compaction::{compact_table, should_compact, CompactionPolicy};
 pub struct LocalStore {
     #[cfg(feature = "native")]
     conn: rusqlite::Connection,
-    /// IndexedDB-backed persistent store for WASM builds (Req 3.1, Subphase 6.3).
-    ///
-    /// Replaces the previous in-memory `BTreeMap` — all writes go through
-    /// IndexedDB so data survives page reloads.  The special `":memory:"`
-    /// path keeps a pure in-memory `BTreeMap` with no IndexedDB backing (tests
-    /// / throwaway stores).
+ /// IndexedDB-backed persistent store for WASM builds (Req 3.1, Subphase 6.3).
+ ///
+ /// Replaces the previous in-memory `BTreeMap` — all writes go through
+ /// IndexedDB so data survives page reloads. The special `":memory:"`
+ /// path keeps a pure in-memory `BTreeMap` with no IndexedDB backing (tests
+ /// / throwaway stores).
     #[cfg(not(feature = "native"))]
     db: Option<std::rc::Rc<IdbStore>>,
-    /// In-memory fallback for the `":memory:"` ephemeral store (WASM only).
-    /// When `db` is `None`, reads and writes go through this map directly.
+ /// In-memory fallback for the `":memory:"` ephemeral store (WASM only).
+ /// When `db` is `None`, reads and writes go through this map directly.
     #[cfg(not(feature = "native"))]
     tables: std::collections::BTreeMap<String, std::collections::BTreeMap<String, Value>>,
 }
@@ -56,19 +56,19 @@ pub struct LocalStore {
 
 #[cfg(feature = "native")]
 impl LocalStore {
-    /// Open or create the local store at `path`.
+ /// Open or create the local store at `path`.
     pub fn open(path: &str) -> Result<Self, TirBaseError> {
         let conn = sqlite::open(path)?;
         Ok(LocalStore { conn })
     }
 
-    /// Commit a write to the LocalStore inside a synchronous SQLite transaction (Req 3.2).
-    ///
-    /// Upserts into `proj_{table}` with columns `(key, data_json, contaminated)`.
-    /// Creates the projection table if it doesn't exist yet.
-    ///
-    /// Returns `LocalStoreWriteFailed` on failure; leaves the store in pre-write state.
-    /// Does **not** produce a Delta — that is the caller's responsibility (Req 3.6).
+ /// Commit a write to the LocalStore inside a synchronous SQLite transaction (Req 3.2).
+ ///
+ /// Upserts into `proj_{table}` with columns `(key, data_json, contaminated)`.
+ /// Creates the projection table if it doesn't exist yet.
+ ///
+ /// Returns `LocalStoreWriteFailed` on failure; leaves the store in pre-write state.
+ /// Does **not** produce a Delta — that is the caller's responsibility (Req 3.6).
     pub fn write(&mut self, table: &str, key: &str, data: &Value) -> Result<(), TirBaseError> {
         let proj_table = format!("proj_{table}");
         let data_json =
@@ -76,8 +76,8 @@ impl LocalStore {
                 reason: format!("JSON serialisation failed: {e}"),
             })?;
 
-        // Use execute_batch for the DDL + transaction to avoid borrow conflicts.
-        // The CREATE TABLE is idempotent and safe to re-run on every write.
+ // Use execute_batch for the DDL + transaction to avoid borrow conflicts.
+ // The CREATE TABLE is idempotent and safe to re-run on every write.
         let create_sql = format!(
             "CREATE TABLE IF NOT EXISTS \"{proj_table}\" \
              (key TEXT PRIMARY KEY, data_json TEXT NOT NULL, contaminated INTEGER NOT NULL DEFAULT 0);"
@@ -89,17 +89,17 @@ impl LocalStore {
                 reason: format!("CREATE TABLE {proj_table} failed: {e}"),
             })?;
 
-        // Use rusqlite's RAII `Transaction` guard so that:
-        //  - a panic inside the upsert (or any Rust-level unwind between BEGIN
-        //    and COMMIT) drops the guard and sends `ROLLBACK`, leaving the
-        //    store unlocked; and
-        //  - SQLite's WAL recovery handles a hard process-kill between BEGIN
-        //    and COMMIT (Subphase 7.3): the incomplete transaction is rolled
-        //    back automatically on the next `open()`, so no partial rows
-        //    survive (Req 3.2 atomicity).
-        //
-        // `Connection::transaction()` issues `BEGIN DEFERRED` and returns a
-        // guard whose `Drop` sends `ROLLBACK` if `commit` was never called.
+ // Use rusqlite's RAII `Transaction` guard so that:
+ // - a panic inside the upsert (or any Rust-level unwind between BEGIN
+ // and COMMIT) drops the guard and sends `ROLLBACK`, leaving the
+ // store unlocked; and
+ // - SQLite's WAL recovery handles a hard process-kill between BEGIN
+ // and COMMIT (Subphase 7.3): the incomplete transaction is rolled
+ // back automatically on the next `open()`, so no partial rows
+ // survive (Req 3.2 atomicity).
+ //
+ // `Connection::transaction()` issues `BEGIN DEFERRED` and returns a
+ // guard whose `Drop` sends `ROLLBACK` if `commit` was never called.
         let tx = self
             .conn
             .transaction()
@@ -123,7 +123,7 @@ impl LocalStore {
                 Ok(())
             }
             Err(e) => {
-                // Best-effort rollback; the RAII guard also rolls back on drop.
+ // Best-effort rollback; the RAII guard also rolls back on drop.
                 let _ = tx.rollback();
                 Err(TirBaseError::LocalStoreWriteFailed {
                     reason: format!("Upsert into {proj_table} failed: {e}"),
@@ -132,7 +132,7 @@ impl LocalStore {
         }
     }
 
-    /// Read a single record by table and key (Req 3.3).
+ /// Read a single record by table and key (Req 3.3).
     pub fn read(&self, table: &str, key: &str) -> Result<Option<Value>, TirBaseError> {
         let proj_table = format!("proj_{table}");
         let sql = format!("SELECT data_json FROM \"{proj_table}\" WHERE key = ?1;");
@@ -151,7 +151,7 @@ impl LocalStore {
                 Ok(Some(val))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            // Table doesn't exist yet → treat as not found.
+ // Table doesn't exist yet → treat as not found.
             Err(rusqlite::Error::SqliteFailure(_, Some(ref msg)))
                 if msg.contains("no such table") =>
             {
@@ -163,31 +163,31 @@ impl LocalStore {
         }
     }
 
-    /// Run boot-recovery verification against the underlying SQLite database.
-    ///
-    /// This folds any recovered WAL frames back into the main database file
-    /// and runs `PRAGMA quick_check` (CLAIM-31.4, PV-9.2). Full
-    /// `PRAGMA integrity_check` is deferred to the maintenance window.
-    /// It is the production recovery hook reached from
-    /// [`CoreHandle::init`](crate::api::CoreHandle::init) after opening the
-    /// store (Subphase 7.3, Req 3.2 atomicity).
+ /// Run boot-recovery verification against the underlying SQLite database.
+ ///
+ /// This folds any recovered WAL frames back into the main database file
+ /// and runs `PRAGMA quick_check` (CLAIM-31.4, PV-9.2). Full
+ /// `PRAGMA integrity_check` is deferred to the maintenance window.
+ /// It is the production recovery hook reached from
+ /// [`CoreHandle::init`](crate::api::CoreHandle::init) after opening the
+ /// store (Subphase 7.3, Req 3.2 atomicity).
     #[cfg(feature = "native")]
     pub(crate) fn check_integrity(&self) -> Result<(), TirBaseError> {
         sqlite::recover_from_crash(&self.conn)
     }
 
-    /// Full integrity check for maintenance window (CLAIM-31.4).
+ /// Full integrity check for maintenance window (CLAIM-31.4).
     #[cfg(feature = "native")]
     pub fn maintenance_integrity_check(&self) -> Result<(), TirBaseError> {
         sqlite::maintenance_integrity_check(&self.conn)
     }
 
-    /// Query records in a table with an optional filter (Req 3.3).
-    ///
-    /// If `filter` is `None`, returns all rows.
-    /// If `filter` is `Some(obj)`, returns only rows whose `data_json` object
-    /// contains all key-value pairs from the filter (simple equality scan).
-    /// Returns empty vec (not error) if the table doesn't exist yet.
+ /// Query records in a table with an optional filter (Req 3.3).
+ ///
+ /// If `filter` is `None`, returns all rows.
+ /// If `filter` is `Some(obj)`, returns only rows whose `data_json` object
+ /// contains all key-value pairs from the filter (simple equality scan).
+ /// Returns empty vec (not error) if the table doesn't exist yet.
     pub fn query(
         &self,
         table: &str,
@@ -231,7 +231,7 @@ impl LocalStore {
                 }
             })?;
 
-            // Apply filter if provided.
+ // Apply filter if provided.
             if let Some(filter_obj) = filter {
                 if let (Some(filter_map), Some(val_map)) = (filter_obj.as_object(), val.as_object())
                 {
@@ -242,7 +242,7 @@ impl LocalStore {
                         continue;
                     }
                 }
-                // If filter isn't an object, skip filtering (return all rows).
+ // If filter isn't an object, skip filtering (return all rows).
             }
 
             results.push((key, val));
@@ -251,12 +251,12 @@ impl LocalStore {
         Ok(results)
     }
 
-    // ─── Automerge document helpers ───────────────────────────────────────────
+ // ─── Automerge document helpers ───────────────────────────────────────────
 
-    /// List all table names present in `automerge_docs`.
-    ///
-    /// Used by the inbound pipeline to find which tables to re-project after
-    /// merging binary Automerge bytes from a peer.
+ /// List all table names present in `automerge_docs`.
+ ///
+ /// Used by the inbound pipeline to find which tables to re-project after
+ /// merging binary Automerge bytes from a peer.
     pub fn list_automerge_tables(&self) -> Result<Vec<String>, TirBaseError> {
         let sql = "SELECT table_name FROM automerge_docs;";
         let mut stmt = self
@@ -277,11 +277,11 @@ impl LocalStore {
         Ok(tables)
     }
 
-    /// Return a reference to the underlying SQLite connection.
-    ///
-    /// Used by the inbound projection pipeline to run `project_table()` on
-    /// the same connection as the store (Req 4.3, 3.3).
-    /// Count rows in a projection table (`proj_{table}`). Returns 0 if missing.
+ /// Return a reference to the underlying SQLite connection.
+ ///
+ /// Used by the inbound projection pipeline to run `project_table()` on
+ /// the same connection as the store (Req 4.3, 3.3).
+ /// Count rows in a projection table (`proj_{table}`). Returns 0 if missing.
     pub fn count_rows(&self, table: &str) -> Result<usize, TirBaseError> {
         let proj_table = format!("proj_{table}");
         let sql = format!("SELECT COUNT(*) FROM \"{proj_table}\";");
@@ -380,7 +380,7 @@ impl LocalStore {
                 })
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => {
-                // No document yet — create a fresh one and persist it.
+ // No document yet — create a fresh one and persist it.
                 let mut doc = AutoCommit::new();
                 let initial_bytes = doc.save();
                 conn.execute(
@@ -398,7 +398,7 @@ impl LocalStore {
         }
     }
 
-    /// Persist an Automerge document back to `automerge_docs`.
+ /// Persist an Automerge document back to `automerge_docs`.
     pub(crate) fn save_automerge_doc(
         conn: &rusqlite::Connection,
         table: &str,
@@ -415,11 +415,11 @@ impl LocalStore {
         Ok(())
     }
 
-    /// Write a key/value through the Automerge document for a table, keeping the
-    /// SQLite projection in sync. Called by the CRDT engine in later tasks.
-    ///
-    /// Compaction is attempted if the `Aggressive` threshold is exceeded; failure
-    /// is non-fatal (Req 3.4–3.5).
+ /// Write a key/value through the Automerge document for a table, keeping the
+ /// SQLite projection in sync. Called by the CRDT engine in later tasks.
+ ///
+ /// Compaction is attempted if the `Aggressive` threshold is exceeded; failure
+ /// is non-fatal (Req 3.4–3.5).
     pub fn write_with_automerge(
         &mut self,
         table: &str,
@@ -429,7 +429,7 @@ impl LocalStore {
     ) -> Result<(), TirBaseError> {
         let mut doc = Self::get_or_create_automerge_doc(&self.conn, table)?;
 
-        // Put the value into the Automerge doc as a JSON string at ROOT.
+ // Put the value into the Automerge doc as a JSON string at ROOT.
         let value_str =
             serde_json::to_string(value).map_err(|e| TirBaseError::LocalStoreWriteFailed {
                 reason: format!("JSON serialisation failed: {e}"),
@@ -441,16 +441,16 @@ impl LocalStore {
             })?;
         doc.commit();
 
-        // Check compaction threshold: automerge's change count is a proxy for Delta count.
+ // Check compaction threshold: automerge's change count is a proxy for Delta count.
         let delta_count = doc.get_changes(&[]).len() as u64;
         if should_compact(policy, delta_count) {
-            // Compaction failure is non-fatal — the function logs internally.
+ // Compaction failure is non-fatal — the function logs internally.
             let _ = compact_table(&self.conn, table, &mut doc);
         }
 
         Self::save_automerge_doc(&self.conn, table, &mut doc)?;
 
-        // Keep the SQL projection table in sync.
+ // Keep the SQL projection table in sync.
         self.write(table, key, value)?;
 
         Ok(())
@@ -460,7 +460,7 @@ impl LocalStore {
 // ─── WASM implementation — IndexedDB-backed (Req 3.1, Subphase 6.3) ──────────
 //
 // The WASM build has no SQLite, so the persistence story is a browser
-// IndexedDB database keyed by the configured storage path.  `open()` opens
+// IndexedDB database keyed by the configured storage path. `open()` opens
 // the database via [`IdbStore`] and eagerly loads every row into the
 // in-memory `tables` view; `write()` persists through an awaited IndexedDB
 // transaction (durable before it returns — Req 3.2 parity) and then updates
@@ -471,13 +471,13 @@ impl LocalStore {
 
 #[cfg(not(feature = "native"))]
 impl LocalStore {
-    /// Open (or create) the store for `path`.
-    ///
-    /// IndexedDB-backed for real storage paths: the database is opened (the
-    /// `kv` object store created on first use) and every persisted row is
-    /// eagerly loaded into the in-memory view, so data written by a previous
-    /// session is present after a page reload.  The literal path `":memory:"`
-    /// yields a pure in-memory store with no IndexedDB backing.
+ /// Open (or create) the store for `path`.
+ ///
+ /// IndexedDB-backed for real storage paths: the database is opened (the
+ /// `kv` object store created on first use) and every persisted row is
+ /// eagerly loaded into the in-memory view, so data written by a previous
+ /// session is present after a page reload. The literal path `":memory:"`
+ /// yields a pure in-memory store with no IndexedDB backing.
     pub async fn open(path: &str) -> Result<Self, TirBaseError> {
         if path == ":memory:" {
             return Ok(LocalStore {
@@ -493,13 +493,13 @@ impl LocalStore {
         })
     }
 
-    /// Commit a write to the store (Req 3.2).
-    ///
-    /// On an IndexedDB-backed store the row is written through an awaited
-    /// `readwrite` transaction — `write()` returns only after the transaction
-    /// has committed, so the acknowledged write survives a reload.  The
-    /// in-memory view is updated only after the durable write succeeds.  Does
-    /// **not** produce a Delta — that is the caller's responsibility (Req 3.6).
+ /// Commit a write to the store (Req 3.2).
+ ///
+ /// On an IndexedDB-backed store the row is written through an awaited
+ /// `readwrite` transaction — `write()` returns only after the transaction
+ /// has committed, so the acknowledged write survives a reload. The
+ /// in-memory view is updated only after the durable write succeeds. Does
+ /// **not** produce a Delta — that is the caller's responsibility (Req 3.6).
     pub async fn write(
         &mut self,
         table: &str,
@@ -554,12 +554,12 @@ impl LocalStore {
         Ok(results)
     }
 
-    /// Number of rows in `table` (0 when the table has never been written).
+ /// Number of rows in `table` (0 when the table has never been written).
     pub fn count_rows(&self, table: &str) -> Result<usize, TirBaseError> {
         Ok(self.tables.get(table).map(|t| t.len()).unwrap_or(0))
     }
 
-    /// All `(key, row)` pairs in `table`, in key order.
+ /// All `(key, row)` pairs in `table`, in key order.
     pub fn read_all_rows(&self, table: &str) -> Result<Vec<(String, Value)>, TirBaseError> {
         Ok(self
             .tables
@@ -568,15 +568,15 @@ impl LocalStore {
             .unwrap_or_default())
     }
 
-    /// Borrow the underlying `IdbStore`, if this store is IndexedDB-backed
-    /// (i.e. not `":memory:"`).  Returns `None` for ephemeral stores.
+ /// Borrow the underlying `IdbStore`, if this store is IndexedDB-backed
+ /// (i.e. not `":memory:"`). Returns `None` for ephemeral stores.
     pub(crate) fn idb_store(&self) -> Option<&std::rc::Rc<IdbStore>> {
         self.db.as_ref()
     }
 
-    /// Clone the `Rc<IdbStore>` handle so it can be shared with the migration
-    /// engine and CRDT compaction subsystem (WASM only).  Returns `None` for
-    /// ephemeral `":memory:"` stores.
+ /// Clone the `Rc<IdbStore>` handle so it can be shared with the migration
+ /// engine and CRDT compaction subsystem (WASM only). Returns `None` for
+ /// ephemeral `":memory:"` stores.
     pub(crate) fn idb_store_rc(&self) -> Option<std::rc::Rc<IdbStore>> {
         self.db.as_ref().cloned()
     }
@@ -590,12 +590,12 @@ mod tests {
     use crate::store::compaction::{should_compact, CompactionPolicy};
     use serde_json::json;
 
-    /// Helper: open an in-memory LocalStore.
+ /// Helper: open an in-memory LocalStore.
     fn open_memory() -> LocalStore {
         LocalStore::open(":memory:").expect("in-memory store should open")
     }
 
-    // ── 1. Write-read round trip ──────────────────────────────────────────────
+ // ── 1. Write-read round trip ──────────────────────────────────────────────
 
     #[test]
     fn test_write_read_round_trip() {
@@ -623,12 +623,12 @@ mod tests {
         assert_eq!(result, None);
     }
 
-    // ── 2. Offline no-peers readable ─────────────────────────────────────────
+ // ── 2. Offline no-peers readable ─────────────────────────────────────────
 
     #[test]
     fn test_offline_no_peers_readable() {
-        // All operations are purely local SQLite — no network calls.
-        // This test confirms the store opens and operates without panics.
+ // All operations are purely local SQLite — no network calls.
+ // This test confirms the store opens and operates without panics.
         let mut store = open_memory();
         store
             .write("sensor_data", "reading-1", &json!({"temp": 23.5}))
@@ -639,7 +639,7 @@ mod tests {
         assert!(val.is_some(), "data written offline must be readable");
     }
 
-    // ── 3. Compaction threshold ───────────────────────────────────────────────
+ // ── 3. Compaction threshold ───────────────────────────────────────────────
 
     #[test]
     fn test_should_compact_threshold_boundary() {
@@ -662,24 +662,24 @@ mod tests {
     #[test]
     fn test_write_with_automerge_compaction_attempted() {
         let mut store = open_memory();
-        // Aggressive threshold of 2 — after 3 writes compaction is attempted.
+ // Aggressive threshold of 2 — after 3 writes compaction is attempted.
         let policy = CompactionPolicy::Aggressive { threshold: 2 };
         for i in 0..3u32 {
             store
                 .write_with_automerge("events", &format!("key-{i}"), &json!(i), &policy)
                 .expect("write_with_automerge should not error even when compaction runs");
         }
-        // Confirm data is still readable.
+ // Confirm data is still readable.
         let val = store.read("events", "key-0").expect("read failed");
         assert!(val.is_some());
     }
 
-    // ── 4. Compaction failure preservation ───────────────────────────────────
+ // ── 4. Compaction failure preservation ───────────────────────────────────
 
     #[test]
     fn test_compaction_failure_data_preserved() {
-        // compact_table() returns Ok(()) on failure (Req 3.5).
-        // Write data, then confirm it survives after a compaction attempt.
+ // compact_table() returns Ok(()) on failure (Req 3.5).
+ // Write data, then confirm it survives after a compaction attempt.
         let mut store = open_memory();
         store
             .write("logs", "entry-1", &json!({"msg": "hello"}))
@@ -688,15 +688,15 @@ mod tests {
             .write("logs", "entry-2", &json!({"msg": "world"}))
             .expect("write");
 
-        // A fresh AutoCommit passed to compact_table is a valid doc — compaction
-        // should succeed and data should still be readable.
+ // A fresh AutoCommit passed to compact_table is a valid doc — compaction
+ // should succeed and data should still be readable.
         let val = store
             .read("logs", "entry-1")
             .expect("read after compaction attempt");
         assert!(val.is_some(), "data must survive compaction attempt");
     }
 
-    // ── 5. Transaction rollback / idempotent upsert ───────────────────────────
+ // ── 5. Transaction rollback / idempotent upsert ───────────────────────────
 
     #[test]
     fn test_idempotent_upsert_same_key() {
@@ -716,7 +716,7 @@ mod tests {
         );
     }
 
-    // ── 6. Query with and without filter ─────────────────────────────────────
+ // ── 6. Query with and without filter ─────────────────────────────────────
 
     #[test]
     fn test_query_no_filter_returns_all() {
@@ -764,7 +764,7 @@ mod tests {
         assert!(rows.is_empty());
     }
 
-    // ── 7. DAG insert and children ────────────────────────────────────────────
+ // ── 7. DAG insert and children ────────────────────────────────────────────
 
     #[test]
     fn test_dag_insert_and_children() {
@@ -809,7 +809,7 @@ mod tests {
         assert_eq!(children[0], child_id);
     }
 
-    // ── 8. DAG BFS descendants ────────────────────────────────────────────────
+ // ── 8. DAG BFS descendants ────────────────────────────────────────────────
 
     #[test]
     fn test_dag_bfs_descendants() {
@@ -855,7 +855,7 @@ mod tests {
         );
     }
 
-    // ── 9. DAG topological sort (diamond) ─────────────────────────────────────
+ // ── 9. DAG topological sort (diamond) ─────────────────────────────────────
 
     #[test]
     fn test_dag_topological_sort_diamond() {
@@ -866,7 +866,7 @@ mod tests {
         let conn = Arc::new(Mutex::new(conn));
         let mut dag = ChangesetDag::new(conn);
 
-        // Diamond: A → B, A → C, B → D, C → D
+ // Diamond: A → B, A → C, B → D, C → D
         let a = [0x0Au8; 32];
         let b = [0x0Bu8; 32];
         let c = [0x0Cu8; 32];
@@ -899,16 +899,16 @@ mod tests {
         assert!(pos(c) < pos(d), "C must come before D");
     }
 
-    // ── 10. Crash-recovery integrity check (Subphase 7.3) ────────────────────
-    //
-    // `check_integrity` runs `PRAGMA wal_checkpoint(TRUNCATE)` +
-    // `PRAGMA integrity_check` — the same recovery step `CoreHandle::init`
-    // invokes on startup (production caller: api/mod.rs:init → LocalStore::open
-    // → sqlite::open → recover_from_crash; and CoreHandle::init calls
-    // store.check_integrity() immediately after open).  This unit test pins
-    // the happy path: a freshly-opened store passes integrity_check, and a
-    // store with a committed row still passes after an in-process rollback of
-    // an in-flight transaction (the in-process analogue of a mid-write crash).
+ // ── 10. Crash-recovery integrity check (Subphase 7.3) ────────────────────
+ //
+ // `check_integrity` runs `PRAGMA wal_checkpoint(TRUNCATE)` +
+ // `PRAGMA integrity_check` — the same recovery step `CoreHandle::init`
+ // invokes on startup (production caller: api/mod.rs:init → LocalStore::open
+ // → sqlite::open → recover_from_crash; and CoreHandle::init calls
+ // store.check_integrity() immediately after open). This unit test pins
+ // the happy path: a freshly-opened store passes integrity_check, and a
+ // store with a committed row still passes after an in-process rollback of
+ // an in-flight transaction (the in-process analogue of a mid-write crash).
 
     #[test]
     fn test_check_integrity_passes_on_clean_store() {
@@ -920,16 +920,16 @@ mod tests {
 
     #[test]
     fn test_check_integrity_passes_after_rollback_of_uncommitted_tx() {
-        // Simulate the in-process analogue of a mid-write crash: begin a
-        // transaction, insert a row, then roll back (no commit).  After the
-        // rollback the store must still pass integrity_check and the partial
-        // row must not be visible.
+ // Simulate the in-process analogue of a mid-write crash: begin a
+ // transaction, insert a row, then roll back (no commit). After the
+ // rollback the store must still pass integrity_check and the partial
+ // row must not be visible.
         let mut store = open_memory();
         store.write("t", "a", &json!({"v": 1})).expect("write a");
 
-        // Begin an uncommitted transaction and insert a partial row, then
-        // roll back — mirroring a crash between BEGIN and COMMIT where SQLite
-        // recovers the rollback during WAL replay.
+ // Begin an uncommitted transaction and insert a partial row, then
+ // roll back — mirroring a crash between BEGIN and COMMIT where SQLite
+ // recovers the rollback during WAL replay.
         store.conn.execute_batch("BEGIN;").expect("test: BEGIN");
         store
             .conn
@@ -943,8 +943,8 @@ mod tests {
             .execute_batch("ROLLBACK;")
             .expect("test: ROLLBACK");
 
-        // After rollback: integrity holds, partial row is gone, committed
-        // row survives.
+ // After rollback: integrity holds, partial row is gone, committed
+ // row survives.
         store
             .check_integrity()
             .expect("store must pass integrity_check after rollback");

@@ -1,6 +1,6 @@
-//! Fleet precondition verification hook for Contract migrations (PV-8.5a, Task 30.3).
+//! Fleet precondition verification hook for Contract migrations (PV-8.5a).
 //!
-//! Full fleet inventory depends on task 37.5. This module provides the hook so
+//! Full fleet inventory depends on . This module provides the hook so
 //! Contract migrations are never approved without an explicit verifier; the
 //! default rejects with `FleetPreconditionMissing`.
 

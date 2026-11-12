@@ -44,4 +44,4 @@ assignees: ''
 ## Additional Context
 
 <!-- Any other relevant information: config snippets (redact secrets), related issues,
-     suspected root cause, or reproduction rate (always / intermittent). -->
+ suspected root cause, or reproduction rate (always / intermittent). -->

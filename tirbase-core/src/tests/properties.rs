@@ -1,20 +1,20 @@
-//! Property-Based Test Suite — all 22 correctness properties (Task 15).
+//! Property-Based Test Suite — all 22 correctness properties ().
 //!
 //! Uses `proptest` with `ProptestConfig::with_cases(200)` on every test block.
 //! Tests gated on `#[cfg(feature = "native")]` require a live SQLite connection.
 //!
-//! # End-to-End Test Gap Tracking (Task 22)
+//! # End-to-End Test Gap Tracking ()
 //!
 //! The following properties have documented gaps where full end-to-end verification
 //! cannot be achieved in the current in-process test environment:
 //!
 //! ## Property 1 — Cross-Build State Convergence (Req 1.4)
 //! **Gap:** The test verifies Lamport clock equality between two in-process engines
-//! (both compiled to the same `native` target).  True byte-for-byte cross-build
+//! (both compiled to the same `native` target). True byte-for-byte cross-build
 //! parity — comparing WASM module output against native binary output on identical
 //! input — requires running the WASM build under `wasm-bindgen-test` or
 //! `wasmi` execution and comparing serialised Local Store state against a native
-//! build's output.  This cannot be done within a single `cargo test` invocation.
+//! build's output. This cannot be done within a single `cargo test` invocation.
 //!
 //! **Mitigation:** The WASM build compiles without errors (`cargo check --no-default-features
 //! --features wasm --target wasm32-unknown-unknown`), `wasm_tests.rs` confirms the
@@ -31,27 +31,27 @@
 //! over a loopback libp2p Swarm).
 //!
 //! **Mitigation:** `durability/` unit tests cover K-of-N quorum formation with
-//! real Ed25519 signatures and state-hash verification.  Property 5 verifies the
-//! write-before-acknowledge SQLite durability guarantee directly.  The live
+//! real Ed25519 signatures and state-hash verification. Property 5 verifies the
+//! write-before-acknowledge SQLite durability guarantee directly. The live
 //! multi-peer quorum path is deferred to the integration test suite in
 //! `durability/integration_tests.rs` (post-v1).
 //!
 //! ## Property 20 — Saturate Mode Lease State Machine (Req 13)
 //! **Gap:** The heartbeat renewal path (invariant from Req 13.4) is exercised by
-//! `saturate::tests::renew_extends_lease_by_60_minutes` as a unit test.  The
+//! `saturate::tests::renew_extends_lease_by_60_minutes` as a unit test. The
 //! proptest for Property 20 does not include a `renew()` case because proptest
 //! cannot easily generate valid time-ordered sequences of activation + renewal
-//! events with distinct Biscuit tokens without a custom strategy.  The 30-case
+//! events with distinct Biscuit tokens without a custom strategy. The 30-case
 //! limit was imposed to avoid Biscuit's per-process Datalog execution budget.
 //!
 //! **Mitigation:** The four `prop_20_biscuit` sub-properties cover invariants (a)–(d)
-//! with real tokens.  The renewal path is fully covered by the named unit test above.
+//! with real tokens. The renewal path is fully covered by the named unit test above.
 //!
 //! ## Properties 2 / 3 / 4 — Multi-Device CRDT Sync (Req 4.5, 4.7)
-//! **Gap:** True multi-device sync over a live P2P mesh is not exercised.  The
+//! **Gap:** True multi-device sync over a live P2P mesh is not exercised. The
 //! properties test CRDT merge semantics in isolation (no transport layer).
 //!
-//! **Mitigation:** This is a known v1 limitation.  Multi-device mesh sync requires
+//! **Mitigation:** This is a known v1 limitation. Multi-device mesh sync requires
 //! two or more live peers communicating over a loopback libp2p Swarm — a capability
 //! deferred to `durability/integration_tests.rs` post-v1.
 
@@ -167,7 +167,7 @@ fn arb_field_def() -> impl Strategy<Value = FieldDef> {
 /// Strategy for a random `TableDef` with unique field names.
 fn arb_table_def() -> impl Strategy<Value = TableDef> {
     (arb_ident(), prop_vec(arb_field_def(), 1..=5)).prop_map(|(table_name, raw_fields)| {
-        // Deduplicate field names to avoid schema ambiguity.
+ // Deduplicate field names to avoid schema ambiguity.
         let mut seen = std::collections::HashSet::new();
         let fields: Vec<FieldDef> = raw_fields
             .into_iter()
@@ -252,7 +252,7 @@ pub fn arb_delta(schema_hash: [u8; 32]) -> impl Strategy<Value = Delta> {
 /// Strategy for two concurrent Deltas (disjoint causal parents, random lamport).
 pub fn arb_delta_pair_concurrent(schema_hash: [u8; 32]) -> impl Strategy<Value = (Delta, Delta)> {
     (1u64..=50u64, 1u64..=50u64).prop_map(move |(lam_a, lam_b)| {
-        // Use two different secrets so signatures are valid for different DIDs.
+ // Use two different secrets so signatures are valid for different DIDs.
         let secret_a = [0x01u8; 32];
         let secret_b = [0x02u8; 32];
         let da = make_signed_delta_from(&secret_a, schema_hash, lam_a, vec![0x01], vec![]);
@@ -268,7 +268,7 @@ pub fn arb_ordered_delta_sequence(schema_hash: [u8; 32]) -> impl Strategy<Value 
         let mut deltas: Vec<Delta> = Vec::new();
         for (i, payload) in payloads.into_iter().enumerate() {
             let parents: Vec<[u8; 32]> = if i > 0 && i % 2 == 0 {
-                // Every other delta references the previous one as a parent.
+ // Every other delta references the previous one as a parent.
                 vec![deltas[i - 1].id]
             } else {
                 vec![]
@@ -314,8 +314,8 @@ fn open_test_conn() -> std::sync::Arc<std::sync::Mutex<rusqlite::Connection>> {
 }
 
 /// Serialise an Automerge doc from a CrdtEngine by producing a known write and
-/// returning the saved bytes.  We use the `automerge::SaveOptions` API via
-/// `doc.save()`.  Since we can't access `engine.doc` directly (it's private),
+/// returning the saved bytes. We use the `automerge::SaveOptions` API via
+/// `doc.save()`. Since we can't access `engine.doc` directly (it's private),
 /// we compare engines by applying the same deltas and checking that subsequent
 /// produce_delta calls produce identical schema-level state (lamport values).
 #[cfg(feature = "native")]
@@ -336,8 +336,8 @@ proptest! {
     fn prop_01_cross_build_state_convergence(
         deltas in arb_ordered_delta_sequence(TEST_SCHEMA_HASH)
     ) {
-        // Apply the same ordered Delta sequence to two independent engines.
-        // Both engines must reach the same Lamport clock value (state convergence).
+ // Apply the same ordered Delta sequence to two independent engines.
+ // Both engines must reach the same Lamport clock value (state convergence).
         let secret_a = [0xAAu8; 32];
         let secret_b = [0xBBu8; 32];
 
@@ -349,8 +349,8 @@ proptest! {
             let _ = engine_b.apply(d);
         }
 
-        // Both engines processed the same deltas in the same order.
-        // Lamport clocks must be identical (convergence).
+ // Both engines processed the same deltas in the same order.
+ // Lamport clocks must be identical (convergence).
         prop_assert_eq!(
             engine_a.lamport(),
             engine_b.lamport(),
@@ -368,10 +368,10 @@ proptest! {
     fn prop_02_crdt_causal_commutativity(
         deltas in arb_ordered_delta_sequence(TEST_SCHEMA_HASH)
     ) {
-        // Apply in forward order on engine A, reverse order on engine B.
-        // CRDTs are commutative: both engines must accept the same set of deltas.
-        // We verify convergence by checking that both engines accept the same
-        // total number of deltas (merge count).
+ // Apply in forward order on engine A, reverse order on engine B.
+ // CRDTs are commutative: both engines must accept the same set of deltas.
+ // We verify convergence by checking that both engines accept the same
+ // total number of deltas (merge count).
         use crate::crdt::merge::MergeOutcome;
 
         let secret = [0x11u8; 32];
@@ -392,7 +392,7 @@ proptest! {
             }
         }
 
-        // Both engines must have merged the same number of deltas.
+ // Both engines must have merged the same number of deltas.
         prop_assert_eq!(
             merged_a, merged_b,
             "both engines must accept the same number of deltas regardless of order"
@@ -406,14 +406,14 @@ proptest! {
 //
 // Two concurrent CrdtEngine instances (each with a unique Ed25519 public key
 // as actor ID) each write a distinct scalar value to the same map key "score"
-// with different Lamport timestamps.  Each engine then calls
+// with different Lamport timestamps. Each engine then calls
 // `apply_incoming_delta()` with the other engine's Delta.
 //
 // Assertions:
-//  - `is_rga_operation()` classifies the scalar-write bytes as LWW (`Some(false)`)
-//  - Both engines return `MergeOutcome::Merged`
-//  - `lww_incoming_wins()` applied to the two engines' public keys and Lamport
-//    timestamps correctly predicts which value wins the conflict
+// - `is_rga_operation()` classifies the scalar-write bytes as LWW (`Some(false)`)
+// - Both engines return `MergeOutcome::Merged`
+// - `lww_incoming_wins()` applied to the two engines' public keys and Lamport
+// timestamps correctly predicts which value wins the conflict
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
@@ -430,9 +430,9 @@ proptest! {
         use crate::crdt::merge::{apply_incoming_delta, is_rga_operation, MergeOutcome};
         use ed25519_dalek::SigningKey;
 
-        // Generate two distinct Ed25519 keys deterministically from the lamport inputs.
-        // We derive seeds from the generated lamport values so each proptest case
-        // gets keys that may or may not be the same (both paths exercised).
+ // Generate two distinct Ed25519 keys deterministically from the lamport inputs.
+ // We derive seeds from the generated lamport values so each proptest case
+ // gets keys that may or may not be the same (both paths exercised).
         let seed_a: [u8; 32] = {
             let mut s = [0x11u8; 32];
             s[0] = (lam_a & 0xFF) as u8;
@@ -453,15 +453,15 @@ proptest! {
         let sk_b = SigningKey::from_bytes(&seed_b);
         let pk_b: [u8; 32] = sk_b.verifying_key().to_bytes();
 
-        // Build Automerge bytes: each engine puts a scalar integer on ROOT["score"].
-        // The actor is set to the DID public key so Automerge's internal LWW
-        // tiebreak uses the same actor bytes as our rule (Req 4.5).  A single
-        // put per delta keeps the Automerge op counter at 1 — the conflict
-        // resolution then depends purely on the actor tiebreak, which both
-        // Automerge and our LWW rule implement identically at equal Lamports.
-        // The Delta Lamport (lam_a / lam_b) is independent of the Automerge
-        // counter; the override path in CrdtEngine::apply enforces the rule in
-        // the definitive zone when they disagree.
+ // Build Automerge bytes: each engine puts a scalar integer on ROOT["score"].
+ // The actor is set to the DID public key so Automerge's internal LWW
+ // tiebreak uses the same actor bytes as our rule (Req 4.5). A single
+ // put per delta keeps the Automerge op counter at 1 — the conflict
+ // resolution then depends purely on the actor tiebreak, which both
+ // Automerge and our LWW rule implement identically at equal Lamports.
+ // The Delta Lamport (lam_a / lam_b) is independent of the Automerge
+ // counter; the override path in CrdtEngine::apply enforces the rule in
+ // the definitive zone when they disagree.
         let bytes_a = {
             let mut doc = automerge::AutoCommit::new()
                 .with_actor(automerge::ActorId::from(&pk_a[..]));
@@ -475,7 +475,7 @@ proptest! {
             doc.save()
         };
 
-        // Classification: scalar writes must be LWW path.
+ // Classification: scalar writes must be LWW path.
         prop_assert_eq!(
             is_rga_operation(&bytes_a),
             Some(false),
@@ -487,21 +487,21 @@ proptest! {
             "scalar write must be classified as LWW (Some(false))"
         );
 
-        // Produce signed Deltas from each engine's bytes.
+ // Produce signed Deltas from each engine's bytes.
         let delta_a = make_signed_delta_from(&seed_a, TEST_SCHEMA_HASH, lam_a, bytes_a.clone(), vec![]);
         let delta_b = make_signed_delta_from(&seed_b, TEST_SCHEMA_HASH, lam_b, bytes_b.clone(), vec![]);
 
-        // Each engine starts empty and receives BOTH deltas in the SAME ORDER
-        // (delta_a first, then delta_b).  This guarantees convergence: both
-        // engines have identical op sets and resolve the LWW conflict on
-        // "score" identically.  The conflict is created when delta_b lands on
-        // the existing key from delta_a, exercising the read-back + override
-        // path in CrdtEngine::apply (Subphase 8.1 — Req 4.5).
+ // Each engine starts empty and receives BOTH deltas in the SAME ORDER
+ // (delta_a first, then delta_b). This guarantees convergence: both
+ // engines have identical op sets and resolve the LWW conflict on
+ // "score" identically. The conflict is created when delta_b lands on
+ // the existing key from delta_a, exercising the read-back + override
+ // path in CrdtEngine::apply (Subphase 8.1 — Req 4.5).
         let mut engine_a = make_engine(seed_a, TEST_SCHEMA_HASH);
         let mut engine_b = make_engine(seed_b, TEST_SCHEMA_HASH);
 
-        // Both engines: apply delta_a (peer's write), then delta_b (peer's write).
-        // The second apply per engine creates the LWW conflict.
+ // Both engines: apply delta_a (peer's write), then delta_b (peer's write).
+ // The second apply per engine creates the LWW conflict.
         apply_incoming_delta(&mut engine_a, &delta_a)
             .expect("engine_a apply delta_a");
         let outcome_a2 = apply_incoming_delta(&mut engine_a, &delta_b)
@@ -521,9 +521,9 @@ proptest! {
             "engine_b must merge delta_b (conflict): {outcome_b2:?}"
         );
 
-        // Verify Lamport clock semantics after applying both deltas.
-        // Both engines start at 0, apply delta_a (lam_a) → lam_a+1,
-        // then delta_b (lam_b) → max(lam_a+1, lam_b) + 1.
+ // Verify Lamport clock semantics after applying both deltas.
+ // Both engines start at 0, apply delta_a (lam_a) → lam_a+1,
+ // then delta_b (lam_b) → max(lam_a+1, lam_b) + 1.
         let expected_lamport = lam_b.max(lam_a + 1) + 1;
         prop_assert_eq!(
             engine_a.lamport(), expected_lamport,
@@ -534,8 +534,8 @@ proptest! {
             "engine_b lamport must be max(lam_a+1, lam_b) + 1"
         );
 
-        // Verify the LWW winner prediction is consistent:
-        // higher Delta Lamport wins; on a tie, greater DID actor bytes win.
+ // Verify the LWW winner prediction is consistent:
+ // higher Delta Lamport wins; on a tie, greater DID actor bytes win.
         let a_wins_over_b = lww_incoming_wins(lam_a, &pk_a[..], lam_b, &pk_b[..]);
         let b_wins_over_a = lww_incoming_wins(lam_b, &pk_b[..], lam_a, &pk_a[..]);
 
@@ -548,11 +548,11 @@ proptest! {
             }
         }
 
-        // Read back the actual merged scalar value from each engine's doc.
+ // Read back the actual merged scalar value from each engine's doc.
         let readback_a = engine_a.read_scalar("score");
         let readback_b = engine_b.read_scalar("score");
 
-        // Both engines must converge to the same value after the bidirectional merge.
+ // Both engines must converge to the same value after the bidirectional merge.
         if readback_a.clone() != readback_b.clone() {
             eprintln!("CONVERGENCE FAIL: lam_a={lam_a}, lam_b={lam_b}, val_a={val_a}, val_b={val_b}, readback_a={readback_a:?}, readback_b={readback_b:?}, a_lamport={}, b_lamport={}", engine_a.lamport(), engine_b.lamport());
         }
@@ -561,16 +561,16 @@ proptest! {
             "both engines must read back the same merged value after convergence"
         );
 
-        // Definitive zone check: when the incoming delta's Lamport strictly
-        // exceeds the engine's pre-merge clock, the LWW rule mandates the
-        // incoming op wins and the override enforces it.  We assert the read-back
-        // matches the rule winner in that case.
-        //
-        // Both engines apply delta_a first (no conflict), then delta_b (conflict).
-        // The definitive zone for delta_b is: lam_b > lam_a + 1 (engine clock after
-        // applying delta_a).
+ // Definitive zone check: when the incoming delta's Lamport strictly
+ // exceeds the engine's pre-merge clock, the LWW rule mandates the
+ // incoming op wins and the override enforces it. We assert the read-back
+ // matches the rule winner in that case.
+ //
+ // Both engines apply delta_a first (no conflict), then delta_b (conflict).
+ // The definitive zone for delta_b is: lam_b > lam_a + 1 (engine clock after
+ // applying delta_a).
         if lam_b > lam_a + 1 {
-            // Definitive: incoming (val_b) must win on both engines.
+ // Definitive: incoming (val_b) must win on both engines.
             prop_assert_eq!(
                 readback_a,
                 Some(serde_json::json!(val_b)),
@@ -592,26 +592,26 @@ proptest! {
 //
 // Setup: a shared base Automerge document establishes the "items" list.
 // Two concurrent engines each load the base state and independently insert
-// a distinct set of strings.  Each engine's *incremental* change bytes are
-// packaged as the `automerge_bytes` in a signed Delta.  Each engine then
+// a distinct set of strings. Each engine's *incremental* change bytes are
+// packaged as the `automerge_bytes` in a signed Delta. Each engine then
 // calls `apply_incoming_delta()` with the other engine's Delta.
 //
 // Assertions:
-//  - `is_rga_operation()` classifies the incremental list-insert bytes as
-//    RGA (`Some(true)`)
-//  - Both engines return `MergeOutcome::Merged`
-//  - A standalone Automerge merge of both docs contains all inserted strings
-//    (no element dropped), verifying RGA sequence completeness
-//  - The relative order of elements is consistent with `rga_incoming_has_priority()`
-//  - Engine-level read-back: both engines' merged docs contain all values and
-//    converge on the same list ordering (Subphase 8.2 — Req 4.5a)
+// - `is_rga_operation()` classifies the incremental list-insert bytes as
+// RGA (`Some(true)`)
+// - Both engines return `MergeOutcome::Merged`
+// - A standalone Automerge merge of both docs contains all inserted strings
+// (no element dropped), verifying RGA sequence completeness
+// - The relative order of elements is consistent with `rga_incoming_has_priority()`
+// - Engine-level read-back: both engines' merged docs contain all values and
+// converge on the same list ordering (Subphase 8.2 — Req 4.5a)
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
     #[test]
     #[cfg(feature = "native")]
     fn prop_04_rga_sequence_merge_completeness(
-        // Each engine inserts 1–3 distinct strings at position 0 of a shared list.
+ // Each engine inserts 1–3 distinct strings at position 0 of a shared list.
         vals_a in prop_vec("[a-z]{4}", 1..=3usize),
         vals_b in prop_vec("[a-z]{4}", 1..=3usize),
         lam_a in 1u64..=100u64,
@@ -622,14 +622,14 @@ proptest! {
         use crate::crdt::merge::{apply_incoming_delta, is_rga_operation, MergeOutcome};
         use ed25519_dalek::SigningKey;
 
-        // ── Step 1: create a shared base doc with the list object ─────────────
+ // ── Step 1: create a shared base doc with the list object ─────────────
         let base_bytes: Vec<u8> = {
             let mut base = AutoCommit::new();
             base.put_object(automerge::ROOT, "items", ObjType::List).unwrap();
             base.save()
         };
 
-        // Derive deterministic but distinct seeds.
+ // Derive deterministic but distinct seeds.
         let seed_a: [u8; 32] = {
             let mut s = [0x33u8; 32];
             s[0] = (lam_a & 0xFF) as u8;
@@ -643,8 +643,8 @@ proptest! {
             s
         };
 
-        // ── Step 2: each engine forks from base and inserts its values ────────
-        // Engine A inserts vals_a into the list.
+ // ── Step 2: each engine forks from base and inserts its values ────────
+ // Engine A inserts vals_a into the list.
         let bytes_a: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
             if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
@@ -652,12 +652,12 @@ proptest! {
                     doc.insert(&list_id, i, v.as_str()).unwrap();
                 }
             }
-            // Use save_incremental to produce only the new change bytes
-            // (not the full base doc) — these are the RGA insertion ops.
+ // Use save_incremental to produce only the new change bytes
+ // (not the full base doc) — these are the RGA insertion ops.
             doc.save_incremental()
         };
 
-        // Engine B inserts vals_b into the list.
+ // Engine B inserts vals_b into the list.
         let bytes_b: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
             if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
@@ -668,9 +668,9 @@ proptest! {
             doc.save_incremental()
         };
 
-        // ── Step 3: classification check ──────────────────────────────────────
-        // Only check classification when bytes are non-empty (empty bytes from
-        // save_incremental means no new changes were made).
+ // ── Step 3: classification check ──────────────────────────────────────
+ // Only check classification when bytes are non-empty (empty bytes from
+ // save_incremental means no new changes were made).
         if !bytes_a.is_empty() {
             prop_assert_eq!(
                 is_rga_operation(&bytes_a),
@@ -686,10 +686,10 @@ proptest! {
             );
         }
 
-        // ── Step 4: produce signed Deltas and apply via routing ───────────────
-        // Use full doc saves (not incremental) so the engine's `load_incoming_doc`
-        // can parse them as complete Automerge documents and exercise the real
-        // merge + read-back path.
+ // ── Step 4: produce signed Deltas and apply via routing ───────────────
+ // Use full doc saves (not incremental) so the engine's `load_incoming_doc`
+ // can parse them as complete Automerge documents and exercise the real
+ // merge + read-back path.
         let full_bytes_a: Vec<u8> = {
             let mut doc = AutoCommit::load(&base_bytes).unwrap();
             if let Some((Value::Object(_), list_id)) = doc.get(automerge::ROOT, "items").unwrap() {
@@ -715,12 +715,12 @@ proptest! {
         let mut engine_a = make_engine(seed_a, TEST_SCHEMA_HASH);
         let mut engine_b = make_engine(seed_b, TEST_SCHEMA_HASH);
 
-        // Both engines apply delta_a first (establishing the base + A's insertions),
-        // then delta_b (cross-applying B's insertions, creating the RGA conflict).
-        // Applying the same deltas in the same order on both engines guarantees
-        // convergence: both see the same conflict and resolve it identically.
-        // The override path in CrdtEngine::apply enforces the RGA rule in the
-        // definitive zone (Subphase 8.2 — Req 4.5a).
+ // Both engines apply delta_a first (establishing the base + A's insertions),
+ // then delta_b (cross-applying B's insertions, creating the RGA conflict).
+ // Applying the same deltas in the same order on both engines guarantees
+ // convergence: both see the same conflict and resolve it identically.
+ // The override path in CrdtEngine::apply enforces the RGA rule in the
+ // definitive zone (Subphase 8.2 — Req 4.5a).
         engine_a.apply(&delta_a).expect("engine_a apply delta_a");
         engine_b.apply(&delta_a).expect("engine_b apply delta_a");
 
@@ -738,15 +738,15 @@ proptest! {
             "engine_b must merge delta_b via RGA path: {outcome_b:?}"
         );
 
-        // ── Step 5: verify merge completeness via standalone Automerge merge ──
-        // Load both full doc saves on top of the shared base and merge them;
-        // then verify all inserted values are present.
+ // ── Step 5: verify merge completeness via standalone Automerge merge ──
+ // Load both full doc saves on top of the shared base and merge them;
+ // then verify all inserted values are present.
         let merged_items: Vec<String> = {
             let mut doc_a = AutoCommit::load(&full_bytes_a).unwrap();
             let mut doc_b = AutoCommit::load(&full_bytes_b).unwrap();
             doc_a.merge(&mut doc_b).unwrap();
 
-            // Read the "items" list from the merged doc.
+ // Read the "items" list from the merged doc.
             match doc_a.get(automerge::ROOT, "items").unwrap() {
                 Some((Value::Object(_), list_id)) => {
                     let len = doc_a.length(&list_id);
@@ -766,10 +766,10 @@ proptest! {
             }
         };
 
-        // Every value inserted by either engine must appear in the merged list.
-        // This is the core RGA completeness invariant (Req 4.5a).
-        // Note: if both engines inserted the same string, Automerge keeps both
-        // as they are separate ops from distinct actor IDs.
+ // Every value inserted by either engine must appear in the merged list.
+ // This is the core RGA completeness invariant (Req 4.5a).
+ // Note: if both engines inserted the same string, Automerge keeps both
+ // as they are separate ops from distinct actor IDs.
         for v in &vals_a {
             prop_assert!(
                 merged_items.contains(v),
@@ -785,9 +785,9 @@ proptest! {
             );
         }
 
-        // The merged list must contain at least max(vals_a.len(), vals_b.len())
-        // entries — each engine's insertions are preserved from the shared base.
-        // If vals_a and vals_b have identical strings they appear twice (one per actor).
+ // The merged list must contain at least max(vals_a.len(), vals_b.len())
+ // entries — each engine's insertions are preserved from the shared base.
+ // If vals_a and vals_b have identical strings they appear twice (one per actor).
         let min_expected = vals_a.len().max(vals_b.len());
         prop_assert!(
             merged_items.len() >= min_expected,
@@ -795,7 +795,7 @@ proptest! {
             min_expected, merged_items.len(), merged_items
         );
 
-        // ── Step 6: verify RGA ordering consistency ───────────────────────────
+ // ── Step 6: verify RGA ordering consistency ───────────────────────────
         let sk_a = SigningKey::from_bytes(&seed_a);
         let pk_a: [u8; 32] = sk_a.verifying_key().to_bytes();
         let sk_b = SigningKey::from_bytes(&seed_b);
@@ -805,24 +805,24 @@ proptest! {
         let b_has_priority = rga_incoming_has_priority(lam_b, &pk_b[..], lam_a, &pk_a[..]);
 
         if pk_a != pk_b && lam_a != lam_b {
-            // Different actors, different lamports: exactly one has RGA priority.
+ // Different actors, different lamports: exactly one has RGA priority.
             prop_assert_ne!(
                 a_has_priority, b_has_priority,
                 "with distinct actors and lamports, exactly one must have RGA priority"
             );
         }
 
-        // ── Step 7: engine-level read-back of merged list ordering ──────────────
-        // Read the "items" list back from each engine's merged Automerge doc
-        // (not via a standalone merge — through the actual CrdtEngine state).
-        // This verifies that the post-merge read-back in CrdtEngine::apply
-        // (Subphase 8.2 — Req 4.5a) observed the correct ordering and that
-        // both engines converge on the same list contents.
+ // ── Step 7: engine-level read-back of merged list ordering ──────────────
+ // Read the "items" list back from each engine's merged Automerge doc
+ // (not via a standalone merge — through the actual CrdtEngine state).
+ // This verifies that the post-merge read-back in CrdtEngine::apply
+ // (Subphase 8.2 — Req 4.5a) observed the correct ordering and that
+ // both engines converge on the same list contents.
         let engine_list_a = engine_a.read_list("items").unwrap_or_default();
         let engine_list_b = engine_b.read_list("items").unwrap_or_default();
 
-        // Completeness: every value inserted by either side must appear in both
-        // engine docs after convergence.
+ // Completeness: every value inserted by either side must appear in both
+ // engine docs after convergence.
         for v in &vals_a {
             prop_assert!(
                 engine_list_a.contains(v) && engine_list_b.contains(v),
@@ -838,7 +838,7 @@ proptest! {
             );
         }
 
-        // Convergence: both engines must read back the same list contents.
+ // Convergence: both engines must read back the same list contents.
         prop_assert_eq!(
             engine_list_a.len(), engine_list_b.len(),
             "both engines must have the same list length after convergence"
@@ -867,7 +867,7 @@ proptest! {
 
         store.write("test_table", &key, &data).expect("write must succeed");
 
-        // Immediately query the SQLite DB before returning.
+ // Immediately query the SQLite DB before returning.
         let result = store.read("test_table", &key).expect("read must succeed");
         prop_assert!(result.is_some(), "data must be readable immediately after write");
         prop_assert_eq!(result.unwrap(), data, "read value must match written value");
@@ -888,13 +888,13 @@ proptest! {
         let secret = [0x42u8; 32];
         let schema_hash = TEST_SCHEMA_HASH;
 
-        // Produce a Delta with empty automerge_bytes (valid for Automerge merge).
+ // Produce a Delta with empty automerge_bytes (valid for Automerge merge).
         let mut engine = make_engine(secret, schema_hash);
         let delta = engine
             .produce_delta(vec![], PriorityClass::Low, vec![])
             .expect("produce_delta must succeed");
 
-        // Apply the valid delta to a second engine — must be Merged.
+ // Apply the valid delta to a second engine — must be Merged.
         let mut engine2 = make_engine([0x43u8; 32], schema_hash);
         let outcome = engine2.apply(&delta).expect("apply must not error");
         prop_assert!(
@@ -902,17 +902,17 @@ proptest! {
             "valid delta must be merged, got: {outcome:?}"
         );
 
-        // Tamper: flip a byte in the signature (not the automerge_bytes, to avoid
-        // triggering the automerge parse error path — we test signature rejection).
+ // Tamper: flip a byte in the signature (not the automerge_bytes, to avoid
+ // triggering the automerge parse error path — we test signature rejection).
         let mut tampered = delta.clone();
         if let Some(first) = tampered.signature.0.first_mut() {
             *first ^= 0xFF;
         } else {
-            // Signature was empty — add garbage bytes.
+ // Signature was empty — add garbage bytes.
             tampered.signature = Ed25519Signature(vec![0xFF; 64]);
         }
 
-        // Apply tampered delta — must be Rejected (bad signature).
+ // Apply tampered delta — must be Rejected (bad signature).
         let mut engine3 = make_engine([0x44u8; 32], schema_hash);
         let outcome3 = engine3.apply(&tampered).expect("apply tampered must not panic");
         prop_assert!(
@@ -937,7 +937,7 @@ proptest! {
         let target_did = "did:key:z6MkTarget".to_string();
         let mut store = PendingRevocationStore::default();
 
-        // Generate m+1 distinct manager keys.
+ // Generate m+1 distinct manager keys.
         let mut secrets: Vec<[u8; 32]> = Vec::new();
         let mut dids: Vec<String> = Vec::new();
         for i in 0..(m + 1) {
@@ -952,7 +952,7 @@ proptest! {
 
         let payload = RevocationDelta::signing_payload(&target_did);
 
-        // Add m-1 signatures → must remain Pending.
+ // Add m-1 signatures → must remain Pending.
         for i in 0..(m - 1) {
             let sig = sign(&secrets[i], &payload).expect("sign");
             let ms = ManagerSignature {
@@ -966,7 +966,7 @@ proptest! {
             prop_assert!(is_pending, "must be Pending with {}/{} sigs", i + 1, m);
         }
 
-        // Add the m-th signature → must reach Applied.
+ // Add the m-th signature → must reach Applied.
         let sig_m = sign(&secrets[m - 1], &payload).expect("sign m-th");
         let ms_m = ManagerSignature {
             manager_did: dids[m - 1].clone(),
@@ -1023,7 +1023,7 @@ proptest! {
 
         let conn = open_test_conn();
 
-        // Build a linear chain in the DAG directly.
+ // Build a linear chain in the DAG directly.
         let mut ids: Vec<[u8; 32]> = Vec::new();
         for i in 0..chain_len {
             let mut id = [0u8; 32];
@@ -1045,7 +1045,7 @@ proptest! {
         let ico_id = cce.tag_contamination_root(root_id, source)
             .expect("tag_contamination_root must succeed");
 
-        // Every node in the chain must have a Contaminated tag.
+ // Every node in the chain must have a Contaminated tag.
         let lock = conn.lock().unwrap();
         for &id in &ids {
             let tags = read_tags_from_db(&lock, &id).expect("read tags");
@@ -1079,7 +1079,7 @@ proptest! {
 
         let conn = open_test_conn();
 
-        // Two root nodes → shared descendant (insert in DAG directly).
+ // Two root nodes → shared descendant (insert in DAG directly).
         let root_a: [u8; 32] = [0xA0u8; 32];
         let root_b: [u8; 32] = [0xB0u8; 32];
         let shared: [u8; 32] = [0xC0u8; 32];
@@ -1090,19 +1090,19 @@ proptest! {
 
         let mut cce = CausalContaminationEngine::new(conn.clone());
 
-        // Tag root_a (ICO_A covers root_a + shared).
+ // Tag root_a (ICO_A covers root_a + shared).
         let ico_a = cce.tag_contamination_root(
             root_a,
             TaintSource::DeviceRevocation { revocation_delta_id: root_a },
         ).unwrap();
 
-        // Tag root_b (ICO_B covers only root_b).
+ // Tag root_b (ICO_B covers only root_b).
         let _ico_b = cce.tag_contamination_root(
             root_b,
             TaintSource::BadMigration { migration_id: [0xBBu8; 32] },
         ).unwrap();
 
-        // Resolve root_a via verify_data.
+ // Resolve root_a via verify_data.
         let mgr = IdentityManager::init_in_memory().unwrap();
         let mgr_did = mgr.did().to_string();
         let mgr_secret = mgr.signing_key_bytes();
@@ -1111,14 +1111,14 @@ proptest! {
         let now_s = now_micros() / 1_000_000;
         cce.verify_data(root_a, mgr_did.clone(), sig_a, expiry, now_s).unwrap();
 
-        // After resolving root_a, the shared node from ICO_A should still
-        // carry its Contaminated tag (tags are append-only, never removed).
+ // After resolving root_a, the shared node from ICO_A should still
+ // carry its Contaminated tag (tags are append-only, never removed).
         let lock = conn.lock().unwrap();
         let tags = read_tags_from_db(&lock, &shared).unwrap();
         let still_contaminated = tags.iter().any(|t| matches!(t, DeltaTag::Contaminated { .. }));
         prop_assert!(still_contaminated, "Contaminated tag must persist after partial resolution");
 
-        // After ICO_A single-root is resolved, Decontaminated should now be appended.
+ // After ICO_A single-root is resolved, Decontaminated should now be appended.
         let decontaminated = tags.iter().any(|t| matches!(t, DeltaTag::Decontaminated { .. }));
         prop_assert!(decontaminated, "Decontaminated tag must be appended once all roots resolved");
     }
@@ -1138,7 +1138,7 @@ proptest! {
         let conn = open_test_conn();
         let delta_id: [u8; 32] = [0xD0u8; 32];
 
-        // Insert a dag node for the delta_id.
+ // Insert a dag node for the delta_id.
         {
             let lock = conn.lock().unwrap();
             lock.execute(
@@ -1191,7 +1191,7 @@ proptest! {
 
         let conn = open_test_conn();
 
-        // Two chains that share a common descendant (insert directly into DAG).
+ // Two chains that share a common descendant (insert directly into DAG).
         let a1: [u8; 32] = [0x10u8; 32];
         let b1: [u8; 32] = [0x20u8; 32];
         let shared_child: [u8; 32] = [0x30u8; 32];
@@ -1199,31 +1199,31 @@ proptest! {
 
         insert_dag_node_direct(&conn, a1, vec![], 1);
         insert_dag_node_direct(&conn, b1, vec![], 2);
-        // shared_child is a descendant of a1.
+ // shared_child is a descendant of a1.
         insert_dag_node_direct(&conn, shared_child, vec![a1], 3);
-        // b1_child is a descendant of both b1 and shared_child (shared overlap).
+ // b1_child is a descendant of both b1 and shared_child (shared overlap).
         insert_dag_node_direct(&conn, b1_child, vec![b1, shared_child], 4);
 
         let mut cce = CausalContaminationEngine::new(conn.clone());
 
-        // Tag a1 — ICO_A covers {a1, shared_child, b1_child}.
+ // Tag a1 — ICO_A covers {a1, shared_child, b1_child}.
         let ico_a_id = cce.tag_contamination_root(
             a1,
             TaintSource::DeviceRevocation { revocation_delta_id: a1 },
         ).unwrap();
 
-        // Tag b1 — ICO_B covers {b1, b1_child}.
-        // b1_child overlaps with ICO_A → composite may be formed.
+ // Tag b1 — ICO_B covers {b1, b1_child}.
+ // b1_child overlaps with ICO_A → composite may be formed.
         let ico_b_id = cce.tag_contamination_root(
             b1,
             TaintSource::BadMigration { migration_id: [0x0Bu8; 32] },
         ).unwrap();
 
-        // Check result via public get_incident API.
+ // Check result via public get_incident API.
         let ico_a_opt = cce.get_incident(ico_a_id).unwrap();
         let ico_b_opt = cce.get_incident(ico_b_id).unwrap();
 
-        // At least one of the resulting ICOs must reference the shared delta.
+ // At least one of the resulting ICOs must reference the shared delta.
         let combined_deltas: std::collections::HashSet<[u8; 32]> = {
             let mut s = std::collections::HashSet::new();
             if let Some(ref ico) = ico_a_opt {
@@ -1235,7 +1235,7 @@ proptest! {
             s
         };
 
-        // The union must include a1 and b1 (or their descendants).
+ // The union must include a1 and b1 (or their descendants).
         prop_assert!(
             combined_deltas.contains(&a1) || combined_deltas.contains(&b1),
             "contaminated deltas must include roots from both chains"
@@ -1252,13 +1252,13 @@ proptest! {
         link_cap in 1000u64..=10000u64,
         extra_items in 0usize..=50usize,
     ) {
-        // We need queues to have backlog throughout all 10 epochs.
-        // Each epoch drains at most link_cap bytes.
-        // Ensure each queue has more than 10 * link_cap / its_floor bytes.
+ // We need queues to have backlog throughout all 10 epochs.
+ // Each epoch drains at most link_cap bytes.
+ // Ensure each queue has more than 10 * link_cap / its_floor bytes.
         let item_size = 10u64;
-        // Use enough items so queues are NOT exhausted in 10 epochs.
-        // high_floor = link_cap * 0.70, so high needs > 10 * link_cap * 0.70 / 10 bytes.
-        // That is link_cap * 7 / item_size items minimum for HIGH.
+ // Use enough items so queues are NOT exhausted in 10 epochs.
+ // high_floor = link_cap * 0.70, so high needs > 10 * link_cap * 0.70 / 10 bytes.
+ // That is link_cap * 7 / item_size items minimum for HIGH.
         let n_high_min = ((link_cap * 7) / item_size + 1) as usize;
         let n_medium_min = ((link_cap * 2) / item_size + 1) as usize;
         let n_low_min = (link_cap / item_size + 1) as usize;
@@ -1299,7 +1299,7 @@ proptest! {
             return Ok(());
         }
 
-        // Floor guarantees with a 10-byte rounding tolerance per epoch (10 epochs × 1 byte = 10).
+ // Floor guarantees with a 10-byte rounding tolerance per epoch (10 epochs × 1 byte = 10).
         let epsilon = 10u64;
         prop_assert!(
             bytes_high * 100 + epsilon * 100 >= total * 70,
@@ -1345,11 +1345,11 @@ proptest! {
     ) {
         let clearing_cap = DrrScheduler::low_clearing_capacity(link_cap);
 
-        // Each item is 10 bytes; fill LOW queue exactly to clearing capacity.
+ // Each item is 10 bytes; fill LOW queue exactly to clearing capacity.
         let item_size = 10u64;
         let n_items = (clearing_cap / item_size) as usize;
 
-        // Ensure at least one item.
+ // Ensure at least one item.
         let n_items = n_items.max(1);
 
         let mut sched = DrrScheduler::new(link_cap);
@@ -1385,8 +1385,8 @@ proptest! {
         let state_hash = [0xABu8; 32];
         let n = k + 2;
 
-        // Config: use max_single_sector_fraction = 1.0 and spatial_diversity_min = 1
-        // to avoid diversity failures from random secrets. We're testing K threshold.
+ // Config: use max_single_sector_fraction = 1.0 and spatial_diversity_min = 1
+ // to avoid diversity failures from random secrets. We're testing K threshold.
         let cfg = QuorumConfig {
             k,
             n,
@@ -1394,7 +1394,7 @@ proptest! {
             max_single_sector_fraction: 1.0,
         };
 
-        // Generate K distinct keypairs.
+ // Generate K distinct keypairs.
         let mut secrets: Vec<[u8; 32]> = Vec::new();
         let mut dids: Vec<String> = Vec::new();
         for i in 0..k {
@@ -1422,14 +1422,14 @@ proptest! {
             }
         };
 
-        // K-1 receipts → NOT Tier-1.
+ // K-1 receipts → NOT Tier-1.
         let mut tracker_below = Tier1QuorumTracker::new(cfg.clone());
         for i in 0..(k - 1) {
             let _ = tracker_below.add_receipt(make_receipt(&secrets[i], &dids[i]));
         }
         prop_assert!(!tracker_below.is_tier1(), "K-1 receipts must not achieve Tier-1");
 
-        // Exactly K receipts → Tier-1.
+ // Exactly K receipts → Tier-1.
         let mut tracker_at = Tier1QuorumTracker::new(cfg.clone());
         let mut tier1_reached = false;
         for i in 0..k {
@@ -1449,19 +1449,19 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
     #[test]
     fn prop_15_schema_hash_determinism(schema in arb_schema()) {
-        // Compute the hash twice from the same Schema object.
+ // Compute the hash twice from the same Schema object.
         let h1 = schema.identifier_hash();
         let h2 = schema.identifier_hash();
         prop_assert_eq!(h1, h2, "hash must be deterministic for the same schema");
 
-        // Build the reversed-order schema (reverse table and field order).
+ // Build the reversed-order schema (reverse table and field order).
         let mut reversed_schema = schema.clone();
         reversed_schema.tables.reverse();
         for t in &mut reversed_schema.tables {
             t.fields.reverse();
         }
 
-        // Hash must be order-independent.
+ // Hash must be order-independent.
         let h3 = reversed_schema.identifier_hash();
         prop_assert_eq!(h1, h3, "hash must be order-independent");
     }
@@ -1469,10 +1469,10 @@ proptest! {
 
 // ─── Property 16 — Schema Delta Routing Additive vs Breaking (Req 17.3, 17.4) ─
 //
-// Subphase 5.3: the property exercises the *real* field-level gate.  Three
+// Subphase 5.3: the property exercises the *real* field-level gate. Three
 // schema definitions are registered with the engine — v1 users{id,name} (the
 // device's current schema), v2 users{id,name,email} (additive — one new
-// field), and v3 users{id} (breaking — the `name` field is removed).  Deltas
+// field), and v3 users{id} (breaking — the `name` field is removed). Deltas
 // stamped with these hashes must be classified by diffing their registered
 // definitions, not by pre-registering "known" hashes: additive merges
 // (Req 17.3), breaking quarantines with the field-level reason (Req 17.4),
@@ -1524,9 +1524,9 @@ proptest! {
         engine.register_schema_definition(h2, v2).unwrap();
         engine.register_schema_definition(h3, v3).unwrap();
 
-        // Additive schema (h2) — NOT pre-registered as known: the gate must
-        // adopt it only after diffing it against h1 at the field level
-        // (Req 17.3).
+ // Additive schema (h2) — NOT pre-registered as known: the gate must
+ // adopt it only after diffing it against h1 at the field level
+ // (Req 17.3).
         let d_additive = make_signed_delta_from(&secret, h2, 1, vec![], vec![]);
         let outcome_additive = engine.apply(&d_additive).expect("apply");
         prop_assert!(
@@ -1538,8 +1538,8 @@ proptest! {
             "additive schema hash must be adopted after the merge"
         );
 
-        // Breaking schema (h3 removes `name`) → Quarantined with the
-        // field-level reason (Req 17.4) — distinguishable from an unknown hash.
+ // Breaking schema (h3 removes `name`) → Quarantined with the
+ // field-level reason (Req 17.4) — distinguishable from an unknown hash.
         let d_breaking = make_signed_delta_from(&secret, h3, 2, vec![], vec![]);
         let outcome_breaking = engine.apply(&d_breaking).expect("apply");
         prop_assert_eq!(
@@ -1554,8 +1554,8 @@ proptest! {
             "breaking schema hash must not be adopted"
         );
 
-        // A hash with no registered definition cannot be classified at the
-        // field level → legacy unknown-hash quarantine.
+ // A hash with no registered definition cannot be classified at the
+ // field level → legacy unknown-hash quarantine.
         let d_unknown = make_signed_delta_from(&secret, [0xEFu8; 32], 3, vec![], vec![]);
         let outcome_unknown = engine.apply(&d_unknown).expect("apply");
         prop_assert_eq!(
@@ -1584,7 +1584,7 @@ proptest! {
         use crate::migration::wasm_sandbox::MigrationResult;
         use sha2::{Digest, Sha256};
 
-        // Build a minimal valid WASM module that exports "run".
+ // Build a minimal valid WASM module that exports "run".
         let wasm_bytes: Vec<u8> = vec![
             0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
             0x01, 0x04, 0x01, 0x60, 0x00, 0x00,
@@ -1600,7 +1600,7 @@ proptest! {
         let transform_sha256: [u8; 32] = Sha256::digest(&wasm_bytes).into();
         let ca_sig = sign(&ca_secret, &wasm_bytes).expect("ca sign");
 
-        // Build valid delta.
+ // Build valid delta.
         let good_delta = MigrationDelta {
             id: transform_sha256,
             author_did: "did:key:z6MkMgr".to_string(),
@@ -1638,21 +1638,21 @@ proptest! {
         );
 
         let result_valid = engine_valid.receive_migration_delta(good_delta.clone(), "did:key:sender");
-        // Should succeed (Success) or be an Ok result.
+ // Should succeed (Success) or be an Ok result.
         prop_assert!(
             matches!(result_valid, Ok(MigrationResult::Success)),
             "valid migration must succeed: {result_valid:?}"
         );
 
-        // Tamper: either corrupt the CA signature or the embedded hash.
+ // Tamper: either corrupt the CA signature or the embedded hash.
         let mut bad_delta = good_delta.clone();
         if tamper_sig {
-            // Flip a byte in the CA signature.
+ // Flip a byte in the CA signature.
             if let Some(b) = bad_delta.ca_signature.0.first_mut() {
                 *b ^= 0xFF;
             }
         } else {
-            // Change the embedded transform_sha256.
+ // Change the embedded transform_sha256.
             bad_delta.transform_sha256[0] ^= 0xFF;
         }
 
@@ -1687,12 +1687,12 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
     #[test]
     fn prop_18_schema_parse_print_parse_round_trip(schema in arb_schema()) {
-        // Filter out schemas with table/field names that are reserved keywords
-        // to ensure the printer produces parseable output.
+ // Filter out schemas with table/field names that are reserved keywords
+ // to ensure the printer produces parseable output.
         let printed = print_schema(&schema);
         match parse_schema(&printed) {
             Ok(reparsed) => {
-                // Structural equality: same tables, same fields (ignoring order).
+ // Structural equality: same tables, same fields (ignoring order).
                 prop_assert_eq!(
                     schema.version, reparsed.version,
                     "version must survive round-trip"
@@ -1701,16 +1701,16 @@ proptest! {
                     schema.tables.len(), reparsed.tables.len(),
                     "table count must survive round-trip"
                 );
-                // Check each table is present in reparsed (may have different order after sort).
+ // Check each table is present in reparsed (may have different order after sort).
                 for orig_table in &schema.tables {
                     let found = reparsed.tables.iter().any(|t| t.name == orig_table.name);
                     prop_assert!(found, "table '{}' must survive round-trip", orig_table.name);
                 }
             }
             Err(errs) => {
-                // If parsing fails, the schema contained names that are grammar keywords.
-                // This is acceptable — the property is that valid schemas round-trip.
-                // We just skip this case.
+ // If parsing fails, the schema contained names that are grammar keywords.
+ // This is acceptable — the property is that valid schemas round-trip.
+ // We just skip this case.
                 let _ = errs;
             }
         }
@@ -1725,7 +1725,7 @@ proptest! {
     fn prop_19_schema_parse_error_coverage(
         mutation in 0usize..=3usize,
     ) {
-        // Start with a known-good schema source.
+ // Start with a known-good schema source.
         let good_src = r#"schema {
   version = "1.0.0"
   table users {
@@ -1735,7 +1735,7 @@ proptest! {
   }
 }"#;
 
-        // Apply one of several syntactic mutations.
+ // Apply one of several syntactic mutations.
         let bad_src = match mutation {
             0 => good_src.replace("schema {", "schema").to_string(),  // remove opening brace
             1 => good_src.replace("version = \"1.0.0\"", "").to_string(), // remove version
@@ -1751,7 +1751,7 @@ proptest! {
             mutation
         );
 
-        // At least one error must have non-zero line, non-zero col, non-empty description.
+ // At least one error must have non-zero line, non-zero col, non-empty description.
         if let Err(errs) = result {
             prop_assert!(!errs.is_empty(), "must have at least one error");
             let first = &errs[0];
@@ -1775,30 +1775,30 @@ proptest! {
     ) {
         use crate::transport::saturate::SaturateLease;
 
-        // ── Invariant (b): terminate() with 0 sigs preserves NORMAL mode ────
+ // ── Invariant (b): terminate() with 0 sigs preserves NORMAL mode ────
         let mut sm = SaturateModeStateMachine::new(2, vec![], lease_duration_secs);
         sm.terminate(vec![], b"msg", 0).unwrap();
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(b): NORMAL must be preserved");
 
-        // ── Invariant (c): absent token returns error, mode unchanged ────────
+ // ── Invariant (c): absent token returns error, mode unchanged ────────
         let err = sm.activate("did:key:test".to_string(), &[], 0).unwrap_err();
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): mode preserved on bad token");
 
-        // ── Invariant (d): tick in NORMAL is a no-op ─────────────────────────
+ // ── Invariant (d): tick in NORMAL is a no-op ─────────────────────────
         sm.tick(i64::MAX);
         prop_assert_eq!(sm.state(), SaturateState::Normal, "(d): NORMAL survives tick");
     }
 }
 
 /// Property 20 (continued) — Full SATURATE activation and invariants (a)–(d)
-/// with a real Biscuit token.  Native-only because Biscuit token creation
+/// with a real Biscuit token. Native-only because Biscuit token creation
 /// requires the `biscuit-auth` crate which is a native-feature dependency.
 ///
 /// Cases are intentionally limited to 30 per sub-property because each
-/// iteration creates and verifies a fresh Biscuit token.  Biscuit's Datalog
+/// iteration creates and verifies a fresh Biscuit token. Biscuit's Datalog
 /// engine has an in-process global execution budget; running 200 verifications
 /// per test (× 4 sub-tests = 800 total) exhausts that budget and causes
-/// spurious "Reached Datalog execution limits" failures.  30 cases per
+/// spurious "Reached Datalog execution limits" failures. 30 cases per
 /// sub-property is enough to cover the full SATURATE path while staying
 /// well within the budget.
 ///
@@ -1814,7 +1814,7 @@ mod prop_20_biscuit {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(30))]
 
-        /// Invariant (a): device is in SATURATE iff a valid Lease exists.
+ /// Invariant (a): device is in SATURATE iff a valid Lease exists.
         #[test]
         fn prop_20a_saturate_iff_valid_lease_exists(
             _dummy in 0u8..=0u8,
@@ -1823,11 +1823,11 @@ mod prop_20_biscuit {
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
-            // Before activation: must be NORMAL.
+ // Before activation: must be NORMAL.
             prop_assert_eq!(sm.state(), SaturateState::Normal);
             prop_assert!(sm.lease().is_none());
 
-            // After valid activation: must be SATURATE with a future lease.
+ // After valid activation: must be SATURATE with a future lease.
             sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
                 .expect("activate must succeed");
             prop_assert_eq!(sm.state(), SaturateState::Saturate, "(a): must be in SATURATE");
@@ -1844,20 +1844,20 @@ mod prop_20_biscuit {
             );
         }
 
-        /// Invariant (b): Lease Termination Delta with < M sigs leaves mode unchanged.
+ /// Invariant (b): Lease Termination Delta with < M sigs leaves mode unchanged.
         #[test]
         fn prop_20b_insufficient_termination_sigs_preserve_mode(
             _dummy in 0u8..=0u8,
         ) {
             let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            // threshold_m = 2, so 1 sig is insufficient.
+ // threshold_m = 2, so 1 sig is insufficient.
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
             sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
                 .expect("activate");
 
-            // 0 termination signatures → must stay SATURATE.
+ // 0 termination signatures → must stay SATURATE.
             let _ = sm.terminate(vec![], b"term_msg", now_sec);
             prop_assert_eq!(
                 sm.state(),
@@ -1866,7 +1866,7 @@ mod prop_20_biscuit {
             );
         }
 
-        /// Invariant (c): invalid/missing token preserves current mode.
+ /// Invariant (c): invalid/missing token preserves current mode.
         #[test]
         fn prop_20c_invalid_token_preserves_mode(
             _dummy in 0u8..=0u8,
@@ -1875,18 +1875,18 @@ mod prop_20_biscuit {
             let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
             let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
-            // In NORMAL: absent token returns error, mode unchanged.
+ // In NORMAL: absent token returns error, mode unchanged.
             sm.activate("did:key:test".to_string(), &[], now_sec).unwrap_err();
             prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): NORMAL preserved");
 
-            // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
+ // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
             let (bad_token, bad_ca_pub) = make_token_without_disaster_alert_for_test(3600);
             let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub, SATURATE_LEASE_DURATION_SECS);
             sm2.activate("did:key:test".to_string(), &bad_token, now_sec).unwrap_err();
             prop_assert_eq!(sm2.state(), SaturateState::Normal, "(c): NORMAL preserved on no-caveat token");
         }
 
-        /// Invariant (d): lease expiry without renewal reverts to NORMAL.
+ /// Invariant (d): lease expiry without renewal reverts to NORMAL.
         #[test]
         fn prop_20d_lease_expiry_reverts_to_normal(
             _dummy in 0u8..=0u8,
@@ -1899,7 +1899,7 @@ mod prop_20_biscuit {
                 .expect("activate");
             prop_assert_eq!(sm.state(), SaturateState::Saturate);
 
-            // Advance clock past lease expiry.
+ // Advance clock past lease expiry.
             sm.tick(now_sec + SATURATE_LEASE_DURATION_SECS + 1);
             prop_assert_eq!(
                 sm.state(),
@@ -1943,12 +1943,12 @@ proptest! {
         let migration_id = transform_sha256;
         let ca_sig = sign(&ca_secret, &wasm_bytes).expect("ca sign");
 
-        // Build manager identity for revocation signature.
+ // Build manager identity for revocation signature.
         use crate::crdt::derive_did_from_public_key;
         let (mgr_secret, mgr_public) = generate_keypair().expect("mgr keygen");
         let mgr_did = derive_did_from_public_key(&mgr_public);
 
-        // Build the manager-signed revocation delta.
+ // Build the manager-signed revocation delta.
         let mgr_sig = sign(&mgr_secret, &migration_id).expect("mgr sign");
         let revocation = MigrationRevocationDelta {
             target_migration_id: migration_id,
@@ -1959,7 +1959,7 @@ proptest! {
             created_at: 0,
         };
 
-        // The migration delta the revocation will target.
+ // The migration delta the revocation will target.
         let delta = MigrationDelta {
             id: migration_id,
             author_did: "did:key:z6MkMgr".to_string(),
@@ -1996,26 +1996,26 @@ proptest! {
             std::collections::BTreeMap::new(),
         );
 
-        // Req 18.7: a revocation is only accepted for a *known,
-        // previously-seen* migration hash, so deliver the migration first —
-        // prepare validates the CA signature and records the hash as seen,
-        // leaving the transform (in production) queued to run off-lock.
+ // Req 18.7: a revocation is only accepted for a *known,
+ // previously-seen* migration hash, so deliver the migration first —
+ // prepare validates the CA signature and records the hash as seen,
+ // leaving the transform (in production) queued to run off-lock.
         let prepared = engine
             .prepare_migration(delta.clone(), "did:key:sender")
             .expect("prepare must succeed");
 
-        // A revocation for that seen hash is accepted and halts the
-        // in-progress run.
+ // A revocation for that seen hash is accepted and halts the
+ // in-progress run.
         let halted = engine
             .receive_revocation_delta(revocation)
             .expect("revocation must succeed");
         prop_assert!(halted, "revocation must halt the prepared run");
 
-        // is_revoked must be true.
+ // is_revoked must be true.
         prop_assert!(engine.is_revoked(&migration_id), "migration must be marked revoked");
 
-        // The run reports back: the commit gate converts it to Revoked and
-        // never advances the schema hash.
+ // The run reports back: the commit gate converts it to Revoked and
+ // never advances the schema hash.
         let outcome = engine
             .finish_migration(
                 &prepared.migration_id,
@@ -2028,7 +2028,7 @@ proptest! {
             "revoked run must not commit as Success: {outcome:?}"
         );
 
-        // Attempt to apply the revoked migration — must be rejected.
+ // Attempt to apply the revoked migration — must be rejected.
         let result = engine.receive_migration_delta(delta, "did:key:sender");
         prop_assert!(
             matches!(result, Err(crate::errors::TirBaseError::AuthorisationFailed { .. })),
@@ -2051,7 +2051,7 @@ proptest! {
         use crate::contamination::taint::read_tags_from_db;
         use crate::crdt::dag::{ChangesetDag, DagNode};
 
-        // We need at least one entry to make the test meaningful.
+ // We need at least one entry to make the test meaningful.
         if n_valid + n_invalid == 0 {
             return Ok(());
         }
@@ -2060,8 +2060,8 @@ proptest! {
         let mut ledger = SideCarLedger::new(conn.clone());
         let migration_id: [u8; 32] = [0xF0u8; 32];
 
-        // Build and record valid delta entries.
-        // We also insert each delta's DagNode so append_tag_to_db can find the row.
+ // Build and record valid delta entries.
+ // We also insert each delta's DagNode so append_tag_to_db can find the row.
         let mut valid_delta_ids: Vec<[u8; 32]> = Vec::new();
         for i in 0..n_valid {
             let d = make_signed_delta_from(
@@ -2071,7 +2071,7 @@ proptest! {
                 vec![],
                 vec![],
             );
-            // Insert DagNode so the tag-append path has a row to update.
+ // Insert DagNode so the tag-append path has a row to update.
             {
                 let mut dag = ChangesetDag::new(conn.clone());
                 dag.insert(DagNode {
@@ -2092,7 +2092,7 @@ proptest! {
                 .expect("record valid entry");
         }
 
-        // Record invalid (malformed) entries.
+ // Record invalid (malformed) entries.
         for i in 0..n_invalid {
             let malformed = b"not valid json delta bytes at all!!".to_vec();
             ledger.record(
@@ -2103,39 +2103,39 @@ proptest! {
             ).expect("record malformed entry");
         }
 
-        // Build a fresh engine to replay against.
+ // Build a fresh engine to replay against.
         let mut engine = make_engine(FIXED_SECRET, TEST_SCHEMA_HASH);
 
         let summary = ledger.replay_sidecar(migration_id, TEST_SCHEMA_HASH, &mut engine)
             .expect("replay_sidecar must not return Err");
 
-        // All N entries must have been processed.
+ // All N entries must have been processed.
         prop_assert_eq!(
             summary.total_entries,
             n_valid + n_invalid,
             "total_entries must equal n_valid + n_invalid"
         );
 
-        // Conflict count matches the number of malformed entries.
-        // (Valid deltas may also conflict due to signature verification in replay,
-        //  but malformed ones always fail. We check ≥ n_invalid.)
+ // Conflict count matches the number of malformed entries.
+ // (Valid deltas may also conflict due to signature verification in replay,
+ // but malformed ones always fail. We check ≥ n_invalid.)
         prop_assert!(
             summary.conflicts >= n_invalid,
             "conflicts must be >= n_invalid ({} invalid), got {}",
             n_invalid, summary.conflicts
         );
 
-        // complete = true iff conflicts == 0.
+ // complete = true iff conflicts == 0.
         prop_assert_eq!(
             summary.complete,
             summary.conflicts == 0,
             "complete must be true iff conflicts == 0"
         );
 
-        // ── NEW: DeltaTag::ReplayComplete assertion (Req 19.6) ──────────────
+ // ── NEW: DeltaTag::ReplayComplete assertion (Req 19.6) ──────────────
         let lock = conn.lock().unwrap();
         if summary.complete {
-            // Zero conflicts: every replayed delta must have ReplayComplete tag.
+ // Zero conflicts: every replayed delta must have ReplayComplete tag.
             for &delta_id in &valid_delta_ids {
                 let tags = read_tags_from_db(&lock, &delta_id)
                     .expect("read_tags_from_db must not error");
@@ -2149,7 +2149,7 @@ proptest! {
                 );
             }
         } else {
-            // Conflicts present: NO delta must have ReplayComplete tag.
+ // Conflicts present: NO delta must have ReplayComplete tag.
             for &delta_id in &valid_delta_ids {
                 let tags = read_tags_from_db(&lock, &delta_id)
                     .expect("read_tags_from_db must not error");

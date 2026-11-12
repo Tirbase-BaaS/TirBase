@@ -49,7 +49,7 @@ impl ModbusServerHandle {
 pub struct ModbusSimServer;
 
 impl ModbusSimServer {
-    /// Bind on an ephemeral port and spawn a background accept loop.
+ /// Bind on an ephemeral port and spawn a background accept loop.
     pub fn spawn() -> std::io::Result<ModbusServerHandle> {
         Self::spawn_with_bank(RegisterBank::default())
     }
@@ -128,7 +128,7 @@ fn handle_conn(
         }
         let mut pdu = Vec::with_capacity(1 + rest.len());
         pdu.push(mbap[6]); // not used; real PDU follows in rest? MBAP: uid is byte 6, PDU starts byte 7.
-                           // We read 7 bytes total into mbap: [tid0 tid1 pid0 pid1 len0 len1 uid]
+ // We read 7 bytes total into mbap: [tid0 tid1 pid0 pid1 len0 len1 uid]
         pdu.clear();
         pdu.extend_from_slice(&rest); // rest contains full PDU starting at FC
         let resp_pdu = process_pdu(&pdu, &bank);

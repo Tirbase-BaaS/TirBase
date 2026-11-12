@@ -47,9 +47,9 @@ A useful report contains:
 1. A concise description of the vulnerability and the affected component(s).
 2. Steps to reproduce or a minimal proof-of-concept.
 3. The impact you believe this would have in a real deployment (e.g., command injection, token
-   forgery, bypass of the Command Guard, etc.).
+ forgery, bypass of the Command Guard, etc.).
 4. Your assessment of exploitability (local only, network reachable, requires valid credentials,
-   etc.).
+ etc.).
 5. Any suggested fix or mitigating configuration, if you have one.
 
 We will credit you in the release notes unless you prefer to remain anonymous.
@@ -92,7 +92,7 @@ Out of scope (without prior agreement):
 - Vulnerabilities that require physical access to the hardware running TirBase.
 - Vulnerabilities in the host OS or kernel that TirBase does not exacerbate.
 - Denial-of-service attacks that require being an authenticated `CommandIssuer` sending valid but
-  resource-exhausting payloads (handled via rate limiting, out of scope for CVE assignment).
+ resource-exhausting payloads (handled via rate limiting, out of scope for CVE assignment).
 - Issues in third-party dependencies — please report those upstream; we will coordinate if needed.
 
 ---
@@ -101,10 +101,10 @@ Out of scope (without prior agreement):
 
 1. We acknowledge your report within 5 business days and assign an internal tracking ID.
 2. We reproduce the issue and assess severity (CVSS score + contextual impact for
-   safety-adjacent deployments).
+ safety-adjacent deployments).
 3. We develop and test a fix on a private branch.
 4. We coordinate a release date with you and, where applicable, with CERT/CC or relevant CERTs
-   for the affected infrastructure sectors.
+ for the affected infrastructure sectors.
 5. We publish a GitHub Security Advisory and a CHANGELOG entry crediting you.
 6. We update `CLAIMS.md` and any relevant documentation.
 
@@ -130,9 +130,9 @@ We ask reporters to:
 ## Security Architecture References
 
 - `docs/THREAT_MODEL.md` — full threat model including assets, actors, failure modes, and
-  non-goals.
+ non-goals.
 - `CLAIMS.md` — machine-readable registry of security and correctness claims, each linked to a
-  passing integration test.
+ passing integration test.
 - `docs/audits/` — gate audit documents.
 
 ---

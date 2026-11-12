@@ -94,7 +94,7 @@ pub struct MqttConnectConfig {
 }
 
 impl MqttConnectConfig {
-    /// Validates URI/TLS intent. Does not replace a real handshake.
+ /// Validates URI/TLS intent. Does not replace a real handshake.
     pub fn validate_tls_required(&self) -> Result<(), MqttError> {
         let lower = self.uri.trim().to_ascii_lowercase();
         if lower.starts_with("mqtt://") || lower.starts_with("tcp://") || lower.starts_with("ws://")
@@ -197,8 +197,8 @@ pub struct MqttTlsClient {
 }
 
 impl MqttTlsClient {
-    /// Connect to an `mqtts://` endpoint and perform TLS handshake + MQTT CONNECT.
-    /// Connecting to a plaintext TCP server fails at TLS handshake (CLAIM-34.2).
+ /// Connect to an `mqtts://` endpoint and perform TLS handshake + MQTT CONNECT.
+ /// Connecting to a plaintext TCP server fails at TLS handshake (CLAIM-34.2).
     pub fn connect_mqtts(
         uri: &str,
         client_id: &str,
@@ -219,7 +219,7 @@ impl MqttTlsClient {
         let conn = ClientConnection::new(tls_config, server_name)
             .map_err(|e| MqttError::Tls(format!("tls client: {e}")))?;
         let mut stream = StreamOwned::new(conn, tcp);
-        // Completing handshake by writing/flushing if needed happens on first I/O.
+ // Completing handshake by writing/flushing if needed happens on first I/O.
         let connect = MqttBridgeCodec::new().encode_connect(client_id)?;
         stream.write_all(&connect)?;
         stream.flush()?;
@@ -386,7 +386,7 @@ impl MqttBridgeCodec {
         Ok(())
     }
 
-    /// Encode a PUBLISH packet (QoS 0 or 1). QoS 1 requires a packet identifier.
+ /// Encode a PUBLISH packet (QoS 0 or 1). QoS 1 requires a packet identifier.
     pub fn encode_publish(
         &self,
         topic: &str,
@@ -415,7 +415,7 @@ impl MqttBridgeCodec {
         Ok(pkt)
     }
 
-    /// Decode a PUBLISH packet. Returns (topic, payload, qos, packet_id).
+ /// Decode a PUBLISH packet. Returns (topic, payload, qos, packet_id).
     pub fn decode_publish(
         &self,
         frame: &[u8],

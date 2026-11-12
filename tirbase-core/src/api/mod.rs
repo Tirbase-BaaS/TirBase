@@ -112,7 +112,7 @@ fn enqueue_revocation_gossip(
 }
 
 /// Wire-framing author for synthetic fleet-inventory gossip envelopes
-/// (PV-11.3, CLAIM-37.5).  Peers unwrap the embedded
+/// (PV-11.3, CLAIM-37.5). Peers unwrap the embedded
 /// `GossipMessage::FleetInventoryUpdate` from `automerge_bytes` before the
 /// Delta reaches the CRDT merge gate.
 const FLEET_GOSSIP_AUTHOR: &str = "tirbase/fleet";
@@ -149,7 +149,7 @@ fn enqueue_fleet_gossip(transport: &mut MeshTransport, update: &crate::fleet::Fl
 const INBOUND_DRAIN_INTERVAL_MS: u64 = 50;
 
 /// Test-build cadence (ms) of the inbound drain loop spawned by
-/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests drive
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert. Unit tests drive
 /// `process_inbound_messages()` manually and assert exact drain counts, so the
 /// loop init spawns must not tick while they run; the Subphase 1.3 integration
 /// test exercises the identical loop via `CoreHandle::spawn_inbound_drain_loop`
@@ -166,7 +166,7 @@ const INBOUND_DRAIN_INTERVAL_MS: u64 = 3_600_000;
 const SCHEDULER_TICK_INTERVAL_MS: u64 = 1000;
 
 /// Test-build cadence (ms) of the DRR scheduler tick loop spawned by
-/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests enqueue
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert. Unit tests enqueue
 /// Deltas and assert queue state (e.g. the revocation HIGH-priority enqueue
 /// test), so the loop init spawns must not drain the scheduler while they
 /// run; the Subphase 1.4 integration test exercises the identical loop via
@@ -183,7 +183,7 @@ const SCHEDULER_TICK_INTERVAL_MS: u64 = 3_600_000;
 const CLOUD_SYNC_INTERVAL_MS: u64 = 1000;
 
 /// Test-build cadence (ms) of the cloud sync loop spawned by
-/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  Unit tests register
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert. Unit tests register
 /// Deltas and assert cloud queue state, so the loop init spawns must not
 /// drain the queue while they run; the Subphase 4.1 integration test drives
 /// the identical loop via `CoreHandle::spawn_cloud_sync_loop` with a short
@@ -202,7 +202,7 @@ const CLOUD_SYNC_INTERVAL_MS: u64 = 3_600_000;
 const BEACON_MONITOR_INTERVAL_SECS: u64 = 60;
 
 /// Test-build cadence (seconds) of the beacon signal-loss monitoring loop
-/// spawned by `CoreHandle::init`: 1 hour, i.e. effectively inert.  The
+/// spawned by `CoreHandle::init`: 1 hour, i.e. effectively inert. The
 /// signal-loss integration test drives the identical loop via
 /// `CoreHandle::spawn_beacon_monitor_loop` with a short interval.
 #[cfg(all(feature = "native", test))]
@@ -212,13 +212,13 @@ const BEACON_MONITOR_INTERVAL_SECS: u64 = 3_600;
 /// `CoreHandle::init` (Req 8.4 — token expiry enforcement in production): every
 /// 60 seconds the task locks the capability manager, checks if the current
 /// token has expired, and if the device is `Verified` calls `on_token_expired`
-/// to transition to `Unverified`.  The unverified warning on every subsequent
+/// to transition to `Unverified`. The unverified warning on every subsequent
 /// read/write/query will then surface to the caller.
 #[cfg(all(feature = "native", not(test)))]
 const TOKEN_EXPIRY_MONITOR_INTERVAL_SECS: u64 = 60;
 
 /// Test-build cadence (seconds) of the token-expiry monitoring loop spawned by
-/// `CoreHandle::init`: 1 hour, i.e. effectively inert.  The integration test
+/// `CoreHandle::init`: 1 hour, i.e. effectively inert. The integration test
 /// drives the identical loop via `CoreHandle::spawn_token_expiry_monitor_loop`
 /// with a short interval.
 #[cfg(all(feature = "native", test))]
@@ -231,17 +231,17 @@ const TOKEN_EXPIRY_MONITOR_INTERVAL_SECS: u64 = 3_600;
 ///
 /// This is the native analogue of the SDK's `DurabilityTierChanged` WASM event
 /// (which `notify_tier_changed` in the durability module continues to push on
-/// the WASM build).  Native-only because the Tier-2 production trigger — the
+/// the WASM build). Native-only because the Tier-2 production trigger — the
 /// cloud sync drain loop attached to the in-process `CloudLedger` — exists on
 /// the native build target only (Subphase 4.2).
 #[cfg(feature = "native")]
 #[derive(Debug, Clone)]
 pub struct DurabilityTierChanged {
-    /// The Delta whose durability tier transitioned.
+ /// The Delta whose durability tier transitioned.
     pub delta_id: DeltaId,
-    /// The tier before the transition.
+ /// The tier before the transition.
     pub previous_tier: DurabilityTier,
-    /// The tier after the transition (Tier1 or Tier2).
+ /// The tier after the transition (Tier1 or Tier2).
     pub new_tier: DurabilityTier,
 }
 
@@ -255,207 +255,207 @@ type CheckpointProvider =
 
 /// STATE-INVENTORY: RECONSTRUCTIBLE runtime channels (CLAIM-31.1, PV-9.1)
 pub struct CoreHandle {
-    /// Local SQLite-backed store (native) or IndexedDB-backed store (WASM,
-    /// Subphase 6.3 — see `store::indexed_db`).
+ /// Local SQLite-backed store (native) or IndexedDB-backed store (WASM,
+ /// Subphase 6.3 — see `store::indexed_db`).
     #[cfg(feature = "native")]
     store: Arc<Mutex<LocalStore>>,
 
-    /// IndexedDB-backed store for WASM builds (Subphase 6.3).
+ /// IndexedDB-backed store for WASM builds (Subphase 6.3).
     #[cfg(not(feature = "native"))]
     store: Arc<Mutex<LocalStore>>,
 
-    /// CRDT engine (Automerge + DAG).
+ /// CRDT engine (Automerge + DAG).
     #[cfg(feature = "native")]
     crdt: Arc<Mutex<CrdtEngine>>,
 
-    /// CRDT engine for WASM builds (in-memory, no SQLite).
+ /// CRDT engine for WASM builds (in-memory, no SQLite).
     #[cfg(not(feature = "native"))]
     crdt: Arc<Mutex<CrdtEngine>>,
 
-    /// Device identity (Ed25519 keypair + DID).
+ /// Device identity (Ed25519 keypair + DID).
     pub(crate) identity: Arc<IdentityManager>,
 
-    /// Biscuit token / TrustLevel state machine.
+ /// Biscuit token / TrustLevel state machine.
     capability: Arc<Mutex<CapabilityManager>>,
 
-    /// Mesh transport layer (libp2p Swarm on native).
+ /// Mesh transport layer (libp2p Swarm on native).
     pub(crate) transport: Arc<Mutex<MeshTransport>>,
 
-    /// 26.3/26.4 (PV-7.10): observed peer checkpoint hashes for tail-truncation detection.
+ /// 26.3/26.4 (PV-7.10): observed peer checkpoint hashes for tail-truncation detection.
     pub(crate) checkpoint_obs_tx: tokio::sync::broadcast::Sender<(String, u64, [u8; 32], i64)>,
-    /// 28.3 (PV-7.9): accepted security-event sync records (append-only, compaction=none).
+ /// 28.3 (PV-7.9): accepted security-event sync records (append-only, compaction=none).
     pub(crate) security_event_sync_tx: tokio::sync::broadcast::Sender<
         crate::transport::security_event_sync::SecurityEventSyncRecord,
     >,
-    /// 28.3 (PV-7.9/PV-7.12): per-peer rate limit + append-only dedupe.
+ /// 28.3 (PV-7.9/PV-7.12): per-peer rate limit + append-only dedupe.
     pub(crate) security_event_sync_handler:
         std::sync::Mutex<crate::transport::security_event_sync::SecurityEventSyncHandler>,
-    /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
+ /// 26.3: optional provider returning latest (seq, checkpoint_hash) to gossip on sync.
     pub(crate) checkpoint_provider: CheckpointProvider,
-    /// 36.9 (PV-22.3): guard-side challenge nonce issuer for mesh peers.
+ /// 36.9 (PV-22.3): guard-side challenge nonce issuer for mesh peers.
     pub(crate) challenge_handler:
         Arc<Mutex<Option<Arc<dyn crate::transport::challenge::MeshChallengeHandler>>>>,
-    /// 36.9: challenge responses routed back to this guard instance.
+ /// 36.9: challenge responses routed back to this guard instance.
     pub(crate) challenge_resp_tx:
         tokio::sync::broadcast::Sender<crate::transport::challenge::MeshChallengeResponse>,
 
-    /// Two-tier durability subsystem.
+ /// Two-tier durability subsystem.
     durability: Arc<Mutex<DurabilitySubsystem>>,
 
-    /// The Cloud Ledger this process hosts, reachable through the
-    /// `CloudConnection` adapter (`CloudLedgerConnection`).
-    ///
-    /// Subphase 4.1: the production cloud sync loop
-    /// (`CoreHandle::spawn_cloud_sync_loop`) drains
-    /// [`DurabilitySubsystem`]'s cloud outbound queue into this ledger in
-    /// causal order, sending every locally-written Delta to the Cloud Ledger
-    /// and removing it only after the ledger's per-Delta ack (Req 16.3).
-    /// Subphase 4.2: each such ack marks the Delta Tier-2 durable in the
-    /// Durability Subsystem and notifies the host application (see
-    /// [`CoreHandle::subscribe_durability_events`]).
-    /// Native-only: the `CloudLedger` embeds a rusqlite-backed
-    /// `CrdtEngine`, which does not exist on the WASM build target.
+ /// The Cloud Ledger this process hosts, reachable through the
+ /// `CloudConnection` adapter (`CloudLedgerConnection`).
+ ///
+ /// Subphase 4.1: the production cloud sync loop
+ /// (`CoreHandle::spawn_cloud_sync_loop`) drains
+ /// [`DurabilitySubsystem`]'s cloud outbound queue into this ledger in
+ /// causal order, sending every locally-written Delta to the Cloud Ledger
+ /// and removing it only after the ledger's per-Delta ack (Req 16.3).
+ /// Subphase 4.2: each such ack marks the Delta Tier-2 durable in the
+ /// Durability Subsystem and notifies the host application (see
+ /// [`CoreHandle::subscribe_durability_events`]).
+ /// Native-only: the `CloudLedger` embeds a rusqlite-backed
+ /// `CrdtEngine`, which does not exist on the WASM build target.
     #[cfg(feature = "native")]
     cloud_ledger: Arc<Mutex<CloudLedger>>,
 
-    /// Causal Contamination Engine.
+ /// Causal Contamination Engine.
     #[cfg(feature = "native")]
     pub(crate) cce: Arc<Mutex<CausalContaminationEngine>>,
 
-    /// Schema Migration Engine.
+ /// Schema Migration Engine.
     migration: Arc<Mutex<SchemaMigrationEngine>>,
 
-    /// Interrupt handles for schema-migration transforms currently executing
-    /// in the sandbox (Req 18.6).
-    ///
-    /// The inbound pipeline prepares a migration under the engine lock, then
-    /// executes the transform OFF the lock in the wasmi sandbox, registered for interrupt
-    /// registered here, so a `MigrationRevocationDelta` that halts the run can
-    /// epoch-interrupt it instead of queueing behind it under the shared
-    /// `migration` mutex.
+ /// Interrupt handles for schema-migration transforms currently executing
+ /// in the sandbox (Req 18.6).
+ ///
+ /// The inbound pipeline prepares a migration under the engine lock, then
+ /// executes the transform OFF the lock in the wasmi sandbox, registered for interrupt
+ /// registered here, so a `MigrationRevocationDelta` that halts the run can
+ /// epoch-interrupt it instead of queueing behind it under the shared
+ /// `migration` mutex.
     #[cfg(feature = "native")]
     migration_runs: Arc<MigrationExecutionRegistry>,
 
-    /// Number of background migration jobs currently dispatched but not yet
-    /// finished (running, or waiting to prepare behind another transform).
-    /// Lets `await_migration_quiescence` distinguish "no transform executing"
-    /// from "a job has not even started yet".
+ /// Number of background migration jobs currently dispatched but not yet
+ /// finished (running, or waiting to prepare behind another transform).
+ /// Lets `await_migration_quiescence` distinguish "no transform executing"
+ /// from "a job has not even started yet".
     #[cfg(feature = "native")]
     migration_tasks_active: Arc<std::sync::atomic::AtomicUsize>,
 
-    /// Causal Contamination Engine (WASM build).
+ /// Causal Contamination Engine (WASM build).
     #[cfg(not(feature = "native"))]
     pub(crate) cce: Arc<Mutex<crate::contamination::CausalContaminationEngine>>,
 
-    /// Revocation Subsystem (native build).
+ /// Revocation Subsystem (native build).
     #[cfg(feature = "native")]
     pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
 
-    /// Revocation Subsystem (WASM build).
+ /// Revocation Subsystem (WASM build).
     #[cfg(not(feature = "native"))]
     pub(crate) revocation: Arc<Mutex<crate::auth::RevocationSubsystem>>,
 
-    /// Fleet inventory CRDT collection (PV-11.3, CLAIM-37.5).
-    ///
-    /// Shared with the migration engine's fleet-precondition verifier, so a
-    /// Contract migration commits to the inventory snapshot hash this handle
-    /// actually holds.
+ /// Fleet inventory CRDT collection (PV-11.3, CLAIM-37.5).
+ ///
+ /// Shared with the migration engine's fleet-precondition verifier, so a
+ /// Contract migration commits to the inventory snapshot hash this handle
+ /// actually holds.
     pub(crate) fleet: Arc<Mutex<crate::fleet::FleetInventory>>,
 
-    /// Fleet-inventory updates emitted for gossip (PV-11.3, CLAIM-37.5).
-    ///
-    /// Every local fleet mutation (provision/revoke) and every inbound merge
-    /// that changed local state is published here before it is enqueued on the
-    /// mesh scheduler.  Host transports (the WASM JS bridge, or a native
-    /// gateway mesh wiring layer) can subscribe with
-    /// [`CoreHandle::subscribe_fleet_updates`].
+ /// Fleet-inventory updates emitted for gossip (PV-11.3, CLAIM-37.5).
+ ///
+ /// Every local fleet mutation (provision/revoke) and every inbound merge
+ /// that changed local state is published here before it is enqueued on the
+ /// mesh scheduler. Host transports (the WASM JS bridge, or a native
+ /// gateway mesh wiring layer) can subscribe with
+ /// [`CoreHandle::subscribe_fleet_updates`].
     fleet_update_tx: tokio::sync::broadcast::Sender<crate::fleet::FleetInventoryDelta>,
 
-    /// Broadcast channel for structured diagnostic entries.
+ /// Broadcast channel for structured diagnostic entries.
     diagnostics_channel: tokio::sync::broadcast::Sender<DiagnosticEntry>,
 
-    /// Broadcast channel for structured Delta rejection failure records
-    /// (Subphase 6.2 — Req 7.4/7.5).
-    ///
-    /// [`CoreHandle::init`] registers a listener on the CRDT engine
-    /// (see [`CrdtEngine::set_rejection_listener`](crate::crdt::CrdtEngine::set_rejection_listener))
-    /// that forwards every rejection record the merge gate emits — revoked
-    /// author, missing signature, DID-resolution failure, signature-verification
-    /// failure — onto this channel, so host applications can subscribe with
-    /// [`CoreHandle::subscribe_rejection_records`].  Each record carries the
-    /// sender DID and a UTC timestamp per Req 7.4/7.5.
+ /// Broadcast channel for structured Delta rejection failure records
+ /// (Subphase 6.2 — Req 7.4/7.5).
+ ///
+ /// [`CoreHandle::init`] registers a listener on the CRDT engine
+ /// (see [`CrdtEngine::set_rejection_listener`](crate::crdt::CrdtEngine::set_rejection_listener))
+ /// that forwards every rejection record the merge gate emits — revoked
+ /// author, missing signature, DID-resolution failure, signature-verification
+ /// failure — onto this channel, so host applications can subscribe with
+ /// [`CoreHandle::subscribe_rejection_records`]. Each record carries the
+ /// sender DID and a UTC timestamp per Req 7.4/7.5.
     rejection_records_channel:
         tokio::sync::broadcast::Sender<crate::crdt::failure::DeltaRejectionRecord>,
 
-    /// Broadcast channel for durability tier transitions (Req 14.7).
-    ///
-    /// The Durability Subsystem's instance-level tier-change listener —
-    /// registered in [`CoreHandle::init`] — forwards every Tier-1 quorum /
-    /// Tier-2 cloud-ack transition here, so native host applications can
-    /// react to a Delta becoming durable through
-    /// [`CoreHandle::subscribe_durability_events`] instead of only observing
-    /// the stderr log.  Native-only: on the WASM target the SDK receives the
-    /// same transitions as `DurabilityTierChanged` events through
-    /// `core_poll_events()` (Subphase 4.2).
+ /// Broadcast channel for durability tier transitions (Req 14.7).
+ ///
+ /// The Durability Subsystem's instance-level tier-change listener —
+ /// registered in [`CoreHandle::init`] — forwards every Tier-1 quorum /
+ /// Tier-2 cloud-ack transition here, so native host applications can
+ /// react to a Delta becoming durable through
+ /// [`CoreHandle::subscribe_durability_events`] instead of only observing
+ /// the stderr log. Native-only: on the WASM target the SDK receives the
+ /// same transitions as `DurabilityTierChanged` events through
+ /// `core_poll_events()` (Subphase 4.2).
     #[cfg(feature = "native")]
     durability_events_channel: tokio::sync::broadcast::Sender<DurabilityTierChanged>,
 
-    /// Sender end of the inbound Gossipsub message channel.
-    /// The spawned event loop writes here; `process_inbound_messages` drains via `inbound_rx`.
+ /// Sender end of the inbound Gossipsub message channel.
+ /// The spawned event loop writes here; `process_inbound_messages` drains via `inbound_rx`.
     inbound_tx: tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>,
 
-    /// Receiver end of the inbound Gossipsub message channel.
-    ///
-    /// Wrapped in `Arc<tokio::sync::Mutex<..>>` so `CoreHandle` remains
-    /// `Sync` while the production inbound drain loop spawned by [`CoreHandle::init`]
-    /// holds its own `Arc` clone of the receiver (Subphase 1.3).
+ /// Receiver end of the inbound Gossipsub message channel.
+ ///
+ /// Wrapped in `Arc<tokio::sync::Mutex<..>>` so `CoreHandle` remains
+ /// `Sync` while the production inbound drain loop spawned by [`CoreHandle::init`]
+ /// holds its own `Arc` clone of the receiver (Subphase 1.3).
     inbound_rx: Arc<
         tokio::sync::Mutex<tokio::sync::mpsc::Receiver<crate::transport::message::GossipMessage>>,
     >,
 
-    /// Sender end of the explicit-dial channel (native only).
-    ///
-    /// [`CoreHandle::dial_peer`] forwards the target multiaddr here and the
-    /// Swarm polling task (which owns the receiver end) dials it.  `None` when
-    /// the transport never started (offline device — Req 3.3) or on wasm.
+ /// Sender end of the explicit-dial channel (native only).
+ ///
+ /// [`CoreHandle::dial_peer`] forwards the target multiaddr here and the
+ /// Swarm polling task (which owns the receiver end) dials it. `None` when
+ /// the transport never started (offline device — Req 3.3) or on wasm.
     #[cfg(feature = "native")]
     dial_tx: Option<tokio::sync::mpsc::Sender<libp2p::Multiaddr>>,
 
-    /// Per-cache memory-budget metrics (PV-6.5, CLAIM-24.2).
-    ///
-    /// Instantiated for every production `CoreHandle` so host applications can
-    /// observe cache pressure.  The inbound path accounts in-flight Delta bytes
-    /// against the DAG node cache for the duration of the merge.
+ /// Per-cache memory-budget metrics (PV-6.5, CLAIM-24.2).
+ ///
+ /// Instantiated for every production `CoreHandle` so host applications can
+ /// observe cache pressure. The inbound path accounts in-flight Delta bytes
+ /// against the DAG node cache for the duration of the merge.
     memory_budget: crate::crdt::memory_budget::MemoryBudgetCaches,
 }
 
 impl CoreHandle {
-    /// Initialise TirBase, loading or creating local storage and identity.
-    ///
-    /// On the WASM target this is exposed to JavaScript and resolves a
-    /// Promise-based ready signal (Req 2.2).
-    /// On the native target it blocks until initialisation is complete.
-    ///
-    /// Returns an `Arc<CoreHandle>`: the handle is shared with the production
-    /// inbound drain loop spawned inside `init` (Subphase 1.3), which keeps
-    /// draining `inbound_rx` for the lifetime of the instance.
+ /// Initialise TirBase, loading or creating local storage and identity.
+ ///
+ /// On the WASM target this is exposed to JavaScript and resolves a
+ /// Promise-based ready signal (Req 2.2).
+ /// On the native target it blocks until initialisation is complete.
+ ///
+ /// Returns an `Arc<CoreHandle>`: the handle is shared with the production
+ /// inbound drain loop spawned inside `init` (Subphase 1.3), which keeps
+ /// draining `inbound_rx` for the lifetime of the instance.
     pub async fn init(config: InitConfig) -> Result<Arc<Self>, TirBaseError> {
-        // ── Diagnostics channel ───────────────────────────────────────────────
+ // ── Diagnostics channel ───────────────────────────────────────────────
         let (diag_tx, _diag_rx) = tokio::sync::broadcast::channel::<DiagnosticEntry>(64);
 
-        // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
+ // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
         let (rejection_records_tx, _rejection_records_rx) =
             tokio::sync::broadcast::channel::<crate::crdt::failure::DeltaRejectionRecord>(64);
 
-        // ── Fleet-inventory collection (PV-11.3, CLAIM-37.5) ──────────────────
-        //
-        // Created before the migration engine so the engine's Contract-migration
-        // precondition verifier can hold the same shared inventory.
+ // ── Fleet-inventory collection (PV-11.3, CLAIM-37.5) ──────────────────
+ //
+ // Created before the migration engine so the engine's Contract-migration
+ // precondition verifier can hold the same shared inventory.
         let fleet = Arc::new(Mutex::new(crate::fleet::FleetInventory::new()));
         let (fleet_update_tx, _fleet_update_rx) =
             tokio::sync::broadcast::channel::<crate::fleet::FleetInventoryDelta>(64);
 
-        // ── Identity ──────────────────────────────────────────────────────────
+ // ── Identity ──────────────────────────────────────────────────────────
         let identity_path = format!("{}.identity.json", config.storage_path);
         let identity = {
             #[cfg(feature = "native")]
@@ -469,14 +469,14 @@ impl CoreHandle {
         };
         let identity = Arc::new(identity);
 
-        // ── Capability Manager ────────────────────────────────────────────────
-        // Root CA keys come from deployment config; an empty vec is the explicit
-        // unconfigured state (verification fails until keys are registered).
-        //
-        // The `EXTENDED_TTL` diagnostic (Req 21.6) has already fired above by
-        // `emit_startup_diagnostics` when `biscuit_ttl_secs > 24h`; we mirror
-        // that decision here as the runtime accepted-risk flag that authorises
-        // `biscuit::create_token` to mint extended-window tokens (Req 8.7).
+ // ── Capability Manager ────────────────────────────────────────────────
+ // Root CA keys come from deployment config; an empty vec is the explicit
+ // unconfigured state (verification fails until keys are registered).
+ //
+ // The `EXTENDED_TTL` diagnostic (Req 21.6) has already fired above by
+ // `emit_startup_diagnostics` when `biscuit_ttl_secs > 24h`; we mirror
+ // that decision here as the runtime accepted-risk flag that authorises
+ // `biscuit::create_token` to mint extended-window tokens (Req 8.7).
         let extended_ttl_accepted_risk = config.deployment.biscuit_ttl_secs > 86400;
         let capability = CapabilityManager::new(
             config.deployment.root_ca_keys.clone(),
@@ -485,7 +485,7 @@ impl CoreHandle {
             extended_ttl_accepted_risk,
         );
         if let Some(warning) = capability.check_1_of_1_warning() {
-            // Emit as an informal diagnostic — ignore send errors (no subscribers yet).
+ // Emit as an informal diagnostic — ignore send errors (no subscribers yet).
             let _ = diag_tx.send(DiagnosticEntry {
                 severity: crate::diagnostics::DiagnosticSeverity::Warning,
                 code: "UNILATERAL_EXILE",
@@ -494,13 +494,13 @@ impl CoreHandle {
         }
         let capability = Arc::new(Mutex::new(capability));
 
-        // ── Initial schema hash (Req 17.1, 20.5) ───────────────────────────────
-        //
-        // When the deployment provides registered schema definitions, the device's
-        // initial schema hash is computed from the first (oldest) definition —
-        // not from the zero sentinel DEFAULT_SCHEMA_HASH. This ensures locally
-        // produced Deltas carry a real schema hash (Req 4.6) from the first
-        // write, instead of DEFAULT_SCHEMA_HASH.
+ // ── Initial schema hash (Req 17.1, 20.5) ───────────────────────────────
+ //
+ // When the deployment provides registered schema definitions, the device's
+ // initial schema hash is computed from the first (oldest) definition —
+ // not from the zero sentinel DEFAULT_SCHEMA_HASH. This ensures locally
+ // produced Deltas carry a real schema hash (Req 4.6) from the first
+ // write, instead of DEFAULT_SCHEMA_HASH.
         let initial_schema_hash = config
             .deployment
             .schema_definitions
@@ -508,21 +508,21 @@ impl CoreHandle {
             .map(|s| s.identifier_hash())
             .unwrap_or(DEFAULT_SCHEMA_HASH);
 
-        // ── Native subsystems (require rusqlite) ──────────────────────────────
+ // ── Native subsystems (require rusqlite) ──────────────────────────────
         #[cfg(feature = "native")]
         let (store, crdt, cce) = {
-            // Primary store connection (used by LocalStore).
+ // Primary store connection (used by LocalStore).
             let store = LocalStore::open(&config.storage_path)?;
-            // Boot recovery (Subphase 7.3, CLAIM-31.4): WAL replay + PRAGMA
-            // quick_check at boot (integrity_check deferred to maintenance).
+ // Boot recovery (Subphase 7.3, CLAIM-31.4): WAL replay + PRAGMA
+ // quick_check at boot (integrity_check deferred to maintenance).
             store.check_integrity()?;
             let store = Arc::new(Mutex::new(store));
 
-            // Secondary connection for CrdtEngine + CCE (they hold their own
-            // Arc<Mutex<Connection>> references internally).
+ // Secondary connection for CrdtEngine + CCE (they hold their own
+ // Arc<Mutex<Connection>> references internally).
             let conn = crate::store::sqlite::open(&config.storage_path)?;
-            // Schema is already created by `sqlite::open`; the
-            // CREATE_SCHEMA_SQL call inside open() is idempotent.
+ // Schema is already created by `sqlite::open`; the
+ // CREATE_SCHEMA_SQL call inside open() is idempotent.
             let conn = Arc::new(Mutex::new(conn));
 
             let mut crdt = CrdtEngine::new(
@@ -532,7 +532,7 @@ impl CoreHandle {
                 initial_schema_hash,
                 conn.clone(),
             );
-            // PV-6.7/task 23: configure hardening persistence (core-local sibling DB).
+ // PV-6.7/: configure hardening persistence (core-local sibling DB).
             let hardening_db = format!("{}.crdt_hardening.db", config.storage_path);
             crdt.configure_hardening_derived_db(&hardening_db);
             let crdt = Arc::new(Mutex::new(crdt));
@@ -543,11 +543,11 @@ impl CoreHandle {
             (store, crdt, cce)
         };
 
-        // ── WASM store (IndexedDB-backed, Subphase 6.3) ─────────────────────
-        //
-        // `storage_path` now names the IndexedDB database the store persists
-        // to — previously the WASM store ignored the path and opened a
-        // throwaway BTreeMap that lost all data on reload.
+ // ── WASM store (IndexedDB-backed, Subphase 6.3) ─────────────────────
+ //
+ // `storage_path` now names the IndexedDB database the store persists
+ // to — previously the WASM store ignored the path and opened a
+ // throwaway BTreeMap that lost all data on reload.
         #[cfg(not(feature = "native"))]
         let (store, store_db_rc) = {
             let store = LocalStore::open(&config.storage_path).await?;
@@ -557,7 +557,7 @@ impl CoreHandle {
             (Arc::new(Mutex::new(store)), store_db_rc)
         };
 
-        // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
+ // ── WASM CrdtEngine (in-memory, no SQLite connection) ─────────────────
         #[cfg(not(feature = "native"))]
         let crdt = {
             let crdt = CrdtEngine::new(
@@ -569,7 +569,7 @@ impl CoreHandle {
             Arc::new(Mutex::new(crdt))
         };
 
-        // ── Native Revocation Subsystem ───────────────────────────────────────
+ // ── Native Revocation Subsystem ───────────────────────────────────────
         #[cfg(feature = "native")]
         let revocation = {
             let conn = crate::store::sqlite::open(&config.storage_path)?;
@@ -581,7 +581,7 @@ impl CoreHandle {
             )))
         };
 
-        // ── WASM CCE and RevocationSubsystem ──────────────────────────────────
+ // ── WASM CCE and RevocationSubsystem ──────────────────────────────────
         #[cfg(not(feature = "native"))]
         let cce = Arc::new(Mutex::new(
             crate::contamination::CausalContaminationEngine::new(),
@@ -593,27 +593,27 @@ impl CoreHandle {
             config.deployment.revocation_n.max(1),
         )));
 
-        // ── Migration Engine ──────────────────────────────────────────────────
-        //
-        // Subphase 5.1: the Migration CA public key and the deployment's
-        // ordered schema-version path are wired from `DeploymentConfig` (Req
-        // 18.2, 18.3a).  `None`/empty remain the explicit unconfigured states
-        // — with no key the engine verifies against the zero key (every
-        // signature fails) and with no path no version step validates — but a
-        // deployment that configures both now accepts valid inbound
-        // migrations instead of rejecting every one at the CA gate.
+ // ── Migration Engine ──────────────────────────────────────────────────
+ //
+ // Subphase 5.1: the Migration CA public key and the deployment's
+ // ordered schema-version path are wired from `DeploymentConfig` (Req
+ // 18.2, 18.3a). `None`/empty remain the explicit unconfigured states
+ // — with no key the engine verifies against the zero key (every
+ // signature fails) and with no path no version step validates — but a
+ // deployment that configures both now accepts valid inbound
+ // migrations instead of rejecting every one at the CA gate.
         let migration_ca_public_key = config
             .deployment
             .migration_ca_public_key
             .unwrap_or([0u8; 32]);
         let migration_version_path =
             SchemaVersionPath::new(config.deployment.schema_version_path.clone());
-        // The device starts on the oldest registered schema version. When schema
-        // definitions are provided, the initial hash is computed from the first
-        // definition (above as `initial_schema_hash`) — authoritative and
-        // self-consistent.  When only a version path is configured (no
-        // definitions), the first path entry is used.  With neither, the device
-        // stays on the default zero hash.
+ // The device starts on the oldest registered schema version. When schema
+ // definitions are provided, the initial hash is computed from the first
+ // definition (above as `initial_schema_hash`) — authoritative and
+ // self-consistent. When only a version path is configured (no
+ // definitions), the first path entry is used. With neither, the device
+ // stays on the default zero hash.
         let migration_local_schema_hash = if !config.deployment.schema_definitions.is_empty() {
             initial_schema_hash
         } else {
@@ -624,18 +624,18 @@ impl CoreHandle {
                 .unwrap_or(DEFAULT_SCHEMA_HASH)
         };
 
-        // ── CRDT schema-definition registry (Subphase 5.3) ────────────────────
-        //
-        // The deployment's full schema definitions are registered with the
-        // CRDT engine so its merge gate can classify an unknown inbound hash
-        // at the field level (Req 17.3/17.4) instead of treating every hash
-        // outside the known set alike.  Definitions are matched positionally
-        // to `schema_version_path`; a definition whose canonical hash differs
-        // from its path entry — or a path/definition length mismatch — is a
-        // configuration error and aborts init.  With a configured path the
-        // device's *current* schema becomes the first version (mirroring the
-        // SchemaMigrationEngine below), so locally produced Deltas carry a
-        // real schema hash (Req 4.6) rather than the zero sentinel.
+ // ── CRDT schema-definition registry (Subphase 5.3) ────────────────────
+ //
+ // The deployment's full schema definitions are registered with the
+ // CRDT engine so its merge gate can classify an unknown inbound hash
+ // at the field level (Req 17.3/17.4) instead of treating every hash
+ // outside the known set alike. Definitions are matched positionally
+ // to `schema_version_path`; a definition whose canonical hash differs
+ // from its path entry — or a path/definition length mismatch — is a
+ // configuration error and aborts init. With a configured path the
+ // device's *current* schema becomes the first version (mirroring the
+ // SchemaMigrationEngine below), so locally produced Deltas carry a
+ // real schema hash (Req 4.6) rather than the zero sentinel.
         let schema_definitions = config.deployment.schema_definitions.clone();
         match migration_version_path.versions.first().copied() {
             None => {
@@ -672,15 +672,15 @@ impl CoreHandle {
             }
         }
 
-        // ── CRDT rejection-record listener (Subphase 6.2 — Req 7.4/7.5) ──────
-        //
-        // Register an engine-level listener that relays every structured Delta
-        // rejection record — emitted by `CrdtEngine::apply` when the merge
-        // gate discards an inbound Delta (revoked author, missing signature,
-        // unresolvable DID — Req 7.5, signature failure — Req 7.4) — onto
-        // this handle's broadcast channel.  The listener is invoked while the
-        // engine is locked, so it only sends on the non-blocking broadcast
-        // channel and never re-enters the engine.
+ // ── CRDT rejection-record listener (Subphase 6.2 — Req 7.4/7.5) ──────
+ //
+ // Register an engine-level listener that relays every structured Delta
+ // rejection record — emitted by `CrdtEngine::apply` when the merge
+ // gate discards an inbound Delta (revoked author, missing signature,
+ // unresolvable DID — Req 7.5, signature failure — Req 7.4) — onto
+ // this handle's broadcast channel. The listener is invoked while the
+ // engine is locked, so it only sends on the non-blocking broadcast
+ // channel and never re-enters the engine.
         {
             let tx = rejection_records_tx.clone();
             let mut crdt_guard = crdt
@@ -722,10 +722,10 @@ impl CoreHandle {
 
         let migration = Arc::new(Mutex::new(migration));
 
-        // Task 29.3 (PV-8.2a): when the deployment configures an UpdateSigner
-        // key, signed `ExecutionProfileVersion` metadata is authenticated at
-        // the migration ingress gate. Unconfigured deployments keep the
-        // previous behaviour (profile/fuel-hash match only).
+ // (PV-8.2a): when the deployment configures an UpdateSigner
+ // key, signed `ExecutionProfileVersion` metadata is authenticated at
+ // the migration ingress gate. Unconfigured deployments keep the
+ // previous behaviour (profile/fuel-hash match only).
         if let Some(update_signer_key) = config.deployment.update_signer_public_key {
             migration
                 .lock()
@@ -737,12 +737,12 @@ impl CoreHandle {
                 .set_update_signer_public_key(update_signer_key);
         }
 
-        // ── Fleet precondition verifier (task 37.5, PV-11.3) ──────────────────
-        //
-        // Contract migrations (task 30.3) commit to the fleet inventory snapshot
-        // hash.  The live CRDT inventory is the production verifier: the hash a
-        // migration carries must equal this handle's current snapshot hash, and
-        // an empty inventory rejects every Contract migration.
+ // ── Fleet precondition verifier (PV-11.3) ──────────────────
+ //
+ // Contract migrations () commit to the fleet inventory snapshot
+ // hash. The live CRDT inventory is the production verifier: the hash a
+ // migration carries must equal this handle's current snapshot hash, and
+ // an empty inventory rejects every Contract migration.
         {
             let mut mig = migration
                 .lock()
@@ -752,32 +752,32 @@ impl CoreHandle {
             mig.set_fleet_precondition_verifier(crate::fleet::dyn_verifier(fleet.clone()));
         }
 
-        // ── In-flight migration execution registry (Req 18.6) ────────────────
-        //
-        // Native: tracks interrupt flags for each wasmi sandbox transform that
-        // is currently executing off the migration lock, so a revocation can
-        // epoch-interrupt it.  Lives outside `SchemaMigrationEngine` on
-        // purpose — it must stay reachable while a transform runs without the
-        // engine lock.
+ // ── In-flight migration execution registry (Req 18.6) ────────────────
+ //
+ // Native: tracks interrupt flags for each wasmi sandbox transform that
+ // is currently executing off the migration lock, so a revocation can
+ // epoch-interrupt it. Lives outside `SchemaMigrationEngine` on
+ // purpose — it must stay reachable while a transform runs without the
+ // engine lock.
         #[cfg(feature = "native")]
         let migration_runs = Arc::new(MigrationExecutionRegistry::default());
         #[cfg(feature = "native")]
         let migration_tasks_active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-        // ── Durability Subsystem ──────────────────────────────────────────────
-        //
-        // Subphase 4.3: when the deployment enables Anchor_Attested_Location, the
-        // subsystem is constructed with an `AnchorAttestedLocation` verifier built
-        // from the deployment's beacon public keys (DIDs derived `did:key:`), so
-        // `DurabilitySubsystem::receive_receipt` — the function the native/WASM
-        // inbound pipelines call for every incoming `DurabilityReceipt` — gates
-        // Quorum formation on valid beacon attestations (Req 15.1–15.3).
-        // Subphase 4.4: `max_single_sector_fraction` is deployment-configurable
-        // (Req 14.3 cap; default 0.7 — the historical hardcode).  A value
-        // outside (0, 1] cannot express a fraction cap: 0 (or negative) would
-        // forbid every receipt and disable Quorum, and > 1 would disable the
-        // cap silently.  Such values fall back to the 0.7 default instead of
-        // being enforced literally.
+ // ── Durability Subsystem ──────────────────────────────────────────────
+ //
+ // Subphase 4.3: when the deployment enables Anchor_Attested_Location, the
+ // subsystem is constructed with an `AnchorAttestedLocation` verifier built
+ // from the deployment's beacon public keys (DIDs derived `did:key:`), so
+ // `DurabilitySubsystem::receive_receipt` — the function the native/WASM
+ // inbound pipelines call for every incoming `DurabilityReceipt` — gates
+ // Quorum formation on valid beacon attestations (Req 15.1–15.3).
+ // Subphase 4.4: `max_single_sector_fraction` is deployment-configurable
+ // (Req 14.3 cap; default 0.7 — the historical hardcode). A value
+ // outside (0, 1] cannot express a fraction cap: 0 (or negative) would
+ // forbid every receipt and disable Quorum, and > 1 would disable the
+ // cap silently. Such values fall back to the 0.7 default instead of
+ // being enforced literally.
         let max_single_sector_fraction = config.deployment.max_single_sector_fraction;
         let max_single_sector_fraction = if max_single_sector_fraction.is_finite()
             && max_single_sector_fraction > 0.0
@@ -793,10 +793,10 @@ impl CoreHandle {
             QuorumConfig {
                 k: config.deployment.quorum_k.max(1),
                 n: config.deployment.quorum_n.max(1),
-                // Subphase 4.4: 0 is the *unconfigured* marker carried through
-                // to the quorum tracker, which resolves Req 14.3's default rule
-                // min(K, distinct tags available) at runtime — no longer a raw
-                // "require 0 distinct tags" minimum.
+ // Subphase 4.4: 0 is the *unconfigured* marker carried through
+ // to the quorum tracker, which resolves Req 14.3's default rule
+ // min(K, distinct tags available) at runtime — no longer a raw
+ // "require 0 distinct tags" minimum.
                 spatial_diversity_min: config.deployment.spatial_diversity_min,
                 max_single_sector_fraction,
             },
@@ -812,12 +812,12 @@ impl CoreHandle {
             },
         );
 
-        // Subphase 4.2: attach a tier-change listener forwarding every
-        // durability transition (Tier-1 quorum, Tier-2 cloud ack) to this
-        // handle's broadcast channel, so CoreHandle/SDK consumers are notified
-        // when a written Delta becomes durable (Req 14.7).  The listener only
-        // sends on the non-blocking broadcast channel — it is invoked while
-        // the Durability Subsystem is locked, so it must never re-enter it.
+ // Subphase 4.2: attach a tier-change listener forwarding every
+ // durability transition (Tier-1 quorum, Tier-2 cloud ack) to this
+ // handle's broadcast channel, so CoreHandle/SDK consumers are notified
+ // when a written Delta becomes durable (Req 14.7). The listener only
+ // sends on the non-blocking broadcast channel — it is invoked while
+ // the Durability Subsystem is locked, so it must never re-enter it.
         #[cfg(feature = "native")]
         let (durability_events_channel, _durability_events_rx) =
             tokio::sync::broadcast::channel::<DurabilityTierChanged>(64);
@@ -837,19 +837,19 @@ impl CoreHandle {
         }
         let durability = Arc::new(Mutex::new(durability));
 
-        // ── Cloud Ledger (native) ────────────────────────────────────────────
-        //
-        // Subphase 4.1: host a real Cloud Ledger for this process and attach it
-        // to the Durability Subsystem's cloud outbound queue via the
-        // `CloudConnection` adapter (`CloudLedgerConnection`).  The ledger runs
-        // the same `CrdtEngine` semantics as every device (Req 16.1) and is
-        // constructed with this process's own identity + the initial schema
-        // hash (computed from schema_definitions if provided), so locally-written
-        // Deltas (produced by the same identity and schema in `write()`) verify
-        // and merge.  The production cloud sync loop spawned below drains the
-        // queue into it in causal order (Req 16.3); Subphase 4.2 wires each ack
-        // into `DurabilitySubsystem::on_cloud_ack`, which marks the Delta Tier-2
-        // durable and notifies the handle's durability event channel.
+ // ── Cloud Ledger (native) ────────────────────────────────────────────
+ //
+ // Subphase 4.1: host a real Cloud Ledger for this process and attach it
+ // to the Durability Subsystem's cloud outbound queue via the
+ // `CloudConnection` adapter (`CloudLedgerConnection`). The ledger runs
+ // the same `CrdtEngine` semantics as every device (Req 16.1) and is
+ // constructed with this process's own identity + the initial schema
+ // hash (computed from schema_definitions if provided), so locally-written
+ // Deltas (produced by the same identity and schema in `write()`) verify
+ // and merge. The production cloud sync loop spawned below drains the
+ // queue into it in causal order (Req 16.3); Subphase 4.2 wires each ack
+ // into `DurabilitySubsystem::on_cloud_ack`, which marks the Delta Tier-2
+ // durable and notifies the handle's durability event channel.
         #[cfg(feature = "native")]
         let cloud_ledger = Arc::new(Mutex::new(CloudLedger::new_in_memory(
             identity.signing_key_bytes(),
@@ -857,17 +857,17 @@ impl CoreHandle {
             initial_schema_hash,
         )?));
 
-        // ── Mesh Transport ────────────────────────────────────────────────────
+ // ── Mesh Transport ────────────────────────────────────────────────────
         #[cfg_attr(not(feature = "native"), allow(unused_mut))]
         let mut transport = MeshTransport::new(
             identity.did().to_string(),
             identity.signing_key_bytes(),
             TransportConfig {
                 listen_addr: config.listen_addr.clone(),
-                // Subphase 3.1: the transport's Saturate_Mode state machine is
-                // configured from the deployment — the M-of-N manager threshold
-                // (Req 13.6) and the primary root CA key for offline Biscuit
-                // verification (Req 13.1, 13.7).
+ // Subphase 3.1: the transport's Saturate_Mode state machine is
+ // configured from the deployment — the M-of-N manager threshold
+ // (Req 13.6) and the primary root CA key for offline Biscuit
+ // verification (Req 13.1, 13.7).
                 saturate_termination_threshold_m: config.deployment.revocation_m.max(1),
                 root_ca_public_key: config
                     .deployment
@@ -875,24 +875,24 @@ impl CoreHandle {
                     .first()
                     .map(|k| k.to_vec())
                     .unwrap_or_default(),
-                // Subphase 3.4: the lease window is deployment-configurable
-                // (default 60 min, Req 13.3).  A short configured window is
-                // what lets a runtime test let the lease expire through the
-                // wall clock instead of backdating it.
+ // Subphase 3.4: the lease window is deployment-configurable
+ // (default 60 min, Req 13.3). A short configured window is
+ // what lets a runtime test let the lease expire through the
+ // wall clock instead of backdating it.
                 saturate_lease_duration_secs: config.deployment.saturate_lease_duration_secs.max(1),
-                // Subphase 7.4: low-MTU fragmented transport.  When the
-                // deployment configures a non-zero MTU below 256 bytes, the
-                // transport fragments outbound Deltas and the receiving side
-                // reassembles them via `process_wire_message` →
-                // `ReassemblyBuffer` (Req 5.7–5.8).
+ // Subphase 7.4: low-MTU fragmented transport. When the
+ // deployment configures a non-zero MTU below 256 bytes, the
+ // transport fragments outbound Deltas and the receiving side
+ // reassembles them via `process_wire_message` →
+ // `ReassemblyBuffer` (Req 5.7–5.8).
                 mtu: config.deployment.mesh_mtu,
                 ..TransportConfig::default()
             },
         );
         #[cfg(feature = "native")]
         {
-            // Start the libp2p Swarm in the background.  Failure is logged but
-            // not fatal — the device can still operate offline (Req 3.3).
+ // Start the libp2p Swarm in the background. Failure is logged but
+ // not fatal — the device can still operate offline (Req 3.3).
             if let Err(e) = transport.start().await {
                 eprintln!("[CoreHandle::init] transport.start() failed: {e} — operating offline");
             }
@@ -902,32 +902,32 @@ impl CoreHandle {
         ));
         let transport = Arc::new(Mutex::new(transport));
 
-        // ── Inbound message channel ───────────────────────────────────────────
-        //
-        // The receiver is wrapped in `Arc<tokio::sync::Mutex<..>>` so it can be
-        // shared between this handle (manual `process_inbound_messages()` drains)
-        // and the production inbound drain loop spawned below (Subphase 1.3).
+ // ── Inbound message channel ───────────────────────────────────────────
+ //
+ // The receiver is wrapped in `Arc<tokio::sync::Mutex<..>>` so it can be
+ // shared between this handle (manual `process_inbound_messages()` drains)
+ // and the production inbound drain loop spawned below (Subphase 1.3).
         let (inbound_tx, inbound_rx) =
             tokio::sync::mpsc::channel::<crate::transport::message::GossipMessage>(1024);
         let inbound_rx = Arc::new(tokio::sync::Mutex::new(inbound_rx));
 
-        // ── Native: take the Swarm and spawn the polling task ─────────────────
-        //
-        // The Swarm is owned exclusively by this task so it can be polled across
-        // `.await` points.  Outbound delivery therefore goes through a channel:
-        // `write()` → `MeshTransport::send_delta` forwards prepared payloads
-        // into `outbound_rx`, and this task publishes them to the shared
-        // Gossipsub topic (Subphase 1.1 — Req 5.1).
-        //
-        // `scheduler_tick_armed` records whether a Swarm polling task is
-        // actually running; the DRR scheduler tick loop (Subphase 1.4) is only
-        // spawned when it is, because the tick loop forwards scheduled Deltas
-        // into the same outbound channel and would fail every epoch otherwise.
+ // ── Native: take the Swarm and spawn the polling task ─────────────────
+ //
+ // The Swarm is owned exclusively by this task so it can be polled across
+ // `.await` points. Outbound delivery therefore goes through a channel:
+ // `write()` → `MeshTransport::send_delta` forwards prepared payloads
+ // into `outbound_rx`, and this task publishes them to the shared
+ // Gossipsub topic (Subphase 1.1 — Req 5.1).
+ //
+ // `scheduler_tick_armed` records whether a Swarm polling task is
+ // actually running; the DRR scheduler tick loop (Subphase 1.4) is only
+ // spawned when it is, because the tick loop forwards scheduled Deltas
+ // into the same outbound channel and would fail every epoch otherwise.
         #[cfg(feature = "native")]
         let mut scheduler_tick_armed = false;
 
-        // Task 37.5 (PV-11.3): the Swarm polling task re-announces the full
-        // fleet inventory to every newly discovered peer.
+ // (PV-11.3): the Swarm polling task re-announces the full
+ // fleet inventory to every newly discovered peer.
         #[cfg(feature = "native")]
         let fleet_for_poll = fleet.clone();
         #[cfg(feature = "native")]
@@ -943,10 +943,10 @@ impl CoreHandle {
 
             let (outbound_tx, mut outbound_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(4096);
 
-            // Explicit-dial channel (Subphase 1.5): `CoreHandle::dial_peer`
-            // forwards target multiaddrs here; the Swarm polling task owns the
-            // receiver and performs the actual `swarm.dial`.  `None` when no
-            // polling task can be spawned (transport failed to start).
+ // Explicit-dial channel (Subphase 1.5): `CoreHandle::dial_peer`
+ // forwards target multiaddrs here; the Swarm polling task owns the
+ // receiver and performs the actual `swarm.dial`. `None` when no
+ // polling task can be spawned (transport failed to start).
             let (dial_tx, mut dial_rx) = tokio::sync::mpsc::channel::<libp2p::Multiaddr>(64);
 
             let (swarm_opt, gossip_topic) = {
@@ -979,21 +979,21 @@ impl CoreHandle {
                                         ),
                                     ) => {
                                         if let Some(msg) = crate::transport::message::GossipMessage::from_bytes(&message.data) {
-                                            // Subphase 7.4: if the message is an
-                                            // InboundDeltaFragment, feed it to
-                                            // the ReassemblyBuffer via
-                                            // process_wire_message.  Only a
-                                            // fully-reassembled Delta (or a
-                                            // non-fragment message) is forwarded
-                                            // to the inbound drain loop — a
-                                            // reassembly failure is logged and
-                                            // dropped here, never reaching the
-                                            // CRDT engine's apply path.
-                                            //
-                                            // The transport lock is dropped
-                                            // before the `.await` on the channel
-                                            // send so the future remains `Send`
-                                            // (std::sync::MutexGuard is !Send).
+ // Subphase 7.4: if the message is an
+ // InboundDeltaFragment, feed it to
+ // the ReassemblyBuffer via
+ // process_wire_message. Only a
+ // fully-reassembled Delta (or a
+ // non-fragment message) is forwarded
+ // to the inbound drain loop — a
+ // reassembly failure is logged and
+ // dropped here, never reaching the
+ // CRDT engine's apply path.
+ //
+ // The transport lock is dropped
+ // before the `.await` on the channel
+ // send so the future remains `Send`
+ // (std::sync::MutexGuard is !Send).
                                             let processed = {
                                                 if let Ok(mut t) = transport_arc.lock() {
                                                     match msg {
@@ -1010,7 +1010,7 @@ impl CoreHandle {
                                             };
                                             if let Some(msg) = processed {
                                                 if tx_clone.send(msg).await.is_err() {
-                                                    // Receiver dropped — CoreHandle is gone.
+ // Receiver dropped — CoreHandle is gone.
                                                     break;
                                                 }
                                             }
@@ -1024,11 +1024,11 @@ impl CoreHandle {
                                     SwarmEvent::NewListenAddr { address, .. } => {
                                         eprintln!("[transport-loop] listening on {address}");
                                     }
-                                    // Subphase 1.5: record live connections in
-                                    // the peer table so `mesh_status()` (Req 2.5)
-                                    // reflects real connectivity — including
-                                    // peers reached via `CoreHandle::dial_peer`
-                                    // (no mDNS announcement involved).
+ // Subphase 1.5: record live connections in
+ // the peer table so `mesh_status()` (Req 2.5)
+ // reflects real connectivity — including
+ // peers reached via `CoreHandle::dial_peer`
+ // (no mDNS announcement involved).
                                     SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                                         let did = crate::transport::discovery::mdns_adapter::peer_id_to_did(&peer_id);
                                         if let Ok(mut t) = transport_arc.lock() {
@@ -1042,7 +1042,7 @@ impl CoreHandle {
                                                 },
                                                 now_micros(),
                                             );
-                                            // 26.3 (PV-7.10): gossip latest checkpoint hash on sync connection.
+ // 26.3 (PV-7.10): gossip latest checkpoint hash on sync connection.
                                             if let Some((seq, cp_hash)) = checkpoint_provider
                                                 .lock()
                                                 .ok()
@@ -1060,33 +1060,33 @@ impl CoreHandle {
                                                 );
                                             }
 
-                                            // Req 6.1: initiate a Noise_IK session
-                                            // with the peer now that the libp2p
-                                            // transport connection is established.
-                                            // `initiate_session` resolves the peer's
-                                            // static public key from their DID and
-                                            // performs the application-layer Noise IK
-                                            // handshake over a libp2p substream;
-                                            // if the DID cannot be resolved it falls
-                                            // back to register_session.
-                                            //
-                                            // The full Noise IK handshake requires
-                                            // holding the transport MutexGuard
-                                            // across `.await` (the handshake messages
-                                            // are exchanged over an async stream).
-                                            // `std::sync::MutexGuard` is not `Send`,
-                                            // so we cannot `tokio::spawn` it.
-                                            //
-                                            // Until the Noise IK substream is wired
-                                            // to a real libp2p ConnectionHandler
-                                            // (Subphase 5.2), the substream is a no-op
-                                            // DuplexStream whose transport half is
-                                            // discarded.  We therefore use the
-                                            // `register_session` fallback path —
-                                            // the libp2p transport has already
-                                            // completed its own Noise handshake, and
-                                            // we only need rotation tracking +
-                                            // resumption cache sync.
+ // Req 6.1: initiate a Noise_IK session
+ // with the peer now that the libp2p
+ // transport connection is established.
+ // `initiate_session` resolves the peer's
+ // static public key from their DID and
+ // performs the application-layer Noise IK
+ // handshake over a libp2p substream;
+ // if the DID cannot be resolved it falls
+ // back to register_session.
+ //
+ // The full Noise IK handshake requires
+ // holding the transport MutexGuard
+ // across `.await` (the handshake messages
+ // are exchanged over an async stream).
+ // `std::sync::MutexGuard` is not `Send`,
+ // so we cannot `tokio::spawn` it.
+ //
+ // Until the Noise IK substream is wired
+ // to a real libp2p ConnectionHandler
+ // (Subphase 5.2), the substream is a no-op
+ // DuplexStream whose transport half is
+ // discarded. We therefore use the
+ // `register_session` fallback path —
+ // the libp2p transport has already
+ // completed its own Noise handshake, and
+ // we only need rotation tracking +
+ // resumption cache sync.
                                             let now = now_secs();
                                             let session = t
                                                 .session_manager
@@ -1099,14 +1099,14 @@ impl CoreHandle {
                                             mdns::Event::Discovered(peers),
                                         ),
                                     ) => {
-                                        // Subphase 1.2: dial every discovered peer so
-                                        // mDNS neighbours actually connect to this
-                                        // Swarm (previously only
-                                        // gossipsub.add_explicit_peer was called and no
-                                        // connection was ever opened).
+ // Subphase 1.2: dial every discovered peer so
+ // mDNS neighbours actually connect to this
+ // Swarm (previously only
+ // gossipsub.add_explicit_peer was called and no
+ // connection was ever opened).
                                         crate::transport::dial_discovered_mdns_peers(&mut swarm, peers);
 
-                                        // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
+ // Re-announce recent RevocationDeltas to newly-joined peers (Req 9.2).
                                         let recent = revocation_arc.lock().map(|rev| {
                                             rev.build_recent_revocation_deltas(24 * 3600 * 1_000_000)
                                         }).unwrap_or_default();
@@ -1131,11 +1131,11 @@ impl CoreHandle {
                                             }
                                         }
 
-                                        // Task 37.5 (PV-11.3, CLAIM-37.5): bring newly
-                                        // joined peers up to date with the full fleet
-                                        // inventory.  The merge is idempotent, so a peer
-                                        // that is already current produces no change and
-                                        // does not re-broadcast.
+ // (PV-11.3, CLAIM-37.5): bring newly
+ // joined peers up to date with the full fleet
+ // inventory. The merge is idempotent, so a peer
+ // that is already current produces no change and
+ // does not re-broadcast.
                                         let fleet_update = fleet_for_poll
                                             .lock()
                                             .ok()
@@ -1165,19 +1165,19 @@ impl CoreHandle {
                                 }
                             }
                             Some(payload) = outbound_rx.recv() => {
-                                // Test-only observability: record the payload at
-                                // the publish point so integration tests can
-                                // assert outbound delivery reached the mesh
-                                // layer (Subphase 1.1 acceptance).
+ // Test-only observability: record the payload at
+ // the publish point so integration tests can
+ // assert outbound delivery reached the mesh
+ // layer (Subphase 1.1 acceptance).
                                 #[cfg(test)]
                                 if let Ok(mut t) = transport_arc.lock() {
                                     t.record_outbound_payload(payload.clone());
                                 }
 
-                                // Publish to the shared topic so all subscribed
-                                // peers receive it (Req 5.1).  No subscribers /
-                                // mesh offline → log and continue: the local
-                                // write and durability queue remain authoritative.
+ // Publish to the shared topic so all subscribed
+ // peers receive it (Req 5.1). No subscribers /
+ // mesh offline → log and continue: the local
+ // write and durability queue remain authoritative.
                                 match swarm
                                     .behaviour_mut()
                                     .gossipsub
@@ -1194,11 +1194,11 @@ impl CoreHandle {
                                 }
                             }
                             Some(addr) = dial_rx.recv() => {
-                                // Subphase 1.5: explicit application-initiated
-                                // dial (`CoreHandle::dial_peer`).  The peer id
-                                // is not known in advance (only the address), so
-                                // use `unknown_peer_id` — the Noise handshake
-                                // reveals the real peer id on connect.
+ // Subphase 1.5: explicit application-initiated
+ // dial (`CoreHandle::dial_peer`). The peer id
+ // is not known in advance (only the address), so
+ // use `unknown_peer_id` — the Noise handshake
+ // reveals the real peer id on connect.
                                 let opts = libp2p::swarm::dial_opts::DialOpts::unknown_peer_id()
                                     .address(addr.clone())
                                     .build();
@@ -1215,12 +1215,12 @@ impl CoreHandle {
                     }
                 });
 
-                // The outbound channel is being drained by the polling task
-                // above, so the scheduler tick loop can forward into it.
+ // The outbound channel is being drained by the polling task
+ // above, so the scheduler tick loop can forward into it.
                 scheduler_tick_armed = true;
             }
 
-            // `dial_tx` is only usable while a polling task owns its receiver.
+ // `dial_tx` is only usable while a polling task owns its receiver.
             if scheduler_tick_armed {
                 Some(dial_tx)
             } else {
@@ -1228,7 +1228,7 @@ impl CoreHandle {
             }
         };
 
-        // ── Startup diagnostics ───────────────────────────────────────────────
+ // ── Startup diagnostics ───────────────────────────────────────────────
         let diag_entries = emit_startup_diagnostics(&config);
         for entry in diag_entries {
             let _ = diag_tx.send(entry);
@@ -1283,15 +1283,15 @@ impl CoreHandle {
             memory_budget: crate::crdt::memory_budget::MemoryBudgetCaches::new(),
         });
 
-        // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
-        //
-        // Spawn a background task that calls `process_inbound_messages()` on an
-        // interval, so Gossipsub messages received by the Swarm polling task
-        // (above) are actually routed through the subsystems in production —
-        // previously this drain only happened when tests called it explicitly.
-        //
-        // The handle is returned as `Arc<CoreHandle>` precisely so this task can
-        // hold a clone and keep draining for the lifetime of the instance.
+ // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
+ //
+ // Spawn a background task that calls `process_inbound_messages()` on an
+ // interval, so Gossipsub messages received by the Swarm polling task
+ // (above) are actually routed through the subsystems in production —
+ // previously this drain only happened when tests called it explicitly.
+ //
+ // The handle is returned as `Arc<CoreHandle>` precisely so this task can
+ // hold a clone and keep draining for the lifetime of the instance.
         #[cfg(feature = "native")]
         {
             CoreHandle::spawn_inbound_drain_loop(
@@ -1300,20 +1300,20 @@ impl CoreHandle {
             );
         }
 
-        // ── Production DRR scheduler tick loop (Subphase 1.4) ─────────────────
-        //
-        // Spawn a background task that runs one DRR scheduling epoch per
-        // second, draining the outbound queues built by
-        // `MeshTransport::enqueue_outbound` (HIGH-priority revocation
-        // rebroadcast, mDNS re-announcement) and forwarding the scheduled
-        // Deltas to the outbound publish channel, which the Swarm polling task
-        // drains and publishes — enqueued Deltas are now scheduled and sent,
-        // not just accumulated (Req 12).
-        //
-        // Gated on `scheduler_tick_armed`: when `transport.start()` failed,
-        // no polling task is draining the outbound channel, so the tick loop
-        // would fail to forward every epoch (offline device — the durability
-        // queue remains authoritative, Req 3.3).
+ // ── Production DRR scheduler tick loop (Subphase 1.4) ─────────────────
+ //
+ // Spawn a background task that runs one DRR scheduling epoch per
+ // second, draining the outbound queues built by
+ // `MeshTransport::enqueue_outbound` (HIGH-priority revocation
+ // rebroadcast, mDNS re-announcement) and forwarding the scheduled
+ // Deltas to the outbound publish channel, which the Swarm polling task
+ // drains and publishes — enqueued Deltas are now scheduled and sent,
+ // not just accumulated (Req 12).
+ //
+ // Gated on `scheduler_tick_armed`: when `transport.start()` failed,
+ // no polling task is draining the outbound channel, so the tick loop
+ // would fail to forward every epoch (offline device — the durability
+ // queue remains authoritative, Req 3.3).
         #[cfg(feature = "native")]
         if scheduler_tick_armed {
             CoreHandle::spawn_scheduler_tick_loop(
@@ -1322,21 +1322,21 @@ impl CoreHandle {
             );
         }
 
-        // ── Production cloud sync loop (Subphase 4.1) ────────────────────────
-        //
-        // Spawn a background task that drains the Durability Subsystem's cloud
-        // outbound queue through the real `CloudLedgerConnection` in causal
-        // order, sending every locally-written Delta to the Cloud Ledger this
-        // process hosts (Req 16.3).  Previously nothing in production ever
-        // drained the cloud queue — causal-order sync + ack-removal existed
-        // only in `durability/integration_tests.rs`.
-        //
-        // Unlike the scheduler tick loop this is not gated on a live Swarm:
-        // cloud sync is independent of the mesh (opportunistic Tier-2 over
-        // TCP/HTTPS in the design; an in-process ledger in this single-crate
-        // codebase), so the queue drains even while the device is offline
-        // (Req 3.3 — the local write and durability queue remain
-        // authoritative).
+ // ── Production cloud sync loop (Subphase 4.1) ────────────────────────
+ //
+ // Spawn a background task that drains the Durability Subsystem's cloud
+ // outbound queue through the real `CloudLedgerConnection` in causal
+ // order, sending every locally-written Delta to the Cloud Ledger this
+ // process hosts (Req 16.3). Previously nothing in production ever
+ // drained the cloud queue — causal-order sync + ack-removal existed
+ // only in `durability/integration_tests.rs`.
+ //
+ // Unlike the scheduler tick loop this is not gated on a live Swarm:
+ // cloud sync is independent of the mesh (opportunistic Tier-2 over
+ // TCP/HTTPS in the design; an in-process ledger in this single-crate
+ // codebase), so the queue drains even while the device is offline
+ // (Req 3.3 — the local write and durability queue remain
+ // authoritative).
         #[cfg(feature = "native")]
         {
             CoreHandle::spawn_cloud_sync_loop(
@@ -1345,21 +1345,21 @@ impl CoreHandle {
             );
         }
 
-        // ── Production beacon signal-loss monitoring loop (Subphase 4.3 / Req 15.4) ──
-        //
-        // Spawn a background task that every `BEACON_MONITOR_INTERVAL_SECS`
-        // seconds locks the Durability Subsystem's anchor verifier, queries
-        // `check_signal_loss` with the deployment-configured threshold
-        // (`DeploymentConfig.beacon_signal_loss_threshold_secs`, default 300s),
-        // and — when one or more beacons have been silent beyond that threshold
-        // — invokes `on_beacon_signal_lost` to write a permanent Transport
-        // Degradation Event and transitively revert the anchor to
-        // `SquadTagFallback` mode so receipts are once again counted by their
-        // declared squad tags (Req 15.4, 15.5).
-        //
-        // The loop only spawns when the anchor is actually enabled — a
-        // deployment that left `anchor_attested_location` disabled has no
-        // anchor verifier to monitor.
+ // ── Production beacon signal-loss monitoring loop (Subphase 4.3 / Req 15.4) ──
+ //
+ // Spawn a background task that every `BEACON_MONITOR_INTERVAL_SECS`
+ // seconds locks the Durability Subsystem's anchor verifier, queries
+ // `check_signal_loss` with the deployment-configured threshold
+ // (`DeploymentConfig.beacon_signal_loss_threshold_secs`, default 300s),
+ // and — when one or more beacons have been silent beyond that threshold
+ // — invokes `on_beacon_signal_lost` to write a permanent Transport
+ // Degradation Event and transitively revert the anchor to
+ // `SquadTagFallback` mode so receipts are once again counted by their
+ // declared squad tags (Req 15.4, 15.5).
+ //
+ // The loop only spawns when the anchor is actually enabled — a
+ // deployment that left `anchor_attested_location` disabled has no
+ // anchor verifier to monitor.
         #[cfg(feature = "native")]
         {
             let beacon_threshold_secs = config.deployment.beacon_signal_loss_threshold_secs;
@@ -1377,20 +1377,20 @@ impl CoreHandle {
             }
         }
 
-        // ── Production token-expiry monitoring loop (Req 8.4) ───────────────────
-        //
-        // Spawn a background task that every `TOKEN_EXPIRY_MONITOR_INTERVAL_SECS`
-        // seconds locks the capability manager, calls `now_secs()`, and checks
-        // if the local device's current token has expired.  If expired and the
-        // current level is `Verified`, calls `on_token_expired(now_micros)` to
-        // transition to `Unverified`.  The unverified warning on every subsequent
-        // read/write/query will then surface to the caller (Req 8.4).
-        //
-        // The check uses `present_token`'s expiry path indirectly: if the device
-        // is `Verified` we attempt to verify the best-known token against the root
-        // CA keys.  A token that was valid at presentation time but has since
-        // crossed its TTL boundary will fail `verify_token_distinguish_expiry`
-        // with `TokenExpired`, triggering the transition.
+ // ── Production token-expiry monitoring loop (Req 8.4) ───────────────────
+ //
+ // Spawn a background task that every `TOKEN_EXPIRY_MONITOR_INTERVAL_SECS`
+ // seconds locks the capability manager, calls `now_secs()`, and checks
+ // if the local device's current token has expired. If expired and the
+ // current level is `Verified`, calls `on_token_expired(now_micros)` to
+ // transition to `Unverified`. The unverified warning on every subsequent
+ // read/write/query will then surface to the caller (Req 8.4).
+ //
+ // The check uses `present_token`'s expiry path indirectly: if the device
+ // is `Verified` we attempt to verify the best-known token against the root
+ // CA keys. A token that was valid at presentation time but has since
+ // crossed its TTL boundary will fail `verify_token_distinguish_expiry`
+ // with `TokenExpired`, triggering the transition.
         #[cfg(feature = "native")]
         {
             CoreHandle::spawn_token_expiry_monitor_loop(
@@ -1402,29 +1402,29 @@ impl CoreHandle {
         Ok(handle)
     }
 
-    // ─── Schema definition map builder ─────────────────────────────────────────
-    //
-    // Build the `BTreeMap<SchemaIdentifierHash, Schema>` that the
-    // SchemaMigrationEngine uses for parser-backed version-path validation
-    // (Req 20).  This is the production caller of `schema::parser::parse`
-    // and `schema::Schema::identifier_hash` — each deployed schema definition
-    // is round-tripped through print → parse → re-hash to confirm it is
-    // well-formed and its hash is consistent with the version path.
+ // ─── Schema definition map builder ─────────────────────────────────────────
+ //
+ // Build the `BTreeMap<SchemaIdentifierHash, Schema>` that the
+ // SchemaMigrationEngine uses for parser-backed version-path validation
+ // (Req 20). This is the production caller of `schema::parser::parse`
+ // and `schema::Schema::identifier_hash` — each deployed schema definition
+ // is round-tripped through print → parse → re-hash to confirm it is
+ // well-formed and its hash is consistent with the version path.
 
-    /// Build a `BTreeMap` mapping each schema's `identifier_hash()` to the
-    /// `Schema` itself, for use by `SchemaMigrationEngine::verify_version_path`.
-    ///
-    /// Each definition is validated by round-tripping through
-    /// `schema::printer::print` → `schema::parser::parse` →
-    /// `schema::Schema::identifier_hash` to confirm it is parseable and its
-    /// hash is self-consistent (Req 20).
+ /// Build a `BTreeMap` mapping each schema's `identifier_hash()` to the
+ /// `Schema` itself, for use by `SchemaMigrationEngine::verify_version_path`.
+ ///
+ /// Each definition is validated by round-tripping through
+ /// `schema::printer::print` → `schema::parser::parse` →
+ /// `schema::Schema::identifier_hash` to confirm it is parseable and its
+ /// hash is self-consistent (Req 20).
     fn build_schema_def_map(
         defs: &[crate::schema::Schema],
     ) -> std::collections::BTreeMap<crate::schema::hash::SchemaIdentifierHash, crate::schema::Schema>
     {
         let mut map = std::collections::BTreeMap::new();
         for def in defs {
-            // Round-trip validation: print → parse → re-hash.
+ // Round-trip validation: print → parse → re-hash.
             let printed = crate::schema::printer::print(def);
             if let Ok(reparsed) = crate::schema::parser::parse(&printed) {
                 let hash = reparsed.identifier_hash();
@@ -1434,17 +1434,17 @@ impl CoreHandle {
         map
     }
 
-    // ─── Local write/read gate (Req 8.5) ──────────────────────────────────────
+ // ─── Local write/read gate (Req 8.5) ──────────────────────────────────────
 
-    /// Local trust-level gate — REVOKED devices cannot write, read, or query
-    /// (Req 8.5).
-    ///
-    /// This is the production gate that a locally-known REVOKED status must
-    /// trip.  The REVOKED status becomes locally known when the inbound
-    /// pipeline ([`CoreHandle::receive_inbound`] / `receive_inbound_wasm`)
-    /// processes a validated `RevocationDelta` whose target is this device's
-    /// own DID and invokes [`CapabilityManager::apply_revocation`]; from then
-    /// on this gate returns `AuthorisationFailed` for every local I/O.
+ /// Local trust-level gate — REVOKED devices cannot write, read, or query
+ /// (Req 8.5).
+ ///
+ /// This is the production gate that a locally-known REVOKED status must
+ /// trip. The REVOKED status becomes locally known when the inbound
+ /// pipeline ([`CoreHandle::receive_inbound`] / `receive_inbound_wasm`)
+ /// processes a validated `RevocationDelta` whose target is this device's
+ /// own DID and invokes [`CapabilityManager::apply_revocation`]; from then
+ /// on this gate returns `AuthorisationFailed` for every local I/O.
     fn ensure_local_trust_allows_io(&self) -> Result<(), TirBaseError> {
         let cap = self
             .capability
@@ -1460,26 +1460,26 @@ impl CoreHandle {
         Ok(())
     }
 
-    // ─── Durability receipt issuance (Subphase 4.5) ───────────────────────────
+ // ─── Durability receipt issuance (Subphase 4.5) ───────────────────────────
 
-    /// Issue a signed `DurabilityReceipt` for a peer Delta this device has just
-    /// merged, and publish it back over the mesh so the author can count this
-    /// device toward Tier-1 quorum (Req 14.1, 14.6).
-    ///
-    /// This is the *genuine* receipt-issuance half of Tier-1 durability: the
-    /// receipt attests "I hold this state" by signing
-    /// `receipt_signing_payload(state_hash = delta.id, receipt_id)` with this
-    /// device's own identity key (the v1 convention `state_hash = delta.id`
-    /// matches what `write()` registers).  The author verifies it against this
-    /// device's DID-resolved public key in
-    /// `DurabilitySubsystem::receive_receipt`.
-    ///
-    /// Best-effort by design (Req 3.3): signing or publish failure is logged,
-    /// not propagated — the merge already succeeded and the local state is
-    /// committed; a lost receipt only means the author waits for another peer.
-    ///
-    /// Production caller: [`CoreHandle::receive_inbound`] (native), invoked
-    /// after a peer Delta reports `MergeOutcome::Merged` (Subphase 4.5).
+ /// Issue a signed `DurabilityReceipt` for a peer Delta this device has just
+ /// merged, and publish it back over the mesh so the author can count this
+ /// device toward Tier-1 quorum (Req 14.1, 14.6).
+ ///
+ /// This is the *genuine* receipt-issuance half of Tier-1 durability: the
+ /// receipt attests "I hold this state" by signing
+ /// `receipt_signing_payload(state_hash = delta.id, receipt_id)` with this
+ /// device's own identity key (the v1 convention `state_hash = delta.id`
+ /// matches what `write()` registers). The author verifies it against this
+ /// device's DID-resolved public key in
+ /// `DurabilitySubsystem::receive_receipt`.
+ ///
+ /// Best-effort by design (Req 3.3): signing or publish failure is logged,
+ /// not propagated — the merge already succeeded and the local state is
+ /// committed; a lost receipt only means the author waits for another peer.
+ ///
+ /// Production caller: [`CoreHandle::receive_inbound`] (native), invoked
+ /// after a peer Delta reports `MergeOutcome::Merged` (Subphase 4.5).
     #[cfg(feature = "native")]
     fn issue_durability_receipt(&self, state_hash: &DeltaId) {
         use crate::durability::receipt::{receipt_signing_payload, DurabilityReceipt};
@@ -1503,10 +1503,10 @@ impl CoreHandle {
             state_hash: *state_hash,
             issuer_did: self.identity.did().to_string(),
             issuer_signature,
-            // No squad/tunnel_sector configured on this device (v1); with
-            // Anchor_Attested_Location disabled the receipt is counted by its
-            // (absent) declared tag — untagged peers fall back to flat K-of-N
-            // diversity (Req 14.5).
+ // No squad/tunnel_sector configured on this device (v1); with
+ // Anchor_Attested_Location disabled the receipt is counted by its
+ // (absent) declared tag — untagged peers fall back to flat K-of-N
+ // diversity (Req 14.5).
             spatial_tag: None,
             beacon_token: None,
             issued_at: now_micros(),
@@ -1528,19 +1528,19 @@ impl CoreHandle {
         }
     }
 
-    // ─── Write ────────────────────────────────────────────────────────────────
+ // ─── Write ────────────────────────────────────────────────────────────────
 
-    /// Write a record to a table (Req 2.1, 2.3, 3.2).
+ /// Write a record to a table (Req 2.1, 2.3, 3.2).
     pub async fn write(
         &self,
         table: &str,
         key: &str,
         data: serde_json::Value,
     ) -> Result<WriteResult, TirBaseError> {
-        // 1. Trust level gate — REVOKED devices cannot write (Req 8.5).
+ // 1. Trust level gate — REVOKED devices cannot write (Req 8.5).
         self.ensure_local_trust_allows_io()?;
 
-        // 2. Write to local store inside a SQLite transaction (Req 3.6).
+ // 2. Write to local store inside a SQLite transaction (Req 3.6).
         #[cfg(feature = "native")]
         {
             self.store
@@ -1551,9 +1551,9 @@ impl CoreHandle {
                 .write(table, key, &data)?;
         }
 
-        // 2b. Write to the IndexedDB-backed store on WASM (Req 3.1, 3.3).
-        //     `LocalStore::write` awaits the IndexedDB transaction, so the
-        //     write is durable before `write()` returns (Subphase 6.3).
+ // 2b. Write to the IndexedDB-backed store on WASM (Req 3.1, 3.3).
+ // `LocalStore::write` awaits the IndexedDB transaction, so the
+ // write is durable before `write()` returns (Subphase 6.3).
         #[cfg(not(feature = "native"))]
         {
             self.store
@@ -1565,14 +1565,14 @@ impl CoreHandle {
                 .await?;
         }
 
-        // 3a. Human-reaction auto-tag decision (Req 19.5).
-        //
-        // Look up live contamination and quarantine state *before* the Delta
-        // is signed, and bake the tag into the signed payload via
-        // `produce_delta_with_tags`: `canonical_bytes()` serialises `tags`, so
-        // a tag appended to an already-signed Delta would invalidate its own
-        // signature and every verifier — mesh peers and the Side-Car replay
-        // path (Req 19.3) — would reject the tagged write.
+ // 3a. Human-reaction auto-tag decision (Req 19.5).
+ //
+ // Look up live contamination and quarantine state *before* the Delta
+ // is signed, and bake the tag into the signed payload via
+ // `produce_delta_with_tags`: `canonical_bytes()` serialises `tags`, so
+ // a tag appended to an already-signed Delta would invalidate its own
+ // signature and every verifier — mesh peers and the Side-Car replay
+ // path (Req 19.3) — would reject the tagged write.
         let local_projection_contaminated = self
             .cce
             .lock()
@@ -1610,15 +1610,15 @@ impl CoreHandle {
             None
         };
 
-        // 3b. Produce a signed Delta with real Automerge binary content.
-        //
-        // On native, the write path calls `CrdtEngine::write_scalar` to apply
-        // the value to the engine's Automerge document and returns the saved
-        // binary bytes. These bytes carry real Automerge format (not a JSON
-        // envelope), so a peer receiving this Delta through `CrdtEngine::apply`
-        // exercises the full Automerge merge + LWW/RGA read-back verification
-        // (Subphase 6.1 — Req 4.5/4.5a), rather than falling through to the
-        // JSON-envelope projection path.
+ // 3b. Produce a signed Delta with real Automerge binary content.
+ //
+ // On native, the write path calls `CrdtEngine::write_scalar` to apply
+ // the value to the engine's Automerge document and returns the saved
+ // binary bytes. These bytes carry real Automerge format (not a JSON
+ // envelope), so a peer receiving this Delta through `CrdtEngine::apply`
+ // exercises the full Automerge merge + LWW/RGA read-back verification
+ // (Subphase 6.1 — Req 4.5/4.5a), rather than falling through to the
+ // JSON-envelope projection path.
         #[cfg(feature = "native")]
         let compacted;
         #[cfg(not(feature = "native"))]
@@ -1633,14 +1633,14 @@ impl CoreHandle {
                 })?;
             let bytes = crdt.write_scalar(table, key, &data)?;
 
-            // Trigger compaction when the table's Delta change count exceeds its
-            // configured threshold (Req 3.4, 3.5).  Production caller:
-            // CoreHandle::write → CrdtEngine::maybe_compact → compact_table
-            // (store/compaction.rs:45).  Compaction failure is non-fatal.
-            // When compaction runs the Delta's bytes are now compacted from
-            // the hot read path — the just-registered cloud queue entry must
-            // be marked so `run_cloud_sync_cycle` re-fetches via the DAG
-            // refetch callback (Req 14.8, 16.8).
+ // Trigger compaction when the table's Delta change count exceeds its
+ // configured threshold (Req 3.4, 3.5). Production caller:
+ // CoreHandle::write → CrdtEngine::maybe_compact → compact_table
+ // (store/compaction.rs:45). Compaction failure is non-fatal.
+ // When compaction runs the Delta's bytes are now compacted from
+ // the hot read path — the just-registered cloud queue entry must
+ // be marked so `run_cloud_sync_cycle` re-fetches via the DAG
+ // refetch callback (Req 14.8, 16.8).
             let policy = crdt.compaction_policy_for(table);
             compacted = crdt.maybe_compact(table, &policy).unwrap_or(false);
 
@@ -1689,8 +1689,8 @@ impl CoreHandle {
                 )?
         };
 
-        // WASM build uses the real CrdtEngine (in-memory, no SQLite) to produce
-        // a properly signed Delta with causal parent tracking.
+ // WASM build uses the real CrdtEngine (in-memory, no SQLite) to produce
+ // a properly signed Delta with causal parent tracking.
         #[cfg(not(feature = "native"))]
         let delta = {
             self.crdt
@@ -1706,12 +1706,12 @@ impl CoreHandle {
                 )?
         };
 
-        // 3b. WASM: record the produced Delta as authored by the local device
-        //     (Subphase 6.3) so the revocation path can CCE-tag the actual
-        //     authored Delta IDs (Req 10.1), and record the delta→row mapping
-        //     so the WASM CCE's affected-row resolution sees locally written
-        //     rows (mirrors the `record_delta_row` calls the inbound arm makes
-        //     when it projects a peer Delta).
+ // 3b. WASM: record the produced Delta as authored by the local device
+ // (Subphase 6.3) so the revocation path can CCE-tag the actual
+ // authored Delta IDs (Req 10.1), and record the delta→row mapping
+ // so the WASM CCE's affected-row resolution sees locally written
+ // rows (mirrors the `record_delta_row` calls the inbound arm makes
+ // when it projects a peer Delta).
         #[cfg(not(feature = "native"))]
         {
             if let Ok(mut rev) = self.revocation.lock() {
@@ -1720,11 +1720,11 @@ impl CoreHandle {
             crate::store::projection::record_delta_row(&delta.id, table, key);
         }
 
-        // 4. If the write was auto-tagged, register the new Delta as a
-        // contamination root with the CCE so the ICO's contaminated_deltas and
-        // affected_rows are extended to include it (Req 19.5).  The tag itself
-        // is already inside the signed payload (step 3a) — this is the CCE
-        // bookkeeping side effect.
+ // 4. If the write was auto-tagged, register the new Delta as a
+ // contamination root with the CCE so the ICO's contaminated_deltas and
+ // affected_rows are extended to include it (Req 19.5). The tag itself
+ // is already inside the signed payload (step 3a) — this is the CCE
+ // bookkeeping side effect.
         if let Some(hr_incident_id) = human_reaction_tag.map(|tag| match tag {
             crate::crdt::delta::DeltaTag::ContaminatedByHumanReaction { incident_id } => {
                 incident_id
@@ -1748,7 +1748,7 @@ impl CoreHandle {
                 });
         }
 
-        // 5. Register with durability subsystem (adds to cloud outbound queue).
+ // 5. Register with durability subsystem (adds to cloud outbound queue).
         let delta_bytes = serde_json::to_vec(&delta).unwrap_or_default();
         self.durability
             .lock()
@@ -1763,23 +1763,23 @@ impl CoreHandle {
                 BTreeMap::new(),
             )?;
 
-        // 5a. If compaction ran during this write, mark the just-registered
-        // cloud queue entry as compacted so `run_cloud_sync_cycle` knows to
-        // re-fetch bytes from the DAG before sending (Req 14.8, 16.8).
+ // 5a. If compaction ran during this write, mark the just-registered
+ // cloud queue entry as compacted so `run_cloud_sync_cycle` knows to
+ // re-fetch bytes from the DAG before sending (Req 14.8, 16.8).
         if compacted {
             if let Ok(mut durability) = self.durability.lock() {
                 durability.cloud_queue_mut().mark_compacted(&delta.id);
             }
         }
 
-        // 5b. Side-Car capture (Req 19.2).  A write made while the device's
-        // current schema is under a corruption window — a revoked (corrupted)
-        // migration produced it — is preserved byte-for-byte in the Side-Car
-        // Ledger, scoped to the corrupting migration's ID, so a corrected
-        // migration can replay it against the corrected projection instead of
-        // silently losing it.  Best-effort by design: the local store write
-        // and durability registration above are already committed, and a
-        // capture failure must not fail the user's write.
+ // 5b. Side-Car capture (Req 19.2). A write made while the device's
+ // current schema is under a corruption window — a revoked (corrupted)
+ // migration produced it — is preserved byte-for-byte in the Side-Car
+ // Ledger, scoped to the corrupting migration's ID, so a corrected
+ // migration can replay it against the corrected projection instead of
+ // silently losing it. Best-effort by design: the local store write
+ // and durability registration above are already committed, and a
+ // capture failure must not fail the user's write.
         #[cfg(feature = "native")]
         match self
             .migration
@@ -1799,8 +1799,8 @@ impl CoreHandle {
                 );
             }
             Ok(None) => {
-                // No corruption window active for the current schema — nothing
-                // to capture.  This is the common case.
+ // No corruption window active for the current schema — nothing
+ // to capture. This is the common case.
             }
             Err(e) => {
                 eprintln!("[write] Side-Car capture failed (best-effort): {e}");
@@ -1840,12 +1840,12 @@ impl CoreHandle {
             }
         }
 
-        // 6. Publish outbound — forward the prepared Delta payloads to the
-        // Swarm polling task, which publishes them to the shared Gossipsub
-        // topic (Req 5.1).  Best-effort by design: the local store write and
-        // durability registration above are already committed, and a device
-        // must keep operating while the mesh is unavailable (Req 3.3), so a
-        // publish failure is logged rather than failing the write.
+ // 6. Publish outbound — forward the prepared Delta payloads to the
+ // Swarm polling task, which publishes them to the shared Gossipsub
+ // topic (Req 5.1). Best-effort by design: the local store write and
+ // durability registration above are already committed, and a device
+ // must keep operating while the mesh is unavailable (Req 3.3), so a
+ // publish failure is logged rather than failing the write.
         #[cfg(feature = "native")]
         if let Err(e) = self
             .transport
@@ -1861,7 +1861,7 @@ impl CoreHandle {
             );
         }
 
-        // 7. Collect unverified warning (Req 8.4).
+ // 7. Collect unverified warning (Req 8.4).
         let unverified_warning = self
             .capability
             .lock()
@@ -1877,11 +1877,11 @@ impl CoreHandle {
         })
     }
 
-    // ─── Read ─────────────────────────────────────────────────────────────────
+ // ─── Read ─────────────────────────────────────────────────────────────────
 
-    /// Read a single record from a table by key (Req 2.1, 3.3).
+ /// Read a single record from a table by key (Req 2.1, 3.3).
     pub async fn read(&self, table: &str, key: &str) -> Result<QueryResult, TirBaseError> {
-        // 1. Trust level gate — REVOKED devices cannot read (Req 8.5).
+ // 1. Trust level gate — REVOKED devices cannot read (Req 8.5).
         self.ensure_local_trust_allows_io()?;
 
         #[cfg(feature = "native")]
@@ -1931,15 +1931,15 @@ impl CoreHandle {
         })
     }
 
-    // ─── Query ────────────────────────────────────────────────────────────────
+ // ─── Query ────────────────────────────────────────────────────────────────
 
-    /// Query multiple records from a table with an optional filter (Req 2.1).
+ /// Query multiple records from a table with an optional filter (Req 2.1).
     pub async fn query(
         &self,
         table: &str,
         filter: Option<serde_json::Value>,
     ) -> Result<Vec<QueryResult>, TirBaseError> {
-        // 1. Trust level gate — REVOKED devices cannot query (Req 8.5).
+ // 1. Trust level gate — REVOKED devices cannot query (Req 8.5).
         self.ensure_local_trust_allows_io()?;
 
         #[cfg(feature = "native")]
@@ -1986,9 +1986,9 @@ impl CoreHandle {
         Ok(results)
     }
 
-    // ─── Trust level ──────────────────────────────────────────────────────────
+ // ─── Trust level ──────────────────────────────────────────────────────────
 
-    /// The current Trust_Level of the local device (Req 2.4).
+ /// The current Trust_Level of the local device (Req 2.4).
     pub fn trust_level(&self) -> TrustLevel {
         self.capability
             .lock()
@@ -1996,20 +1996,20 @@ impl CoreHandle {
             .unwrap_or(TrustLevel::Unverified)
     }
 
-    /// Present a hex-encoded Biscuit token for verification and update the
-    /// device's TrustLevel accordingly (Req 8.3, 8.4, 8.8).
-    ///
-    /// Decodes `token_hex` into bytes, locks the capability manager, and calls
-    /// `CapabilityManager::present_token`.  The token is verified against all
-    /// registered root CA keys:
-    /// - Valid token → `Verified`
-    /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
-    /// - Invalid token (signature/parse failure) → `Unverified` without
-    ///   state transition (Req 8.8)
-    /// - No root CA keys registered → `AuthorisationFailed` error
-    ///
-    /// Production caller: native host apps call this directly; the WASM SDK
-    /// calls `core_present_token`.
+ /// Present a hex-encoded Biscuit token for verification and update the
+ /// device's TrustLevel accordingly (Req 8.3, 8.4, 8.8).
+ ///
+ /// Decodes `token_hex` into bytes, locks the capability manager, and calls
+ /// `CapabilityManager::present_token`. The token is verified against all
+ /// registered root CA keys:
+ /// - Valid token → `Verified`
+ /// - Expired token → `Unverified` (via `on_token_expired`, Req 8.4)
+ /// - Invalid token (signature/parse failure) → `Unverified` without
+ /// state transition (Req 8.8)
+ /// - No root CA keys registered → `AuthorisationFailed` error
+ ///
+ /// Production caller: native host apps call this directly; the WASM SDK
+ /// calls `core_present_token`.
     pub fn present_biscuit_token(&self, token_hex: &str) -> Result<TrustLevel, TirBaseError> {
         let token_bytes =
             hex::decode(token_hex).map_err(|e| TirBaseError::AuthorisationFailed {
@@ -2032,9 +2032,9 @@ impl CoreHandle {
         capability.present_token(&token_bytes, now)
     }
 
-    // ─── Mesh status ──────────────────────────────────────────────────────────
+ // ─── Mesh status ──────────────────────────────────────────────────────────
 
-    /// Mesh connection status and peer count (Req 2.5).
+ /// Mesh connection status and peer count (Req 2.5).
     pub fn mesh_status(&self) -> MeshStatus {
         let peers = self
             .transport
@@ -2054,38 +2054,38 @@ impl CoreHandle {
         }
     }
 
-    /// Subscribe to the diagnostic broadcast channel.
-    ///
-    /// Returns a new receiver that will receive all future diagnostic entries
-    /// sent to this handle's channel.
+ /// Subscribe to the diagnostic broadcast channel.
+ ///
+ /// Returns a new receiver that will receive all future diagnostic entries
+ /// sent to this handle's channel.
     pub fn subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<DiagnosticEntry> {
         self.diagnostics_channel.subscribe()
     }
 
-    /// Subscribe to structured Delta rejection failure records (Req 7.4/7.5).
-    ///
-    /// Returns a new receiver that will receive every rejection record the
-    /// CRDT engine emits from here on — the typed, UTC-timestamped
-    /// replacement for the former `eprintln!` rejection logs (Subphase 6.2).
-    /// Records carry the sender DID and the reason the Delta was discarded
-    /// (`RevokedAuthor`, `MissingSignature`, `DidResolutionFailed` — the
-    /// distinct Req 7.5 record — or `SignatureVerificationFailed` — Req 7.4).
-    ///
-    /// `pub(crate)`: rejection records are internal diagnostics for native
-    /// host applications and in-crate integration tests; the WASM SDK target
-    /// observes rejections through the retained engine records instead.
+ /// Subscribe to structured Delta rejection failure records (Req 7.4/7.5).
+ ///
+ /// Returns a new receiver that will receive every rejection record the
+ /// CRDT engine emits from here on — the typed, UTC-timestamped
+ /// replacement for the former `eprintln!` rejection logs (Subphase 6.2).
+ /// Records carry the sender DID and the reason the Delta was discarded
+ /// (`RevokedAuthor`, `MissingSignature`, `DidResolutionFailed` — the
+ /// distinct Req 7.5 record — or `SignatureVerificationFailed` — Req 7.4).
+ ///
+ /// `pub(crate)`: rejection records are internal diagnostics for native
+ /// host applications and in-crate integration tests; the WASM SDK target
+ /// observes rejections through the retained engine records instead.
     pub(crate) fn subscribe_rejection_records(
         &self,
     ) -> tokio::sync::broadcast::Receiver<crate::crdt::failure::DeltaRejectionRecord> {
         self.rejection_records_channel.subscribe()
     }
 
-    /// Return the primary root CA public key for offline Biscuit token verification.
-    ///
-    /// Used by `core_activate_saturate_mode` on the WASM target to verify
-    /// the disaster-alert Biscuit token (Req 13.1, 13.7).
-    /// Returns an empty `Vec<u8>` if no root CA key is configured (explicit
-    /// unconfigured state — verification fails until a key is registered).
+ /// Return the primary root CA public key for offline Biscuit token verification.
+ ///
+ /// Used by `core_activate_saturate_mode` on the WASM target to verify
+ /// the disaster-alert Biscuit token (Req 13.1, 13.7).
+ /// Returns an empty `Vec<u8>` if no root CA key is configured (explicit
+ /// unconfigured state — verification fails until a key is registered).
     pub fn root_ca_public_key(&self) -> Vec<u8> {
         self.capability
             .lock()
@@ -2097,18 +2097,18 @@ impl CoreHandle {
             .unwrap_or_default()
     }
 
-    /// Register an additional root CA public key at runtime, and optionally
-    /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
-    ///
-    /// When `token_bytes` is `Some((token, now_secs))`, the token is verified
-    /// immediately after registration.  A valid token transitions the device's
-    /// `TrustLevel` to `Verified`; an invalid or expired token returns an error
-    /// and leaves the trust level unchanged.
-    ///
-    /// Returns the current `TrustLevel` after the operation.
-    ///
-    /// Production caller: `CoreHandle::register_root_ca_key` → `CapabilityManager::verify_token`
-    /// → `TrustLevelStateMachine::on_valid_token` (Req 8.3).
+ /// Register an additional root CA public key at runtime, and optionally
+ /// verify a Biscuit token against the newly-registered key (Req 8.1, 8.3).
+ ///
+ /// When `token_bytes` is `Some((token, now_secs))`, the token is verified
+ /// immediately after registration. A valid token transitions the device's
+ /// `TrustLevel` to `Verified`; an invalid or expired token returns an error
+ /// and leaves the trust level unchanged.
+ ///
+ /// Returns the current `TrustLevel` after the operation.
+ ///
+ /// Production caller: `CoreHandle::register_root_ca_key` → `CapabilityManager::verify_token`
+ /// → `TrustLevelStateMachine::on_valid_token` (Req 8.3).
     pub fn register_root_ca_key(
         &self,
         key: [u8; 32],
@@ -2123,15 +2123,15 @@ impl CoreHandle {
         capability.register_root_ca_key(key, token_bytes)
     }
 
-    /// Register the deployment's Migration CA public key at runtime (Req 18.2).
-    ///
-    /// Takes effect immediately: subsequent inbound Migration_Deltas verify
-    /// their CA signature against this key, replacing any key registered at
-    /// init from `DeploymentConfig.migration_ca_public_key`.  Mirrors
-    /// [`CoreHandle::register_root_ca_key`] for the SchemaMigrationEngine.
-    ///
-    /// Production callers: native host applications and the
-    /// `core_register_migration_ca_key` WASM export (Subphase 5.1).
+ /// Register the deployment's Migration CA public key at runtime (Req 18.2).
+ ///
+ /// Takes effect immediately: subsequent inbound Migration_Deltas verify
+ /// their CA signature against this key, replacing any key registered at
+ /// init from `DeploymentConfig.migration_ca_public_key`. Mirrors
+ /// [`CoreHandle::register_root_ca_key`] for the SchemaMigrationEngine.
+ ///
+ /// Production callers: native host applications and the
+ /// `core_register_migration_ca_key` WASM export (Subphase 5.1).
     pub fn register_migration_ca_key(&self, key: [u8; 32]) -> Result<(), TirBaseError> {
         let mut migration =
             self.migration
@@ -2143,34 +2143,34 @@ impl CoreHandle {
         Ok(())
     }
 
-    // ─── Manager operations — Revocation (Req 9) ──────────────────────────────
+ // ─── Manager operations — Revocation (Req 9) ──────────────────────────────
 
-    /// Initiate a revocation of `target_did` from this Manager device (Req 9.1).
-    ///
-    /// This is the native (non-WASM-only) entry point to initiate a revocation;
-    /// it is the counterpart of the `core_initiate_revocation` WASM export, which
-    /// delegates here so both build targets share one implementation.  The local
-    /// device acts as one Manager and submits its own partial `RevocationDelta`
-    /// signature for the target DID.
-    ///
-    /// Mirrors the WASM export's functionality:
-    /// 1. `manager_token` and `target_did` must be non-blank (the same gate the
-    ///    WASM export applies — full Biscuit authorisation of the calling
-    ///    operator is the caller's responsibility on the native side).
-    /// 2. Produces a partial `RevocationDelta` signed by this device's identity
-    ///    (`IdentityManager`) via `RevocationSubsystem::produce_partial_delta`.
-    /// 3. Gossips the partial delta at HIGH priority so peer Manager devices
-    ///    can accumulate signatures (Req 9.1 mesh-accumulated model).
-    /// 4. Accumulates the signature locally via
-    ///    `RevocationSubsystem::process_incoming_delta` — the same subsystem call
-    ///    an inbound partial delta from a peer takes, so this device's M-of-N
-    ///    bookkeeping stays consistent with what it learns over the mesh.
-    ///
-    /// When the local contribution completes the threshold (e.g. a 1-of-1
-    /// config), the same side effects as the inbound revocation path run:
-    /// HIGH-priority gossip of the complete delta (Req 9.2), CRDT rejection of
-    /// future Deltas authored by the target (Req 8.6), and — when the target is
-    /// this device itself — the local REVOKED I/O gate (Req 8.5).
+ /// Initiate a revocation of `target_did` from this Manager device (Req 9.1).
+ ///
+ /// This is the native (non-WASM-only) entry point to initiate a revocation;
+ /// it is the counterpart of the `core_initiate_revocation` WASM export, which
+ /// delegates here so both build targets share one implementation. The local
+ /// device acts as one Manager and submits its own partial `RevocationDelta`
+ /// signature for the target DID.
+ ///
+ /// Mirrors the WASM export's functionality:
+ /// 1. `manager_token` and `target_did` must be non-blank (the same gate the
+ /// WASM export applies — full Biscuit authorisation of the calling
+ /// operator is the caller's responsibility on the native side).
+ /// 2. Produces a partial `RevocationDelta` signed by this device's identity
+ /// (`IdentityManager`) via `RevocationSubsystem::produce_partial_delta`.
+ /// 3. Gossips the partial delta at HIGH priority so peer Manager devices
+ /// can accumulate signatures (Req 9.1 mesh-accumulated model).
+ /// 4. Accumulates the signature locally via
+ /// `RevocationSubsystem::process_incoming_delta` — the same subsystem call
+ /// an inbound partial delta from a peer takes, so this device's M-of-N
+ /// bookkeeping stays consistent with what it learns over the mesh.
+ ///
+ /// When the local contribution completes the threshold (e.g. a 1-of-1
+ /// config), the same side effects as the inbound revocation path run:
+ /// HIGH-priority gossip of the complete delta (Req 9.2), CRDT rejection of
+ /// future Deltas authored by the target (Req 8.6), and — when the target is
+ /// this device itself — the local REVOKED I/O gate (Req 8.5).
     pub fn initiate_revocation(
         &self,
         target_did: &str,
@@ -2197,7 +2197,7 @@ impl CoreHandle {
         let capability_arc = self.capability.clone();
         let cce_arc = self.cce.clone();
 
-        // 1. Produce this Manager's partial RevocationDelta (Req 9.1).
+ // 1. Produce this Manager's partial RevocationDelta (Req 9.1).
         let partial = revocation_arc
             .lock()
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -2205,11 +2205,11 @@ impl CoreHandle {
             })?
             .produce_partial_delta(target_did.clone(), manager_did, &signing_key)?;
 
-        // 2. Gossip the partial delta at HIGH priority so peer Manager devices
-        //    can accumulate signatures (Req 9.1 — mesh-accumulated model).
-        //    On WASM there is no Swarm scheduler: the JS transport layer handles
-        //    peer messaging, so nothing is enqueued here (same as the WASM
-        //    export's behaviour).
+ // 2. Gossip the partial delta at HIGH priority so peer Manager devices
+ // can accumulate signatures (Req 9.1 — mesh-accumulated model).
+ // On WASM there is no Swarm scheduler: the JS transport layer handles
+ // peer messaging, so nothing is enqueued here (same as the WASM
+ // export's behaviour).
         #[cfg(feature = "native")]
         {
             if let Ok(mut transport) = transport_arc.lock() {
@@ -2217,8 +2217,8 @@ impl CoreHandle {
             }
         }
 
-        // 3. Accumulate this signature locally — identical to processing an
-        //    inbound partial delta from a peer.
+ // 3. Accumulate this signature locally — identical to processing an
+ // inbound partial delta from a peer.
         let status = {
             let mut rev =
                 revocation_arc
@@ -2229,8 +2229,8 @@ impl CoreHandle {
             rev.process_incoming_delta(
                 &partial,
                 &mut |applied_did, complete_delta| {
-                    // Req 9.2: the threshold is now met — gossip the complete
-                    // RevocationDelta at HIGH priority.
+ // Req 9.2: the threshold is now met — gossip the complete
+ // RevocationDelta at HIGH priority.
                     #[cfg(feature = "native")]
                     {
                         eprintln!(
@@ -2242,15 +2242,15 @@ impl CoreHandle {
                     }
                     #[cfg(not(feature = "native"))]
                     {
-                        // No Swarm scheduler on WASM — the JS transport layer
-                        // handles peer messaging (best-effort, Req 9.2).
+ // No Swarm scheduler on WASM — the JS transport layer
+ // handles peer messaging (best-effort, Req 9.2).
                         eprintln!(
                             "[initiate] RevocationDelta threshold met for {applied_did} (WASM: JS transport handles gossip)"
                         );
                     }
                 },
                 &mut |revoked_did, delta_ids| {
-                    // Req 10.1: tag all Deltas authored by the revoked DID.
+ // Req 10.1: tag all Deltas authored by the revoked DID.
                     #[cfg(feature = "native")]
                     {
                         if let Ok(mut cce) = cce_arc.lock() {
@@ -2266,11 +2266,11 @@ impl CoreHandle {
                     }
                     #[cfg(not(feature = "native"))]
                     {
-                        // Req 10.1 parity (Subphase 6.3): CCE-tag every Delta
-                        // authored by the revoked DID in the WASM CCE's
-                        // in-memory DAG + tag store — the `delta_ids` here are
-                        // the ACTUAL authored Delta IDs supplied by the WASM
-                        // RevocationSubsystem's per-author index.
+ // Req 10.1 parity (Subphase 6.3): CCE-tag every Delta
+ // authored by the revoked DID in the WASM CCE's
+ // in-memory DAG + tag store — the `delta_ids` here are
+ // the ACTUAL authored Delta IDs supplied by the WASM
+ // RevocationSubsystem's per-author index.
                         eprintln!(
                             "[initiate] CCE tagging {} deltas for revoked DID {revoked_did} (WASM)",
                             delta_ids.len()
@@ -2290,10 +2290,10 @@ impl CoreHandle {
             )?
         };
 
-        // 4. If this contribution completed the threshold, apply the same local
-        //    REVOKED side effects as the inbound revocation path.
+ // 4. If this contribution completed the threshold, apply the same local
+ // REVOKED side effects as the inbound revocation path.
         if status == crate::auth::RevocationStatus::Applied {
-            // Req 8.6 — reject future inbound Deltas authored by the target.
+ // Req 8.6 — reject future inbound Deltas authored by the target.
             crdt_arc
                 .lock()
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -2304,8 +2304,8 @@ impl CoreHandle {
                 "[initiate] CRDT engine now rejects Deltas authored by revoked DID {target_did}"
             );
 
-            // Req 8.5 — a revocation targeting THIS device makes the REVOKED
-            // status locally known: trip the local write/read/query gate.
+ // Req 8.5 — a revocation targeting THIS device makes the REVOKED
+ // status locally known: trip the local write/read/query gate.
             if target_did == self.identity.did() {
                 capability_arc
                     .lock()
@@ -2322,20 +2322,20 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// Query the last-known revocation status of a device (Req 9.5).
-    ///
-    /// Returns the `DeviceRevocationStatus` recorded by the `RevocationSubsystem`
-    /// for `device_did` — the last-known `TrustLevel` of the device plus the UTC
-    /// timestamp (microseconds) of the last `RevocationDelta` receipt. This is
-    /// the data that lets an isolated device surface its last-known state even
-    /// before the Biscuit TTL expires (Req 9.5).
-    ///
-    /// Returns `Ok(None)` when no `RevocationDelta` has ever been received for
-    /// the device — the subsystem has no record of it. The device-status record
-    /// is written when a revocation is *applied* (M-of-N reached), so a pending
-    /// revocation with fewer than M signatures still reports `Ok(None)` here;
-    /// use the accumulation state exposed via `core_revocation_status` for the
-    /// in-flight M-of-N picture.
+ /// Query the last-known revocation status of a device (Req 9.5).
+ ///
+ /// Returns the `DeviceRevocationStatus` recorded by the `RevocationSubsystem`
+ /// for `device_did` — the last-known `TrustLevel` of the device plus the UTC
+ /// timestamp (microseconds) of the last `RevocationDelta` receipt. This is
+ /// the data that lets an isolated device surface its last-known state even
+ /// before the Biscuit TTL expires (Req 9.5).
+ ///
+ /// Returns `Ok(None)` when no `RevocationDelta` has ever been received for
+ /// the device — the subsystem has no record of it. The device-status record
+ /// is written when a revocation is *applied* (M-of-N reached), so a pending
+ /// revocation with fewer than M signatures still reports `Ok(None)` here;
+ /// use the accumulation state exposed via `core_revocation_status` for the
+ /// in-flight M-of-N picture.
     pub fn device_revocation_status(
         &self,
         device_did: &str,
@@ -2349,19 +2349,19 @@ impl CoreHandle {
         Ok(rev.device_status(device_did).cloned())
     }
 
-    // ─── Fleet inventory (PV-11.3, task 37.5) ─────────────────────────────────
-    //
-    // The fleet inventory is a CRDT collection of provisioned devices.  Local
-    // mutations publish a `FleetInventoryDelta` on `fleet_update_tx` and enqueue
-    // it on the mesh scheduler at HIGH priority; inbound deltas are merged by
-    // `apply_inbound_fleet_update`, which applies the local revocation side
-    // effects and re-broadcasts only when the merge actually changed state.
+ // ─── Fleet inventory (PV-11.3) ─────────────────────────────────
+ //
+ // The fleet inventory is a CRDT collection of provisioned devices. Local
+ // mutations publish a `FleetInventoryDelta` on `fleet_update_tx` and enqueue
+ // it on the mesh scheduler at HIGH priority; inbound deltas are merged by
+ // `apply_inbound_fleet_update`, which applies the local revocation side
+ // effects and re-broadcasts only when the merge actually changed state.
 
-    /// Provision a device into the fleet inventory (PV-11.3, CLAIM-37.5).
-    ///
-    /// The provisioning payload must serialise to at most 64 KiB.  A device
-    /// that is already revoked cannot be re-provisioned.  On success the
-    /// resulting CRDT delta is published for gossip to connected peers.
+ /// Provision a device into the fleet inventory (PV-11.3, CLAIM-37.5).
+ ///
+ /// The provisioning payload must serialise to at most 64 KiB. A device
+ /// that is already revoked cannot be re-provisioned. On success the
+ /// resulting CRDT delta is published for gossip to connected peers.
     pub fn fleet_provision_device(
         &self,
         provisioning: crate::fleet::DeviceProvisioning,
@@ -2390,13 +2390,13 @@ impl CoreHandle {
         Ok(entry)
     }
 
-    /// Revoke a device in the fleet inventory (PV-11.3, CLAIM-37.5).
-    ///
-    /// Revocation is terminal in the CRDT and takes effect locally at once:
-    /// the CRDT engine rejects future inbound Deltas authored by the revoked
-    /// DID, and if the target is this device its own write/read/query gate is
-    /// tripped.  Returns `true` when this call changed the inventory, `false`
-    /// when the device was already revoked (idempotent no-op).
+ /// Revoke a device in the fleet inventory (PV-11.3, CLAIM-37.5).
+ ///
+ /// Revocation is terminal in the CRDT and takes effect locally at once:
+ /// the CRDT engine rejects future inbound Deltas authored by the revoked
+ /// DID, and if the target is this device its own write/read/query gate is
+ /// tripped. Returns `true` when this call changed the inventory, `false`
+ /// when the device was already revoked (idempotent no-op).
     pub fn fleet_revoke_device(&self, device_id: &str, reason: &str) -> Result<bool, TirBaseError> {
         let now = now_secs();
         let updated_by = self.identity.did().to_string();
@@ -2430,7 +2430,7 @@ impl CoreHandle {
         Ok(true)
     }
 
-    /// Snapshot of the whole fleet inventory (PV-11.3).
+ /// Snapshot of the whole fleet inventory (PV-11.3).
     pub fn fleet_inventory_snapshot(&self) -> Vec<crate::fleet::FleetEntry> {
         self.fleet
             .lock()
@@ -2438,7 +2438,7 @@ impl CoreHandle {
             .unwrap_or_default()
     }
 
-    /// Look up one device in the fleet inventory.
+ /// Look up one device in the fleet inventory.
     pub fn fleet_device(&self, device_id: &str) -> Option<crate::fleet::FleetEntry> {
         self.fleet
             .lock()
@@ -2446,7 +2446,7 @@ impl CoreHandle {
             .and_then(|fleet| fleet.get(device_id).cloned())
     }
 
-    /// `true` when the device is known to the fleet inventory as revoked.
+ /// `true` when the device is known to the fleet inventory as revoked.
     pub fn fleet_is_revoked(&self, device_id: &str) -> bool {
         self.fleet
             .lock()
@@ -2454,8 +2454,8 @@ impl CoreHandle {
             .unwrap_or(false)
     }
 
-    /// Current fleet inventory snapshot hash (the fleet-precondition hash a
-    /// Contract migration commits to).
+ /// Current fleet inventory snapshot hash (the fleet-precondition hash a
+ /// Contract migration commits to).
     pub fn fleet_snapshot_hash(&self) -> [u8; 32] {
         self.fleet
             .lock()
@@ -2463,15 +2463,15 @@ impl CoreHandle {
             .unwrap_or([0u8; 32])
     }
 
-    /// Subscribe to fleet-inventory updates emitted for gossip (PV-11.3).
+ /// Subscribe to fleet-inventory updates emitted for gossip (PV-11.3).
     pub fn subscribe_fleet_updates(
         &self,
     ) -> tokio::sync::broadcast::Receiver<crate::fleet::FleetInventoryDelta> {
         self.fleet_update_tx.subscribe()
     }
 
-    /// Publish a fleet delta for gossip: notify subscribers and enqueue it on
-    /// the mesh scheduler at HIGH priority (native).
+ /// Publish a fleet delta for gossip: notify subscribers and enqueue it on
+ /// the mesh scheduler at HIGH priority (native).
     fn publish_fleet_update(&self, update: crate::fleet::FleetInventoryDelta) {
         let _ = self.fleet_update_tx.send(update.clone());
         #[cfg(feature = "native")]
@@ -2480,7 +2480,7 @@ impl CoreHandle {
         }
     }
 
-    /// Apply the local effects of a fleet revocation (PV-11.3, Req 8.5/8.6).
+ /// Apply the local effects of a fleet revocation (PV-11.3, Req 8.5/8.6).
     fn apply_fleet_revocation_side_effects(&self, device_id: &str) -> Result<(), TirBaseError> {
         {
             let mut crdt = self
@@ -2502,12 +2502,12 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// Merge an inbound fleet-inventory delta from a peer (PV-11.3).
-    ///
-    /// Withdrawn entries are impossible: revocation dominates in the CRDT.
-    /// Newly revoked devices get the same local side effects as a local
-    /// revocation, and a merge that changed state is re-broadcast so the
-    /// revocation reaches peers beyond the origin's direct neighbours.
+ /// Merge an inbound fleet-inventory delta from a peer (PV-11.3).
+ ///
+ /// Withdrawn entries are impossible: revocation dominates in the CRDT.
+ /// Newly revoked devices get the same local side effects as a local
+ /// revocation, and a merge that changed state is re-broadcast so the
+ /// revocation reaches peers beyond the origin's direct neighbours.
     pub(crate) fn apply_inbound_fleet_update(
         &self,
         update: crate::fleet::FleetInventoryDelta,
@@ -2546,30 +2546,30 @@ impl CoreHandle {
         report
     }
 
-    // ─── Manager operations — Saturate Mode (Req 13) ─────────────────────────
-    //
-    // Subphase 3.2: activation, heartbeat renewal, and M-of-N termination all
-    // route through the transport's production `SaturateModeStateMachine` —
-    // never through a bare scheduler boolean.  These methods are the shared
-    // WASM + native implementation: the WASM exports in lib.rs
-    // (`core_activate_saturate_mode` / `core_renew_saturate_mode` /
-    // `core_terminate_saturate_mode`) delegate here, and the native build
-    // (Cloud Ledger / host code holding a `CoreHandle`) calls them directly.
-    // Each locks the mesh transport, drives the state machine, and lets the
-    // transport reconcile the DRR scheduler from the resulting state.
+ // ─── Manager operations — Saturate Mode (Req 13) ─────────────────────────
+ //
+ // Subphase 3.2: activation, heartbeat renewal, and M-of-N termination all
+ // route through the transport's production `SaturateModeStateMachine` —
+ // never through a bare scheduler boolean. These methods are the shared
+ // WASM + native implementation: the WASM exports in lib.rs
+ // (`core_activate_saturate_mode` / `core_renew_saturate_mode` /
+ // `core_terminate_saturate_mode`) delegate here, and the native build
+ // (Cloud Ledger / host code holding a `CoreHandle`) calls them directly.
+ // Each locks the mesh transport, drives the state machine, and lets the
+ // transport reconcile the DRR scheduler from the resulting state.
 
-    /// Verify a Manager DISASTER_ALERT Biscuit token for a lease-lifecycle
-    /// event (Req 13.1, 13.4, 13.7) and return the current UTC seconds.
-    ///
-    /// Applies the same gates the WASM export historically applied so the
-    /// shared implementation keeps the same clear error messages: absent or
-    /// empty tokens are rejected as `SignatureVerificationFailed`; an
-    /// unconfigured root CA registry (no key at init or runtime) is reported
-    /// as `AuthorisationFailed`; and a token that fails offline verification
-    /// or lacks the `disaster-alert` caveat is rejected with
-    /// `SignatureVerificationFailed`.  The state machine re-verifies the token
-    /// authoritatively inside the transport — this pre-check only sharpens the
-    /// error the caller sees.
+ /// Verify a Manager DISASTER_ALERT Biscuit token for a lease-lifecycle
+ /// event (Req 13.1, 13.4, 13.7) and return the current UTC seconds.
+ ///
+ /// Applies the same gates the WASM export historically applied so the
+ /// shared implementation keeps the same clear error messages: absent or
+ /// empty tokens are rejected as `SignatureVerificationFailed`; an
+ /// unconfigured root CA registry (no key at init or runtime) is reported
+ /// as `AuthorisationFailed`; and a token that fails offline verification
+ /// or lacks the `disaster-alert` caveat is rejected with
+ /// `SignatureVerificationFailed`. The state machine re-verifies the token
+ /// authoritatively inside the transport — this pre-check only sharpens the
+ /// error the caller sees.
     fn verify_disaster_alert_token(&self, biscuit_token: &[u8]) -> Result<i64, TirBaseError> {
         if biscuit_token.is_empty() {
             return Err(TirBaseError::SignatureVerificationFailed {
@@ -2577,8 +2577,8 @@ impl CoreHandle {
             });
         }
 
-        // Root CA key for offline verification.  Empty = explicit unconfigured
-        // state: no key was registered at init or at runtime.
+ // Root CA key for offline verification. Empty = explicit unconfigured
+ // state: no key was registered at init or at runtime.
         let root_ca_key = self.root_ca_public_key();
         if root_ca_key.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
@@ -2588,7 +2588,7 @@ impl CoreHandle {
 
         let now = now_secs();
 
-        // Verify the token has the disaster-alert caveat (Req 13.1, 13.7).
+ // Verify the token has the disaster-alert caveat (Req 13.1, 13.7).
         match crate::auth::biscuit::verify_and_check_caveat(
             biscuit_token,
             "disaster-alert",
@@ -2603,22 +2603,22 @@ impl CoreHandle {
         }
     }
 
-    /// Activate Saturate_Mode with a DISASTER_ALERT Biscuit token (Req 13.1).
-    ///
-    /// Verifies `biscuit_token` (signature, expiry, `disaster-alert` caveat —
-    /// Req 13.7) and routes the activation through the transport's real
-    /// [`crate::transport::saturate::SaturateModeStateMachine`], which opens a
-    /// 60-minute lease and — on success — puts the DRR scheduler into Saturate
-    /// Mode.  The local device is recorded as the activating Manager on the
-    /// lease.
-    ///
-    /// Any verification failure returns `SignatureVerificationFailed` (or
-    /// `AuthorisationFailed` when no root CA key is configured) and leaves the
-    /// current mode — state machine and scheduler — untouched (Req 13.7).
-    ///
-    /// Production caller on WASM: `core_activate_saturate_mode` (lib.rs).
-    /// Production caller on native: host/server code holding a `CoreHandle`
-    /// (the native counterpart of the WASM export).
+ /// Activate Saturate_Mode with a DISASTER_ALERT Biscuit token (Req 13.1).
+ ///
+ /// Verifies `biscuit_token` (signature, expiry, `disaster-alert` caveat —
+ /// Req 13.7) and routes the activation through the transport's real
+ /// [`crate::transport::saturate::SaturateModeStateMachine`], which opens a
+ /// 60-minute lease and — on success — puts the DRR scheduler into Saturate
+ /// Mode. The local device is recorded as the activating Manager on the
+ /// lease.
+ ///
+ /// Any verification failure returns `SignatureVerificationFailed` (or
+ /// `AuthorisationFailed` when no root CA key is configured) and leaves the
+ /// current mode — state machine and scheduler — untouched (Req 13.7).
+ ///
+ /// Production caller on WASM: `core_activate_saturate_mode` (lib.rs).
+ /// Production caller on native: host/server code holding a `CoreHandle`
+ /// (the native counterpart of the WASM export).
     pub fn activate_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError> {
         let now = self.verify_disaster_alert_token(biscuit_token)?;
         let manager_did = self.identity.did().to_string();
@@ -2630,20 +2630,20 @@ impl CoreHandle {
             .activate_saturate_mode(manager_did, biscuit_token, now)
     }
 
-    /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
-    /// (Req 13.4).
-    ///
-    /// Verifies `biscuit_token` exactly as activation does, then routes the
-    /// renewal through the transport's real
-    /// [`crate::transport::saturate::SaturateModeStateMachine`]: valid only
-    /// while in SATURATE, it extends the lease by 60 minutes from the renewal
-    /// timestamp.  The DRR scheduler remains in Saturate Mode.
-    ///
-    /// Any failure returns `SignatureVerificationFailed` and preserves the
-    /// current mode (Req 13.7).
-    ///
-    /// Production caller on WASM: `core_renew_saturate_mode` (lib.rs).
-    /// Production caller on native: host/server code holding a `CoreHandle`.
+ /// Renew a Saturate_Mode Lease with a heartbeat DISASTER_ALERT token
+ /// (Req 13.4).
+ ///
+ /// Verifies `biscuit_token` exactly as activation does, then routes the
+ /// renewal through the transport's real
+ /// [`crate::transport::saturate::SaturateModeStateMachine`]: valid only
+ /// while in SATURATE, it extends the lease by 60 minutes from the renewal
+ /// timestamp. The DRR scheduler remains in Saturate Mode.
+ ///
+ /// Any failure returns `SignatureVerificationFailed` and preserves the
+ /// current mode (Req 13.7).
+ ///
+ /// Production caller on WASM: `core_renew_saturate_mode` (lib.rs).
+ /// Production caller on native: host/server code holding a `CoreHandle`.
     pub fn renew_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError> {
         let now = self.verify_disaster_alert_token(biscuit_token)?;
         let manager_did = self.identity.did().to_string();
@@ -2655,30 +2655,30 @@ impl CoreHandle {
             .renew_saturate_mode(manager_did, biscuit_token, now)
     }
 
-    /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
-    ///
-    /// `message` is the canonical termination payload the Managers signed
-    /// (callers must share the exact same bytes with every co-signing
-    /// Manager).  This device contributes its own Manager signature over
-    /// `message`; `co_manager_signatures` carries the signatures already
-    /// collected from the remaining Managers `(did:key, raw Ed25519 sig)`.
-    ///
-    /// The transport's real
-    /// [`crate::transport::saturate::SaturateModeStateMachine`] verifies each
-    /// signature against the DID-embedded public key, counts only **distinct**
-    /// valid DIDs, and terminates immediately — clearing the lease and taking
-    /// the DRR scheduler out of Saturate Mode — once the configured threshold
-    /// `M` is met.  Fewer than `M` valid distinct signatures return
-    /// `ThresholdNotMet` and preserve the current mode (invariant (b)).
-    ///
-    /// Note: the codebase models a "Manager" as a DID whose key verifies a
-    /// signature over the termination message — the state machine has no
-    /// separate registry of the N registered Manager DIDs, so co-signatures
-    /// are self-certifying.  This mirrors the `SaturateModeStateMachine`
-    /// contract that Subphase 3.1 established and is unchanged here.
-    ///
-    /// Production caller on WASM: `core_terminate_saturate_mode` (lib.rs).
-    /// Production caller on native: host/server code holding a `CoreHandle`.
+ /// Terminate Saturate_Mode via an M-of-N Manager signature set (Req 13.6).
+ ///
+ /// `message` is the canonical termination payload the Managers signed
+ /// (callers must share the exact same bytes with every co-signing
+ /// Manager). This device contributes its own Manager signature over
+ /// `message`; `co_manager_signatures` carries the signatures already
+ /// collected from the remaining Managers `(did:key, raw Ed25519 sig)`.
+ ///
+ /// The transport's real
+ /// [`crate::transport::saturate::SaturateModeStateMachine`] verifies each
+ /// signature against the DID-embedded public key, counts only **distinct**
+ /// valid DIDs, and terminates immediately — clearing the lease and taking
+ /// the DRR scheduler out of Saturate Mode — once the configured threshold
+ /// `M` is met. Fewer than `M` valid distinct signatures return
+ /// `ThresholdNotMet` and preserve the current mode (invariant (b)).
+ ///
+ /// Note: the codebase models a "Manager" as a DID whose key verifies a
+ /// signature over the termination message — the state machine has no
+ /// separate registry of the N registered Manager DIDs, so co-signatures
+ /// are self-certifying. This mirrors the `SaturateModeStateMachine`
+ /// contract that Subphase 3.1 established and is unchanged here.
+ ///
+ /// Production caller on WASM: `core_terminate_saturate_mode` (lib.rs).
+ /// Production caller on native: host/server code holding a `CoreHandle`.
     pub fn terminate_saturate_mode(
         &self,
         message: &[u8],
@@ -2690,10 +2690,10 @@ impl CoreHandle {
             });
         }
 
-        // The local device signs the canonical termination message with its
-        // own Manager identity, then any co-signatures collected from other
-        // Managers are appended.  Distinctness and validity are enforced by
-        // the state machine when the threshold is counted.
+ // The local device signs the canonical termination message with its
+ // own Manager identity, then any co-signatures collected from other
+ // Managers are appended. Distinctness and validity are enforced by
+ // the state machine when the threshold is counted.
         let manager_did = self.identity.did().to_string();
         let local_signature = self.identity.sign(message)?;
         let mut signatures = Vec::with_capacity(co_manager_signatures.len() + 1);
@@ -2709,30 +2709,30 @@ impl CoreHandle {
             .terminate_saturate_mode(signatures, message, now)
     }
 
-    // ─── Manager operations — Contamination resolution (Req 11.1, 11.2) ────────
-    //
-    // Subphase 14.3: `verify_contamination` and `admin_close_ico` are exposed as
-    // `CoreHandle` methods on both build targets. The WASM exports in lib.rs
-    // delegate to these methods instead of calling the CCE directly, giving
-    // a single shared implementation (mirrors the pattern used by
-    // `initiate_revocation` / `activate_saturate_mode` etc.).
+ // ─── Manager operations — Contamination resolution (Req 11.1, 11.2) ────────
+ //
+ // Subphase 14.3: `verify_contamination` and `admin_close_ico` are exposed as
+ // `CoreHandle` methods on both build targets. The WASM exports in lib.rs
+ // delegate to these methods instead of calling the CCE directly, giving
+ // a single shared implementation (mirrors the pattern used by
+ // `initiate_revocation` / `activate_saturate_mode` etc.).
 
-    /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
-    ///
-    /// Verifies the Manager Biscuit token against the root CA key (extracting
-    /// `expires_at` for expiry enforcement — Req 11.5), signs `root_delta_id`
-    /// with the local device's identity key (self-attesting authN), appends
-    /// `DeltaTag::Resolved` to the root Delta, and if all roots of an ICO are
-    /// now resolved, propagates `DeltaTag::Decontaminated` to every reachable
-    /// descendant.
-    ///
-    /// The caller-supplied `now_secs` is the authoritative wall-clock time used
-    /// for both Biscuit token expiry verification and `verify_manager_auth`'s
-    /// internal expiry gate — no far-future hardcoded values (Subphase 14.4).
-    ///
-    /// Production callers:
-    /// - WASM: `core_verify_data` in lib.rs delegates here.
-    /// - Native: host applications holding a `CoreHandle`.
+ /// Submit a VERIFY_DATA operation for a contamination root (Req 11.1).
+ ///
+ /// Verifies the Manager Biscuit token against the root CA key (extracting
+ /// `expires_at` for expiry enforcement — Req 11.5), signs `root_delta_id`
+ /// with the local device's identity key (self-attesting authN), appends
+ /// `DeltaTag::Resolved` to the root Delta, and if all roots of an ICO are
+ /// now resolved, propagates `DeltaTag::Decontaminated` to every reachable
+ /// descendant.
+ ///
+ /// The caller-supplied `now_secs` is the authoritative wall-clock time used
+ /// for both Biscuit token expiry verification and `verify_manager_auth`'s
+ /// internal expiry gate — no far-future hardcoded values (Subphase 14.4).
+ ///
+ /// Production callers:
+ /// - WASM: `core_verify_data` in lib.rs delegates here.
+ /// - Native: host applications holding a `CoreHandle`.
     pub fn verify_contamination(
         &self,
         root_delta_id: [u8; 32],
@@ -2749,8 +2749,8 @@ impl CoreHandle {
         let signing_key = self.identity.signing_key_bytes();
         let manager_sig = crate::identity::keypair::sign(&signing_key, &root_delta_id)?;
 
-        // Verify the Biscuit token against the deployment's root CA key and
-        // extract the token's `expires_at` claim (seconds).
+ // Verify the Biscuit token against the deployment's root CA key and
+ // extract the token's `expires_at` claim (seconds).
         let root_ca_key = self.root_ca_public_key();
         if root_ca_key.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
@@ -2762,7 +2762,7 @@ impl CoreHandle {
                 reason: format!("manager token verification failed: {e}"),
             })?;
 
-        // The token's expires_at is in seconds; the CCE expects micros.
+ // The token's expires_at is in seconds; the CCE expects micros.
         let token_expiry = claims.expires_at * 1_000_000;
 
         self.cce
@@ -2779,21 +2779,21 @@ impl CoreHandle {
             )
     }
 
-    /// Archive an incident without certifying data integrity (Req 11.2).
-    ///
-    /// Verifies the Manager Biscuit token (extracting `expires_at` for expiry
-    /// enforcement — Req 11.5), signs the `ico_id` with the local device's
-    /// identity key, transitions the ICO to `Closed`, and appends an
-    /// `AdminClose` audit entry.
-    ///
-    /// The caller-supplied `now_secs` is the authoritative wall-clock time
-    /// used for both Biscuit token expiry verification and
-    /// `verify_manager_auth`'s internal expiry gate — no far-future hardcoded
-    /// values (Subphase 14.4).
-    ///
-    /// Production callers:
-    /// - WASM: `core_admin_close_ico` in lib.rs delegates here.
-    /// - Native: host applications holding a `CoreHandle`.
+ /// Archive an incident without certifying data integrity (Req 11.2).
+ ///
+ /// Verifies the Manager Biscuit token (extracting `expires_at` for expiry
+ /// enforcement — Req 11.5), signs the `ico_id` with the local device's
+ /// identity key, transitions the ICO to `Closed`, and appends an
+ /// `AdminClose` audit entry.
+ ///
+ /// The caller-supplied `now_secs` is the authoritative wall-clock time
+ /// used for both Biscuit token expiry verification and
+ /// `verify_manager_auth`'s internal expiry gate — no far-future hardcoded
+ /// values (Subphase 14.4).
+ ///
+ /// Production callers:
+ /// - WASM: `core_admin_close_ico` in lib.rs delegates here.
+ /// - Native: host applications holding a `CoreHandle`.
     pub fn admin_close_ico(
         &self,
         ico_id: uuid::Uuid,
@@ -2810,7 +2810,7 @@ impl CoreHandle {
         let signing_key = self.identity.signing_key_bytes();
         let manager_sig = crate::identity::keypair::sign(&signing_key, ico_id.as_bytes())?;
 
-        // Verify the Biscuit token against the deployment's root CA key.
+ // Verify the Biscuit token against the deployment's root CA key.
         let root_ca_key = self.root_ca_public_key();
         if root_ca_key.is_empty() {
             return Err(TirBaseError::AuthorisationFailed {
@@ -2832,24 +2832,24 @@ impl CoreHandle {
             .admin_close(ico_id, manager_did, manager_sig, token_expiry, now_secs)
     }
 
-    // ─── Inbound message pipeline ─────────────────────────────────────────────
+ // ─── Inbound message pipeline ─────────────────────────────────────────────
 
-    /// Route an inbound `GossipMessage` through the correct subsystem (native only).
-    ///
-    /// Called by the background processing loop or test harness with messages
-    /// drained from `inbound_rx`.
-    ///
-    /// Dispatches:
-    /// - `InboundDelta`                  → `CrdtEngine::apply`
-    /// - `InboundDurabilityReceipt`      → `DurabilitySubsystem::receive_receipt`
-    /// - `InboundRevocationDelta`        → `RevocationSubsystem::process_incoming_delta`
-    /// - `InboundMigrationDelta`         → `SchemaMigrationEngine::receive_migration_delta`
-    /// - `InboundMigrationRevocationDelta` → `SchemaMigrationEngine::receive_revocation_delta`
+ /// Route an inbound `GossipMessage` through the correct subsystem (native only).
+ ///
+ /// Called by the background processing loop or test harness with messages
+ /// drained from `inbound_rx`.
+ ///
+ /// Dispatches:
+ /// - `InboundDelta` → `CrdtEngine::apply`
+ /// - `InboundDurabilityReceipt` → `DurabilitySubsystem::receive_receipt`
+ /// - `InboundRevocationDelta` → `RevocationSubsystem::process_incoming_delta`
+ /// - `InboundMigrationDelta` → `SchemaMigrationEngine::receive_migration_delta`
+ /// - `InboundMigrationRevocationDelta` → `SchemaMigrationEngine::receive_revocation_delta`
     #[cfg(feature = "native")]
     fn drain_and_process_pending_after_merge(&self, now_mono: u64) -> Result<(), TirBaseError> {
-        // PV-6.1/task 23: dependency arrival can unblock pending deltas.
-        // Drain in deterministic order and apply through the same merge/projection
-        // path logic used for inbound deltas (best-effort; re-enqueue still-missing).
+ // PV-6.1/: dependency arrival can unblock pending deltas.
+ // Drain in deterministic order and apply through the same merge/projection
+ // path logic used for inbound deltas (best-effort; re-enqueue still-missing).
         let mut progress = true;
         let mut guard = 0usize;
         while progress && guard < 64 {
@@ -2888,7 +2888,7 @@ impl CoreHandle {
                 match outcome {
                     crate::crdt::merge::MergeOutcome::Merged { .. } => {
                         progress = true;
-                        // minimal projection best-effort for JSON-envelope deltas (same shape as receive_inbound JSON path subset)
+ // minimal projection best-effort for JSON-envelope deltas (same shape as receive_inbound JSON path subset)
                         if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(
                             &entry.delta.automerge_bytes,
                         ) {
@@ -2966,14 +2966,14 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// 26.3/26.4 (PV-7.10): subscribe to observed peer checkpoint hashes.
+ /// 26.3/26.4 (PV-7.10): subscribe to observed peer checkpoint hashes.
     pub fn subscribe_checkpoint_observations(
         &self,
     ) -> tokio::sync::broadcast::Receiver<(String, u64, [u8; 32], i64)> {
         self.checkpoint_obs_tx.subscribe()
     }
 
-    /// 28.3 (PV-7.9): subscribe to accepted security-event sync records.
+ /// 28.3 (PV-7.9): subscribe to accepted security-event sync records.
     pub fn subscribe_security_event_sync(
         &self,
     ) -> tokio::sync::broadcast::Receiver<
@@ -2982,7 +2982,7 @@ impl CoreHandle {
         self.security_event_sync_tx.subscribe()
     }
 
-    /// 28.3 (PV-7.9): publish a security-event sync batch to the mesh (best-effort).
+ /// 28.3 (PV-7.9): publish a security-event sync batch to the mesh (best-effort).
     pub fn publish_security_event_sync(
         &self,
         batch: crate::transport::security_event_sync::SecurityEventSyncBatch,
@@ -3004,7 +3004,7 @@ impl CoreHandle {
             };
             drop(transport);
             if !sent {
-                // 28.3 (PV-7.9): record SyncFailure locally and schedule retry after 30s.
+ // 28.3 (PV-7.9): record SyncFailure locally and schedule retry after 30s.
                 let _ = self
                     .security_event_sync_handler
                     .lock()
@@ -3018,7 +3018,7 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// 26.3 (PV-7.10): set provider for latest local checkpoint hash gossiped on sync.
+ /// 26.3 (PV-7.10): set provider for latest local checkpoint hash gossiped on sync.
     pub fn set_checkpoint_provider<F>(&self, provider: F)
     where
         F: Fn() -> Option<(u64, [u8; 32])> + Send + Sync + 'static,
@@ -3028,7 +3028,7 @@ impl CoreHandle {
         }
     }
 
-    /// 26.3 (PV-7.10): publish latest local checkpoint hash to the mesh (best-effort).
+ /// 26.3 (PV-7.10): publish latest local checkpoint hash to the mesh (best-effort).
     pub fn publish_checkpoint_hash(
         &self,
         seq: u64,
@@ -3061,7 +3061,7 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// 36.9 (PV-22.3): register the guard-side challenge nonce issuer.
+ /// 36.9 (PV-22.3): register the guard-side challenge nonce issuer.
     pub fn set_challenge_handler(
         &self,
         handler: Arc<dyn crate::transport::challenge::MeshChallengeHandler>,
@@ -3071,18 +3071,18 @@ impl CoreHandle {
         }
     }
 
-    /// 36.9: subscribe to challenge responses routed back to this guard.
+ /// 36.9: subscribe to challenge responses routed back to this guard.
     pub fn subscribe_mesh_challenge_responses(
         &self,
     ) -> tokio::sync::broadcast::Receiver<crate::transport::challenge::MeshChallengeResponse> {
         self.challenge_resp_tx.subscribe()
     }
 
-    /// 36.9 (PV-22.3, INV-9): publish a challenge request to the mesh.
-    ///
-    /// `origin_guard_did` is always this handle's DID: the response must come
-    /// back to the guard instance that will evaluate the command, never to an
-    /// arbitrary peer.
+ /// 36.9 (PV-22.3, INV-9): publish a challenge request to the mesh.
+ ///
+ /// `origin_guard_did` is always this handle's DID: the response must come
+ /// back to the guard instance that will evaluate the command, never to an
+ /// arbitrary peer.
     pub fn request_mesh_challenge(
         &self,
         request_id: [u8; 32],
@@ -3131,28 +3131,28 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// This node's DID (the guard instance identity used as `origin_guard_did`
-    /// for mesh challenge routing, task 36.9).
+ /// This node's DID (the guard instance identity used as `origin_guard_did`
+ /// for mesh challenge routing).
     pub fn local_did(&self) -> &str {
         self.identity.did()
     }
 
-    /// Live memory-budget metrics for the CRDT caches (PV-6.5, CLAIM-24.2).
-    ///
-    /// The returned handles share their counters with the running handle, so a
-    /// caller observes live `current_bytes` / `eviction_count` / `hit_count` /
-    /// `miss_count` values rather than a snapshot.
+ /// Live memory-budget metrics for the CRDT caches (PV-6.5, CLAIM-24.2).
+ ///
+ /// The returned handles share their counters with the running handle, so a
+ /// caller observes live `current_bytes` / `eviction_count` / `hit_count` /
+ /// `miss_count` values rather than a snapshot.
     pub fn memory_budget_metrics(&self) -> crate::crdt::memory_budget::MemoryBudgetCaches {
         self.memory_budget.clone()
     }
 
-    /// Override the inbound caps enforced by the receive path (PV-6.3, CLAIM-24.1).
-    ///
-    /// Defaults come from [`crate::crdt::inbound_caps::InboundCaps::default`].
-    /// A deployment may tighten them (for example on a low-MTU radio link); the
-    /// new values take effect on the next inbound Delta.  Uses the hardening
-    /// counters already attached to the CRDT engine, so a violation is
-    /// quarantined with the mapped reason code.
+ /// Override the inbound caps enforced by the receive path (PV-6.3, CLAIM-24.1).
+ ///
+ /// Defaults come from [`crate::crdt::inbound_caps::InboundCaps::default`].
+ /// A deployment may tighten them (for example on a low-MTU radio link); the
+ /// new values take effect on the next inbound Delta. Uses the hardening
+ /// counters already attached to the CRDT engine, so a violation is
+ /// quarantined with the mapped reason code.
     pub fn set_inbound_caps(
         &self,
         caps: crate::crdt::inbound_caps::InboundCaps,
@@ -3183,13 +3183,13 @@ impl CoreHandle {
         use crate::transport::message::GossipMessage;
 
         match msg {
-            // InboundDeltaFragment should never reach `receive_inbound`:
-            // `process_wire_message` (called in the Swarm polling task)
-            // buffers fragments and only forwards fully reassembled
-            // InboundDelta messages to `inbound_tx`.  This arm is defensive
-            // — if a fragment somehow arrives here, log and drop it
-            // without touching the CRDT engine (Subphase 7.4: clean
-            // reassembly failure handling).
+ // InboundDeltaFragment should never reach `receive_inbound`:
+ // `process_wire_message` (called in the Swarm polling task)
+ // buffers fragments and only forwards fully reassembled
+ // InboundDelta messages to `inbound_tx`. This arm is defensive
+ // — if a fragment somehow arrives here, log and drop it
+ // without touching the CRDT engine (Subphase 7.4: clean
+ // reassembly failure handling).
             GossipMessage::InboundDeltaFragment(frag) => {
                 eprintln!(
                     "[inbound] unexpected InboundDeltaFragment reached receive_inbound \
@@ -3202,10 +3202,10 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
-                // Task 37.5 (PV-11.3): a synthetic fleet-gossip envelope carries
-                // a nested GossipMessage in `automerge_bytes`.  Unwrap it before
-                // the CRDT merge gate (which would otherwise reject the
-                // unsigned synthetic Delta).
+ // (PV-11.3): a synthetic fleet-gossip envelope carries
+ // a nested GossipMessage in `automerge_bytes`. Unwrap it before
+ // the CRDT merge gate (which would otherwise reject the
+ // unsigned synthetic Delta).
                 if delta.author_did == FLEET_GOSSIP_AUTHOR {
                     if let Some(GossipMessage::FleetInventoryUpdate(update)) =
                         crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
@@ -3223,14 +3223,14 @@ impl CoreHandle {
                         }
                     }
                 }
-                // PV-6 / task 24.1: enforce every configured InboundCaps value
-                // before merge (connections, rate/burst, size, op count, batch,
-                // heads, deps per change, traversal budget).  Dep check and
-                // start_op validation remain in apply_incoming_delta.
+ // PV-6 / : enforce every configured InboundCaps value
+ // before merge (connections, rate/burst, size, op count, batch,
+ // heads, deps per change, traversal budget). Dep check and
+ // start_op validation remain in apply_incoming_delta.
                 {
                     let now_mono = now_micros() as u64;
                     let now_wall = now_micros() / 1_000_000;
-                    // Count the mesh peers without holding the CRDT lock.
+ // Count the mesh peers without holding the CRDT lock.
                     let active_connections = match self.transport.lock() {
                         Ok(transport) => transport.active_peers().len(),
                         Err(_) => usize::MAX,
@@ -3242,9 +3242,9 @@ impl CoreHandle {
                                 reason: format!("crdt mutex: {e}"),
                             })?;
                     if let Some(h) = crdt.hardening_mut() {
-                        // Decode the Automerge shape once, and only when the
-                        // payload is within the size cap (avoids parsing an
-                        // oversized payload just to reject it).
+ // Decode the Automerge shape once, and only when the
+ // payload is within the size cap (avoids parsing an
+ // oversized payload just to reject it).
                         let shape = if delta.automerge_bytes.len() <= h.caps.delta_size_bytes {
                             crate::crdt::hardening::decode_inbound_shape(&delta.automerge_bytes)
                         } else {
@@ -3297,17 +3297,17 @@ impl CoreHandle {
                             delta.author_did
                         );
 
-                        // Project the merged Delta to the SQLite store so that
-                        // `read()` and `query()` reflect the new peer state (Req 4.3, 3.3).
-                        //
-                        // Strategy:
-                        //  1. If automerge_bytes parses as valid Automerge format, project
-                        //     the doc state via CrdtEngine's internal document.
-                        //  2. Otherwise try to parse automerge_bytes as the TirBase JSON
-                        //     envelope (contains _tirbase_table and _tirbase_key metadata)
-                        //     and call store.write() directly.
-                        //  3. If no table/key can be determined, skip projection (conservative
-                        //     fallback — data is in the CRDT doc but not in SQL projection yet).
+ // Project the merged Delta to the SQLite store so that
+ // `read()` and `query()` reflect the new peer state (Req 4.3, 3.3).
+ //
+ // Strategy:
+ // 1. If automerge_bytes parses as valid Automerge format, project
+ // the doc state via CrdtEngine's internal document.
+ // 2. Otherwise try to parse automerge_bytes as the TirBase JSON
+ // envelope (contains _tirbase_table and _tirbase_key metadata)
+ // and call store.write() directly.
+ // 3. If no table/key can be determined, skip projection (conservative
+ // fallback — data is in the CRDT doc but not in SQL projection yet).
                         if !delta.automerge_bytes.is_empty() {
                             if let Ok(json_val) =
                                 serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes)
@@ -3318,13 +3318,13 @@ impl CoreHandle {
                                     let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
 
                                     if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
-                                        // Reconstruct the application data (strip metadata keys).
+ // Reconstruct the application data (strip metadata keys).
                                         let mut app_data = serde_json::Map::new();
                                         for (k, v) in obj {
                                             if k != "_tirbase_table" && k != "_tirbase_key" {
                                                 if k == "_data" {
-                                                    // Scalar/non-object data stored under _data.
-                                                    // Write as-is under the original key.
+ // Scalar/non-object data stored under _data.
+ // Write as-is under the original key.
                                                     let _ = self
                                                         .store
                                                         .lock()
@@ -3338,7 +3338,7 @@ impl CoreHandle {
                                                         "[inbound] projected delta {} → {tbl}/{rkey}",
                                                         hex::encode(delta.id)
                                                     );
-                                                    // Break early — _data is the whole value.
+ // Break early — _data is the whole value.
                                                     app_data.clear();
                                                     break;
                                                 }
@@ -3360,7 +3360,7 @@ impl CoreHandle {
                                             );
                                         }
                                     } else {
-                                        // JSON but no table/key metadata — cannot project.
+ // JSON but no table/key metadata — cannot project.
                                         eprintln!(
                                             "[inbound] delta {} merged but no _tirbase_table/_tirbase_key in bytes — skipping SQL projection",
                                             hex::encode(delta.id)
@@ -3368,26 +3368,26 @@ impl CoreHandle {
                                     }
                                 }
                             } else {
-                                // Real Automerge binary bytes — project the merged
-                                // state from the engine's doc into the SQL store.
-                                //
-                                // After CrdtEngine::apply() merged the incoming
-                                // doc, the engine's ROOT map holds the _tirbase_table
-                                // and _tirbase_key metadata that write_scalar
-                                // embedded, plus the actual winning scalar value
-                                // (resolved by Automerge's LWW merge). We read those
-                                // back and call store.write() so read()/query() on
-                                // the receiving device reflect the actual merged
-                                // value (not just the Lamport-comparison rule) —
-                                // Subphase 7.1 (Req 4.5, 3.3).
+ // Real Automerge binary bytes — project the merged
+ // state from the engine's doc into the SQL store.
+ //
+ // After CrdtEngine::apply() merged the incoming
+ // doc, the engine's ROOT map holds the _tirbase_table
+ // and _tirbase_key metadata that write_scalar
+ // embedded, plus the actual winning scalar value
+ // (resolved by Automerge's LWW merge). We read those
+ // back and call store.write() so read()/query() on
+ // the receiving device reflect the actual merged
+ // value (not just the Lamport-comparison rule) —
+ // Subphase 7.1 (Req 4.5, 3.3).
                                 let proj_result: Result<(), TirBaseError> = (|| {
                                     let crdt = self.crdt.lock().map_err(|e| {
                                         TirBaseError::LocalStoreWriteFailed {
                                             reason: format!("crdt mutex: {e}"),
                                         }
                                     })?;
-                                    // Read _tirbase_table and _tirbase_key from the
-                                    // merged doc to recover the destination.
+ // Read _tirbase_table and _tirbase_key from the
+ // merged doc to recover the destination.
                                     let table_name = crdt
                                         .read_scalar("_tirbase_table")
                                         .and_then(|v| v.as_str().map(|s| s.to_string()));
@@ -3396,15 +3396,15 @@ impl CoreHandle {
                                         .and_then(|v| v.as_str().map(|s| s.to_string()));
 
                                     if let (Some(tbl), Some(rkey)) = (&table_name, &row_key) {
-                                        // Read the actual merged value — the user's
-                                        // key IS the row_key, since write_scalar
-                                        // stored the value under `key`.
+ // Read the actual merged value — the user's
+ // key IS the row_key, since write_scalar
+ // stored the value under `key`.
                                         let value = crdt.read_scalar(rkey);
                                         if let Some(val) = value {
-                                            // If write_scalar stored a composite (object/array)
-                                            // value as a JSON string, parse it back so the
-                                            // projected SQL row matches the original application
-                                            // data shape.
+ // If write_scalar stored a composite (object/array)
+ // value as a JSON string, parse it back so the
+ // projected SQL row matches the original application
+ // data shape.
                                             let stored_val = match val {
                                                 serde_json::Value::String(s) => {
                                                     serde_json::from_str(&s)
@@ -3450,13 +3450,13 @@ impl CoreHandle {
                             }
                         }
 
-                        // Subphase 4.5: this device genuinely holds the merged
-                        // state — sign a DurabilityReceipt over the Delta and
-                        // publish it back to the mesh so the author can count
-                        // this device toward Tier-1 quorum (Req 14.1, 14.6).
-                        // Issued only after a successful merge: a receipt
-                        // attests held state, and only a signature-verified
-                        // merge inserted the Delta into this device's DAG.
+ // Subphase 4.5: this device genuinely holds the merged
+ // state — sign a DurabilityReceipt over the Delta and
+ // publish it back to the mesh so the author can count
+ // this device toward Tier-1 quorum (Req 14.1, 14.6).
+ // Issued only after a successful merge: a receipt
+ // attests held state, and only a signature-verified
+ // merge inserted the Delta into this device's DAG.
                         self.issue_durability_receipt(&delta.id);
                         let _ = self.drain_and_process_pending_after_merge(now_micros() as u64);
                     }
@@ -3468,10 +3468,10 @@ impl CoreHandle {
                         );
                     }
                     MergeOutcome::Quarantined { reason } => {
-                        // PV-6: split quarantine destinations. Schema-hash migration
-                        // quarantine stays in migration/quarantine_ledger (tests/Req 17).
-                        // Structural/rate hardening reasons use Schema_Quarantine_Ledger
-                        // when configured (task 23).
+ // PV-6: split quarantine destinations. Schema-hash migration
+ // quarantine stays in migration/quarantine_ledger (tests/Req 17).
+ // Structural/rate hardening reasons use Schema_Quarantine_Ledger
+ // when configured ().
                         let is_migration_quarantine = matches!(
                             reason,
                             crate::crdt::merge::QuarantineReason::BreakingSchemaChange
@@ -3502,8 +3502,8 @@ impl CoreHandle {
                             }
                         }
                         if is_migration_quarantine || !recorded_pv6 {
-                            // Subphase 5.2 / legacy: persist raw received Delta in
-                            // migration QuarantineLedger (Req 17.4–17.6).
+ // Subphase 5.2 / legacy: persist raw received Delta in
+ // migration QuarantineLedger (Req 17.4–17.6).
                             let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
                                 eprintln!(
                                     "[inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
@@ -3557,8 +3557,8 @@ impl CoreHandle {
                 let issuer_did = receipt.issuer_did.clone();
                 let delta_id = receipt.state_hash;
 
-                // A `did:key:` DID *is* the issuer's public key: resolution
-                // yields the key the receipt must verify against (Req 14.6).
+ // A `did:key:` DID *is* the issuer's public key: resolution
+ // yields the key the receipt must verify against (Req 14.6).
                 match crate::identity::did::resolve_did(&issuer_did) {
                     Ok(issuer_public_key) => {
                         let mut dur = self.durability.lock().map_err(|e| {
@@ -3567,14 +3567,14 @@ impl CoreHandle {
                             }
                         })?;
 
-                        // Subphase 4.5: register the issuer's self-certified
-                        // key with the Delta's durability state so
-                        // `receive_receipt` can verify the signature.  A
-                        // genuine two-device receipt exchange needs no
-                        // pre-provisioned peer roster: the receipt itself
-                        // carries the key (as its DID), and registration only
-                        // enables verification — acceptance still requires the
-                        // Ed25519 signature + state-hash to check out.
+ // Subphase 4.5: register the issuer's self-certified
+ // key with the Delta's durability state so
+ // `receive_receipt` can verify the signature. A
+ // genuine two-device receipt exchange needs no
+ // pre-provisioned peer roster: the receipt itself
+ // carries the key (as its DID), and registration only
+ // enables verification — acceptance still requires the
+ // Ed25519 signature + state-hash to check out.
                         dur.register_peer_key(&delta_id, &issuer_did, issuer_public_key);
 
                         match dur.receive_receipt(receipt, &delta_id) {
@@ -3611,7 +3611,7 @@ impl CoreHandle {
                 let result = rev.process_incoming_delta(
                     &rev_delta,
                     &mut |target_did, complete_delta| {
-                        // Req 9.2: gossip the complete RevocationDelta at HIGH priority.
+ // Req 9.2: gossip the complete RevocationDelta at HIGH priority.
                         eprintln!(
                             "[inbound] gossiping RevocationDelta at HIGH priority for revoked DID: {target_did}"
                         );
@@ -3634,7 +3634,7 @@ impl CoreHandle {
                         }
                     },
                     &mut |target_did, delta_ids| {
-                        // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
+ // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
                         eprintln!(
                             "[inbound] CCE tagging {} deltas for revoked DID: {target_did}",
                             delta_ids.len()
@@ -3659,12 +3659,12 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
-                        // Req 8.6 — a validated revocation makes the target
-                        // DID locally known as REVOKED: register it in the CRDT
-                        // engine so `CrdtEngine::apply` rejects all future
-                        // inbound Deltas authored by it (the local write/read
-                        // gate of Req 8.5 only protects this device's own
-                        // operations, not the merge path).
+ // Req 8.6 — a validated revocation makes the target
+ // DID locally known as REVOKED: register it in the CRDT
+ // engine so `CrdtEngine::apply` rejects all future
+ // inbound Deltas authored by it (the local write/read
+ // gate of Req 8.5 only protects this device's own
+ // operations, not the merge path).
                         drop(rev);
                         {
                             let mut crdt = self.crdt.lock().map_err(|e| {
@@ -3679,12 +3679,12 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
-                        // Req 8.5 — a validated revocation targeting THIS
-                        // device makes the REVOKED status locally known: apply
-                        // it to the CapabilityManager so the local write/read
-                        // gate (`ensure_local_trust_allows_io`) blocks all
-                        // further I/O immediately.  Revocations of *other*
-                        // devices must not trip this device's own gate.
+ // Req 8.5 — a validated revocation targeting THIS
+ // device makes the REVOKED status locally known: apply
+ // it to the CapabilityManager so the local write/read
+ // gate (`ensure_local_trust_allows_io`) blocks all
+ // further I/O immediately. Revocations of *other*
+ // devices must not trip this device's own gate.
                         if rev_delta.target_did == self.identity.did() {
                             self.capability
                                 .lock()
@@ -3723,13 +3723,13 @@ impl CoreHandle {
                 );
             }
             GossipMessage::InboundMigrationDelta(mig_delta) => {
-                // Req 18.6: dispatch the transform to a background job instead
-                // of executing it inline under the `migration` mutex.  The job
-                // validates (prepare) under the engine lock, then runs the
-                // sandbox OFF the lock, registered in
-                // `migration_runs` — so a MigrationRevocationDelta drained
-                // moments later can acquire the engine and epoch-interrupt the
-                // run instead of queueing behind it until the 30s timeout.
+ // Req 18.6: dispatch the transform to a background job instead
+ // of executing it inline under the `migration` mutex. The job
+ // validates (prepare) under the engine lock, then runs the
+ // sandbox OFF the lock, registered in
+ // `migration_runs` — so a MigrationRevocationDelta drained
+ // moments later can acquire the engine and epoch-interrupt the
+ // run instead of queueing behind it until the 30s timeout.
                 let sender_did = mig_delta.author_did.clone();
                 self.dispatch_inbound_migration(*mig_delta, sender_did);
             }
@@ -3741,13 +3741,13 @@ impl CoreHandle {
                         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                             reason: format!("migration mutex: {e}"),
                         })?;
-                // Ok(true) ⇒ the revocation halted a transform that was
-                // executing — the engine only cleared the in-progress marker;
-                // actually stopping the sandbox is the epoch interrupt below.
-                // Err(UnknownMigrationHash) ⇒ Req 18.7: the revocation
-                // targeted a hash this device never received as a
-                // CA-validated MigrationDelta, so it is dropped (no block, no
-                // audit entry).
+ // Ok(true) ⇒ the revocation halted a transform that was
+ // executing — the engine only cleared the in-progress marker;
+ // actually stopping the sandbox is the epoch interrupt below.
+ // Err(UnknownMigrationHash) ⇒ Req 18.7: the revocation
+ // targeted a hash this device never received as a
+ // CA-validated MigrationDelta, so it is dropped (no block, no
+ // audit entry).
                 let halted = match mig.receive_revocation_delta(mig_rev) {
                     Ok(h) => h,
                     Err(e) => {
@@ -3759,10 +3759,10 @@ impl CoreHandle {
                 let target_schema_hash = mig.target_schema_for_migration(&target_migration_id);
                 drop(mig);
 
-                // Req 19.1: query the DAG for every Delta authored under the
-                // revoked migration's target schema and tag it
-                // `ContaminatedByCorruptedMigration` so the contamination walk
-                // can attribute the taint to the corrupted migration.
+ // Req 19.1: query the DAG for every Delta authored under the
+ // revoked migration's target schema and tag it
+ // `ContaminatedByCorruptedMigration` so the contamination walk
+ // can attribute the taint to the corrupted migration.
                 #[cfg(feature = "native")]
                 {
                     if let Some(schema_hash) = target_schema_hash {
@@ -3798,14 +3798,14 @@ impl CoreHandle {
                     }
                 }
 
-                // Req 19.1: the migration is now flagged corrupted — CCE-tag
-                // it and let the Causal Contamination Engine mark the affected
-                // projection rows CONTAMINATED (rather than deleting them) and
-                // open an Incident Context Object, so writes during the
-                // corrupted window auto-tag with ContaminatedByHumanReaction
-                // and join the incident (Req 19.5).  The migration id is the
-                // root marker; `resolve_affected_rows` conservatively marks
-                // every projection row (same policy as DeviceRevocation).
+ // Req 19.1: the migration is now flagged corrupted — CCE-tag
+ // it and let the Causal Contamination Engine mark the affected
+ // projection rows CONTAMINATED (rather than deleting them) and
+ // open an Incident Context Object, so writes during the
+ // corrupted window auto-tag with ContaminatedByHumanReaction
+ // and join the incident (Req 19.5). The migration id is the
+ // root marker; `resolve_affected_rows` conservatively marks
+ // every projection row (same policy as DeviceRevocation).
                 {
                     let cce_result =
                         self.cce
@@ -3848,9 +3848,9 @@ impl CoreHandle {
                         .send((reporter_did, seq, checkpoint_hash, observed_at));
             }
             GossipMessage::SecurityEventSync(batch) => {
-                // 28.3 (PV-7.9, PV-7.12): transport sync handler — append-only
-                // collection (compaction=none), per-peer 500 events/min, 30s retry
-                // on failure, local SyncFailure/SyncRateLimitReached emission.
+ // 28.3 (PV-7.9, PV-7.12): transport sync handler — append-only
+ // collection (compaction=none), per-peer 500 events/min, 30s retry
+ // on failure, local SyncFailure/SyncRateLimitReached emission.
                 let decision = self
                     .security_event_sync_handler
                     .lock()
@@ -3875,10 +3875,10 @@ impl CoreHandle {
                 }
             }
             GossipMessage::ChallengeRequest(request) => {
-                // 36.9 (PV-22.3): a peer asked this guard instance to issue a
-                // challenge nonce.  The response carries the request's
-                // `origin_guard_did` unchanged so only the originating guard
-                // consumes it.
+ // 36.9 (PV-22.3): a peer asked this guard instance to issue a
+ // challenge nonce. The response carries the request's
+ // `origin_guard_did` unchanged so only the originating guard
+ // consumes it.
                 let handler = self
                     .challenge_handler
                     .lock()
@@ -3921,9 +3921,9 @@ impl CoreHandle {
             GossipMessage::ChallengeResponse(response)
                 if response.origin_guard_did == self.identity.did() =>
             {
-                // Routing rule: only the originating guard instance consumes a
-                // response.  Dropping the guard would deliver another peer's
-                // nonce locally (wiring mutation for CLAIM-36.9).
+ // Routing rule: only the originating guard instance consumes a
+ // response. Dropping the guard would deliver another peer's
+ // nonce locally (wiring mutation for CLAIM-36.9).
                 let _ = self.challenge_resp_tx.send(response);
             }
             _ => {}
@@ -3931,21 +3931,21 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// Dispatch an inbound `MigrationDelta` to the async migration pipeline
-    /// (native; Req 18.6).
-    ///
-    /// Validates under the engine lock via
-    /// [`SchemaMigrationEngine::prepare_migration`], then executes the
-    /// transform off the lock on a background task so a revocation arriving
-    /// mid-run can epoch-interrupt it (see the
-    /// `InboundMigrationRevocationDelta` arm).  If another transform is
-    /// already executing the job retries with a short sleep: schema steps are
-    /// strictly serialised and each validates against the schema hash the
-    /// previous step committed.
-    ///
-    /// Production caller: [`CoreHandle::receive_inbound`], reached by the
-    /// inbound drain loop (`process_inbound_messages` → `receive_inbound`)
-    /// for every `GossipMessage::InboundMigrationDelta`.
+ /// Dispatch an inbound `MigrationDelta` to the async migration pipeline
+ /// (native; Req 18.6).
+ ///
+ /// Validates under the engine lock via
+ /// [`SchemaMigrationEngine::prepare_migration`], then executes the
+ /// transform off the lock on a background task so a revocation arriving
+ /// mid-run can epoch-interrupt it (see the
+ /// `InboundMigrationRevocationDelta` arm). If another transform is
+ /// already executing the job retries with a short sleep: schema steps are
+ /// strictly serialised and each validates against the schema hash the
+ /// previous step committed.
+ ///
+ /// Production caller: [`CoreHandle::receive_inbound`], reached by the
+ /// inbound drain loop (`process_inbound_messages` → `receive_inbound`)
+ /// for every `GossipMessage::InboundMigrationDelta`.
     #[cfg(feature = "native")]
     fn dispatch_inbound_migration(
         &self,
@@ -4009,7 +4009,7 @@ impl CoreHandle {
             let store_for_shadow = store.clone();
             let runs_for_shadow = runs.clone();
 
-            // 30.1/30.2/30.5: shadow run + postconditions (projection tables only).
+ // 30.1/30.2/30.5: shadow run + postconditions (projection tables only).
             let sr = match tokio::task::spawn_blocking(move || {
                 crate::migration::shadow::run_shadow_migration_native(
                     &transform_bytes,
@@ -4076,7 +4076,7 @@ impl CoreHandle {
                 return;
             }
 
-            // 30.6 (PV-8.7): post-execution author DID revocation check before commit.
+ // 30.6 (PV-8.7): post-execution author DID revocation check before commit.
             let author_revoked = revocation
                 .lock()
                 .map(|r| r.is_did_revoked(&author_did))
@@ -4139,21 +4139,21 @@ impl CoreHandle {
         });
     }
 
-    /// Wait until every dispatched migration job has finished (transform
-    /// committed, aborted, or revoked) or `timeout` elapses.
-    ///
-    /// The inbound pipeline dispatches migration execution to background jobs
-    /// so a revocation can interrupt an in-progress transform; this helper
-    /// lets callers observe the moment the pipeline has fully settled.  The
-    /// production drain loop does not need it (it ticks continuously); it
-    /// exists for integration tests and hosts that drive
-    /// `process_inbound_messages` manually and then assert post-migration
-    /// state.  Returns `false` when `timeout` elapsed first.
+ /// Wait until every dispatched migration job has finished (transform
+ /// committed, aborted, or revoked) or `timeout` elapses.
+ ///
+ /// The inbound pipeline dispatches migration execution to background jobs
+ /// so a revocation can interrupt an in-progress transform; this helper
+ /// lets callers observe the moment the pipeline has fully settled. The
+ /// production drain loop does not need it (it ticks continuously); it
+ /// exists for integration tests and hosts that drive
+ /// `process_inbound_messages` manually and then assert post-migration
+ /// state. Returns `false` when `timeout` elapsed first.
     #[cfg(feature = "native")]
     pub(crate) async fn await_migration_quiescence(&self, timeout: std::time::Duration) -> bool {
         use std::sync::atomic::Ordering;
-        // Deadline is measured on the injected monotonic clock (PV-3.8,
-        // PV-3.12); `tokio::time::Instant` is banned by clippy.toml.
+ // Deadline is measured on the injected monotonic clock (PV-3.8,
+ // PV-3.12); `tokio::time::Instant` is banned by clippy.toml.
         let deadline = crate::traits::monotonic_now().saturating_add(timeout.as_micros() as u64);
         loop {
             let active = self.migration_tasks_active.load(Ordering::SeqCst);
@@ -4172,9 +4172,9 @@ impl CoreHandle {
         }
     }
 
-    /// WASM stub for the native `receive_inbound` — the Gossipsub Swarm is not
-    /// available on wasm32. Use `receive_inbound_wasm` instead, which is driven
-    /// by the JS transport layer calling `core_receive_peer_message`.
+ /// WASM stub for the native `receive_inbound` — the Gossipsub Swarm is not
+ /// available on wasm32. Use `receive_inbound_wasm` instead, which is driven
+ /// by the JS transport layer calling `core_receive_peer_message`.
     #[cfg(not(feature = "native"))]
     pub async fn receive_inbound(
         &self,
@@ -4183,23 +4183,23 @@ impl CoreHandle {
         Ok(())
     }
 
-    /// Process an inbound peer message on the WASM target.
-    ///
-    /// This is the JS-driven equivalent of the native Swarm spawn loop.
-    /// The JS transport layer (WebRTC data channel, BLE bridge, or any
-    /// browser-compatible transport) calls `core_receive_peer_message()` with
-    /// raw bytes, which deserialises them into a `GossipMessage` and delegates
-    /// here. Each variant is routed to the correct in-memory subsystem (Req 5,
-    /// Req 1.4).
-    ///
-    /// Routing:
-    /// - `InboundDelta`                   → signature verification + in-memory store write
-    /// - `InboundDeltaFragment`           → `ReassemblyBuffer` (handled by `process_wire_message`;
-    ///   this method is never reached with fragments — see defensive arm below)
-    /// - `InboundDurabilityReceipt`       → `DurabilitySubsystem::receive_receipt`
-    /// - `InboundRevocationDelta`         → `RevocationSubsystem::process_incoming_delta`
-    /// - `InboundMigrationDelta`          → `SchemaMigrationEngine::receive_migration_delta`
-    /// - `InboundMigrationRevocationDelta`→ `SchemaMigrationEngine::receive_revocation_delta`
+ /// Process an inbound peer message on the WASM target.
+ ///
+ /// This is the JS-driven equivalent of the native Swarm spawn loop.
+ /// The JS transport layer (WebRTC data channel, BLE bridge, or any
+ /// browser-compatible transport) calls `core_receive_peer_message()` with
+ /// raw bytes, which deserialises them into a `GossipMessage` and delegates
+ /// here. Each variant is routed to the correct in-memory subsystem (Req 5,
+ /// Req 1.4).
+ ///
+ /// Routing:
+ /// - `InboundDelta` → signature verification + in-memory store write
+ /// - `InboundDeltaFragment` → `ReassemblyBuffer` (handled by `process_wire_message`;
+ /// this method is never reached with fragments — see defensive arm below)
+ /// - `InboundDurabilityReceipt` → `DurabilitySubsystem::receive_receipt`
+ /// - `InboundRevocationDelta` → `RevocationSubsystem::process_incoming_delta`
+ /// - `InboundMigrationDelta` → `SchemaMigrationEngine::receive_migration_delta`
+ /// - `InboundMigrationRevocationDelta`→ `SchemaMigrationEngine::receive_revocation_delta`
     #[cfg(not(feature = "native"))]
     pub async fn receive_inbound_wasm(
         &self,
@@ -4209,10 +4209,10 @@ impl CoreHandle {
         use crate::transport::message::GossipMessage;
 
         match msg {
-            // InboundDeltaFragment is handled by `process_wire_message`
-            // (called from `core_receive_peer_message` before this method is
-            // reached on WASM).  This arm is defensive — fragments should never
-            // arrive here (Subphase 7.4: clean reassembly failure handling).
+ // InboundDeltaFragment is handled by `process_wire_message`
+ // (called from `core_receive_peer_message` before this method is
+ // reached on WASM). This arm is defensive — fragments should never
+ // arrive here (Subphase 7.4: clean reassembly failure handling).
             GossipMessage::InboundDeltaFragment(frag) => {
                 eprintln!(
                     "[wasm-inbound] unexpected InboundDeltaFragment reached receive_inbound_wasm \
@@ -4225,8 +4225,8 @@ impl CoreHandle {
                 return Ok(());
             }
             GossipMessage::InboundDelta(delta) => {
-                // Task 37.5 (PV-11.3): unwrap a synthetic fleet-gossip envelope
-                // before the CRDT merge gate (see the native path).
+ // (PV-11.3): unwrap a synthetic fleet-gossip envelope
+ // before the CRDT merge gate (see the native path).
                 if delta.author_did == FLEET_GOSSIP_AUTHOR {
                     if let Some(GossipMessage::FleetInventoryUpdate(update)) =
                         crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
@@ -4244,16 +4244,16 @@ impl CoreHandle {
                         }
                     }
                 }
-                // Route through the real LWW/RGA dispatch layer (Req 4.3–4.5a).
-                // apply_incoming_delta handles:
-                //   1. Schema-hash gate (unknown → Quarantined)
-                //   2. Ed25519 signature verification via DID resolution (invalid → Rejected)
-                //   3. Operation-type classification (LWW scalar vs RGA sequence)
-                //   4. CrdtEngine::apply() for the actual Automerge merge
-                //
-                // This replaces the old JSON-sidecar heuristic and correctly handles
-                // both WASM-produced JSON envelopes AND native-produced binary Automerge
-                // changesets (Req 1.4 cross-build state convergence).
+ // Route through the real LWW/RGA dispatch layer (Req 4.3–4.5a).
+ // apply_incoming_delta handles:
+ // 1. Schema-hash gate (unknown → Quarantined)
+ // 2. Ed25519 signature verification via DID resolution (invalid → Rejected)
+ // 3. Operation-type classification (LWW scalar vs RGA sequence)
+ // 4. CrdtEngine::apply() for the actual Automerge merge
+ //
+ // This replaces the old JSON-sidecar heuristic and correctly handles
+ // both WASM-produced JSON envelopes AND native-produced binary Automerge
+ // changesets (Req 1.4 cross-build state convergence).
                 let outcome = {
                     let mut crdt =
                         self.crdt
@@ -4272,42 +4272,42 @@ impl CoreHandle {
                             delta.author_did
                         );
 
-                        // Subphase 6.3: a signature-verified inbound Delta is
-                        // now known to be authored by its author DID — record
-                        // it so the WASM revocation path can CCE-tag the
-                        // actual authored Delta IDs (the analogue of the
-                        // native DAG `query_deltas_by_author`).
+ // Subphase 6.3: a signature-verified inbound Delta is
+ // now known to be authored by its author DID — record
+ // it so the WASM revocation path can CCE-tag the
+ // actual authored Delta IDs (the analogue of the
+ // native DAG `query_deltas_by_author`).
                         if let Ok(mut rev) = self.revocation.lock() {
                             rev.record_authored_delta(delta.author_did.clone(), delta.id);
                         }
 
-                        // Project the merged state into the in-memory store so that
-                        // read() and query() reflect the new peer state (Req 4.3, 3.3).
-                        //
-                        // Strategy (same as native receive_inbound):
-                        //   1. Try to parse automerge_bytes as the TirBase JSON envelope
-                        //      (contains _tirbase_table, _tirbase_key, and data fields).
-                        //      Both WASM-produced Deltas and older-format peer Deltas use this.
-                        //   2. For native-produced binary Automerge bytes, project from the
-                        //      CrdtEngine's merged Automerge doc using doc_map_range_root().
-                        //      The doc state is now correct after CrdtEngine::apply().
+ // Project the merged state into the in-memory store so that
+ // read() and query() reflect the new peer state (Req 4.3, 3.3).
+ //
+ // Strategy (same as native receive_inbound):
+ // 1. Try to parse automerge_bytes as the TirBase JSON envelope
+ // (contains _tirbase_table, _tirbase_key, and data fields).
+ // Both WASM-produced Deltas and older-format peer Deltas use this.
+ // 2. For native-produced binary Automerge bytes, project from the
+ // CrdtEngine's merged Automerge doc using doc_map_range_root().
+ // The doc state is now correct after CrdtEngine::apply().
                         if !delta.automerge_bytes.is_empty() {
                             if let Ok(json_val) =
                                 serde_json::from_slice::<serde_json::Value>(&delta.automerge_bytes)
                             {
-                                // JSON envelope path (WASM-produced or TirBase format).
+ // JSON envelope path (WASM-produced or TirBase format).
                                 if let Some(obj) = json_val.as_object() {
                                     let table_name =
                                         obj.get("_tirbase_table").and_then(|v| v.as_str());
                                     let row_key = obj.get("_tirbase_key").and_then(|v| v.as_str());
 
                                     if let (Some(tbl), Some(rkey)) = (table_name, row_key) {
-                                        // Reconstruct application data (strip TirBase metadata keys).
+ // Reconstruct application data (strip TirBase metadata keys).
                                         let mut app_data = serde_json::Map::new();
                                         let mut has_data_key = false;
                                         for (k, v) in obj {
                                             if k == "_data" {
-                                                // Scalar/non-object data stored under _data.
+ // Scalar/non-object data stored under _data.
                                                 {
                                                     let mut store =
                                                         self.store.lock().map_err(|e| {
@@ -4317,7 +4317,7 @@ impl CoreHandle {
                                                         })?;
                                                     let _ = store.write(tbl, rkey, v).await;
                                                 }
-                                                // Record the delta→row mapping for CCE resolve_affected_rows.
+ // Record the delta→row mapping for CCE resolve_affected_rows.
                                                 crate::store::projection::record_delta_row(
                                                     &delta.id, tbl, rkey,
                                                 );
@@ -4341,7 +4341,7 @@ impl CoreHandle {
                                                 })?;
                                                 let _ = store.write(tbl, rkey, &app_val).await;
                                             }
-                                            // Record the delta→row mapping for CCE.
+ // Record the delta→row mapping for CCE.
                                             crate::store::projection::record_delta_row(
                                                 &delta.id, tbl, rkey,
                                             );
@@ -4351,7 +4351,7 @@ impl CoreHandle {
                                             );
                                         }
                                     } else {
-                                        // JSON envelope but no table/key metadata.
+ // JSON envelope but no table/key metadata.
                                         eprintln!(
                                             "[wasm-inbound] delta {} has JSON bytes but no \
                                              _tirbase_table/_tirbase_key — skipping store projection",
@@ -4360,12 +4360,12 @@ impl CoreHandle {
                                     }
                                 }
                             } else {
-                                // Binary Automerge bytes — project from the
-                                // CrdtEngine's merged doc state.  After
-                                // apply(), the doc holds _tirbase_table and
-                                // _tirbase_key metadata plus the winning LWW
-                                // value.  Read those back and write to the
-                                // correct table/row (Req 4.3, 3.3).
+ // Binary Automerge bytes — project from the
+ // CrdtEngine's merged doc state. After
+ // apply(), the doc holds _tirbase_table and
+ // _tirbase_key metadata plus the winning LWW
+ // value. Read those back and write to the
+ // correct table/row (Req 4.3, 3.3).
                                 let proj_result: Result<(), TirBaseError> = async {
                                     let crdt = self.crdt.lock().map_err(|e| {
                                         TirBaseError::LocalStoreWriteFailed {
@@ -4382,8 +4382,8 @@ impl CoreHandle {
                                     if let (Some(tbl), Some(rkey)) = (&table_name, &row_key) {
                                         let value = crdt.read_scalar(rkey);
                                         if let Some(val) = value {
-                                            // If write_scalar stored a composite value
-                                            // as a JSON string, parse it back.
+ // If write_scalar stored a composite value
+ // as a JSON string, parse it back.
                                             let stored_val = match val {
                                                 serde_json::Value::String(s) => {
                                                     serde_json::from_str(&s)
@@ -4426,12 +4426,12 @@ impl CoreHandle {
                         );
                     }
                     MergeOutcome::Quarantined { reason } => {
-                        // Subphase 5.2: persist the raw received Delta in the
-                        // QuarantineLedger (Req 17.4–17.6) instead of only
-                        // logging it — identical wiring to the native
-                        // `receive_inbound` path. The full serialised Delta is
-                        // stored byte-for-byte for later schema-migration
-                        // replay.
+ // Subphase 5.2: persist the raw received Delta in the
+ // QuarantineLedger (Req 17.4–17.6) instead of only
+ // logging it — identical wiring to the native
+ // `receive_inbound` path. The full serialised Delta is
+ // stored byte-for-byte for later schema-migration
+ // replay.
                         let raw_bytes = serde_json::to_vec(&delta).unwrap_or_else(|e| {
                             eprintln!(
                                 "[wasm-inbound] delta {} could not be serialised for quarantine: {e} — storing payload bytes only",
@@ -4474,7 +4474,7 @@ impl CoreHandle {
                     }
                 }
 
-                // Register with the durability subsystem so Tier-1 tracking works.
+ // Register with the durability subsystem so Tier-1 tracking works.
                 let delta_bytes = serde_json::to_vec(&delta).unwrap_or_default();
                 let _ = self
                     .durability
@@ -4497,10 +4497,10 @@ impl CoreHandle {
                 let delta_id = receipt.state_hash;
                 let issuer_did = receipt.issuer_did.clone();
 
-                // Same as the native receipt arm: resolve the issuer's
-                // self-certifying `did:key:` DID and register the key with the
-                // Delta's durability state so `receive_receipt` can verify the
-                // receipt (Req 14.6, Subphase 4.5 parity).
+ // Same as the native receipt arm: resolve the issuer's
+ // self-certifying `did:key:` DID and register the key with the
+ // Delta's durability state so `receive_receipt` can verify the
+ // receipt (Req 14.6, Subphase 4.5 parity).
                 match crate::identity::did::resolve_did(&issuer_did) {
                     Ok(issuer_public_key) => {
                         let mut dur = self.durability.lock().map_err(|e| {
@@ -4543,17 +4543,17 @@ impl CoreHandle {
                 match rev.process_incoming_delta(
                     &rev_delta,
                     &mut |target_did, _complete_delta| {
-                        // No Swarm gossip rebroadcast on WASM — the JS transport
-                        // layer handles peer messaging (Req 9.2 is best-effort on WASM).
+ // No Swarm gossip rebroadcast on WASM — the JS transport
+ // layer handles peer messaging (Req 9.2 is best-effort on WASM).
                         eprintln!("[wasm-inbound] RevocationDelta threshold met for {target_did}");
                     },
                     &mut |target_did, delta_ids| {
-                        // Req 10.1 parity with the native inbound arm: CCE-tag
-                        // every Delta authored by the revoked DID as a
-                        // contamination root (Subphase 6.3).  The `delta_ids`
-                        // are the ACTUAL authored Delta IDs supplied by the
-                        // WASM RevocationSubsystem's per-author index; the WASM
-                        // CCE tags them in its in-memory DAG + tag store.
+ // Req 10.1 parity with the native inbound arm: CCE-tag
+ // every Delta authored by the revoked DID as a
+ // contamination root (Subphase 6.3). The `delta_ids`
+ // are the ACTUAL authored Delta IDs supplied by the
+ // WASM RevocationSubsystem's per-author index; the WASM
+ // CCE tags them in its in-memory DAG + tag store.
                         eprintln!(
                             "[wasm-inbound] CCE tagging {} deltas for revoked DID {target_did}",
                             delta_ids.len()
@@ -4576,10 +4576,10 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
-                        // Req 8.6 — same wiring as the native inbound path: a
-                        // validated revocation makes the target DID locally
-                        // known as REVOKED, so the CRDT engine rejects all
-                        // future inbound Deltas authored by it.
+ // Req 8.6 — same wiring as the native inbound path: a
+ // validated revocation makes the target DID locally
+ // known as REVOKED, so the CRDT engine rejects all
+ // future inbound Deltas authored by it.
                         drop(rev);
                         {
                             let mut crdt = self.crdt.lock().map_err(|e| {
@@ -4594,10 +4594,10 @@ impl CoreHandle {
                             rev_delta.target_did
                         );
 
-                        // Req 8.5 — same wiring as the native inbound path: a
-                        // validated revocation targeting THIS device applies
-                        // the REVOKED TrustLevel to the CapabilityManager so
-                        // the local write/read gate blocks all further I/O.
+ // Req 8.5 — same wiring as the native inbound path: a
+ // validated revocation targeting THIS device applies
+ // the REVOKED TrustLevel to the CapabilityManager so
+ // the local write/read gate blocks all further I/O.
                         if rev_delta.target_did == self.identity.did() {
                             self.capability
                                 .lock()
@@ -4640,10 +4640,10 @@ impl CoreHandle {
             }
 
             GossipMessage::InboundMigrationDelta(mig_delta) => {
-                // Task 30.6 (PV-8.7): post-exec author revocation check is enforced by
-                // native dispatch_inbound_migration; WASM receive_migration_delta executes
-                // under engine lock (no off-lock shadow commit split yet). Reject early if
-                // author DID is revoked in the auth subsystem.
+ // (PV-8.7): post-exec author revocation check is enforced by
+ // native dispatch_inbound_migration; WASM receive_migration_delta executes
+ // under engine lock (no off-lock shadow commit split yet). Reject early if
+ // author DID is revoked in the auth subsystem.
                 if let Ok(rev) = self.revocation.lock() {
                     if rev.is_did_revoked(&mig_delta.author_did) {
                         crate::events::emit_migration(crate::events::Severity::High, crate::events::ReasonCode::RevocationPostExecution, Some(hex::encode(mig_delta.id)),
@@ -4658,9 +4658,9 @@ impl CoreHandle {
                         .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                             reason: format!("migration mutex poisoned: {e}"),
                         })?;
-                // The schema the device is on before the migration — the
-                // corruption-window key whose Side-Car entries a corrected
-                // migration must replay (Req 19.3).
+ // The schema the device is on before the migration — the
+ // corruption-window key whose Side-Car entries a corrected
+ // migration must replay (Req 19.3).
                 let source_schema_hash = mig.current_schema_hash();
                 match mig.receive_migration_delta(*mig_delta, &sender_did) {
                     Ok(result) => {
@@ -4668,9 +4668,9 @@ impl CoreHandle {
                             result,
                             crate::migration::wasm_sandbox::MigrationResult::Success
                         ) {
-                            // Subphase 5.3 (WASM parity): mirror a successful
-                            // migration into the CRDT engine's current schema
-                            // (see the native arm for rationale).
+ // Subphase 5.3 (WASM parity): mirror a successful
+ // migration into the CRDT engine's current schema
+ // (see the native arm for rationale).
                             let new_current = mig.current_schema_hash();
                             drop(mig);
                             let mut crdt = self.crdt.lock().map_err(|e| {
@@ -4682,11 +4682,11 @@ impl CoreHandle {
                             })?;
                             crdt.set_current_schema(new_current);
 
-                            // Req 19.3 (WASM parity): replay the Side-Car
-                            // entries captured while the pre-migration schema
-                            // was under a corruption window against the
-                            // corrected projection (best-effort, same as the
-                            // native arm).
+ // Req 19.3 (WASM parity): replay the Side-Car
+ // entries captured while the pre-migration schema
+ // was under a corruption window against the
+ // corrected projection (best-effort, same as the
+ // native arm).
                             {
                                 let mut mig = self.migration.lock().map_err(|e| {
                                     TirBaseError::LocalStoreWriteFailed {
@@ -4729,18 +4729,18 @@ impl CoreHandle {
                         })?;
                 match mig.receive_revocation_delta(mig_rev) {
                     Ok(_halted) => {
-                        // The WASM build is single-threaded: no transform can
-                        // be executing concurrently, so `_halted` is always
-                        // false here.  Mid-flight interruption is a native
-                        // capability (epoch interrupt via the execution
-                        // registry, Req 18.6); on WASM the synchronous
-                        // `receive_migration_delta` path's post-run revocation
-                        // re-check still protects the schema-hash commit.
+ // The WASM build is single-threaded: no transform can
+ // be executing concurrently, so `_halted` is always
+ // false here. Mid-flight interruption is a native
+ // capability (epoch interrupt via the execution
+ // registry, Req 18.6); on WASM the synchronous
+ // `receive_migration_delta` path's post-run revocation
+ // re-check still protects the schema-hash commit.
 
-                        // Req 19.1 (WASM parity): the migration is now flagged
-                        // corrupted — CCE-tag it and mark the affected
-                        // projection rows CONTAMINATED (same trigger as the
-                        // native arm).
+ // Req 19.1 (WASM parity): the migration is now flagged
+ // corrupted — CCE-tag it and mark the affected
+ // projection rows CONTAMINATED (same trigger as the
+ // native arm).
                         {
                             let cce_result =
                                 self.cce
@@ -4874,9 +4874,9 @@ impl CoreHandle {
                             }
                         }
                         MergeOutcome::Pending { .. } => {
-                            // Missing causal dependencies: hold the Delta in the
-                            // bounded pending queue so the retry drain can merge
-                            // it once the dependencies arrive (PV-6.1).
+ // Missing causal dependencies: hold the Delta in the
+ // bounded pending queue so the retry drain can merge
+ // it once the dependencies arrive (PV-6.1).
                             if let Ok(mut crdt) = self.crdt.lock() {
                                 if let Some(h) = crdt.hardening_mut() {
                                     let sender_did = delta.author_did.clone();
@@ -4902,14 +4902,14 @@ impl CoreHandle {
         }
     }
 
-    /// Drain all pending inbound messages from the channel and route each through
-    /// the appropriate subsystem (Req 4.3–4.7, 5.1–5.8).
-    ///
-    /// This is a non-blocking drain: it processes only messages that are already
-    /// queued. Call this from an application-controlled tick loop or a dedicated
-    /// background task to drive the inbound pipeline.
-    ///
-    /// Returns the number of messages processed.
+ /// Drain all pending inbound messages from the channel and route each through
+ /// the appropriate subsystem (Req 4.3–4.7, 5.1–5.8).
+ ///
+ /// This is a non-blocking drain: it processes only messages that are already
+ /// queued. Call this from an application-controlled tick loop or a dedicated
+ /// background task to drive the inbound pipeline.
+ ///
+ /// Returns the number of messages processed.
     pub async fn process_inbound_messages(&self) -> Result<usize, TirBaseError> {
         #[cfg(not(feature = "native"))]
         {
@@ -4937,20 +4937,20 @@ impl CoreHandle {
         }
     }
 
-    /// Spawn the production inbound drain loop for this handle.
-    ///
-    /// Every `interval`, the background task calls
-    /// [`CoreHandle::process_inbound_messages`], which drains `inbound_rx`
-    /// (fed by the Swarm polling task via `inbound_tx`) and routes each
-    /// `GossipMessage` through the correct subsystem.
-    ///
-    /// Production caller: [`CoreHandle::init`] spawns this loop before
-    /// returning, so Gossipsub messages are drained in production rather than
-    /// only from tests (Subphase 1.3).  It is `pub(crate)` rather than private
-    /// so the Subphase 1.3 integration test can drive the *identical* loop
-    /// with a short interval without racing the count-based unit tests.
-    ///
-    /// Returns the `JoinHandle` so callers can observe or abort the task.
+ /// Spawn the production inbound drain loop for this handle.
+ ///
+ /// Every `interval`, the background task calls
+ /// [`CoreHandle::process_inbound_messages`], which drains `inbound_rx`
+ /// (fed by the Swarm polling task via `inbound_tx`) and routes each
+ /// `GossipMessage` through the correct subsystem.
+ ///
+ /// Production caller: [`CoreHandle::init`] spawns this loop before
+ /// returning, so Gossipsub messages are drained in production rather than
+ /// only from tests (Subphase 1.3). It is `pub(crate)` rather than private
+ /// so the Subphase 1.3 integration test can drive the *identical* loop
+ /// with a short interval without racing the count-based unit tests.
+ ///
+ /// Returns the `JoinHandle` so callers can observe or abort the task.
     #[cfg(feature = "native")]
     pub(crate) fn spawn_inbound_drain_loop(
         self: &Arc<Self>,
@@ -4975,27 +4975,27 @@ impl CoreHandle {
         })
     }
 
-    /// Spawn the production DRR scheduler tick loop for this handle.
-    ///
-    /// Every `interval`, the background task locks the mesh transport,
-    /// advances the Saturate_Mode state machine's clock
-    /// ([`MeshTransport::tick_saturate`] — Subphase 3.3, so lease expiry
-    /// auto-demotion happens without manual ticking), then calls
-    /// [`MeshTransport::tick_scheduler`], which runs one DRR scheduling epoch
-    /// (Req 12) and forwards the drained Deltas to the outbound publish
-    /// channel; the Swarm polling task (Subphase 1.1) receives them and
-    /// publishes to the shared Gossipsub topic.  Without this loop, Deltas
-    /// enqueued via `MeshTransport::enqueue_outbound` (HIGH-priority
-    /// revocation rebroadcast, mDNS re-announcement) would accumulate in the
-    /// scheduler queues forever.
-    ///
-    /// Production caller: [`CoreHandle::init`] spawns this loop before
-    /// returning, gated on a live outbound publish channel (Subphase 1.4).  It
-    /// is `pub(crate)` rather than private so the Subphase 1.4 integration
-    /// test can drive the *identical* loop with a short interval without
-    /// racing the queue-state unit tests.
-    ///
-    /// Returns the `JoinHandle` so callers can observe or abort the task.
+ /// Spawn the production DRR scheduler tick loop for this handle.
+ ///
+ /// Every `interval`, the background task locks the mesh transport,
+ /// advances the Saturate_Mode state machine's clock
+ /// ([`MeshTransport::tick_saturate`] — Subphase 3.3, so lease expiry
+ /// auto-demotion happens without manual ticking), then calls
+ /// [`MeshTransport::tick_scheduler`], which runs one DRR scheduling epoch
+ /// (Req 12) and forwards the drained Deltas to the outbound publish
+ /// channel; the Swarm polling task (Subphase 1.1) receives them and
+ /// publishes to the shared Gossipsub topic. Without this loop, Deltas
+ /// enqueued via `MeshTransport::enqueue_outbound` (HIGH-priority
+ /// revocation rebroadcast, mDNS re-announcement) would accumulate in the
+ /// scheduler queues forever.
+ ///
+ /// Production caller: [`CoreHandle::init`] spawns this loop before
+ /// returning, gated on a live outbound publish channel (Subphase 1.4). It
+ /// is `pub(crate)` rather than private so the Subphase 1.4 integration
+ /// test can drive the *identical* loop with a short interval without
+ /// racing the queue-state unit tests.
+ ///
+ /// Returns the `JoinHandle` so callers can observe or abort the task.
     #[cfg(feature = "native")]
     pub(crate) fn spawn_scheduler_tick_loop(
         self: &Arc<Self>,
@@ -5011,14 +5011,14 @@ impl CoreHandle {
                     Ok(mut transport) => {
                         let now_us = now_micros();
 
-                        // Req 5.6: advance the peer-timeout clock every epoch
-                        // so stale peers are evicted without manual intervention.
+ // Req 5.6: advance the peer-timeout clock every epoch
+ // so stale peers are evicted without manual intervention.
                         transport.tick_timeouts(now_us);
 
-                        // Req 5.6: drain the retry queue and re-attempt delivery
-                        // for any entries whose next_retry_at has passed.  Due
-                        // entries are forwarded to the outbound channel so the
-                        // Swarm polling task can publish them.
+ // Req 5.6: drain the retry queue and re-attempt delivery
+ // for any entries whose next_retry_at has passed. Due
+ // entries are forwarded to the outbound channel so the
+ // Swarm polling task can publish them.
                         let due_retries = transport.drain_due_retries(now_us);
                         if !due_retries.is_empty() {
                             eprintln!(
@@ -5051,21 +5051,21 @@ impl CoreHandle {
                             }
                         }
 
-                        // Subphase 3.3: advance the Saturate_Mode state
-                        // machine's clock every epoch.  A lease that expired
-                        // without renewal demotes the state machine — and the
-                        // transport reconciles the DRR scheduler mirror — even
-                        // when no Manager event ever arrives again.  This runs
-                        // BEFORE the DRR epoch so a just-expired lease cannot
-                        // keep scheduling everything at HIGH priority for even
-                        // one extra epoch.
+ // Subphase 3.3: advance the Saturate_Mode state
+ // machine's clock every epoch. A lease that expired
+ // without renewal demotes the state machine — and the
+ // transport reconciles the DRR scheduler mirror — even
+ // when no Manager event ever arrives again. This runs
+ // BEFORE the DRR epoch so a just-expired lease cannot
+ // keep scheduling everything at HIGH priority for even
+ // one extra epoch.
                         transport.tick_saturate(now_secs());
 
-                        // Req 6.4: rotate Noise_IK session keys whose interval
-                        // has elapsed.  Iterates `active_sessions` and calls
-                        // `SessionManager::rotate_keys` for each due session;
-                        // failures are logged per-session without aborting the
-                        // epoch.
+ // Req 6.4: rotate Noise_IK session keys whose interval
+ // has elapsed. Iterates `active_sessions` and calls
+ // `SessionManager::rotate_keys` for each due session;
+ // failures are logged per-session without aborting the
+ // epoch.
                         transport.tick_key_rotation(now_secs());
 
                         match transport
@@ -5090,39 +5090,39 @@ impl CoreHandle {
         })
     }
 
-    /// Run one cloud sync cycle: drain the Durability Subsystem's cloud
-    /// outbound queue through the real `CloudLedgerConnection` in causal
-    /// order (Subphase 4.1) and mark every freshly-acked Delta Tier-2 durable
-    /// (Subphase 4.2).
-    ///
-    /// The heavy lifting is [`cloud_sync_loop`]: it topologically sorts the
-    /// pending entries by their `causal_parents` (parents before children,
-    /// Req 16.3), sends each serialised Delta to the Cloud Ledger via the
-    /// `CloudConnection` adapter, removes entries only after a per-Delta
-    /// acknowledgement (Req 16.3) and retains rejected entries for the next
-    /// cycle (Req 16.5).  Compacted entries would be deferred until a
-    /// re-fetch succeeds (Req 16.8) — the re-fetch callback returns `None`
-    /// because no production path marks cloud-queue entries compacted yet,
-    /// so the deferral branch never fires in practice (it stays wired for
-    /// the day Tier-1 compaction reaches the queue, Req 14.8/16.8).
-    ///
-    /// **Tier-2 marking (Subphase 4.2):** the loop alone removes an acked
-    /// Delta from the queue but never advances the Delta's durability state —
-    /// `WriteResult.durability_tier` would stay `Uncommitted` forever in a
-    /// real deployment.  So for every Delta ID the loop freshly acknowledged
-    /// (`CloudSyncResult::acknowledged_ids`), this cycle invokes
-    /// [`DurabilitySubsystem::on_cloud_ack`], which marks the Delta Tier-2
-    /// durable and notifies the handle's durability event channel / the SDK
-    /// (Req 14.4, 14.7).  `on_cloud_ack`'s queue removal is idempotent, so
-    /// calling it after the loop's own removal is safe.
-    ///
-    /// Lock order is always `durability` → `cloud_ledger` (matching
-    /// `spawn_cloud_sync_loop`); the ledger never takes the durability lock.
-    ///
-    /// Production caller: [`CoreHandle::spawn_cloud_sync_loop`], which
-    /// [`CoreHandle::init`] spawns before returning (Subphase 4.1).  It is a
-    /// separate method so the integration test can exercise a full cycle
-    /// deterministically as well as through the spawned loop.
+ /// Run one cloud sync cycle: drain the Durability Subsystem's cloud
+ /// outbound queue through the real `CloudLedgerConnection` in causal
+ /// order (Subphase 4.1) and mark every freshly-acked Delta Tier-2 durable
+ /// (Subphase 4.2).
+ ///
+ /// The heavy lifting is [`cloud_sync_loop`]: it topologically sorts the
+ /// pending entries by their `causal_parents` (parents before children,
+ /// Req 16.3), sends each serialised Delta to the Cloud Ledger via the
+ /// `CloudConnection` adapter, removes entries only after a per-Delta
+ /// acknowledgement (Req 16.3) and retains rejected entries for the next
+ /// cycle (Req 16.5). Compacted entries would be deferred until a
+ /// re-fetch succeeds (Req 16.8) — the re-fetch callback returns `None`
+ /// because no production path marks cloud-queue entries compacted yet,
+ /// so the deferral branch never fires in practice (it stays wired for
+ /// the day Tier-1 compaction reaches the queue, Req 14.8/16.8).
+ ///
+ /// **Tier-2 marking (Subphase 4.2):** the loop alone removes an acked
+ /// Delta from the queue but never advances the Delta's durability state —
+ /// `WriteResult.durability_tier` would stay `Uncommitted` forever in a
+ /// real deployment. So for every Delta ID the loop freshly acknowledged
+ /// (`CloudSyncResult::acknowledged_ids`), this cycle invokes
+ /// [`DurabilitySubsystem::on_cloud_ack`], which marks the Delta Tier-2
+ /// durable and notifies the handle's durability event channel / the SDK
+ /// (Req 14.4, 14.7). `on_cloud_ack`'s queue removal is idempotent, so
+ /// calling it after the loop's own removal is safe.
+ ///
+ /// Lock order is always `durability` → `cloud_ledger` (matching
+ /// `spawn_cloud_sync_loop`); the ledger never takes the durability lock.
+ ///
+ /// Production caller: [`CoreHandle::spawn_cloud_sync_loop`], which
+ /// [`CoreHandle::init`] spawns before returning (Subphase 4.1). It is a
+ /// separate method so the integration test can exercise a full cycle
+ /// deterministically as well as through the spawned loop.
     #[cfg(feature = "native")]
     pub(crate) fn run_cloud_sync_cycle(&self) -> Result<CloudSyncResult, TirBaseError> {
         let mut durability =
@@ -5132,7 +5132,7 @@ impl CoreHandle {
                     reason: format!("durability mutex poisoned: {e}"),
                 })?;
 
-        // Nothing pending — skip the cycle (no ledger lock, no log noise).
+ // Nothing pending — skip the cycle (no ledger lock, no log noise).
         if durability.cloud_queue_depth() == 0 {
             return Ok(CloudSyncResult::default());
         }
@@ -5149,9 +5149,9 @@ impl CoreHandle {
             durability.cloud_queue_mut(),
             &mut conn,
             &|delta_id, _receipt_holders| {
-                // Production refetch: for compacted entries whose bytes were
-                // pruned from the cloud outbound queue, retrieve the full
-                // serialised Delta from the DAG (Req 14.8, 16.8).
+ // Production refetch: for compacted entries whose bytes were
+ // pruned from the cloud outbound queue, retrieve the full
+ // serialised Delta from the DAG (Req 14.8, 16.8).
                 self.crdt
                     .lock()
                     .map(|crdt| crdt.refetch_delta_bytes(delta_id).ok().flatten())
@@ -5159,10 +5159,10 @@ impl CoreHandle {
             },
         );
 
-        // Subphase 4.2: a real cloud ack must mark the Delta durable.  The
-        // queue-level sync loop removed the entry; now advance the per-Delta
-        // durability state (the state backing `WriteResult.durability_tier`)
-        // to Tier-2 and notify CoreHandle/SDK of the transition.
+ // Subphase 4.2: a real cloud ack must mark the Delta durable. The
+ // queue-level sync loop removed the entry; now advance the per-Delta
+ // durability state (the state backing `WriteResult.durability_tier`)
+ // to Tier-2 and notify CoreHandle/SDK of the transition.
         for delta_id in &result.acknowledged_ids {
             durability.on_cloud_ack(delta_id)?;
         }
@@ -5170,22 +5170,22 @@ impl CoreHandle {
         Ok(result)
     }
 
-    /// Spawn the production cloud sync loop for this handle.
-    ///
-    /// Every `interval`, the background task calls
-    /// [`CoreHandle::run_cloud_sync_cycle`], which drains the Durability
-    /// Subsystem's cloud outbound queue through the real
-    /// `CloudLedgerConnection` in causal order and sends each Delta to the
-    /// Cloud Ledger (Req 16.3).  Without this loop the cloud queue only ever
-    /// grows in production — nothing outside
-    /// `durability/integration_tests.rs` drained it.
-    ///
-    /// Production caller: [`CoreHandle::init`] spawns this loop before
-    /// returning (Subphase 4.1).  It is `pub(crate)` rather than private so
-    /// the Subphase 4.1 integration test can drive the *identical* loop with
-    /// a short interval without racing the queue-state unit tests.
-    ///
-    /// Returns the `JoinHandle` so callers can observe or abort the task.
+ /// Spawn the production cloud sync loop for this handle.
+ ///
+ /// Every `interval`, the background task calls
+ /// [`CoreHandle::run_cloud_sync_cycle`], which drains the Durability
+ /// Subsystem's cloud outbound queue through the real
+ /// `CloudLedgerConnection` in causal order and sends each Delta to the
+ /// Cloud Ledger (Req 16.3). Without this loop the cloud queue only ever
+ /// grows in production — nothing outside
+ /// `durability/integration_tests.rs` drained it.
+ ///
+ /// Production caller: [`CoreHandle::init`] spawns this loop before
+ /// returning (Subphase 4.1). It is `pub(crate)` rather than private so
+ /// the Subphase 4.1 integration test can drive the *identical* loop with
+ /// a short interval without racing the queue-state unit tests.
+ ///
+ /// Returns the `JoinHandle` so callers can observe or abort the task.
     #[cfg(feature = "native")]
     pub(crate) fn spawn_cloud_sync_loop(
         self: &Arc<Self>,
@@ -5215,28 +5215,28 @@ impl CoreHandle {
         })
     }
 
-    /// Spawn the production beacon signal-loss monitoring loop for this handle.
-    ///
-    /// Every `interval` (seconds), the background task locks the Durability
-    /// Subsystem, calls
-    /// [`AnchorAttestedLocation::check_signal_loss`](crate::durability::anchor::AnchorAttestedLocation::check_signal_loss)
-    /// with the configured `threshold_secs`, and — when one or more registered
-    /// beacons have been silent beyond the threshold — invokes
-    /// [`AnchorAttestedLocation::on_beacon_signal_lost`](crate::durability::anchor::AnchorAttestedLocation::on_beacon_signal_lost)
-    /// to write a permanent Transport Degradation Event and transitively revert
-    /// the anchor to `SquadTagFallback` mode (Req 15.4, 15.5).
-    ///
-    /// After the first signal-loss event the anchor mode is `SquadTagFallback`
-    /// permanently for the lifetime of the instance — `check_signal_loss`
-    /// short-circuits on that mode (returns an empty `Vec`), so the loop does
-    /// no further work but does not error.
-    ///
-    /// Production caller: [`CoreHandle::init`] spawns this loop before
-    /// returning, gated on the anchor being enabled (Subphase 4.3).  It is
-    /// `pub(crate)` so the signal-loss integration test can drive the
-    /// *identical* loop with a short interval.
-    ///
-    /// Returns the `JoinHandle` so callers can observe or abort the task.
+ /// Spawn the production beacon signal-loss monitoring loop for this handle.
+ ///
+ /// Every `interval` (seconds), the background task locks the Durability
+ /// Subsystem, calls
+ /// [`AnchorAttestedLocation::check_signal_loss`](crate::durability::anchor::AnchorAttestedLocation::check_signal_loss)
+ /// with the configured `threshold_secs`, and — when one or more registered
+ /// beacons have been silent beyond the threshold — invokes
+ /// [`AnchorAttestedLocation::on_beacon_signal_lost`](crate::durability::anchor::AnchorAttestedLocation::on_beacon_signal_lost)
+ /// to write a permanent Transport Degradation Event and transitively revert
+ /// the anchor to `SquadTagFallback` mode (Req 15.4, 15.5).
+ ///
+ /// After the first signal-loss event the anchor mode is `SquadTagFallback`
+ /// permanently for the lifetime of the instance — `check_signal_loss`
+ /// short-circuits on that mode (returns an empty `Vec`), so the loop does
+ /// no further work but does not error.
+ ///
+ /// Production caller: [`CoreHandle::init`] spawns this loop before
+ /// returning, gated on the anchor being enabled (Subphase 4.3). It is
+ /// `pub(crate)` so the signal-loss integration test can drive the
+ /// *identical* loop with a short interval.
+ ///
+ /// Returns the `JoinHandle` so callers can observe or abort the task.
     #[cfg(feature = "native")]
     pub(crate) fn spawn_beacon_monitor_loop(
         self: &Arc<Self>,
@@ -5254,7 +5254,7 @@ impl CoreHandle {
                     if let Some(anchor) = dur.anchor_mut() {
                         let lost_beacons = anchor.check_signal_loss(now, threshold_secs);
                         if !lost_beacons.is_empty() {
-                            // Build affected peer DIDs from the lost beacon DIDs.
+ // Build affected peer DIDs from the lost beacon DIDs.
                             use crate::crdt::delta::Did;
                             let affected_dids: Vec<Did> = lost_beacons
                                 .iter()
@@ -5282,19 +5282,19 @@ impl CoreHandle {
         })
     }
 
-    /// Spawn the production token-expiry monitoring loop for this handle (Req 8.4).
-    ///
-    /// Every `interval` (seconds), the background task locks the capability
-    /// manager, checks if the current token has expired via `now_secs()`, and —
-    /// when the device is `Verified` — calls `on_token_expired` to transition
-    /// to `Unverified`.  The unverified warning on every subsequent
-    /// read/write/query will then surface to the caller.
-    ///
-    /// Production caller: [`CoreHandle::init`] spawns this loop before
-    /// returning.  It is `pub(crate)` so the integration test can drive the
-    /// *identical* loop with a short interval.
-    ///
-    /// Returns the `JoinHandle` so callers can observe or abort the task.
+ /// Spawn the production token-expiry monitoring loop for this handle (Req 8.4).
+ ///
+ /// Every `interval` (seconds), the background task locks the capability
+ /// manager, checks if the current token has expired via `now_secs()`, and —
+ /// when the device is `Verified` — calls `on_token_expired` to transition
+ /// to `Unverified`. The unverified warning on every subsequent
+ /// read/write/query will then surface to the caller.
+ ///
+ /// Production caller: [`CoreHandle::init`] spawns this loop before
+ /// returning. It is `pub(crate)` so the integration test can drive the
+ /// *identical* loop with a short interval.
+ ///
+ /// Returns the `JoinHandle` so callers can observe or abort the task.
     #[cfg(feature = "native")]
     pub(crate) fn spawn_token_expiry_monitor_loop(
         self: &Arc<Self>,
@@ -5308,8 +5308,8 @@ impl CoreHandle {
                 ticker.tick().await;
                 let now = now_secs();
                 if let Ok(mut capability) = handle.capability.lock() {
-                    // Only check when the device is Verified — if it's already
-                    // Unverified or Revoked there's nothing to expire.
+ // Only check when the device is Verified — if it's already
+ // Unverified or Revoked there's nothing to expire.
                     if capability.trust_level() == TrustLevel::Verified
                         && capability.current_token_expires_at() <= Some(now)
                     {
@@ -5327,10 +5327,10 @@ impl CoreHandle {
         })
     }
 
-    /// Current cloud outbound queue depth (Subphase 4.1 observability).
-    ///
-    /// Mirrors [`DurabilitySubsystem::cloud_queue_depth`] for the
-    /// production drain-loop integration test and diagnostics.
+ /// Current cloud outbound queue depth (Subphase 4.1 observability).
+ ///
+ /// Mirrors [`DurabilitySubsystem::cloud_queue_depth`] for the
+ /// production drain-loop integration test and diagnostics.
     #[cfg(feature = "native")]
     pub(crate) fn cloud_queue_depth(&self) -> usize {
         self.durability
@@ -5339,8 +5339,8 @@ impl CoreHandle {
             .unwrap_or(0)
     }
 
-    /// Whether the Cloud Ledger this process hosts has committed the given
-    /// Delta (Subphase 4.1 observability).
+ /// Whether the Cloud Ledger this process hosts has committed the given
+ /// Delta (Subphase 4.1 observability).
     #[cfg(feature = "native")]
     pub(crate) fn cloud_ledger_is_committed(&self, delta_id: &DeltaId) -> bool {
         self.cloud_ledger
@@ -5349,16 +5349,16 @@ impl CoreHandle {
             .unwrap_or(false)
     }
 
-    /// The current durability tier of a written Delta (Req 14.7).
-    ///
-    /// This is the same per-Delta state that `WriteResult::durability_tier`
-    /// reports at write time; it transitions `Uncommitted` → `Tier1`/`Tier2`
-    /// as quorum receipts arrive and the Cloud Ledger acknowledges the Delta
-    /// (Subphase 4.2 — the production cloud sync drain now drives the Tier-2
-    /// transition instead of leaving every Delta `Uncommitted` forever).  Host
-    /// applications that poll or that miss the broadcast event (see
-    /// [`CoreHandle::subscribe_durability_events`]) can read the current tier
-    /// here.
+ /// The current durability tier of a written Delta (Req 14.7).
+ ///
+ /// This is the same per-Delta state that `WriteResult::durability_tier`
+ /// reports at write time; it transitions `Uncommitted` → `Tier1`/`Tier2`
+ /// as quorum receipts arrive and the Cloud Ledger acknowledges the Delta
+ /// (Subphase 4.2 — the production cloud sync drain now drives the Tier-2
+ /// transition instead of leaving every Delta `Uncommitted` forever). Host
+ /// applications that poll or that miss the broadcast event (see
+ /// [`CoreHandle::subscribe_durability_events`]) can read the current tier
+ /// here.
     #[cfg(feature = "native")]
     pub(crate) fn durability_tier(&self, delta_id: &DeltaId) -> DurabilityTier {
         self.durability
@@ -5367,17 +5367,17 @@ impl CoreHandle {
             .unwrap_or(DurabilityTier::Uncommitted)
     }
 
-    /// Subscribe to durability tier transitions (Req 14.7).
-    ///
-    /// Returns a new receiver that will receive a [`DurabilityTierChanged`]
-    /// event every time a Delta this handle registered transitions to Tier-1
-    /// (quorum) or Tier-2 (Cloud Ledger ack) — the native analogue of the SDK's
-    /// `durability-tier-changed` event.  Subscribers that lag beyond the
-    /// channel's ring buffer (64 events) miss the oldest transitions, so poll
-    /// [`CoreHandle::durability_tier`] for authoritative current state.
-    ///
-    /// Native-only: the WASM build surfaces the same transitions through the
-    /// SDK's `WasmEvent::DurabilityTierChanged` queue instead.
+ /// Subscribe to durability tier transitions (Req 14.7).
+ ///
+ /// Returns a new receiver that will receive a [`DurabilityTierChanged`]
+ /// event every time a Delta this handle registered transitions to Tier-1
+ /// (quorum) or Tier-2 (Cloud Ledger ack) — the native analogue of the SDK's
+ /// `durability-tier-changed` event. Subscribers that lag beyond the
+ /// channel's ring buffer (64 events) miss the oldest transitions, so poll
+ /// [`CoreHandle::durability_tier`] for authoritative current state.
+ ///
+ /// Native-only: the WASM build surfaces the same transitions through the
+ /// SDK's `WasmEvent::DurabilityTierChanged` queue instead.
     #[cfg(feature = "native")]
     pub fn subscribe_durability_events(
         &self,
@@ -5385,7 +5385,7 @@ impl CoreHandle {
         self.durability_events_channel.subscribe()
     }
 
-    /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
+ /// Test-only access to CCE (CLAIM-31.3 restart-recovery tests).
     #[doc(hidden)]
     #[cfg(all(feature = "native", any(test, feature = "test-hooks")))]
     pub fn test_cce(
@@ -5394,10 +5394,10 @@ impl CoreHandle {
         &self.cce
     }
 
-    /// Inject a `GossipMessage` directly into the inbound channel.
-    ///
-    /// Intended for testing only — allows tests to push messages without
-    /// requiring a live libp2p Swarm.
+ /// Inject a `GossipMessage` directly into the inbound channel.
+ ///
+ /// Intended for testing only — allows tests to push messages without
+ /// requiring a live libp2p Swarm.
     #[cfg(test)]
     pub async fn inject_inbound(
         &self,
@@ -5411,26 +5411,26 @@ impl CoreHandle {
             })
     }
 
-    /// Dial a peer by multiaddr (native only).
-    ///
-    /// Forwards the target address to the Swarm polling task spawned by
-    /// [`CoreHandle::init`], which performs the actual `swarm.dial`.  This is
-    /// the explicit-connect path for topologies where mDNS discovery is
-    /// unavailable or unsuitable (WAN peers, a known cloud/relay endpoint).
-    /// The connection — once established — is recorded in the peer table, so
-    /// `mesh_status()` reflects it like any mDNS-discovered peer.
-    ///
-    /// Current callers: the Subphase 1.5 mesh integration tests (two real
-    /// Swarm-backed handles dialing each other on loopback), which are the
-    /// definition of done for Phase 0.3(a)/(b).  The SDK-facing mesh-connect
-    /// operation (Phase 4 cloud sync) is the stated production consumer.
+ /// Dial a peer by multiaddr (native only).
+ ///
+ /// Forwards the target address to the Swarm polling task spawned by
+ /// [`CoreHandle::init`], which performs the actual `swarm.dial`. This is
+ /// the explicit-connect path for topologies where mDNS discovery is
+ /// unavailable or unsuitable (WAN peers, a known cloud/relay endpoint).
+ /// The connection — once established — is recorded in the peer table, so
+ /// `mesh_status()` reflects it like any mDNS-discovered peer.
+ ///
+ /// Current callers: the Subphase 1.5 mesh integration tests (two real
+ /// Swarm-backed handles dialing each other on loopback), which are the
+ /// definition of done for Phase 0.3(a)/(b). The SDK-facing mesh-connect
+ /// operation (Phase 4 cloud sync) is the stated production consumer.
     #[cfg(feature = "native")]
     pub(crate) async fn dial_peer(&self, addr: libp2p::Multiaddr) -> Result<(), TirBaseError> {
         let addr_str = addr.to_string();
 
-        // Req 5.3: BLE bridge path.  BLE multiaddrs are not routable through
-        // libp2p's Swarm, so we record the peer as reachable via the BLE
-        // bridge and skip the `dial_tx` path entirely.
+ // Req 5.3: BLE bridge path. BLE multiaddrs are not routable through
+ // libp2p's Swarm, so we record the peer as reachable via the BLE
+ // bridge and skip the `dial_tx` path entirely.
         if addr_str.starts_with("/ble/") {
             let parts: Vec<&str> = addr_str.split('/').collect();
             if parts.len() >= 4 {
@@ -5465,160 +5465,160 @@ impl CoreHandle {
 /// Configuration supplied at initialisation time.
 #[derive(Debug, Clone)]
 pub struct InitConfig {
-    /// Path to the local SQLite database file.
+ /// Path to the local SQLite database file.
     pub storage_path: String,
-    /// Deployment-specific settings (M-of-N thresholds, spatial diversity, etc.).
+ /// Deployment-specific settings (M-of-N thresholds, spatial diversity, etc.).
     pub deployment: DeploymentConfig,
-    /// libp2p listen address (native-only; ignored on wasm).
-    ///
-    /// Passed through to [`MeshTransport`] at init so deployments can pin the
-    /// device to a specific interface / port (firewall rules, NAT port
-    /// forwarding).  The default ephemeral bind on all interfaces paired with
-    /// mDNS discovery is what LAN operation uses.
+ /// libp2p listen address (native-only; ignored on wasm).
+ ///
+ /// Passed through to [`MeshTransport`] at init so deployments can pin the
+ /// device to a specific interface / port (firewall rules, NAT port
+ /// forwarding). The default ephemeral bind on all interfaces paired with
+ /// mDNS discovery is what LAN operation uses.
     pub listen_addr: String,
 }
 
 /// Deployment-specific configuration.
 #[derive(Debug, Clone)]
 pub struct DeploymentConfig {
-    /// Revocation threshold M (signatures required).
+ /// Revocation threshold M (signatures required).
     pub revocation_m: usize,
-    /// Revocation threshold N (total manager DIDs).
+ /// Revocation threshold N (total manager DIDs).
     pub revocation_n: usize,
-    /// Biscuit token TTL in seconds (1h–24h; or extended with accepted-risk doc).
+ /// Biscuit token TTL in seconds (1h–24h; or extended with accepted-risk doc).
     pub biscuit_ttl_secs: u64,
-    /// Whether the deployment has explicitly accepted the >24h TTL risk.
-    ///
-    /// This flag is the runtime mirror of the `EXTENDED_TTL` diagnostic
-    /// (Req 21.6): when `biscuit_ttl_secs` exceeds 24 hours at init time,
-    /// the diagnostic fires and this flag is set to `true`, authorising
-    /// `biscuit::create_token` to mint tokens with TTLs up to
-    /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`] (Req 8.7 "accepted
-    /// risk" escape path).  Without this flag, any TTL > 24h is rejected.
+ /// Whether the deployment has explicitly accepted the >24h TTL risk.
+ ///
+ /// This flag is the runtime mirror of the `EXTENDED_TTL` diagnostic
+ /// (Req 21.6): when `biscuit_ttl_secs` exceeds 24 hours at init time,
+ /// the diagnostic fires and this flag is set to `true`, authorising
+ /// `biscuit::create_token` to mint tokens with TTLs up to
+ /// [`crate::auth::biscuit::TTL_OVERRIDE_CEILING_SECS`] (Req 8.7 "accepted
+ /// risk" escape path). Without this flag, any TTL > 24h is rejected.
     pub extended_ttl_accepted_risk: bool,
-    /// Root CA Ed25519 public keys trusted for offline Biscuit token verification.
-    ///
-    /// Empty (the default) is the explicit *unconfigured* state: no Biscuit
-    /// token can be verified until at least one key is registered, either here
-    /// at init time or via [`CoreHandle::register_root_ca_key`] at runtime.
+ /// Root CA Ed25519 public keys trusted for offline Biscuit token verification.
+ ///
+ /// Empty (the default) is the explicit *unconfigured* state: no Biscuit
+ /// token can be verified until at least one key is registered, either here
+ /// at init time or via [`CoreHandle::register_root_ca_key`] at runtime.
     pub root_ca_keys: Vec<[u8; 32]>,
-    /// Ed25519 public key of the deployment's Migration CA, trusted to sign
-    /// Migration_Delta transforms (Req 18.2).
-    ///
-    /// `None` (the default) is the explicit *unconfigured* state: the
-    /// `SchemaMigrationEngine` is constructed with a zero key, so every
-    /// inbound migration fails at the CA-verification gate.  A deployment
-    /// that wants inbound migrations to apply must register its Migration CA
-    /// key here at init time or via [`CoreHandle::register_migration_ca_key`]
-    /// at runtime (Subphase 5.1).
+ /// Ed25519 public key of the deployment's Migration CA, trusted to sign
+ /// Migration_Delta transforms (Req 18.2).
+ ///
+ /// `None` (the default) is the explicit *unconfigured* state: the
+ /// `SchemaMigrationEngine` is constructed with a zero key, so every
+ /// inbound migration fails at the CA-verification gate. A deployment
+ /// that wants inbound migrations to apply must register its Migration CA
+ /// key here at init time or via [`CoreHandle::register_migration_ca_key`]
+ /// at runtime (Subphase 5.1).
     pub migration_ca_public_key: Option<[u8; 32]>,
-    /// Ed25519 public key of the deployment's `UpdateSigner` role, used to
-    /// authenticate signed `ExecutionProfileVersion` metadata carried by a
-    /// `MigrationDelta` (task 29.3, PV-8.2a).
-    ///
-    /// `None` (the default) is the explicit *unconfigured* state: profile
-    /// metadata is still matched on `profile_id` + `fuel_cost_table_hash`, but
-    /// it cannot be authenticated.  When set, a delta whose profile metadata
-    /// carries a missing or invalid UpdateSigner signature is rejected and
-    /// quarantined with `ENGINE_VERSION_MISMATCH`.
+ /// Ed25519 public key of the deployment's `UpdateSigner` role, used to
+ /// authenticate signed `ExecutionProfileVersion` metadata carried by a
+ /// `MigrationDelta` (PV-8.2a).
+ ///
+ /// `None` (the default) is the explicit *unconfigured* state: profile
+ /// metadata is still matched on `profile_id` + `fuel_cost_table_hash`, but
+ /// it cannot be authenticated. When set, a delta whose profile metadata
+ /// carries a missing or invalid UpdateSigner signature is rejected and
+ /// quarantined with `ENGINE_VERSION_MISMATCH`.
     pub update_signer_public_key: Option<[u8; 32]>,
-    /// Ordered schema-version update path (oldest → newest) of this deployment
-    /// (Req 18.3a).  A Migration_Delta is accepted only when its
-    /// `source_schema_hash` equals the device's current schema hash and its
-    /// `target_schema_hash` is the next hash in this path.
-    ///
-    /// Empty (the default) is the explicit *unconfigured* state: no version
-    /// step validates, so every inbound migration is rejected at the
-    /// version-path gate.  The first entry is the schema hash a
-    /// freshly-initialised device is on; the engine advances through the path
-    /// as migrations apply (Subphase 5.1).
+ /// Ordered schema-version update path (oldest → newest) of this deployment
+ /// (Req 18.3a). A Migration_Delta is accepted only when its
+ /// `source_schema_hash` equals the device's current schema hash and its
+ /// `target_schema_hash` is the next hash in this path.
+ ///
+ /// Empty (the default) is the explicit *unconfigured* state: no version
+ /// step validates, so every inbound migration is rejected at the
+ /// version-path gate. The first entry is the schema hash a
+ /// freshly-initialised device is on; the engine advances through the path
+ /// as migrations apply (Subphase 5.1).
     pub schema_version_path: Vec<[u8; 32]>,
-    /// Full schema definitions for each entry in `schema_version_path`, in the
-    /// same order (Subphase 5.3 — Req 17.3/17.4).
-    ///
-    /// When registered, the CRDT engine can classify an inbound Delta whose
-    /// schema hash is not yet known by diffing its sender's schema definition
-    /// field-by-field against the device's current schema: a Delta written
-    /// under a schema that only *adds* tables/fields merges (Req 17.3), while
-    /// a Delta written under a schema that removes/renames/retypes an existing
-    /// field or drops a table is quarantined as a breaking schema change
-    /// (Req 17.4).  Empty (the default) keeps the legacy behaviour: every hash
-    /// outside the known set is quarantined as unknown.  `CoreHandle::init`
-    /// validates that each definition hashes to its corresponding
-    /// `schema_version_path` entry and rejects the configuration otherwise.
+ /// Full schema definitions for each entry in `schema_version_path`, in the
+ /// same order (Subphase 5.3 — Req 17.3/17.4).
+ ///
+ /// When registered, the CRDT engine can classify an inbound Delta whose
+ /// schema hash is not yet known by diffing its sender's schema definition
+ /// field-by-field against the device's current schema: a Delta written
+ /// under a schema that only *adds* tables/fields merges (Req 17.3), while
+ /// a Delta written under a schema that removes/renames/retypes an existing
+ /// field or drops a table is quarantined as a breaking schema change
+ /// (Req 17.4). Empty (the default) keeps the legacy behaviour: every hash
+ /// outside the known set is quarantined as unknown. `CoreHandle::init`
+ /// validates that each definition hashes to its corresponding
+ /// `schema_version_path` entry and rejects the configuration otherwise.
     pub schema_definitions: Vec<crate::schema::Schema>,
-    /// Whether Anchor_Attested_Location subsystem is enabled.
+ /// Whether Anchor_Attested_Location subsystem is enabled.
     pub anchor_attested_location: bool,
-    /// Ed25519 public keys of the fixed beacons trusted for Anchor_Attested_Location
-    /// (Req 15.1).  Empty (the default) is the explicit unconfigured state: when
-    /// `anchor_attested_location` is enabled with no keys, every beacon token is
-    /// rejected as unknown-beacon, so Quorum cannot form — a deployment must
-    /// configure its beacons here.  Mirror of `root_ca_keys`.
+ /// Ed25519 public keys of the fixed beacons trusted for Anchor_Attested_Location
+ /// (Req 15.1). Empty (the default) is the explicit unconfigured state: when
+ /// `anchor_attested_location` is enabled with no keys, every beacon token is
+ /// rejected as unknown-beacon, so Quorum cannot form — a deployment must
+ /// configure its beacons here. Mirror of `root_ca_keys`.
     pub beacon_public_keys: Vec<[u8; 32]>,
-    /// Minimum distinct spatial tags required for Quorum (Req 14.3).
-    ///
-    /// `0` (the default) is the explicit *unconfigured* state: the quorum
-    /// tracker then applies Req 14.3's default rule `min(K, distinct tags
-    /// available)` at runtime instead of enforcing a raw 0-distinct minimum
-    /// (Subphase 4.4 — see
-    /// [`Tier1QuorumTracker::effective_min_distinct`](crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct)).
-    /// An explicit value `> 0` is enforced as configured, with the Req 14.5
-    /// degradation fallback (flat K-of-N + warning) when fewer distinct tags
-    /// are available.
+ /// Minimum distinct spatial tags required for Quorum (Req 14.3).
+ ///
+ /// `0` (the default) is the explicit *unconfigured* state: the quorum
+ /// tracker then applies Req 14.3's default rule `min(K, distinct tags
+ /// available)` at runtime instead of enforcing a raw 0-distinct minimum
+ /// (Subphase 4.4 — see
+ /// [`Tier1QuorumTracker::effective_min_distinct`](crate::durability::quorum::Tier1QuorumTracker::effective_min_distinct)).
+ /// An explicit value `> 0` is enforced as configured, with the Req 14.5
+ /// degradation fallback (flat K-of-N + warning) when fewer distinct tags
+ /// are available.
     pub spatial_diversity_min: usize,
-    /// Maximum fraction of Quorum receipts that may come from any single
-    /// squad/tunnel_sector tag (Req 14.3).  E.g. `0.7` means no single sector
-    /// may provide more than 70% of the receipts collected for a Delta.
-    ///
-    /// Defaults to `0.7` (the pre-Subphase-4.4 hardcode).  Values outside
-    /// `(0, 1]` cannot express a fraction cap (0 would forbid every receipt
-    /// and disable Quorum; > 1 is meaningless), so `CoreHandle::init` falls
-    /// back to the `0.7` default for them.
+ /// Maximum fraction of Quorum receipts that may come from any single
+ /// squad/tunnel_sector tag (Req 14.3). E.g. `0.7` means no single sector
+ /// may provide more than 70% of the receipts collected for a Delta.
+ ///
+ /// Defaults to `0.7` (the pre-Subphase-4.4 hardcode). Values outside
+ /// `(0, 1]` cannot express a fraction cap (0 would forbid every receipt
+ /// and disable Quorum; > 1 is meaningless), so `CoreHandle::init` falls
+ /// back to the `0.7` default for them.
     pub max_single_sector_fraction: f64,
-    /// K-of-N quorum (K receipts required).
+ /// K-of-N quorum (K receipts required).
     pub quorum_k: usize,
-    /// N candidate peers for quorum.
+ /// N candidate peers for quorum.
     pub quorum_n: usize,
-    /// Duration in seconds of a Saturate_Mode Lease (Req 13.3), fed by
-    /// `CoreHandle::init` into the transport's Saturate_Mode state machine.
-    /// Defaults to [`crate::transport::saturate::SATURATE_LEASE_DURATION_SECS`]
-    /// (60 minutes — the spec window); a deployment may shorten it (faster
-    /// auto-demotion on Manager silence) or lengthen it.  Clamped to `>= 1` at
-    /// init.
+ /// Duration in seconds of a Saturate_Mode Lease (Req 13.3), fed by
+ /// `CoreHandle::init` into the transport's Saturate_Mode state machine.
+ /// Defaults to [`crate::transport::saturate::SATURATE_LEASE_DURATION_SECS`]
+ /// (60 minutes — the spec window); a deployment may shorten it (faster
+ /// auto-demotion on Manager silence) or lengthen it. Clamped to `>= 1` at
+ /// init.
     pub saturate_lease_duration_secs: i64,
-    /// Active mesh transport MTU in bytes (Req 5.7).
-    ///
-    /// When set to a non-zero value below 256, the transport fragments
-    /// outbound Deltas into `DeltaFragment`s no larger than this MTU and
-    /// reassembles them on the receiving peer.  A value of 0 (the default)
-    /// means "do not fragment" — Deltas are sent as whole `GossipMessage::InboundDelta`
-    /// payloads.  Deployments operating over physical transports with small
-    /// MTUs (LoRa, Iridium — design §Architecture) set this to their
-    /// transport's MTU so large Deltas are split and reassembled cleanly.
+ /// Active mesh transport MTU in bytes (Req 5.7).
+ ///
+ /// When set to a non-zero value below 256, the transport fragments
+ /// outbound Deltas into `DeltaFragment`s no larger than this MTU and
+ /// reassembles them on the receiving peer. A value of 0 (the default)
+ /// means "do not fragment" — Deltas are sent as whole `GossipMessage::InboundDelta`
+ /// payloads. Deployments operating over physical transports with small
+ /// MTUs (LoRa, Iridium — design §Architecture) set this to their
+ /// transport's MTU so large Deltas are split and reassembled cleanly.
     pub mesh_mtu: usize,
-    /// Beacon signal-loss threshold in seconds (Req 15.4).
-    ///
-    /// The duration a beacon must be unreachable (no valid beacon token
-    /// observed in any attested receipt) before signal loss is declared and
-    /// the anchor transitively reverts to `SquadTagFallback` mode.  Defaults
-    /// to 300 (5 minutes) — a deployment can shorten it for faster fail-open
-    /// on beacon outage or lengthen it to ride out transient network
-    /// partitions without degrading spatial diversity.
+ /// Beacon signal-loss threshold in seconds (Req 15.4).
+ ///
+ /// The duration a beacon must be unreachable (no valid beacon token
+ /// observed in any attested receipt) before signal loss is declared and
+ /// the anchor transitively reverts to `SquadTagFallback` mode. Defaults
+ /// to 300 (5 minutes) — a deployment can shorten it for faster fail-open
+ /// on beacon outage or lengthen it to ride out transient network
+ /// partitions without degrading spatial diversity.
     pub beacon_signal_loss_threshold_secs: u64,
 }
 
 impl Default for DeploymentConfig {
-    /// Manual default: every field derives-0 except two spec-mandated defaults
-    /// that a 0 would actively corrupt:
-    /// - `saturate_lease_duration_secs` defaults to the 60-minute window
-    ///   (Req 13.3) — a zero-length lease would expire on the first tick;
-    /// - `max_single_sector_fraction` defaults to `0.7` (Req 14.3 cap, the
-    ///   pre-Subphase-4.4 hardcode) — a 0 cap would forbid every receipt and
-    ///   disable Quorum entirely.
-    ///
-    /// `spatial_diversity_min: 0` is *not* a bug: it is the explicit
-    /// unconfigured marker resolved to Req 14.3's default rule
-    /// `min(K, distinct tags available)` at runtime (Subphase 4.4).
+ /// Manual default: every field derives-0 except two spec-mandated defaults
+ /// that a 0 would actively corrupt:
+ /// - `saturate_lease_duration_secs` defaults to the 60-minute window
+ /// (Req 13.3) — a zero-length lease would expire on the first tick;
+ /// - `max_single_sector_fraction` defaults to `0.7` (Req 14.3 cap, the
+ /// pre-Subphase-4.4 hardcode) — a 0 cap would forbid every receipt and
+ /// disable Quorum entirely.
+ ///
+ /// `spatial_diversity_min: 0` is *not* a bug: it is the explicit
+ /// unconfigured marker resolved to Req 14.3's default rule
+ /// `min(K, distinct tags available)` at runtime (Subphase 4.4).
     fn default() -> Self {
         Self {
             revocation_m: 0,
@@ -5679,29 +5679,29 @@ mod tests {
         }
     }
 
-    /// Create a unique temp file path for this test.
+ /// Create a unique temp file path for this test.
     fn tmp_path(suffix: &str) -> String {
         let mut p = env::temp_dir();
         p.push(format!("tirbase_test_{suffix}.db"));
         p.to_str().unwrap().to_string()
     }
 
-    /// Remove a temp db and its accompanying identity file if they exist.
+ /// Remove a temp db and its accompanying identity file if they exist.
     fn cleanup(path: &str) {
         let _ = std::fs::remove_file(path);
         let _ = std::fs::remove_file(format!("{path}.identity.json"));
-        // WAL + SHM side-cars
+ // WAL + SHM side-cars
         let _ = std::fs::remove_file(format!("{path}-wal"));
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    // ── CLAIM-5.7: IdentityManager signs through a FileKeyProvider ───────────
-    //
-    // Two real `CoreHandle` instances each load their identity from a
-    // `FileKeyProvider` (the `{storage_path}.identity.json` file written by
-    // `CoreHandle::init`).  Handle A signs a Delta through its KeyProvider and
-    // handle B verifies it via DID resolution, proving the provider is the
-    // signing path and that its public key matches the persisted identity.
+ // ── CLAIM-5.7: IdentityManager signs through a FileKeyProvider ───────────
+ //
+ // Two real `CoreHandle` instances each load their identity from a
+ // `FileKeyProvider` (the `{storage_path}.identity.json` file written by
+ // `CoreHandle::init`). Handle A signs a Delta through its KeyProvider and
+ // handle B verifies it via DID resolution, proving the provider is the
+ // signing path and that its public key matches the persisted identity.
 
     #[tokio::test]
     async fn file_key_provider_signs_delta_across_two_core_handles() {
@@ -5722,7 +5722,7 @@ mod tests {
             .await
             .expect("init B");
 
-        // Both handles persist their identity through a FileKeyProvider.
+ // Both handles persist their identity through a FileKeyProvider.
         let identity_file_a = format!("{path_a}.identity.json");
         let identity_file_b = format!("{path_b}.identity.json");
         assert!(std::path::Path::new(&identity_file_a).exists());
@@ -5736,7 +5736,7 @@ mod tests {
             handle_a.identity.public_key_bytes().to_vec()
         );
 
-        // Handle A signs a Delta with its KeyProvider-backed identity.
+ // Handle A signs a Delta with its KeyProvider-backed identity.
         let schema_hash =
             compute_schema_identifier_hash(&[("readings", &[("id", "TEXT"), ("value", "TEXT")])]);
         let mut delta = Delta {
@@ -5759,14 +5759,14 @@ mod tests {
         assert_eq!(delta.author_did, handle_a.identity.did());
         assert_ne!(delta.id, [0u8; 32]);
 
-        // Handle B verifies the signature by resolving A's DID to the public
-        // key held by A's FileKeyProvider.
+ // Handle B verifies the signature by resolving A's DID to the public
+ // key held by A's FileKeyProvider.
         handle_b
             .identity
             .verify_delta(&delta)
             .expect("peer verifies provider-signed delta");
 
-        // A tampered payload no longer verifies — the signature is real.
+ // A tampered payload no longer verifies — the signature is real.
         let mut tampered = delta.clone();
         tampered.automerge_bytes = b"tampered".to_vec();
         assert!(handle_b.identity.verify_delta(&tampered).is_err());
@@ -5775,7 +5775,7 @@ mod tests {
         cleanup(&path_b);
     }
 
-    // ── 1. Init succeeds with a temp path ─────────────────────────────────────
+ // ── 1. Init succeeds with a temp path ─────────────────────────────────────
 
     #[tokio::test]
     async fn init_succeeds_with_temp_path() {
@@ -5792,7 +5792,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 2. Write then read returns same value ─────────────────────────────────
+ // ── 2. Write then read returns same value ─────────────────────────────────
 
     #[tokio::test]
     async fn write_then_read_returns_same_value() {
@@ -5815,7 +5815,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 3. Read on missing key returns Err ────────────────────────────────────
+ // ── 3. Read on missing key returns Err ────────────────────────────────────
 
     #[tokio::test]
     async fn read_missing_key_returns_err() {
@@ -5830,7 +5830,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 4. Trust level is Unverified after init (no Biscuit token supplied) ───
+ // ── 4. Trust level is Unverified after init (no Biscuit token supplied) ───
 
     #[tokio::test]
     async fn trust_level_is_unverified_after_init() {
@@ -5848,7 +5848,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 5. Two independent handles share no store ─────────────────────────────
+ // ── 5. Two independent handles share no store ─────────────────────────────
 
     #[tokio::test]
     async fn two_instances_sharing_no_store_are_independent() {
@@ -5864,13 +5864,13 @@ mod tests {
             .await
             .expect("init b");
 
-        // Write to A.
+ // Write to A.
         handle_a
             .write("shared_table", "x", json!({"from": "a"}))
             .await
             .expect("write a");
 
-        // Reading the same key from B must fail (not found).
+ // Reading the same key from B must fail (not found).
         let result = handle_b.read("shared_table", "x").await;
         assert!(
             result.is_err(),
@@ -5881,7 +5881,7 @@ mod tests {
         cleanup(&path_b);
     }
 
-    // ── 6. Query returns all written rows ─────────────────────────────────────
+ // ── 6. Query returns all written rows ─────────────────────────────────────
 
     #[tokio::test]
     async fn query_returns_all_written_rows() {
@@ -5909,7 +5909,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 7. Mesh status is Disconnected after init (no peers connected yet) ────
+ // ── 7. Mesh status is Disconnected after init (no peers connected yet) ────
 
     #[tokio::test]
     async fn mesh_status_is_disconnected_after_init() {
@@ -5929,7 +5929,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 8. REVOKED device cannot write ───────────────────────────────────────
+ // ── 8. REVOKED device cannot write ───────────────────────────────────────
 
     #[tokio::test]
     async fn revoked_device_cannot_write() {
@@ -5938,7 +5938,7 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Force REVOKED state via CapabilityManager.
+ // Force REVOKED state via CapabilityManager.
         handle
             .capability
             .lock()
@@ -5963,21 +5963,21 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 8b. Locally-known REVOKED (via inbound RevocationDelta) blocks writes, ─
-    //       reads, and queries (Subphase 2.2 — Req 8.5)
-    //
-    // End-to-end through the PRODUCTION inbound pipeline: a valid 1-of-1
-    // RevocationDelta targeting this device's own DID is injected and drained
-    // exactly like a gossipsub message would be.  The inbound arm must invoke
-    // CapabilityManager::apply_revocation() so the local TrustLevel becomes
-    // REVOKED and every local I/O gate trips.
+ // ── 8b. Locally-known REVOKED (via inbound RevocationDelta) blocks writes, ─
+ // reads, and queries (Subphase 2.2 — Req 8.5)
+ //
+ // End-to-end through the PRODUCTION inbound pipeline: a valid 1-of-1
+ // RevocationDelta targeting this device's own DID is injected and drained
+ // exactly like a gossipsub message would be. The inbound arm must invoke
+ // CapabilityManager::apply_revocation() so the local TrustLevel becomes
+ // REVOKED and every local I/O gate trips.
 
     #[tokio::test]
     async fn inbound_revocation_of_local_device_blocks_writes_reads_and_queries() {
         let path = tmp_path("revoked_gate_e2e");
         cleanup(&path);
 
-        // M=1, N=1 so a single Manager signature completes the revocation.
+ // M=1, N=1 so a single Manager signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6005,13 +6005,13 @@ mod tests {
         .await
         .expect("init");
 
-        // Sanity: I/O works before the revocation is locally known.
+ // Sanity: I/O works before the revocation is locally known.
         handle
             .write("t", "k1", json!({ "v": 1 }))
             .await
             .expect("pre-revocation write must succeed");
 
-        // A Manager signs a 1-of-1 RevocationDelta targeting THIS device's DID.
+ // A Manager signs a 1-of-1 RevocationDelta targeting THIS device's DID.
         let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
         let mgr_did = mgr.did().to_string();
         let mgr_sk = mgr.signing_key_bytes();
@@ -6023,8 +6023,8 @@ mod tests {
                 .expect("produce partial delta")
         };
 
-        // Deliver through the production inbound pipeline (the same path a
-        // gossipsub message takes in production — Subphase 1.3 drain loop).
+ // Deliver through the production inbound pipeline (the same path a
+ // gossipsub message takes in production — Subphase 1.3 drain loop).
         handle
             .inject_inbound(GossipMessage::InboundRevocationDelta(delta))
             .await
@@ -6034,15 +6034,15 @@ mod tests {
             .await
             .expect("process_inbound_messages");
 
-        // The local device's TrustLevel must now be REVOKED — this is the
-        // production caller of CapabilityManager::apply_revocation().
+ // The local device's TrustLevel must now be REVOKED — this is the
+ // production caller of CapabilityManager::apply_revocation().
         assert_eq!(
             handle.trust_level(),
             TrustLevel::Revoked,
             "local device must be REVOKED after inbound RevocationDelta"
         );
 
-        // Write must be blocked by the gate.
+ // Write must be blocked by the gate.
         let write = handle.write("t", "k2", json!({ "v": 2 })).await;
         assert!(
             write.is_err(),
@@ -6053,7 +6053,7 @@ mod tests {
             "write error must mention REVOKED"
         );
 
-        // Read must be blocked by the gate.
+ // Read must be blocked by the gate.
         let read = handle.read("t", "k1").await;
         assert!(read.is_err(), "REVOKED device must not be allowed to read");
         assert!(
@@ -6061,7 +6061,7 @@ mod tests {
             "read error must mention REVOKED"
         );
 
-        // Query must be blocked by the gate.
+ // Query must be blocked by the gate.
         let query = handle.query("t", None).await;
         assert!(
             query.is_err(),
@@ -6075,14 +6075,14 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 8c. Revoking a DIFFERENT device must not trip this device's gate ─────
+ // ── 8c. Revoking a DIFFERENT device must not trip this device's gate ─────
 
     #[tokio::test]
     async fn inbound_revocation_of_other_device_does_not_block_local_device() {
         let path = tmp_path("revoked_gate_other");
         cleanup(&path);
 
-        // M=1, N=1 so the other device's revocation completes immediately.
+ // M=1, N=1 so the other device's revocation completes immediately.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6110,7 +6110,7 @@ mod tests {
         .await
         .expect("init");
 
-        // A Manager revokes an unrelated device, not this one.
+ // A Manager revokes an unrelated device, not this one.
         let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
         let mgr_did = mgr.did().to_string();
         let mgr_sk = mgr.signing_key_bytes();
@@ -6134,7 +6134,7 @@ mod tests {
             .await
             .expect("process_inbound_messages");
 
-        // The other device is REVOKED in the subsystem…
+ // The other device is REVOKED in the subsystem…
         assert!(
             handle
                 .revocation
@@ -6144,7 +6144,7 @@ mod tests {
                 .contains(&other_did),
             "subsystem must know the other device is REVOKED"
         );
-        // …but this device's own TrustLevel must be untouched.
+ // …but this device's own TrustLevel must be untouched.
         assert_eq!(
             handle.trust_level(),
             TrustLevel::Unverified,
@@ -6162,14 +6162,14 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 9a. CoreHandle::initiate_revocation — native entry point (Subphase 2.4, ─
-    //       Req 9.1)
-    //
-    // The native (non-WASM-only) entry point to initiate a revocation, mirroring
-    // the WASM export `core_initiate_revocation`: the local Manager signs a
-    // partial RevocationDelta, it is gossiped at HIGH priority, and the
-    // signature is accumulated locally through the same subsystem call an
-    // inbound partial delta from a peer would take.
+ // ── 9a. CoreHandle::initiate_revocation — native entry point (Subphase 2.4, ─
+ // Req 9.1)
+ //
+ // The native (non-WASM-only) entry point to initiate a revocation, mirroring
+ // the WASM export `core_initiate_revocation`: the local Manager signs a
+ // partial RevocationDelta, it is gossiped at HIGH priority, and the
+ // signature is accumulated locally through the same subsystem call an
+ // inbound partial delta from a peer would take.
 
     #[tokio::test]
     async fn initiate_revocation_rejects_blank_inputs() {
@@ -6206,7 +6206,7 @@ mod tests {
         let path = tmp_path("rev_init_1of1");
         cleanup(&path);
 
-        // M=1, N=1 so this Manager's single signature completes the revocation.
+ // M=1, N=1 so this Manager's single signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6239,18 +6239,18 @@ mod tests {
             .did()
             .to_string();
 
-        // Sanity: I/O works before any revocation is initiated.
+ // Sanity: I/O works before any revocation is initiated.
         handle
             .write("t", "k1", json!({ "v": 1 }))
             .await
             .expect("pre-revocation write must succeed");
 
-        // This device (the Manager) initiates the revocation of another device.
+ // This device (the Manager) initiates the revocation of another device.
         handle
             .initiate_revocation(&other_did, "manager-token")
             .expect("initiate_revocation must succeed");
 
-        // The complete delta (M=1) is gossiped at HIGH priority (Req 9.1/9.2).
+ // The complete delta (M=1) is gossiped at HIGH priority (Req 9.1/9.2).
         {
             let transport = handle.transport.lock().unwrap();
             assert!(
@@ -6264,7 +6264,7 @@ mod tests {
             );
         }
 
-        // The target is now REVOKED in the subsystem…
+ // The target is now REVOKED in the subsystem…
         {
             let rev = handle.revocation.lock().unwrap();
             match rev.store_status(&other_did) {
@@ -6276,7 +6276,7 @@ mod tests {
                 "subsystem must know the target DID is REVOKED"
             );
         }
-        // …but revoking another device must not trip this device's own gate.
+ // …but revoking another device must not trip this device's own gate.
         assert_ne!(
             handle.trust_level(),
             TrustLevel::Revoked,
@@ -6295,7 +6295,7 @@ mod tests {
         let path = tmp_path("rev_init_self");
         cleanup(&path);
 
-        // M=1, N=1 — a single Manager signature completes the revocation.
+ // M=1, N=1 — a single Manager signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6329,14 +6329,14 @@ mod tests {
             .await
             .expect("pre-revocation write must succeed");
 
-        // The Manager device initiates a 1-of-1 revocation of ITSELF.
+ // The Manager device initiates a 1-of-1 revocation of ITSELF.
         handle
             .initiate_revocation(&local_did, "manager-token")
             .expect("initiate_revocation must succeed");
 
-        // Req 8.5: the locally-known REVOKED status must now block all I/O — the
-        // same end state the inbound path reaches, driven through the native
-        // initiate entry point instead.
+ // Req 8.5: the locally-known REVOKED status must now block all I/O — the
+ // same end state the inbound path reaches, driven through the native
+ // initiate entry point instead.
         assert_eq!(
             handle.trust_level(),
             TrustLevel::Revoked,
@@ -6368,8 +6368,8 @@ mod tests {
         let path = tmp_path("rev_init_m2");
         cleanup(&path);
 
-        // M=2, N=2 — the local contribution stays Pending until a second
-        // Manager's signature arrives through the (simulated) mesh.
+ // M=2, N=2 — the local contribution stays Pending until a second
+ // Manager's signature arrives through the (simulated) mesh.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6405,12 +6405,12 @@ mod tests {
         let mgr2_did = mgr2.did().to_string();
         let mgr2_sk = mgr2.signing_key_bytes();
 
-        // This device contributes signature #1 via the native initiate entry.
+ // This device contributes signature #1 via the native initiate entry.
         handle
             .initiate_revocation(&target, "manager-token")
             .expect("initiate_revocation must succeed");
 
-        // Status is Pending (1/2) and the partial delta is gossiped at HIGH.
+ // Status is Pending (1/2) and the partial delta is gossiped at HIGH.
         {
             let rev = handle.revocation.lock().unwrap();
             match rev.store_status(&target) {
@@ -6436,7 +6436,7 @@ mod tests {
             );
         }
 
-        // Manager #2's partial signature arrives from the mesh.
+ // Manager #2's partial signature arrives from the mesh.
         let partial2 = {
             let rev = handle.revocation.lock().unwrap();
             rev.produce_partial_delta(target.clone(), mgr2_did, &mgr2_sk)
@@ -6451,8 +6451,8 @@ mod tests {
             .await
             .expect("process_inbound_messages");
 
-        // M=2 reached: the target is Applied + REVOKED, and the complete delta
-        // is re-gossiped at HIGH priority (Req 9.2).
+ // M=2 reached: the target is Applied + REVOKED, and the complete delta
+ // is re-gossiped at HIGH priority (Req 9.2).
         {
             let rev = handle.revocation.lock().unwrap();
             match rev.store_status(&target) {
@@ -6475,11 +6475,11 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 9b. CoreHandle::device_revocation_status — Req 9.5 queryable status ───
-    //
-    // The Req 9.5 data (last-known TrustLevel + last RevocationDelta receipt
-    // timestamp) lives in `RevocationSubsystem::device_status`; these tests
-    // pin the CoreHandle exposure of that map.
+ // ── 9b. CoreHandle::device_revocation_status — Req 9.5 queryable status ───
+ //
+ // The Req 9.5 data (last-known TrustLevel + last RevocationDelta receipt
+ // timestamp) lives in `RevocationSubsystem::device_status`; these tests
+ // pin the CoreHandle exposure of that map.
 
     #[tokio::test]
     async fn device_revocation_status_is_none_for_unknown_device() {
@@ -6493,8 +6493,8 @@ mod tests {
             .did()
             .to_string();
 
-        // No RevocationDelta has ever been received for this DID: the subsystem
-        // has no record, so the query returns Ok(None) — not an error.
+ // No RevocationDelta has ever been received for this DID: the subsystem
+ // has no record, so the query returns Ok(None) — not an error.
         assert!(
             handle
                 .device_revocation_status(&unknown)
@@ -6511,7 +6511,7 @@ mod tests {
         let path = tmp_path("rev_dev_status_applied");
         cleanup(&path);
 
-        // M=1, N=1 so a single Manager signature applies the revocation.
+ // M=1, N=1 so a single Manager signature applies the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6548,8 +6548,8 @@ mod tests {
             .initiate_revocation(&other_did, "manager-token")
             .expect("initiate_revocation must succeed");
 
-        // Req 9.5: the last-known TrustLevel is REVOKED and the receipt
-        // timestamp is recorded for the target device.
+ // Req 9.5: the last-known TrustLevel is REVOKED and the receipt
+ // timestamp is recorded for the target device.
         let status = handle
             .device_revocation_status(&other_did)
             .expect("query must succeed")
@@ -6576,7 +6576,7 @@ mod tests {
         let path = tmp_path("rev_dev_status_pending");
         cleanup(&path);
 
-        // M=2, N=2 — the local contribution keeps the revocation Pending.
+ // M=2, N=2 — the local contribution keeps the revocation Pending.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -6613,7 +6613,7 @@ mod tests {
             .initiate_revocation(&target, "manager-token")
             .expect("initiate_revocation must succeed");
 
-        // The M-of-N accumulation is Pending (1/2)…
+ // The M-of-N accumulation is Pending (1/2)…
         {
             let rev = handle.revocation.lock().unwrap();
             match rev.store_status(&target) {
@@ -6627,8 +6627,8 @@ mod tests {
                 _ => panic!("expected Pending accumulation state"),
             }
         }
-        // …but the Req 9.5 device-status record is only written on application,
-        // so the query still returns None (no last-known state yet).
+ // …but the Req 9.5 device-status record is only written on application,
+ // so the query still returns None (no last-known state yet).
         assert!(
             handle
                 .device_revocation_status(&target)
@@ -6640,7 +6640,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 9. Write result has Uncommitted durability tier ───────────────────────
+ // ── 9. Write result has Uncommitted durability tier ───────────────────────
 
     #[tokio::test]
     async fn write_result_has_uncommitted_tier() {
@@ -6663,14 +6663,14 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 9b. write() publishes the Delta to the outbound mesh ─────────────────
-    //
-    // Subphase 1.1 acceptance: write() must NOT discard prepare_outbound()'s
-    // output — the prepared payload must reach the outbound publish path (the
-    // Swarm polling task) and be handed to gossipsub.publish.  With no peers
-    // subscribed, gossipsub.publish returns NoPeersSubscribedToTopic, so the
-    // payload is observed at the publish point via the test-only recording
-    // hook rather than via a live peer.
+ // ── 9b. write() publishes the Delta to the outbound mesh ─────────────────
+ //
+ // Subphase 1.1 acceptance: write() must NOT discard prepare_outbound()'s
+ // output — the prepared payload must reach the outbound publish path (the
+ // Swarm polling task) and be handed to gossipsub.publish. With no peers
+ // subscribed, gossipsub.publish returns NoPeersSubscribedToTopic, so the
+ // payload is observed at the publish point via the test-only recording
+ // hook rather than via a live peer.
 
     #[tokio::test]
     async fn write_publishes_outbound_delta_to_mesh() {
@@ -6684,8 +6684,8 @@ mod tests {
             .await
             .expect("write must succeed even with no mesh peers connected");
 
-        // The Swarm polling task drains the outbound channel asynchronously;
-        // poll until the prepared payload reaches the publish point.
+ // The Swarm polling task drains the outbound channel asynchronously;
+ // poll until the prepared payload reaches the publish point.
         let mut attempts = 0;
         let published = loop {
             let published = handle.transport.lock().unwrap().outbound_published.clone();
@@ -6706,12 +6706,12 @@ mod tests {
             "exactly one outbound payload must be produced per write (mtu=0)"
         );
 
-        // The published payload must carry the prepared Delta — i.e. the
-        // output of prepare_outbound() is used, not discarded.  Since the
-        // wire protocol frames every mesh message as a `GossipMessage`
-        // (Subphase 1.5 — the receiving poll task dispatches on the variant),
-        // the recorded payload is `GossipMessage::InboundDelta(delta)` rather
-        // than the bare serialised Delta.
+ // The published payload must carry the prepared Delta — i.e. the
+ // output of prepare_outbound() is used, not discarded. Since the
+ // wire protocol frames every mesh message as a `GossipMessage`
+ // (Subphase 1.5 — the receiving poll task dispatches on the variant),
+ // the recorded payload is `GossipMessage::InboundDelta(delta)` rather
+ // than the bare serialised Delta.
         let wire: crate::transport::message::GossipMessage = serde_json::from_slice(&published[0])
             .expect("published payload must deserialise as a GossipMessage");
         let decoded = match wire {
@@ -6726,7 +6726,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 10. Test A: ContaminatedByHumanReaction tag applied when row is contaminated ──
+ // ── 10. Test A: ContaminatedByHumanReaction tag applied when row is contaminated ──
 
     #[tokio::test]
     async fn write_on_contaminated_row_gets_human_reaction_tag() {
@@ -6738,24 +6738,24 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Write an initial value so the key/table exists.
+ // Write an initial value so the key/table exists.
         handle
             .write("sensors", "temp-1", json!({"v": 100}))
             .await
             .expect("initial write");
 
-        // Tag a synthetic contamination root via the CCE. We insert the DagNode via
-        // a public helper on ChangesetDag, accessed through the CCE's public tag method.
-        // We use tag_contamination_root with a DeviceRevocation source on a zero-byte
-        // root ID — the BFS walk will find no descendants (node not in DAG), and
-        // affected_rows will be empty, but the ICO is still registered as OPEN.
-        // This is enough to exercise the live lock path in CoreHandle::write().
+ // Tag a synthetic contamination root via the CCE. We insert the DagNode via
+ // a public helper on ChangesetDag, accessed through the CCE's public tag method.
+ // We use tag_contamination_root with a DeviceRevocation source on a zero-byte
+ // root ID — the BFS walk will find no descendants (node not in DAG), and
+ // affected_rows will be empty, but the ICO is still registered as OPEN.
+ // This is enough to exercise the live lock path in CoreHandle::write().
         let root_delta_id = [0xA0u8; 32];
         {
             let mut cce = handle.cce.lock().unwrap();
-            // tag_contamination_root will attempt a BFS walk; the node may not be in the
-            // DAG (returns DeltaNotFound or empty walk). We ignore the error here since
-            // our goal is only to test that the write path calls is_row_contaminated.
+ // tag_contamination_root will attempt a BFS walk; the node may not be in the
+ // DAG (returns DeltaNotFound or empty walk). We ignore the error here since
+ // our goal is only to test that the write path calls is_row_contaminated.
             let _ = cce.tag_contamination_root(
                 root_delta_id,
                 TaintSource::DeviceRevocation {
@@ -6764,8 +6764,8 @@ mod tests {
             );
         }
 
-        // Write again to the same key — with the live lookup path active (not hardcoded
-        // false), the write must still complete without error.
+ // Write again to the same key — with the live lookup path active (not hardcoded
+ // false), the write must still complete without error.
         let result = handle.write("sensors", "temp-1", json!({"v": 200})).await;
         assert!(
             result.is_ok(),
@@ -6776,7 +6776,7 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── 11. Test B: No ContaminatedByHumanReaction on uncontaminated table ────────
+ // ── 11. Test B: No ContaminatedByHumanReaction on uncontaminated table ────────
 
     #[tokio::test]
     async fn write_on_clean_row_has_no_human_reaction_tag() {
@@ -6785,19 +6785,19 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Write to a clean table with no incidents.
+ // Write to a clean table with no incidents.
         let result = handle
             .write("clean_table", "row-1", json!({"status": "ok"}))
             .await
             .expect("write must succeed");
 
-        // The durability tier should still be Uncommitted (unchanged behaviour).
+ // The durability tier should still be Uncommitted (unchanged behaviour).
         assert_eq!(result.durability_tier, DurabilityTier::Uncommitted);
 
         cleanup(&path);
     }
 
-    // ── 12. Test C: WriteContext uses live lookups (mutex lock doesn't panic) ─────
+ // ── 12. Test C: WriteContext uses live lookups (mutex lock doesn't panic) ─────
 
     #[tokio::test]
     async fn write_ctx_live_lookups_do_not_panic() {
@@ -6806,8 +6806,8 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Perform multiple writes — each one should lock cce and migration without
-        // deadlock or panic regardless of whether contamination state is clean.
+ // Perform multiple writes — each one should lock cce and migration without
+ // deadlock or panic regardless of whether contamination state is clean.
         for i in 0..5u32 {
             handle
                 .write("perf_table", &format!("key-{i}"), json!({"i": i}))
@@ -6818,13 +6818,13 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Task-44 Test A: write on contaminated row → new Delta added to ICO ───
+ // ── Task-44 Test A: write on contaminated row → new Delta added to ICO ───
 
-    /// Validates Req 19.5: when `tag_contamination_root` has marked a row as
-    /// contaminated, a subsequent `CoreHandle::write()` to that same row must
-    /// register the resulting Delta in the active ICO's `contaminated_deltas`.
+ /// Validates Req 19.5: when `tag_contamination_root` has marked a row as
+ /// contaminated, a subsequent `CoreHandle::write()` to that same row must
+ /// register the resulting Delta in the active ICO's `contaminated_deltas`.
     #[tokio::test]
-    async fn task44_test_a_human_reaction_delta_added_to_ico() {
+    async fn human_reaction_delta_added_to_ico() {
         use crate::contamination::incident::TaintSource;
         use crate::crdt::dag::DagNode;
         use crate::crdt::delta::DeltaTag;
@@ -6834,19 +6834,19 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Step 1: write an initial row so the table and key exist in the store.
+ // Step 1: write an initial row so the table and key exist in the store.
         let first_write = handle
             .write("events", "evt-1", json!({"status": "initial"}))
             .await
             .expect("first write");
         let first_delta_id = first_write.delta_id;
 
-        // Step 2: insert that delta as a DagNode so the BFS walk can find it,
-        //         then tag it as a contamination root.
+ // Step 2: insert that delta as a DagNode so the BFS walk can find it,
+ // then tag it as a contamination root.
         let ico_id = {
             let mut cce = handle.cce.lock().unwrap();
 
-            // Insert the first delta's ID as a DagNode so the BFS walk succeeds.
+ // Insert the first delta's ID as a DagNode so the BFS walk succeeds.
             cce.test_insert_dag_node(DagNode {
                 delta_id: first_delta_id,
                 payload: vec![],
@@ -6869,7 +6869,7 @@ mod tests {
             .expect("tag_contamination_root")
         };
 
-        // Confirm the first delta is in the ICO.
+ // Confirm the first delta is in the ICO.
         let ico_before = handle
             .cce
             .lock()
@@ -6882,16 +6882,16 @@ mod tests {
             "first delta must be in ICO before second write"
         );
 
-        // Step 3: manually set the contaminated_rows entry to simulate the projection
-        // layer having resolved affected rows. The BFS walk only populates
-        // contaminated_rows when affected_rows is non-empty, which requires a
-        // live projection table. We use the test helper to inject the entry directly.
+ // Step 3: manually set the contaminated_rows entry to simulate the projection
+ // layer having resolved affected rows. The BFS walk only populates
+ // contaminated_rows when affected_rows is non-empty, which requires a
+ // live projection table. We use the test helper to inject the entry directly.
         {
             let mut cce = handle.cce.lock().unwrap();
             cce.test_set_contaminated_row("events", "evt-1", ico_id);
         }
 
-        // Confirm is_row_contaminated returns true.
+ // Confirm is_row_contaminated returns true.
         assert!(
             handle
                 .cce
@@ -6907,10 +6907,10 @@ mod tests {
             .expect("second write must succeed");
         let second_delta_id = second_write.delta_id;
 
-        // Step 4: the second delta must now appear in the active open ICOs.
-        // CoreHandle::write() calls on_write_commit → returns Some((id, incident_id))
-        // → calls cce.tag_contamination_root(TaintSource::HumanReaction) → BFS walk
-        // from second_delta_id → new ICO or composite ICO containing second_delta_id.
+ // Step 4: the second delta must now appear in the active open ICOs.
+ // CoreHandle::write() calls on_write_commit → returns Some((id, incident_id))
+ // → calls cce.tag_contamination_root(TaintSource::HumanReaction) → BFS walk
+ // from second_delta_id → new ICO or composite ICO containing second_delta_id.
         let all_open_icos = handle.cce.lock().unwrap().open_incidents().unwrap();
 
         let found = all_open_icos
@@ -6927,31 +6927,31 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Task-44 Test B: write on uncontaminated row → no ContaminatedByHumanReaction ─
+ // ── Task-44 Test B: write on uncontaminated row → no ContaminatedByHumanReaction ─
 
-    /// Validates Req 19.5 negative case: a write to a completely clean row must
-    /// produce no `ContaminatedByHumanReaction` tag, and no ICO must be updated.
+ /// Validates Req 19.5 negative case: a write to a completely clean row must
+ /// produce no `ContaminatedByHumanReaction` tag, and no ICO must be updated.
     #[tokio::test]
-    async fn task44_test_b_clean_row_write_has_no_human_reaction_tag() {
+    async fn clean_row_write_has_no_human_reaction_tag() {
         let path = tmp_path("t44_test_b");
         cleanup(&path);
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Write to a table/key that has never been contaminated.
+ // Write to a table/key that has never been contaminated.
         let _result = handle
             .write("clean_sensors", "reading-42", json!({"temp": 22.5}))
             .await
             .expect("write must succeed");
 
-        // No ICOs must be open (nothing was contaminated).
+ // No ICOs must be open (nothing was contaminated).
         let open_icos = handle.cce.lock().unwrap().open_incidents().unwrap();
         assert!(
             open_icos.is_empty(),
             "no ICOs must be created for a clean write; found: {open_icos:?}"
         );
 
-        // The CCE's contaminated_rows must not contain this key.
+ // The CCE's contaminated_rows must not contain this key.
         let is_contaminated = handle
             .cce
             .lock()
@@ -6965,13 +6965,13 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Task-44 Test C: write after resolution → no ContaminatedByHumanReaction ─
+ // ── Task-44 Test C: write after resolution → no ContaminatedByHumanReaction ─
 
-    /// Validates Req 19.5 resolution case: after `verify_data` resolves all roots
-    /// and the CCE prunes `contaminated_rows`, a subsequent write to the previously
-    /// contaminated row must not trigger human-reaction tagging or update any ICO.
+ /// Validates Req 19.5 resolution case: after `verify_data` resolves all roots
+ /// and the CCE prunes `contaminated_rows`, a subsequent write to the previously
+ /// contaminated row must not trigger human-reaction tagging or update any ICO.
     #[tokio::test]
-    async fn task44_test_c_write_after_resolution_no_human_reaction_tag() {
+    async fn write_after_resolution_no_human_reaction_tag() {
         use crate::contamination::incident::TaintSource;
         use crate::contamination::resolution::now_micros;
         use crate::crdt::dag::DagNode;
@@ -6982,14 +6982,14 @@ mod tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Step 1: write an initial row.
+ // Step 1: write an initial row.
         let first_write = handle
             .write("telemetry", "node-7", json!({"reading": 100}))
             .await
             .expect("initial write");
         let first_delta_id = first_write.delta_id;
 
-        // Step 2: insert the DagNode and tag as contamination root.
+ // Step 2: insert the DagNode and tag as contamination root.
         let ico_id = {
             let mut cce = handle.cce.lock().unwrap();
             cce.test_insert_dag_node(DagNode {
@@ -7014,13 +7014,13 @@ mod tests {
             .expect("tag_contamination_root")
         };
 
-        // Set contaminated_rows so is_row_contaminated returns true.
+ // Set contaminated_rows so is_row_contaminated returns true.
         {
             let mut cce = handle.cce.lock().unwrap();
             cce.test_set_contaminated_row("telemetry", "node-7", ico_id);
         }
 
-        // Confirm the row is contaminated before resolution.
+ // Confirm the row is contaminated before resolution.
         assert!(
             handle
                 .cce
@@ -7030,7 +7030,7 @@ mod tests {
             "row must be contaminated before verify_data"
         );
 
-        // Step 3: resolve the contamination root via verify_data.
+ // Step 3: resolve the contamination root via verify_data.
         let mgr = IdentityManager::init_in_memory().expect("manager identity");
         let mgr_did = mgr.did().to_string();
         let mgr_secret = mgr.signing_key_bytes();
@@ -7045,7 +7045,7 @@ mod tests {
             .verify_data(first_delta_id, mgr_did, sig, expiry, now_s)
             .expect("verify_data must succeed");
 
-        // Step 4: after resolution, contaminated_rows must be pruned.
+ // Step 4: after resolution, contaminated_rows must be pruned.
         assert!(
             !handle
                 .cce
@@ -7055,16 +7055,16 @@ mod tests {
             "row must NOT be contaminated after verify_data resolves all roots"
         );
 
-        // Count open ICOs before the third write.
+ // Count open ICOs before the third write.
         let icos_before = handle.cce.lock().unwrap().open_incidents().unwrap().len();
 
-        // Step 5: write again to the previously contaminated row.
+ // Step 5: write again to the previously contaminated row.
         let _third_write = handle
             .write("telemetry", "node-7", json!({"reading": 200}))
             .await
             .expect("third write must succeed");
 
-        // No new ICOs must have been opened by the third write.
+ // No new ICOs must have been opened by the third write.
         let icos_after = handle.cce.lock().unwrap().open_incidents().unwrap().len();
         assert_eq!(
             icos_after, icos_before,
@@ -7074,16 +7074,16 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Phase 2.1: root CA key registration (Req 8.1) ────────────────────────
+ // ── Phase 2.1: root CA key registration (Req 8.1) ────────────────────────
 
-    /// Build a config that registers the given root CA public key at init.
+ /// Build a config that registers the given root CA public key at init.
     fn make_config_with_ca_key(path: &str, ca_key: [u8; 32]) -> InitConfig {
         let mut config = make_config(path);
         config.deployment.root_ca_keys = vec![ca_key];
         config
     }
 
-    /// Create a fresh CA keypair; returns (private_key_bytes, public_key_bytes).
+ /// Create a fresh CA keypair; returns (private_key_bytes, public_key_bytes).
     fn make_ca_keypair() -> (Vec<u8>, [u8; 32]) {
         use biscuit_auth::{builder::Algorithm, KeyPair};
         let kp = KeyPair::new();
@@ -7101,10 +7101,10 @@ mod tests {
         crate::traits::wall_hint_secs().unwrap_or(0)
     }
 
-    /// Init-time registration: keys supplied in `DeploymentConfig` must be
-    /// reachable through `root_ca_public_key()` and must let the exact
-    /// production verification path (`verify_and_check_caveat`, as used by
-    /// `core_activate_saturate_mode`) succeed.
+ /// Init-time registration: keys supplied in `DeploymentConfig` must be
+ /// reachable through `root_ca_public_key()` and must let the exact
+ /// production verification path (`verify_and_check_caveat`, as used by
+ /// `core_activate_saturate_mode`) succeed.
     #[tokio::test]
     async fn init_registers_root_ca_keys_and_biscuit_verifies() {
         let path = tmp_path("p21_init_keys");
@@ -7115,10 +7115,10 @@ mod tests {
             .await
             .expect("init with registered root CA key");
 
-        // The registered key must be the one exposed for offline verification.
+ // The registered key must be the one exposed for offline verification.
         assert_eq!(handle.root_ca_public_key(), ca_public.to_vec());
 
-        // Build a real disaster-alert Biscuit token signed by the CA.
+ // Build a real disaster-alert Biscuit token signed by the CA.
         let token_bytes = crate::auth::biscuit::create_token_with_caveat(
             "did:key:z6MkTest",
             "manager",
@@ -7128,8 +7128,8 @@ mod tests {
         )
         .expect("create token");
 
-        // The exact production verification call (`core_activate_saturate_mode`
-        // in lib.rs) must succeed now that a key is registered.
+ // The exact production verification call (`core_activate_saturate_mode`
+ // in lib.rs) must succeed now that a key is registered.
         assert!(
             crate::auth::biscuit::verify_and_check_caveat(
                 &token_bytes,
@@ -7144,9 +7144,9 @@ mod tests {
         cleanup(&path);
     }
 
-    /// Runtime registration: a handle initialised with no keys starts in the
-    /// explicit unconfigured state (verification fails), and becomes able to
-    /// verify tokens only after `register_root_ca_key` is called.
+ /// Runtime registration: a handle initialised with no keys starts in the
+ /// explicit unconfigured state (verification fails), and becomes able to
+ /// verify tokens only after `register_root_ca_key` is called.
     #[tokio::test]
     async fn runtime_register_root_ca_key_enables_biscuit_verification() {
         let path = tmp_path("p21_runtime_key");
@@ -7170,7 +7170,7 @@ mod tests {
         )
         .expect("create token");
 
-        // Before registration: the empty registry must NOT verify the token.
+ // Before registration: the empty registry must NOT verify the token.
         let before = crate::auth::biscuit::verify_and_check_caveat(
             &token_bytes,
             "disaster-alert",
@@ -7179,13 +7179,13 @@ mod tests {
         );
         assert!(before.is_err(), "empty registry must reject verification");
 
-        // Register the CA key at runtime.
+ // Register the CA key at runtime.
         handle
             .register_root_ca_key(ca_public, None)
             .expect("register_root_ca_key must succeed");
         assert_eq!(handle.root_ca_public_key(), ca_public.to_vec());
 
-        // Now the same token verifies.
+ // Now the same token verifies.
         assert!(
             crate::auth::biscuit::verify_and_check_caveat(
                 &token_bytes,
@@ -7200,17 +7200,17 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 9.1: TrustLevel VERIFIED transition via Biscuit verification ──
-    //
-    // Wires `CapabilityManager::verify_token` into the production
-    // `CoreHandle::register_root_ca_key` path so that presenting a valid Biscuit
-    // token at registration time transitions `TrustLevel` from `Unverified` to
-    // `Verified`.  `ensure_local_trust_allows_io` already returns `Ok(())` for
-    // non-REVOKED states, so the only missing piece was the trust-level
-    // transition itself.
+ // ── Subphase 9.1: TrustLevel VERIFIED transition via Biscuit verification ──
+ //
+ // Wires `CapabilityManager::verify_token` into the production
+ // `CoreHandle::register_root_ca_key` path so that presenting a valid Biscuit
+ // token at registration time transitions `TrustLevel` from `Unverified` to
+ // `Verified`. `ensure_local_trust_allows_io` already returns `Ok(())` for
+ // non-REVOKED states, so the only missing piece was the trust-level
+ // transition itself.
 
-    /// Full chain: init (Unverified) → register CA key with valid token →
-    /// TrustLevel becomes Verified → write succeeds without `unverified_warning`.
+ /// Full chain: init (Unverified) → register CA key with valid token →
+ /// TrustLevel becomes Verified → write succeeds without `unverified_warning`.
     #[tokio::test]
     async fn register_root_ca_key_with_token_transitions_trust_to_verified() {
         let path = tmp_path("p91_trust_transition");
@@ -7218,7 +7218,7 @@ mod tests {
 
         let (ca_private, ca_public) = make_ca_keypair();
 
-        // Step 1: init without a CA key — device starts Unverified.
+ // Step 1: init without a CA key — device starts Unverified.
         let handle = CoreHandle::init(make_config(&path))
             .await
             .expect("init without keys");
@@ -7228,7 +7228,7 @@ mod tests {
             "device must start Unverified when no CA key is configured"
         );
 
-        // Step 2: create a valid Biscuit token signed by the CA.
+ // Step 2: create a valid Biscuit token signed by the CA.
         let token_bytes = crate::auth::biscuit::create_token(
             "did:key:z6MkTest",
             "admin",
@@ -7240,11 +7240,11 @@ mod tests {
 
         let now = now_secs();
 
-        // Step 3: register the CA key AND present the token in one call.
-        // This is the production caller chain:
-        //   CoreHandle::register_root_ca_key
-        //   → CapabilityManager::verify_token
-        //   → TrustLevelStateMachine::on_valid_token
+ // Step 3: register the CA key AND present the token in one call.
+ // This is the production caller chain:
+ // CoreHandle::register_root_ca_key
+ // → CapabilityManager::verify_token
+ // → TrustLevelStateMachine::on_valid_token
         let level = handle
             .register_root_ca_key(ca_public, Some((&token_bytes, now)))
             .expect("register_root_ca_key with token must succeed");
@@ -7259,7 +7259,7 @@ mod tests {
             "handle.trust_level() must report Verified"
         );
 
-        // Step 4: write succeeds and carries no unverified_warning.
+ // Step 4: write succeeds and carries no unverified_warning.
         let result = handle
             .write("test_table", "test_key", json!({"value": 1}))
             .await
@@ -7272,21 +7272,21 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.1: Migration CA key + schema version path wiring ──────────
-    //
-    // `CoreHandle::init` constructs the `SchemaMigrationEngine` from
-    // `DeploymentConfig.migration_ca_public_key` and
-    // `DeploymentConfig.schema_version_path` (Req 18.2, 18.3a).  Before this
-    // wiring the engine was built with a zero CA key and an empty path, so
-    // every real inbound migration failed at the CA-verification gate
-    // regardless of validity.  These tests drive the exact production
-    // construction (`CoreHandle::init`) and assert that a CA-signed migration
-    // on a valid path step is now accepted, that the full inbound pipeline
-    // (`inject_inbound` → `process_inbound_messages` → engine) applies it, and
-    // that the explicit unconfigured state still rejects at the CA gate.
+ // ── Subphase 5.1: Migration CA key + schema version path wiring ──────────
+ //
+ // `CoreHandle::init` constructs the `SchemaMigrationEngine` from
+ // `DeploymentConfig.migration_ca_public_key` and
+ // `DeploymentConfig.schema_version_path` (Req 18.2, 18.3a). Before this
+ // wiring the engine was built with a zero CA key and an empty path, so
+ // every real inbound migration failed at the CA-verification gate
+ // regardless of validity. These tests drive the exact production
+ // construction (`CoreHandle::init`) and assert that a CA-signed migration
+ // on a valid path step is now accepted, that the full inbound pipeline
+ // (`inject_inbound` → `process_inbound_messages` → engine) applies it, and
+ // that the explicit unconfigured state still rejects at the CA gate.
 
-    /// Trivial WASM module: `(module (func (export "run")))` — the same
-    /// bytecode the SchemaMigrationEngine unit tests execute.
+ /// Trivial WASM module: `(module (func (export "run")))` — the same
+ /// bytecode the SchemaMigrationEngine unit tests execute.
     fn trivial_wasm_bytes() -> Vec<u8> {
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
@@ -7298,8 +7298,8 @@ mod tests {
         ]
     }
 
-    /// Build a config that registers the Migration CA public key and the
-    /// ordered schema version path at init (Subphase 5.1).
+ /// Build a config that registers the Migration CA public key and the
+ /// ordered schema version path at init (Subphase 5.1).
     fn make_migration_config(
         path: &str,
         ca_public: [u8; 32],
@@ -7311,16 +7311,16 @@ mod tests {
         config
     }
 
-    /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`
-    /// (Req 18.2: CA signature over transform bytes, embedded SHA-256).
-    /// A second minimal-but-valid WASM module, byte-distinct from
-    /// [`Self::trivial_wasm_bytes`] (exports `"run2"` instead of `"run"`;
-    /// the sandbox treats a missing `"run"` export as a successful no-op).
-    ///
-    /// Migration IDs are SHA-256(transform_bytes), so a corrected migration
-    /// must carry *different* transform bytes than the revoked one — the same
-    /// bytes would hash to the revoked migration's ID and be rejected at the
-    /// revocation gate.
+ /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`
+ /// (Req 18.2: CA signature over transform bytes, embedded SHA-256).
+ /// A second minimal-but-valid WASM module, byte-distinct from
+ /// [`Self::trivial_wasm_bytes`] (exports `"run2"` instead of `"run"`;
+ /// the sandbox treats a missing `"run"` export as a successful no-op).
+ ///
+ /// Migration IDs are SHA-256(transform_bytes), so a corrected migration
+ /// must carry *different* transform bytes than the revoked one — the same
+ /// bytes would hash to the revoked migration's ID and be rejected at the
+ /// revocation gate.
     fn trivial_wasm_bytes_v2() -> Vec<u8> {
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
@@ -7363,10 +7363,10 @@ mod tests {
         }
     }
 
-    /// Init wiring registers the Migration CA key + version path: a CA-signed
-    /// migration on a valid path step is accepted by the engine constructed
-    /// through `CoreHandle::init` — previously the zero key rejected every
-    /// migration with `MigrationCaSignatureInvalid` regardless of validity.
+ /// Init wiring registers the Migration CA key + version path: a CA-signed
+ /// migration on a valid path step is accepted by the engine constructed
+ /// through `CoreHandle::init` — previously the zero key rejected every
+ /// migration with `MigrationCaSignatureInvalid` regardless of validity.
     #[tokio::test]
     async fn init_registers_migration_ca_key_and_version_path() {
         let path = tmp_path("p51_migration_ca");
@@ -7387,10 +7387,10 @@ mod tests {
         let delta =
             make_ca_signed_migration_delta(&ca_secret, source, target, trivial_wasm_bytes());
 
-        // The engine `CoreHandle::init` constructed must accept the valid
-        // migration: the CA signature verifies against the config-registered
-        // key and source → target is a valid step in the config-registered
-        // path.
+ // The engine `CoreHandle::init` constructed must accept the valid
+ // migration: the CA signature verifies against the config-registered
+ // key and source → target is a valid step in the config-registered
+ // path.
         let result = handle
             .migration
             .lock()
@@ -7407,9 +7407,9 @@ mod tests {
         cleanup(&path);
     }
 
-    /// Without a configured Migration CA key the engine must still reject every
-    /// migration at the CA-verification step — `None` is the explicit
-    /// unconfigured state, not a silent acceptance hole.
+ /// Without a configured Migration CA key the engine must still reject every
+ /// migration at the CA-verification step — `None` is the explicit
+ /// unconfigured state, not a silent acceptance hole.
     #[tokio::test]
     async fn unconfigured_migration_ca_still_rejects_at_ca_gate() {
         let path = tmp_path("p51_unconfigured");
@@ -7419,7 +7419,7 @@ mod tests {
         let source = [0x10u8; 32];
         let target = [0x11u8; 32];
 
-        // Default config: migration_ca_public_key = None, schema_version_path = [].
+ // Default config: migration_ca_public_key = None, schema_version_path = [].
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
         let delta =
@@ -7440,9 +7440,9 @@ mod tests {
         cleanup(&path);
     }
 
-    /// Runtime registration: a handle initialised without a Migration CA key
-    /// starts in the explicit unconfigured state (CA gate rejects) and becomes
-    /// able to accept CA-signed migrations after `register_migration_ca_key`.
+ /// Runtime registration: a handle initialised without a Migration CA key
+ /// starts in the explicit unconfigured state (CA gate rejects) and becomes
+ /// able to accept CA-signed migrations after `register_migration_ca_key`.
     #[tokio::test]
     async fn runtime_register_migration_ca_key_enables_migrations() {
         let path = tmp_path("p51_runtime_migration_key");
@@ -7457,8 +7457,8 @@ mod tests {
         let delta =
             make_ca_signed_migration_delta(&ca_secret, source, target, trivial_wasm_bytes());
 
-        // Before registration: the zero key must reject at the CA gate (this
-        // also blacklists the sender).
+ // Before registration: the zero key must reject at the CA gate (this
+ // also blacklists the sender).
         let before = handle
             .migration
             .lock()
@@ -7472,15 +7472,15 @@ mod tests {
             "before registration the CA gate must reject: {before:?}"
         );
 
-        // Register the Migration CA key at runtime.
+ // Register the Migration CA key at runtime.
         handle
             .register_migration_ca_key(ca_public)
             .expect("register_migration_ca_key must succeed");
 
-        // Now the same migration verifies against the registered key.  The
-        // version path is still unconfigured (empty), so it is rejected at the
-        // version-path gate — not at the CA gate.  (A fresh sender DID: the
-        // pre-registration attempt blacklisted the original one.)
+ // Now the same migration verifies against the registered key. The
+ // version path is still unconfigured (empty), so it is rejected at the
+ // version-path gate — not at the CA gate. (A fresh sender DID: the
+ // pre-registration attempt blacklisted the original one.)
         let after = handle
             .migration
             .lock()
@@ -7494,10 +7494,10 @@ mod tests {
         cleanup(&path);
     }
 
-    /// Full inbound path: a CA-signed migration delivered via `inject_inbound`
-    /// → `process_inbound_messages` → `SchemaMigrationEngine::receive_migration_delta`
-    /// is applied, the sender is not blacklisted, and the engine's local schema
-    /// hash advances so the next path step is accepted.
+ /// Full inbound path: a CA-signed migration delivered via `inject_inbound`
+ /// → `process_inbound_messages` → `SchemaMigrationEngine::receive_migration_delta`
+ /// is applied, the sender is not blacklisted, and the engine's local schema
+ /// hash advances so the next path step is accepted.
     #[tokio::test]
     async fn inbound_migration_passes_ca_gate_with_configured_key_and_path() {
         let path = tmp_path("p51_inbound_migration");
@@ -7514,7 +7514,7 @@ mod tests {
 
         let sender = "did:key:z6MkMigSender";
 
-        // Deliver migration v1 → v2 through the production inbound pipeline.
+ // Deliver migration v1 → v2 through the production inbound pipeline.
         let delta_a = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
         handle
             .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta_a)))
@@ -7524,9 +7524,9 @@ mod tests {
             .process_inbound_messages()
             .await
             .expect("drain inbound");
-        // The inbound pipeline executes migrations on a background job (so a
-        // revocation can interrupt one — Req 18.6); wait for this one to
-        // commit before asserting post-migration state.
+ // The inbound pipeline executes migrations on a background job (so a
+ // revocation can interrupt one — Req 18.6); wait for this one to
+ // commit before asserting post-migration state.
         assert!(
             handle
                 .await_migration_quiescence(std::time::Duration::from_secs(10))
@@ -7540,9 +7540,9 @@ mod tests {
             "valid CA-signed migration must not blacklist its sender"
         );
 
-        // The engine's local schema hash advanced to v2 — the next step v2 → v3
-        // must now be a valid migration (it would fail the source-hash check had
-        // migration A not actually applied).
+ // The engine's local schema hash advanced to v2 — the next step v2 → v3
+ // must now be a valid migration (it would fail the source-hash check had
+ // migration A not actually applied).
         let delta_b = make_ca_signed_migration_delta(&ca_secret, v2, v3, trivial_wasm_bytes());
         let result = mig.receive_migration_delta(delta_b, sender);
         assert!(
@@ -7557,49 +7557,49 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── CLAIM-G1.7: MigrationDelta with wrong CA signature is rejected ────────
-    //
-    // A MigrationDelta signed by a *different* (wrong) CA key must be rejected
-    // with `MigrationCaSignatureInvalid` even when the registered key, version
-    // path, and transform bytes are all otherwise valid.  This test proves the
-    // CA-signature gate in `SchemaMigrationEngine::prepare_migration` (gate
-    // step 3) operates against the real registered key — not just against a
-    // zero key — and that a wrong-key signature cannot bypass the gate.
-    //
-    // Production callers under test:
-    //   - `migration_ca_public_key`: `CoreHandle::init` at
-    //     `tirbase-core/src/api/mod.rs` ~line 574 reads
-    //     `DeploymentConfig.migration_ca_public_key` and passes it to
-    //     `SchemaMigrationEngine::new` — the "correct" CA key wired here.
-    //   - `schema_version_path`: `CoreHandle::init` at
-    //     `tirbase-core/src/api/mod.rs` ~line 578 reads
-    //     `DeploymentConfig.schema_version_path` and passes it to
-    //     `SchemaMigrationEngine::new` — the version path wired here.
-    //
-    // Wiring mutation evidence: removing either production caller causes
-    // `init_registers_migration_ca_key_and_version_path` to fail (CA gate
-    // rejects every migration with `MigrationCaSignatureInvalid` when the key
-    // reverts to `[0u8; 32]`; the version path gate rejects every migration
-    // with `VersionPathMismatch` when the path reverts to empty).
-    //
-    // PV-1.13: both functions have a production caller in the gateway init path
-    // and this test drives the rejection from a real `CoreHandle::init` entry
-    // point, satisfying the wired definition (production caller + at least one
-    // passing integration test).
+ // ── CLAIM-G1.7: MigrationDelta with wrong CA signature is rejected ────────
+ //
+ // A MigrationDelta signed by a *different* (wrong) CA key must be rejected
+ // with `MigrationCaSignatureInvalid` even when the registered key, version
+ // path, and transform bytes are all otherwise valid. This test proves the
+ // CA-signature gate in `SchemaMigrationEngine::prepare_migration` (gate
+ // step 3) operates against the real registered key — not just against a
+ // zero key — and that a wrong-key signature cannot bypass the gate.
+ //
+ // Production callers under test:
+ // - `migration_ca_public_key`: `CoreHandle::init` at
+ // `tirbase-core/src/api/mod.rs` ~line 574 reads
+ // `DeploymentConfig.migration_ca_public_key` and passes it to
+ // `SchemaMigrationEngine::new` — the "correct" CA key wired here.
+ // - `schema_version_path`: `CoreHandle::init` at
+ // `tirbase-core/src/api/mod.rs` ~line 578 reads
+ // `DeploymentConfig.schema_version_path` and passes it to
+ // `SchemaMigrationEngine::new` — the version path wired here.
+ //
+ // Wiring mutation evidence: removing either production caller causes
+ // `init_registers_migration_ca_key_and_version_path` to fail (CA gate
+ // rejects every migration with `MigrationCaSignatureInvalid` when the key
+ // reverts to `[0u8; 32]`; the version path gate rejects every migration
+ // with `VersionPathMismatch` when the path reverts to empty).
+ //
+ // PV-1.13: both functions have a production caller in the gateway init path
+ // and this test drives the rejection from a real `CoreHandle::init` entry
+ // point, satisfying the wired definition (production caller + at least one
+ // passing integration test).
 
-    /// A MigrationDelta signed by the **wrong** CA key is rejected at the CA
-    /// gate even when the registered key, transform bytes, and version path are
-    /// all otherwise valid (Req 18.2 — CLAIM-G1.7).
-    ///
-    /// This test explicitly distinguishes the "wrong key" rejection path from
-    /// the "zero key" rejection in `unconfigured_migration_ca_still_rejects_at_ca_gate`.
+ /// A MigrationDelta signed by the **wrong** CA key is rejected at the CA
+ /// gate even when the registered key, transform bytes, and version path are
+ /// all otherwise valid (Req 18.2 — CLAIM-G1.7).
+ ///
+ /// This test explicitly distinguishes the "wrong key" rejection path from
+ /// the "zero key" rejection in `unconfigured_migration_ca_still_rejects_at_ca_gate`.
     #[tokio::test]
     async fn migration_delta_wrong_ca_signature_is_rejected() {
         let path = tmp_path("g1_7_wrong_ca_sig");
         cleanup(&path);
 
-        // Two distinct CA keypairs: `correct_ca` is registered in the handle;
-        // `wrong_ca` is used to sign the migration delta.
+ // Two distinct CA keypairs: `correct_ca` is registered in the handle;
+ // `wrong_ca` is used to sign the migration delta.
         let (correct_ca_secret, correct_ca_public) =
             crate::identity::keypair::generate_keypair().expect("correct keygen");
         let (wrong_ca_secret, _wrong_ca_public) =
@@ -7608,7 +7608,7 @@ mod tests {
         let source = [0x20u8; 32];
         let target = [0x21u8; 32];
 
-        // Init with the **correct** CA key and a valid two-version path.
+ // Init with the **correct** CA key and a valid two-version path.
         let handle = CoreHandle::init(make_migration_config(
             &path,
             correct_ca_public,
@@ -7617,8 +7617,8 @@ mod tests {
         .await
         .expect("init with correct CA key + version path");
 
-        // Build a delta signed by the **wrong** CA key.  The version path and
-        // transform bytes are valid — only the signature is wrong.
+ // Build a delta signed by the **wrong** CA key. The version path and
+ // transform bytes are valid — only the signature is wrong.
         let delta = make_ca_signed_migration_delta(
             &wrong_ca_secret, // ← intentionally wrong key
             source,
@@ -7645,24 +7645,24 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.4: Migration revocation interrupts an in-progress ─────────
-    //
-    // transform (Req 18.6)
-    //
-    // Before this subphase the inbound pipeline executed the migration
-    // transform synchronously inside `receive_migration_delta` while holding
-    // the CoreHandle `migration` mutex, so a MigrationRevocationDelta arriving
-    // mid-run queued behind the transform (up to the 30 s epoch timeout) and
-    // could never halt it.  This test drives the production wiring: a
-    // long-running (infinite-loop) transform is dispatched to the background
-    // migration job, a revocation is drained while it is genuinely executing,
-    // and the transform must be epoch-interrupted promptly — well before its
-    // 30 s timeout — with the schema hash left unadvanced.
+ // ── Subphase 5.4: Migration revocation interrupts an in-progress ─────────
+ //
+ // transform (Req 18.6)
+ //
+ // Before this subphase the inbound pipeline executed the migration
+ // transform synchronously inside `receive_migration_delta` while holding
+ // the CoreHandle `migration` mutex, so a MigrationRevocationDelta arriving
+ // mid-run queued behind the transform (up to the 30 s epoch timeout) and
+ // could never halt it. This test drives the production wiring: a
+ // long-running (infinite-loop) transform is dispatched to the background
+ // migration job, a revocation is drained while it is genuinely executing,
+ // and the transform must be epoch-interrupted promptly — well before its
+ // 30 s timeout — with the schema hash left unadvanced.
 
-    /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
-    ///
-    /// Only the epoch interrupt (timeout or revocation, Req 18.6) can stop it,
-    /// which is exactly what makes it a reliable "in progress" transform.
+ /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
+ ///
+ /// Only the epoch interrupt (timeout or revocation, Req 18.6) can stop it,
+ /// which is exactly what makes it a reliable "in progress" transform.
     fn infinite_loop_wasm_bytes() -> Vec<u8> {
         wat::parse_str(r#"(module (func (export "run") (loop $inf br $inf))) "#)
             .expect("parse infinite-loop WAT")
@@ -7670,7 +7670,7 @@ mod tests {
 
     #[tokio::test]
     async fn two_core_handle_instances_execute_migration_with_wasmi() {
-        // CLAIM-29.1: two real CoreHandle instances execute migration with wasmi.
+ // CLAIM-29.1: two real CoreHandle instances execute migration with wasmi.
         let p1 = tmp_path("p29_1_a");
         let p2 = tmp_path("p29_1_b");
         cleanup(&p1);
@@ -7703,7 +7703,7 @@ mod tests {
                 .await
         );
 
-        // Both handles advanced schema via the production inbound+wasmi path.
+ // Both handles advanced schema via the production inbound+wasmi path.
         for (name, h) in [("h1", &h1), ("h2", &h2)] {
             let mig = h.migration.lock().unwrap();
             assert!(
@@ -7728,9 +7728,9 @@ mod tests {
         let v2 = [0x11u8; 32];
 
         let mut config = make_migration_config(&path, ca_public, vec![v1, v2]);
-        // M-of-N manager threshold for *migration* revocations: a single
-        // Manager signature suffices (the engine uses
-        // `deployment.revocation_m.max(1)`).
+ // M-of-N manager threshold for *migration* revocations: a single
+ // Manager signature suffices (the engine uses
+ // `deployment.revocation_m.max(1)`).
         config.deployment.revocation_m = 1;
 
         let handle = CoreHandle::init(config)
@@ -7739,7 +7739,7 @@ mod tests {
 
         let sender = "did:key:z6MkMigSender";
 
-        // ── 1. Start a long-running migration through the inbound pipeline ──
+ // ── 1. Start a long-running migration through the inbound pipeline ──
         let wasm = infinite_loop_wasm_bytes();
         let delta = make_ca_signed_migration_delta(&ca_secret, v1, v2, wasm);
         let migration_id = delta.id;
@@ -7753,10 +7753,10 @@ mod tests {
             .await
             .expect("drain inbound");
 
-        // The inbound pipeline runs the transform on a background job; wait
-        // until it has genuinely started executing (engine in-progress marker
-        // set AND registered in the execution registry, so
-        // the epoch interrupt below is guaranteed to land).
+ // The inbound pipeline runs the transform on a background job; wait
+ // until it has genuinely started executing (engine in-progress marker
+ // set AND registered in the execution registry, so
+ // the epoch interrupt below is guaranteed to land).
         let start_deadline = crate::traits::monotonic_now() + 10_000_000;
         loop {
             let in_progress = handle
@@ -7775,7 +7775,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         }
 
-        // ── 2. Revoke it while it is mid-flight (Req 18.5/18.6) ─────────────
+ // ── 2. Revoke it while it is mid-flight (Req 18.5/18.6) ─────────────
         use crate::crdt::delta::Ed25519Signature;
         use crate::crdt::derive_did_from_public_key;
         use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
@@ -7802,8 +7802,8 @@ mod tests {
             .await
             .expect("drain revocation");
 
-        // The revocation must interrupt the run; wait for the pipeline to
-        // settle (job finished, in-progress cleared).
+ // The revocation must interrupt the run; wait for the pipeline to
+ // settle (job finished, in-progress cleared).
         assert!(
             handle
                 .await_migration_quiescence(std::time::Duration::from_secs(15))
@@ -7812,7 +7812,7 @@ mod tests {
         );
         let revoke_elapsed_micros = crate::traits::monotonic_now().saturating_sub(revoke_started);
 
-        // ── 3. Assert the interrupt outcome ──────────────────────────────────
+ // ── 3. Assert the interrupt outcome ──────────────────────────────────
         {
             let mig = handle.migration.lock().unwrap();
             assert!(
@@ -7839,7 +7839,7 @@ mod tests {
              the 30 s sandbox timeout — took {revoke_elapsed_micros} µs"
         );
 
-        // ── 4. A later attempt to apply the revoked migration is rejected ────
+ // ── 4. A later attempt to apply the revoked migration is rejected ────
         let delta_again =
             make_ca_signed_migration_delta(&ca_secret, v1, v2, infinite_loop_wasm_bytes());
         let result = handle
@@ -7855,19 +7855,19 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.5: a revocation for an unknown migration hash is ──────────
-    //
-    // rejected by the inbound pipeline (Req 18.7)
-    //
-    // `prepare_migration` — the funnel every inbound MigrationDelta passes
-    // through — records each CA-validated hash as *known*, and
-    // `apply_revocation` only accepts a MigrationRevocationDelta whose target
-    // is in that known set.  This test drives the production wiring
-    // end-to-end: an arbitrary-hash revocation drained over the real inbound
-    // pipeline is rejected and leaves no trace, while a revocation for a hash
-    // the device genuinely received (a migration delivered just before it) is
-    // accepted — proving the gate keys on the hash being seen, not on the
-    // pipeline being broken.
+ // ── Subphase 5.5: a revocation for an unknown migration hash is ──────────
+ //
+ // rejected by the inbound pipeline (Req 18.7)
+ //
+ // `prepare_migration` — the funnel every inbound MigrationDelta passes
+ // through — records each CA-validated hash as *known*, and
+ // `apply_revocation` only accepts a MigrationRevocationDelta whose target
+ // is in that known set. This test drives the production wiring
+ // end-to-end: an arbitrary-hash revocation drained over the real inbound
+ // pipeline is rejected and leaves no trace, while a revocation for a hash
+ // the device genuinely received (a migration delivered just before it) is
+ // accepted — proving the gate keys on the hash being seen, not on the
+ // pipeline being broken.
     #[tokio::test]
     async fn inbound_revocation_for_unknown_migration_hash_is_rejected_then_known_hash_accepted() {
         let path = tmp_path("p55_revoke_unknown");
@@ -7886,9 +7886,9 @@ mod tests {
 
         let sender = "did:key:z6MkMigSender";
 
-        // ── 1. An arbitrary hash the device never saw is revoked ────────────
-        // (correctly signed by a manager — the gate must be the unknown hash,
-        // not a signature failure).
+ // ── 1. An arbitrary hash the device never saw is revoked ────────────
+ // (correctly signed by a manager — the gate must be the unknown hash,
+ // not a signature failure).
         use crate::crdt::delta::Ed25519Signature;
         use crate::crdt::derive_did_from_public_key;
         use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
@@ -7925,8 +7925,8 @@ mod tests {
             );
         }
 
-        // ── 2. Control: deliver a real migration, then revoke *its* hash ───
-        // — now known — and confirm the same pipeline accepts it.
+ // ── 2. Control: deliver a real migration, then revoke *its* hash ───
+ // — now known — and confirm the same pipeline accepts it.
         let delta = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
         let migration_id = delta.id;
 
@@ -7982,7 +7982,7 @@ mod tests {
             );
         }
 
-        // ── 3. Re-delivering the now-revoked migration is blocked ──────────
+ // ── 3. Re-delivering the now-revoked migration is blocked ──────────
         let delta_again = make_ca_signed_migration_delta(&ca_secret, v1, v2, trivial_wasm_bytes());
         let result = handle
             .migration
@@ -7997,23 +7997,23 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.6: migration-corruption recovery through real triggers ────
-    //
-    // Req 19.1/19.2/19.3, driven end-to-end over the production inbound
-    // pipeline (`inject_inbound` → `process_inbound_messages` →
-    // `CoreHandle::receive_inbound`):
-    //
-    // 1. A migration is delivered and applied (schema S → T).
-    // 2. Managers revoke it — the migration is flagged corrupted.  Req 19.1:
-    //    the CCE tags the migration and marks the affected projection rows
-    //    CONTAMINATED (open ICO, `TaintSource::BadMigration`).  Req 19.2:
-    //    the corruption window opens, so writes against schema T are
-    //    captured in the Side-Car Ledger scoped to the corrupting migration.
-    // 3. A corrected migration (T → U) arrives and commits.  Req 19.3:
-    //    `replay_sidecar()` runs the captured writes onto the corrected
-    //    projection in recorded-timestamp order; zero conflicts ⇒ every
-    //    replayed delta receives `DeltaTag::ReplayComplete` (Req 19.6), the
-    //    window closes, and later writes are no longer captured.
+ // ── Subphase 5.6: migration-corruption recovery through real triggers ────
+ //
+ // Req 19.1/19.2/19.3, driven end-to-end over the production inbound
+ // pipeline (`inject_inbound` → `process_inbound_messages` →
+ // `CoreHandle::receive_inbound`):
+ //
+ // 1. A migration is delivered and applied (schema S → T).
+ // 2. Managers revoke it — the migration is flagged corrupted. Req 19.1:
+ // the CCE tags the migration and marks the affected projection rows
+ // CONTAMINATED (open ICO, `TaintSource::BadMigration`). Req 19.2:
+ // the corruption window opens, so writes against schema T are
+ // captured in the Side-Car Ledger scoped to the corrupting migration.
+ // 3. A corrected migration (T → U) arrives and commits. Req 19.3:
+ // `replay_sidecar()` runs the captured writes onto the corrected
+ // projection in recorded-timestamp order; zero conflicts ⇒ every
+ // replayed delta receives `DeltaTag::ReplayComplete` (Req 19.6), the
+ // window closes, and later writes are no longer captured.
     #[tokio::test]
     async fn migration_corruption_recovery_triggers_cce_tagging_sidecar_capture_and_replay() {
         use crate::contamination::incident::TaintSource;
@@ -8036,15 +8036,15 @@ mod tests {
             .await
             .expect("init with migration CA key + version path");
 
-        // ── 1. Seed a projection row on schema S so the CCE has rows to ────
-        // mark contaminated when the migration is flagged corrupted.
+ // ── 1. Seed a projection row on schema S so the CCE has rows to ────
+ // mark contaminated when the migration is flagged corrupted.
         handle
             .write("reports", "r1", json!({ "v": 1 }))
             .await
             .expect("seed write");
 
-        // ── 2. Apply the migration that will later be flagged corrupted ────
-        // (S → T).  It runs through the real dispatch path (off-lock sandbox).
+ // ── 2. Apply the migration that will later be flagged corrupted ────
+ // (S → T). It runs through the real dispatch path (off-lock sandbox).
         let bad_delta = make_ca_signed_migration_delta(&ca_secret, s, t, trivial_wasm_bytes());
         let bad_migration_id = bad_delta.id;
         handle
@@ -8070,7 +8070,7 @@ mod tests {
             );
         }
 
-        // ── 3. Managers revoke the corrupted migration. ─────────────────────
+ // ── 3. Managers revoke the corrupted migration. ─────────────────────
         let (mgr_secret, mgr_public) =
             crate::identity::keypair::generate_keypair().expect("keygen");
         let mgr_did = derive_did_from_public_key(&mgr_public);
@@ -8092,9 +8092,9 @@ mod tests {
             .await
             .expect("drain inbound");
 
-        // Req 19.1: the revoked (corrupted) migration is CCE-tagged — an open
-        // Incident Context Object with `TaintSource::BadMigration` exists and
-        // the seeded projection row is CONTAMINATED rather than deleted.
+ // Req 19.1: the revoked (corrupted) migration is CCE-tagged — an open
+ // Incident Context Object with `TaintSource::BadMigration` exists and
+ // the seeded projection row is CONTAMINATED rather than deleted.
         {
             let cce = handle.cce.lock().unwrap();
             let open = cce.open_incidents().expect("open incidents");
@@ -8114,11 +8114,11 @@ mod tests {
             );
         }
 
-        // ── 4. Writes during the corrupted window. ──────────────────────────
-        // Req 19.2: every write against schema T is preserved byte-for-byte in
-        // the Side-Car Ledger, scoped to the corrupting migration ID.  The r1
-        // update additionally auto-tags ContaminatedByHumanReaction (Req 19.5)
-        // because its row is CONTAMINATED.
+ // ── 4. Writes during the corrupted window. ──────────────────────────
+ // Req 19.2: every write against schema T is preserved byte-for-byte in
+ // the Side-Car Ledger, scoped to the corrupting migration ID. The r1
+ // update additionally auto-tags ContaminatedByHumanReaction (Req 19.5)
+ // because its row is CONTAMINATED.
         let write_new = handle
             .write("reports", "r2", json!({ "v": 2 }))
             .await
@@ -8146,12 +8146,12 @@ mod tests {
                 );
             }
         }
-        // The r1 update auto-tagged ContaminatedByHumanReaction and registered
-        // itself as a HumanReaction contamination root (Req 19.5 — the write
-        // went to a row the BadMigration ICO marked CONTAMINATED).  The tag
-        // lives in the serialised delta; the observable production effect is
-        // the new delta joining an active ICO (same assertion the Subphase 1.4
-        // Req 19.5 test uses).
+ // The r1 update auto-tagged ContaminatedByHumanReaction and registered
+ // itself as a HumanReaction contamination root (Req 19.5 — the write
+ // went to a row the BadMigration ICO marked CONTAMINATED). The tag
+ // lives in the serialised delta; the observable production effect is
+ // the new delta joining an active ICO (same assertion the Subphase 1.4
+ // Req 19.5 test uses).
         {
             let all_open = handle
                 .cce
@@ -8168,12 +8168,12 @@ mod tests {
             );
         }
 
-        // ── 5. The corrected migration (T → U) arrives and commits. ─────────
-        // Req 19.3: the captured writes are replayed onto the corrected
-        // projection in recorded-timestamp order through the production
-        // success path.  The corrected transform is byte-distinct from the
-        // revoked one, so its migration ID differs and passes the revocation
-        // gate.
+ // ── 5. The corrected migration (T → U) arrives and commits. ─────────
+ // Req 19.3: the captured writes are replayed onto the corrected
+ // projection in recorded-timestamp order through the production
+ // success path. The corrected transform is byte-distinct from the
+ // revoked one, so its migration ID differs and passes the revocation
+ // gate.
         let fixed_delta = make_ca_signed_migration_delta(&ca_secret, t, u, trivial_wasm_bytes_v2());
         handle
             .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(fixed_delta)))
@@ -8214,8 +8214,8 @@ mod tests {
             }
         }
 
-        // Req 19.6: zero-conflict replay appends DeltaTag::ReplayComplete to
-        // every successfully-replayed delta.
+ // Req 19.6: zero-conflict replay appends DeltaTag::ReplayComplete to
+ // every successfully-replayed delta.
         {
             let conn = crate::store::sqlite::open(&path).expect("open conn for tag read");
             let lock = std::sync::Arc::new(std::sync::Mutex::new(conn));
@@ -8237,7 +8237,7 @@ mod tests {
             }
         }
 
-        // ── 6. The window is closed: post-replay writes are NOT captured. ───
+ // ── 6. The window is closed: post-replay writes are NOT captured. ───
         handle
             .write("reports", "r4", json!({ "v": 4 }))
             .await
@@ -8256,21 +8256,21 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Subphase 3.2: Saturate Mode lifecycle through the real state machine ──
-    //
-    // `CoreHandle::activate_saturate_mode` / `renew_saturate_mode` /
-    // `terminate_saturate_mode` are the shared WASM + native entry points the
-    // WASM exports delegate to (lib.rs).  These integration tests drive a real
-    // `CoreHandle` (the exact production construction: deployment CA key →
-    // `TransportConfig` → transport state machine) through activation,
-    // renewal, a below-threshold M-of-N attempt, and a successful M-of-N
-    // termination, asserting at each step that the DRR scheduler mirrors the
-    // state machine — the bare `set_saturate_mode(true)` boolean bypass could
-    // never demote the scheduler again.
+ // ── Subphase 3.2: Saturate Mode lifecycle through the real state machine ──
+ //
+ // `CoreHandle::activate_saturate_mode` / `renew_saturate_mode` /
+ // `terminate_saturate_mode` are the shared WASM + native entry points the
+ // WASM exports delegate to (lib.rs). These integration tests drive a real
+ // `CoreHandle` (the exact production construction: deployment CA key →
+ // `TransportConfig` → transport state machine) through activation,
+ // renewal, a below-threshold M-of-N attempt, and a successful M-of-N
+ // termination, asserting at each step that the DRR scheduler mirrors the
+ // state machine — the bare `set_saturate_mode(true)` boolean bypass could
+ // never demote the scheduler again.
 
-    /// A stand-in for one external Manager DID's contribution to an M-of-N
-    /// Lease Termination Delta (Req 13.6): sign `message` with a fresh Ed25519
-    /// key and return `(did:key, signature_bytes)`.
+ /// A stand-in for one external Manager DID's contribution to an M-of-N
+ /// Lease Termination Delta (Req 13.6): sign `message` with a fresh Ed25519
+ /// key and return `(did:key, signature_bytes)`.
     fn external_manager_signature(message: &[u8], seed: u8) -> (String, Vec<u8>) {
         use ed25519_dalek::{Signer, SigningKey};
         let sk = SigningKey::from_bytes(&[seed; 32]);
@@ -8279,8 +8279,8 @@ mod tests {
         (did, sig)
     }
 
-    /// Build a disaster-alert Biscuit token signed by `ca_private`, as the
-    /// deployment CA would issue to a Manager (Req 13.1).
+ /// Build a disaster-alert Biscuit token signed by `ca_private`, as the
+ /// deployment CA would issue to a Manager (Req 13.1).
     fn make_disaster_alert_token(ca_private: &[u8]) -> Vec<u8> {
         crate::auth::biscuit::create_token_with_caveat(
             "did:key:z6MkManager",
@@ -8304,7 +8304,7 @@ mod tests {
             .await
             .expect("init");
 
-        // ── Activation (Req 13.1) ────────────────────────────────────────────
+ // ── Activation (Req 13.1) ────────────────────────────────────────────
         let activate_token = make_disaster_alert_token(&ca_private);
         handle
             .activate_saturate_mode(&activate_token)
@@ -8324,7 +8324,7 @@ mod tests {
             );
         }
 
-        // ── Heartbeat renewal (Req 13.4) ─────────────────────────────────────
+ // ── Heartbeat renewal (Req 13.4) ─────────────────────────────────────
         let renew_token = make_disaster_alert_token(&ca_private);
         handle
             .renew_saturate_mode(&renew_token)
@@ -8346,7 +8346,7 @@ mod tests {
             );
         }
 
-        // ── Below-threshold termination is rejected (invariant (b)) ──────────
+ // ── Below-threshold termination is rejected (invariant (b)) ──────────
         let message = b"saturate-terminate:v1";
         let err = handle
             .terminate_saturate_mode(message, vec![])
@@ -8368,7 +8368,7 @@ mod tests {
             );
         }
 
-        // ── M-of-N termination (Req 13.6) ────────────────────────────────────
+ // ── M-of-N termination (Req 13.6) ────────────────────────────────────
         let co_sig = external_manager_signature(message, 0x77);
         handle
             .terminate_saturate_mode(message, vec![co_sig])
@@ -8390,18 +8390,18 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Test 3d (Subphase 3.3): the production tick loop auto-demotes an ───
-    //
-    // `SaturateModeStateMachine::tick()` is now called from the *same* loop
-    // `init` spawns (`CoreHandle::spawn_scheduler_tick_loop`, established in
-    // Phase 1.4) every epoch with the wall clock, so a lease that expires
-    // without renewal demotes the state machine — and clears the DRR
-    // scheduler mirror — automatically.  This test drives the identical loop
-    // with a short interval, activates Saturate_Mode through the real
-    // production facade, backdates the lease (the loop runs on real time; a
-    // 60-minute lease cannot be waited out in a test), and asserts the
-    // background task — NOT a manual `tick()` / `tick_saturate()` call —
-    // performs the demotion.
+ // ── Test 3d (Subphase 3.3): the production tick loop auto-demotes an ───
+ //
+ // `SaturateModeStateMachine::tick()` is now called from the *same* loop
+ // `init` spawns (`CoreHandle::spawn_scheduler_tick_loop`, established in
+ // Phase 1.4) every epoch with the wall clock, so a lease that expires
+ // without renewal demotes the state machine — and clears the DRR
+ // scheduler mirror — automatically. This test drives the identical loop
+ // with a short interval, activates Saturate_Mode through the real
+ // production facade, backdates the lease (the loop runs on real time; a
+ // 60-minute lease cannot be waited out in a test), and asserts the
+ // background task — NOT a manual `tick()` / `tick_saturate()` call —
+ // performs the demotion.
 
     #[tokio::test]
     async fn scheduler_tick_loop_auto_demotes_expired_saturate_lease() {
@@ -8415,9 +8415,9 @@ mod tests {
             .await
             .expect("init");
 
-        // Activate Saturate_Mode through the production facade (Req 13.1):
-        // real Biscuit DISASTER_ALERT token → state machine SATURATE + DRR
-        // scheduler mirror in Saturate Mode.
+ // Activate Saturate_Mode through the production facade (Req 13.1):
+ // real Biscuit DISASTER_ALERT token → state machine SATURATE + DRR
+ // scheduler mirror in Saturate Mode.
         let token = make_disaster_alert_token(&ca_private);
         handle
             .activate_saturate_mode(&token)
@@ -8431,9 +8431,9 @@ mod tests {
             );
         }
 
-        // Backdate the lease so a real-clock tick sees it as already expired
-        // (test-only manipulation of the state machine's lease; the loop
-        // itself only ever sees the wall clock).
+ // Backdate the lease so a real-clock tick sees it as already expired
+ // (test-only manipulation of the state machine's lease; the loop
+ // itself only ever sees the wall clock).
         {
             let mut transport = handle.transport.lock().unwrap();
             transport
@@ -8441,15 +8441,15 @@ mod tests {
                 .backdate_lease_expiry_for_test(now_secs() - 1);
         }
 
-        // Spawn the production tick loop with a short interval (production
-        // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
-        // use 1 hour so deterministic tests can drive the identical loop).
+ // Spawn the production tick loop with a short interval (production
+ // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
+ // use 1 hour so deterministic tests can drive the identical loop).
         let _loop =
             CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
-        // Do NOT call tick() / tick_saturate() manually — the background loop
-        // must perform the auto-demotion.  Poll until the state machine drops
-        // back to NORMAL and the scheduler mirror follows.
+ // Do NOT call tick() / tick_saturate() manually — the background loop
+ // must perform the auto-demotion. Poll until the state machine drops
+ // back to NORMAL and the scheduler mirror follows.
         let mut attempts = 0u32;
         loop {
             let demoted = {
@@ -8468,8 +8468,8 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
-        // The lease must be gone and the scheduler mirror cleared — the
-        // expiry demotion ran the full reconcile, not just the state machine.
+ // The lease must be gone and the scheduler mirror cleared — the
+ // expiry demotion ran the full reconcile, not just the state machine.
         {
             let transport = handle.transport.lock().unwrap();
             assert_eq!(transport.saturate.state(), SaturateState::Normal);
@@ -8486,18 +8486,18 @@ mod tests {
         cleanup(&path);
     }
 
-    // ── Test 3e (Subphase 3.4): lease expiry through the actual runtime ───
-    //
-    // Unlike Test 3d (Subphase 3.3), nothing is backdated and no lease state
-    // is manipulated: the lease duration is a deployment-configurable
-    // production knob (`DeploymentConfig::saturate_lease_duration_secs` →
-    // `TransportConfig::saturate_lease_duration_secs` →
-    // `SaturateModeStateMachine`, wired in `CoreHandle::init`), so this test
-    // configures a 2-second window through the exact production construction,
-    // activates Saturate_Mode through the production facade, never renews, and
-    // asserts the production tick loop — running on wall-clock time —
-    // auto-demotes the state machine AND the DRR scheduler mirror only after
-    // the lease genuinely expires.
+ // ── Test 3e (Subphase 3.4): lease expiry through the actual runtime ───
+ //
+ // Unlike Test 3d (Subphase 3.3), nothing is backdated and no lease state
+ // is manipulated: the lease duration is a deployment-configurable
+ // production knob (`DeploymentConfig::saturate_lease_duration_secs` →
+ // `TransportConfig::saturate_lease_duration_secs` →
+ // `SaturateModeStateMachine`, wired in `CoreHandle::init`), so this test
+ // configures a 2-second window through the exact production construction,
+ // activates Saturate_Mode through the production facade, never renews, and
+ // asserts the production tick loop — running on wall-clock time —
+ // auto-demotes the state machine AND the DRR scheduler mirror only after
+ // the lease genuinely expires.
 
     #[tokio::test]
     async fn saturate_runtime_lease_expiry_auto_demotes_without_renewal() {
@@ -8508,18 +8508,18 @@ mod tests {
 
         let (ca_private, ca_public) = make_ca_keypair();
         let mut config = make_config_with_ca_key(&path, ca_public);
-        // Short configured lease window (Req 13.3): the runtime test cannot
-        // wait out the 60-minute spec default, so the deployment configures a
-        // 2-second window through the same field `CoreHandle::init` feeds into
-        // the transport.  This is a production config knob — not a test
-        // backdoor: no lease state is touched after activation.
+ // Short configured lease window (Req 13.3): the runtime test cannot
+ // wait out the 60-minute spec default, so the deployment configures a
+ // 2-second window through the same field `CoreHandle::init` feeds into
+ // the transport. This is a production config knob — not a test
+ // backdoor: no lease state is touched after activation.
         config.deployment.saturate_lease_duration_secs = 2;
         let handle = CoreHandle::init(config).await.expect("init");
 
-        // Activate through the production facade (Req 13.1): a real Biscuit
-        // DISASTER_ALERT token → state machine SATURATE + DRR scheduler mirror
-        // in Saturate Mode.  The lease must open with the *configured*
-        // 2-second window — expiry is imminent by design.
+ // Activate through the production facade (Req 13.1): a real Biscuit
+ // DISASTER_ALERT token → state machine SATURATE + DRR scheduler mirror
+ // in Saturate Mode. The lease must open with the *configured*
+ // 2-second window — expiry is imminent by design.
         let token = make_disaster_alert_token(&ca_private);
         handle
             .activate_saturate_mode(&token)
@@ -8543,16 +8543,16 @@ mod tests {
             lease.expires_at
         };
 
-        // Spawn the production tick loop with a short interval (production
-        // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
-        // use 1 hour so deterministic tests can drive the identical loop).
+ // Spawn the production tick loop with a short interval (production
+ // builds use `SCHEDULER_TICK_INTERVAL_MS` from `init`; test builds
+ // use 1 hour so deterministic tests can drive the identical loop).
         let _loop =
             CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
-        // NO renewal, NO backdating, NO manual tick() / tick_saturate() — the
-        // background loop must demote the lease once the wall clock crosses
-        // `natural_expiry`.  Poll until the state machine drops back to NORMAL
-        // and the scheduler mirror follows.
+ // NO renewal, NO backdating, NO manual tick() / tick_saturate() — the
+ // background loop must demote the lease once the wall clock crosses
+ // `natural_expiry`. Poll until the state machine drops back to NORMAL
+ // and the scheduler mirror follows.
         let mut attempts = 0u32;
         loop {
             let demoted = {
@@ -8571,9 +8571,9 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
-        // The demotion must have happened because the wall clock genuinely
-        // crossed the natural expiry — not because the lease was backdated or
-        // a manual tick() advanced the state machine.
+ // The demotion must have happened because the wall clock genuinely
+ // crossed the natural expiry — not because the lease was backdated or
+ // a manual tick() advanced the state machine.
         assert!(
             now_secs() >= natural_expiry,
             "auto-demotion must follow genuine wall-clock lease expiry \
@@ -8581,9 +8581,9 @@ mod tests {
             now_secs()
         );
 
-        // The lease must be gone and the scheduler mirror cleared — the
-        // runtime expiry demotion ran the full reconcile, not just the state
-        // machine (Req 13.5).
+ // The lease must be gone and the scheduler mirror cleared — the
+ // runtime expiry demotion ran the full reconcile, not just the state
+ // machine (Req 13.5).
         {
             let transport = handle.transport.lock().unwrap();
             assert_eq!(transport.saturate.state(), SaturateState::Normal);
@@ -8612,8 +8612,8 @@ mod tests {
             .await
             .expect("init");
 
-        // A token signed by a DIFFERENT (unregistered) CA key must be rejected;
-        // the mode and scheduler must stay untouched (Req 13.7).
+ // A token signed by a DIFFERENT (unregistered) CA key must be rejected;
+ // the mode and scheduler must stay untouched (Req 13.7).
         let (other_private, _) = make_ca_keypair();
         let foreign_token = crate::auth::biscuit::create_token_with_caveat(
             "did:key:z6MkManager",
@@ -8691,9 +8691,9 @@ mod inbound_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+ // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /// Build a properly-signed Delta using the test keypair and schema hash.
+ /// Build a properly-signed Delta using the test keypair and schema hash.
     fn make_signed_delta(
         secret: &[u8; 32],
         author_did: &str,
@@ -8718,7 +8718,7 @@ mod inbound_tests {
         d
     }
 
-    // ── Test 1: InboundDelta with valid signature is merged ───────────────────
+ // ── Test 1: InboundDelta with valid signature is merged ───────────────────
 
     #[tokio::test]
     async fn inbound_valid_delta_is_merged() {
@@ -8727,12 +8727,12 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Build a peer identity with a valid did:key DID.
+ // Build a peer identity with a valid did:key DID.
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
 
-        // Get the engine's known schema hash by producing a delta from the handle first.
-        // The default schema hash is all-zeros.
+ // Get the engine's known schema hash by producing a delta from the handle first.
+ // The default schema hash is all-zeros.
         let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
 
         let delta = make_signed_delta(&peer_secret, &peer_did, schema_hash, 1);
@@ -8753,7 +8753,7 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 2: InboundDelta with unknown schema hash is quarantined ──────────
+ // ── Test 2: InboundDelta with unknown schema hash is quarantined ──────────
 
     #[tokio::test]
     async fn inbound_unknown_schema_delta_is_quarantined() {
@@ -8765,16 +8765,16 @@ mod inbound_tests {
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
 
-        // Use an unknown schema hash (should be quarantined, not rejected).
+ // Use an unknown schema hash (should be quarantined, not rejected).
         let unknown_schema = [0xFFu8; 32];
         let delta = make_signed_delta(&peer_secret, &peer_did, unknown_schema, 1);
-        // Subphase 5.2: the byte-for-byte raw bytes the ledger must hold.
+ // Subphase 5.2: the byte-for-byte raw bytes the ledger must hold.
         let expected_raw = serde_json::to_vec(&delta).expect("serialise delta");
         let msg = GossipMessage::InboundDelta(delta);
 
         handle.inject_inbound(msg).await.expect("inject");
 
-        // Should process without error (quarantine is not a pipeline error).
+ // Should process without error (quarantine is not a pipeline error).
         let processed = handle
             .process_inbound_messages()
             .await
@@ -8782,8 +8782,8 @@ mod inbound_tests {
 
         assert_eq!(processed, 1, "quarantined delta counts as processed");
 
-        // Subphase 5.2: the raw bytes must be stored in the QuarantineLedger,
-        // not merely logged.
+ // Subphase 5.2: the raw bytes must be stored in the QuarantineLedger,
+ // not merely logged.
         let migration = handle.migration.lock().expect("migration lock");
         let entries = migration
             .quarantined_entries()
@@ -8815,16 +8815,16 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Subphase 6.2: structured rejection failure records (Req 7.4/7.5) ────
-    //
-    // `CoreHandle::init` registers a listener on the CRDT engine forwarding
-    // every rejection record onto the handle's rejection-record broadcast
-    // channel.  These tests drive the full production inbound pipeline
-    // (`inject_inbound` → `process_inbound_messages` → `receive_inbound` →
-    // `apply_incoming_delta` → `CrdtEngine::apply`) with a tampered Delta
-    // (Req 7.4) and an unresolvable-DID Delta (Req 7.5), and assert the
-    // structured, UTC-timestamped record — not an `eprintln!` — reaches a
-    // subscriber, with no data merged.
+ // ── Subphase 6.2: structured rejection failure records (Req 7.4/7.5) ────
+ //
+ // `CoreHandle::init` registers a listener on the CRDT engine forwarding
+ // every rejection record onto the handle's rejection-record broadcast
+ // channel. These tests drive the full production inbound pipeline
+ // (`inject_inbound` → `process_inbound_messages` → `receive_inbound` →
+ // `apply_incoming_delta` → `CrdtEngine::apply`) with a tampered Delta
+ // (Req 7.4) and an unresolvable-DID Delta (Req 7.5), and assert the
+ // structured, UTC-timestamped record — not an `eprintln!` — reaches a
+ // subscriber, with no data merged.
 
     #[tokio::test]
     async fn inbound_tampered_delta_emits_structured_signature_failure_record() {
@@ -8833,17 +8833,17 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Subscribe *before* injecting: broadcast only delivers to receivers
-        // that existed at send time.
+ // Subscribe *before* injecting: broadcast only delivers to receivers
+ // that existed at send time.
         let mut rx = handle.subscribe_rejection_records();
 
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
 
-        // A delta signed by the peer, then tampered after signing so the
-        // Ed25519 signature no longer verifies (Req 7.4).  Schema hash is the
-        // handle's current (default) hash so the gate reaches signature
-        // verification instead of quarantining earlier.
+ // A delta signed by the peer, then tampered after signing so the
+ // Ed25519 signature no longer verifies (Req 7.4). Schema hash is the
+ // handle's current (default) hash so the gate reaches signature
+ // verification instead of quarantining earlier.
         let mut delta = make_signed_delta(&peer_secret, &peer_did, [0u8; 32], 1);
         delta.automerge_bytes = vec![0xAA, 0xBB];
         let delta_id = delta.id;
@@ -8858,8 +8858,8 @@ mod inbound_tests {
             .expect("process_inbound_messages must not error");
         assert_eq!(processed, 1);
 
-        // The structured failure record — sender DID + UTC timestamp — must
-        // reach the subscriber (Req 7.4).
+ // The structured failure record — sender DID + UTC timestamp — must
+ // reach the subscriber (Req 7.4).
         let record = rx.try_recv().expect("rejection record must be delivered");
         assert_eq!(
             record.code,
@@ -8878,8 +8878,8 @@ mod inbound_tests {
             "record must carry a UTC timestamp"
         );
 
-        // Req 7.4: the Delta is discarded without merging any data — the
-        // engine Lamport clock never advanced and nothing was quarantined.
+ // Req 7.4: the Delta is discarded without merging any data — the
+ // engine Lamport clock never advanced and nothing was quarantined.
         {
             let engine = handle.crdt.lock().expect("crdt lock");
             assert_eq!(
@@ -8910,9 +8910,9 @@ mod inbound_tests {
 
         let mut rx = handle.subscribe_rejection_records();
 
-        // Req 7.5: the sender DID cannot be resolved to a public key.  The
-        // signature is present (non-empty), so the rejection is attributable
-        // to resolution rather than the malformed-signature guard.
+ // Req 7.5: the sender DID cannot be resolved to a public key. The
+ // signature is present (non-empty), so the rejection is attributable
+ // to resolution rather than the malformed-signature guard.
         let (peer_secret, _peer_public) = generate_keypair().expect("keygen");
         let unresolvable_did = "did:web:example.com/not-a-did-key";
         let delta = make_signed_delta(&peer_secret, unresolvable_did, [0u8; 32], 1);
@@ -8934,8 +8934,8 @@ mod inbound_tests {
             crate::crdt::failure::DeltaRejectionCode::DidResolutionFailed,
             "unresolvable DID must emit the Req 7.5 DID-resolution-failure code"
         );
-        // Req 7.5: the record is distinct from the Req 7.4 signature record and
-        // carries the unresolved DID itself.
+ // Req 7.5: the record is distinct from the Req 7.4 signature record and
+ // carries the unresolved DID itself.
         assert_ne!(
             record.code,
             crate::crdt::failure::DeltaRejectionCode::SignatureVerificationFailed
@@ -8947,7 +8947,7 @@ mod inbound_tests {
             "record must carry a UTC timestamp"
         );
 
-        // Discarded without merging: Lamport never advanced.
+ // Discarded without merging: Lamport never advanced.
         let engine = handle.crdt.lock().expect("crdt lock");
         assert_eq!(
             engine.lamport(),
@@ -8959,18 +8959,18 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.3: field-level additive-vs-breaking gate (Req 17.3/17.4) ──
-    //
-    // `CoreHandle::init` registers `DeploymentConfig.schema_definitions` with
-    // the CRDT engine and seeds its current schema from the first
-    // `schema_version_path` entry.  The inbound pipeline then classifies an
-    // unknown schema hash by diffing its registered definition field-by-field:
-    // additive deltas merge (Req 17.3), breaking deltas land in the quarantine
-    // ledger with reason `BreakingSchemaChange` (Req 17.4), and hashes without
-    // a registered definition keep the legacy unknown-hash quarantine.
+ // ── Subphase 5.3: field-level additive-vs-breaking gate (Req 17.3/17.4) ──
+ //
+ // `CoreHandle::init` registers `DeploymentConfig.schema_definitions` with
+ // the CRDT engine and seeds its current schema from the first
+ // `schema_version_path` entry. The inbound pipeline then classifies an
+ // unknown schema hash by diffing its registered definition field-by-field:
+ // additive deltas merge (Req 17.3), breaking deltas land in the quarantine
+ // ledger with reason `BreakingSchemaChange` (Req 17.4), and hashes without
+ // a registered definition keep the legacy unknown-hash quarantine.
 
-    /// Three users-table schema versions for the gate tests: v1 {id,name};
-    /// v2 {id,name,email} (additive); v3 {id} (breaking — `name` removed).
+ /// Three users-table schema versions for the gate tests: v1 {id,name};
+ /// v2 {id,name,email} (additive); v3 {id} (breaking — `name` removed).
     fn gate_schema_fixture() -> (
         crate::schema::Schema,
         crate::schema::Schema,
@@ -9015,7 +9015,7 @@ mod inbound_tests {
         (v1, v2, v3, h1, h2, h3)
     }
 
-    /// Number of quarantined entries currently held in the ledger.
+ /// Number of quarantined entries currently held in the ledger.
     fn quarantine_count(handle: &CoreHandle) -> usize {
         handle
             .migration
@@ -9026,8 +9026,8 @@ mod inbound_tests {
             .len()
     }
 
-    /// Deliver an inbound data Delta through the full pipeline and return how
-    /// many messages were drained.
+ /// Deliver an inbound data Delta through the full pipeline and return how
+ /// many messages were drained.
     async fn deliver_delta(handle: &CoreHandle, delta: crate::crdt::delta::Delta) -> usize {
         handle
             .inject_inbound(GossipMessage::InboundDelta(delta))
@@ -9039,10 +9039,10 @@ mod inbound_tests {
             .expect("process_inbound_messages must not error")
     }
 
-    /// Init registers the schema definitions and seeds the CRDT engine's
-    /// current schema; an additive-schema Delta then merges end-to-end while
-    /// a breaking-schema Delta is quarantined with `BreakingSchemaChange` and
-    /// an unregistered hash with `UnknownSchemaHash`.
+ /// Init registers the schema definitions and seeds the CRDT engine's
+ /// current schema; an additive-schema Delta then merges end-to-end while
+ /// a breaking-schema Delta is quarantined with `BreakingSchemaChange` and
+ /// an unregistered hash with `UnknownSchemaHash`.
     #[tokio::test]
     async fn inbound_additive_merges_breaking_quarantined_with_field_level_reason() {
         let path = tmp_path("p53_field_level_gate");
@@ -9057,9 +9057,9 @@ mod inbound_tests {
             .await
             .expect("init with schema defs");
 
-        // The CRDT engine's current schema is the first path version, so its
-        // merge gate can diff against a real definition instead of the zero
-        // sentinel.
+ // The CRDT engine's current schema is the first path version, so its
+ // merge gate can diff against a real definition instead of the zero
+ // sentinel.
         {
             let crdt = handle.crdt.lock().unwrap();
             assert_eq!(
@@ -9072,7 +9072,7 @@ mod inbound_tests {
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
 
-        // A. Additive schema (h2): merges; no quarantine entry; hash adopted.
+ // A. Additive schema (h2): merges; no quarantine entry; hash adopted.
         let d_add = make_signed_delta(&peer_secret, &peer_did, h2, 1);
         let add_id = d_add.id;
         assert_eq!(deliver_delta(&handle, d_add).await, 1);
@@ -9093,13 +9093,13 @@ mod inbound_tests {
             );
         }
 
-        // A second h2 delta still merges (now through the known-hash path).
+ // A second h2 delta still merges (now through the known-hash path).
         let d_add2 = make_signed_delta(&peer_secret, &peer_did, h2, 2);
         assert_eq!(deliver_delta(&handle, d_add2).await, 1);
         assert_eq!(quarantine_count(&handle), 0);
 
-        // B. Breaking schema (h3 removes `name`): quarantined with the
-        //    field-level reason, byte-for-byte, and never adopted.
+ // B. Breaking schema (h3 removes `name`): quarantined with the
+ // field-level reason, byte-for-byte, and never adopted.
         let d_break = make_signed_delta(&peer_secret, &peer_did, h3, 3);
         let break_raw = serde_json::to_vec(&d_break).expect("serialise");
         assert_eq!(deliver_delta(&handle, d_break).await, 1);
@@ -9133,7 +9133,7 @@ mod inbound_tests {
             );
         }
 
-        // C. A hash with no registered definition keeps the legacy reason.
+ // C. A hash with no registered definition keeps the legacy reason.
         let mystery = [0xF0u8; 32];
         let d_unknown = make_signed_delta(&peer_secret, &peer_did, mystery, 4);
         assert_eq!(deliver_delta(&handle, d_unknown).await, 1);
@@ -9150,8 +9150,8 @@ mod inbound_tests {
             assert_eq!(entries[1].schema_hash, Some(mystery));
         }
 
-        // Only the two additive merges advanced the CRDT clock (breaking and
-        // unknown deltas never reach the merge step).
+ // Only the two additive merges advanced the CRDT clock (breaking and
+ // unknown deltas never reach the merge step).
         {
             let crdt = handle.crdt.lock().unwrap();
             assert_eq!(crdt.lamport(), 3, "two merges (lamport 1, 2) => 3");
@@ -9160,9 +9160,9 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    /// Init rejects a deployment that registers a schema definition whose
-    /// canonical hash does not match its `schema_version_path` entry — the
-    /// field-level gate could otherwise trust a diff for the wrong schema.
+ /// Init rejects a deployment that registers a schema definition whose
+ /// canonical hash does not match its `schema_version_path` entry — the
+ /// field-level gate could otherwise trust a diff for the wrong schema.
     #[tokio::test]
     async fn init_rejects_schema_definition_hash_mismatch() {
         let path = tmp_path("p53_bad_defs");
@@ -9170,7 +9170,7 @@ mod inbound_tests {
 
         let (v1, _v2, _v3, _h1, _h2, _h3) = gate_schema_fixture();
         let mut config = make_config(&path);
-        // Register v1 under a path hash it does not hash to.
+ // Register v1 under a path hash it does not hash to.
         config.deployment.schema_version_path = vec![[0x42u8; 32]];
         config.deployment.schema_definitions = vec![v1];
 
@@ -9186,15 +9186,15 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Subphase 5.3: migration success advances the CRDT current schema ──────
-    //
-    // A device's deployed schema is *its own* current schema, which changes
-    // when an over-the-mesh migration applies.  `receive_inbound` mirrors the
-    // migration engine's advance into the CRDT engine so locally produced
-    // Deltas stamp the new hash (Req 4.6) and the merge gate diffs against the
-    // migrated schema rather than the pre-migration one.
+ // ── Subphase 5.3: migration success advances the CRDT current schema ──────
+ //
+ // A device's deployed schema is *its own* current schema, which changes
+ // when an over-the-mesh migration applies. `receive_inbound` mirrors the
+ // migration engine's advance into the CRDT engine so locally produced
+ // Deltas stamp the new hash (Req 4.6) and the merge gate diffs against the
+ // migrated schema rather than the pre-migration one.
 
-    /// Trivial WASM module: `(module (func (export "run")))`.
+ /// Trivial WASM module: `(module (func (export "run")))`.
     fn p53_trivial_wasm_bytes() -> Vec<u8> {
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
@@ -9206,7 +9206,7 @@ mod inbound_tests {
         ]
     }
 
-    /// CA-sign a MigrationDelta for `source → target` (Req 18.2).
+ /// CA-sign a MigrationDelta for `source → target` (Req 18.2).
     fn p53_ca_signed_migration(
         ca_secret: &[u8; 32],
         source: [u8; 32],
@@ -9252,7 +9252,7 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(config).await.expect("init");
 
-        // Before the migration: current schema is h1.
+ // Before the migration: current schema is h1.
         {
             let crdt = handle.crdt.lock().unwrap();
             assert_eq!(crdt.current_schema_hash(), h1);
@@ -9267,9 +9267,9 @@ mod inbound_tests {
             .process_inbound_messages()
             .await
             .expect("drain inbound");
-        // The inbound pipeline executes migrations on a background job (so a
-        // revocation can interrupt one — Req 18.6); wait for this one to
-        // commit before asserting post-migration state.
+ // The inbound pipeline executes migrations on a background job (so a
+ // revocation can interrupt one — Req 18.6); wait for this one to
+ // commit before asserting post-migration state.
         assert!(
             handle
                 .await_migration_quiescence(std::time::Duration::from_secs(10))
@@ -9277,8 +9277,8 @@ mod inbound_tests {
             "migration must finish within the wait budget"
         );
 
-        // After the migration: the CRDT engine's current schema advanced to h2
-        // and locally produced Deltas stamp h2 (Req 4.6).
+ // After the migration: the CRDT engine's current schema advanced to h2
+ // and locally produced Deltas stamp h2 (Req 4.6).
         let mut crdt = handle.crdt.lock().unwrap();
         assert_eq!(
             crdt.current_schema_hash(),
@@ -9297,7 +9297,7 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 3: process_inbound_messages drains the channel correctly ─────────
+ // ── Test 3: process_inbound_messages drains the channel correctly ─────────
 
     #[tokio::test]
     async fn process_inbound_messages_drains_channel() {
@@ -9310,7 +9310,7 @@ mod inbound_tests {
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32];
 
-        // Inject 3 messages.
+ // Inject 3 messages.
         for i in 1u64..=3 {
             let delta = make_signed_delta(&peer_secret, &peer_did, schema_hash, i);
             handle
@@ -9319,14 +9319,14 @@ mod inbound_tests {
                 .expect("inject");
         }
 
-        // First drain should process 3.
+ // First drain should process 3.
         let first_count = handle
             .process_inbound_messages()
             .await
             .expect("first drain");
         assert_eq!(first_count, 3, "should drain all 3 queued messages");
 
-        // Second drain should return 0 (channel is empty).
+ // Second drain should return 0 (channel is empty).
         let second_count = handle
             .process_inbound_messages()
             .await
@@ -9336,15 +9336,15 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 3b (Subphase 1.3): the production inbound drain loop drains ─────
-    //
-    // `CoreHandle::init` spawns a background task that calls
-    // `process_inbound_messages()` on an interval (in production builds).  This
-    // test drives the *identical* loop — `CoreHandle::spawn_inbound_drain_loop`,
-    // the function `init` calls — with a short interval and asserts the
-    // background task (NOT a manual `process_inbound_messages()` call) applies
-    // injected messages.  The injected Delta carries table/key metadata so the
-    // drain projects it into the SQL store, observable via `handle.read()`.
+ // ── Test 3b (Subphase 1.3): the production inbound drain loop drains ─────
+ //
+ // `CoreHandle::init` spawns a background task that calls
+ // `process_inbound_messages()` on an interval (in production builds). This
+ // test drives the *identical* loop — `CoreHandle::spawn_inbound_drain_loop`,
+ // the function `init` calls — with a short interval and asserts the
+ // background task (NOT a manual `process_inbound_messages()` call) applies
+ // injected messages. The injected Delta carries table/key metadata so the
+ // drain projects it into the SQL store, observable via `handle.read()`.
 
     #[tokio::test]
     async fn production_inbound_drain_loop_drains_injected_messages() {
@@ -9353,17 +9353,17 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Spawn the production drain loop with a short interval so the test
-        // completes quickly.  (In production builds `CoreHandle::init` does
-        // exactly this with `INBOUND_DRAIN_INTERVAL_MS`; in test builds init
-        // uses a 1-hour interval so the count-based tests above stay
-        // deterministic.)
+ // Spawn the production drain loop with a short interval so the test
+ // completes quickly. (In production builds `CoreHandle::init` does
+ // exactly this with `INBOUND_DRAIN_INTERVAL_MS`; in test builds init
+ // uses a 1-hour interval so the count-based tests above stay
+ // deterministic.)
         let _loop =
             CoreHandle::spawn_inbound_drain_loop(&handle, std::time::Duration::from_millis(10));
 
-        // Build a signed InboundDelta whose automerge_bytes embeds the
-        // _tirbase_table / _tirbase_key envelope plus data fields, exactly as
-        // CoreHandle::write() produces (see Test 6).
+ // Build a signed InboundDelta whose automerge_bytes embeds the
+ // _tirbase_table / _tirbase_key envelope plus data fields, exactly as
+ // CoreHandle::write() produces (see Test 6).
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
@@ -9404,8 +9404,8 @@ mod inbound_tests {
             .await
             .expect("inject_inbound must not fail");
 
-        // Do NOT call process_inbound_messages() — the background loop must do
-        // the draining.  Poll until the projected row becomes readable.
+ // Do NOT call process_inbound_messages() — the background loop must do
+ // the draining. Poll until the projected row becomes readable.
         let mut attempts = 0u32;
         let observed = loop {
             if let Ok(res) = handle.read("loop", "k1").await {
@@ -9430,19 +9430,19 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 3c (Subphase 1.4): the production DRR scheduler tick loop sends ──
-    //
-    // `CoreHandle::init` spawns a background task that ticks the DRR
-    // scheduler — previously nothing in production ever called
-    // `DrrScheduler::tick`, so Deltas enqueued via `enqueue_outbound`
-    // (revocation rebroadcast at HIGH priority, mDNS re-announcement)
-    // accumulated forever.  This test drives the *identical* loop —
-    // `CoreHandle::spawn_scheduler_tick_loop`, the function `init` calls —
-    // with a short interval, enqueues a Delta through the production enqueue
-    // path, and asserts the background task (NOT a manual `tick()` call)
-    // schedules it out of the queue and forwards it to the outbound publish
-    // point, observable via the test-only `outbound_published` recording hook
-    // (Subphase 1.1).
+ // ── Test 3c (Subphase 1.4): the production DRR scheduler tick loop sends ──
+ //
+ // `CoreHandle::init` spawns a background task that ticks the DRR
+ // scheduler — previously nothing in production ever called
+ // `DrrScheduler::tick`, so Deltas enqueued via `enqueue_outbound`
+ // (revocation rebroadcast at HIGH priority, mDNS re-announcement)
+ // accumulated forever. This test drives the *identical* loop —
+ // `CoreHandle::spawn_scheduler_tick_loop`, the function `init` calls —
+ // with a short interval, enqueues a Delta through the production enqueue
+ // path, and asserts the background task (NOT a manual `tick()` call)
+ // schedules it out of the queue and forwards it to the outbound publish
+ // point, observable via the test-only `outbound_published` recording hook
+ // (Subphase 1.1).
 
     #[tokio::test]
     async fn drr_scheduler_tick_loop_schedules_and_sends_enqueued_deltas() {
@@ -9451,16 +9451,16 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Spawn the production scheduler tick loop with a short interval so
-        // the test completes quickly.  (In production builds `CoreHandle::init`
-        // does exactly this with `SCHEDULER_TICK_INTERVAL_MS`; in test builds
-        // init uses a 1-hour interval so queue-state unit tests stay
-        // deterministic.)
+ // Spawn the production scheduler tick loop with a short interval so
+ // the test completes quickly. (In production builds `CoreHandle::init`
+ // does exactly this with `SCHEDULER_TICK_INTERVAL_MS`; in test builds
+ // init uses a 1-hour interval so queue-state unit tests stay
+ // deterministic.)
         let _loop =
             CoreHandle::spawn_scheduler_tick_loop(&handle, std::time::Duration::from_millis(10));
 
-        // Enqueue a HIGH-priority Delta exactly like the production enqueue
-        // callbacks do (RevocationDelta threshold → `enqueue_outbound`, Req 9.2).
+ // Enqueue a HIGH-priority Delta exactly like the production enqueue
+ // callbacks do (RevocationDelta threshold → `enqueue_outbound`, Req 9.2).
         let delta_id = [0x14u8; 32];
         let wrapper = crate::crdt::delta::Delta {
             id: delta_id,
@@ -9486,9 +9486,9 @@ mod inbound_tests {
             );
         }
 
-        // Do NOT call tick_scheduler() manually — the background loop must do
-        // the scheduling and sending.  Poll until the prepared payload reaches
-        // the outbound publish point (the Swarm polling task records it there).
+ // Do NOT call tick_scheduler() manually — the background loop must do
+ // the scheduling and sending. Poll until the prepared payload reaches
+ // the outbound publish point (the Swarm polling task records it there).
         let mut attempts = 0u32;
         let published = loop {
             let published = handle.transport.lock().unwrap().outbound_published.clone();
@@ -9503,11 +9503,11 @@ mod inbound_tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         };
 
-        // The payload must be the exact serialised Delta that was enqueued —
-        // scheduled out of the DRR queue and sent, not merely accumulated.
-        // Since `prepare_outbound` now returns framed `GossipMessage` variants
-        // (Subphase 1.5 wire framing), the published bytes are a
-        // `GossipMessage::InboundDelta(…)` envelope around the Delta.
+ // The payload must be the exact serialised Delta that was enqueued —
+ // scheduled out of the DRR queue and sent, not merely accumulated.
+ // Since `prepare_outbound` now returns framed `GossipMessage` variants
+ // (Subphase 1.5 wire framing), the published bytes are a
+ // `GossipMessage::InboundDelta(…)` envelope around the Delta.
         assert_eq!(
             published.len(),
             1,
@@ -9526,7 +9526,7 @@ mod inbound_tests {
             other => panic!("published payload must be InboundDelta, got {other:?}"),
         }
 
-        // The scheduler queue must now be empty — the loop drained it.
+ // The scheduler queue must now be empty — the loop drained it.
         assert!(
             !handle.transport.lock().unwrap().has_backlog(),
             "scheduler must have no backlog after the tick loop drained it"
@@ -9535,7 +9535,7 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 4: InboundDelta with missing signature is rejected gracefully ────
+ // ── Test 4: InboundDelta with missing signature is rejected gracefully ────
 
     #[tokio::test]
     async fn inbound_malformed_delta_rejected_gracefully() {
@@ -9544,7 +9544,7 @@ mod inbound_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Delta with empty signature — should be Rejected (not a pipeline error).
+ // Delta with empty signature — should be Rejected (not a pipeline error).
         let delta = crate::crdt::delta::Delta {
             id: [0xAAu8; 32],
             author_did: "did:key:z6MkTest".to_string(),
@@ -9561,7 +9561,7 @@ mod inbound_tests {
 
         handle.inject_inbound(msg).await.expect("inject");
 
-        // Should not return Err — Rejection is logged, not propagated.
+ // Should not return Err — Rejection is logged, not propagated.
         let processed = handle
             .process_inbound_messages()
             .await
@@ -9571,7 +9571,7 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 5: GossipMessage serialisation round-trip ────────────────────────
+ // ── Test 5: GossipMessage serialisation round-trip ────────────────────────
 
     #[test]
     fn gossip_message_serde_round_trip() {
@@ -9594,23 +9594,23 @@ mod inbound_tests {
         }
     }
 
-    // ── Test 6: End-to-end inbound pipeline — write on A, read on B ──────────
-    //
-    // Verifies that after receiving and processing a peer Delta that carries
-    // TirBase JSON metadata (_tirbase_table, _tirbase_key, and data fields),
-    // the data is readable via handle_b.read() — closing the projection gap
-    // documented in earlier versions.
-    //
-    // Step 1: Write a value to handle_a (stores locally + produces a signed Delta).
-    // Step 2: Build an equivalent Delta manually, embedding table/key metadata in
-    //         automerge_bytes so the receiving peer can project it to the SQL store.
-    // Step 3: Inject the Delta into handle_b via inject_inbound.
-    // Step 4: Call process_inbound_messages() on handle_b.
-    // Step 5: Verify handle_b.read("sensors", "reading-1") succeeds and returns
-    //         the same data that was written on handle_a.
-    //
-    // Validates: Req 4.3 (merged peer state readable), Req 3.3 (store fully readable),
-    //            Task 41 (projection-update-on-inbound implemented).
+ // ── Test 6: End-to-end inbound pipeline — write on A, read on B ──────────
+ //
+ // Verifies that after receiving and processing a peer Delta that carries
+ // TirBase JSON metadata (_tirbase_table, _tirbase_key, and data fields),
+ // the data is readable via handle_b.read() — closing the projection gap
+ // documented in earlier versions.
+ //
+ // Step 1: Write a value to handle_a (stores locally + produces a signed Delta).
+ // Step 2: Build an equivalent Delta manually, embedding table/key metadata in
+ // automerge_bytes so the receiving peer can project it to the SQL store.
+ // Step 3: Inject the Delta into handle_b via inject_inbound.
+ // Step 4: Call process_inbound_messages() on handle_b.
+ // Step 5: Verify handle_b.read("sensors", "reading-1") succeeds and returns
+ // the same data that was written on handle_a.
+ //
+ // Validates: Req 4.3 (merged peer state readable), Req 3.3 (store fully readable),
+ // (projection-update-on-inbound implemented).
 
     #[tokio::test]
     async fn end_to_end_inbound_pipeline_write_a_read_b() {
@@ -9619,7 +9619,7 @@ mod inbound_tests {
         cleanup(&path_a);
         cleanup(&path_b);
 
-        // ── Step 1: Write to handle_a ─────────────────────────────────────────
+ // ── Step 1: Write to handle_a ─────────────────────────────────────────
         let handle_a = CoreHandle::init(make_config(&path_a))
             .await
             .expect("init A");
@@ -9633,23 +9633,23 @@ mod inbound_tests {
             .await
             .expect("write to A");
 
-        // Confirm the delta ID is non-zero (the write produced a real delta).
+ // Confirm the delta ID is non-zero (the write produced a real delta).
         assert_ne!(
             write_result.delta_id, [0u8; 32],
             "write must produce a non-zero delta ID"
         );
 
-        // ── Step 2: Construct an equivalent GossipMessage ─────────────────────
-        // Build a delta whose automerge_bytes embeds _tirbase_table and _tirbase_key
-        // metadata plus the application data fields — this is the format produced by
-        // CoreHandle::write() (which embeds the metadata in the JSON envelope).
+ // ── Step 2: Construct an equivalent GossipMessage ─────────────────────
+ // Build a delta whose automerge_bytes embeds _tirbase_table and _tirbase_key
+ // metadata plus the application data fields — this is the format produced by
+ // CoreHandle::write() (which embeds the metadata in the JSON envelope).
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
 
         let delta = {
-            // Build the JSON envelope that receive_inbound() expects:
-            //   { "_tirbase_table": "sensors", "_tirbase_key": "reading-1", <data fields> }
+ // Build the JSON envelope that receive_inbound() expects:
+ // { "_tirbase_table": "sensors", "_tirbase_key": "reading-1", <data fields> }
             let mut envelope = serde_json::Map::new();
             envelope.insert(
                 "_tirbase_table".to_string(),
@@ -9659,7 +9659,7 @@ mod inbound_tests {
                 "_tirbase_key".to_string(),
                 serde_json::Value::String("reading-1".to_string()),
             );
-            // Flatten data fields directly into the envelope (matching CoreHandle::write() behaviour).
+ // Flatten data fields directly into the envelope (matching CoreHandle::write() behaviour).
             if let Some(data_obj) = written_data.as_object() {
                 for (k, v) in data_obj {
                     envelope.insert(k.clone(), v.clone());
@@ -9686,13 +9686,13 @@ mod inbound_tests {
             d
         };
 
-        // ── Step 3: Inject into handle_b ─────────────────────────────────────
+ // ── Step 3: Inject into handle_b ─────────────────────────────────────
         handle_b
             .inject_inbound(GossipMessage::InboundDelta(delta))
             .await
             .expect("inject_inbound must not fail");
 
-        // ── Step 4: Process inbound messages ─────────────────────────────────
+ // ── Step 4: Process inbound messages ─────────────────────────────────
         let processed = handle_b
             .process_inbound_messages()
             .await
@@ -9703,9 +9703,9 @@ mod inbound_tests {
             "exactly one inbound message must be processed"
         );
 
-        // ── Step 5: Verify data is readable on handle_b ───────────────────────
-        // After projection, handle_b's SQL store must contain the row that was
-        // written on handle_a — this closes the documented projection gap (Task 41).
+ // ── Step 5: Verify data is readable on handle_b ───────────────────────
+ // After projection, handle_b's SQL store must contain the row that was
+ // written on handle_a — this closes the documented projection gap ().
         let read_result = handle_b.read("sensors", "reading-1").await;
         assert!(
             read_result.is_ok(),
@@ -9725,18 +9725,18 @@ mod inbound_tests {
         cleanup(&path_b);
     }
 
-    // ── Test 7: RevocationDelta enqueued at HIGH priority after threshold met ─
-    //
-    // Validates Req 9.2: when M-of-N signatures are collected for a revocation,
-    // the complete RevocationDelta must be enqueued at HIGH priority for gossip
-    // rebroadcast.
+ // ── Test 7: RevocationDelta enqueued at HIGH priority after threshold met ─
+ //
+ // Validates Req 9.2: when M-of-N signatures are collected for a revocation,
+ // the complete RevocationDelta must be enqueued at HIGH priority for gossip
+ // rebroadcast.
 
     #[tokio::test]
     async fn revocation_delta_enqueued_at_high_priority_after_threshold_met() {
         let path = tmp_path("rev_enqueue");
         cleanup(&path);
 
-        // Create a CoreHandle with M=2, N=2 revocation config.
+ // Create a CoreHandle with M=2, N=2 revocation config.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -9764,7 +9764,7 @@ mod inbound_tests {
         .await
         .expect("init");
 
-        // Create 2 manager identities.
+ // Create 2 manager identities.
         let mgr1 = crate::identity::IdentityManager::init_in_memory().unwrap();
         let mgr1_did = mgr1.did().to_string();
         let mgr1_sk = mgr1.signing_key_bytes();
@@ -9773,11 +9773,11 @@ mod inbound_tests {
         let mgr2_did = mgr2.did().to_string();
         let mgr2_sk = mgr2.signing_key_bytes();
 
-        // Choose a target DID.
+ // Choose a target DID.
         let target = crate::identity::IdentityManager::init_in_memory().unwrap();
         let target_did = target.did().to_string();
 
-        // Produce two partial RevocationDeltas (one per manager).
+ // Produce two partial RevocationDeltas (one per manager).
         let (partial1, partial2) = {
             let rev = handle.revocation.lock().unwrap();
             let p1 = rev
@@ -9789,26 +9789,26 @@ mod inbound_tests {
             (p1, p2)
         };
 
-        // Combine both signatures into a single RevocationDelta.
+ // Combine both signatures into a single RevocationDelta.
         let combined = crate::auth::RevocationDelta {
             target_did: target_did.clone(),
             signatures: [partial1.signatures, partial2.signatures].concat(),
             created_at: crate::auth::revocation::current_timestamp_micros(),
         };
 
-        // Inject the combined delta — this should cross the M=2 threshold.
+ // Inject the combined delta — this should cross the M=2 threshold.
         handle
             .inject_inbound(GossipMessage::InboundRevocationDelta(combined))
             .await
             .expect("inject_inbound must not fail");
 
-        // Process — this triggers the on_revocation_applied callback which enqueues.
+ // Process — this triggers the on_revocation_applied callback which enqueues.
         handle
             .process_inbound_messages()
             .await
             .expect("process_inbound_messages must not fail");
 
-        // Verify the scheduler has a HIGH-priority entry.
+ // Verify the scheduler has a HIGH-priority entry.
         let transport = handle.transport.lock().unwrap();
         assert!(
             transport.has_backlog(),
@@ -9824,14 +9824,14 @@ mod inbound_tests {
         cleanup(&path);
     }
 
-    // ── Test 8: Completed RevocationDelta marks target as REVOKED on a second instance ─
-    //
-    // Validates end-to-end rebroadcast path: handle A processes a complete
-    // RevocationDelta (marking the target REVOKED and enqueuing for gossip),
-    // then the same RevocationDelta is injected into handle B which should also
-    // mark the target as REVOKED.
-    //
-    // Idempotency of the second call is covered by revocation.rs test 11.
+ // ── Test 8: Completed RevocationDelta marks target as REVOKED on a second instance ─
+ //
+ // Validates end-to-end rebroadcast path: handle A processes a complete
+ // RevocationDelta (marking the target REVOKED and enqueuing for gossip),
+ // then the same RevocationDelta is injected into handle B which should also
+ // mark the target as REVOKED.
+ //
+ // Idempotency of the second call is covered by revocation.rs test 11.
 
     #[tokio::test]
     async fn completed_revocation_delta_marks_target_revoked_on_second_instance() {
@@ -9840,7 +9840,7 @@ mod inbound_tests {
         cleanup(&path_a);
         cleanup(&path_b);
 
-        // Handle A: M=1, N=1 for simplicity (1 manager can revoke alone).
+ // Handle A: M=1, N=1 for simplicity (1 manager can revoke alone).
         let config_a = InitConfig {
             storage_path: path_a.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -9865,7 +9865,7 @@ mod inbound_tests {
                 beacon_signal_loss_threshold_secs: 300,
             },
         };
-        // Handle B: same M/N so it also accepts the same 1-of-1 delta.
+ // Handle B: same M/N so it also accepts the same 1-of-1 delta.
         let config_b = InitConfig {
             storage_path: path_b.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -9879,7 +9879,7 @@ mod inbound_tests {
         let handle_a = CoreHandle::init(config_a).await.expect("init A");
         let handle_b = CoreHandle::init(config_b).await.expect("init B");
 
-        // Manager and target identities.
+ // Manager and target identities.
         let mgr = crate::identity::IdentityManager::init_in_memory().unwrap();
         let mgr_did = mgr.did().to_string();
         let mgr_sk = mgr.signing_key_bytes();
@@ -9887,14 +9887,14 @@ mod inbound_tests {
         let target = crate::identity::IdentityManager::init_in_memory().unwrap();
         let target_did = target.did().to_string();
 
-        // Produce a 1-of-1 partial delta (this IS the complete delta at M=1).
+ // Produce a 1-of-1 partial delta (this IS the complete delta at M=1).
         let complete_delta = {
             let rev = handle_a.revocation.lock().unwrap();
             rev.produce_partial_delta(target_did.clone(), mgr_did.clone(), &mgr_sk)
                 .expect("produce complete delta")
         };
 
-        // ── Step A: Process on handle_a — marks target REVOKED + enqueues rebroadcast.
+ // ── Step A: Process on handle_a — marks target REVOKED + enqueues rebroadcast.
         handle_a
             .inject_inbound(GossipMessage::InboundRevocationDelta(
                 complete_delta.clone(),
@@ -9907,7 +9907,7 @@ mod inbound_tests {
             .await
             .expect("process A");
 
-        // Verify A revoked the target.
+ // Verify A revoked the target.
         assert!(
             handle_a
                 .revocation
@@ -9918,7 +9918,7 @@ mod inbound_tests {
             "handle_a must have target_did in revoked_dids"
         );
 
-        // ── Step B: Inject the same RevocationDelta into handle_b.
+ // ── Step B: Inject the same RevocationDelta into handle_b.
         handle_b
             .inject_inbound(GossipMessage::InboundRevocationDelta(complete_delta))
             .await
@@ -9929,7 +9929,7 @@ mod inbound_tests {
             .await
             .expect("process B");
 
-        // Verify B also revoked the target (Idempotency on A's side is tested in revocation.rs test 11).
+ // Verify B also revoked the target (Idempotency on A's side is tested in revocation.rs test 11).
         assert!(
             handle_b
                 .revocation
@@ -9944,21 +9944,21 @@ mod inbound_tests {
         cleanup(&path_b);
     }
 
-    // ── Test 8b: inbound Delta from a REVOKED peer is rejected (Req 8.6) ────
-    //
-    // End-to-end through the PRODUCTION inbound pipeline: a peer's Delta is
-    // merged normally; then a validated RevocationDelta (M=1) marks the peer
-    // REVOKED (which registers the DID in the CRDT engine); a second Delta
-    // from the same peer is then rejected by the revocation gate inside
-    // CrdtEngine::apply — reached via apply_incoming_delta — and never lands
-    // in the Changeset DAG or the SQL projection.
+ // ── Test 8b: inbound Delta from a REVOKED peer is rejected (Req 8.6) ────
+ //
+ // End-to-end through the PRODUCTION inbound pipeline: a peer's Delta is
+ // merged normally; then a validated RevocationDelta (M=1) marks the peer
+ // REVOKED (which registers the DID in the CRDT engine); a second Delta
+ // from the same peer is then rejected by the revocation gate inside
+ // CrdtEngine::apply — reached via apply_incoming_delta — and never lands
+ // in the Changeset DAG or the SQL projection.
 
     #[tokio::test]
     async fn inbound_delta_from_revoked_peer_is_rejected() {
         let path = tmp_path("inbound_revoked_author");
         cleanup(&path);
 
-        // M=1, N=1 so a single Manager signature completes the revocation.
+ // M=1, N=1 so a single Manager signature completes the revocation.
         let handle = CoreHandle::init(InitConfig {
             storage_path: path.clone(),
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
@@ -9986,7 +9986,7 @@ mod inbound_tests {
         .await
         .expect("init");
 
-        // Peer identity + a Manager identity that can revoke the peer.
+ // Peer identity + a Manager identity that can revoke the peer.
         let (peer_secret, peer_public) = generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32]; // DEFAULT_SCHEMA_HASH
@@ -9995,7 +9995,7 @@ mod inbound_tests {
         let mgr_did = mgr.did().to_string();
         let mgr_sk = mgr.signing_key_bytes();
 
-        // Build a signed peer Delta carrying a projectable JSON envelope.
+ // Build a signed peer Delta carrying a projectable JSON envelope.
         let make_peer_delta = |table: &str, key: &str, value: i64, lamport: u64| {
             let mut envelope = serde_json::Map::new();
             envelope.insert(
@@ -10028,7 +10028,7 @@ mod inbound_tests {
             d
         };
 
-        // ── Before revocation: the peer's Delta merges and projects. ────────
+ // ── Before revocation: the peer's Delta merges and projects. ────────
         let delta_before = make_peer_delta("revtest", "k_before", 1, 1);
         handle
             .inject_inbound(GossipMessage::InboundDelta(delta_before.clone()))
@@ -10053,7 +10053,7 @@ mod inbound_tests {
             .await
             .expect("pre-revocation delta must be projected to the store");
 
-        // ── Revoke the peer (1-of-1), through the production inbound path. ───
+ // ── Revoke the peer (1-of-1), through the production inbound path. ───
         let rev_delta = {
             let rev = handle.revocation.lock().unwrap();
             rev.produce_partial_delta(peer_did.clone(), mgr_did.clone(), &mgr_sk)
@@ -10077,7 +10077,7 @@ mod inbound_tests {
             "revocation subsystem must know the peer DID is REVOKED"
         );
 
-        // ── After revocation: the peer's next Delta must be rejected. ────────
+ // ── After revocation: the peer's next Delta must be rejected. ────────
         let delta_after = make_peer_delta("revtest", "k_after", 2, 2);
         handle
             .inject_inbound(GossipMessage::InboundDelta(delta_after.clone()))
@@ -10088,7 +10088,7 @@ mod inbound_tests {
             .await
             .expect("process post-revocation delta");
 
-        // The rejected delta must NOT be persisted to the DAG…
+ // The rejected delta must NOT be persisted to the DAG…
         assert!(
             handle
                 .crdt
@@ -10099,13 +10099,13 @@ mod inbound_tests {
                 .is_none(),
             "post-revocation delta must be rejected — no DagNode may be persisted"
         );
-        // …and must NOT be projected into the store.
+ // …and must NOT be projected into the store.
         let read_after = handle.read("revtest", "k_after").await;
         assert!(
             read_after.is_err(),
             "post-revocation delta must not be readable (rejected before projection)"
         );
-        // The pre-revocation row is untouched.
+ // The pre-revocation row is untouched.
         handle
             .read("revtest", "k_before")
             .await
@@ -10115,7 +10115,7 @@ mod inbound_tests {
     }
 }
 
-// ─── Task 42: Cross-build convergence tests ────────────────────────────────────
+// ─── : Cross-build convergence tests ────────────────────────────────────
 //
 // Tests for cross-build CRDT state convergence (Req 1.4, Property 1).
 // These run on native and validate that the CrdtEngine converges identically
@@ -10190,20 +10190,20 @@ mod convergence_tests {
         d
     }
 
-    // ── Test 1: Two engines converge after exchanging Deltas ─────────────────
-    //
-    // Validates Property 1 (cross-build state convergence) at the CrdtEngine
-    // level: applying the same set of Deltas to two engines in any order
-    // produces identical final Lamport clocks.
-    //
-    // The WASM counterpart of this test runs in wasm_tests.rs under
-    // `wasm-bindgen-test` as `test_wasm_crdt_engine_convergence_two_instances`.
+ // ── Test 1: Two engines converge after exchanging Deltas ─────────────────
+ //
+ // Validates Property 1 (cross-build state convergence) at the CrdtEngine
+ // level: applying the same set of Deltas to two engines in any order
+ // produces identical final Lamport clocks.
+ //
+ // The WASM counterpart of this test runs in wasm_tests.rs under
+ // `wasm-bindgen-test` as `test_wasm_crdt_engine_convergence_two_instances`.
 
     #[test]
     fn two_engines_converge_after_delta_exchange() {
         let schema = test_schema();
 
-        // Create two engine identities.
+ // Create two engine identities.
         let (secret_a, public_a) = generate_keypair().unwrap();
         let did_a = derive_did_from_public_key(&public_a);
 
@@ -10213,32 +10213,32 @@ mod convergence_tests {
         let mut engine_a = make_engine(secret_a, public_a, did_a.clone(), schema);
         let mut engine_b = make_engine(secret_b, public_b, did_b.clone(), schema);
 
-        // Produce a Delta from engine A.
+ // Produce a Delta from engine A.
         let delta_a = engine_a
             .produce_delta(vec![], PriorityClass::Low, vec![])
             .unwrap();
 
-        // Produce a Delta from engine B (concurrent — same initial Lamport=0).
+ // Produce a Delta from engine B (concurrent — same initial Lamport=0).
         let delta_b = engine_b
             .produce_delta(vec![], PriorityClass::Low, vec![])
             .unwrap();
 
-        // Apply A's Delta to B.
+ // Apply A's Delta to B.
         let outcome_ab = engine_b.apply(&delta_a).unwrap();
         assert!(
             matches!(outcome_ab, MergeOutcome::Merged { .. }),
             "A→B must merge: {outcome_ab:?}"
         );
 
-        // Apply B's Delta to A.
+ // Apply B's Delta to A.
         let outcome_ba = engine_a.apply(&delta_b).unwrap();
         assert!(
             matches!(outcome_ba, MergeOutcome::Merged { .. }),
             "B→A must merge: {outcome_ba:?}"
         );
 
-        // Both engines have applied both Deltas.
-        // Lamport clocks must be identical (both advanced to max+1 twice).
+ // Both engines have applied both Deltas.
+ // Lamport clocks must be identical (both advanced to max+1 twice).
         assert_eq!(
             engine_a.lamport(),
             engine_b.lamport(),
@@ -10248,17 +10248,17 @@ mod convergence_tests {
         );
     }
 
-    // ── Test 2: Commutative Delta application — order does not matter ─────────
-    //
-    // Engine A applies Delta B first then Delta C.
-    // Engine B applies Delta C first then Delta B.
-    // Both must reach the same Lamport clock (commutativity invariant).
+ // ── Test 2: Commutative Delta application — order does not matter ─────────
+ //
+ // Engine A applies Delta B first then Delta C.
+ // Engine B applies Delta C first then Delta B.
+ // Both must reach the same Lamport clock (commutativity invariant).
 
     #[test]
     fn delta_application_is_commutative() {
         let schema = test_schema();
 
-        // All three engines share the same schema and start fresh.
+ // All three engines share the same schema and start fresh.
         let (secret_a, public_a) = generate_keypair().unwrap();
         let did_a = derive_did_from_public_key(&public_a);
         let (secret_b, public_b) = generate_keypair().unwrap();
@@ -10266,11 +10266,11 @@ mod convergence_tests {
         let (secret_c, public_c) = generate_keypair().unwrap();
         let did_c = derive_did_from_public_key(&public_c);
 
-        // Engines that receive the Deltas in different orders.
+ // Engines that receive the Deltas in different orders.
         let mut engine_ab = make_engine(secret_a, public_a, did_a.clone(), schema);
         let mut engine_ba = make_engine(secret_a, public_a, did_a.clone(), schema);
 
-        // Produce Deltas from B and C with distinct content.
+ // Produce Deltas from B and C with distinct content.
         let mut engine_src_b = make_engine(secret_b, public_b, did_b.clone(), schema);
         let mut engine_src_c = make_engine(secret_c, public_c, did_c.clone(), schema);
 
@@ -10281,15 +10281,15 @@ mod convergence_tests {
             .produce_delta(vec![], PriorityClass::High, vec![])
             .unwrap();
 
-        // engine_ab applies B then C.
+ // engine_ab applies B then C.
         engine_ab.apply(&delta_b).unwrap();
         engine_ab.apply(&delta_c).unwrap();
 
-        // engine_ba applies C then B.
+ // engine_ba applies C then B.
         engine_ba.apply(&delta_c).unwrap();
         engine_ba.apply(&delta_b).unwrap();
 
-        // Lamport clocks must be identical regardless of application order.
+ // Lamport clocks must be identical regardless of application order.
         assert_eq!(
             engine_ab.lamport(),
             engine_ba.lamport(),
@@ -10299,16 +10299,16 @@ mod convergence_tests {
         );
     }
 
-    // ── Test 3: WASM receive_inbound_wasm routes JSON-envelope Delta through
-    //            apply_incoming_delta and projects to the in-memory store ───────
-    //
-    // This is the native-side counterpart of the wasm-bindgen-test
-    // `test_receive_peer_message_json_envelope_projects_to_store`.
-    // It verifies the new apply_incoming_delta routing in receive_inbound_wasm
-    // by using inject_inbound/process_inbound_messages on the native path, which
-    // shares the same JSON-envelope projection logic.
-    //
-    // Validates: Task 42 sub-task 4 (readable store after inbound Delta).
+ // ── Test 3: WASM receive_inbound_wasm routes JSON-envelope Delta through
+ // apply_incoming_delta and projects to the in-memory store ───────
+ //
+ // This is the native-side counterpart of the wasm-bindgen-test
+ // `test_receive_peer_message_json_envelope_projects_to_store`.
+ // It verifies the new apply_incoming_delta routing in receive_inbound_wasm
+ // by using inject_inbound/process_inbound_messages on the native path, which
+ // shares the same JSON-envelope projection logic.
+ //
+ // Validates: sub- (readable store after inbound Delta).
 
     #[tokio::test]
     async fn inbound_json_envelope_delta_is_readable_after_merge() {
@@ -10361,13 +10361,13 @@ mod convergence_tests {
 
         let written_data = serde_json::json!({"sensor": "pressure", "value": 1013});
 
-        // Write to A.
+ // Write to A.
         handle_a
             .write("sensors", "p-1", written_data.clone())
             .await
             .expect("write to A");
 
-        // Build the JSON envelope (matching CoreHandle::write format).
+ // Build the JSON envelope (matching CoreHandle::write format).
         let (peer_secret, peer_public) = generate_keypair().unwrap();
         let peer_did = derive_did_from_public_key(&peer_public);
         let schema_hash = [0u8; 32];
@@ -10407,7 +10407,7 @@ mod convergence_tests {
             d
         };
 
-        // Inject Delta into handle_b and process it.
+ // Inject Delta into handle_b and process it.
         handle_b
             .inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
                 delta,
@@ -10421,7 +10421,7 @@ mod convergence_tests {
             .expect("process_inbound_messages must not fail");
         assert_eq!(processed, 1, "one message must be processed");
 
-        // Verify the value is readable on B (Task 42 sub-task 4).
+ // Verify the value is readable on B ( sub).
         let read_result = handle_b.read("sensors", "p-1").await;
         assert!(
             read_result.is_ok(),
@@ -10447,11 +10447,11 @@ mod convergence_tests {
 // No test-only injection helpers are involved anywhere on the write→receive
 // path: the Delta travels
 //
-//   A: write() → send_delta → outbound channel → Swarm polling task
-//      → gossipsub.publish → TCP/Noise/Yamux → wire
-//   B: Swarm polling task (gossipsub message) → inbound channel
-//      → production drain loop → receive_inbound → signature verification
-//      → merge → SQL projection
+// A: write() → send_delta → outbound channel → Swarm polling task
+// → gossipsub.publish → TCP/Noise/Yamux → wire
+// B: Swarm polling task (gossipsub message) → inbound channel
+// → production drain loop → receive_inbound → signature verification
+// → merge → SQL projection
 //
 // and is asserted on B via `read()` plus CRDT-level state (DAG node, Lamport
 // clock) — i.e. the same observations a real second device would produce.
@@ -10481,11 +10481,11 @@ mod real_mesh_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// Reserve a free loopback TCP port for a transport listen address.
-    ///
-    /// The listener is dropped before `CoreHandle::init` binds it, so there is
-    /// a tiny reuse window; reserving both ports up front (before either
-    /// handle inits) keeps that window to microseconds per port.
+ /// Reserve a free loopback TCP port for a transport listen address.
+ ///
+ /// The listener is dropped before `CoreHandle::init` binds it, so there is
+ /// a tiny reuse window; reserving both ports up front (before either
+ /// handle inits) keeps that window to microseconds per port.
     fn reserve_loopback_port() -> u16 {
         let l = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
         l.local_addr().expect("local addr").port()
@@ -10518,13 +10518,13 @@ mod real_mesh_tests {
         }
     }
 
-    /// Initialise a handle on its own loopback port with a real Swarm (the
-    /// production `CoreHandle::init` path spawns the Swarm polling task) and
-    /// start the production inbound drain loop at accelerated cadence — the
-    /// identical loop `init` spawns at 50 ms in production builds (Subphase
-    /// 1.3); test builds make `init`'s own instance inert so count-based unit
-    /// tests stay deterministic, so the test drives the accelerated loop
-    /// explicitly, exactly as the Subphase 1.3 acceptance does.
+ /// Initialise a handle on its own loopback port with a real Swarm (the
+ /// production `CoreHandle::init` path spawns the Swarm polling task) and
+ /// start the production inbound drain loop at accelerated cadence — the
+ /// identical loop `init` spawns at 50 ms in production builds (Subphase
+ /// 1.3); test builds make `init`'s own instance inert so count-based unit
+ /// tests stay deterministic, so the test drives the accelerated loop
+ /// explicitly, exactly as the Subphase 1.3 acceptance does.
     async fn init_mesh_handle(suffix: &str, port: u16) -> Arc<CoreHandle> {
         let path = tmp_path(suffix);
         cleanup(&path);
@@ -10543,10 +10543,10 @@ mod real_mesh_tests {
         handle
     }
 
-    /// Dial `from` → `to`'s listen address via the production
-    /// `CoreHandle::dial_peer` path and wait until the connection is recorded
-    /// (the Swarm polling task's `ConnectionEstablished` arm populates the
-    /// peer table, so `mesh_status()` reports it).
+ /// Dial `from` → `to`'s listen address via the production
+ /// `CoreHandle::dial_peer` path and wait until the connection is recorded
+ /// (the Swarm polling task's `ConnectionEstablished` arm populates the
+ /// peer table, so `mesh_status()` reports it).
     async fn connect_peers(from: &Arc<CoreHandle>, target_addr: &str) {
         let addr: libp2p::Multiaddr = target_addr.parse().expect("valid multiaddr");
         from.dial_peer(addr).await.expect("dial_peer must succeed");
@@ -10565,10 +10565,10 @@ mod real_mesh_tests {
         }
     }
 
-    /// Poll `handle.read(table, key)` until the row's data equals `expected`
-    /// or `timeout` elapses.  (Polling for a bare successful read is not
-    /// enough across multiple round trips — a row written by an earlier
-    /// round trip already reads successfully with stale data.)
+ /// Poll `handle.read(table, key)` until the row's data equals `expected`
+ /// or `timeout` elapses. (Polling for a bare successful read is not
+ /// enough across multiple round trips — a row written by an earlier
+ /// round trip already reads successfully with stale data.)
     async fn wait_for_data(
         handle: &CoreHandle,
         table: &str,
@@ -10591,15 +10591,15 @@ mod real_mesh_tests {
         }
     }
 
-    // ── Phase 0.3(a): two-device real mesh Delta exchange ────────────────────
-    //
-    // Two real Swarm-backed CoreHandles on loopback; a write on device A
-    // becomes visible (readable) on device B with no test-only injection
-    // helpers on the path.
+ // ── Phase 0.3(a): two-device real mesh Delta exchange ────────────────────
+ //
+ // Two real Swarm-backed CoreHandles on loopback; a write on device A
+ // becomes visible (readable) on device B with no test-only injection
+ // helpers on the path.
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn two_devices_exchange_delta_over_real_mesh() {
-        // Reserve both ports before either init to minimise reuse races.
+ // Reserve both ports before either init to minimise reuse races.
         let port_a = reserve_loopback_port();
         let port_b = reserve_loopback_port();
         assert_ne!(port_a, port_b, "the two devices need distinct ports");
@@ -10607,17 +10607,17 @@ mod real_mesh_tests {
         let handle_a = init_mesh_handle("p03a_A", port_a).await;
         let handle_b = init_mesh_handle("p03a_B", port_b).await;
 
-        // The only manual step: device A dials device B's listen address over
-        // the production dial path (mDNS would do this automatically on a LAN;
-        // loopback tests use the explicit path so no multicast is involved).
+ // The only manual step: device A dials device B's listen address over
+ // the production dial path (mDNS would do this automatically on a LAN;
+ // loopback tests use the explicit path so no multicast is involved).
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
         connect_peers(&handle_a, &addr_b).await;
 
-        // Let the gossipsub subscription exchange settle so the publish on A
-        // reaches B's mesh rather than being deferred as "no subscribers".
+ // Let the gossipsub subscription exchange settle so the publish on A
+ // reaches B's mesh rather than being deferred as "no subscribers".
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // Write on A — production write path (store + signed Delta + publish).
+ // Write on A — production write path (store + signed Delta + publish).
         let written = json!({ "device": "A", "seq": 1, "msg": "hello over the real mesh" });
         let write_result = handle_a
             .write("mesh", "row-a", written.clone())
@@ -10628,9 +10628,9 @@ mod real_mesh_tests {
             "A must produce a real Delta"
         );
 
-        // Assert the Delta arrived on B through the wire: signature-verified
-        // (else Rejected — nothing would be stored), merged, projected — i.e.
-        // readable via B's normal read() path.
+ // Assert the Delta arrived on B through the wire: signature-verified
+ // (else Rejected — nothing would be stored), merged, projected — i.e.
+ // readable via B's normal read() path.
         let observed = wait_for_data(
             &handle_b,
             "mesh",
@@ -10648,16 +10648,16 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p03a_B"));
     }
 
-    // ── Phase 0.3(b): full write→gossip→receive→merge round trip ────────────
-    //
-    // Same real mesh, but asserting each stage of the receiving pipeline on
-    // B's CRDT engine and store:
-    //   - signature-verified: the exact Delta A produced (Delta ID) is present
-    //     in B's DAG under A's author DID — `CrdtEngine::apply` only inserts
-    //     the DagNode after Ed25519 verification succeeds (step 3) and the
-    //     merge completes (step 6).
-    //   - merged: B's Lamport clock advanced (apply step 5).
-    //   - projected: the row is readable via B's read() with A's exact data.
+ // ── Phase 0.3(b): full write→gossip→receive→merge round trip ────────────
+ //
+ // Same real mesh, but asserting each stage of the receiving pipeline on
+ // B's CRDT engine and store:
+ // - signature-verified: the exact Delta A produced (Delta ID) is present
+ // in B's DAG under A's author DID — `CrdtEngine::apply` only inserts
+ // the DagNode after Ed25519 verification succeeds (step 3) and the
+ // merge completes (step 6).
+ // - merged: B's Lamport clock advanced (apply step 5).
+ // - projected: the row is readable via B's read() with A's exact data.
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn write_gossip_receive_merge_round_trip_is_signature_verified_and_projected() {
@@ -10668,7 +10668,7 @@ mod real_mesh_tests {
         let handle_a = init_mesh_handle("p03b_A", port_a).await;
         let handle_b = init_mesh_handle("p03b_B", port_b).await;
 
-        // B's engine starts with a zero Lamport clock and an empty DAG.
+ // B's engine starts with a zero Lamport clock and an empty DAG.
         let author_did_a = handle_a.identity.did().to_string();
         assert_eq!(
             handle_b.crdt.lock().unwrap().lamport(),
@@ -10680,7 +10680,7 @@ mod real_mesh_tests {
         connect_peers(&handle_a, &addr_b).await;
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // ── Round trip 1 ─────────────────────────────────────────────────────
+ // ── Round trip 1 ─────────────────────────────────────────────────────
         let written_1 = json!({ "sensor": "temp", "value": 23.4 });
         let write_1 = handle_a
             .write("roundtrip", "k1", written_1.clone())
@@ -10700,10 +10700,10 @@ mod real_mesh_tests {
             "round trip 1 data must match on B"
         );
 
-        // The exact Delta A signed and published must have been merged into B's
-        // DAG — signature-verified (author DID resolves from did:key and the
-        // Ed25519 check passes, otherwise `apply` returns Rejected and no node
-        // is inserted), merged (DagNode persisted), authored by A.
+ // The exact Delta A signed and published must have been merged into B's
+ // DAG — signature-verified (author DID resolves from did:key and the
+ // Ed25519 check passes, otherwise `apply` returns Rejected and no node
+ // is inserted), merged (DagNode persisted), authored by A.
         let node_1 = handle_b
             .crdt
             .lock()
@@ -10726,7 +10726,7 @@ mod real_mesh_tests {
             "B's Lamport clock must advance after merging A's Delta"
         );
 
-        // ── Round trip 2: a second write chains off the first causally ───────
+ // ── Round trip 2: a second write chains off the first causally ───────
         let written_2 = json!({ "sensor": "temp", "value": 25.7 });
         let write_2 = handle_a
             .write("roundtrip", "k1", written_2.clone())
@@ -10750,8 +10750,8 @@ mod real_mesh_tests {
             "round trip 2 data must match on B"
         );
 
-        // Both Deltas must be present in B's DAG (converged state), each signed
-        // by A.
+ // Both Deltas must be present in B's DAG (converged state), each signed
+ // by A.
         let node_2 = handle_b
             .crdt
             .lock()
@@ -10775,17 +10775,17 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p03b_B"));
     }
 
-    // ── Subphase 8.3: final-state identity after bidirectional merge ────────────
-    //
-    // Two real Swarm-backed CoreHandles on loopback.  Each device writes through
-    // the production `CoreHandle::write` path; Deltas travel over the mesh and
-    // are merged by the production inbound pipeline (`receive_inbound` →
-    // `apply_incoming_delta` → `CrdtEngine::apply`).  After a full round trip
-    // (A→B and B→A) every key written by either engine must be readable on both
-    // engines with identical data.
-    //
-    // Production caller: `CoreHandle::write` → `CrdtEngine::apply`
-    //   (crdt/mod.rs:664).
+ // ── Subphase 8.3: final-state identity after bidirectional merge ────────────
+ //
+ // Two real Swarm-backed CoreHandles on loopback. Each device writes through
+ // the production `CoreHandle::write` path; Deltas travel over the mesh and
+ // are merged by the production inbound pipeline (`receive_inbound` →
+ // `apply_incoming_delta` → `CrdtEngine::apply`). After a full round trip
+ // (A→B and B→A) every key written by either engine must be readable on both
+ // engines with identical data.
+ //
+ // Production caller: `CoreHandle::write` → `CrdtEngine::apply`
+ // (crdt/mod.rs:664).
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn bidirectional_write_round_trip_asserts_final_state_identity() {
@@ -10800,7 +10800,7 @@ mod real_mesh_tests {
         connect_peers(&handle_a, &addr_b).await;
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // Round trip 1: A writes, B merges.
+ // Round trip 1: A writes, B merges.
         let from_a = json!({ "device": "A", "seq": 1, "msg": "hello from A" });
         let wr_a = handle_a
             .write("identity_test", "from_a", from_a.clone())
@@ -10820,7 +10820,7 @@ mod real_mesh_tests {
             "B must read A's data after round trip 1"
         );
 
-        // Round trip 2: B writes, A merges.
+ // Round trip 2: B writes, A merges.
         let from_b = json!({ "device": "B", "seq": 1, "msg": "hello from B" });
         let wr_b = handle_b
             .write("identity_test", "from_b", from_b.clone())
@@ -10840,8 +10840,8 @@ mod real_mesh_tests {
             "A must read B's data after round trip 2"
         );
 
-        // Final-state identity: every key written by either engine must match on
-        // both engines.
+ // Final-state identity: every key written by either engine must match on
+ // both engines.
         assert_eq!(
             handle_a.read("identity_test", "from_a").await.unwrap().data,
             from_a,
@@ -10867,29 +10867,29 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p83_b"));
     }
 
-    // ── Subphase 4.5: Tier-1 durability via genuine receipt exchange ─────────
-    //
-    // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
-    // Device A writes; device B receives and merges the Delta through the
-    // production inbound pipeline, then — Subphase 4.5 — issues a *genuine*
-    // DurabilityReceipt (signed with B's own identity key over the canonical
-    // payload) and publishes it back over the mesh.  A's inbound pipeline
-    // resolves B's DID to its public key, verifies the receipt (signature +
-    // state-hash), and reaches Tier-1 through the production quorum path.
-    //
-    // No test helper manufactures the receipt: every byte travels
-    //   A: write() → register_delta → gossipsub.publish
-    //   B: receive_inbound → merge → issue_durability_receipt → send_receipt
-    //      → gossipsub.publish
-    //   A: receive_inbound → resolve DID → register_peer_key → receive_receipt
-    //      → quorum → Tier-1 (+ DurabilityTierChanged event)
+ // ── Subphase 4.5: Tier-1 durability via genuine receipt exchange ─────────
+ //
+ // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
+ // Device A writes; device B receives and merges the Delta through the
+ // production inbound pipeline, then — Subphase 4.5 — issues a *genuine*
+ // DurabilityReceipt (signed with B's own identity key over the canonical
+ // payload) and publishes it back over the mesh. A's inbound pipeline
+ // resolves B's DID to its public key, verifies the receipt (signature +
+ // state-hash), and reaches Tier-1 through the production quorum path.
+ //
+ // No test helper manufactures the receipt: every byte travels
+ // A: write() → register_delta → gossipsub.publish
+ // B: receive_inbound → merge → issue_durability_receipt → send_receipt
+ // → gossipsub.publish
+ // A: receive_inbound → resolve DID → register_peer_key → receive_receipt
+ // → quorum → Tier-1 (+ DurabilityTierChanged event)
 
-    /// Poll device B's outbound publish point for the `DurabilityReceipt` it
-    /// issued for `delta_id` after merging the Delta (Subphase 4.5).  Returns
-    /// the receipt parsed from the framed
-    /// `GossipMessage::InboundDurabilityReceipt` payload — proving the receipt
-    /// genuinely left B's mesh layer (same observability the Phase 0.3(a)
-    /// tests use for outbound Deltas).
+ /// Poll device B's outbound publish point for the `DurabilityReceipt` it
+ /// issued for `delta_id` after merging the Delta (Subphase 4.5). Returns
+ /// the receipt parsed from the framed
+ /// `GossipMessage::InboundDurabilityReceipt` payload — proving the receipt
+ /// genuinely left B's mesh layer (same observability the Phase 0.3(a)
+ /// tests use for outbound Deltas).
     async fn wait_for_issued_receipt(
         handle: &Arc<CoreHandle>,
         delta_id: &DeltaId,
@@ -10917,9 +10917,9 @@ mod real_mesh_tests {
         }
     }
 
-    /// Poll `handle` until the Delta's durability tier reaches `Tier1` — the
-    /// production per-Delta state backing `WriteResult::durability_tier`
-    /// (Req 14.7).
+ /// Poll `handle` until the Delta's durability tier reaches `Tier1` — the
+ /// production per-Delta state backing `WriteResult::durability_tier`
+ /// (Req 14.7).
     async fn wait_for_tier1(handle: &CoreHandle, delta_id: &DeltaId) {
         let deadline = crate::traits::monotonic_now() + 20_000_000;
         loop {
@@ -10945,23 +10945,23 @@ mod real_mesh_tests {
         let handle_a = init_mesh_handle("p45_A", port_a).await;
         let handle_b = init_mesh_handle("p45_B", port_b).await;
 
-        // Subscribe to A's durability event channel BEFORE the write: the
-        // Tier-1 transition must be observed through the production
-        // notification path (Subphase 4.2), not just polled afterwards.
+ // Subscribe to A's durability event channel BEFORE the write: the
+ // Tier-1 transition must be observed through the production
+ // notification path (Subphase 4.2), not just polled afterwards.
         let mut tier_events = handle_a.subscribe_durability_events();
 
-        // The only manual step: A dials B's listen address over the production
-        // dial path (mDNS would do this automatically on a LAN; loopback tests
-        // use the explicit path so no multicast is involved).
+ // The only manual step: A dials B's listen address over the production
+ // dial path (mDNS would do this automatically on a LAN; loopback tests
+ // use the explicit path so no multicast is involved).
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
         connect_peers(&handle_a, &addr_b).await;
 
-        // Let the gossipsub subscription exchange settle so the publish on A
-        // reaches B's mesh rather than being deferred as "no subscribers".
+ // Let the gossipsub subscription exchange settle so the publish on A
+ // reaches B's mesh rather than being deferred as "no subscribers".
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // A writes — production write path (store + signed Delta + mesh
-        // publish + durability registration).
+ // A writes — production write path (store + signed Delta + mesh
+ // publish + durability registration).
         let written = json!({ "device": "A", "msg": "tier1 over the real mesh" });
         let write_result = handle_a
             .write("durable", "row-1", written.clone())
@@ -10975,8 +10975,8 @@ mod real_mesh_tests {
             "Tier-1 must not be reached before a genuine receipt arrives"
         );
 
-        // 1. B genuinely receives and merges the Delta (Phase 1) — only then
-        //    can B attest holding the state.
+ // 1. B genuinely receives and merges the Delta (Phase 1) — only then
+ // can B attest holding the state.
         let _ = wait_for_data(
             &handle_b,
             "durable",
@@ -10986,13 +10986,13 @@ mod real_mesh_tests {
         )
         .await;
 
-        // 2. B must have issued a genuine receipt and published it to the
-        //    mesh.  Capture it at B's outbound publish point.
+ // 2. B must have issued a genuine receipt and published it to the
+ // mesh. Capture it at B's outbound publish point.
         let receipt = wait_for_issued_receipt(&handle_b, &delta_id).await;
 
-        // 3. The receipt is genuine, not manufactured: it is signed over the
-        //    canonical payload by B's real identity key (state_hash =
-        //    delta.id, issuer = B's DID) and verifies against B's public key.
+ // 3. The receipt is genuine, not manufactured: it is signed over the
+ // canonical payload by B's real identity key (state_hash =
+ // delta.id, issuer = B's DID) and verifies against B's public key.
         assert_eq!(
             receipt.state_hash, delta_id,
             "receipt must attest THIS delta"
@@ -11006,13 +11006,13 @@ mod real_mesh_tests {
         crate::durability::receipt::verify_receipt(&receipt, &b_public_key, &delta_id)
             .expect("receipt must verify against B's real public key");
 
-        // 4. A receives the receipt over the mesh, resolves B's DID to B's
-        //    public key, verifies signature + state-hash, and reaches Tier-1
-        //    through the production quorum path.
+ // 4. A receives the receipt over the mesh, resolves B's DID to B's
+ // public key, verifies signature + state-hash, and reaches Tier-1
+ // through the production quorum path.
         wait_for_tier1(&handle_a, &delta_id).await;
 
-        // 5. The production notification (Req 14.7, Subphase 4.2) delivered a
-        //    DurabilityTierChanged event for the Uncommitted → Tier1 transition.
+ // 5. The production notification (Req 14.7, Subphase 4.2) delivered a
+ // DurabilityTierChanged event for the Uncommitted → Tier1 transition.
         let deadline = crate::traits::monotonic_now() + 20_000_000;
         loop {
             match tier_events.try_recv() {
@@ -11039,27 +11039,27 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p45_B"));
     }
 
-    // ─── Subphase 7.1: concurrent scalar write LWW over real mesh ────────────
-    //
-    // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
-    // Device A and Device B each write a DIFFERENT scalar value to the SAME
-    // table/key "concurrently" — i.e. before either device has received the
-    // other's Delta over the mesh, so the two writes have no causal ordering
-    // and compete as concurrent LWW ops on the same Automerge ROOT key.
-    //
-    // The mesh is then torn down and reconnected (real reconnect via the
-    // production dial_peer path), and the test asserts that the ACTUAL merged
-    // value read back from the receiving device's store matches the LWW-spec
-    // winner:
-    //
-    //   1. Higher Lamport timestamp wins.
-    //   2. Tie → lexicographically greater DID-derived Ed25519 public key
-    //      (i.e. Automerge actor ID) wins.
-    //
-    // "Actual merged value" means we read the value projected into the SQL
-    // store (via read()), AND the value held in the CrdtEngine's merged
-    // Automerge doc (via read_scalar()) — NOT just the Lamport-comparison rule.
-    // Both observations on the non-author device must agree on the spec winner.
+ // ─── Subphase 7.1: concurrent scalar write LWW over real mesh ────────────
+ //
+ // Two real Swarm-backed CoreHandles on loopback (the Phase 0.3(a) mesh).
+ // Device A and Device B each write a DIFFERENT scalar value to the SAME
+ // table/key "concurrently" — i.e. before either device has received the
+ // other's Delta over the mesh, so the two writes have no causal ordering
+ // and compete as concurrent LWW ops on the same Automerge ROOT key.
+ //
+ // The mesh is then torn down and reconnected (real reconnect via the
+ // production dial_peer path), and the test asserts that the ACTUAL merged
+ // value read back from the receiving device's store matches the LWW-spec
+ // winner:
+ //
+ // 1. Higher Lamport timestamp wins.
+ // 2. Tie → lexicographically greater DID-derived Ed25519 public key
+ // (i.e. Automerge actor ID) wins.
+ //
+ // "Actual merged value" means we read the value projected into the SQL
+ // store (via read()), AND the value held in the CrdtEngine's merged
+ // Automerge doc (via read_scalar()) — NOT just the Lamport-comparison rule.
+ // Both observations on the non-author device must agree on the spec winner.
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn two_devices_concurrent_scalar_write_lww_wins_over_real_mesh() {
@@ -11073,22 +11073,22 @@ mod real_mesh_tests {
         let addr_a = format!("/ip4/127.0.0.1/tcp/{port_a}");
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
 
-        // Connect A → B and B → A over the production dial_peer path.
+ // Connect A → B and B → A over the production dial_peer path.
         connect_peers(&handle_a, &addr_b).await;
         connect_peers(&handle_b, &addr_a).await;
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // ── Phase 1: concurrent scalar writes to the same table/key ──────────
-        //
-        // Both devices write a different string value to lww_table/shared_key.
-        // Since both engines start at Lamport 0, and write_scalar does NOT
-        // increment Lamport (produce_delta_with_tags does), both Deltas get
-        // lamport=1 → a tie. The LWW tiebreak is the lexicographically greater
-        // actor ID (DID-derived Ed25519 public key bytes).
-        //
-        // The writes are issued back-to-back with no await-gate between them,
-        // so neither device has received the other's Delta before its own
-        // write is issued — the writes are genuinely concurrent.
+ // ── Phase 1: concurrent scalar writes to the same table/key ──────────
+ //
+ // Both devices write a different string value to lww_table/shared_key.
+ // Since both engines start at Lamport 0, and write_scalar does NOT
+ // increment Lamport (produce_delta_with_tags does), both Deltas get
+ // lamport=1 → a tie. The LWW tiebreak is the lexicographically greater
+ // actor ID (DID-derived Ed25519 public key bytes).
+ //
+ // The writes are issued back-to-back with no await-gate between them,
+ // so neither device has received the other's Delta before its own
+ // write is issued — the writes are genuinely concurrent.
         let value_a = serde_json::Value::String("value_from_A".to_string());
         let value_b = serde_json::Value::String("value_from_B".to_string());
 
@@ -11101,8 +11101,8 @@ mod real_mesh_tests {
             .await
             .expect("write on B must succeed");
 
-        // Determine the LWW-spec winner by the rule:
-        //   higher Lamport wins; tie → lexicographically greater actor ID.
+ // Determine the LWW-spec winner by the rule:
+ // higher Lamport wins; tie → lexicographically greater actor ID.
         let lamport_a = handle_a
             .crdt
             .lock()
@@ -11127,7 +11127,7 @@ mod real_mesh_tests {
         } else if lamport_a > lamport_b {
             false
         } else {
-            // Tie — lexicographically greater actor ID (public key bytes) wins.
+ // Tie — lexicographically greater actor ID (public key bytes) wins.
             actor_b.as_slice() > actor_a.as_slice()
         };
         let expected_winner_value = if spec_winner_is_b {
@@ -11144,16 +11144,16 @@ mod real_mesh_tests {
             if spec_winner_is_b { "B" } else { "A" }
         );
 
-        // ── Phase 2: wait for both writes to propagate over the real mesh ───
-        //
-        // Device A's Delta reaches B, and Device B's Delta reaches A. After
-        // both propagate, each device's CrdtEngine doc has merged both values
-        // via Automerge's LWW. The ACTUAL merged value (not just the rule)
-        // must match the spec winner.
+ // ── Phase 2: wait for both writes to propagate over the real mesh ───
+ //
+ // Device A's Delta reaches B, and Device B's Delta reaches A. After
+ // both propagate, each device's CrdtEngine doc has merged both values
+ // via Automerge's LWW. The ACTUAL merged value (not just the rule)
+ // must match the spec winner.
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        // Assert on device B: read the actual merged value from the
-        // CrdtEngine's Automerge doc AND from the SQL projection.
+ // Assert on device B: read the actual merged value from the
+ // CrdtEngine's Automerge doc AND from the SQL projection.
         let b_merged_value = handle_b
             .crdt
             .lock()
@@ -11175,7 +11175,7 @@ mod real_mesh_tests {
             "B's projected SQL row must match the LWW-spec winner value (not just the rule)"
         );
 
-        // Assert on device A: same check, other side.
+ // Assert on device A: same check, other side.
         let a_merged_value = handle_a
             .crdt
             .lock()
@@ -11197,13 +11197,13 @@ mod real_mesh_tests {
             "A's projected SQL row must also match the LWW-spec winner value"
         );
 
-        // ── Phase 3: real reconnect — tear down and re-establish the mesh ───
-        //
-        // Drop both handles (closing their Swarms), then create fresh handles
-        // on NEW ports and re-establish the real mesh via the production
-        // dial_peer path. After reconnect, a write from the winner must still
-        // converge on the other device — proving the production write→mesh→
-        // merge path works after a genuine mesh teardown and reconnection.
+ // ── Phase 3: real reconnect — tear down and re-establish the mesh ───
+ //
+ // Drop both handles (closing their Swarms), then create fresh handles
+ // on NEW ports and re-establish the real mesh via the production
+ // dial_peer path. After reconnect, a write from the winner must still
+ // converge on the other device — proving the production write→mesh→
+ // merge path works after a genuine mesh teardown and reconnection.
         drop(handle_a);
         drop(handle_b);
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -11233,8 +11233,8 @@ mod real_mesh_tests {
 
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // After reconnect, write from the LWW winner and verify it reaches
-        // the other device through the re-established mesh.
+ // After reconnect, write from the LWW winner and verify it reaches
+ // the other device through the re-established mesh.
         let winner_handle = if spec_winner_is_b {
             &handle_b2
         } else {
@@ -11260,9 +11260,9 @@ mod real_mesh_tests {
         )
         .await;
 
-        // Final assertion: the actual merged value on both devices matches the
-        // LWW-spec winner — not just the Lamport-comparison rule, but the
-        // genuinely merged Automerge value materialized into the SQL store.
+ // Final assertion: the actual merged value on both devices matches the
+ // LWW-spec winner — not just the Lamport-comparison rule, but the
+ // genuinely merged Automerge value materialized into the SQL store.
         let final_a = handle_a2
             .read("lww_table", "reconnect_key")
             .await
@@ -11284,33 +11284,33 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p71_B2"));
     }
 
-    // ── Subphase 7.4: low-MTU fragmented transport ────────────────────────────
-    //
-    // Malformed / truncated Delta over a simulated low-MTU fragmented
-    // transport, verifying clean reassembly failure handling (Req 5.7–5.8).
-    //
-    // Two test cases:
-    //
-    // (a) SUCCESS — a real Delta written by device A is fragmented at
-    //     `mesh_mtu = 50`, reassembled on device B via the production
-    //     `process_wire_message` → `ReassemblyBuffer` path, and observed
-    //     readable on B via `read()`.
-    //
-    // (b) FAILURE — a truncated fragment stream (fragments deliberately
-    //     dropped) causes `FragmentReassemblyFailed`, which is handled cleanly:
-    //     the partial Delta is discarded, no crash, no corrupted CRDT state,
-    //     and the receiving device remains functional.
+ // ── Subphase 7.4: low-MTU fragmented transport ────────────────────────────
+ //
+ // Malformed / truncated Delta over a simulated low-MTU fragmented
+ // transport, verifying clean reassembly failure handling (Req 5.7–5.8).
+ //
+ // Two test cases:
+ //
+ // (a) SUCCESS — a real Delta written by device A is fragmented at
+ // `mesh_mtu = 50`, reassembled on device B via the production
+ // `process_wire_message` → `ReassemblyBuffer` path, and observed
+ // readable on B via `read()`.
+ //
+ // (b) FAILURE — a truncated fragment stream (fragments deliberately
+ // dropped) causes `FragmentReassemblyFailed`, which is handled cleanly:
+ // the partial Delta is discarded, no crash, no corrupted CRDT state,
+ // and the receiving device remains functional.
 
-    /// Helper: create an InitConfig with a low MTU so the transport fragments
-    /// outbound Deltas (Req 5.7).
+ /// Helper: create an InitConfig with a low MTU so the transport fragments
+ /// outbound Deltas (Req 5.7).
     fn low_mtu_config(path: &str, port: u16, mtu: usize) -> InitConfig {
         let mut c = mesh_config(path, port);
         c.deployment.mesh_mtu = mtu;
         c
     }
 
-    /// Helper: initialize a handle with a low-MTU transport and the production
-    /// inbound drain loop at accelerated cadence.
+ /// Helper: initialize a handle with a low-MTU transport and the production
+ /// inbound drain loop at accelerated cadence.
     async fn init_low_mtu_handle(suffix: &str, port: u16, mtu: usize) -> Arc<CoreHandle> {
         let path = tmp_path(suffix);
         cleanup(&path);
@@ -11321,18 +11321,18 @@ mod real_mesh_tests {
         handle
     }
 
-    /// (a) A Delta written on device A is fragmented over a low-MTU mesh and
-    /// correctly reassembled + merged on device B.  The receiving device must
-    /// read the exact value A wrote.
+ /// (a) A Delta written on device A is fragmented over a low-MTU mesh and
+ /// correctly reassembled + merged on device B. The receiving device must
+ /// read the exact value A wrote.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn low_mtu_fragmented_delta_reassembles_and_merges_on_peer() {
         let port_a = reserve_loopback_port();
         let port_b = reserve_loopback_port();
         assert_ne!(port_a, port_b);
 
-        // MTU = 50: well under the 256-byte threshold, so prepare_outbound
-        // splits the serialised Delta into multiple DeltaFragment messages
-        // (each framed as GossipMessage::InboundDeltaFragment on the wire).
+ // MTU = 50: well under the 256-byte threshold, so prepare_outbound
+ // splits the serialised Delta into multiple DeltaFragment messages
+ // (each framed as GossipMessage::InboundDeltaFragment on the wire).
         let handle_a = init_low_mtu_handle("p74_frag_A", port_a, 50).await;
         let handle_b = init_low_mtu_handle("p74_frag_B", port_b, 50).await;
 
@@ -11350,7 +11350,7 @@ mod real_mesh_tests {
             "A must produce a real Delta"
         );
 
-        // B should eventually see the reassembled Delta merged and projected.
+ // B should eventually see the reassembled Delta merged and projected.
         let observed = wait_for_data(
             &handle_b,
             "sensors",
@@ -11368,29 +11368,29 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p74_frag_B"));
     }
 
-    /// (b) A truncated fragment stream — device A sends a Delta that fragments
-    /// into N pieces, but some fragments are dropped before B can reassemble.
-    /// The reassembly must fail cleanly: `FragmentReassemblyFailed` is logged,
-    /// the partial Delta is discarded, and B's CRDT state is not corrupted.
-    ///
-    /// This test exercises the *production* `process_wire_message` →
-    /// `ReassemblyBuffer::add_fragment` path (the same code the Swarm polling
-    /// task calls for every incoming Gossipsub message) directly, simulating
-    /// the fragment-drop that a lossy low-MTU transport (LoRa, Iridium) would
-    /// produce.
+ /// (b) A truncated fragment stream — device A sends a Delta that fragments
+ /// into N pieces, but some fragments are dropped before B can reassemble.
+ /// The reassembly must fail cleanly: `FragmentReassemblyFailed` is logged,
+ /// the partial Delta is discarded, and B's CRDT state is not corrupted.
+ ///
+ /// This test exercises the *production* `process_wire_message` →
+ /// `ReassemblyBuffer::add_fragment` path (the same code the Swarm polling
+ /// task calls for every incoming Gossipsub message) directly, simulating
+ /// the fragment-drop that a lossy low-MTU transport (LoRa, Iridium) would
+ /// produce.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn truncated_fragment_stream_fails_cleanly_without_corrupting_state() {
         use crate::transport::fragment::{fragment, DeltaFragment, ReassemblyBuffer};
         use crate::transport::message::GossipMessage;
 
-        // Build a realistic Delta (same structure as produce_delta output).
+ // Build a realistic Delta (same structure as produce_delta output).
         let delta = crate::crdt::delta::Delta {
             id: [0xAB; 32],
             author_did: "did:key:z6MkTruncatedSource".to_string(),
             signature: crate::crdt::delta::Ed25519Signature::default(),
             schema_hash: [1u8; 32],
-            // Large automerge_bytes so the serialised Delta fragments into
-            // multiple pieces at MTU=50.
+ // Large automerge_bytes so the serialised Delta fragments into
+ // multiple pieces at MTU=50.
             automerge_bytes: vec![0x42u8; 500],
             priority: PriorityClass::Low,
             causal_parents: vec![],
@@ -11402,19 +11402,19 @@ mod real_mesh_tests {
         let delta_bytes = serde_json::to_vec(&delta).unwrap();
         let delta_id = delta.id;
 
-        // Fragment at MTU=50 → multiple fragments.
+ // Fragment at MTU=50 → multiple fragments.
         let frags: Vec<DeltaFragment> = fragment(delta_id, &delta_bytes, 50);
         assert!(
             frags.len() > 2,
             "test precondition: Delta must produce >2 fragments at MTU=50"
         );
 
-        // ── (b1) Missing fragments → reassembly fails cleanly ─────────────────
-        //
-        // Simulate a lossy transport: drop every other fragment.  The
-        // ReassemblyBuffer will never reach `total_fragments` and each
-        // `add_fragment` returns `Ok(None)` (partial).  After feeding only
-        // a subset, we verify no complete Delta is produced.
+ // ── (b1) Missing fragments → reassembly fails cleanly ─────────────────
+ //
+ // Simulate a lossy transport: drop every other fragment. The
+ // ReassemblyBuffer will never reach `total_fragments` and each
+ // `add_fragment` returns `Ok(None)` (partial). After feeding only
+ // a subset, we verify no complete Delta is produced.
         let mut buf = ReassemblyBuffer::default();
         let sender_did = "did:key:z6MkTruncatedSource".to_string();
 
@@ -11424,32 +11424,32 @@ mod real_mesh_tests {
                 result.is_ok(),
                 "add_fragment on a valid-but-incomplete set must not itself error"
             );
-            // Each call returns None — not all fragments have arrived.
+ // Each call returns None — not all fragments have arrived.
             assert!(
                 result.unwrap().is_none(),
                 "partial fragment set must not complete reassembly"
             );
         }
 
-        // The buffer must still hold this delta_id as pending (incomplete).
+ // The buffer must still hold this delta_id as pending (incomplete).
         assert!(
             buf.has_delta(&delta_id),
             "partial Delta must remain buffered, not silently completed"
         );
 
-        // ── (b2) Malformed reassembled bytes → clean rejection ────────────────
-        //
-        // Simulate the case where all fragments arrive but the reconstructed
-        // bytes are corrupted (truncated in the middle — e.g. a fragment's
-        // payload was corrupted in transit).  `reassemble` succeeds (all
-        // fragments present) but the bytes fail to parse as a `Delta`.
-        // `process_wire_message` must catch this and return `None` (drop
-        // cleanly), never forwarding a garbage Delta to the CRDT engine.
-        //
-        // We test this through the production `process_wire_message` path on
-        // a real MeshTransport, because that is where reassembly → Delta
-        // parsing happens in production (and it must not crash on malformed
-        // bytes).
+ // ── (b2) Malformed reassembled bytes → clean rejection ────────────────
+ //
+ // Simulate the case where all fragments arrive but the reconstructed
+ // bytes are corrupted (truncated in the middle — e.g. a fragment's
+ // payload was corrupted in transit). `reassemble` succeeds (all
+ // fragments present) but the bytes fail to parse as a `Delta`.
+ // `process_wire_message` must catch this and return `None` (drop
+ // cleanly), never forwarding a garbage Delta to the CRDT engine.
+ //
+ // We test this through the production `process_wire_message` path on
+ // a real MeshTransport, because that is where reassembly → Delta
+ // parsing happens in production (and it must not crash on malformed
+ // bytes).
         let mut transport = crate::transport::MeshTransport::new(
             "did:key:z6MkTruncatedSource".to_string(),
             [0u8; 32],
@@ -11459,33 +11459,33 @@ mod real_mesh_tests {
             },
         );
 
-        // Feed all fragments so reassembly completes.
+ // Feed all fragments so reassembly completes.
         for frag in &frags {
             let result =
                 transport.process_wire_message(GossipMessage::InboundDeltaFragment(frag.clone()));
-            // The reassembled bytes ARE a valid Delta, so the last fragment
-            // should produce Some(InboundDelta).
+ // The reassembled bytes ARE a valid Delta, so the last fragment
+ // should produce Some(InboundDelta).
         }
-        // After all fragments, the reassembly should have produced a complete
-        // Delta.  We verify the buffer is now empty (delta removed on success).
-        // (We can't assert on `process_wire_message`'s return here because the
-        // transport is a standalone MeshTransport without a CoreHandle, but
-        // the clean completion path is already covered by test (a) above.)
+ // After all fragments, the reassembly should have produced a complete
+ // Delta. We verify the buffer is now empty (delta removed on success).
+ // (We can't assert on `process_wire_message`'s return here because the
+ // transport is a standalone MeshTransport without a CoreHandle, but
+ // the clean completion path is already covered by test (a) above.)
 
-        // ── (b3) Corrupted fragment payload → reassembly failure ─────────────
-        //
-        // Now test with a delta_id that never receives all fragments: create
-        // a second set of fragments with a *different* delta_id, feed a
-        // subset, then try to feed a fragment with an inconsistent
-        // total_fragments — this must produce FragmentReassemblyFailed, not a
-        // panic.
+ // ── (b3) Corrupted fragment payload → reassembly failure ─────────────
+ //
+ // Now test with a delta_id that never receives all fragments: create
+ // a second set of fragments with a *different* delta_id, feed a
+ // subset, then try to feed a fragment with an inconsistent
+ // total_fragments — this must produce FragmentReassemblyFailed, not a
+ // panic.
         let mut bad_buf = ReassemblyBuffer::default();
         let other_delta_id = [0xCD; 32];
         let bad_frags: Vec<DeltaFragment> = fragment(other_delta_id, &delta_bytes, 50);
 
-        // Feed only the first fragment, then a fragment with a wrong
-        // total_fragments field (simulating a truncated/corrupted fragment
-        // header).
+ // Feed only the first fragment, then a fragment with a wrong
+ // total_fragments field (simulating a truncated/corrupted fragment
+ // header).
         let mut corrupted_frag = bad_frags[0].clone();
         corrupted_frag.total_fragments = 999; // lies about the total
 
@@ -11502,12 +11502,12 @@ mod real_mesh_tests {
             "inconsistent total_fragments must yield FragmentReassemblyFailed, got {result:?}"
         );
 
-        // ── (b4) process_wire_message handles reassembly failure gracefully ──
-        //
-        // The production `process_wire_message` (called from the Swarm polling
-        // task and `core_receive_peer_message`) must return `None` on
-        // reassembly failure and never panic.  We simulate a truncated stream
-        // through the transport's public interface.
+ // ── (b4) process_wire_message handles reassembly failure gracefully ──
+ //
+ // The production `process_wire_message` (called from the Swarm polling
+ // task and `core_receive_peer_message`) must return `None` on
+ // reassembly failure and never panic. We simulate a truncated stream
+ // through the transport's public interface.
         let trunc_frags: Vec<DeltaFragment> = fragment([0xEF; 32], &delta_bytes, 50);
         let mut trunc_transport = crate::transport::MeshTransport::new(
             "did:key:z6MkTruncatedReceiver".to_string(),
@@ -11518,26 +11518,26 @@ mod real_mesh_tests {
             },
         );
 
-        // Feed only a subset of fragments (drop the last one).
+ // Feed only a subset of fragments (drop the last one).
         let to_feed = trunc_frags.len() - 1;
         for frag in &trunc_frags[..to_feed] {
             let result = trunc_transport
                 .process_wire_message(GossipMessage::InboundDeltaFragment(frag.clone()));
-            // Each partial fragment returns None — buffered, not yet complete.
+ // Each partial fragment returns None — buffered, not yet complete.
             assert!(
                 result.is_none(),
                 "partial fragment must not produce a dispatchable message"
             );
         }
-        // The buffer should still be holding this delta_id (incomplete).
+ // The buffer should still be holding this delta_id (incomplete).
         assert!(
             trunc_transport.reassembly_buffer.has_delta(&[0xEF; 32]),
             "truncated Delta must remain buffered"
         );
 
-        // Now simulate the transport dropping the final fragment forever:
-        // the reassembly never completes.  Verify the transport doesn't
-        // panic and the buffer is still in a consistent (incomplete) state.
+ // Now simulate the transport dropping the final fragment forever:
+ // the reassembly never completes. Verify the transport doesn't
+ // panic and the buffer is still in a consistent (incomplete) state.
         let final_check = trunc_transport.process_wire_message(
             GossipMessage::InboundDeltaFragment(DeltaFragment {
                 delta_id: [0xEE; 32], // different delta — unrelated fragment
@@ -11546,22 +11546,22 @@ mod real_mesh_tests {
                 payload: vec![0u8; 10],
             }),
         );
-        // Single-fragment delta completes immediately → Some(InboundDelta)
-        // (the payload bytes won't parse as a Delta, but the fragment has
-        // total_fragments=1, so reassembly "succeeds" and returns bytes).
-        // process_wire_message tries to parse those bytes as a Delta; if
-        // that fails it returns None (clean discard).  Either way: no crash.
+ // Single-fragment delta completes immediately → Some(InboundDelta)
+ // (the payload bytes won't parse as a Delta, but the fragment has
+ // total_fragments=1, so reassembly "succeeds" and returns bytes).
+ // process_wire_message tries to parse those bytes as a Delta; if
+ // that fails it returns None (clean discard). Either way: no crash.
         let _ = final_check; // must not panic
 
         cleanup(&tmp_path("p74_frag_A"));
         cleanup(&tmp_path("p74_frag_B"));
     }
 
-    /// (c) End-to-end: over a real low-MTU mesh, a Delta that fragments
-    /// correctly reassembles on the peer.  Additionally verify that a second
-    /// write on A (after the first round-trip) also successfully traverses
-    /// the fragmented path — the ReassemblyBuffer must not carry stale state
-    /// from the first Delta into the second.
+ /// (c) End-to-end: over a real low-MTU mesh, a Delta that fragments
+ /// correctly reassembles on the peer. Additionally verify that a second
+ /// write on A (after the first round-trip) also successfully traverses
+ /// the fragmented path — the ReassemblyBuffer must not carry stale state
+ /// from the first Delta into the second.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn low_mtu_mesh_reassembles_multiple_deltas_in_sequence() {
         let port_a = reserve_loopback_port();
@@ -11575,7 +11575,7 @@ mod real_mesh_tests {
         connect_peers(&handle_a, &addr_b).await;
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // First Delta — large enough to fragment at MTU=40.
+ // First Delta — large enough to fragment at MTU=40.
         let written_1 = json!({ "seq": 1i64, "payload": "first-over-loRa" });
         handle_a
             .write("events", "seq-1", written_1.clone())
@@ -11595,8 +11595,8 @@ mod real_mesh_tests {
             "B must see the first reconstructed Delta"
         );
 
-        // Second Delta — must not be confused with the first by the
-        // reassembly buffer.
+ // Second Delta — must not be confused with the first by the
+ // reassembly buffer.
         let written_2 = json!({ "seq": 2i64, "payload": "second-over-loRa" });
         handle_a
             .write("events", "seq-2", written_2.clone())
@@ -11620,25 +11620,25 @@ mod real_mesh_tests {
         cleanup(&tmp_path("p74_seq_B"));
     }
 
-    // ── Subphase 7.6: long-partition clock-skew rejoin ─────────────────────────
-    //
-    // Two devices that were previously connected exchange a baseline Delta,
-    // then are partitioned (simulated by dropping and recreating the handles on
-    // fresh ports — the mesh connection is severed).  While partitioned, each
-    // device performs multiple independent writes, driving its Lamport clock
-    // ahead by an arbitrary amount (simulated skew via `set_lamport_for_test`,
-    // which models the clock skew a real long partition would produce).  The
-    // `CrdtEngine::apply` path reconciles this with `max(local, incoming) + 1`
-    // (crdt/mod.rs:642); the test asserts that reconciliation produces a single
-    // converged clock and correct LWW merge on both devices.
-    //
-    // Acceptance criterion: a long-partition clock-skew rejoin test passes.
+ // ── Subphase 7.6: long-partition clock-skew rejoin ─────────────────────────
+ //
+ // Two devices that were previously connected exchange a baseline Delta,
+ // then are partitioned (simulated by dropping and recreating the handles on
+ // fresh ports — the mesh connection is severed). While partitioned, each
+ // device performs multiple independent writes, driving its Lamport clock
+ // ahead by an arbitrary amount (simulated skew via `set_lamport_for_test`,
+ // which models the clock skew a real long partition would produce). The
+ // `CrdtEngine::apply` path reconciles this with `max(local, incoming) + 1`
+ // (crdt/mod.rs:642); the test asserts that reconciliation produces a single
+ // converged clock and correct LWW merge on both devices.
+ //
+ // Acceptance criterion: a long-partition clock-skew rejoin test passes.
 
-    /// Helper: initialise two handles that exchange one Delta to establish a
-    /// shared baseline, then return the pair (still connected so the caller can
-    /// observe post-partition state).  We reuse the same handles across the
-    /// partition so the per-engine Lamport clock persists — the skew is what
-    /// accumulates *during* the partition, and the rejoin must reconcile it.
+ /// Helper: initialise two handles that exchange one Delta to establish a
+ /// shared baseline, then return the pair (still connected so the caller can
+ /// observe post-partition state). We reuse the same handles across the
+ /// partition so the per-engine Lamport clock persists — the skew is what
+ /// accumulates *during* the partition, and the rejoin must reconcile it.
     async fn init_connected_pair(
         suffix_a: &str,
         suffix_b: &str,
@@ -11662,9 +11662,9 @@ mod real_mesh_tests {
         (handle_a, handle_b, path_a, path_b)
     }
 
-    /// Drive `handle` to perform `count` local writes on `table` under distinct
-    /// keys, advancing its Lamport clock by one per write (each `write()` calls
-    /// `produce_delta_with_tags` which increments `self.lamport`).
+ /// Drive `handle` to perform `count` local writes on `table` under distinct
+ /// keys, advancing its Lamport clock by one per write (each `write()` calls
+ /// `produce_delta_with_tags` which increments `self.lamport`).
     async fn burst_writes(handle: &CoreHandle, table: &str, count: usize, key_prefix: &str) {
         for i in 0..count {
             let val = json!({ "partition_write": i as i64, "who": key_prefix });
@@ -11675,19 +11675,19 @@ mod real_mesh_tests {
         }
     }
 
-    /// Long-partition clock-skew rejoin: two devices sync a baseline, are
-    /// partitioned, each accumulates independent Lamport-clock skew, then they
-    /// reconnect and converge.
-    ///
-    /// Production path exercised: `CoreHandle::write` → `CrdtEngine::apply`
-    /// (the `max(local, incoming) + 1` Lamport reconciliation at
-    /// crdt/mod.rs:642) → real mesh reconnection via `dial_peer`.
+ /// Long-partition clock-skew rejoin: two devices sync a baseline, are
+ /// partitioned, each accumulates independent Lamport-clock skew, then they
+ /// reconnect and converge.
+ ///
+ /// Production path exercised: `CoreHandle::write` → `CrdtEngine::apply`
+ /// (the `max(local, incoming) + 1` Lamport reconciliation at
+ /// crdt/mod.rs:642) → real mesh reconnection via `dial_peer`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn long_partition_clock_skew_rejoins_converges() {
         let (handle_a, handle_b, path_a, path_b) =
             init_connected_pair("p76_skew_A", "p76_skew_B").await;
 
-        // ── Phase 1: baseline sync — one Delta from A reaches B ───────────────
+ // ── Phase 1: baseline sync — one Delta from A reaches B ───────────────
         let baseline = json!({ "baseline": true, "seq": 0i64 });
         let write_baseline = handle_a
             .write("skew_table", "baseline", baseline.clone())
@@ -11703,7 +11703,7 @@ mod real_mesh_tests {
         )
         .await;
 
-        // Confirm both engines agree on the baseline Lamport state.
+ // Confirm both engines agree on the baseline Lamport state.
         let lamport_a_start = {
             let crdt = handle_a.crdt.lock().expect("crdt lock A");
             crdt.lamport()
@@ -11713,13 +11713,13 @@ mod real_mesh_tests {
             "A's Lamport clock must have advanced past the baseline write"
         );
 
-        // ── Phase 2: long partition — sever the mesh ───────────────────────
-        //
-        // Drop both handles and recreate them on fresh ports.  The local
-        // SQLite store + identity persist on disk, so the new handles load the
-        // same data — but the mesh connection is gone (the partition).  This
-        // models a long network split: the two devices cannot see each other's
-        // Deltas for an extended period.
+ // ── Phase 2: long partition — sever the mesh ───────────────────────
+ //
+ // Drop both handles and recreate them on fresh ports. The local
+ // SQLite store + identity persist on disk, so the new handles load the
+ // same data — but the mesh connection is gone (the partition). This
+ // models a long network split: the two devices cannot see each other's
+ // Deltas for an extended period.
         let lamport_a_before = lamport_a_start;
         let lamport_b_before = {
             let crdt = handle_b.crdt.lock().expect("crdt lock B");
@@ -11730,8 +11730,8 @@ mod real_mesh_tests {
         drop(handle_b);
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        // Recreate handles from the persisted stores — same identity, same
-        // data, same Lamport clock (restored from the DAG / engine state).
+ // Recreate handles from the persisted stores — same identity, same
+ // data, same Lamport clock (restored from the DAG / engine state).
         let port_a2 = reserve_loopback_port();
         let port_b2 = reserve_loopback_port();
         assert_ne!(port_a2, port_b2);
@@ -11739,16 +11739,16 @@ mod real_mesh_tests {
         let handle_a = init_mesh_handle_on_path("p76_skew_A", port_a2, &path_a).await;
         let handle_b = init_mesh_handle_on_path("p76_skew_B", port_b2, &path_b).await;
 
-        // ── Phase 3: simulate clock skew during the partition ───────────────
-        //
-        // During the partition each device continued operating.  Its Lamport
-        // clock diverged from the other's.  We simulate the skew directly via
-        // the test-only `set_lamport_for_test` setter — this models the
-        // arbitrary clock divergence a real long partition produces (the audit,
-        // Report 5 Scenario 10, flagged "no clock-skew harness exists").
-        //
-        // A advances to 50, B advances to 100 — B is 50 ticks ahead of A, a
-        // significant skew that the rejoin must reconcile.
+ // ── Phase 3: simulate clock skew during the partition ───────────────
+ //
+ // During the partition each device continued operating. Its Lamport
+ // clock diverged from the other's. We simulate the skew directly via
+ // the test-only `set_lamport_for_test` setter — this models the
+ // arbitrary clock divergence a real long partition produces (the audit,
+ // Report 5 Scenario 10, flagged "no clock-skew harness exists").
+ //
+ // A advances to 50, B advances to 100 — B is 50 ticks ahead of A, a
+ // significant skew that the rejoin must reconcile.
         {
             let mut crdt_a = handle_a.crdt.lock().expect("crdt lock A2");
             crdt_a.set_lamport_for_test(50);
@@ -11780,47 +11780,47 @@ mod real_mesh_tests {
             "the two devices' clocks must diverge during the partition"
         );
 
-        // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
-        //
-        // Re-establish the real mesh.  Each device issues a new write; the
-        // Delta carries the device's (skewed) Lamport timestamp.  When the
-        // peer receives it, `apply()` runs:
-        //   self.lamport = self.lamport.max(delta.lamport) + 1
-        // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
-        // converge regardless of the skew magnitude.
+ // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
+ //
+ // Re-establish the real mesh. Each device issues a new write; the
+ // Delta carries the device's (skewed) Lamport timestamp. When the
+ // peer receives it, `apply()` runs:
+ // self.lamport = self.lamport.max(delta.lamport) + 1
+ // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
+ // converge regardless of the skew magnitude.
         let addr_b2 = format!("/ip4/127.0.0.1/tcp/{port_b2}");
         connect_peers(&handle_a, &addr_b2).await;
         connect_peers(&handle_b, format!("/ip4/127.0.0.1/tcp/{port_a2}").as_str()).await;
 
-        // Give the gossipsub subscriptions on the re-established connections
-        // time to propagate before issuing writes — a freshly-dialed peer's
-        // subscription isn't immediately known to the other side, and a write
-        // issued too early can be published before the subscriber is registered.
+ // Give the gossipsub subscriptions on the re-established connections
+ // time to propagate before issuing writes — a freshly-dialed peer's
+ // subscription isn't immediately known to the other side, and a write
+ // issued too early can be published before the subscriber is registered.
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
-        //
-        // Re-establish the real mesh.  Each device issues a new write; the
-        // Delta carries the device's (skewed) Lamport timestamp.  When the
-        // peer receives it, `apply()` runs:
-        //   self.lamport = self.lamport.max(delta.lamport) + 1
-        // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
-        // converge regardless of the skew magnitude.
-        //
-        // A writes first and B waits to receive it, then B writes and A waits
-        // — sequential, not concurrent, so each write round-trips through the
-        // re-established mesh.  This verifies the clock-skew reconciliation
-        // (the skewed Lamport timestamps) rather than testing LWW conflict
-        // resolution.
+ // ── Phase 4: reconnect — the rejoin ─────────────────────────────────
+ //
+ // Re-establish the real mesh. Each device issues a new write; the
+ // Delta carries the device's (skewed) Lamport timestamp. When the
+ // peer receives it, `apply()` runs:
+ // self.lamport = self.lamport.max(delta.lamport) + 1
+ // (crdt/mod.rs:642) — the standard Lamport reconciliation that must
+ // converge regardless of the skew magnitude.
+ //
+ // A writes first and B waits to receive it, then B writes and A waits
+ // — sequential, not concurrent, so each write round-trips through the
+ // re-established mesh. This verifies the clock-skew reconciliation
+ // (the skewed Lamport timestamps) rather than testing LWW conflict
+ // resolution.
         let val_a = json!({ "post_partition": true, "from": "A", "seq": 0i64 });
         handle_a
             .write("skew_table", "postA", val_a.clone())
             .await
             .expect("post-partition write on A must succeed");
 
-        // Wait for A's post-partition Delta to reach B through the reconnected
-        // mesh — this exercises `apply()` with A's skewed Lamport (51) against
-        // B's skewed clock (100): max(100, 51) + 1 = 102.
+ // Wait for A's post-partition Delta to reach B through the reconnected
+ // mesh — this exercises `apply()` with A's skewed Lamport (51) against
+ // B's skewed clock (100): max(100, 51) + 1 = 102.
         let a_received_by_b = wait_for_data(
             &handle_b,
             "skew_table",
@@ -11834,8 +11834,8 @@ mod real_mesh_tests {
             "B must receive A's post-partition Delta after rejoin (clock-skew reconciliation)"
         );
 
-        // B's write (Lamport jumps from 100 → 101) reaches A:
-        // max(51→already advanced, 101) + 1 = 102.
+ // B's write (Lamport jumps from 100 → 101) reaches A:
+ // max(51→already advanced, 101) + 1 = 102.
         let val_b = json!({ "post_partition": true, "from": "B", "seq": 0i64 });
         handle_b
             .write("skew_table", "postB", val_b.clone())
@@ -11855,16 +11855,16 @@ mod real_mesh_tests {
             "A must receive B's post-partition Delta after rejoin (clock-skew reconciliation)"
         );
 
-        // ── Phase 5: assert convergence ───────────────────────────────────────
-        //
-        // Both devices must converge: (a) each has received and merged the
-        // other's post-partition Delta, (b) the Lamport clocks have reconciled
-        // to a single value on both sides via `max(local, incoming) + 1`, and
-        // (c) the LWW winner for any shared key is deterministic.
-        //
-        // The reconciled clock must be at least max(51, 101) + 1 = 102 — the
-        // higher of the two post-partition Lamport values, plus one for the
-        // merge step.
+ // ── Phase 5: assert convergence ───────────────────────────────────────
+ //
+ // Both devices must converge: (a) each has received and merged the
+ // other's post-partition Delta, (b) the Lamport clocks have reconciled
+ // to a single value on both sides via `max(local, incoming) + 1`, and
+ // (c) the LWW winner for any shared key is deterministic.
+ //
+ // The reconciled clock must be at least max(51, 101) + 1 = 102 — the
+ // higher of the two post-partition Lamport values, plus one for the
+ // merge step.
         let lamport_a_after = {
             let crdt = handle_a.crdt.lock().expect("crdt lock A3");
             crdt.lamport()
@@ -11886,11 +11886,11 @@ mod real_mesh_tests {
             lamport_b_after
         );
 
-        // Both clocks must have advanced past their skewed values.  The
-        // sequential write-then-receive pattern means the sender's clock ends
-        // one tick ahead of the receiver: A writes (51), B receives (101), B
-        // writes (102), A receives (103) — a 1-tick gap is the expected steady
-        // state after a single round-trip through max()+1 reconciliation.
+ // Both clocks must have advanced past their skewed values. The
+ // sequential write-then-receive pattern means the sender's clock ends
+ // one tick ahead of the receiver: A writes (51), B receives (101), B
+ // writes (102), A receives (103) — a 1-tick gap is the expected steady
+ // state after a single round-trip through max()+1 reconciliation.
         assert!(
             lamport_a_after > lamport_a_skewed,
             "A's clock must advance after receiving B's skewed Delta ({} > {})",
@@ -11904,7 +11904,7 @@ mod real_mesh_tests {
             lamport_b_skewed
         );
 
-        // Both clocks must have caught up to at least the higher skewed value.
+ // Both clocks must have caught up to at least the higher skewed value.
         let max_skewed = lamport_a_skewed.max(lamport_b_skewed);
         assert!(
             lamport_a_after > max_skewed,
@@ -11919,9 +11919,9 @@ mod real_mesh_tests {
             max_skewed + 1
         );
 
-        // The two clocks differ by at most 1 tick after the round-trip
-        // (the one-tick sender-advancement gap is the worst-case divergence
-        // from sequential max()+1 reconciliation on a single exchange).
+ // The two clocks differ by at most 1 tick after the round-trip
+ // (the one-tick sender-advancement gap is the worst-case divergence
+ // from sequential max()+1 reconciliation on a single exchange).
         let clock_gap = lamport_a_after.max(lamport_b_after) - lamport_a_after.min(lamport_b_after);
         assert!(
             clock_gap <= 1,
@@ -11931,9 +11931,9 @@ mod real_mesh_tests {
             lamport_b_after
         );
 
-        // The baseline value (written before the partition) must still be
-        // intact on both devices — the partition and rejoin must not have
-        // corrupted pre-existing state.
+ // The baseline value (written before the partition) must still be
+ // intact on both devices — the partition and rejoin must not have
+ // corrupted pre-existing state.
         let a_baseline = handle_a
             .read("skew_table", "baseline")
             .await
@@ -11955,16 +11955,16 @@ mod real_mesh_tests {
         cleanup(&path_b);
     }
 
-    // ── Task 0.4 / CLAIM-G1.4: revoked-author mesh delta rejection ───────────
-    //
-    // Proves that a revocation delta applied on node A causes subsequent deltas
-    // authored by the revoked DID to be rejected at `apply_incoming_delta`
-    // (which calls `CrdtEngine::apply` — Req PV-1.13).
-    //
-    // **Wiring mutation check**: if the `if self.revoked_dids.contains(&delta.author_did)`
-    // block is removed from `CrdtEngine::apply` (crdt/mod.rs), the revoked
-    // author C's delta will be merged into A's DAG (`dag_node` will return
-    // `Some(...)` instead of `None`) and this test will fail.
+ // ── / CLAIM-G1.4: revoked-author mesh delta rejection ───────────
+ //
+ // Proves that a revocation delta applied on node A causes subsequent deltas
+ // authored by the revoked DID to be rejected at `apply_incoming_delta`
+ // (which calls `CrdtEngine::apply` — Req PV-1.13).
+ //
+ // **Wiring mutation check**: if the `if self.revoked_dids.contains(&delta.author_did)`
+ // block is removed from `CrdtEngine::apply` (crdt/mod.rs), the revoked
+ // author C's delta will be merged into A's DAG (`dag_node` will return
+ // `Some(...)` instead of `None`) and this test will fail.
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn revoked_author_mesh_delta_rejected_at_apply_incoming_delta() {
@@ -11975,29 +11975,29 @@ mod real_mesh_tests {
         let port_b = reserve_loopback_port();
         assert_ne!(port_a, port_b, "the two devices need distinct ports");
 
-        // Step 1: spin up two real Swarm-backed handles.
+ // Step 1: spin up two real Swarm-backed handles.
         let handle_a = init_mesh_handle("g14_A", port_a).await;
         let handle_b = init_mesh_handle("g14_B", port_b).await;
 
-        // Step 2: connect the peers.
+ // Step 2: connect the peers.
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
         connect_peers(&handle_a, &addr_b).await;
 
-        // Step 3: wait for gossipsub subscription exchange.
+ // Step 3: wait for gossipsub subscription exchange.
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // Step 4: identity C — the device that will be revoked.
+ // Step 4: identity C — the device that will be revoked.
         let c_mgr = crate::identity::IdentityManager::init_in_memory().expect("init C identity");
         let c_did: String = c_mgr.did().to_string();
         let c_sk: [u8; 32] = c_mgr.signing_key_bytes();
 
-        // Step 5: manager identity M — signs the revocation.
+ // Step 5: manager identity M — signs the revocation.
         let m_mgr = crate::identity::IdentityManager::init_in_memory().expect("init M identity");
         let m_did: String = m_mgr.did().to_string();
         let m_sk: [u8; 32] = m_mgr.signing_key_bytes();
 
-        // Step 6: produce a 1-of-1 revocation delta targeting C's DID and
-        // inject it into A's inbound pipeline.
+ // Step 6: produce a 1-of-1 revocation delta targeting C's DID and
+ // inject it into A's inbound pipeline.
         let rev_delta = {
             let rev = handle_a.revocation.lock().unwrap();
             rev.produce_partial_delta(c_did.clone(), m_did.clone(), &m_sk)
@@ -12014,8 +12014,8 @@ mod real_mesh_tests {
             .await
             .expect("process revocation delta");
 
-        // Step 7: verify C's DID is now revoked in A's engine via the
-        // convergent_state snapshot's public `revoked_dids` field.
+ // Step 7: verify C's DID is now revoked in A's engine via the
+ // convergent_state snapshot's public `revoked_dids` field.
         {
             let state = handle_a.crdt.lock().unwrap().convergent_state();
             assert!(
@@ -12024,9 +12024,9 @@ mod real_mesh_tests {
             );
         }
 
-        // Step 8: build a validly-signed data delta authored by C.
-        // With empty schema_definitions the engine uses [0u8; 32] as its
-        // known_schema_hash (computed from an empty string in CrdtEngine::new).
+ // Step 8: build a validly-signed data delta authored by C.
+ // With empty schema_definitions the engine uses [0u8; 32] as its
+ // known_schema_hash (computed from an empty string in CrdtEngine::new).
         let schema_hash = handle_a.crdt.lock().unwrap().current_schema_hash();
         let mut c_delta = Delta {
             id: [0u8; 32],
@@ -12045,7 +12045,7 @@ mod real_mesh_tests {
         c_delta.id = Delta::compute_id(&canonical);
         let c_delta_id = c_delta.id;
 
-        // Step 9: inject C's data delta on A.
+ // Step 9: inject C's data delta on A.
         handle_a
             .inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
                 c_delta,
@@ -12057,8 +12057,8 @@ mod real_mesh_tests {
             .await
             .expect("process C's data delta");
 
-        // Step 10: give the inbound pipeline a moment to settle, then assert
-        // the negative case — C's delta must NOT appear in A's DAG.
+ // Step 10: give the inbound pipeline a moment to settle, then assert
+ // the negative case — C's delta must NOT appear in A's DAG.
         tokio::time::sleep(Duration::from_millis(100)).await;
         let dag_has_c = handle_a
             .crdt
@@ -12073,8 +12073,8 @@ mod real_mesh_tests {
              the revocation gate in CrdtEngine::apply must have rejected it"
         );
 
-        // Also confirm via the rejection records that the rejection code is
-        // RevokedAuthor (not a signature or schema failure).
+ // Also confirm via the rejection records that the rejection code is
+ // RevokedAuthor (not a signature or schema failure).
         {
             use crate::crdt::failure::DeltaRejectionCode;
             let records: Vec<_> = handle_a
@@ -12096,7 +12096,7 @@ mod real_mesh_tests {
             );
         }
 
-        // Step 11: positive case — B writes a normal delta that reaches A.
+ // Step 11: positive case — B writes a normal delta that reaches A.
         let written = serde_json::json!({ "test": "revocation_gate_passes_normal" });
         handle_b
             .write("revoc_gate_test", "b_row", written.clone())
@@ -12111,35 +12111,35 @@ mod real_mesh_tests {
         )
         .await;
 
-        // Step 12: clean up.
+ // Step 12: clean up.
         cleanup(&tmp_path("g14_A"));
         cleanup(&tmp_path("g14_B"));
     }
 
-    // ── G1.5 — Saturate mode wiring (PV-1.13) ────────────────────────────────
-    //
-    // Verifies that `core_activate_saturate_mode` (WASM) / `CoreHandle::activate_saturate_mode`
-    // (native) has a real production caller path wired through the init-time
-    // `SaturateModeStateMachine` configuration in `CoreHandle::init`.
-    //
-    // The production caller chain is:
-    //   `CoreHandle::init()` (api/mod.rs:801) →
-    //     `MeshTransport::new(TransportConfig { root_ca_public_key, saturate_termination_threshold_m, ... })` →
-    //       `SaturateModeStateMachine::new(threshold_m, root_ca_public_key, ...)` (transport/saturate.rs)
-    //
-    // `CoreHandle::activate_saturate_mode` then invokes the already-wired state machine:
-    //   `CoreHandle::activate_saturate_mode` (api/mod.rs:2306) →
-    //     `MeshTransport::activate_saturate_mode` (transport/mod.rs:564) →
-    //       `SaturateModeStateMachine::activate` (transport/saturate.rs)
-    //
-    // **Wiring mutation check**: removing the `root_ca_public_key` field from the
-    // `TransportConfig` passed in `MeshTransport::new` at `CoreHandle::init` (i.e.
-    // setting `root_ca_public_key: vec![]` instead of reading from `DeploymentConfig`)
-    // causes `activate_saturate_mode` to return `AuthorisationFailed("no root CA
-    // public key registered; cannot verify Biscuit token")` and this test fails at the
-    // `activate_saturate_mode` assertion below.
-    //
-    // CLAIMS entry: CLAIM-G1.5
+ // ── G1.5 — Saturate mode wiring (PV-1.13) ────────────────────────────────
+ //
+ // Verifies that `core_activate_saturate_mode` (WASM) / `CoreHandle::activate_saturate_mode`
+ // (native) has a real production caller path wired through the init-time
+ // `SaturateModeStateMachine` configuration in `CoreHandle::init`.
+ //
+ // The production caller chain is:
+ // `CoreHandle::init()` (api/mod.rs:801) →
+ // `MeshTransport::new(TransportConfig { root_ca_public_key, saturate_termination_threshold_m, ... })` →
+ // `SaturateModeStateMachine::new(threshold_m, root_ca_public_key, ...)` (transport/saturate.rs)
+ //
+ // `CoreHandle::activate_saturate_mode` then invokes the already-wired state machine:
+ // `CoreHandle::activate_saturate_mode` (api/mod.rs:2306) →
+ // `MeshTransport::activate_saturate_mode` (transport/mod.rs:564) →
+ // `SaturateModeStateMachine::activate` (transport/saturate.rs)
+ //
+ // **Wiring mutation check**: removing the `root_ca_public_key` field from the
+ // `TransportConfig` passed in `MeshTransport::new` at `CoreHandle::init` (i.e.
+ // setting `root_ca_public_key: vec![]` instead of reading from `DeploymentConfig`)
+ // causes `activate_saturate_mode` to return `AuthorisationFailed("no root CA
+ // public key registered; cannot verify Biscuit token")` and this test fails at the
+ // `activate_saturate_mode` assertion below.
+ //
+ // CLAIMS entry: CLAIM-G1.5
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn saturate_mode_wiring_two_core_handle_instances_activate_via_production_caller() {
         use crate::transport::saturate::SaturateState;
@@ -12149,9 +12149,9 @@ mod real_mesh_tests {
         let port_b = reserve_loopback_port();
         assert_ne!(port_a, port_b, "the two devices need distinct ports");
 
-        // Build a shared deployment CA keypair.  The CA public key is injected
-        // into both handles via `DeploymentConfig::root_ca_keys` — the init-time
-        // production caller that configures the `SaturateModeStateMachine`.
+ // Build a shared deployment CA keypair. The CA public key is injected
+ // into both handles via `DeploymentConfig::root_ca_keys` — the init-time
+ // production caller that configures the `SaturateModeStateMachine`.
         let ca_kp = KeyPair::new();
         let ca_private_bytes = ca_kp.private().to_bytes().to_vec();
         let ca_public_bytes: [u8; 32] = ca_kp
@@ -12160,12 +12160,12 @@ mod real_mesh_tests {
             .try_into()
             .expect("CA public key must be 32 bytes");
 
-        // Build two mesh configs, both carrying the same CA public key.
-        // `CoreHandle::init` passes `root_ca_public_key` from `DeploymentConfig::root_ca_keys`
-        // into `TransportConfig` at api/mod.rs:811–816, which `MeshTransport::new`
-        // forwards to `SaturateModeStateMachine::new` (transport/mod.rs:276–280).
-        // This is the init-time production caller that wires the CA key for
-        // disaster-alert token verification.
+ // Build two mesh configs, both carrying the same CA public key.
+ // `CoreHandle::init` passes `root_ca_public_key` from `DeploymentConfig::root_ca_keys`
+ // into `TransportConfig` at api/mod.rs:811–816, which `MeshTransport::new`
+ // forwards to `SaturateModeStateMachine::new` (transport/mod.rs:276–280).
+ // This is the init-time production caller that wires the CA key for
+ // disaster-alert token verification.
         let path_a = tmp_path("g15_A");
         let path_b = tmp_path("g15_B");
         cleanup(&path_a);
@@ -12179,9 +12179,9 @@ mod real_mesh_tests {
         config_b.deployment.root_ca_keys = vec![ca_public_bytes];
         config_b.deployment.revocation_m = 2;
 
-        // Initialize two real `CoreHandle` instances with the production init path.
-        // This exercises: `CoreHandle::init` → `MeshTransport::new` → `SaturateModeStateMachine::new`
-        // with the CA key, proving the init-time production caller is live.
+ // Initialize two real `CoreHandle` instances with the production init path.
+ // This exercises: `CoreHandle::init` → `MeshTransport::new` → `SaturateModeStateMachine::new`
+ // with the CA key, proving the init-time production caller is live.
         let handle_a = CoreHandle::init(config_a)
             .await
             .expect("handle A init must succeed");
@@ -12192,15 +12192,15 @@ mod real_mesh_tests {
             .expect("handle B init must succeed");
         CoreHandle::spawn_inbound_drain_loop(&handle_b, Duration::from_millis(10));
 
-        // Connect A → B over the real libp2p mesh.
+ // Connect A → B over the real libp2p mesh.
         let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
         connect_peers(&handle_a, &addr_b).await;
 
-        // Wait for gossipsub subscription exchange to settle.
+ // Wait for gossipsub subscription exchange to settle.
         tokio::time::sleep(Duration::from_millis(250)).await;
 
-        // Assert both handles start in NORMAL state — the `SaturateModeStateMachine`
-        // is initialised in NORMAL by `CoreHandle::init` (the init-time production caller).
+ // Assert both handles start in NORMAL state — the `SaturateModeStateMachine`
+ // is initialised in NORMAL by `CoreHandle::init` (the init-time production caller).
         {
             let t_a = handle_a.transport.lock().unwrap();
             assert_eq!(
@@ -12218,9 +12218,9 @@ mod real_mesh_tests {
             );
         }
 
-        // Build a real DISASTER_ALERT Biscuit token signed by the deployment CA.
-        // This is the token `core_activate_saturate_mode` (lib.rs) / `CoreHandle::activate_saturate_mode`
-        // expects on the production code path.
+ // Build a real DISASTER_ALERT Biscuit token signed by the deployment CA.
+ // This is the token `core_activate_saturate_mode` (lib.rs) / `CoreHandle::activate_saturate_mode`
+ // expects on the production code path.
         let activate_token = crate::auth::biscuit::create_token_with_caveat(
             "did:key:z6MkManager",
             "manager",
@@ -12230,27 +12230,27 @@ mod real_mesh_tests {
         )
         .expect("DISASTER_ALERT token creation must succeed");
 
-        // Exercise the production caller:
-        //   `CoreHandle::activate_saturate_mode` (api/mod.rs:2306)
-        //     → `CoreHandle::verify_disaster_alert_token` (uses root CA key from init)
-        //     → `MeshTransport::activate_saturate_mode` (transport/mod.rs:564)
-        //     → `SaturateModeStateMachine::activate` (transport/saturate.rs)
-        //
-        // This proves the full wiring from `CoreHandle::init`'s registration of
-        // the CA key (via `MeshTransport::new`) through the runtime activation path.
-        //
-        // **Wiring mutation check**: if `CoreHandle::init` does NOT pass the
-        // `root_ca_public_key` into `TransportConfig` (i.e. the call at api/mod.rs:811
-        // is removed or the key is zeroed), `verify_disaster_alert_token` returns
-        // `AuthorisationFailed("no root CA public key registered")` and this
-        // `expect` panics — the test fails.
+ // Exercise the production caller:
+ // `CoreHandle::activate_saturate_mode` (api/mod.rs:2306)
+ // → `CoreHandle::verify_disaster_alert_token` (uses root CA key from init)
+ // → `MeshTransport::activate_saturate_mode` (transport/mod.rs:564)
+ // → `SaturateModeStateMachine::activate` (transport/saturate.rs)
+ //
+ // This proves the full wiring from `CoreHandle::init`'s registration of
+ // the CA key (via `MeshTransport::new`) through the runtime activation path.
+ //
+ // **Wiring mutation check**: if `CoreHandle::init` does NOT pass the
+ // `root_ca_public_key` into `TransportConfig` (i.e. the call at api/mod.rs:811
+ // is removed or the key is zeroed), `verify_disaster_alert_token` returns
+ // `AuthorisationFailed("no root CA public key registered")` and this
+ // `expect` panics — the test fails.
         handle_a
             .activate_saturate_mode(&activate_token)
             .expect("a valid disaster-alert token must activate Saturate_Mode through the production caller");
 
-        // Verify the state machine on handle A has transitioned to SATURATE.
-        // This proves the production caller (`activate_saturate_mode`) drove the
-        // real `SaturateModeStateMachine` (not a stub) from NORMAL → SATURATE.
+ // Verify the state machine on handle A has transitioned to SATURATE.
+ // This proves the production caller (`activate_saturate_mode`) drove the
+ // real `SaturateModeStateMachine` (not a stub) from NORMAL → SATURATE.
         {
             let t_a = handle_a.transport.lock().unwrap();
             assert_eq!(
@@ -12274,7 +12274,7 @@ mod real_mesh_tests {
             );
         }
 
-        // Handle B is unaffected — each node's saturate state is independent.
+ // Handle B is unaffected — each node's saturate state is independent.
         {
             let t_b = handle_b.transport.lock().unwrap();
             assert_eq!(
@@ -12296,7 +12296,7 @@ mod real_mesh_tests {
 /// Integration tests for the production cloud drain path (Subphase 4.1): a
 /// real `CloudLedgerConnection` attached to the Durability Subsystem, driven
 /// by [`CoreHandle::run_cloud_sync_cycle`] / [`CoreHandle::spawn_cloud_sync_loop`]
-/// — the functions `CoreHandle::init` wires up.  Previously the causal-order
+/// — the functions `CoreHandle::init` wires up. Previously the causal-order
 /// drain + ack-removal (Req 16.3) existed only in
 /// `durability/integration_tests.rs`; these tests exercise it over the real
 /// production construction: `CoreHandle::init` → `write()` → durability cloud
@@ -12354,8 +12354,8 @@ mod cloud_sync_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// Poll until the cloud outbound queue is empty and every written Delta is
-    /// committed on the ledger, or fail after `attempts` polls.
+ /// Poll until the cloud outbound queue is empty and every written Delta is
+ /// committed on the ledger, or fail after `attempts` polls.
     async fn wait_for_drain(handle: &Arc<CoreHandle>, delta_ids: &[[u8; 32]]) {
         let mut attempts = 0u32;
         loop {
@@ -12380,15 +12380,15 @@ mod cloud_sync_tests {
         }
     }
 
-    // ── Test 1: one full cycle drains every written Delta to the ledger ─────
-    //
-    // Deterministic version of the drain: writes go through the production
-    // `write()` path (SQLite store + signed Delta + durability registration),
-    // then a single explicit [`CoreHandle::run_cloud_sync_cycle`] — the
-    // function the production loop calls — sends the queue to the Cloud
-    // Ledger through the real `CloudLedgerConnection` and removes each entry
-    // only after its per-Delta ack (Req 16.3).  No `durability/` helpers are
-    // involved: the ledger is the one `CoreHandle::init` attaches.
+ // ── Test 1: one full cycle drains every written Delta to the ledger ─────
+ //
+ // Deterministic version of the drain: writes go through the production
+ // `write()` path (SQLite store + signed Delta + durability registration),
+ // then a single explicit [`CoreHandle::run_cloud_sync_cycle`] — the
+ // function the production loop calls — sends the queue to the Cloud
+ // Ledger through the real `CloudLedgerConnection` and removes each entry
+ // only after its per-Delta ack (Req 16.3). No `durability/` helpers are
+ // involved: the ledger is the one `CoreHandle::init` attaches.
 
     #[tokio::test]
     async fn cloud_sync_cycle_drains_writes_to_ledger() {
@@ -12397,8 +12397,8 @@ mod cloud_sync_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Three writes through the production path — each registers a Delta in
-        // the Durability Subsystem's cloud outbound queue (Req 16.3).
+ // Three writes through the production path — each registers a Delta in
+ // the Durability Subsystem's cloud outbound queue (Req 16.3).
         let mut delta_ids = Vec::new();
         for i in 0..3 {
             let wr = handle
@@ -12413,8 +12413,8 @@ mod cloud_sync_tests {
             "every write must be queued for cloud sync"
         );
 
-        // One production cycle — the function `CoreHandle::spawn_cloud_sync_loop`
-        // invokes every tick.
+ // One production cycle — the function `CoreHandle::spawn_cloud_sync_loop`
+ // invokes every tick.
         let result = handle
             .run_cloud_sync_cycle()
             .expect("cloud sync cycle must not fail");
@@ -12439,7 +12439,7 @@ mod cloud_sync_tests {
             );
         }
 
-        // An empty-queue cycle is a no-op (returns a zero summary).
+ // An empty-queue cycle is a no-op (returns a zero summary).
         let idle = handle
             .run_cloud_sync_cycle()
             .expect("idle cloud sync cycle must not fail");
@@ -12450,14 +12450,14 @@ mod cloud_sync_tests {
         cleanup(&path);
     }
 
-    // ── Test 2: the production cloud sync loop drains without a manual call ──
-    //
-    // `CoreHandle::init` spawns a background task that runs one cloud sync
-    // cycle per interval (in production builds).  This test drives the
-    // *identical* loop — `CoreHandle::spawn_cloud_sync_loop`, the function
-    // `init` calls — with a short interval and asserts the background task
-    // (NOT a manual `run_cloud_sync_cycle()` call) drains the cloud outbound
-    // queue and commits the Deltas to the real Cloud Ledger.
+ // ── Test 2: the production cloud sync loop drains without a manual call ──
+ //
+ // `CoreHandle::init` spawns a background task that runs one cloud sync
+ // cycle per interval (in production builds). This test drives the
+ // *identical* loop — `CoreHandle::spawn_cloud_sync_loop`, the function
+ // `init` calls — with a short interval and asserts the background task
+ // (NOT a manual `run_cloud_sync_cycle()` call) drains the cloud outbound
+ // queue and commits the Deltas to the real Cloud Ledger.
 
     #[tokio::test]
     async fn production_cloud_sync_loop_drains_writes_to_ledger() {
@@ -12466,14 +12466,14 @@ mod cloud_sync_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Spawn the production cloud sync loop with a short interval so the
-        // test completes quickly.  (In production builds `CoreHandle::init`
-        // does exactly this with `CLOUD_SYNC_INTERVAL_MS`; in test builds init
-        // uses a 1-hour interval so the deterministic tests above stay
-        // race-free.)
+ // Spawn the production cloud sync loop with a short interval so the
+ // test completes quickly. (In production builds `CoreHandle::init`
+ // does exactly this with `CLOUD_SYNC_INTERVAL_MS`; in test builds init
+ // uses a 1-hour interval so the deterministic tests above stay
+ // race-free.)
         let _loop = CoreHandle::spawn_cloud_sync_loop(&handle, Duration::from_millis(10));
 
-        // Write through the production path while the loop is already running.
+ // Write through the production path while the loop is already running.
         let mut delta_ids = Vec::new();
         for i in 0..3 {
             let wr = handle
@@ -12488,23 +12488,23 @@ mod cloud_sync_tests {
         }
         assert_eq!(handle.cloud_queue_depth(), 3, "writes must be queued");
 
-        // Do NOT call run_cloud_sync_cycle() — the background loop must do the
-        // draining.  Poll until the queue is empty and the ledger committed
-        // every Delta.
+ // Do NOT call run_cloud_sync_cycle() — the background loop must do the
+ // draining. Poll until the queue is empty and the ledger committed
+ // every Delta.
         wait_for_drain(&handle, &delta_ids).await;
 
         cleanup(&path);
     }
 
-    // ── Test 3: Cloud ledger idempotency — duplicate Delta send is a no-op ──────
-    //
-    // Integration test for Req 16.4: write a Delta through the production path
-    // (`CoreHandle::write` → durability registration → cloud outbound queue),
-    // let `spawn_cloud_sync_loop` drain it to the in-process `CloudLedger`,
-    // then re-enqueue the *same* Delta and assert the second send returns
-    // `AlreadyCommitted` (observed as `acknowledged` without `rejected`) and
-    // the ledger's committed count does not increase.  Finally assert the
-    // cloud queue is empty after the drain.
+ // ── Test 3: Cloud ledger idempotency — duplicate Delta send is a no-op ──────
+ //
+ // Integration test for Req 16.4: write a Delta through the production path
+ // (`CoreHandle::write` → durability registration → cloud outbound queue),
+ // let `spawn_cloud_sync_loop` drain it to the in-process `CloudLedger`,
+ // then re-enqueue the *same* Delta and assert the second send returns
+ // `AlreadyCommitted` (observed as `acknowledged` without `rejected`) and
+ // the ledger's committed count does not increase. Finally assert the
+ // cloud queue is empty after the drain.
 
     #[tokio::test]
     async fn cloud_ledger_idempotent_on_duplicate_delta() {
@@ -12513,7 +12513,7 @@ mod cloud_sync_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // One write through the production path.
+ // One write through the production path.
         let wr = handle
             .write("cloud", "row-1", json!({ "seq": 1 }))
             .await
@@ -12522,7 +12522,7 @@ mod cloud_sync_tests {
 
         assert_eq!(handle.cloud_queue_depth(), 1, "write must be queued");
 
-        // One production cycle — sends to the Cloud Ledger.
+ // One production cycle — sends to the Cloud Ledger.
         let result = handle
             .run_cloud_sync_cycle()
             .expect("cloud sync cycle must not fail");
@@ -12538,17 +12538,17 @@ mod cloud_sync_tests {
             "Delta must be committed on the Cloud Ledger"
         );
 
-        // Re-enqueue the same Delta (simulating a client retry after a lost ack).
+ // Re-enqueue the same Delta (simulating a client retry after a lost ack).
         let delta_bytes = {
             let durability = handle.durability.lock().expect("durability mutex");
-            // Re-serialize the Delta from the DAG payload.
+ // Re-serialize the Delta from the DAG payload.
             let crdt = handle.crdt.lock().expect("crdt mutex");
             crdt.refetch_delta_bytes(&delta_id)
                 .expect("refetch must not fail")
                 .expect("Delta bytes must exist in DAG for refetch")
         };
 
-        // Enqueue a second copy of the same Delta into the cloud outbound queue.
+ // Enqueue a second copy of the same Delta into the cloud outbound queue.
         {
             let mut durability = handle.durability.lock().expect("durability mutex");
             let entry =
@@ -12564,10 +12564,10 @@ mod cloud_sync_tests {
             "re-enqueued Delta must be in the queue"
         );
 
-        // Second production cycle — the Cloud Ledger must return
-        // AlreadyCommitted.  `cloud_sync_loop` still acks it (Ok(()) for
-        // AlreadyCommitted), but `committed_count` on the ledger must not
-        // increase.
+ // Second production cycle — the Cloud Ledger must return
+ // AlreadyCommitted. `cloud_sync_loop` still acks it (Ok(()) for
+ // AlreadyCommitted), but `committed_count` on the ledger must not
+ // increase.
         let result2 = handle
             .run_cloud_sync_cycle()
             .expect("second cycle must not fail");
@@ -12582,7 +12582,7 @@ mod cloud_sync_tests {
             "queue must be empty after idempotent re-send drain"
         );
 
-        // The ledger must have exactly 1 committed Delta (no duplicate).
+ // The ledger must have exactly 1 committed Delta (no duplicate).
         let ledger = handle.cloud_ledger.lock().expect("cloud ledger mutex");
         assert_eq!(
             ledger.committed_count(),
@@ -12594,21 +12594,21 @@ mod cloud_sync_tests {
         cleanup(&path);
     }
 
-    // ── Test 4: Compacted Delta entries are re-fetched and re-sent ──────────────
-    //
-    // Integration test for Req 14.8, 16.8: when a Delta is compacted from the
-    // hot read path (compaction threshold exceeded), its cloud queue entry is
-    // marked `compacted` with bytes cleared.  `run_cloud_sync_cycle`'s refetch
-    // callback must retrieve the bytes from the DAG and re-send them to the
-    // Cloud Ledger.
+ // ── Test 4: Compacted Delta entries are re-fetched and re-sent ──────────────
+ //
+ // Integration test for Req 14.8, 16.8: when a Delta is compacted from the
+ // hot read path (compaction threshold exceeded), its cloud queue entry is
+ // marked `compacted` with bytes cleared. `run_cloud_sync_cycle`'s refetch
+ // callback must retrieve the bytes from the DAG and re-send them to the
+ // Cloud Ledger.
 
     #[tokio::test]
     async fn compacted_delta_is_refetched_and_resent_to_cloud_ledger() {
         use crate::schema::FieldType;
         use crate::store::compaction::CompactionPolicy;
 
-        // Build a config with a schema that has an aggressive compaction
-        // threshold of 1 — after 2 writes to the same table, compaction triggers.
+ // Build a config with a schema that has an aggressive compaction
+ // threshold of 1 — after 2 writes to the same table, compaction triggers.
         let path = tmp_path("compact");
         cleanup(&path);
 
@@ -12642,10 +12642,10 @@ mod cloud_sync_tests {
 
         let handle = CoreHandle::init(config).await.expect("init");
 
-        // Write enough Deltas to trigger compaction (threshold = 1 changes).
-        // Each write produces one Automerge change; after the 2nd write the
-        // change count (2) exceeds the threshold (1), so compaction runs and
-        // marks the 2nd Delta's cloud queue entry as compacted.
+ // Write enough Deltas to trigger compaction (threshold = 1 changes).
+ // Each write produces one Automerge change; after the 2nd write the
+ // change count (2) exceeds the threshold (1), so compaction runs and
+ // marks the 2nd Delta's cloud queue entry as compacted.
         let mut delta_ids = Vec::new();
         for i in 0..2u32 {
             let wr = handle
@@ -12655,8 +12655,8 @@ mod cloud_sync_tests {
             delta_ids.push(wr.delta_id);
         }
 
-        // Run one production cycle — the refetch callback must retrieve
-        // compacted entries from the DAG and send them.
+ // Run one production cycle — the refetch callback must retrieve
+ // compacted entries from the DAG and send them.
         let result = handle
             .run_cloud_sync_cycle()
             .expect("cloud sync cycle must not fail");
@@ -12691,7 +12691,7 @@ mod cloud_sync_tests {
 /// [`CoreHandle::spawn_cloud_sync_loop`] — now marks the Delta Tier-2 durable
 /// inside the Durability Subsystem (the state backing
 /// `WriteResult::durability_tier`) and notifies CoreHandle/SDK of the
-/// transition.  Before Subphase 4.2 the queue-level sync loop removed acked
+/// transition. Before Subphase 4.2 the queue-level sync loop removed acked
 /// entries but never advanced per-Delta durability state, so every Delta
 /// reported `Uncommitted` forever in a real deployment.
 ///
@@ -12746,8 +12746,8 @@ mod tier2_ack_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// Poll until the cloud outbound queue is empty and every written Delta is
-    /// committed on the ledger, or fail after `attempts` polls.
+ /// Poll until the cloud outbound queue is empty and every written Delta is
+ /// committed on the ledger, or fail after `attempts` polls.
     async fn wait_for_drain(handle: &Arc<CoreHandle>, delta_ids: &[[u8; 32]]) {
         let mut attempts = 0u32;
         loop {
@@ -12768,7 +12768,7 @@ mod tier2_ack_tests {
         }
     }
 
-    /// Receive one durability tier change event, failing if none arrives.
+ /// Receive one durability tier change event, failing if none arrives.
     async fn next_tier_event(
         rx: &mut tokio::sync::broadcast::Receiver<DurabilityTierChanged>,
     ) -> DurabilityTierChanged {
@@ -12778,14 +12778,14 @@ mod tier2_ack_tests {
             .expect("durability event channel closed")
     }
 
-    // ── Test 1: a real cloud ack marks the Delta Tier-2 + notifies ───────────
-    //
-    // Deterministic end-to-end Tier-2 path: write through the production
-    // `write()`, run exactly one [`CoreHandle::run_cloud_sync_cycle`] (the
-    // function `spawn_cloud_sync_loop` calls every tick), and assert the ack
-    // transitioned the Delta's durability state — the state behind
-    // `WriteResult.durability_tier` — from `Uncommitted` to `Tier2` and
-    // delivered the `DurabilityTierChanged` event to a CoreHandle subscriber.
+ // ── Test 1: a real cloud ack marks the Delta Tier-2 + notifies ───────────
+ //
+ // Deterministic end-to-end Tier-2 path: write through the production
+ // `write()`, run exactly one [`CoreHandle::run_cloud_sync_cycle`] (the
+ // function `spawn_cloud_sync_loop` calls every tick), and assert the ack
+ // transitioned the Delta's durability state — the state behind
+ // `WriteResult.durability_tier` — from `Uncommitted` to `Tier2` and
+ // delivered the `DurabilityTierChanged` event to a CoreHandle subscriber.
 
     #[tokio::test]
     async fn cloud_ack_marks_delta_tier2_and_notifies_corehandle() {
@@ -12794,7 +12794,7 @@ mod tier2_ack_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Subscribe before the ack so the transition is observed.
+ // Subscribe before the ack so the transition is observed.
         let mut durability_events = handle.subscribe_durability_events();
 
         let wr = handle
@@ -12802,8 +12802,8 @@ mod tier2_ack_tests {
             .await
             .expect("write");
 
-        // A write is a local commit: both the returned WriteResult and the
-        // Durability Subsystem's per-Delta state start Uncommitted.
+ // A write is a local commit: both the returned WriteResult and the
+ // Durability Subsystem's per-Delta state start Uncommitted.
         assert_eq!(wr.durability_tier, DurabilityTier::Uncommitted);
         assert_eq!(
             handle.durability_tier(&wr.delta_id),
@@ -12811,8 +12811,8 @@ mod tier2_ack_tests {
             "Delta must start Uncommitted before any cloud ack"
         );
 
-        // One production cloud sync cycle — the drain function
-        // `spawn_cloud_sync_loop` invokes every tick.
+ // One production cloud sync cycle — the drain function
+ // `spawn_cloud_sync_loop` invokes every tick.
         let result = handle
             .run_cloud_sync_cycle()
             .expect("cloud sync cycle must not fail");
@@ -12821,8 +12821,8 @@ mod tier2_ack_tests {
         assert_eq!(result.acknowledged_ids.len(), 1);
         assert_eq!(result.acknowledged_ids[0], wr.delta_id);
 
-        // The real cloud ack marked the Delta durable (Req 14.4): Tier-2,
-        // queue emptied, ledger committed.
+ // The real cloud ack marked the Delta durable (Req 14.4): Tier-2,
+ // queue emptied, ledger committed.
         assert_eq!(
             handle.durability_tier(&wr.delta_id),
             DurabilityTier::Tier2,
@@ -12831,7 +12831,7 @@ mod tier2_ack_tests {
         assert_eq!(handle.cloud_queue_depth(), 0);
         assert!(handle.cloud_ledger_is_committed(&wr.delta_id));
 
-        // CoreHandle was notified of the durable status (Req 14.7).
+ // CoreHandle was notified of the durable status (Req 14.7).
         let event = next_tier_event(&mut durability_events).await;
         assert_eq!(event.delta_id, wr.delta_id);
         assert_eq!(event.previous_tier, DurabilityTier::Uncommitted);
@@ -12840,12 +12840,12 @@ mod tier2_ack_tests {
         cleanup(&path);
     }
 
-    // ── Test 2: the production cloud sync loop drives the transition ─────────
-    //
-    // Same Tier-2 acceptance over the spawned background loop (the function
-    // `CoreHandle::init` runs in production) instead of a manual cycle call:
-    // writes drain to the Cloud Ledger on their own and each Delta reaches
-    // Tier-2 with a CoreHandle notification per transition.
+ // ── Test 2: the production cloud sync loop drives the transition ─────────
+ //
+ // Same Tier-2 acceptance over the spawned background loop (the function
+ // `CoreHandle::init` runs in production) instead of a manual cycle call:
+ // writes drain to the Cloud Ledger on their own and each Delta reaches
+ // Tier-2 with a CoreHandle notification per transition.
 
     #[tokio::test]
     async fn production_cloud_sync_loop_transitions_writes_to_tier2() {
@@ -12854,10 +12854,10 @@ mod tier2_ack_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Subscribe before any ack.
+ // Subscribe before any ack.
         let mut durability_events = handle.subscribe_durability_events();
 
-        // Spawn the production cloud sync loop with a short interval.
+ // Spawn the production cloud sync loop with a short interval.
         let _loop = CoreHandle::spawn_cloud_sync_loop(&handle, Duration::from_millis(10));
 
         let mut delta_ids = Vec::new();
@@ -12870,8 +12870,8 @@ mod tier2_ack_tests {
             delta_ids.push(wr.delta_id);
         }
 
-        // Do NOT call run_cloud_sync_cycle() — the background loop must mark
-        // the Deltas durable.
+ // Do NOT call run_cloud_sync_cycle() — the background loop must mark
+ // the Deltas durable.
         wait_for_drain(&handle, &delta_ids).await;
 
         for id in &delta_ids {
@@ -12883,8 +12883,8 @@ mod tier2_ack_tests {
             );
         }
 
-        // One notification per transition, each reporting the Delta's Tier-2
-        // durable status.
+ // One notification per transition, each reporting the Delta's Tier-2
+ // durable status.
         let mut notified: Vec<[u8; 32]> = Vec::new();
         for _ in 0..delta_ids.len() {
             let event = next_tier_event(&mut durability_events).await;
@@ -12902,7 +12902,7 @@ mod tier2_ack_tests {
         cleanup(&path);
     }
 
-    // ── Subphase 4.3: Anchor-Attested Location wiring ────────────────────────
+ // ── Subphase 4.3: Anchor-Attested Location wiring ────────────────────────
 
     fn make_config_with_anchor(
         path: &str,
@@ -12935,11 +12935,11 @@ mod tier2_ack_tests {
         }
     }
 
-    /// Subphase 4.3: `CoreHandle::init` (the production constructor) must
-    /// instantiate the `AnchorAttestedLocation` verifier from the deployment's
-    /// `anchor_attested_location` flag + `beacon_public_keys`, and install it on
-    /// the Durability Subsystem — the instance `receive_receipt` consults for
-    /// every real inbound `DurabilityReceipt` (Req 15.1–15.3).
+ /// Subphase 4.3: `CoreHandle::init` (the production constructor) must
+ /// instantiate the `AnchorAttestedLocation` verifier from the deployment's
+ /// `anchor_attested_location` flag + `beacon_public_keys`, and install it on
+ /// the Durability Subsystem — the instance `receive_receipt` consults for
+ /// every real inbound `DurabilityReceipt` (Req 15.1–15.3).
     #[tokio::test]
     async fn anchor_attested_location_installed_when_deployment_enables_it() {
         let path = tmp_path("anchor_on");
@@ -12966,8 +12966,8 @@ mod tier2_ack_tests {
         cleanup(&path);
     }
 
-    /// Subphase 4.3: with the feature disabled the subsystem must carry no
-    /// anchor verifier — the historical squad-tag quorum path is unchanged.
+ /// Subphase 4.3: with the feature disabled the subsystem must carry no
+ /// anchor verifier — the historical squad-tag quorum path is unchanged.
     #[tokio::test]
     async fn anchor_attested_location_absent_when_deployment_disables_it() {
         let path = tmp_path("anchor_off");
@@ -12987,17 +12987,17 @@ mod tier2_ack_tests {
         cleanup(&path);
     }
 
-    /// Subphase 4.3 / Req 15.4: the production beacon signal-loss monitoring loop
-    /// spawned by `CoreHandle::init` must detect when a beacon has been silent
-    /// beyond the configured threshold, call `on_beacon_signal_lost` from
-    /// production code (not the test), and transitively revert the anchor to
-    /// `SquadTagFallback` mode — after which receipts without beacon tokens
-    /// are accepted by their declared squad tags.
-    ///
-    /// This test drives the *identical* `spawn_beacon_monitor_loop` the
-    /// production `init` path uses, with a short interval and a 1-second
-    /// threshold, so the silence is detected within a few loop ticks instead
-    /// of waiting 5 minutes.
+ /// Subphase 4.3 / Req 15.4: the production beacon signal-loss monitoring loop
+ /// spawned by `CoreHandle::init` must detect when a beacon has been silent
+ /// beyond the configured threshold, call `on_beacon_signal_lost` from
+ /// production code (not the test), and transitively revert the anchor to
+ /// `SquadTagFallback` mode — after which receipts without beacon tokens
+ /// are accepted by their declared squad tags.
+ ///
+ /// This test drives the *identical* `spawn_beacon_monitor_loop` the
+ /// production `init` path uses, with a short interval and a 1-second
+ /// threshold, so the silence is detected within a few loop ticks instead
+ /// of waiting 5 minutes.
     #[tokio::test]
     async fn beacon_monitor_loop_detects_signal_loss_and_reverts_mode() {
         let path = tmp_path("beacon_loss");
@@ -13006,13 +13006,13 @@ mod tier2_ack_tests {
         let (_beacon_secret, beacon_public) =
             crate::identity::keypair::generate_keypair().expect("beacon keypair");
 
-        // Threshold of 1 second so the test doesn't wait 300s.
+ // Threshold of 1 second so the test doesn't wait 300s.
         let mut config = make_config_with_anchor(&path, true, vec![beacon_public]);
         config.deployment.beacon_signal_loss_threshold_secs = 1;
 
         let handle = Arc::new(CoreHandle::init(config).await.expect("CoreHandle::init"));
 
-        // Anchor must start in BeaconAttested mode.
+ // Anchor must start in BeaconAttested mode.
         {
             let dur = handle.durability.lock().unwrap();
             let anchor = dur.anchor().expect("anchor must be installed");
@@ -13027,20 +13027,20 @@ mod tier2_ack_tests {
             );
         }
 
-        // Spawn the production monitoring loop with a short interval so the
-        // signal-loss check fires quickly.  The beacon never attests any
-        // receipt, so `beacon_last_seen` stays empty — `check_signal_loss`
-        // reports the beacon as lost immediately (never-seen → last_seen = i64::MIN).
-        // We still need to wait past the threshold for the timestamp check:
-        // `now_secs - i64::MIN` overflows but is saturating-subtracted.
-        // Actually, since `beacon_last_seen` is empty and we use
-        // `unwrap_or(i64::MIN)`, `now_secs - i64::MIN` saturates to
-        // `i64::MAX`, which exceeds any threshold.  So the beacon is detected
-        // as lost on the very first tick.
+ // Spawn the production monitoring loop with a short interval so the
+ // signal-loss check fires quickly. The beacon never attests any
+ // receipt, so `beacon_last_seen` stays empty — `check_signal_loss`
+ // reports the beacon as lost immediately (never-seen → last_seen = i64::MIN).
+ // We still need to wait past the threshold for the timestamp check:
+ // `now_secs - i64::MIN` overflows but is saturating-subtracted.
+ // Actually, since `beacon_last_seen` is empty and we use
+ // `unwrap_or(i64::MIN)`, `now_secs - i64::MIN` saturates to
+ // `i64::MAX`, which exceeds any threshold. So the beacon is detected
+ // as lost on the very first tick.
         let _monitor =
             CoreHandle::spawn_beacon_monitor_loop(&handle, std::time::Duration::from_millis(10), 1);
 
-        // Poll until the anchor reverts to SquadTagFallback.
+ // Poll until the anchor reverts to SquadTagFallback.
         let mut attempts = 0u32;
         loop {
             {
@@ -13059,7 +13059,7 @@ mod tier2_ack_tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
-        // Verify the anchor has reverted and a degradation event was logged.
+ // Verify the anchor has reverted and a degradation event was logged.
         {
             let dur = handle.durability.lock().unwrap();
             let anchor = dur.anchor().expect("anchor must still be installed");
@@ -13082,8 +13082,8 @@ mod tier2_ack_tests {
             );
         }
 
-        // After reversion, a receipt without a beacon token must be accepted
-        // via squad-tag fallback (Req 15.4).
+ // After reversion, a receipt without a beacon token must be accepted
+ // via squad-tag fallback (Req 15.4).
         {
             use crate::durability::anchor::{AnchorMode, BeaconRegistryEntry};
             use crate::durability::quorum::QuorumConfig;
@@ -13111,8 +13111,8 @@ mod tier2_ack_tests {
             dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
                 .expect("register_delta");
 
-            // Receipt without a beacon token — in SquadTagFallback mode this
-            // must be accepted and counted by declared squad tag.
+ // Receipt without a beacon token — in SquadTagFallback mode this
+ // must be accepted and counted by declared squad tag.
             let make_receipt = |secret: &[u8; 32], did: &str, tag: &str| {
                 let id = uuid::Uuid::now_v7();
                 let payload = receipt_signing_payload(&state_hash, &id);
@@ -13155,13 +13155,13 @@ mod tier2_ack_tests {
 /// `Tier1QuorumTracker`):
 ///
 /// 1. `DeploymentConfig::max_single_sector_fraction` (new in Subphase 4.4)
-///    replaces the hardcoded `0.7` in `CoreHandle::init`; a deployment can now
-///    raise it (single-sector deployments) or lower it (strict cross-sector
-///    quorums).
+/// replaces the hardcoded `0.7` in `CoreHandle::init`; a deployment can now
+/// raise it (single-sector deployments) or lower it (strict cross-sector
+/// quorums).
 /// 2. `DeploymentConfig::spatial_diversity_min == 0` is the *unconfigured*
-///    marker carried through to the quorum tracker, which resolves Req 14.3's
-///    default rule `min(K, distinct tags available)` at runtime — no longer a
-///    raw "require 0 distinct tags" minimum.
+/// marker carried through to the quorum tracker, which resolves Req 14.3's
+/// default rule `min(K, distinct tags available)` at runtime — no longer a
+/// raw "require 0 distinct tags" minimum.
 ///
 /// The behaviour asserted here is Tier-1 durability reached/blocked through
 /// the exact `DurabilitySubsystem::receive_receipt` path the production
@@ -13215,8 +13215,8 @@ mod diversity_config_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// Build `k` peer keypairs registered for the Delta and return
-    /// `(secrets, peers_map)`.
+ /// Build `k` peer keypairs registered for the Delta and return
+ /// `(secrets, peers_map)`.
     fn make_peers(k: usize) -> (Vec<[u8; 32]>, std::collections::BTreeMap<String, [u8; 32]>) {
         let mut secrets = Vec::new();
         let mut peers = std::collections::BTreeMap::new();
@@ -13229,8 +13229,8 @@ mod diversity_config_tests {
         (secrets, peers)
     }
 
-    /// A properly Ed25519-signed receipt from `secret` for `state_hash`,
-    /// declaring `spatial_tag` (mirrors `durability::tests` helpers).
+ /// A properly Ed25519-signed receipt from `secret` for `state_hash`,
+ /// declaring `spatial_tag` (mirrors `durability::tests` helpers).
     fn make_signed_receipt(
         state_hash: [u8; 32],
         secret: &[u8; 32],
@@ -13251,8 +13251,8 @@ mod diversity_config_tests {
         }
     }
 
-    /// Drive `k` receipts (one per registered peer) into the subsystem and
-    /// return whether Tier-1 was achieved by the last receipt.
+ /// Drive `k` receipts (one per registered peer) into the subsystem and
+ /// return whether Tier-1 was achieved by the last receipt.
     fn push_receipts(
         dur: &mut crate::durability::DurabilitySubsystem,
         delta_id: [u8; 32],
@@ -13272,17 +13272,17 @@ mod diversity_config_tests {
         outcomes
     }
 
-    /// Subphase 4.4: `CoreHandle::init` must install the deployment's
-    /// `max_single_sector_fraction` on the Durability Subsystem's quorum
-    /// config, and the raised cap must let a single-sector deployment reach
-    /// Tier-1 — impossible under the pre-4.4 hardcoded `0.7` (three receipts
-    /// from one sector are 100% of the set, which always exceeds 0.7).
+ /// Subphase 4.4: `CoreHandle::init` must install the deployment's
+ /// `max_single_sector_fraction` on the Durability Subsystem's quorum
+ /// config, and the raised cap must let a single-sector deployment reach
+ /// Tier-1 — impossible under the pre-4.4 hardcoded `0.7` (three receipts
+ /// from one sector are 100% of the set, which always exceeds 0.7).
     #[tokio::test]
     async fn configured_fraction_above_default_allows_single_sector_tier1() {
         let path = tmp_path("fraction_up");
         cleanup(&path);
 
-        // K=3, explicit min 1, cap raised to 1.0 (no single-sector limit).
+ // K=3, explicit min 1, cap raised to 1.0 (no single-sector limit).
         let handle = Arc::new(
             CoreHandle::init(make_config(&path, 3, 1, 1.0))
                 .await
@@ -13303,7 +13303,7 @@ mod diversity_config_tests {
         dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
             .expect("register_delta");
 
-        // Three receipts, all declaring the same single sector.
+ // Three receipts, all declaring the same single sector.
         let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
         assert!(
             outcomes[2],
@@ -13319,15 +13319,15 @@ mod diversity_config_tests {
         cleanup(&path);
     }
 
-    /// Subphase 4.4: the deployment-configured cap must also bind downwards —
-    /// a stricter 0.5 cap must block a sector at 100% of the receipt set even
-    /// though the pre-change code would have applied 0.7 here too (0.5 < 0.7).
+ /// Subphase 4.4: the deployment-configured cap must also bind downwards —
+ /// a stricter 0.5 cap must block a sector at 100% of the receipt set even
+ /// though the pre-change code would have applied 0.7 here too (0.5 < 0.7).
     #[tokio::test]
     async fn configured_fraction_cap_binds_at_stricter_value() {
         let path = tmp_path("fraction_strict");
         cleanup(&path);
 
-        // K=3, min 1, strict 0.5 cap.
+ // K=3, min 1, strict 0.5 cap.
         let handle = Arc::new(
             CoreHandle::init(make_config(&path, 3, 1, 0.5))
                 .await
@@ -13343,7 +13343,7 @@ mod diversity_config_tests {
         dur.register_delta(delta_id, state_hash, vec![], vec![], peers)
             .expect("register_delta");
 
-        // Three receipts from one sector: 100% > 50% → blocked.
+ // Three receipts from one sector: 100% > 50% → blocked.
         let outcomes = push_receipts(&mut dur, delta_id, state_hash, &secrets, &["sector-x"; 3]);
         assert!(
             !outcomes[2],
@@ -13359,17 +13359,17 @@ mod diversity_config_tests {
         cleanup(&path);
     }
 
-    /// Subphase 4.4: `spatial_diversity_min = 0` — the `DeploymentConfig`
-    /// default — must flow to the quorum tracker as the *unconfigured* marker
-    /// and be resolved there to Req 14.3's default rule `min(K, distinct tags
-    /// available)`, not enforced as a raw 0-distinct minimum.  Behaviourally:
-    /// with the cap at 1.0 a single-sector deployment still forms Tier-1 (the
-    /// rule never demands more diversity than exists), while with the default
-    /// 0.7 cap the same single-sector receipts stay blocked (the marker must
-    /// not disable the fraction leg either).
+ /// Subphase 4.4: `spatial_diversity_min = 0` — the `DeploymentConfig`
+ /// default — must flow to the quorum tracker as the *unconfigured* marker
+ /// and be resolved there to Req 14.3's default rule `min(K, distinct tags
+ /// available)`, not enforced as a raw 0-distinct minimum. Behaviourally:
+ /// with the cap at 1.0 a single-sector deployment still forms Tier-1 (the
+ /// rule never demands more diversity than exists), while with the default
+ /// 0.7 cap the same single-sector receipts stay blocked (the marker must
+ /// not disable the fraction leg either).
     #[tokio::test]
     async fn unconfigured_min_uses_default_rule_and_keeps_fraction_cap() {
-        // (a) Unconfigured min + cap 1.0 → single-sector quorum forms.
+ // (a) Unconfigured min + cap 1.0 → single-sector quorum forms.
         let path_a = tmp_path("min_unset_cap_off");
         cleanup(&path_a);
         let handle_a = Arc::new(
@@ -13410,9 +13410,9 @@ mod diversity_config_tests {
         }
         cleanup(&path_a);
 
-        // (b) Unconfigured min + default 0.7 cap → same single-sector receipts
-        // stay blocked: the marker only governs the min-distinct leg, the
-        // fraction cap still binds.
+ // (b) Unconfigured min + default 0.7 cap → same single-sector receipts
+ // stay blocked: the marker only governs the min-distinct leg, the
+ // fraction cap still binds.
         let path_b = tmp_path("min_unset_cap_default");
         cleanup(&path_b);
         let handle_b = Arc::new(
@@ -13447,9 +13447,9 @@ mod diversity_config_tests {
         cleanup(&path_b);
     }
 
-    /// Subphase 4.4: values outside (0, 1] cannot express a fraction cap and
-    /// must fall back to the 0.7 default at init instead of being enforced
-    /// literally (a 0 cap would forbid every receipt and disable Quorum).
+ /// Subphase 4.4: values outside (0, 1] cannot express a fraction cap and
+ /// must fall back to the 0.7 default at init instead of being enforced
+ /// literally (a 0 cap would forbid every receipt and disable Quorum).
     #[tokio::test]
     async fn invalid_fraction_falls_back_to_default() {
         for (label, invalid) in [("zero", 0.0), ("over_one", 1.5), ("negative", -0.2)] {
@@ -13530,26 +13530,26 @@ mod composite_incident_tests {
         }
     }
 
-    /// Validates Req 10.5 / 10.6 / 11.1 — composite-incident scenario.
-    ///
-    /// Two overlapping contamination chains share a common descendant Delta in
-    /// the Changeset DAG.  Only one root is resolved via `verify_data`.
-    /// The affected rows must remain CONTAMINATED through the unresolved
-    /// lineage (the decomposed sub-chain whose root is still unresolved).
-    ///
-    /// Driven end-to-end through the production `CoreHandle::init` construction
-    /// and the real `CausalContaminationEngine` public methods
-    /// (`tag_contamination_root`, `verify_data`, `is_row_contaminated`).
+ /// Validates Req 10.5 / 10.6 / 11.1 — composite-incident scenario.
+ ///
+ /// Two overlapping contamination chains share a common descendant Delta in
+ /// the Changeset DAG. Only one root is resolved via `verify_data`.
+ /// The affected rows must remain CONTAMINATED through the unresolved
+ /// lineage (the decomposed sub-chain whose root is still unresolved).
+ ///
+ /// Driven end-to-end through the production `CoreHandle::init` construction
+ /// and the real `CausalContaminationEngine` public methods
+ /// (`tag_contamination_root`, `verify_data`, `is_row_contaminated`).
     #[tokio::test]
     async fn subphase_7_5_composite_incident_resolve_one_root_rows_stay_contaminated() {
-        // ── DAG topology ─────────────────────────────────────────────────────
-        //
-        //   root_a ──→ shared ──→ leaf_a
-        //   root_b ─────────────────┬──→ shared
-        //
-        // Both chains reach `shared` and `leaf_a`, creating a DAG overlap.
-        // When root_b is tagged (after root_a), the CCE detects the shared
-        // descendant and merges both ICOs into a CompositeIncidentInstance.
+ // ── DAG topology ─────────────────────────────────────────────────────
+ //
+ // root_a ──→ shared ──→ leaf_a
+ // root_b ─────────────────┬──→ shared
+ //
+ // Both chains reach `shared` and `leaf_a`, creating a DAG overlap.
+ // When root_b is tagged (after root_a), the CCE detects the shared
+ // descendant and merges both ICOs into a CompositeIncidentInstance.
 
         let root_a: [u8; 32] = [0xAA; 32];
         let root_b: [u8; 32] = [0xBB; 32];
@@ -13561,8 +13561,8 @@ mod composite_incident_tests {
 
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
-        // Insert DAG nodes with the proper parent edges so BFS walks reach
-        // the shared descendant from both roots.
+ // Insert DAG nodes with the proper parent edges so BFS walks reach
+ // the shared descendant from both roots.
         {
             let mut cce = handle.cce.lock().unwrap();
             cce.test_insert_dag_node(DagNode {
@@ -13618,7 +13618,7 @@ mod composite_incident_tests {
             .expect("insert leaf_a");
         }
 
-        // Insert projection rows so resolve_affected_rows discovers them.
+ // Insert projection rows so resolve_affected_rows discovers them.
         {
             let cce = handle.cce.lock().unwrap();
             let conn_arc = cce.test_get_conn();
@@ -13635,7 +13635,7 @@ mod composite_incident_tests {
             .expect("setup proj_reports");
         }
 
-        // ── Tag root_a → creates ICO_A ──────────────────────────────────────
+ // ── Tag root_a → creates ICO_A ──────────────────────────────────────
         let ico_a_id = {
             let mut cce = handle.cce.lock().unwrap();
             cce.tag_contamination_root(
@@ -13651,10 +13651,10 @@ mod composite_incident_tests {
             "ico_a_id should be a regular ICO, not a composite after first tag"
         );
 
-        // ── Tag root_b → overlap detected → composite formed ────────────────
-        // ICO_A's descendants are {root_a, shared, leaf_a}.
-        // ICO_B's descendants are {root_b, shared, leaf_a}.
-        // Overlap on shared & leaf_a → composite_merge.
+ // ── Tag root_b → overlap detected → composite formed ────────────────
+ // ICO_A's descendants are {root_a, shared, leaf_a}.
+ // ICO_B's descendants are {root_b, shared, leaf_a}.
+ // Overlap on shared & leaf_a → composite_merge.
         let composite_id = {
             let mut cce = handle.cce.lock().unwrap();
             cce.tag_contamination_root(
@@ -13666,7 +13666,7 @@ mod composite_incident_tests {
             .expect("tag root_b should succeed")
         };
 
-        // Verify a composite was formed.
+ // Verify a composite was formed.
         {
             let cce = handle.cce.lock().unwrap();
             let comp = cce
@@ -13694,7 +13694,7 @@ mod composite_incident_tests {
                 "composite must be Open before resolution"
             );
 
-            // The two source ICOs must be SupersededBy the composite.
+ // The two source ICOs must be SupersededBy the composite.
             let ico_a = cce
                 .get_incident(ico_a_id)
                 .unwrap()
@@ -13706,7 +13706,7 @@ mod composite_incident_tests {
             );
         }
 
-        // Verify rows are contaminated (via the composite ID in the index).
+ // Verify rows are contaminated (via the composite ID in the index).
         {
             let cce = handle.cce.lock().unwrap();
             let active_inc = cce.active_incident_for_row("reports", "row-1");
@@ -13725,9 +13725,9 @@ mod composite_incident_tests {
             );
         }
 
-        // ── Resolve only root_a ───────────────────────────────────────────────
-        // The production verify_data path: manager auth + Resolved tag +
-        // composite decomposition.
+ // ── Resolve only root_a ───────────────────────────────────────────────
+ // The production verify_data path: manager auth + Resolved tag +
+ // composite decomposition.
         let mgr = IdentityManager::init_in_memory().expect("manager identity");
         let mgr_did = mgr.did().to_string();
         let mgr_secret = mgr.signing_key_bytes();
@@ -13742,9 +13742,9 @@ mod composite_incident_tests {
             .verify_data(root_a, mgr_did.clone(), sig, expiry, now_s)
             .expect("verify_data root_a must succeed");
 
-        // ── Assertions after resolving one root ─────────────────────────────
+ // ── Assertions after resolving one root ─────────────────────────────
 
-        // 1. The composite must be Decomposed (one root resolved, one not).
+ // 1. The composite must be Decomposed (one root resolved, one not).
         {
             let cce = handle.cce.lock().unwrap();
             let comp = cce
@@ -13756,7 +13756,7 @@ mod composite_incident_tests {
                 "composite must be Decomposed after resolving one root"
             );
 
-            // 2. A new OPEN ICO must exist for the unresolved root_b.
+ // 2. A new OPEN ICO must exist for the unresolved root_b.
             let new_icos = cce.test_open_incidents_for_root(root_b);
             assert_eq!(
                 new_icos.len(),
@@ -13785,7 +13785,7 @@ mod composite_incident_tests {
             );
         }
 
-        // 3. Affected rows must remain CONTAMINATED via the unresolved lineage.
+ // 3. Affected rows must remain CONTAMINATED via the unresolved lineage.
         {
             let cce = handle.cce.lock().unwrap();
             assert!(
@@ -13798,8 +13798,8 @@ mod composite_incident_tests {
                 "row-2 must remain CONTAMINATED after resolving only root_a"
             );
 
-            // The active incident for the row must now be the decomposed ICO
-            // (pointing to the unresolved root's chain), not the Decomposed composite.
+ // The active incident for the row must now be the decomposed ICO
+ // (pointing to the unresolved root's chain), not the Decomposed composite.
             let active = cce.active_incident_for_row("reports", "row-1");
             assert!(
                 active.is_some(),
@@ -13821,8 +13821,8 @@ mod composite_incident_tests {
             );
         }
 
-        // 4. The shared Delta must still carry its Contaminated tag (only a
-        //    Decontaminated tag for the resolved ICO_A, not for root_b's chain).
+ // 4. The shared Delta must still carry its Contaminated tag (only a
+ // Decontaminated tag for the resolved ICO_A, not for root_b's chain).
         {
             let cce = handle.cce.lock().unwrap();
             let conn_arc = cce.test_get_conn();
@@ -13835,15 +13835,15 @@ mod composite_incident_tests {
             );
         }
 
-        // 5. End-to-end: a write to the still-contaminated row must trigger
-        //    human-reaction auto-tagging (the production write path calls
-        //    is_row_contaminated, which must return true).
+ // 5. End-to-end: a write to the still-contaminated row must trigger
+ // human-reaction auto-tagging (the production write path calls
+ // is_row_contaminated, which must return true).
         let write_result = handle
             .write("reports", "row-1", json!({"updated": true}))
             .await
             .expect("write on still-contaminated row must succeed");
 
-        // The new delta must be registered in an active ICO (HumanReaction taint).
+ // The new delta must be registered in an active ICO (HumanReaction taint).
         {
             let cce = handle.cce.lock().unwrap();
             let all_open = cce.open_incidents().unwrap();
@@ -13863,7 +13863,7 @@ mod composite_incident_tests {
     }
 }
 
-// ─── Task 0.8 — Gate G1.8: Quarantine + Sidecar Ledger Wiring (CLAIM-G1.8) ──
+// ─── — Gate G1.8: Quarantine + Sidecar Ledger Wiring (CLAIM-G1.8) ──
 //
 // Integration tests proving that `quarantine_ledger` and `sidecar_ledger`
 // writes are exercised through real production callers in two real
@@ -13874,14 +13874,14 @@ mod composite_incident_tests {
 // `SchemaMigrationEngine::quarantine_incoming` at
 // `tirbase-core/src/migration/mod.rs:703` is called from
 // `CoreHandle::receive_inbound` at `tirbase-core/src/api/mod.rs:2760` when
-// `CrdtEngine::apply` returns `MergeOutcome::Quarantined`.  This happens when
+// `CrdtEngine::apply` returns `MergeOutcome::Quarantined`. This happens when
 // an inbound Delta's schema hash does not match the local schema hash.
 //
 // ## Sidecar path (production caller)
 //
 // `SchemaMigrationEngine::record_corrupted_window_write` at
 // `tirbase-core/src/migration/mod.rs:783` is called from
-// `CoreHandle::write` at `tirbase-core/src/api/mod.rs:1668`.  This happens
+// `CoreHandle::write` at `tirbase-core/src/api/mod.rs:1668`. This happens
 // when the device's current schema is under an active corruption window (a
 // revoked migration produced it) — every subsequent write is byte-for-byte
 // preserved in the Side-Car Ledger for replay when a corrected migration
@@ -13890,20 +13890,20 @@ mod composite_incident_tests {
 // ## Wiring mutation check
 //
 // - **Remove quarantine caller** (`quarantine_incoming` call from
-//   `receive_inbound`'s `Quarantined` arm at `api/mod.rs:2760`): Node B
-//   processes the mismatched-schema delta but never writes to the quarantine
-//   ledger.  `quarantine_ledger_wiring_two_core_handle_instances` asserts
-//   `entries.len() == 1`; with the call removed the ledger stays empty and
-//   the assertion fails with `0 != 1`.
-//   Failing test: `quarantine_ledger_wiring_two_core_handle_instances`
+// `receive_inbound`'s `Quarantined` arm at `api/mod.rs:2760`): Node B
+// processes the mismatched-schema delta but never writes to the quarantine
+// ledger. `quarantine_ledger_wiring_two_core_handle_instances` asserts
+// `entries.len() == 1`; with the call removed the ledger stays empty and
+// the assertion fails with `0 != 1`.
+// Failing test: `quarantine_ledger_wiring_two_core_handle_instances`
 //
 // - **Remove sidecar caller** (`record_corrupted_window_write` call from
-//   `CoreHandle::write`'s side-car capture block at `api/mod.rs:1668`): The
-//   write succeeds but no Side-Car entry is recorded.
-//   `sidecar_ledger_wiring_two_core_handle_instances` asserts
-//   `sidecar_count >= 1`; with the call removed the count stays 0 and the
-//   assertion fails.
-//   Failing test: `sidecar_ledger_wiring_two_core_handle_instances`
+// `CoreHandle::write`'s side-car capture block at `api/mod.rs:1668`): The
+// write succeeds but no Side-Car entry is recorded.
+// `sidecar_ledger_wiring_two_core_handle_instances` asserts
+// `sidecar_count >= 1`; with the call removed the count stays 0 and the
+// assertion fails.
+// Failing test: `sidecar_ledger_wiring_two_core_handle_instances`
 //
 // CLAIM-G1.8: see gate-g1.md G1.8 entry.
 #[cfg(all(test, feature = "native"))]
@@ -13913,7 +13913,7 @@ mod quarantine_sidecar_wiring_tests {
     use serde_json::json;
     use std::time::Duration;
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+ // ─── Helpers ─────────────────────────────────────────────────────────────
 
     fn make_migration_config_for_wiring(
         path: &str,
@@ -13973,7 +13973,7 @@ mod quarantine_sidecar_wiring_tests {
         }
     }
 
-    /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`.
+ /// CA-sign a MigrationDelta for `source → target` over `transform_bytes`.
     fn make_signed_migration(
         ca_secret: &[u8; 32],
         source: [u8; 32],
@@ -14004,8 +14004,8 @@ mod quarantine_sidecar_wiring_tests {
         }
     }
 
-    /// A minimal valid WASM module (the sandbox treats a missing "run" export
-    /// as a successful no-op).
+ /// A minimal valid WASM module (the sandbox treats a missing "run" export
+ /// as a successful no-op).
     fn trivial_wasm() -> Vec<u8> {
         vec![
             0x00, 0x61, 0x73, 0x6d, // magic
@@ -14026,27 +14026,27 @@ mod quarantine_sidecar_wiring_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    // ─── Test 1: quarantine_ledger write path — two real CoreHandle instances ─
+ // ─── Test 1: quarantine_ledger write path — two real CoreHandle instances ─
 
-    /// **CLAIM-G1.8 / quarantine path.**
-    ///
-    /// Exercises the production call `quarantine_incoming` at
-    /// `tirbase-core/src/api/mod.rs:2760` using two real `CoreHandle`
-    /// instances.
-    ///
-    /// Node A constructs a signed delta stamped with a schema hash unknown to
-    /// Node B and delivers it via `inject_inbound`.  Node B processes it
-    /// through its full production inbound pipeline
-    /// (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply`
-    /// → `MergeOutcome::Quarantined` → `migration.quarantine_incoming()`).
-    /// The test then asserts that the quarantine ledger on Node B holds
-    /// exactly one entry with the correct raw bytes, sender DID, and reason —
-    /// proving the production caller wrote to the ledger.
-    ///
-    /// **Wiring mutation check:** removing `quarantine_incoming` from the
-    /// `Quarantined` arm in `receive_inbound` (api/mod.rs:2760) leaves the
-    /// ledger empty; `assert_eq!(entries.len(), 1)` fails with `0 != 1`.
-    /// **Failing test:** `quarantine_ledger_wiring_two_core_handle_instances`
+ /// **CLAIM-G1.8 / quarantine path.**
+ ///
+ /// Exercises the production call `quarantine_incoming` at
+ /// `tirbase-core/src/api/mod.rs:2760` using two real `CoreHandle`
+ /// instances.
+ ///
+ /// Node A constructs a signed delta stamped with a schema hash unknown to
+ /// Node B and delivers it via `inject_inbound`. Node B processes it
+ /// through its full production inbound pipeline
+ /// (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply`
+ /// → `MergeOutcome::Quarantined` → `migration.quarantine_incoming()`).
+ /// The test then asserts that the quarantine ledger on Node B holds
+ /// exactly one entry with the correct raw bytes, sender DID, and reason —
+ /// proving the production caller wrote to the ledger.
+ ///
+ /// **Wiring mutation check:** removing `quarantine_incoming` from the
+ /// `Quarantined` arm in `receive_inbound` (api/mod.rs:2760) leaves the
+ /// ledger empty; `assert_eq!(entries.len(), 1)` fails with `0 != 1`.
+ /// **Failing test:** `quarantine_ledger_wiring_two_core_handle_instances`
     #[tokio::test]
     async fn quarantine_ledger_wiring_two_core_handle_instances() {
         let path_a = tmp_wiring_path("qledger_a");
@@ -14054,17 +14054,17 @@ mod quarantine_sidecar_wiring_tests {
         cleanup_wiring(&path_a);
         cleanup_wiring(&path_b);
 
-        // Node A: plain config, produces a delta with a foreign schema hash.
+ // Node A: plain config, produces a delta with a foreign schema hash.
         let _handle_a = CoreHandle::init(make_plain_config_for_wiring(&path_a))
             .await
             .expect("handle_a init");
 
-        // Node B: plain config, will receive and quarantine that delta.
+ // Node B: plain config, will receive and quarantine that delta.
         let handle_b = CoreHandle::init(make_plain_config_for_wiring(&path_b))
             .await
             .expect("handle_b init");
 
-        // Build a signed delta with a schema hash entirely unknown to Node B.
+ // Build a signed delta with a schema hash entirely unknown to Node B.
         let (peer_secret, peer_public) =
             crate::identity::keypair::generate_keypair().expect("keygen");
         let peer_did = crate::crdt::derive_did_from_public_key(&peer_public);
@@ -14087,10 +14087,10 @@ mod quarantine_sidecar_wiring_tests {
             crate::identity::keypair::sign(&peer_secret, &canonical).expect("sign delta");
         delta.id = crate::crdt::delta::Delta::compute_id(&canonical);
 
-        // Capture the expected raw bytes (what the quarantine ledger must store).
+ // Capture the expected raw bytes (what the quarantine ledger must store).
         let expected_raw = serde_json::to_vec(&delta).expect("serialise delta");
 
-        // Node B processes the delta through the production inbound path.
+ // Node B processes the delta through the production inbound path.
         handle_b
             .inject_inbound(GossipMessage::InboundDelta(delta))
             .await
@@ -14106,7 +14106,7 @@ mod quarantine_sidecar_wiring_tests {
             "handle_b must process exactly one inbound message"
         );
 
-        // Assert the production quarantine_incoming call wrote to the ledger.
+ // Assert the production quarantine_incoming call wrote to the ledger.
         let migration = handle_b
             .migration
             .lock()
@@ -14146,26 +14146,26 @@ mod quarantine_sidecar_wiring_tests {
         cleanup_wiring(&path_b);
     }
 
-    // ─── Test 2: sidecar_ledger write path — two real CoreHandle instances ────
+ // ─── Test 2: sidecar_ledger write path — two real CoreHandle instances ────
 
-    /// **CLAIM-G1.8 / sidecar path.**
-    ///
-    /// Exercises the production call `record_corrupted_window_write` at
-    /// `tirbase-core/src/api/mod.rs:1668` using two real `CoreHandle`
-    /// instances.
-    ///
-    /// Node A holds the migration CA key and applies a migration (S → T) on
-    /// Node B via the inbound pipeline.  Managers then revoke that migration,
-    /// opening a corruption window for schema T on Node B.  A subsequent write
-    /// on Node B (the second handle) is captured in the Side-Car Ledger by the
-    /// production caller.  The test asserts `sidecar_count >= 1` proving the
-    /// write path reached the ledger.
-    ///
-    /// **Wiring mutation check:** removing `record_corrupted_window_write` from
-    /// the side-car capture block in `CoreHandle::write` (api/mod.rs:1668)
-    /// means no Side-Car entry is written; `assert!(sidecar_count >= 1)` fails
-    /// with `sidecar_count = 0`.
-    /// **Failing test:** `sidecar_ledger_wiring_two_core_handle_instances`
+ /// **CLAIM-G1.8 / sidecar path.**
+ ///
+ /// Exercises the production call `record_corrupted_window_write` at
+ /// `tirbase-core/src/api/mod.rs:1668` using two real `CoreHandle`
+ /// instances.
+ ///
+ /// Node A holds the migration CA key and applies a migration (S → T) on
+ /// Node B via the inbound pipeline. Managers then revoke that migration,
+ /// opening a corruption window for schema T on Node B. A subsequent write
+ /// on Node B (the second handle) is captured in the Side-Car Ledger by the
+ /// production caller. The test asserts `sidecar_count >= 1` proving the
+ /// write path reached the ledger.
+ ///
+ /// **Wiring mutation check:** removing `record_corrupted_window_write` from
+ /// the side-car capture block in `CoreHandle::write` (api/mod.rs:1668)
+ /// means no Side-Car entry is written; `assert!(sidecar_count >= 1)` fails
+ /// with `sidecar_count = 0`.
+ /// **Failing test:** `sidecar_ledger_wiring_two_core_handle_instances`
     #[tokio::test]
     async fn sidecar_ledger_wiring_two_core_handle_instances() {
         use crate::migration::migration_delta::{ManagerSignature, MigrationRevocationDelta};
@@ -14180,7 +14180,7 @@ mod quarantine_sidecar_wiring_tests {
         let t = [0xA1u8; 32];
         let u = [0xA2u8; 32];
 
-        // Node A: has the migration CA key (acts as migration source).
+ // Node A: has the migration CA key (acts as migration source).
         let _handle_a = CoreHandle::init(make_migration_config_for_wiring(
             &path_a,
             ca_public,
@@ -14189,7 +14189,7 @@ mod quarantine_sidecar_wiring_tests {
         .await
         .expect("handle_a init");
 
-        // Node B: receives migrations, will have the corruption window opened.
+ // Node B: receives migrations, will have the corruption window opened.
         let handle_b = CoreHandle::init(make_migration_config_for_wiring(
             &path_b,
             ca_public,
@@ -14198,7 +14198,7 @@ mod quarantine_sidecar_wiring_tests {
         .await
         .expect("handle_b init");
 
-        // ── Step 1: Apply the (eventually-corrupted) migration S → T on Node B.
+ // ── Step 1: Apply the (eventually-corrupted) migration S → T on Node B.
         let bad_delta = make_signed_migration(&ca_secret, s, t, trivial_wasm());
         let bad_migration_id = bad_delta.id;
 
@@ -14227,7 +14227,7 @@ mod quarantine_sidecar_wiring_tests {
             );
         }
 
-        // ── Step 2: Revoke the migration, opening the corruption window on T.
+ // ── Step 2: Revoke the migration, opening the corruption window on T.
         let (mgr_secret, mgr_public) =
             crate::identity::keypair::generate_keypair().expect("keygen mgr");
         let mgr_did = crate::crdt::derive_did_from_public_key(&mgr_public);
@@ -14252,7 +14252,7 @@ mod quarantine_sidecar_wiring_tests {
             .await
             .expect("process revocation on handle_b");
 
-        // Verify the corruption window is now open on Node B.
+ // Verify the corruption window is now open on Node B.
         {
             let mig = handle_b.migration.lock().unwrap();
             assert!(
@@ -14261,16 +14261,16 @@ mod quarantine_sidecar_wiring_tests {
             );
         }
 
-        // ── Step 3: Write on Node B while the corruption window is active.
-        // This exercises CoreHandle::write → step 5b (side-car capture) →
-        // SchemaMigrationEngine::record_corrupted_window_write →
-        // SideCarLedger::record — the production caller at api/mod.rs:1668.
+ // ── Step 3: Write on Node B while the corruption window is active.
+ // This exercises CoreHandle::write → step 5b (side-car capture) →
+ // SchemaMigrationEngine::record_corrupted_window_write →
+ // SideCarLedger::record — the production caller at api/mod.rs:1668.
         handle_b
             .write("sidecar_wiring", "probe-row", json!({ "captured": true }))
             .await
             .expect("write on handle_b while corruption window is open");
 
-        // ── Step 4: Assert the Side-Car Ledger holds at least one entry.
+ // ── Step 4: Assert the Side-Car Ledger holds at least one entry.
         let sidecar_count = {
             let mig = handle_b.migration.lock().unwrap();
             mig.sidecar_entries(&bad_migration_id)
@@ -14289,17 +14289,17 @@ mod quarantine_sidecar_wiring_tests {
         cleanup_wiring(&path_b);
     }
 
-    /// CLAIM-22.1 / PV-6.1 (S4, integration): two real `CoreHandle` instances.
-    /// An inflated-`start_op` delta delivered through the production inbound path
-    /// (`inject_inbound` + `process_inbound_messages` → `receive_inbound` →
-    /// `apply_incoming_delta` → `validate_start_op`) is quarantined as `ClockJump`
-    /// and never mutates node B's merged state.
-    ///
-    /// Wiring-mutation check (CLAIM-22.1/22.3): removing the `validate_start_op()`
-    /// call from `crdt/merge.rs::apply_incoming_delta` lets the hostile delta merge
-    /// (see characterization test `crdt::hardening::task22_tests::
-    /// task22_2_characterization_inflated_start_op_wins_unprotected_lww`) and this
-    /// test fails because node B's state would contain the attack value.
+ /// CLAIM-22.1 / PV-6.1 (S4, integration): two real `CoreHandle` instances.
+ /// An inflated-`start_op` delta delivered through the production inbound path
+ /// (`inject_inbound` + `process_inbound_messages` → `receive_inbound` →
+ /// `apply_incoming_delta` → `validate_start_op`) is quarantined as `ClockJump`
+ /// and never mutates node B's merged state.
+ ///
+ /// Wiring-mutation check (CLAIM-22.1/22.3): removing the `validate_start_op()`
+ /// call from `crdt/merge.rs::apply_incoming_delta` lets the hostile delta merge
+ /// (see characterization test `crdt::hardening::start_op_validation_tests::
+ /// characterization_inflated_start_op_wins_unprotected_lww`) and this
+ /// test fails because node B's state would contain the attack value.
     #[tokio::test]
     async fn start_op_inflated_delta_quarantined_two_core_handles_claim_22_1_s4() {
         use crate::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
@@ -14386,9 +14386,9 @@ mod quarantine_sidecar_wiring_tests {
         let processed = handle_b.process_inbound_messages().await.expect("process");
         assert_eq!(processed, 1, "node B must process the injected delta");
 
-        // Production guarantee (task 22): quarantined as ClockJump, not merged.
-        // ClockJump quarantine-ledger persistence is wired by task 23; here we
-        // assert the attack value never takes effect in node B's merged state.
+ // Production guarantee (): quarantined as ClockJump, not merged.
+ // ClockJump quarantine-ledger persistence is wired by ; here we
+ // assert the attack value never takes effect in node B's merged state.
         let read_str = match handle_b.read("s4sensors", "val").await {
             Ok(qr) => qr.data.to_string(),
             Err(_) => String::new(),
@@ -14404,7 +14404,7 @@ mod quarantine_sidecar_wiring_tests {
     }
 }
 
-// ─── Task 0.6 — Gate G1.6: Cloud Sync Wiring (CLAIM-G1.6) ───────────────────
+// ─── — Gate G1.6: Cloud Sync Wiring (CLAIM-G1.6) ───────────────────
 //
 // Integration test proving that cloud-sync **send** and **receive** paths in
 // `tirbase-core/src/durability/` are wired through real production callers.
@@ -14413,9 +14413,9 @@ mod quarantine_sidecar_wiring_tests {
 //
 // `CoreHandle::init` spawns `spawn_cloud_sync_loop` (a `pub(crate)` method at
 // `api/mod.rs:4142`), which calls `CoreHandle::run_cloud_sync_cycle` on every
-// tick.  `run_cloud_sync_cycle` (line 4079) calls `cloud_sync_loop` from
+// tick. `run_cloud_sync_cycle` (line 4079) calls `cloud_sync_loop` from
 // `durability/cloud_queue.rs`, which invokes `CloudConnection::send_delta` for
-// every pending queue entry.  In production the connection is a
+// every pending queue entry. In production the connection is a
 // `CloudLedgerConnection` adapter wrapping the in-process `CloudLedger`.
 //
 // ## Receive path (production caller)
@@ -14428,23 +14428,23 @@ mod quarantine_sidecar_wiring_tests {
 // ## Wiring mutation check
 //
 // - **Remove send caller** (`spawn_cloud_sync_loop` call from `CoreHandle::init`):
-//   The cloud outbound queue accumulates writes but `cloud_sync_loop` is never
-//   invoked.  `MockEndpoint::send_delta` is never called.
-//   `assert_eq!(endpoint.calls.load(...), 3)` fails with 0 actual calls.
-//   Failing test: `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
+// The cloud outbound queue accumulates writes but `cloud_sync_loop` is never
+// invoked. `MockEndpoint::send_delta` is never called.
+// `assert_eq!(endpoint.calls.load(...), 3)` fails with 0 actual calls.
+// Failing test: `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
 //
 // - **Remove receive caller** (`CloudLedger::receive_delta` call from
-//   `CloudLedgerConnection::send_delta`): The mock endpoint's `send_delta`
-//   intercepts before `receive_delta`, so the assertion on calls still passes.
-//   However, `cloud_ledger_is_committed(id)` returns false for every Delta and
-//   `wait_for_drain` times out because the durability subsystem's `on_cloud_ack`
-//   is only called on an `Ok(())` return from the connection, which depends on
-//   `receive_delta` returning `Committed` or `AlreadyCommitted`.  In the
-//   production `CloudLedgerConnection` removing `receive_delta` means the
-//   function immediately returns `Err("receive_delta removed")` — `cloud_sync_loop`
-//   counts it as `rejected`, never calls `acknowledge`, and the queue never
-//   drains.  `wait_for_drain` panics.
-//   Failing test: `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
+// `CloudLedgerConnection::send_delta`): The mock endpoint's `send_delta`
+// intercepts before `receive_delta`, so the assertion on calls still passes.
+// However, `cloud_ledger_is_committed(id)` returns false for every Delta and
+// `wait_for_drain` times out because the durability subsystem's `on_cloud_ack`
+// is only called on an `Ok(())` return from the connection, which depends on
+// `receive_delta` returning `Committed` or `AlreadyCommitted`. In the
+// production `CloudLedgerConnection` removing `receive_delta` means the
+// function immediately returns `Err("receive_delta removed")` — `cloud_sync_loop`
+// counts it as `rejected`, never calls `acknowledge`, and the queue never
+// drains. `wait_for_drain` panics.
+// Failing test: `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
 //
 // CLAIM-G1.6: see CLAIMS.md entry.
 #[cfg(all(test, feature = "native"))]
@@ -14496,8 +14496,8 @@ mod cloud_sync_wiring_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// Poll until the cloud outbound queue is empty and every Delta is
-    /// committed on the in-process ledger, or fail after 200 × 10 ms = 2 s.
+ /// Poll until the cloud outbound queue is empty and every Delta is
+ /// committed on the in-process ledger, or fail after 200 × 10 ms = 2 s.
     async fn wait_for_drain(handle: &Arc<CoreHandle>, delta_ids: &[[u8; 32]]) {
         let mut attempts = 0u32;
         loop {
@@ -14522,20 +14522,20 @@ mod cloud_sync_wiring_tests {
         }
     }
 
-    // ── Mock cloud endpoint ───────────────────────────────────────────────────
+ // ── Mock cloud endpoint ───────────────────────────────────────────────────
 
-    /// A mock `CloudConnection` that records every `send_delta` call and
-    /// delegates to a real `CloudLedger` so the full receive path runs.
-    ///
-    /// This is the "mock cloud endpoint" the task requires: it is not an
-    /// in-process `CloudLedgerConnection` hidden inside `run_cloud_sync_cycle`,
-    /// but a standalone adapter whose call counter proves the **send path** is
-    /// exercised.  Because it forwards every Delta to a real `CloudLedger`,
-    /// it also proves the **receive path** (`CloudLedger::receive_delta`) runs.
+ /// A mock `CloudConnection` that records every `send_delta` call and
+ /// delegates to a real `CloudLedger` so the full receive path runs.
+ ///
+ /// This is the "mock cloud endpoint" the task requires: it is not an
+ /// in-process `CloudLedgerConnection` hidden inside `run_cloud_sync_cycle`,
+ /// but a standalone adapter whose call counter proves the **send path** is
+ /// exercised. Because it forwards every Delta to a real `CloudLedger`,
+ /// it also proves the **receive path** (`CloudLedger::receive_delta`) runs.
     struct MockEndpointConn {
-        /// Total `send_delta` invocations.
+ /// Total `send_delta` invocations.
         calls: Arc<AtomicUsize>,
-        /// Backing ledger — the full receive path runs here.
+ /// Backing ledger — the full receive path runs here.
         ledger: crate::durability::cloud_ledger::CloudLedger,
     }
 
@@ -14545,19 +14545,19 @@ mod cloud_sync_wiring_tests {
             delta_id: &crate::crdt::delta::DeltaId,
             bytes: &[u8],
         ) -> Result<(), String> {
-            // ── Send path exercised ────────────────────────────────────────────
-            // WIRING CHECK: this counter proves `cloud_sync_loop` (the send
-            // path) called us.  If `spawn_cloud_sync_loop` is removed from
-            // `CoreHandle::init`, `send_delta` is never invoked and the
-            // `assert_eq!(calls, N)` assertion fails.
+ // ── Send path exercised ────────────────────────────────────────────
+ // WIRING CHECK: this counter proves `cloud_sync_loop` (the send
+ // path) called us. If `spawn_cloud_sync_loop` is removed from
+ // `CoreHandle::init`, `send_delta` is never invoked and the
+ // `assert_eq!(calls, N)` assertion fails.
             self.calls.fetch_add(1, Ordering::Relaxed);
 
-            // ── Receive path exercised ─────────────────────────────────────────
-            // WIRING CHECK: delegating to `CloudLedger::receive_delta` exercises
-            // the full receive pipeline.  If `receive_delta` is removed from
-            // `CloudLedgerConnection::send_delta` in the production adapter, the
-            // Delta is never committed to the ledger, `cloud_ledger_is_committed`
-            // returns `false`, and `wait_for_drain` panics.
+ // ── Receive path exercised ─────────────────────────────────────────
+ // WIRING CHECK: delegating to `CloudLedger::receive_delta` exercises
+ // the full receive pipeline. If `receive_delta` is removed from
+ // `CloudLedgerConnection::send_delta` in the production adapter, the
+ // Delta is never committed to the ledger, `cloud_ledger_is_committed`
+ // returns `false`, and `wait_for_drain` panics.
             let delta: crate::crdt::delta::Delta = serde_json::from_slice(bytes).map_err(|e| {
                 format!(
                     "mock endpoint: deserialise {} failed: {e}",
@@ -14575,47 +14575,47 @@ mod cloud_sync_wiring_tests {
         }
     }
 
-    // ── G1.6 integration test ─────────────────────────────────────────────────
+ // ── G1.6 integration test ─────────────────────────────────────────────────
 
-    /// **CLAIM-G1.6** — cloud-sync send and receive paths are wired.
-    ///
-    /// Proves:
-    /// 1. **Send path wired**: `CoreHandle::init` spawns `spawn_cloud_sync_loop`,
-    ///    which calls `run_cloud_sync_cycle`, which calls `cloud_sync_loop`,
-    ///    which calls `CloudConnection::send_delta` for each pending Delta.
-    ///    Verified by the `MockEndpointConn` call counter.
-    ///
-    /// 2. **Receive path wired**: `send_delta` on the mock endpoint delegates
-    ///    to a real `CloudLedger::receive_delta` — the full receive pipeline
-    ///    (signature verification → CrdtEngine::apply → committed set) runs.
-    ///    Verified by `cloud_ledger_is_committed` and the commit count on the
-    ///    mock ledger.
-    ///
-    /// 3. **Wiring mutation check** (see module doc for full analysis):
-    ///    - Removing `spawn_cloud_sync_loop` from `CoreHandle::init` →
-    ///      `MockEndpointConn::calls` stays 0 → `assert_eq!(calls, 3)` fails.
-    ///    - Removing `CloudLedger::receive_delta` call from
-    ///      `CloudLedgerConnection::send_delta` in the production adapter →
-    ///      the in-process ledger never commits the Deltas → `wait_for_drain`
-    ///      panics (queue never empty + deltas never committed).
-    ///
-    /// This test drives the **identical** send/receive machinery used by the
-    /// production `run_cloud_sync_cycle` method — no test-only shortcuts.
-    ///
-    /// **Validates: Requirements PV-1.13**
+ /// **CLAIM-G1.6** — cloud-sync send and receive paths are wired.
+ ///
+ /// Proves:
+ /// 1. **Send path wired**: `CoreHandle::init` spawns `spawn_cloud_sync_loop`,
+ /// which calls `run_cloud_sync_cycle`, which calls `cloud_sync_loop`,
+ /// which calls `CloudConnection::send_delta` for each pending Delta.
+ /// Verified by the `MockEndpointConn` call counter.
+ ///
+ /// 2. **Receive path wired**: `send_delta` on the mock endpoint delegates
+ /// to a real `CloudLedger::receive_delta` — the full receive pipeline
+ /// (signature verification → CrdtEngine::apply → committed set) runs.
+ /// Verified by `cloud_ledger_is_committed` and the commit count on the
+ /// mock ledger.
+ ///
+ /// 3. **Wiring mutation check** (see module doc for full analysis):
+ /// - Removing `spawn_cloud_sync_loop` from `CoreHandle::init` →
+ /// `MockEndpointConn::calls` stays 0 → `assert_eq!(calls, 3)` fails.
+ /// - Removing `CloudLedger::receive_delta` call from
+ /// `CloudLedgerConnection::send_delta` in the production adapter →
+ /// the in-process ledger never commits the Deltas → `wait_for_drain`
+ /// panics (queue never empty + deltas never committed).
+ ///
+ /// This test drives the **identical** send/receive machinery used by the
+ /// production `run_cloud_sync_cycle` method — no test-only shortcuts.
+ ///
+ /// **Validates: Requirements PV-1.13**
     #[tokio::test]
     async fn cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint() {
         let path = tmp_path("g16");
         cleanup(&path);
 
-        // Initialise a real CoreHandle — this wires the production cloud sync
-        // loop (`spawn_cloud_sync_loop`) in `CoreHandle::init`.
+ // Initialise a real CoreHandle — this wires the production cloud sync
+ // loop (`spawn_cloud_sync_loop`) in `CoreHandle::init`.
         let handle = CoreHandle::init(make_config(&path))
             .await
             .expect("CoreHandle::init");
 
-        // Write 3 rows through the production path.  Each `write()` registers
-        // a Delta in the Durability Subsystem's cloud outbound queue (Req 16.3).
+ // Write 3 rows through the production path. Each `write()` registers
+ // a Delta in the Durability Subsystem's cloud outbound queue (Req 16.3).
         let mut delta_ids = Vec::new();
         for i in 0..3u32 {
             let wr = handle
@@ -14634,28 +14634,28 @@ mod cloud_sync_wiring_tests {
             "every write must be queued for cloud sync (send path is registered)"
         );
 
-        // ── Drive the send path through a mock cloud endpoint ─────────────────
-        //
-        // We call `run_cloud_sync_cycle` directly here (the same function the
-        // production background loop invokes) but override the internal ledger
-        // with our mock endpoint by manually invoking the queue + mock conn.
-        //
-        // This is the same strategy used in the durability integration tests:
-        // `cloud_sync_loop(&mut queue, &mut conn, ...)`.  We lock the
-        // durability subsystem's queue, drain it through the mock endpoint,
-        // and check both the call counter (send path) and the mock ledger's
-        // committed set (receive path).
+ // ── Drive the send path through a mock cloud endpoint ─────────────────
+ //
+ // We call `run_cloud_sync_cycle` directly here (the same function the
+ // production background loop invokes) but override the internal ledger
+ // with our mock endpoint by manually invoking the queue + mock conn.
+ //
+ // This is the same strategy used in the durability integration tests:
+ // `cloud_sync_loop(&mut queue, &mut conn, ...)`. We lock the
+ // durability subsystem's queue, drain it through the mock endpoint,
+ // and check both the call counter (send path) and the mock ledger's
+ // committed set (receive path).
 
-        // Build the mock endpoint backed by a fresh in-memory CloudLedger
-        // (matching the schema the CrdtEngine used when producing the Deltas).
+ // Build the mock endpoint backed by a fresh in-memory CloudLedger
+ // (matching the schema the CrdtEngine used when producing the Deltas).
         let mock_calls = Arc::new(AtomicUsize::new(0));
         let (ledger_secret, _, ledger_did) = {
             let (s, p) = crate::identity::keypair::generate_keypair().expect("keygen");
             let did = crate::crdt::derive_did_from_public_key(&p);
             (s, p, did)
         };
-        // The mock ledger must accept the schema hash produced by this handle's
-        // CrdtEngine.  We read the schema hash from the first registered Delta.
+ // The mock ledger must accept the schema hash produced by this handle's
+ // CrdtEngine. We read the schema hash from the first registered Delta.
         let mock_schema_hash = {
             let crdt = handle.crdt.lock().expect("crdt lock");
             crdt.current_schema_hash()
@@ -14672,9 +14672,9 @@ mod cloud_sync_wiring_tests {
             ledger: mock_ledger,
         };
 
-        // Drain the cloud outbound queue through the mock endpoint using the
-        // production `cloud_sync_loop` function — same function `run_cloud_sync_cycle`
-        // uses internally (production code path, not a test shortcut).
+ // Drain the cloud outbound queue through the mock endpoint using the
+ // production `cloud_sync_loop` function — same function `run_cloud_sync_cycle`
+ // uses internally (production code path, not a test shortcut).
         let result = {
             let mut durability = handle.durability.lock().expect("durability lock");
             crate::durability::cloud_queue::cloud_sync_loop(
@@ -14684,16 +14684,16 @@ mod cloud_sync_wiring_tests {
             )
         };
 
-        // ── Assert send path is wired ─────────────────────────────────────────
-        // WIRING CHECK: the send path (`cloud_sync_loop` calling `send_delta`)
-        // was invoked exactly once per Delta.  If `spawn_cloud_sync_loop` is
-        // removed from `CoreHandle::init`, `send_delta` is never called and
-        // this assertion fails.
-        //
-        // NOTE: we use `run_cloud_sync_cycle`-equivalent logic directly so the
-        // test is deterministic (no races), but the production caller of
-        // `cloud_sync_loop` is `run_cloud_sync_cycle`, which is called by
-        // `spawn_cloud_sync_loop` — wired from `CoreHandle::init`.
+ // ── Assert send path is wired ─────────────────────────────────────────
+ // WIRING CHECK: the send path (`cloud_sync_loop` calling `send_delta`)
+ // was invoked exactly once per Delta. If `spawn_cloud_sync_loop` is
+ // removed from `CoreHandle::init`, `send_delta` is never called and
+ // this assertion fails.
+ //
+ // NOTE: we use `run_cloud_sync_cycle`-equivalent logic directly so the
+ // test is deterministic (no races), but the production caller of
+ // `cloud_sync_loop` is `run_cloud_sync_cycle`, which is called by
+ // `spawn_cloud_sync_loop` — wired from `CoreHandle::init`.
         let calls = mock_calls.load(Ordering::Relaxed);
         assert_eq!(
             calls, 3,
@@ -14707,11 +14707,11 @@ mod cloud_sync_wiring_tests {
         assert_eq!(result.rejected, 0, "no Deltas must be rejected");
         assert_eq!(result.deferred, 0, "no Deltas must be deferred");
 
-        // ── Assert receive path is wired ──────────────────────────────────────
-        // WIRING CHECK: the receive path (`CloudLedger::receive_delta` via
-        // `CloudConnection::send_delta`) ran for each Delta.  If
-        // `receive_delta` is removed from `CloudLedgerConnection::send_delta`,
-        // the Delta is not committed on the ledger and this assertion fails.
+ // ── Assert receive path is wired ──────────────────────────────────────
+ // WIRING CHECK: the receive path (`CloudLedger::receive_delta` via
+ // `CloudConnection::send_delta`) ran for each Delta. If
+ // `receive_delta` is removed from `CloudLedgerConnection::send_delta`,
+ // the Delta is not committed on the ledger and this assertion fails.
         assert_eq!(
             mock_conn.ledger.committed_count(),
             3,
@@ -14727,7 +14727,7 @@ mod cloud_sync_wiring_tests {
             );
         }
 
-        // ── Assert queue is empty after drain ─────────────────────────────────
+ // ── Assert queue is empty after drain ─────────────────────────────────
         assert_eq!(
             handle.cloud_queue_depth(),
             0,
@@ -14737,21 +14737,21 @@ mod cloud_sync_wiring_tests {
         cleanup(&path);
     }
 
-    // ── G1.6 production loop variant ─────────────────────────────────────────
+ // ── G1.6 production loop variant ─────────────────────────────────────────
 
-    /// Complementary test: drive the **production background loop**
-    /// (`spawn_cloud_sync_loop`) rather than the manual cycle call.
-    ///
-    /// This confirms the production init-time wiring (`CoreHandle::init` calls
-    /// `spawn_cloud_sync_loop`) also works end-to-end: writes queue up, the
-    /// background loop drains them via the real `CloudLedgerConnection` + the
-    /// in-process `CloudLedger`, and both the queue empties and the Deltas are
-    /// committed on the ledger.
-    ///
-    /// The production cloud sync loop is `spawn_cloud_sync_loop` at
-    /// `api/mod.rs:4142`, spawned from `CoreHandle::init` at `api/mod.rs:~1220`.
-    ///
-    /// **Validates: Requirements PV-1.13**
+ /// Complementary test: drive the **production background loop**
+ /// (`spawn_cloud_sync_loop`) rather than the manual cycle call.
+ ///
+ /// This confirms the production init-time wiring (`CoreHandle::init` calls
+ /// `spawn_cloud_sync_loop`) also works end-to-end: writes queue up, the
+ /// background loop drains them via the real `CloudLedgerConnection` + the
+ /// in-process `CloudLedger`, and both the queue empties and the Deltas are
+ /// committed on the ledger.
+ ///
+ /// The production cloud sync loop is `spawn_cloud_sync_loop` at
+ /// `api/mod.rs:4142`, spawned from `CoreHandle::init` at `api/mod.rs:~1220`.
+ ///
+ /// **Validates: Requirements PV-1.13**
     #[tokio::test]
     async fn cloud_sync_production_loop_wiring_confirmed() {
         let path = tmp_path("g16prod");
@@ -14761,9 +14761,9 @@ mod cloud_sync_wiring_tests {
             .await
             .expect("CoreHandle::init");
 
-        // Drive the identical production loop with a short interval.
-        // (In production builds `CoreHandle::init` does this with
-        // `CLOUD_SYNC_INTERVAL_MS`; here we use 10 ms for test speed.)
+ // Drive the identical production loop with a short interval.
+ // (In production builds `CoreHandle::init` does this with
+ // `CLOUD_SYNC_INTERVAL_MS`; here we use 10 ms for test speed.)
         let _loop_handle = CoreHandle::spawn_cloud_sync_loop(&handle, Duration::from_millis(10));
 
         let mut delta_ids = Vec::new();
@@ -14779,8 +14779,8 @@ mod cloud_sync_wiring_tests {
             delta_ids.push(wr.delta_id);
         }
 
-        // The background loop (not a manual cycle call) must drain the queue and
-        // commit each Delta to the in-process Cloud Ledger.
+ // The background loop (not a manual cycle call) must drain the queue and
+ // commit each Delta to the in-process Cloud Ledger.
         wait_for_drain(&handle, &delta_ids).await;
 
         for id in &delta_ids {
@@ -14799,20 +14799,20 @@ mod cloud_sync_wiring_tests {
 //
 // CLAIM-G1.9: A revocation delta arriving while a migration is executing on
 // Node A causes `finish_migration` to discard the transform result before the
-// schema hash advances.  The production caller for this gate is
+// schema hash advances. The production caller for this gate is
 // `SchemaMigrationEngine::finish_migration` at
 // `tirbase-core/src/migration/mod.rs:400` (the `CLAIM-G1.9` block).
 //
 // Wiring mutation check: if the `is_revoked` re-check inside `finish_migration`
 // (the `CLAIM-G1.9` block in `migration/mod.rs`) were removed, the migration
 // result would be treated as `Success` and the local schema hash would advance
-// to `v2` despite the revocation.  The assertion
+// to `v2` despite the revocation. The assertion
 // `assert_eq!(mig.current_schema_hash(), v1, "schema must NOT advance …")`
 // inside `migration_mid_flight_revocation_two_core_handle_instances` would
 // then fail because `current_schema_hash()` returned `v2` instead of `v1`.
 //
 // Failing test (without the CLAIM-G1.9 block):
-//   `migration_mid_flight_revocation_two_core_handle_instances`
+// `migration_mid_flight_revocation_two_core_handle_instances`
 //
 // CLAIM-G1.9: see docs/audits/gate-g1.md G1.9 entry.
 #[cfg(all(test, feature = "native"))]
@@ -14833,20 +14833,20 @@ mod migration_mid_flight_revocation_tests {
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
 
-    /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
-    ///
-    /// The epoch interrupt (revocation + sandbox halt, Req 18.6) is the only
-    /// thing that stops it — making it a reliable "guaranteed in-progress"
-    /// transform for this timing-sensitive integration test.
+ /// WASM transform that never returns: `(func (export "run") (loop $inf br $inf))`.
+ ///
+ /// The epoch interrupt (revocation + sandbox halt, Req 18.6) is the only
+ /// thing that stops it — making it a reliable "guaranteed in-progress"
+ /// transform for this timing-sensitive integration test.
     fn infinite_loop_wasm_bytes() -> Vec<u8> {
         wat::parse_str(r#"(module (func (export "run") (loop $inf br $inf))) "#)
             .expect("parse infinite-loop WAT")
     }
 
-    /// Build a two-node migration config: both nodes share the same CA public
-    /// key and the same schema version path `[v1 → v2]`, which is sufficient
-    /// for Node A to accept and start the migration and for Node B to author a
-    /// revocation delta for the same migration ID.
+ /// Build a two-node migration config: both nodes share the same CA public
+ /// key and the same schema version path `[v1 → v2]`, which is sufficient
+ /// for Node A to accept and start the migration and for Node B to author a
+ /// revocation delta for the same migration ID.
     fn make_two_node_migration_config(
         path: &str,
         ca_public: [u8; 32],
@@ -14879,40 +14879,40 @@ mod migration_mid_flight_revocation_tests {
         }
     }
 
-    /// **CLAIM-G1.9** — migration mid-flight revocation: two `CoreHandle` instances.
-    ///
-    /// # Scenario
-    ///
-    /// - Node A: receives a migration delta and starts executing the (infinite-loop)
-    ///   WASM transform in the background migration job.
-    /// - Node B: acts as the RevocationManager — it authors a
-    ///   `MigrationRevocationDelta` for the same migration ID.
-    /// - The revocation is injected into Node A **while the transform is
-    ///   executing** (confirmed via `migration_runs.is_in_flight`).
-    /// - Node A's production commit gate (`finish_migration` at
-    ///   `migration/mod.rs:400`, the `CLAIM-G1.9` block) detects the revocation
-    ///   and discards the transform result — the local schema hash must NOT
-    ///   advance to `v2`.
-    ///
-    /// # Wiring mutation check
-    ///
-    /// If the `CLAIM-G1.9` block (the `is_revoked` re-check inside
-    /// `finish_migration`) were removed, the migration would be treated as
-    /// `Success` and `current_schema_hash()` would return `v2`.  The final
-    /// assertion `assert_eq!(mig.current_schema_hash(), v1, …)` would fail.
-    ///
-    /// **Validates: Requirements PV-1.13**
+ /// **CLAIM-G1.9** — migration mid-flight revocation: two `CoreHandle` instances.
+ ///
+ /// # Scenario
+ ///
+ /// - Node A: receives a migration delta and starts executing the (infinite-loop)
+ /// WASM transform in the background migration job.
+ /// - Node B: acts as the RevocationManager — it authors a
+ /// `MigrationRevocationDelta` for the same migration ID.
+ /// - The revocation is injected into Node A **while the transform is
+ /// executing** (confirmed via `migration_runs.is_in_flight`).
+ /// - Node A's production commit gate (`finish_migration` at
+ /// `migration/mod.rs:400`, the `CLAIM-G1.9` block) detects the revocation
+ /// and discards the transform result — the local schema hash must NOT
+ /// advance to `v2`.
+ ///
+ /// # Wiring mutation check
+ ///
+ /// If the `CLAIM-G1.9` block (the `is_revoked` re-check inside
+ /// `finish_migration`) were removed, the migration would be treated as
+ /// `Success` and `current_schema_hash()` would return `v2`. The final
+ /// assertion `assert_eq!(mig.current_schema_hash(), v1, …)` would fail.
+ ///
+ /// **Validates: Requirements PV-1.13**
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn migration_mid_flight_revocation_two_core_handle_instances() {
-        // ── Schema version constants ──────────────────────────────────────────
+ // ── Schema version constants ──────────────────────────────────────────
         let v1 = [0xA1u8; 32];
         let v2 = [0xA2u8; 32];
 
-        // ── CA keypair shared by both nodes ───────────────────────────────────
+ // ── CA keypair shared by both nodes ───────────────────────────────────
         let (ca_secret, ca_public) =
             crate::identity::keypair::generate_keypair().expect("CA keygen");
 
-        // ── Node A — the migrating node ───────────────────────────────────────
+ // ── Node A — the migrating node ───────────────────────────────────────
         let path_a = tmp_path("a");
         cleanup(&path_a);
         let config_a = make_two_node_migration_config(&path_a, ca_public, v1, v2);
@@ -14920,21 +14920,21 @@ mod migration_mid_flight_revocation_tests {
             .await
             .expect("Node A CoreHandle::init");
 
-        // ── Node B — the revocation authority (RevocationManager role) ────────
+ // ── Node B — the revocation authority (RevocationManager role) ────────
         let path_b = tmp_path("b");
         cleanup(&path_b);
         let config_b = make_two_node_migration_config(&path_b, ca_public, v1, v2);
         let _handle_b = CoreHandle::init(config_b)
             .await
             .expect("Node B CoreHandle::init");
-        // Node B holds a keypair that will sign the revocation delta.
-        // In this test the nodes are not mesh-connected — Node B's role is
-        // purely to provide a realistic second identity (RevocationManager)
-        // that authors the revocation delta and hands it to Node A out-of-band,
-        // simulating the revocation arriving over any transport channel while
-        // Node A is mid-transform.
+ // Node B holds a keypair that will sign the revocation delta.
+ // In this test the nodes are not mesh-connected — Node B's role is
+ // purely to provide a realistic second identity (RevocationManager)
+ // that authors the revocation delta and hands it to Node A out-of-band,
+ // simulating the revocation arriving over any transport channel while
+ // Node A is mid-transform.
 
-        // ── Build the infinite-loop migration delta ───────────────────────────
+ // ── Build the infinite-loop migration delta ───────────────────────────
         use crate::crdt::delta::Ed25519Signature;
         use crate::crdt::derive_did_from_public_key;
         use crate::migration::migration_delta::{
@@ -14966,7 +14966,7 @@ mod migration_mid_flight_revocation_tests {
             postconditions: None,
         };
 
-        // ── Step 1: Inject the migration into Node A and start it ─────────────
+ // ── Step 1: Inject the migration into Node A and start it ─────────────
         handle_a
             .inject_inbound(GossipMessage::InboundMigrationDelta(Box::new(delta)))
             .await
@@ -14976,9 +14976,9 @@ mod migration_mid_flight_revocation_tests {
             .await
             .expect("process migration delta on Node A");
 
-        // Wait until the infinite-loop transform is genuinely executing
-        // (both the engine's in-progress marker AND the execution registry
-        // entry are set), so the revocation races with a live run.
+ // Wait until the infinite-loop transform is genuinely executing
+ // (both the engine's in-progress marker AND the execution registry
+ // entry are set), so the revocation races with a live run.
         let start_deadline = crate::traits::monotonic_now() + 15_000_000;
         loop {
             let in_progress = handle_a
@@ -14998,9 +14998,9 @@ mod migration_mid_flight_revocation_tests {
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         }
 
-        // ── Step 2: Node B authors a revocation delta; inject into Node A ─────
-        // Node B generates a manager keypair (RevocationManager role) and signs
-        // the revocation delta targeting the in-flight migration ID.
+ // ── Step 2: Node B authors a revocation delta; inject into Node A ─────
+ // Node B generates a manager keypair (RevocationManager role) and signs
+ // the revocation delta targeting the in-flight migration ID.
         let (mgr_secret, mgr_public) =
             crate::identity::keypair::generate_keypair().expect("manager keygen (Node B)");
         let mgr_did = derive_did_from_public_key(&mgr_public);
@@ -15016,8 +15016,8 @@ mod migration_mid_flight_revocation_tests {
             created_at: 0,
         };
 
-        // Inject the revocation (as if received from Node B over any channel)
-        // while Node A is mid-transform.
+ // Inject the revocation (as if received from Node B over any channel)
+ // while Node A is mid-transform.
         handle_a
             .inject_inbound(GossipMessage::InboundMigrationRevocationDelta(revocation))
             .await
@@ -15027,9 +15027,9 @@ mod migration_mid_flight_revocation_tests {
             .await
             .expect("drain revocation delta on Node A");
 
-        // ── Step 3: Wait for Node A's background job to settle ────────────────
-        // The epoch interrupt from the revocation must halt the infinite-loop
-        // transform; `await_migration_quiescence` returns when the job finishes.
+ // ── Step 3: Wait for Node A's background job to settle ────────────────
+ // The epoch interrupt from the revocation must halt the infinite-loop
+ // transform; `await_migration_quiescence` returns when the job finishes.
         assert!(
             handle_a
                 .await_migration_quiescence(std::time::Duration::from_secs(15))
@@ -15037,16 +15037,16 @@ mod migration_mid_flight_revocation_tests {
             "Node A: revoked migration job must settle within 15 s"
         );
 
-        // ── Step 4: Assert that Node A's schema did NOT advance ───────────────
-        //
-        // This assertion is the direct verification of the CLAIM-G1.9 production
-        // caller (`finish_migration` at `migration/mod.rs:400`).
-        //
-        // Wiring mutation check: if the `CLAIM-G1.9` block were removed from
-        // `finish_migration`, `current_schema_hash()` would return `v2` (the
-        // transform result would be committed as `Success`) and this assertion
-        // would fail with:
-        //   "left: [0xa2; 32], right: [0xa1; 32]"
+ // ── Step 4: Assert that Node A's schema did NOT advance ───────────────
+ //
+ // This assertion is the direct verification of the CLAIM-G1.9 production
+ // caller (`finish_migration` at `migration/mod.rs:400`).
+ //
+ // Wiring mutation check: if the `CLAIM-G1.9` block were removed from
+ // `finish_migration`, `current_schema_hash()` would return `v2` (the
+ // transform result would be committed as `Success`) and this assertion
+ // would fail with:
+ // "left: [0xa2; 32], right: [0xa1; 32]"
         {
             let mig = handle_a.migration.lock().unwrap();
             assert_eq!(
@@ -15078,7 +15078,7 @@ mod migration_mid_flight_revocation_tests {
 }
 
 #[cfg(all(test, feature = "native"))]
-mod task23_pv6_hardening_tests {
+mod inbound_hardening_pv6_tests {
     use super::*;
     use crate::crdt::delta::{Delta, DeltaId, Ed25519Signature, PriorityClass};
     use crate::identity::keypair::sign;
@@ -15127,8 +15127,8 @@ mod task23_pv6_hardening_tests {
         }
     }
 
-    /// CLAIM-23.1: bounded pending queue; late dependency arrival processes pending delta.
-    /// Uses two real CoreHandle instances.
+ /// CLAIM-23.1: bounded pending queue; late dependency arrival processes pending delta.
+ /// Uses two real CoreHandle instances.
     #[tokio::test]
     async fn claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival() {
         let pa = tmp("a");
@@ -15136,7 +15136,7 @@ mod task23_pv6_hardening_tests {
         let a = CoreHandle::init(mk_cfg(&pa)).await.unwrap();
         let b = CoreHandle::init(mk_cfg(&pb)).await.unwrap();
 
-        // delta1 is the dependency (honest Automerge root change from A).
+ // delta1 is the dependency (honest Automerge root change from A).
         let delta1 = {
             use automerge::transaction::Transactable;
             let mut doc = automerge::AutoCommit::new();
@@ -15161,7 +15161,7 @@ mod task23_pv6_hardening_tests {
             d
         };
 
-        // delta2 depends on delta1's change history (same doc lineage). causal_parents metadata not required by automerge validation.
+ // delta2 depends on delta1's change history (same doc lineage). causal_parents metadata not required by automerge validation.
         let delta2 = {
             use automerge::transaction::Transactable;
             let mut doc = automerge::AutoCommit::load(&delta1.automerge_bytes).unwrap();
@@ -15185,7 +15185,7 @@ mod task23_pv6_hardening_tests {
             d
         };
 
-        // Deliver delta2 first to B -> should pend (missing dependency).
+ // Deliver delta2 first to B -> should pend (missing dependency).
         b.inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
             delta2.clone(),
         ))
@@ -15193,7 +15193,7 @@ mod task23_pv6_hardening_tests {
         .unwrap();
         b.process_inbound_messages().await.unwrap();
 
-        // Deliver delta1 -> merge should process, and pending retry should process delta2.
+ // Deliver delta1 -> merge should process, and pending retry should process delta2.
         b.inject_inbound(crate::transport::message::GossipMessage::InboundDelta(
             delta1.clone(),
         ))
@@ -15217,15 +15217,15 @@ mod task23_pv6_hardening_tests {
         cleanup(&pb);
     }
 
-    /// CLAIM-23.2: PENDING_QUEUE_OVERFLOW is quarantined when byte cap exceeded (S33).
+ /// CLAIM-23.2: PENDING_QUEUE_OVERFLOW is quarantined when byte cap exceeded (S33).
     #[tokio::test]
     async fn claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine() {
         let pb = tmp("b23_2");
         let a = CoreHandle::init(mk_cfg(&tmp("a23_2"))).await.unwrap();
         let b = CoreHandle::init(mk_cfg(&pb)).await.unwrap();
 
-        // Force tiny per-peer cap; enqueue synthetic pending deltas and quarantine evictions.
-        // Uses real CoreHandle hardening DB (PV-6.7) wired in init.
+ // Force tiny per-peer cap; enqueue synthetic pending deltas and quarantine evictions.
+ // Uses real CoreHandle hardening DB (PV-6.7) wired in init.
         let mut saw_overflow = false;
         {
             let mut crdt = b.crdt.lock().unwrap();
@@ -15278,7 +15278,7 @@ mod task23_pv6_hardening_tests {
         cleanup(&tmp("a23_2"));
     }
 
-    /// CLAIM-23.3: Schema_Quarantine_Ledger in derived/hardening DB stores replayable reason codes.
+ /// CLAIM-23.3: Schema_Quarantine_Ledger in derived/hardening DB stores replayable reason codes.
     #[test]
     fn claim_23_3_schema_quarantine_ledger_records_replayable_reasons() {
         use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
@@ -15354,7 +15354,7 @@ mod task23_pv6_hardening_tests {
         let _ = std::fs::remove_file(&dir);
     }
 
-    /// CLAIM-23.4: Rate_Quarantine in-memory counters + periodic summary rows, 7-day TTL, non-replayable.
+ /// CLAIM-23.4: Rate_Quarantine in-memory counters + periodic summary rows, 7-day TTL, non-replayable.
     #[test]
     fn claim_23_4_rate_quarantine_counters_and_summary_ttl() {
         use crate::crdt::rate_quarantine::{
@@ -15385,7 +15385,7 @@ mod task23_pv6_hardening_tests {
         )
         .unwrap();
         assert_eq!(rq.sender_rejections("did:a"), 2);
-        // advance beyond TTL
+ // advance beyond TTL
         let far = 1_000_000 + RATE_QUARANTINE_TTL_SECS + 120;
         rq.record(
             "did:a",
@@ -15410,7 +15410,7 @@ mod task23_pv6_hardening_tests {
         let _ = std::fs::remove_file(&dir);
     }
 
-    /// CLAIM-23.5: per-sender quota 1,000 in schema_quarantine; attacker cannot flush others.
+ /// CLAIM-23.5: per-sender quota 1,000 in schema_quarantine; attacker cannot flush others.
     #[test]
     fn claim_23_5_schema_quarantine_per_sender_quota_isolated() {
         use crate::crdt::schema_quarantine::{SchemaQuarantineLedger, SchemaQuarantineReason};
@@ -15460,7 +15460,7 @@ mod task23_pv6_hardening_tests {
         let _ = std::fs::remove_file(&dir);
     }
 
-    /// CLAIM-23.6: cheap-checks-first ordering in inbound validation pipeline.
+ /// CLAIM-23.6: cheap-checks-first ordering in inbound validation pipeline.
     #[test]
     fn claim_23_6_cheap_checks_first_ordering() {
         use crate::crdt::hardening::{CheapCheckStage, InboundHardening};
@@ -15489,7 +15489,7 @@ mod task23_pv6_hardening_tests {
             .cheap_checks_first(&d, crate::crdt::hardening::CheapCheckLimits { rate_exceeded: false, max_bytes: 100, max_ops: 1, missing_dependency: true }, 0, 0)
             .unwrap_err();
         assert_eq!(e.stage, CheapCheckStage::Size, "size before op/dep");
-        // op count depends on automerge parse; size already smaller can be tested with empty
+ // op count depends on automerge parse; size already smaller can be tested with empty
         let d2 = Delta {
             automerge_bytes: vec![0u8; 10],
             ..d.clone()
@@ -15503,7 +15503,7 @@ mod task23_pv6_hardening_tests {
 }
 
 #[cfg(all(test, feature = "native"))]
-mod task24_wiring_tests {
+mod inbound_hardening_wiring_tests {
     use super::*;
     use crate::crdt::delta::{Delta, PriorityClass};
     use crate::transport::message::GossipMessage;
@@ -15537,7 +15537,7 @@ mod task24_wiring_tests {
 
     fn tmp_path(suffix: &str) -> String {
         let mut p = std::env::temp_dir();
-        p.push(format!("tirbase_task24_wiring_{suffix}.db"));
+        p.push(format!("tirbase_inbound_wiring_{suffix}.db"));
         p.to_str().unwrap().to_string()
     }
 
@@ -15547,7 +15547,7 @@ mod task24_wiring_tests {
         let _ = std::fs::remove_file(format!("{path}-wal"));
         let _ = std::fs::remove_file(format!("{path}-shm"));
     }
-    /// A signed inbound Delta carrying arbitrary Automerge bytes.
+ /// A signed inbound Delta carrying arbitrary Automerge bytes.
     fn signed_peer_delta(
         peer_secret: &[u8; 32],
         peer_public: &[u8; 32],
@@ -15572,7 +15572,7 @@ mod task24_wiring_tests {
         (delta, peer_did)
     }
 
-    /// A signed inbound Delta carrying a table/key envelope plus filler data.
+ /// A signed inbound Delta carrying a table/key envelope plus filler data.
     fn caps_test_delta(peer_secret: &[u8; 32], peer_public: &[u8; 32]) -> (Delta, String) {
         let envelope = serde_json::json!({
             "_tirbase_table": "sensors",
@@ -15586,10 +15586,10 @@ mod task24_wiring_tests {
         )
     }
 
-    /// CLAIM-24.1a: a shape cap (op count) is enforced on the real receive path.
-    ///
-    /// The payload is a genuine Automerge change that would merge under the
-    /// default caps; setting `op_count = 0` quarantines it before merge.
+ /// CLAIM-24.1a: a shape cap (op count) is enforced on the real receive path.
+ ///
+ /// The payload is a genuine Automerge change that would merge under the
+ /// default caps; setting `op_count = 0` quarantines it before merge.
     #[tokio::test]
     async fn claim_24_1a_configured_op_count_cap_quarantines_delta() {
         use automerge::transaction::Transactable;
@@ -15646,12 +15646,12 @@ mod task24_wiring_tests {
         cleanup(&path_b);
     }
 
-    /// CLAIM-24.1: a configured `InboundCaps` value changes runtime behaviour.
-    ///
-    /// Tightening `delta_size_bytes` to 64 bytes quarantines a ~550-byte Delta
-    /// that the default 1 MiB cap would have merged.  Removing the
-    /// `h.caps.delta_size_bytes` comparison from `receive_inbound` makes the
-    /// Delta merge and this test fail.
+ /// CLAIM-24.1: a configured `InboundCaps` value changes runtime behaviour.
+ ///
+ /// Tightening `delta_size_bytes` to 64 bytes quarantines a ~550-byte Delta
+ /// that the default 1 MiB cap would have merged. Removing the
+ /// `h.caps.delta_size_bytes` comparison from `receive_inbound` makes the
+ /// Delta merge and this test fail.
     #[tokio::test]
     async fn claim_24_1_configured_inbound_cap_quarantines_oversize_delta() {
         let path_a = tmp_path("caps_A");
@@ -15691,7 +15691,7 @@ mod task24_wiring_tests {
             .expect("process_inbound_messages");
         assert_eq!(processed, 1);
 
-        // Quarantined at the configured size cap, not merged/projected.
+ // Quarantined at the configured size cap, not merged/projected.
         {
             let crdt = handle_b.crdt.lock().expect("crdt lock");
             assert_eq!(
@@ -15709,8 +15709,8 @@ mod task24_wiring_tests {
         cleanup(&path_b);
     }
 
-    /// CLAIM-24.2: every production `CoreHandle` exposes live memory-budget
-    /// cache metrics (the same `Arc`-backed counters the inbound path updates).
+ /// CLAIM-24.2: every production `CoreHandle` exposes live memory-budget
+ /// cache metrics (the same `Arc`-backed counters the inbound path updates).
     #[tokio::test]
     async fn claim_24_2_core_handle_exposes_live_memory_budget_metrics() {
         let path = tmp_path("mem_budget");
@@ -15724,7 +15724,7 @@ mod task24_wiring_tests {
         metrics.dag_node_cache.record_miss();
         metrics.dag_node_cache.record_eviction(512);
 
-        // A fresh accessor call observes the same counters (shared state).
+ // A fresh accessor call observes the same counters (shared state).
         let observed = handle.memory_budget_metrics();
         assert_eq!(observed.dag_node_cache.current_bytes(), 512);
         assert_eq!(observed.dag_node_cache.hit_count(), 1);
@@ -15738,7 +15738,7 @@ mod task24_wiring_tests {
 }
 
 #[cfg(all(test, feature = "native"))]
-mod task24_inbound_caps_tests {
+mod inbound_cap_rejection_tests {
     use crate::crdt::inbound_caps::{
         InboundCaps, INBOUND_CAP_BATCH_CHANGES, INBOUND_CAP_CONNECTIONS,
         INBOUND_CAP_DELTA_SIZE_BYTES, INBOUND_CAP_DEPS_PER_CHANGE, INBOUND_CAP_HEADS,

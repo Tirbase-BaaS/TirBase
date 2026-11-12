@@ -1,8 +1,8 @@
 //! Scenarios S5 and S15 — delta flood / rate exhaustion and reassembly bomb.
 //!
 //! Both scenarios call the production `InboundHardening::cheap_checks_first`
-//! gate.  S5 proves the per-sender rate rejection quarantines the attacker while
-//! another sender continues to be processed.  S15 proves an oversized payload is
+//! gate. S5 proves the per-sender rate rejection quarantines the attacker while
+//! another sender continues to be processed. S15 proves an oversized payload is
 //! rejected by the size cap before any Automerge parsing.
 
 use tirbase_core::crdt::delta::{Delta, Ed25519Signature, PriorityClass};
@@ -77,7 +77,7 @@ pub fn run_s5(seed: u64) -> Result<(), String> {
         return Err("S5 FAIL: rate quarantine did not record the attacker".to_string());
     }
 
-    // An honest sender with an in-budget delta must still pass the same gate.
+ // An honest sender with an in-budget delta must still pass the same gate.
     let honest = delta(victim.clone(), 64);
     hardening
         .cheap_checks_first(
@@ -143,7 +143,7 @@ pub fn run_s15(seed: u64) -> Result<(), String> {
         return Err("S15 FAIL: oversize rejection was not quarantined".to_string());
     }
 
-    // A within-cap delta from the same sender is still accepted.
+ // A within-cap delta from the same sender is still accepted.
     let small = delta(attacker, 128);
     hardening
         .cheap_checks_first(

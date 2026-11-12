@@ -1,4 +1,4 @@
-//! Task 8 epoch integration tests (CLAIM-8.7, CLAIM-8.8 — S22, INV-10).
+//! epoch integration tests (CLAIM-8.7, CLAIM-8.8 — S22, INV-10).
 //!
 //! The same `EpochRegistry` / `CommandGuard` pair is wired by the gateway: the
 //! registry is backed by the `device_epoch` table and the guard's Stage 8
@@ -127,7 +127,7 @@ fn epoch_starts_at_zero_and_prior_epoch_commands_are_rejected_after_bump() {
     next.enrollment_epoch = 1;
     guard.admit(&next).expect("new-epoch command admitted");
 
-    // The durable row carries the committed epoch, not an in-memory guess.
+ // The durable row carries the committed epoch, not an in-memory guess.
     let row: DeviceEpoch = store.load("did:key:zDevice").unwrap().unwrap();
     assert_eq!(row.epoch, 1);
 }

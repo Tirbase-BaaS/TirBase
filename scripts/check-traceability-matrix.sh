@@ -27,7 +27,7 @@ done < <(
     | sort -u
 )
 
-# Always require the matrix itself and key artifacts referenced by tasks 54-56.
+# Always require the matrix itself and key artifacts referenced by -56.
 required=(
   "docs/traceability-matrix.md"
   "docs/crypto-review-scope.md"
@@ -54,16 +54,16 @@ missing=()
 checked=0
 for p in "${paths[@]}"; do
   [[ -z "$p" ]] && continue
-  # Skip inline notes/placeholders
+ # Skip inline notes/placeholders
   [[ "$p" == *" "* ]] && continue
   [[ "$p" == \`* ]] && continue
-  # Normalize leading ./
+ # Normalize leading ./
   p="${p#./}"
-  # Skip external/absolute-looking tokens
+ # Skip external/absolute-looking tokens
   [[ "$p" == /* ]] && continue
   [[ "$p" == http* ]] && continue
   [[ "$p" == \** ]] && continue
-  # Only verify repo paths we care about
+ # Only verify repo paths we care about
   if [[ "$p" != */* && "$p" != *.md && "$p" != *.rs && "$p" != *.toml && "$p" != *.yml && "$p" != *.yaml && "$p" != *.sh && "$p" != *.tla ]]; then
     continue
   fi
@@ -73,7 +73,7 @@ for p in "${paths[@]}"; do
   seen_list="${seen_list}${p}"$'\n'
 
   resolved="$p"
-  # Workflow shorthand: if ".github/workflows/" not present but ends with .yml and file exists there.
+ # Workflow shorthand: if ".github/workflows/" not present but ends with .yml and file exists there.
   if [[ "$p" != .github/* && "$p" == *.yml && ! -e "$p" && -e ".github/workflows/$p" ]]; then
     resolved=".github/workflows/$p"
   fi

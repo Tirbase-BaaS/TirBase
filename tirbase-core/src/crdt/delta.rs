@@ -26,12 +26,12 @@ pub type DeltaId = [u8; 32];
 pub struct Ed25519Signature(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 impl Ed25519Signature {
-    /// Create from a 64-byte array.
+ /// Create from a 64-byte array.
     pub fn from_bytes(bytes: [u8; 64]) -> Self {
         Self(bytes.to_vec())
     }
 
-    /// Try to extract as a fixed 64-byte array.
+ /// Try to extract as a fixed 64-byte array.
     pub fn as_bytes(&self) -> Option<[u8; 64]> {
         self.0.as_slice().try_into().ok()
     }
@@ -48,14 +48,14 @@ pub type Did = String;
 /// Bandwidth priority class assigned by the DRR scheduler (Req 12.1, 12.5–12.7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PriorityClass {
-    /// 70% guaranteed bandwidth floor.
-    /// Revocation_Deltas, safety-alert, emergency-alert payloads.
+ /// 70% guaranteed bandwidth floor.
+ /// Revocation_Deltas, safety-alert, emergency-alert payloads.
     High,
-    /// 20% guaranteed bandwidth floor.
-    /// Peer reachability, link-state, session-validity records.
+ /// 20% guaranteed bandwidth floor.
+ /// Peer reachability, link-state, session-validity records.
     Medium,
-    /// 10% guaranteed bandwidth floor.
-    /// All other application Deltas.
+ /// 10% guaranteed bandwidth floor.
+ /// All other application Deltas.
     Low,
 }
 
@@ -66,26 +66,26 @@ pub enum PriorityClass {
 /// Tags are **never** modified or removed; the log only grows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeltaTag {
-    /// This Delta (or one of its causal ancestors) is a contamination root.
+ /// This Delta (or one of its causal ancestors) is a contamination root.
     Contaminated {
         root_id: DeltaId,
         incident_id: uuid::Uuid,
     },
-    /// All contamination roots that led to this Delta are now resolved.
+ /// All contamination roots that led to this Delta are now resolved.
     Decontaminated {
         incident_id: uuid::Uuid,
         resolved_at: i64,
     },
-    /// A Manager_DID has verified data for this root Delta.
+ /// A Manager_DID has verified data for this root Delta.
     Resolved { by_manager_did: Did, at: i64 },
-    /// This Delta was written while the local projection was CONTAMINATED
-    /// or the incoming stream was quarantined (Req 19.5).
+ /// This Delta was written while the local projection was CONTAMINATED
+ /// or the incoming stream was quarantined (Req 19.5).
     ContaminatedByHumanReaction { incident_id: uuid::Uuid },
-    /// This Delta (or one of its causal ancestors) was authored under a
-    /// schema produced by a migration that was later revoked as corrupted
-    /// (Req 19.1).
+ /// This Delta (or one of its causal ancestors) was authored under a
+ /// schema produced by a migration that was later revoked as corrupted
+ /// (Req 19.1).
     ContaminatedByCorruptedMigration { migration_id: [u8; 32] },
-    /// Side-Car replay completed with zero conflicts for this migration (Req 19.6).
+ /// Side-Car replay completed with zero conflicts for this migration (Req 19.6).
     ReplayComplete { migration_id: [u8; 32] },
 }
 
@@ -94,55 +94,55 @@ pub enum DeltaTag {
 /// The atomic unit of change in TirBase (design §Data Models / Delta).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Delta {
-    /// Unique identifier: SHA-256(canonical_bytes()).
+ /// Unique identifier: SHA-256(canonical_bytes()).
     pub id: DeltaId,
 
-    /// The originating device's DID ("did:key:z6Mk…").
+ /// The originating device's DID ("did:key:z6Mk…").
     pub author_did: Did,
 
-    /// Ed25519 signature over `canonical_bytes()` (excluding this field).
+ /// Ed25519 signature over `canonical_bytes()` (excluding this field).
     pub signature: Ed25519Signature,
 
-    /// Deterministic hash of the schema at write time (Req 17.1, 4.6).
+ /// Deterministic hash of the schema at write time (Req 17.1, 4.6).
     pub schema_hash: SchemaIdentifierHash,
 
-    /// Raw Automerge 3.0 changeset bytes (opaque to layers above CRDT).
+ /// Raw Automerge 3.0 changeset bytes (opaque to layers above CRDT).
     pub automerge_bytes: Vec<u8>,
 
-    /// Priority class assigned by the DRR scheduler.
+ /// Priority class assigned by the DRR scheduler.
     pub priority: PriorityClass,
 
-    /// Causal parent Delta IDs (mirrors Automerge dependencies).
+ /// Causal parent Delta IDs (mirrors Automerge dependencies).
     pub causal_parents: Vec<DeltaId>,
 
-    /// Append-only tag log; never mutated, only extended (Req 10.4).
+ /// Append-only tag log; never mutated, only extended (Req 10.4).
     pub tags: Vec<DeltaTag>,
 
-    /// Lamport clock value at write time (for LWW tiebreaking).
+ /// Lamport clock value at write time (for LWW tiebreaking).
     pub lamport: u64,
 
-    /// Wall-clock timestamp (UTC, microseconds); informational only.
+ /// Wall-clock timestamp (UTC, microseconds); informational only.
     pub created_at: i64,
 }
 
 impl Delta {
-    /// Produce the canonical byte representation of this Delta **excluding**
-    /// the `signature` and `id` fields. This is the payload that is signed
-    /// with the author's Ed25519 private key (Req 7.2).
-    ///
-    /// ## Determinism guarantee (Property 1 / Req 1.4)
-    ///
-    /// The serialisation uses `serde_json` with a helper struct whose fields
-    /// are declared in a fixed order.  `serde_json` serialises struct fields
-    /// in declaration order (not hash-map order), so the output is byte-stable
-    /// across every platform and build target — native and WASM — for the same
-    /// logical Delta contents.  Floating-point fields are absent from the
-    /// canonical payload (all numeric fields are integers), eliminating any
-    /// cross-platform float formatting variance.
-    ///
-    /// A future migration to CBOR or a length-prefixed binary codec would
-    /// preserve this guarantee and improve compactness, but is not required
-    /// for correctness — the JSON codec is already deterministic here.
+ /// Produce the canonical byte representation of this Delta **excluding**
+ /// the `signature` and `id` fields. This is the payload that is signed
+ /// with the author's Ed25519 private key (Req 7.2).
+ ///
+ /// ## Determinism guarantee (Property 1 / Req 1.4)
+ ///
+ /// The serialisation uses `serde_json` with a helper struct whose fields
+ /// are declared in a fixed order. `serde_json` serialises struct fields
+ /// in declaration order (not hash-map order), so the output is byte-stable
+ /// across every platform and build target — native and WASM — for the same
+ /// logical Delta contents. Floating-point fields are absent from the
+ /// canonical payload (all numeric fields are integers), eliminating any
+ /// cross-platform float formatting variance.
+ ///
+ /// A future migration to CBOR or a length-prefixed binary codec would
+ /// preserve this guarantee and improve compactness, but is not required
+ /// for correctness — the JSON codec is already deterministic here.
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let payload = CanonicalDeltaPayload {
             author_did: &self.author_did,
@@ -157,7 +157,7 @@ impl Delta {
         serde_json::to_vec(&payload).expect("canonical_bytes serialisation must not fail")
     }
 
-    /// Compute the `DeltaId` as SHA-256 of `canonical_bytes()` (Req 7.2 / design).
+ /// Compute the `DeltaId` as SHA-256 of `canonical_bytes()` (Req 7.2 / design).
     pub fn compute_id(canonical: &[u8]) -> DeltaId {
         let mut hasher = Sha256::new();
         hasher.update(canonical);
@@ -183,7 +183,7 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
-    /// Construct a minimal but complete Delta for testing.
+ /// Construct a minimal but complete Delta for testing.
     fn make_delta(lamport: u64, author: &str, automerge_bytes: Vec<u8>) -> Delta {
         Delta {
             id: [0u8; 32],
@@ -199,7 +199,7 @@ mod tests {
         }
     }
 
-    // ── canonical_bytes ────────────────────────────────────────────────────
+ // ── canonical_bytes ────────────────────────────────────────────────────
 
     #[test]
     fn canonical_bytes_is_deterministic() {
@@ -217,7 +217,7 @@ mod tests {
         let mut d = make_delta(1, "did:key:z6MkB", b"payload".to_vec());
         let before = d.canonical_bytes();
 
-        // Change the signature — canonical_bytes must NOT change.
+ // Change the signature — canonical_bytes must NOT change.
         d.signature = Ed25519Signature(vec![0xFF; 64]);
         let after = d.canonical_bytes();
 
@@ -252,7 +252,7 @@ mod tests {
         );
     }
 
-    // ── compute_id ────────────────────────────────────────────────────────
+ // ── compute_id ────────────────────────────────────────────────────────
 
     #[test]
     fn compute_id_is_sha256_of_canonical_bytes() {
@@ -277,7 +277,7 @@ mod tests {
         );
     }
 
-    // ── DeltaTag serde round-trips ─────────────────────────────────────────
+ // ── DeltaTag serde round-trips ─────────────────────────────────────────
 
     #[test]
     fn delta_tag_contaminated_round_trip() {
@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(tag, decoded);
     }
 
-    // ── PriorityClass serde ────────────────────────────────────────────────
+ // ── PriorityClass serde ────────────────────────────────────────────────
 
     #[test]
     fn priority_class_all_variants_round_trip() {
@@ -347,7 +347,7 @@ mod tests {
         }
     }
 
-    // ── Ed25519Signature helpers ───────────────────────────────────────────
+ // ── Ed25519Signature helpers ───────────────────────────────────────────
 
     #[test]
     fn ed25519_signature_from_and_as_bytes_round_trip() {

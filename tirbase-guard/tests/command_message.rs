@@ -1,4 +1,4 @@
-//! Task 11.1 — `CommandMessage` signing/verification (CLAIM-11.1, PV-4.1,
+//! — `CommandMessage` signing/verification (CLAIM-11.1, PV-4.1,
 //! PV-4.2, INV-6).
 //!
 //! Exercises the production callers:
@@ -130,7 +130,7 @@ fn wrong_issuer_key_is_rejected() {
     let guard = single_target_guard(registry, target(), device_id());
 
     let mut cmd = make_command(&issuer, 0);
-    // Sign with a different key than issuer_did claims.
+ // Sign with a different key than issuer_did claims.
     sign_command(&mut cmd, &other).unwrap();
 
     let mut wire = Vec::new();
@@ -154,7 +154,7 @@ fn signature_covers_all_fields_except_signature() {
         command_signing_bytes(&b).unwrap(),
         "canonical signing bytes must cover sequence_number"
     );
-    // Changing signature alone must not affect signing bytes.
+ // Changing signature alone must not affect signing bytes.
     let mut c = a.clone();
     c.signature = DeviceSignature::Ed25519([9u8; 64]);
     assert_eq!(

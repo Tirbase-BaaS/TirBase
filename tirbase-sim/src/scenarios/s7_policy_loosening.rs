@@ -1,8 +1,8 @@
 //! Scenario S7 — policy loosening without M-of-N (PV-12.5, CLAIM-12.11).
 //!
-//! A single PolicyAuthority submits a loosening bundle.  The guard MUST NOT
+//! A single PolicyAuthority submits a loosening bundle. The guard MUST NOT
 //! apply it: it starts co-signature collection and enforces the time-lock read
-//! from the **active** policy (INV-8).  Bypassing M-of-N or the time-lock must
+//! from the **active** policy (INV-8). Bypassing M-of-N or the time-lock must
 //! fail.
 
 use std::collections::BTreeMap;
@@ -134,7 +134,7 @@ fn sign_bundle(
 }
 
 /// Scenario S7: a single PA submits a loosening bundle while active policy
-/// requires M=2 and a 600s time-lock.  The bundle MUST NOT be applied; only a
+/// requires M=2 and a 600s time-lock. The bundle MUST NOT be applied; only a
 /// pending co-signature collection is started.
 pub fn run_s7() {
     let pa = InMemoryKeyProvider::generate().unwrap();
@@ -147,8 +147,8 @@ pub fn run_s7() {
     let mut lc = PolicyLifecycle::new(target, b0, counter.clone(), map, tr).unwrap();
 
     let prev = lc.active().body_hash;
-    // Loosening: widen range.  Attacker also lies about kind and tries to set
-    // M=1/timelock=0 in the envelope — guard must ignore both.
+ // Loosening: widen range. Attacker also lies about kind and tries to set
+ // M=1/timelock=0 in the envelope — guard must ignore both.
     let mut env = profile(2, -200, 1200, 1, 1, 0);
     env.policy_loosen_m = 1;
     env.policy_loosen_n = 1;
@@ -175,12 +175,12 @@ pub fn run_s7() {
         lc.pending().is_some(),
         "S7: co-signature collection started"
     );
-    // Even with a cosig present, timelock blocks application.
+ // Even with a cosig present, timelock blocks application.
     assert!(matches!(
         lc.apply_pending_loosening(10_599),
         Err(PolicyError::TimelockActive { .. })
     ));
-    // Classifier itself rejects the attack vector.
+ // Classifier itself rejects the attack vector.
     let tr2 = trust_root(&pa);
     let loosening = profile(2, -200, 1200, 2, 3, 600);
     assert_eq!(

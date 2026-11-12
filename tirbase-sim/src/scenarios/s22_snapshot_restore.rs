@@ -1,14 +1,14 @@
 //! Scenario S22 — snapshot restore attack (PV-9.8).
 //!
 //! Restoring an old database silently rolls back the software counter and
-//! enrollment epoch.  Two production controls must catch it:
+//! enrollment epoch. Two production controls must catch it:
 //!
 //! 1. `HardwareCounterBinding::check_at_boot` compares the hardware counter
-//!    against the software value recorded at the last hardware write and
-//!    persists LOCKDOWN on regression.
+//! against the software value recorded at the last hardware write and
+//! persists LOCKDOWN on regression.
 //! 2. `EpochRegistry::restore_bump` advances the enrollment epoch so all
-//!    prior-epoch commands are rejected; peers that observe the older epoch
-//!    emit `EpochRegression`.
+//! prior-epoch commands are rejected; peers that observe the older epoch
+//! emit `EpochRegression`.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -78,8 +78,8 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
     )
     .map_err(|error| format!("S22 open binding: {error}"))?;
 
-    // Simulate a restored backup: the database says the last hardware write
-    // happened at a much lower software value than the hardware counter.
+ // Simulate a restored backup: the database says the last hardware write
+ // happened at a much lower software value than the hardware counter.
     let connection =
         rusqlite::Connection::open(db_path).map_err(|error| format!("S22 open db: {error}"))?;
     set_key(
@@ -122,7 +122,7 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         return Err("S22 FAIL: LOCKDOWN was not persisted after regression".to_string());
     }
 
-    // Enrollment epoch bump invalidates every command produced before restore.
+ // Enrollment epoch bump invalidates every command produced before restore.
     let epochs = EpochRegistry::new(Arc::new(InMemoryEpochStore::default()));
     epochs
         .ensure_enrolled("dev1", 1_000)
@@ -145,7 +145,7 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         }
     }
 
-    // A peer that witnessed the pre-restore epoch detects the regression.
+ // A peer that witnessed the pre-restore epoch detects the regression.
     epochs
         .observe_epoch("dev1", 5)
         .map_err(|error| format!("S22 observe high epoch: {error:?}"))?;

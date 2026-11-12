@@ -141,7 +141,7 @@ pub fn run_s29(seed: u64) -> Result<(), String> {
             ));
         }
 
-        // (a) Same (seq, key) retry.
+ // (a) Same (seq, key) retry.
         let same_seq = commit(&store, &command(&issuer, key, 1, 500), 2, 1_002);
         if same_seq.value["idempotency_cache_hit"] != true || same_seq.actuated {
             return Err(format!(
@@ -150,7 +150,7 @@ pub fn run_s29(seed: u64) -> Result<(), String> {
             ));
         }
 
-        // (b) New seq, same idempotency key.
+ // (b) New seq, same idempotency key.
         let new_seq = commit(&store, &command(&issuer, key, 2, 500), 3, 1_004);
         if new_seq.value["idempotency_cache_hit"] != true || new_seq.actuated {
             return Err(format!(
@@ -159,7 +159,7 @@ pub fn run_s29(seed: u64) -> Result<(), String> {
             ));
         }
 
-        // Control: new seq and new key is a new command.
+ // Control: new seq and new key is a new command.
         let fresh = commit(&store, &command(&issuer, [0x5Bu8; 16], 3, 510), 4, 1_006);
         if fresh.value["status"] != "accepted" || !fresh.actuated {
             return Err(format!(

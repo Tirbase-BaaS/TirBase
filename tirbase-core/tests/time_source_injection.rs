@@ -1,7 +1,7 @@
 //! Isolated process-wide `TimeSource` injection test (CLAIM-5.1).
 //!
 //! This lives in its own integration-test binary because it replaces the
-//! process-wide time source.  Other tests in the crate read the clock through
+//! process-wide time source. Other tests in the crate read the clock through
 //! that same slot (for example when minting Biscuit tokens), so swapping it
 //! from a lib-test thread would race with them; a separate test process keeps
 //! the injection hermetic.
@@ -42,7 +42,7 @@ fn injected_time_source_is_used_by_free_functions() {
     });
     install_time_source(fixed);
 
-    // These free functions are what every core subsystem calls (PV-3.8).
+ // These free functions are what every core subsystem calls (PV-3.8).
     assert_eq!(monotonic_now(), 123_456);
     assert_eq!(wall_hint(), Some(1_700_000_000_000_000));
     assert_eq!(wall_hint_secs(), Some(1_700_000_000));

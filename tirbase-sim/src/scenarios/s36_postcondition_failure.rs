@@ -1,4 +1,4 @@
-//! S36 — Migration signed postcondition failure (PV-8.4, Task 30.2/30.11).
+//! S36 — Migration signed postcondition failure (PV-8.4, /30.11).
 //!
 //! A migration whose signed postconditions do not hold against shadow output
 //! must fail closed: shadow is discarded and pre-execution projection state is

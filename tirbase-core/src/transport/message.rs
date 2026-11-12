@@ -14,68 +14,68 @@ use serde::{Deserialize, Serialize};
 /// A typed inbound message received over the Gossipsub mesh.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GossipMessage {
-    /// An inbound data Delta from a peer (Req 4.3–4.7).
+ /// An inbound data Delta from a peer (Req 4.3–4.7).
     InboundDelta(Delta),
-    /// A single fragment of a fragmented Delta from a low-MTU peer (Req 5.7–5.8).
-    ///
-    /// When the active transport MTU is below 256 bytes, a Delta is split into
-    /// multiple `DeltaFragment`s on the sender and reassembled on the receiver.
-    /// Each fragment arrives as a separate Gossipsub message wrapped in this
-    /// variant so the receiving Swarm poll task can detect it and feed it to
-    /// the `ReassemblyBuffer` instead of trying (and failing) to deserialise
-    /// it directly as a `Delta`.
+ /// A single fragment of a fragmented Delta from a low-MTU peer (Req 5.7–5.8).
+ ///
+ /// When the active transport MTU is below 256 bytes, a Delta is split into
+ /// multiple `DeltaFragment`s on the sender and reassembled on the receiver.
+ /// Each fragment arrives as a separate Gossipsub message wrapped in this
+ /// variant so the receiving Swarm poll task can detect it and feed it to
+ /// the `ReassemblyBuffer` instead of trying (and failing) to deserialise
+ /// it directly as a `Delta`.
     InboundDeltaFragment(DeltaFragment),
-    /// A signed DurabilityReceipt from a peer (Req 14.6).
+ /// A signed DurabilityReceipt from a peer (Req 14.6).
     InboundDurabilityReceipt(DurabilityReceipt),
-    /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
+ /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
     InboundRevocationDelta(RevocationDelta),
-    /// A schema-migration Delta from a peer (Req 18).
+ /// A schema-migration Delta from a peer (Req 18).
     InboundMigrationDelta(Box<MigrationDelta>),
-    /// A migration-revocation Delta from a peer (Req 18.5).
+ /// A migration-revocation Delta from a peer (Req 18.5).
     InboundMigrationRevocationDelta(MigrationRevocationDelta),
-    /// A Delta routed through a multi-hop relay peer (Req 5.5).
-    ///
-    /// Emitted by `MeshTransport::send_delta` when the destination is not a
-    /// direct neighbor and a relay peer is available.  Relay peers intercept
-    /// this variant and re-publish the wrapped Delta toward the destination.
+ /// A Delta routed through a multi-hop relay peer (Req 5.5).
+ ///
+ /// Emitted by `MeshTransport::send_delta` when the destination is not a
+ /// direct neighbor and a relay peer is available. Relay peers intercept
+ /// this variant and re-publish the wrapped Delta toward the destination.
     RelayDelta {
-        /// The intended recipient of the wrapped Delta.
+ /// The intended recipient of the wrapped Delta.
         target_did: Did,
-        /// The Delta payload to forward.
+ /// The Delta payload to forward.
         delta: Delta,
     },
-    /// External checkpoint anchoring (PV-7.10, CLAIM-26.3/26.4).
-    /// Gossiped to peers on sync connections so receivers can detect tail truncation.
+ /// External checkpoint anchoring (PV-7.10, CLAIM-26.3/26.4).
+ /// Gossiped to peers on sync connections so receivers can detect tail truncation.
     CheckpointHash {
-        /// DID of the node reporting its latest local checkpoint.
+ /// DID of the node reporting its latest local checkpoint.
         reporter_did: Did,
-        /// Latest checkpoint sequence number.
+ /// Latest checkpoint sequence number.
         seq: u64,
-        /// SHA-256 hash of the canonical checkpoint body.
+ /// SHA-256 hash of the canonical checkpoint body.
         checkpoint_hash: [u8; 32],
-        /// Best-effort observation/wall timestamp (seconds).
+ /// Best-effort observation/wall timestamp (seconds).
         observed_at: i64,
     },
-    /// Security event mesh sync (PV-7.9, PV-7.12, CLAIM-28.3): append-only
-    /// collection, compaction=none, per-peer 500 events/min, retry 30s on failure.
+ /// Security event mesh sync (PV-7.9, PV-7.12, CLAIM-28.3): append-only
+ /// collection, compaction=none, per-peer 500 events/min, retry 30s on failure.
     SecurityEventSync(crate::transport::security_event_sync::SecurityEventSyncBatch),
-    /// Mesh challenge-nonce request (task 36.9, PV-22.3, INV-9).
+ /// Mesh challenge-nonce request (PV-22.3, INV-9).
     ChallengeRequest(crate::transport::challenge::MeshChallengeRequest),
-    /// Mesh challenge-nonce response routed back to the originating guard.
+ /// Mesh challenge-nonce response routed back to the originating guard.
     ChallengeResponse(crate::transport::challenge::MeshChallengeResponse),
-    /// Fleet-inventory CRDT update from a peer (PV-11.3, task 37.5).
+ /// Fleet-inventory CRDT update from a peer (PV-11.3).
     FleetInventoryUpdate(crate::fleet::FleetInventoryDelta),
 }
 
 impl GossipMessage {
-    /// Attempt to deserialise raw Gossipsub message bytes into a `GossipMessage`.
-    ///
-    /// Returns `None` if the bytes cannot be parsed into any known variant.
+ /// Attempt to deserialise raw Gossipsub message bytes into a `GossipMessage`.
+ ///
+ /// Returns `None` if the bytes cannot be parsed into any known variant.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         serde_json::from_slice(bytes).ok()
     }
 
-    /// Serialise this message to bytes for transmission.
+ /// Serialise this message to bytes for transmission.
     pub fn to_bytes(&self) -> Vec<u8> {
         serde_json::to_vec(self).unwrap_or_default()
     }
@@ -128,7 +128,7 @@ mod tests {
         assert!(result.is_none(), "empty bytes must return None");
     }
 
-    // ── InboundDeltaFragment ────────────────────────────────────────────────
+ // ── InboundDeltaFragment ────────────────────────────────────────────────
 
     #[test]
     fn gossip_message_inbound_delta_fragment_round_trip() {
@@ -155,9 +155,9 @@ mod tests {
 
     #[test]
     fn gossip_message_fragment_does_not_parse_as_delta() {
-        // A fragment payload must NOT deserialise as an InboundDelta — this
-        // is the invariant that lets the receive path distinguish fragments
-        // from whole Delta messages by variant tag, not by heuristics.
+ // A fragment payload must NOT deserialise as an InboundDelta — this
+ // is the invariant that lets the receive path distinguish fragments
+ // from whole Delta messages by variant tag, not by heuristics.
         let frag = DeltaFragment {
             delta_id: [0xCD; 32],
             fragment_index: 0,

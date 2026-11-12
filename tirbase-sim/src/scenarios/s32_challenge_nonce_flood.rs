@@ -1,4 +1,4 @@
-//! Scenario S32 — Challenge-nonce flooding (task 16.4, CLAIM-16.4, PV-22.3, INV-9).
+//! Scenario S32 — Challenge-nonce flooding (CLAIM-16.4, PV-22.3, INV-9).
 //!
 //! Attack: flood challenge nonce issuance for a critical parameter while
 //! `FreshnessState::Unverified`.
@@ -156,8 +156,8 @@ pub fn s32_challenge_nonce_flood_is_rate_limited() {
     );
     assert!(limited >= 1, "S32: excess nonce requests must be rejected");
 
-    // Wiring-mutation guard: disabling/removing the limit would allow all 20.
-    // (This scenario fails if the rate limit is removed.)
+ // Wiring-mutation guard: disabling/removing the limit would allow all 20.
+ // (This scenario fails if the rate limit is removed.)
 }
 
 #[cfg(test)]

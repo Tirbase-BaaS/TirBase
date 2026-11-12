@@ -32,7 +32,7 @@ fn claim_34_8_guard_passes_device_fd_to_child_via_scm_rights() {
     let guard = GuardDeviceTransport::new(transport);
     guard
         .pass_device_fd_with(parent_end, |sock, devfd| {
-            // Wiring mutation target (34.8): SCM_RIGHTS must be used.
+ // Wiring mutation target (34.8): SCM_RIGHTS must be used.
             send_fd_via_scm_rights(sock, devfd)
                 .map_err(|e| std::io::Error::other(e.to_string()))
         })
@@ -44,8 +44,8 @@ fn claim_34_8_guard_passes_device_fd_to_child_via_scm_rights() {
 
 #[test]
 fn wiring_mutation_not_passing_scm_rights_breaks_child_receive() {
-    // Negative control shape: without SCM_RIGHTS send, receiver cannot get fd.
-    // (We don't actually block; we assert the positive path is required by previous test.)
+ // Negative control shape: without SCM_RIGHTS send, receiver cannot get fd.
+ // (We don't actually block; we assert the positive path is required by previous test.)
     let pair = create_driver_socketpair().expect("socketpair");
     unsafe { libc::close(pair.parent_fd) };
     unsafe { libc::close(pair.child_fd) };

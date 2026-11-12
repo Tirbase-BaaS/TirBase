@@ -31,9 +31,9 @@ fn optional_env(name: &str) -> Option<String> {
 /// test exercises real bus transactions (FC 03/04/06/16) and a real
 /// out-of-range command rejection path.
 fn run_hil_case(case: &str, extra: &[(&str, String)]) -> String {
-    // Transport to the on-runner hardware harness/proxy that drives the real
-    // RS-485 bus. This indirection keeps the test generic while ensuring it can
-    // only succeed against provisioned hardware.
+ // Transport to the on-runner hardware harness/proxy that drives the real
+ // RS-485 bus. This indirection keeps the test generic while ensuring it can
+ // only succeed against provisioned hardware.
     let addr = required_env("HIL_MODBUS_HARNESS_ADDR");
     let unit = required_env("HIL_MODBUS_UNIT");
     let map = required_env("HIL_REGISTER_MAP");
@@ -52,8 +52,8 @@ fn run_hil_case(case: &str, extra: &[(&str, String)]) -> String {
         .set_write_timeout(Some(Duration::from_secs(10)))
         .ok();
 
-    // Simple line-oriented request protocol understood by the lab harness:
-    // CASE <name>\nSERIAL <dev>\nUNIT <id>\nMAP <path>\n[KEY <value>...]\nEND\n
+ // Simple line-oriented request protocol understood by the lab harness:
+ // CASE <name>\nSERIAL <dev>\nUNIT <id>\nMAP <path>\n[KEY <value>...]\nEND\n
     let mut req = String::new();
     req.push_str(&format!("CASE {case}\n"));
     req.push_str(&format!("SERIAL {serial}\n"));
@@ -114,10 +114,10 @@ fn hil_envelope_rejection_real_out_of_range_command() {
 
 #[test]
 fn hil_tests_require_hardware_configuration_fail_closed() {
-    // Non-ignored sanity: without HIL env the harness must refuse to run.
-    // We only assert the helper's contract via a targeted panic check in a child
-    // process would be heavy; instead ensure the documented variables are the
-    // gate by checking behavior when absent in a controlled way.
+ // Non-ignored sanity: without HIL env the harness must refuse to run.
+ // We only assert the helper's contract via a targeted panic check in a child
+ // process would be heavy; instead ensure the documented variables are the
+ // gate by checking behavior when absent in a controlled way.
     if env::var("HIL_MODBUS_HARNESS_ADDR").is_err() {
         let result = std::panic::catch_unwind(|| required_env("HIL_MODBUS_HARNESS_ADDR"));
         assert!(

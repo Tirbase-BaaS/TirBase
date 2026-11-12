@@ -1,26 +1,26 @@
-//! Device enrollment flow (task 8.6 — CLAIM-8.6, PV-3.11).
+//! Device enrollment flow (CLAIM-8.6, PV-3.11).
 //!
 //! The enrollment flow covers three things:
 //!
 //! 1. **First-boot identity generation** — [`DeviceIdentity::generate`] creates
-//!    a fresh Ed25519 identity and its `did:key` DID.  An enrolling device keeps
-//!    the private seed locally and only sends the DID and public key.
+//! a fresh Ed25519 identity and its `did:key` DID. An enrolling device keeps
+//! the private seed locally and only sends the DID and public key.
 //! 2. **Replay-safe bootstrap** — the bootstrap message carries a 32-byte
-//!    nonce and a signature over
-//!    `"TirBase/v1/EnrollmentBootstrap" || 0x00 || DID || 0x00 || pubkey ||
-//!    nonce || role`.  [`EnrollmentService::enroll`] records the nonce and
-//!    rejects any reuse inside the configured retention window (default 72h),
-//!    emitting [`ReasonCode::NonceReused`].
+//! nonce and a signature over
+//! `"TirBase/v1/EnrollmentBootstrap" || 0x00 || DID || 0x00 || pubkey ||
+//! nonce || role`. [`EnrollmentService::enroll`] records the nonce and
+//! rejects any reuse inside the configured retention window (default 72h),
+//! emitting [`ReasonCode::NonceReused`].
 //! 3. **Scoped token issuance** — a Biscuit token scoped to the device DID and
-//!    the requested role is minted by the deployment's root CA key.  The TTL
-//!    is clamped to the Biscuit 1h–24h window so enrollment can never mint an
-//!    extended-window token.
+//! the requested role is minted by the deployment's root CA key. The TTL
+//! is clamped to the Biscuit 1h–24h window so enrollment can never mint an
+//! extended-window token.
 //!
 //! Enrollment also creates the device's initial `device_epoch` row (epoch 0)
-//! through [`EpochRegistry::ensure_enrolled`] (task 8.7).
+//! through [`EpochRegistry::ensure_enrolled`] ().
 //!
 //! Decommissioning requires a [`DecommissionCredential`] signed by a
-//! `RevocationManager` registered in the trust root (task 8.5).
+//! `RevocationManager` registered in the trust root ().
 
 use serde::{Deserialize, Serialize};
 use tirbase_core::auth::biscuit;
@@ -51,42 +51,42 @@ pub struct DeviceIdentity {
 }
 
 impl DeviceIdentity {
-    /// Generate a fresh Ed25519 identity (first boot).
+ /// Generate a fresh Ed25519 identity (first boot).
     pub fn generate() -> Result<Self, EpochError> {
         let provider = InMemoryKeyProvider::generate()
             .map_err(|error| EpochError::TokenIssuance(format!("identity generation: {error}")))?;
         Ok(DeviceIdentity { provider })
     }
 
-    /// Reconstruct a device identity from an existing 32-byte Ed25519 seed.
-    ///
-    /// Used by operator tooling that persists and reloads device keys; the
-    /// seed is never transmitted during enrollment.
+ /// Reconstruct a device identity from an existing 32-byte Ed25519 seed.
+ ///
+ /// Used by operator tooling that persists and reloads device keys; the
+ /// seed is never transmitted during enrollment.
     pub fn from_seed(seed: [u8; 32]) -> Self {
         DeviceIdentity {
             provider: InMemoryKeyProvider::from_seed(seed),
         }
     }
 
-    /// The 32-byte Ed25519 seed for local persistence by the owning device.
-    ///
-    /// This is only for the device's own key file; enrollment bootstrap sends
-    /// the public key and signature, never the seed.
+ /// The 32-byte Ed25519 seed for local persistence by the owning device.
+ ///
+ /// This is only for the device's own key file; enrollment bootstrap sends
+ /// the public key and signature, never the seed.
     pub fn seed(&self) -> [u8; 32] {
         self.provider.secret_seed()
     }
 
-    /// The device's `did:key` DID.
+ /// The device's `did:key` DID.
     pub fn device_id(&self) -> String {
         self.provider.did().to_string()
     }
 
-    /// The device's Ed25519 public key bytes.
+ /// The device's Ed25519 public key bytes.
     pub fn public_key(&self) -> Vec<u8> {
         self.provider.public_key_bytes()
     }
 
-    /// Sign an enrollment bootstrap message for `nonce` and `role`.
+ /// Sign an enrollment bootstrap message for `nonce` and `role`.
     pub fn sign_bootstrap(
         &self,
         nonce: [u8; 32],
@@ -98,7 +98,7 @@ impl DeviceIdentity {
             .map_err(|error| EpochError::TokenIssuance(format!("bootstrap signing: {error}")))
     }
 
-    /// Build the complete signed bootstrap request.
+ /// Build the complete signed bootstrap request.
     pub fn bootstrap(
         &self,
         nonce: [u8; 32],
@@ -137,28 +137,28 @@ pub fn enrollment_message(
 /// A signed, replay-safe enrollment bootstrap message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnrollmentRequest {
-    /// Device DID (`did:key:z6Mk…`).
+ /// Device DID (`did:key:z6Mk…`).
     pub device_did: String,
-    /// Device Ed25519 public key.
+ /// Device Ed25519 public key.
     pub device_public_key: Vec<u8>,
-    /// One-time bootstrap nonce.
+ /// One-time bootstrap nonce.
     pub nonce: [u8; 32],
-    /// Role the device is requesting.
+ /// Role the device is requesting.
     pub role: CommandRole,
-    /// Signature over [`enrollment_message`].
+ /// Signature over [`enrollment_message`].
     pub signature: DeviceSignature,
 }
 
 /// Result of a successful enrollment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnrolledDevice {
-    /// Enrolled device DID.
+ /// Enrolled device DID.
     pub device_id: String,
-    /// Initial enrollment epoch (always 0 for a new device).
+ /// Initial enrollment epoch (always 0 for a new device).
     pub epoch: u64,
-    /// Scoped Biscuit token bytes.
+ /// Scoped Biscuit token bytes.
     pub token: Vec<u8>,
-    /// Token TTL in seconds.
+ /// Token TTL in seconds.
     pub token_ttl_secs: u64,
 }
 
@@ -173,9 +173,9 @@ pub struct EnrollmentService {
 }
 
 impl EnrollmentService {
-    /// Construct the service.
-    ///
-    /// `token_ttl_secs` is clamped to the Biscuit window `[3600, 86400]`.
+ /// Construct the service.
+ ///
+ /// `token_ttl_secs` is clamped to the Biscuit window `[3600, 86400]`.
     pub fn new(
         nonces: std::sync::Arc<dyn EnrollmentNonceStore>,
         epochs: std::sync::Arc<EpochRegistry>,
@@ -192,14 +192,14 @@ impl EnrollmentService {
         }
     }
 
-    /// Enroll a device and issue its scoped token.
-    ///
-    /// Verification order:
-    /// 1. the DID must derive from the presented public key (identity binding),
-    /// 2. the bootstrap signature must verify,
-    /// 3. the nonce must be fresh (replay-safe bootstrap),
-    /// 4. the device's epoch-0 row is created if missing,
-    /// 5. the scoped token is minted.
+ /// Enroll a device and issue its scoped token.
+ ///
+ /// Verification order:
+ /// 1. the DID must derive from the presented public key (identity binding),
+ /// 2. the bootstrap signature must verify,
+ /// 3. the nonce must be fresh (replay-safe bootstrap),
+ /// 4. the device's epoch-0 row is created if missing,
+ /// 5. the scoped token is minted.
     pub fn enroll(
         &self,
         request: &EnrollmentRequest,
@@ -294,11 +294,11 @@ impl EnrollmentService {
         })
     }
 
-    /// Decommission a device after verifying a `RevocationManager` credential
-    /// (task 8.5 — PV-3.13).
-    ///
-    /// A credential from any other role is rejected, even when its signature is
-    /// cryptographically valid.
+ /// Decommission a device after verifying a `RevocationManager` credential
+ /// (PV-3.13).
+ ///
+ /// A credential from any other role is rejected, even when its signature is
+ /// cryptographically valid.
     pub fn decommission(
         &self,
         device_id: &str,
@@ -320,27 +320,27 @@ impl EnrollmentService {
         Ok(())
     }
 
-    /// The trust root used for role-threshold and decommission checks.
+ /// The trust root used for role-threshold and decommission checks.
     pub fn trust_root(&self) -> &TrustRootRecord {
         &self.trust_root
     }
 
-    /// The epoch registry shared with the guard/admin paths.
+ /// The epoch registry shared with the guard/admin paths.
     pub fn epochs(&self) -> &std::sync::Arc<EpochRegistry> {
         &self.epochs
     }
 
-    /// The nonce store shared with the purge task.
+ /// The nonce store shared with the purge task.
     pub fn nonces(&self) -> &std::sync::Arc<dyn EnrollmentNonceStore> {
         &self.nonces
     }
 
-    /// Scoped token TTL in seconds.
+ /// Scoped token TTL in seconds.
     pub fn token_ttl_secs(&self) -> u64 {
         self.token_ttl_secs
     }
 
-    /// The signed bytes for a decommission credential (helper for callers).
+ /// The signed bytes for a decommission credential (helper for callers).
     pub fn decommission_message(device_id: &str) -> Vec<u8> {
         decommission_message(device_id)
     }

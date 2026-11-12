@@ -1,4 +1,4 @@
-//! Local admin command ingress (task 11.3/14 production callers).
+//! Local admin command ingress (14 production callers).
 //!
 //! Routes command submission through the same `CommandGuard` convergence point
 //! as mesh and cloud ingress.
@@ -24,7 +24,7 @@ pub fn handle_local_admin_command<W: std::io::Write + Send>(
     guard.admit(cmd, IngressSource::LocalAdmin, proxy, frame)
 }
 
-/// Admit a command with full Task 14 pipeline context (Stages 0–15).
+/// Admit a command with full pipeline context (Stages 0–15).
 pub fn handle_local_admin_command_with_context<W: std::io::Write + Send>(
     guard: &CommandGuard,
     proxy: &mut DriverProxy<W>,
@@ -38,31 +38,31 @@ pub fn handle_local_admin_command_with_context<W: std::io::Write + Send>(
 /// One JSON-line request accepted by the local-admin command receiver.
 #[derive(Debug, Deserialize)]
 pub struct LocalAdminCommandRequest {
-    /// Signed command to run through the guard pipeline.
+ /// Signed command to run through the guard pipeline.
     pub command: CommandMessage,
-    /// Hex-encoded Biscuit token authorising the command issuer.
+ /// Hex-encoded Biscuit token authorising the command issuer.
     #[serde(default)]
     pub biscuit_token_hex: Option<String>,
-    /// Hex-encoded actuation frame forwarded to the driver after admission.
+ /// Hex-encoded actuation frame forwarded to the driver after admission.
     #[serde(default)]
     pub frame_hex: Option<String>,
-    /// Stage-0 pre-auth rate limit key (defaults to `LocalAdmin:<issuer>`).
+ /// Stage-0 pre-auth rate limit key (defaults to `LocalAdmin:<issuer>`).
     #[serde(default)]
     pub source_key: Option<String>,
-    /// Authenticated time override; defaults to the pipeline ratchet.
+ /// Authenticated time override; defaults to the pipeline ratchet.
     #[serde(default)]
     pub now_est_secs: Option<i64>,
-    /// Dry-run: evaluate Stages 0–15 without writing the effects ledger.
+ /// Dry-run: evaluate Stages 0–15 without writing the effects ledger.
     #[serde(default)]
     pub simulate: bool,
 }
 
-/// Production local-admin command receiver (task 35.4).
+/// Production local-admin command receiver ().
 ///
 /// Listens on a loopback TCP socket, decodes one JSON request per line, and runs
 /// each command through [`admit_and_dispatch_blocking`] — the Stage 16–19
 /// guard-owned path that converges on the same `CommandGuard` as the
-/// `handle_local_admin_command_with_context` Stage 0–15 wrapper.  Transport
+/// `handle_local_admin_command_with_context` Stage 0–15 wrapper. Transport
 /// failures are reported per connection; the listener itself keeps accepting.
 pub async fn run_local_admin_command_listener(
     addr: std::net::SocketAddr,

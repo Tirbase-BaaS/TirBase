@@ -473,8 +473,8 @@ pub fn tirbase_core::api::types::WriteResult::vzip(self) -> V
 pub const tirbase_core::api::types::DEFAULT_BISCUIT_TTL_SECS: u64
 pub struct tirbase_core::api::CoreHandle
 impl tirbase_core::api::CoreHandle
-pub fn tirbase_core::api::CoreHandle::activate_saturate_mode(&self, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::admin_close_ico(&self, uuid::Uuid, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::activate_saturate_mode(&self, &[u8]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::admin_close_ico(&self, uuid::Uuid, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::device_revocation_status(&self, &str) -> core::result::Result<core::option::Option<tirbase_core::auth::revocation::DeviceRevocationStatus>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::fleet_device(&self, &str) -> core::option::Option<tirbase_core::fleet::FleetEntry>
 pub fn tirbase_core::api::CoreHandle::fleet_inventory_snapshot(&self) -> alloc::vec::Vec<tirbase_core::fleet::FleetEntry>
@@ -483,34 +483,34 @@ pub fn tirbase_core::api::CoreHandle::fleet_provision_device(&self, tirbase_core
 pub fn tirbase_core::api::CoreHandle::fleet_revoke_device(&self, &str, &str) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::fleet_snapshot_hash(&self) -> [u8; 32]
 pub async fn tirbase_core::api::CoreHandle::init(tirbase_core::api::InitConfig) -> core::result::Result<alloc::sync::Arc<Self>, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::initiate_revocation(&self, &str, &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::local_did(&self) -> &str
 pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::process_inbound_messages(&self) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::publish_checkpoint_hash(&self, u64, [u8; 32], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::publish_security_event_sync(&self, tirbase_core::transport::security_event_sync::SecurityEventSyncBatch) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::publish_checkpoint_hash(&self, u64, [u8; 32], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::publish_security_event_sync(&self, tirbase_core::transport::security_event_sync::SecurityEventSyncBatch) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::query(&self, &str, core::option::Option<serde_json::value::Value>) -> core::result::Result<alloc::vec::Vec<tirbase_core::api::types::QueryResult>, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::read(&self, &str, &str) -> core::result::Result<tirbase_core::api::types::QueryResult, tirbase_core::errors::TirBaseError>
-pub async fn tirbase_core::api::CoreHandle::receive_inbound(&self, tirbase_core::transport::message::GossipMessage) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::register_migration_ca_key(&self, [u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::api::CoreHandle::receive_inbound(&self, tirbase_core::transport::message::GossipMessage) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::register_migration_ca_key(&self, [u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::register_root_ca_key(&self, [u8; 32], core::option::Option<(&[u8], i64)>) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::renew_saturate_mode(&self, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::api::CoreHandle::request_mesh_challenge(&self, [u8; 32], &str, &str, &str, &str, [u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::renew_saturate_mode(&self, &[u8]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::request_mesh_challenge(&self, [u8; 32], &str, &str, &str, &str, [u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::root_ca_public_key(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_core::api::CoreHandle::set_challenge_handler(&self, alloc::sync::Arc<dyn tirbase_core::transport::challenge::MeshChallengeHandler>)
-pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn() -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
-pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
+pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::subscribe_checkpoint_observations(&self) -> tokio::sync::broadcast::Receiver<(alloc::string::String, u64, [u8; 32], i64)>
 pub fn tirbase_core::api::CoreHandle::subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::diagnostics::DiagnosticEntry>
 pub fn tirbase_core::api::CoreHandle::subscribe_durability_events(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::api::DurabilityTierChanged>
 pub fn tirbase_core::api::CoreHandle::subscribe_fleet_updates(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::fleet::FleetInventoryDelta>
 pub fn tirbase_core::api::CoreHandle::subscribe_mesh_challenge_responses(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::transport::challenge::MeshChallengeResponse>
 pub fn tirbase_core::api::CoreHandle::subscribe_security_event_sync(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>
-pub fn tirbase_core::api::CoreHandle::terminate_saturate_mode(&self, &[u8], alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<u8>)>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::terminate_saturate_mode(&self, &[u8], alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<u8>)>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::trust_level(&self) -> tirbase_core::api::types::TrustLevel
-pub fn tirbase_core::api::CoreHandle::verify_contamination(&self, [u8; 32], &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::verify_contamination(&self, [u8; 32], &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::write(&self, &str, &str, serde_json::value::Value) -> core::result::Result<tirbase_core::api::types::WriteResult, tirbase_core::errors::TirBaseError>
 impl !core::marker::Freeze for tirbase_core::api::CoreHandle
 impl core::marker::Send for tirbase_core::api::CoreHandle
@@ -574,7 +574,7 @@ pub tirbase_core::api::DeploymentConfig::spatial_diversity_min: usize
 impl core::clone::Clone for tirbase_core::api::DeploymentConfig
 pub fn tirbase_core::api::DeploymentConfig::clone(&self) -> tirbase_core::api::DeploymentConfig
 impl core::default::Default for tirbase_core::api::DeploymentConfig
-pub fn tirbase_core::api::DeploymentConfig::default() -> Self
+pub fn tirbase_core::api::DeploymentConfig::default -> Self
 impl core::fmt::Debug for tirbase_core::api::DeploymentConfig
 pub fn tirbase_core::api::DeploymentConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::api::DeploymentConfig
@@ -855,7 +855,7 @@ pub fn tirbase_core::auth::biscuit::has_caveat(&[u8], &str, &[u8], i64) -> bool
 pub fn tirbase_core::auth::biscuit::verify_and_check_caveat(&[u8], &str, &[u8], i64) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::biscuit::verify_token(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::biscuit::BiscuitClaims, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::biscuit::verify_token_distinguish_expiry(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::biscuit::BiscuitClaims, tirbase_core::auth::biscuit::TokenVerifyError>
-pub fn tirbase_core::auth::biscuit::verify_token_expiry_only(&[u8], &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::biscuit::verify_token_expiry_only(&[u8], &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub mod tirbase_core::auth::command_token
 pub struct tirbase_core::auth::command_token::CommandTokenClaims
 pub tirbase_core::auth::command_token::CommandTokenClaims::did: alloc::string::String
@@ -929,7 +929,7 @@ pub type tirbase_core::auth::command_token::CommandTokenClaims::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::auth::command_token::CommandTokenClaims where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::auth::command_token::CommandTokenClaims where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::auth::command_token::CommandTokenClaims::vzip(self) -> V
-pub fn tirbase_core::auth::command_token::check_command_binding(&tirbase_core::auth::command_token::CommandTokenClaims, &str, &str) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_core::auth::command_token::check_command_binding(&tirbase_core::auth::command_token::CommandTokenClaims, &str, &str) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_core::auth::command_token::create_command_token(&str, &str, u64, &str, &str, &[&str], &[u8]) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::command_token::parse_command_role(&str) -> core::option::Option<tirbase_types::CommandRole>
 pub fn tirbase_core::auth::command_token::verify_command_token(&[u8], &[u8], i64) -> core::result::Result<tirbase_core::auth::command_token::CommandTokenClaims, tirbase_core::auth::biscuit::TokenVerifyError>
@@ -1185,7 +1185,7 @@ pub fn tirbase_core::auth::revocation::PendingRevocationStore::check_1_of_1_warn
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::last_revocation_receipt_timestamp(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<i64>
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::status(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<tirbase_core::auth::revocation::RevocationStatus>
 impl core::default::Default for tirbase_core::auth::revocation::PendingRevocationStore
-pub fn tirbase_core::auth::revocation::PendingRevocationStore::default() -> tirbase_core::auth::revocation::PendingRevocationStore
+pub fn tirbase_core::auth::revocation::PendingRevocationStore::default -> tirbase_core::auth::revocation::PendingRevocationStore
 impl core::fmt::Debug for tirbase_core::auth::revocation::PendingRevocationStore
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::auth::revocation::PendingRevocationStore
@@ -1303,7 +1303,7 @@ pub fn tirbase_core::auth::revocation::RevocationSubsystem::produce_partial_delt
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::revoked_dids(&self) -> &[tirbase_core::crdt::delta::Did]
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::store_status(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<tirbase_core::auth::revocation::RevocationStatus>
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::threshold_m(&self) -> usize
-pub fn tirbase_core::auth::revocation::RevocationSubsystem::validate_revocation_delta(&self, &tirbase_core::auth::revocation::RevocationDelta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::revocation::RevocationSubsystem::validate_revocation_delta(&self, &tirbase_core::auth::revocation::RevocationDelta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::auth::revocation::RevocationSubsystem
 impl core::marker::Send for tirbase_core::auth::revocation::RevocationSubsystem
 impl core::marker::Sync for tirbase_core::auth::revocation::RevocationSubsystem
@@ -1345,7 +1345,7 @@ pub type tirbase_core::auth::revocation::RevocationSubsystem::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::auth::revocation::RevocationSubsystem where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::auth::revocation::RevocationSubsystem where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::vzip(self) -> V
-pub fn tirbase_core::auth::revocation::current_timestamp_micros() -> i64
+pub fn tirbase_core::auth::revocation::current_timestamp_micros -> i64
 pub mod tirbase_core::auth::root_ca
 pub struct tirbase_core::auth::root_ca::RootCaRegistry
 impl tirbase_core::auth::root_ca::RootCaRegistry
@@ -1358,16 +1358,16 @@ pub fn tirbase_core::auth::root_ca::RootCaRegistry::new(alloc::vec::Vec<[u8; 32]
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::primary_key(&self) -> core::option::Option<&[u8; 32]>
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::register(&mut self, [u8; 32])
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::revoke(&mut self, &[u8; 32]) -> bool
-pub fn tirbase_core::auth::root_ca::RootCaRegistry::rotate(&mut self, alloc::vec::Vec<[u8; 32]>, usize, &[u8], &[(alloc::string::String, tirbase_types::DeviceSignature)], alloc::vec::Vec<[u8; 32]>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::rotate(&mut self, alloc::vec::Vec<[u8; 32]>, usize, &[u8], &[(alloc::string::String, tirbase_types::DeviceSignature)], alloc::vec::Vec<[u8; 32]>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::threshold_k(&self) -> usize
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::threshold_warning(&self) -> core::option::Option<alloc::string::String>
-pub fn tirbase_core::auth::root_ca::RootCaRegistry::validate_threshold(&self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::validate_threshold(&self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::verify_against_first<T, E>(&self, impl core::ops::function::FnMut(&[u8; 32]) -> core::result::Result<T, E>) -> core::result::Result<T, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::with_threshold(alloc::vec::Vec<[u8; 32]>, usize) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 impl core::clone::Clone for tirbase_core::auth::root_ca::RootCaRegistry
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::clone(&self) -> tirbase_core::auth::root_ca::RootCaRegistry
 impl core::default::Default for tirbase_core::auth::root_ca::RootCaRegistry
-pub fn tirbase_core::auth::root_ca::RootCaRegistry::default() -> tirbase_core::auth::root_ca::RootCaRegistry
+pub fn tirbase_core::auth::root_ca::RootCaRegistry::default -> tirbase_core::auth::root_ca::RootCaRegistry
 impl core::fmt::Debug for tirbase_core::auth::root_ca::RootCaRegistry
 pub fn tirbase_core::auth::root_ca::RootCaRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::auth::root_ca::RootCaRegistry
@@ -1535,7 +1535,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::auth::revocation::Revoca
 pub fn tirbase_core::auth::revocation::RevocationStatus::vzip(self) -> V
 pub struct tirbase_core::auth::CapabilityManager
 impl tirbase_core::auth::CapabilityManager
-pub fn tirbase_core::auth::CapabilityManager::apply_revocation(&mut self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::CapabilityManager::apply_revocation(&mut self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::auth::CapabilityManager::check_1_of_1_warning(&self) -> core::option::Option<alloc::string::String>
 pub fn tirbase_core::auth::CapabilityManager::current_token_expires_at(&self) -> core::option::Option<i64>
 pub fn tirbase_core::auth::CapabilityManager::extended_ttl_accepted_risk(&self) -> bool
@@ -1717,7 +1717,7 @@ pub fn tirbase_core::auth::revocation::PendingRevocationStore::check_1_of_1_warn
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::last_revocation_receipt_timestamp(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<i64>
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::status(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<tirbase_core::auth::revocation::RevocationStatus>
 impl core::default::Default for tirbase_core::auth::revocation::PendingRevocationStore
-pub fn tirbase_core::auth::revocation::PendingRevocationStore::default() -> tirbase_core::auth::revocation::PendingRevocationStore
+pub fn tirbase_core::auth::revocation::PendingRevocationStore::default -> tirbase_core::auth::revocation::PendingRevocationStore
 impl core::fmt::Debug for tirbase_core::auth::revocation::PendingRevocationStore
 pub fn tirbase_core::auth::revocation::PendingRevocationStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::auth::revocation::PendingRevocationStore
@@ -1835,7 +1835,7 @@ pub fn tirbase_core::auth::revocation::RevocationSubsystem::produce_partial_delt
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::revoked_dids(&self) -> &[tirbase_core::crdt::delta::Did]
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::store_status(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<tirbase_core::auth::revocation::RevocationStatus>
 pub fn tirbase_core::auth::revocation::RevocationSubsystem::threshold_m(&self) -> usize
-pub fn tirbase_core::auth::revocation::RevocationSubsystem::validate_revocation_delta(&self, &tirbase_core::auth::revocation::RevocationDelta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::revocation::RevocationSubsystem::validate_revocation_delta(&self, &tirbase_core::auth::revocation::RevocationDelta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::auth::revocation::RevocationSubsystem
 impl core::marker::Send for tirbase_core::auth::revocation::RevocationSubsystem
 impl core::marker::Sync for tirbase_core::auth::revocation::RevocationSubsystem
@@ -2413,7 +2413,7 @@ pub mod tirbase_core::contamination::resolution
 pub struct tirbase_core::contamination::resolution::DecompositionResult
 pub tirbase_core::contamination::resolution::DecompositionResult::new_icos: alloc::vec::Vec<(tirbase_core::contamination::incident::IncidentId, alloc::vec::Vec<tirbase_core::contamination::incident::AffectedRow>)>
 impl core::default::Default for tirbase_core::contamination::resolution::DecompositionResult
-pub fn tirbase_core::contamination::resolution::DecompositionResult::default() -> tirbase_core::contamination::resolution::DecompositionResult
+pub fn tirbase_core::contamination::resolution::DecompositionResult::default -> tirbase_core::contamination::resolution::DecompositionResult
 impl core::fmt::Debug for tirbase_core::contamination::resolution::DecompositionResult
 pub fn tirbase_core::contamination::resolution::DecompositionResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::contamination::resolution::DecompositionResult
@@ -2502,19 +2502,19 @@ pub type tirbase_core::contamination::resolution::ManagerAuth::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::contamination::resolution::ManagerAuth where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::contamination::resolution::ManagerAuth where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::contamination::resolution::ManagerAuth::vzip(self) -> V
-pub fn tirbase_core::contamination::resolution::admin_close(tirbase_core::contamination::incident::IncidentId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64, &mut alloc::collections::btree::map::BTreeMap<tirbase_core::contamination::incident::IncidentId, tirbase_core::contamination::incident::IncidentContextObject>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::contamination::resolution::admin_close(tirbase_core::contamination::incident::IncidentId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64, &mut alloc::collections::btree::map::BTreeMap<tirbase_core::contamination::incident::IncidentId, tirbase_core::contamination::incident::IncidentContextObject>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::resolution::verify_data(tirbase_core::crdt::delta::DeltaId, tirbase_core::contamination::resolution::ManagerAuth, i64, &rusqlite::Connection, &tirbase_core::crdt::dag::ChangesetDag, &mut alloc::collections::btree::map::BTreeMap<tirbase_core::contamination::incident::IncidentId, tirbase_core::contamination::incident::IncidentContextObject>, &mut alloc::collections::btree::map::BTreeMap<tirbase_core::contamination::incident::IncidentId, tirbase_core::contamination::incident::CompositeIncidentInstance>) -> core::result::Result<tirbase_core::contamination::resolution::DecompositionResult, tirbase_core::errors::TirBaseError>
 pub mod tirbase_core::contamination::taint
 pub struct tirbase_core::contamination::CausalContaminationEngine
 impl tirbase_core::contamination::CausalContaminationEngine
 pub fn tirbase_core::contamination::CausalContaminationEngine::active_incident_for_row(&self, &str, &str) -> core::option::Option<tirbase_core::contamination::incident::IncidentId>
-pub fn tirbase_core::contamination::CausalContaminationEngine::admin_close(&mut self, tirbase_core::contamination::incident::IncidentId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::contamination::CausalContaminationEngine::admin_close(&mut self, tirbase_core::contamination::incident::IncidentId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::get_incident(&self, tirbase_core::contamination::incident::IncidentId) -> core::result::Result<core::option::Option<tirbase_core::contamination::incident::IncidentContextObject>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::is_row_contaminated(&self, &str, &str) -> bool
 pub fn tirbase_core::contamination::CausalContaminationEngine::new(alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
 pub fn tirbase_core::contamination::CausalContaminationEngine::open_incidents(&self) -> core::result::Result<alloc::vec::Vec<tirbase_core::contamination::incident::IncidentContextObject>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::tag_contamination_root(&mut self, tirbase_core::crdt::delta::DeltaId, tirbase_core::contamination::incident::TaintSource) -> core::result::Result<tirbase_core::contamination::incident::IncidentId, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::contamination::CausalContaminationEngine::verify_data(&mut self, tirbase_core::crdt::delta::DeltaId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::contamination::CausalContaminationEngine::verify_data(&mut self, tirbase_core::crdt::delta::DeltaId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::contamination::CausalContaminationEngine
 impl core::marker::Send for tirbase_core::contamination::CausalContaminationEngine
 impl core::marker::Sync for tirbase_core::contamination::CausalContaminationEngine
@@ -2565,10 +2565,10 @@ pub fn tirbase_core::crdt::dag::ChangesetDag::children(&self, &tirbase_core::crd
 pub fn tirbase_core::crdt::dag::ChangesetDag::delta_bytes(&self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::descendants_of(&self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::get(&self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<core::option::Option<tirbase_core::crdt::dag::DagNode>, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::crdt::dag::ChangesetDag::insert(&mut self, tirbase_core::crdt::dag::DagNode) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::crdt::dag::ChangesetDag::insert(&mut self, tirbase_core::crdt::dag::DagNode) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::is_empty(&self) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::len(&self) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::crdt::dag::ChangesetDag::mark_compacted(&mut self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::crdt::dag::ChangesetDag::mark_compacted(&mut self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::new(alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
 pub fn tirbase_core::crdt::dag::ChangesetDag::nodes_by_author(&self, &tirbase_core::crdt::delta::Did) -> core::result::Result<alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::dag::ChangesetDag::nodes_by_schema_hash(&self, &tirbase_core::schema::hash::SchemaIdentifierHash) -> core::result::Result<alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>, tirbase_core::errors::TirBaseError>
@@ -2919,7 +2919,7 @@ impl core::cmp::Eq for tirbase_core::crdt::delta::Ed25519Signature
 impl core::cmp::PartialEq for tirbase_core::crdt::delta::Ed25519Signature
 pub fn tirbase_core::crdt::delta::Ed25519Signature::eq(&self, &tirbase_core::crdt::delta::Ed25519Signature) -> bool
 impl core::default::Default for tirbase_core::crdt::delta::Ed25519Signature
-pub fn tirbase_core::crdt::delta::Ed25519Signature::default() -> tirbase_core::crdt::delta::Ed25519Signature
+pub fn tirbase_core::crdt::delta::Ed25519Signature::default -> tirbase_core::crdt::delta::Ed25519Signature
 impl core::fmt::Debug for tirbase_core::crdt::delta::Ed25519Signature
 pub fn tirbase_core::crdt::delta::Ed25519Signature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::hash::Hash for tirbase_core::crdt::delta::Ed25519Signature
@@ -3070,12 +3070,12 @@ pub tirbase_core::crdt::inbound_caps::InboundCaps::rate_burst: u64
 pub tirbase_core::crdt::inbound_caps::InboundCaps::rate_ops_per_sec: u64
 pub tirbase_core::crdt::inbound_caps::InboundCaps::traversal_budget: u64
 impl tirbase_core::crdt::inbound_caps::InboundCaps
-pub fn tirbase_core::crdt::inbound_caps::InboundCaps::new() -> Self
+pub fn tirbase_core::crdt::inbound_caps::InboundCaps::new -> Self
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::quarantine_reason_for_violation(tirbase_core::crdt::inbound_caps::InboundCapViolation) -> tirbase_core::events::ReasonCode
 impl core::clone::Clone for tirbase_core::crdt::inbound_caps::InboundCaps
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::clone(&self) -> tirbase_core::crdt::inbound_caps::InboundCaps
 impl core::default::Default for tirbase_core::crdt::inbound_caps::InboundCaps
-pub fn tirbase_core::crdt::inbound_caps::InboundCaps::default() -> Self
+pub fn tirbase_core::crdt::inbound_caps::InboundCaps::default -> Self
 impl core::fmt::Debug for tirbase_core::crdt::inbound_caps::InboundCaps
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::crdt::inbound_caps::InboundCaps
@@ -3137,7 +3137,7 @@ pub const tirbase_core::crdt::inbound_caps::INBOUND_CAP_TRAVERSAL_BUDGET: u64
 pub mod tirbase_core::crdt::memory_budget
 pub struct tirbase_core::crdt::memory_budget::CacheMetrics
 impl core::default::Default for tirbase_core::crdt::memory_budget::CacheMetrics
-pub fn tirbase_core::crdt::memory_budget::CacheMetrics::default() -> tirbase_core::crdt::memory_budget::CacheMetrics
+pub fn tirbase_core::crdt::memory_budget::CacheMetrics::default -> tirbase_core::crdt::memory_budget::CacheMetrics
 impl core::fmt::Debug for tirbase_core::crdt::memory_budget::CacheMetrics
 pub fn tirbase_core::crdt::memory_budget::CacheMetrics::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_core::crdt::memory_budget::CacheMetrics
@@ -3189,14 +3189,14 @@ pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::eviction_count(&se
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::free(&self, u64)
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::hit_count(&self) -> u64
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::miss_count(&self) -> u64
-pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::new() -> Self
+pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::new -> Self
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::record_eviction(&self, u64)
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::record_hit(&self)
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::record_miss(&self)
 impl core::clone::Clone for tirbase_core::crdt::memory_budget::CacheMetricsHandle
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::clone(&self) -> tirbase_core::crdt::memory_budget::CacheMetricsHandle
 impl core::default::Default for tirbase_core::crdt::memory_budget::CacheMetricsHandle
-pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::default() -> Self
+pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::default -> Self
 impl core::fmt::Debug for tirbase_core::crdt::memory_budget::CacheMetricsHandle
 pub fn tirbase_core::crdt::memory_budget::CacheMetricsHandle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::crdt::memory_budget::CacheMetricsHandle
@@ -3251,11 +3251,11 @@ pub tirbase_core::crdt::memory_budget::MemoryBudgetCaches::dag_node_cache: tirba
 pub tirbase_core::crdt::memory_budget::MemoryBudgetCaches::ico_index: tirbase_core::crdt::memory_budget::CacheMetricsHandle
 pub tirbase_core::crdt::memory_budget::MemoryBudgetCaches::reassembly_buffers: tirbase_core::crdt::memory_budget::CacheMetricsHandle
 impl tirbase_core::crdt::memory_budget::MemoryBudgetCaches
-pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::new() -> Self
+pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::new -> Self
 impl core::clone::Clone for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::clone(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 impl core::default::Default for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
-pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::default() -> Self
+pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::default -> Self
 impl core::fmt::Debug for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::crdt::memory_budget::MemoryBudgetCaches::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::crdt::memory_budget::MemoryBudgetCaches
@@ -3311,7 +3311,7 @@ pub const tirbase_core::crdt::memory_budget::PENDING_QUEUE_GLOBAL_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::RATE_QUARANTINE_MEMORY_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::REASSEMBLY_BUFFERS_BYTES: usize
 pub const tirbase_core::crdt::memory_budget::RSS_BUDGET_BYTES: usize
-pub fn tirbase_core::crdt::memory_budget::total_configured_caps_bytes() -> usize
+pub fn tirbase_core::crdt::memory_budget::total_configured_caps_bytes -> usize
 pub mod tirbase_core::crdt::merge
 pub enum tirbase_core::crdt::merge::InboundCapViolation
 pub tirbase_core::crdt::merge::InboundCapViolation::BatchExceeded
@@ -3542,12 +3542,12 @@ pub tirbase_core::crdt::merge::InboundCaps::rate_burst: u64
 pub tirbase_core::crdt::merge::InboundCaps::rate_ops_per_sec: u64
 pub tirbase_core::crdt::merge::InboundCaps::traversal_budget: u64
 impl tirbase_core::crdt::inbound_caps::InboundCaps
-pub fn tirbase_core::crdt::inbound_caps::InboundCaps::new() -> Self
+pub fn tirbase_core::crdt::inbound_caps::InboundCaps::new -> Self
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::quarantine_reason_for_violation(tirbase_core::crdt::inbound_caps::InboundCapViolation) -> tirbase_core::events::ReasonCode
 impl core::clone::Clone for tirbase_core::crdt::inbound_caps::InboundCaps
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::clone(&self) -> tirbase_core::crdt::inbound_caps::InboundCaps
 impl core::default::Default for tirbase_core::crdt::inbound_caps::InboundCaps
-pub fn tirbase_core::crdt::inbound_caps::InboundCaps::default() -> Self
+pub fn tirbase_core::crdt::inbound_caps::InboundCaps::default -> Self
 impl core::fmt::Debug for tirbase_core::crdt::inbound_caps::InboundCaps
 pub fn tirbase_core::crdt::inbound_caps::InboundCaps::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::crdt::inbound_caps::InboundCaps
@@ -3611,7 +3611,7 @@ pub fn tirbase_core::crdt::CrdtEngine::lamport(&self) -> u64
 pub fn tirbase_core::crdt::CrdtEngine::mark_did_revoked(&mut self, &tirbase_core::crdt::delta::Did)
 pub fn tirbase_core::crdt::CrdtEngine::new([u8; 32], [u8; 32], tirbase_core::crdt::delta::Did, tirbase_core::schema::hash::SchemaIdentifierHash, alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
 pub fn tirbase_core::crdt::CrdtEngine::produce_delta(&mut self, alloc::vec::Vec<u8>, tirbase_core::crdt::delta::PriorityClass, alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>) -> core::result::Result<tirbase_core::crdt::delta::Delta, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::crdt::CrdtEngine::project_table_to_store(&self, &str, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::crdt::CrdtEngine::project_table_to_store(&self, &str, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::CrdtEngine::read_scalar(&self, &str) -> core::option::Option<serde_json::value::Value>
 pub fn tirbase_core::crdt::CrdtEngine::write_scalar(&mut self, &str, &str, &serde_json::value::Value) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
 impl core::ops::drop::Drop for tirbase_core::crdt::CrdtEngine
@@ -3858,9 +3858,9 @@ pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::check_signal_lo
 pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::degradation_log(&self) -> &[tirbase_core::durability::anchor::TransportDegradationEvent]
 pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::mode(&self) -> tirbase_core::durability::anchor::AnchorMode
 pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::new(alloc::vec::Vec<tirbase_core::durability::anchor::BeaconRegistryEntry>, u64) -> Self
-pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::on_beacon_signal_lost(&mut self, i64, alloc::vec::Vec<tirbase_core::crdt::delta::Did>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::on_beacon_signal_lost(&mut self, i64, alloc::vec::Vec<tirbase_core::crdt::delta::Did>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::peer_has_valid_token(&mut self, &tirbase_core::durability::receipt::BeaconToken, i64) -> bool
-pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::verify_beacon_token(&mut self, &tirbase_core::durability::receipt::BeaconToken, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::verify_beacon_token(&mut self, &tirbase_core::durability::receipt::BeaconToken, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::fmt::Debug for tirbase_core::durability::anchor::AnchorAttestedLocation
 pub fn tirbase_core::durability::anchor::AnchorAttestedLocation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::durability::anchor::AnchorAttestedLocation
@@ -4132,7 +4132,7 @@ pub tirbase_core::durability::cloud_ledger::CloudLedgerConnection::ledger: &'a m
 impl<'a> tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
 pub fn tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>::new(&'a mut tirbase_core::durability::cloud_ledger::CloudLedger) -> Self
 impl<'a> tirbase_core::durability::cloud_queue::CloudConnection for tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
-pub fn tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<, alloc::string::String>
 impl<'a> core::marker::Freeze for tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
 impl<'a> core::marker::Send for tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
 impl<'a> !core::marker::Sync for tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
@@ -4279,14 +4279,14 @@ pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::acknowledge(&m
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::add_receipt_holder(&mut self, &tirbase_core::crdt::delta::DeltaId, tirbase_core::crdt::delta::Did)
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::compacted_entry_ids(&self) -> alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::depth(&self) -> usize
-pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::enqueue(&mut self, tirbase_core::durability::cloud_queue::QueueEntry) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::enqueue(&mut self, tirbase_core::durability::cloud_queue::QueueEntry) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::find(&self, &tirbase_core::crdt::delta::DeltaId) -> core::option::Option<&tirbase_core::durability::cloud_queue::QueueEntry>
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::mark_compacted(&mut self, &tirbase_core::crdt::delta::DeltaId)
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::mark_tier2(&mut self, &tirbase_core::crdt::delta::DeltaId)
-pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::new() -> Self
+pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::new -> Self
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::pending_entries(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tirbase_core::durability::cloud_queue::QueueEntry>
 impl core::default::Default for tirbase_core::durability::cloud_queue::CloudOutboundQueue
-pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::default() -> Self
+pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::default -> Self
 impl core::fmt::Debug for tirbase_core::durability::cloud_queue::CloudOutboundQueue
 pub fn tirbase_core::durability::cloud_queue::CloudOutboundQueue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::durability::cloud_queue::CloudOutboundQueue
@@ -4336,7 +4336,7 @@ pub tirbase_core::durability::cloud_queue::CloudSyncResult::acknowledged_ids: al
 pub tirbase_core::durability::cloud_queue::CloudSyncResult::deferred: usize
 pub tirbase_core::durability::cloud_queue::CloudSyncResult::rejected: usize
 impl core::default::Default for tirbase_core::durability::cloud_queue::CloudSyncResult
-pub fn tirbase_core::durability::cloud_queue::CloudSyncResult::default() -> tirbase_core::durability::cloud_queue::CloudSyncResult
+pub fn tirbase_core::durability::cloud_queue::CloudSyncResult::default -> tirbase_core::durability::cloud_queue::CloudSyncResult
 impl core::fmt::Debug for tirbase_core::durability::cloud_queue::CloudSyncResult
 pub fn tirbase_core::durability::cloud_queue::CloudSyncResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::durability::cloud_queue::CloudSyncResult
@@ -4443,9 +4443,9 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::durability::cloud_queue:
 pub fn tirbase_core::durability::cloud_queue::QueueEntry::vzip(self) -> V
 pub const tirbase_core::durability::cloud_queue::MAX_QUEUE_DEPTH: usize
 pub trait tirbase_core::durability::cloud_queue::CloudConnection: core::marker::Send
-pub fn tirbase_core::durability::cloud_queue::CloudConnection::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_core::durability::cloud_queue::CloudConnection::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<, alloc::string::String>
 impl<'a> tirbase_core::durability::cloud_queue::CloudConnection for tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>
-pub fn tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<(), alloc::string::String>
+pub fn tirbase_core::durability::cloud_ledger::CloudLedgerConnection<'a>::send_delta(&mut self, &tirbase_core::crdt::delta::DeltaId, &[u8]) -> core::result::Result<, alloc::string::String>
 pub fn tirbase_core::durability::cloud_queue::cloud_sync_loop(&mut tirbase_core::durability::cloud_queue::CloudOutboundQueue, &mut dyn tirbase_core::durability::cloud_queue::CloudConnection, &tirbase_core::durability::cloud_queue::RefetchFn<'_>) -> tirbase_core::durability::cloud_queue::CloudSyncResult
 pub async fn tirbase_core::durability::cloud_queue::refetch_for_cloud_sync<F, Fut>(tirbase_core::crdt::delta::DeltaId, alloc::vec::Vec<tirbase_core::crdt::delta::Did>, F) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError> where F: core::ops::function::Fn(tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::DeltaId) -> Fut, Fut: core::future::future::Future<Output = core::option::Option<alloc::vec::Vec<u8>>>
 pub type tirbase_core::durability::cloud_queue::RefetchFn<'a> = (dyn core::ops::function::Fn(&tirbase_core::crdt::delta::DeltaId, &[tirbase_core::crdt::delta::Did]) -> core::option::Option<alloc::vec::Vec<u8>> + 'a)
@@ -4458,7 +4458,7 @@ pub tirbase_core::durability::quorum::QuorumConfig::spatial_diversity_min: usize
 impl core::clone::Clone for tirbase_core::durability::quorum::QuorumConfig
 pub fn tirbase_core::durability::quorum::QuorumConfig::clone(&self) -> tirbase_core::durability::quorum::QuorumConfig
 impl core::default::Default for tirbase_core::durability::quorum::QuorumConfig
-pub fn tirbase_core::durability::quorum::QuorumConfig::default() -> Self
+pub fn tirbase_core::durability::quorum::QuorumConfig::default -> Self
 impl core::fmt::Debug for tirbase_core::durability::quorum::QuorumConfig
 pub fn tirbase_core::durability::quorum::QuorumConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::durability::quorum::QuorumConfig
@@ -4695,14 +4695,14 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::durability::receipt::DurabilityReceipt where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::durability::receipt::DurabilityReceipt::vzip(self) -> V
 pub fn tirbase_core::durability::receipt::receipt_signing_payload(&[u8; 32], &tirbase_core::durability::receipt::ReceiptId) -> alloc::vec::Vec<u8>
-pub fn tirbase_core::durability::receipt::verify_receipt(&tirbase_core::durability::receipt::DurabilityReceipt, &[u8; 32], &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::receipt::verify_receipt(&tirbase_core::durability::receipt::DurabilityReceipt, &[u8; 32], &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub type tirbase_core::durability::receipt::ReceiptId = uuid::Uuid
 pub mod tirbase_core::durability::spatial
 pub struct tirbase_core::durability::spatial::SpatialDiversityTracker
 impl tirbase_core::durability::spatial::SpatialDiversityTracker
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::add(&mut self, core::option::Option<&str>)
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::distinct_tag_count(&self) -> usize
-pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::new() -> Self
+pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::new -> Self
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::satisfies_diversity(&self, usize, f64, usize) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::tag_counts(&self) -> &alloc::collections::btree::map::BTreeMap<alloc::string::String, usize>
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::tagged_receipt_count(&self) -> usize
@@ -4710,7 +4710,7 @@ pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::untagged_coun
 impl core::clone::Clone for tirbase_core::durability::spatial::SpatialDiversityTracker
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::clone(&self) -> tirbase_core::durability::spatial::SpatialDiversityTracker
 impl core::default::Default for tirbase_core::durability::spatial::SpatialDiversityTracker
-pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::default() -> tirbase_core::durability::spatial::SpatialDiversityTracker
+pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::default -> tirbase_core::durability::spatial::SpatialDiversityTracker
 impl core::fmt::Debug for tirbase_core::durability::spatial::SpatialDiversityTracker
 pub fn tirbase_core::durability::spatial::SpatialDiversityTracker::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::durability::spatial::SpatialDiversityTracker
@@ -4767,9 +4767,9 @@ pub fn tirbase_core::durability::DurabilitySubsystem::cloud_queue_mut(&mut self)
 pub fn tirbase_core::durability::DurabilitySubsystem::compaction_permitted(&self, &tirbase_core::crdt::delta::DeltaId) -> bool
 pub fn tirbase_core::durability::DurabilitySubsystem::durability_tier(&self, &tirbase_core::crdt::delta::DeltaId) -> tirbase_core::api::types::DurabilityTier
 pub fn tirbase_core::durability::DurabilitySubsystem::new(tirbase_core::durability::quorum::QuorumConfig) -> Self
-pub fn tirbase_core::durability::DurabilitySubsystem::on_cloud_ack(&mut self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::DurabilitySubsystem::on_cloud_ack(&mut self, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::durability::DurabilitySubsystem::receive_receipt(&mut self, tirbase_core::durability::receipt::DurabilityReceipt, &tirbase_core::crdt::delta::DeltaId) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::durability::DurabilitySubsystem::register_delta(&mut self, tirbase_core::crdt::delta::DeltaId, [u8; 32], alloc::vec::Vec<u8>, alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>, alloc::collections::btree::map::BTreeMap<tirbase_core::crdt::delta::Did, [u8; 32]>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::durability::DurabilitySubsystem::register_delta(&mut self, tirbase_core::crdt::delta::DeltaId, [u8; 32], alloc::vec::Vec<u8>, alloc::vec::Vec<tirbase_core::crdt::delta::DeltaId>, alloc::collections::btree::map::BTreeMap<tirbase_core::crdt::delta::Did, [u8; 32]>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::durability::DurabilitySubsystem::set_tier_changed_listener(&mut self, alloc::boxed::Box<(dyn core::ops::function::Fn(tirbase_core::crdt::delta::DeltaId, tirbase_core::api::types::DurabilityTier, tirbase_core::api::types::DurabilityTier) + core::marker::Send + core::marker::Sync)>)
 impl core::marker::Freeze for tirbase_core::durability::DurabilitySubsystem
 impl core::marker::Send for tirbase_core::durability::DurabilitySubsystem
@@ -5328,7 +5328,7 @@ pub fn tirbase_core::events::TimeSourceFlag::hash<__H: core::hash::Hasher>(&self
 impl core::marker::Copy for tirbase_core::events::TimeSourceFlag
 impl core::marker::StructuralPartialEq for tirbase_core::events::TimeSourceFlag
 impl core::str::traits::FromStr for tirbase_core::events::TimeSourceFlag
-pub type tirbase_core::events::TimeSourceFlag::Err = ()
+pub type tirbase_core::events::TimeSourceFlag::Err = 
 pub fn tirbase_core::events::TimeSourceFlag::from_str(&str) -> core::result::Result<Self, Self::Err>
 impl serde_core::ser::Serialize for tirbase_core::events::TimeSourceFlag
 pub fn tirbase_core::events::TimeSourceFlag::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
@@ -5536,7 +5536,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::events::SecurityEvent wh
 pub fn tirbase_core::events::SecurityEvent::vzip(self) -> V
 pub fn tirbase_core::events::emit(tirbase_core::events::SecurityEvent)
 pub fn tirbase_core::events::install_security_event_sink(alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>) -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
-pub fn tirbase_core::events::security_event_sink() -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
+pub fn tirbase_core::events::security_event_sink -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::SecurityEventSink>>
 pub mod tirbase_core::fleet
 pub enum tirbase_core::fleet::DeviceLifecycle
 pub tirbase_core::fleet::DeviceLifecycle::Provisioned
@@ -5699,7 +5699,7 @@ pub tirbase_core::fleet::DeviceProvisioning::public_key: alloc::vec::Vec<u8>
 impl tirbase_core::fleet::DeviceProvisioning
 pub fn tirbase_core::fleet::DeviceProvisioning::new(impl core::convert::Into<tirbase_core::crdt::delta::Did>, impl core::convert::Into<alloc::string::String>, [u8; 16], [u8; 32], i64) -> Self
 pub fn tirbase_core::fleet::DeviceProvisioning::payload_len(&self) -> core::result::Result<usize, tirbase_core::fleet::FleetError>
-pub fn tirbase_core::fleet::DeviceProvisioning::validate_size(&self) -> core::result::Result<(), tirbase_core::fleet::FleetError>
+pub fn tirbase_core::fleet::DeviceProvisioning::validate_size(&self) -> core::result::Result<, tirbase_core::fleet::FleetError>
 impl core::clone::Clone for tirbase_core::fleet::DeviceProvisioning
 pub fn tirbase_core::fleet::DeviceProvisioning::clone(&self) -> tirbase_core::fleet::DeviceProvisioning
 impl core::cmp::Eq for tirbase_core::fleet::DeviceProvisioning
@@ -5853,7 +5853,7 @@ pub fn tirbase_core::fleet::FleetInventory::is_revoked(&self, &str) -> bool
 pub fn tirbase_core::fleet::FleetInventory::lamport(&self) -> u64
 pub fn tirbase_core::fleet::FleetInventory::len(&self) -> usize
 pub fn tirbase_core::fleet::FleetInventory::merge(&mut self, &tirbase_core::fleet::FleetInventory) -> tirbase_core::fleet::FleetMergeReport
-pub fn tirbase_core::fleet::FleetInventory::new() -> Self
+pub fn tirbase_core::fleet::FleetInventory::new -> Self
 pub fn tirbase_core::fleet::FleetInventory::provision(&mut self, tirbase_core::fleet::DeviceProvisioning, &str, i64) -> core::result::Result<tirbase_core::fleet::FleetEntry, tirbase_core::fleet::FleetError>
 pub fn tirbase_core::fleet::FleetInventory::revoke(&mut self, &str, &str, &str, i64) -> core::result::Result<bool, tirbase_core::fleet::FleetError>
 pub fn tirbase_core::fleet::FleetInventory::revoked_device_ids(&self) -> alloc::vec::Vec<tirbase_core::crdt::delta::Did>
@@ -5865,7 +5865,7 @@ impl core::cmp::Eq for tirbase_core::fleet::FleetInventory
 impl core::cmp::PartialEq for tirbase_core::fleet::FleetInventory
 pub fn tirbase_core::fleet::FleetInventory::eq(&self, &tirbase_core::fleet::FleetInventory) -> bool
 impl core::default::Default for tirbase_core::fleet::FleetInventory
-pub fn tirbase_core::fleet::FleetInventory::default() -> tirbase_core::fleet::FleetInventory
+pub fn tirbase_core::fleet::FleetInventory::default -> tirbase_core::fleet::FleetInventory
 impl core::fmt::Debug for tirbase_core::fleet::FleetInventory
 pub fn tirbase_core::fleet::FleetInventory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetInventory
@@ -6005,7 +6005,7 @@ pub fn tirbase_core::fleet::FleetInventoryVerifier::new(alloc::sync::Arc<std::sy
 impl core::fmt::Debug for tirbase_core::fleet::FleetInventoryVerifier
 pub fn tirbase_core::fleet::FleetInventoryVerifier::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::fleet::FleetInventoryVerifier
-pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::fleet::FleetInventoryVerifier
 impl core::marker::Send for tirbase_core::fleet::FleetInventoryVerifier
 impl core::marker::Sync for tirbase_core::fleet::FleetInventoryVerifier
@@ -6060,7 +6060,7 @@ impl core::cmp::Eq for tirbase_core::fleet::FleetMergeReport
 impl core::cmp::PartialEq for tirbase_core::fleet::FleetMergeReport
 pub fn tirbase_core::fleet::FleetMergeReport::eq(&self, &tirbase_core::fleet::FleetMergeReport) -> bool
 impl core::default::Default for tirbase_core::fleet::FleetMergeReport
-pub fn tirbase_core::fleet::FleetMergeReport::default() -> tirbase_core::fleet::FleetMergeReport
+pub fn tirbase_core::fleet::FleetMergeReport::default -> tirbase_core::fleet::FleetMergeReport
 impl core::fmt::Debug for tirbase_core::fleet::FleetMergeReport
 pub fn tirbase_core::fleet::FleetMergeReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_core::fleet::FleetMergeReport
@@ -6123,10 +6123,10 @@ pub fn tirbase_core::fleet::dyn_verifier(alloc::sync::Arc<std::sync::poison::mut
 pub mod tirbase_core::identity
 pub mod tirbase_core::identity::did
 pub fn tirbase_core::identity::did::derive_did(&[u8; 32]) -> tirbase_core::identity::did::Did
-pub fn tirbase_core::identity::did::load_identity() -> core::result::Result<core::option::Option<(tirbase_core::identity::did::Did, alloc::vec::Vec<u8>)>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::did::load_identity -> core::result::Result<core::option::Option<(tirbase_core::identity::did::Did, alloc::vec::Vec<u8>)>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::did::load_identity_from(&str) -> core::result::Result<core::option::Option<(tirbase_core::identity::did::Did, alloc::vec::Vec<u8>)>, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::did::persist_identity(&tirbase_core::identity::did::Did, &[u8]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::did::persist_identity_to(&tirbase_core::identity::did::Did, &[u8], &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::did::persist_identity(&tirbase_core::identity::did::Did, &[u8]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::did::persist_identity_to(&tirbase_core::identity::did::Did, &[u8], &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::did::resolve_did(&tirbase_core::identity::did::Did) -> core::result::Result<[u8; 32], tirbase_core::errors::TirBaseError>
 pub type tirbase_core::identity::did::Did = alloc::string::String
 pub mod tirbase_core::identity::file_key_provider
@@ -6196,7 +6196,7 @@ pub fn tirbase_core::identity::file_key_provider::FileKeyProvider::vzip(self) ->
 pub struct tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 impl tirbase_core::identity::file_key_provider::InMemoryKeyProvider
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::from_seed([u8; 32]) -> Self
-pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::generate() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::generate -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::public_key(&self) -> [u8; 32]
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::secret_seed(&self) -> [u8; 32]
 impl core::fmt::Debug for tirbase_core::identity::file_key_provider::InMemoryKeyProvider
@@ -6254,23 +6254,23 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::identity::file_key_provider::InMemoryKeyProvider where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::identity::file_key_provider::InMemoryKeyProvider::vzip(self) -> V
 pub mod tirbase_core::identity::keypair
-pub fn tirbase_core::identity::keypair::generate_keypair() -> core::result::Result<([u8; 32], [u8; 32]), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::keypair::generate_keypair -> core::result::Result<([u8; 32], [u8; 32]), tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::keypair::sign(&[u8; 32], &[u8]) -> core::result::Result<tirbase_core::crdt::delta::Ed25519Signature, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::keypair::verify(&[u8; 32], &[u8], &tirbase_core::crdt::delta::Ed25519Signature) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::keypair::verify(&[u8; 32], &[u8], &tirbase_core::crdt::delta::Ed25519Signature) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub struct tirbase_core::identity::IdentityManager
 pub tirbase_core::identity::IdentityManager::did: alloc::string::String
 impl tirbase_core::identity::IdentityManager
 pub fn tirbase_core::identity::IdentityManager::did(&self) -> &str
-pub fn tirbase_core::identity::IdentityManager::init() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::IdentityManager::init_in_memory() -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::init -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::init_in_memory -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::init_with_path(core::option::Option<&str>) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::identity::IdentityManager::key_provider(&self) -> &dyn tirbase_core::traits::KeyProvider
 pub fn tirbase_core::identity::IdentityManager::public_key_bytes(&self) -> [u8; 32]
 pub fn tirbase_core::identity::IdentityManager::sign(&self, &[u8]) -> core::result::Result<[u8; 64], tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::identity::IdentityManager::sign_async(&self, &[u8]) -> core::result::Result<tirbase_types::DeviceSignature, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::IdentityManager::sign_delta(&self, &mut tirbase_core::crdt::delta::Delta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::IdentityManager::verify_delta(&self, &tirbase_core::crdt::delta::Delta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::identity::IdentityManager::verify_delta_signature(&self, &str, &[u8], &[u8; 64]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::sign_delta(&self, &mut tirbase_core::crdt::delta::Delta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::verify_delta(&self, &tirbase_core::crdt::delta::Delta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::identity::IdentityManager::verify_delta_signature(&self, &str, &[u8], &[u8; 64]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::identity::IdentityManager
 impl core::marker::Send for tirbase_core::identity::IdentityManager
 impl core::marker::Sync for tirbase_core::identity::IdentityManager
@@ -6318,7 +6318,7 @@ pub struct tirbase_core::migration::author_revocation::NoAuthorRevocations
 impl core::clone::Clone for tirbase_core::migration::author_revocation::NoAuthorRevocations
 pub fn tirbase_core::migration::author_revocation::NoAuthorRevocations::clone(&self) -> tirbase_core::migration::author_revocation::NoAuthorRevocations
 impl core::default::Default for tirbase_core::migration::author_revocation::NoAuthorRevocations
-pub fn tirbase_core::migration::author_revocation::NoAuthorRevocations::default() -> tirbase_core::migration::author_revocation::NoAuthorRevocations
+pub fn tirbase_core::migration::author_revocation::NoAuthorRevocations::default -> tirbase_core::migration::author_revocation::NoAuthorRevocations
 impl core::fmt::Debug for tirbase_core::migration::author_revocation::NoAuthorRevocations
 pub fn tirbase_core::migration::author_revocation::NoAuthorRevocations::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_core::migration::author_revocation::NoAuthorRevocations
@@ -6375,19 +6375,19 @@ pub trait tirbase_core::migration::author_revocation::AuthorRevocationChecker: c
 pub fn tirbase_core::migration::author_revocation::AuthorRevocationChecker::is_author_revoked(&self, &str) -> bool
 impl tirbase_core::migration::author_revocation::AuthorRevocationChecker for tirbase_core::migration::author_revocation::NoAuthorRevocations
 pub fn tirbase_core::migration::author_revocation::NoAuthorRevocations::is_author_revoked(&self, &str) -> bool
-pub fn tirbase_core::migration::author_revocation::check_author_not_revoked(&dyn tirbase_core::migration::author_revocation::AuthorRevocationChecker, &tirbase_core::migration::migration_delta::MigrationId, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::author_revocation::check_author_not_revoked(&dyn tirbase_core::migration::author_revocation::AuthorRevocationChecker, &tirbase_core::migration::migration_delta::MigrationId, &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub type tirbase_core::migration::author_revocation::DynAuthorRevocationChecker = alloc::sync::Arc<dyn tirbase_core::migration::author_revocation::AuthorRevocationChecker>
 pub mod tirbase_core::migration::fleet_precondition
 pub struct tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl core::clone::Clone for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::clone(&self) -> tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl core::default::Default for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
-pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::default() -> tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
+pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::default -> tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl core::fmt::Debug for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
-pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl core::marker::Send for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
 impl core::marker::Sync for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
@@ -6439,12 +6439,12 @@ pub struct tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl core::clone::Clone for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::clone(&self) -> tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl core::default::Default for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
-pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::default() -> tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
+pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::default -> tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl core::fmt::Debug for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
-pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl core::marker::Send for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
 impl core::marker::Sync for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
@@ -6493,13 +6493,13 @@ impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusi
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::vzip(self) -> V
 pub trait tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::fleet::FleetInventoryVerifier
-pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::fleet::FleetInventoryVerifier::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions
-pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::fleet_precondition::AcceptAllFleetPreconditions::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier for tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory
-pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::fleet_precondition::UnverifiedFleetInventory::verify_contract(&self, &tirbase_core::migration::migration_delta::MigrationId, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub type tirbase_core::migration::fleet_precondition::DynFleetPreconditionVerifier = alloc::sync::Arc<dyn tirbase_core::migration::fleet_precondition::FleetPreconditionVerifier>
 pub mod tirbase_core::migration::migration_delta
 pub enum tirbase_core::migration::migration_delta::MigrationKind
@@ -6512,7 +6512,7 @@ impl core::cmp::Eq for tirbase_core::migration::migration_delta::MigrationKind
 impl core::cmp::PartialEq for tirbase_core::migration::migration_delta::MigrationKind
 pub fn tirbase_core::migration::migration_delta::MigrationKind::eq(&self, &tirbase_core::migration::migration_delta::MigrationKind) -> bool
 impl core::default::Default for tirbase_core::migration::migration_delta::MigrationKind
-pub fn tirbase_core::migration::migration_delta::MigrationKind::default() -> tirbase_core::migration::migration_delta::MigrationKind
+pub fn tirbase_core::migration::migration_delta::MigrationKind::default -> tirbase_core::migration::migration_delta::MigrationKind
 impl core::fmt::Debug for tirbase_core::migration::migration_delta::MigrationKind
 pub fn tirbase_core::migration::migration_delta::MigrationKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_core::migration::migration_delta::MigrationKind
@@ -6658,7 +6658,7 @@ impl core::cmp::Eq for tirbase_core::migration::migration_delta::CaSignature
 impl core::cmp::PartialEq for tirbase_core::migration::migration_delta::CaSignature
 pub fn tirbase_core::migration::migration_delta::CaSignature::eq(&self, &tirbase_core::migration::migration_delta::CaSignature) -> bool
 impl core::default::Default for tirbase_core::migration::migration_delta::CaSignature
-pub fn tirbase_core::migration::migration_delta::CaSignature::default() -> tirbase_core::migration::migration_delta::CaSignature
+pub fn tirbase_core::migration::migration_delta::CaSignature::default -> tirbase_core::migration::migration_delta::CaSignature
 impl core::fmt::Debug for tirbase_core::migration::migration_delta::CaSignature
 pub fn tirbase_core::migration::migration_delta::CaSignature::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_core::migration::migration_delta::CaSignature
@@ -7062,7 +7062,7 @@ impl core::cmp::Eq for tirbase_core::migration::profile::ActiveExecutionProfile
 impl core::cmp::PartialEq for tirbase_core::migration::profile::ActiveExecutionProfile
 pub fn tirbase_core::migration::profile::ActiveExecutionProfile::eq(&self, &tirbase_core::migration::profile::ActiveExecutionProfile) -> bool
 impl core::default::Default for tirbase_core::migration::profile::ActiveExecutionProfile
-pub fn tirbase_core::migration::profile::ActiveExecutionProfile::default() -> Self
+pub fn tirbase_core::migration::profile::ActiveExecutionProfile::default -> Self
 impl core::fmt::Debug for tirbase_core::migration::profile::ActiveExecutionProfile
 pub fn tirbase_core::migration::profile::ActiveExecutionProfile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tirbase_core::migration::profile::ActiveExecutionProfile
@@ -7121,7 +7121,7 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::migration::profile::Acti
 pub fn tirbase_core::migration::profile::ActiveExecutionProfile::vzip(self) -> V
 pub struct tirbase_core::migration::profile::DeterministicWasmProfile
 impl tirbase_core::migration::profile::DeterministicWasmProfile
-pub fn tirbase_core::migration::profile::DeterministicWasmProfile::validate(&[u8], tirbase_core::migration::migration_delta::MigrationId) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::profile::DeterministicWasmProfile::validate(&[u8], tirbase_core::migration::migration_delta::MigrationId) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::migration::profile::DeterministicWasmProfile
 impl core::marker::Send for tirbase_core::migration::profile::DeterministicWasmProfile
 impl core::marker::Sync for tirbase_core::migration::profile::DeterministicWasmProfile
@@ -7172,7 +7172,7 @@ impl tirbase_core::migration::profile::ExecutionProfileVersion
 pub fn tirbase_core::migration::profile::ExecutionProfileVersion::canonical_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn tirbase_core::migration::profile::ExecutionProfileVersion::matches_active(&self, &tirbase_core::migration::profile::ActiveExecutionProfile) -> bool
 pub fn tirbase_core::migration::profile::ExecutionProfileVersion::mismatch_error(&self, tirbase_core::migration::migration_delta::MigrationId, &tirbase_core::migration::profile::ActiveExecutionProfile) -> tirbase_core::errors::TirBaseError
-pub fn tirbase_core::migration::profile::ExecutionProfileVersion::verify_signature(&self, &[u8; 32]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::profile::ExecutionProfileVersion::verify_signature(&self, &[u8; 32]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::clone::Clone for tirbase_core::migration::profile::ExecutionProfileVersion
 pub fn tirbase_core::migration::profile::ExecutionProfileVersion::clone(&self) -> tirbase_core::migration::profile::ExecutionProfileVersion
 impl core::cmp::Eq for tirbase_core::migration::profile::ExecutionProfileVersion
@@ -7245,7 +7245,7 @@ pub const tirbase_core::migration::profile::STORE_LIMIT_INSTANCES: usize
 pub const tirbase_core::migration::profile::STORE_LIMIT_MEMORY_BYTES: usize
 pub const tirbase_core::migration::profile::STORE_LIMIT_STACK_BYTES: usize
 pub const tirbase_core::migration::profile::STORE_LIMIT_TABLES: usize
-pub fn tirbase_core::migration::profile::pinned_fuel_cost_table_hash() -> [u8; 32]
+pub fn tirbase_core::migration::profile::pinned_fuel_cost_table_hash -> [u8; 32]
 pub mod tirbase_core::migration::quarantine
 pub enum tirbase_core::migration::quarantine::QuarantineReason
 pub tirbase_core::migration::quarantine::QuarantineReason::AuthorRevocationPostExecution
@@ -7509,7 +7509,7 @@ pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::is_revoked
 pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::mark_in_progress(&mut self, tirbase_core::migration::migration_delta::MigrationId)
 pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::revocation_log(&self) -> &[tirbase_core::migration::revocation::RevocationRecord]
 impl core::default::Default for tirbase_core::migration::revocation::RevokedMigrationRegistry
-pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::default() -> tirbase_core::migration::revocation::RevokedMigrationRegistry
+pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::default -> tirbase_core::migration::revocation::RevokedMigrationRegistry
 impl core::fmt::Debug for tirbase_core::migration::revocation::RevokedMigrationRegistry
 pub fn tirbase_core::migration::revocation::RevokedMigrationRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::migration::revocation::RevokedMigrationRegistry
@@ -7650,7 +7650,7 @@ pub type tirbase_core::migration::shadow::ShadowRunOutcome::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::migration::shadow::ShadowRunOutcome where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::migration::shadow::ShadowRunOutcome where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::migration::shadow::ShadowRunOutcome::vzip(self) -> V
-pub fn tirbase_core::migration::shadow::commit_shadow_projections(&alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>, alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>)>) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::shadow::commit_shadow_projections(&alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>, alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>)>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::migration::shadow::run_shadow_migration_native(&[u8], [u8; 32], u64, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>, &tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry, tirbase_core::migration::shadow::ShadowInputs<'_>) -> core::result::Result<tirbase_core::migration::shadow::ShadowRunOutcome, tirbase_core::errors::TirBaseError>
 pub type tirbase_core::migration::shadow::ShadowProjections = alloc::vec::Vec<(alloc::string::String, alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>)>
 pub mod tirbase_core::migration::sidecar
@@ -7905,7 +7905,7 @@ pub fn tirbase_core::migration::version_path::SchemaVersionPath::next_version(&s
 impl core::clone::Clone for tirbase_core::migration::version_path::SchemaVersionPath
 pub fn tirbase_core::migration::version_path::SchemaVersionPath::clone(&self) -> tirbase_core::migration::version_path::SchemaVersionPath
 impl core::default::Default for tirbase_core::migration::version_path::SchemaVersionPath
-pub fn tirbase_core::migration::version_path::SchemaVersionPath::default() -> tirbase_core::migration::version_path::SchemaVersionPath
+pub fn tirbase_core::migration::version_path::SchemaVersionPath::default -> tirbase_core::migration::version_path::SchemaVersionPath
 impl core::fmt::Debug for tirbase_core::migration::version_path::SchemaVersionPath
 pub fn tirbase_core::migration::version_path::SchemaVersionPath::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::migration::version_path::SchemaVersionPath
@@ -8032,10 +8032,10 @@ pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::is_emp
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::is_in_flight(&self, &tirbase_core::migration::migration_delta::MigrationId) -> bool
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::len(&self) -> usize
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register(&self, tirbase_core::migration::migration_delta::MigrationId) -> alloc::sync::Arc<core::sync::atomic::AtomicBool>
-pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register_engine(&self, tirbase_core::migration::migration_delta::MigrationId, ()) -> bool
+pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::register_engine(&self, tirbase_core::migration::migration_delta::MigrationId) -> bool
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::unregister(&self, &tirbase_core::migration::migration_delta::MigrationId)
 impl core::default::Default for tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
-pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::default() -> tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
+pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::default -> tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
 impl core::fmt::Debug for tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
 pub fn tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl !core::marker::Freeze for tirbase_core::migration::wasm_sandbox::MigrationExecutionRegistry
@@ -8169,7 +8169,7 @@ pub tirbase_core::schema::parser::Rule::table_item
 pub tirbase_core::schema::parser::Rule::unique_constraint
 pub tirbase_core::schema::parser::Rule::version_directive
 impl tirbase_core::schema::parser::Rule
-pub fn tirbase_core::schema::parser::Rule::all_rules() -> &'static [tirbase_core::schema::parser::Rule]
+pub fn tirbase_core::schema::parser::Rule::all_rules -> &'static [tirbase_core::schema::parser::Rule]
 impl core::clone::Clone for tirbase_core::schema::parser::Rule
 pub fn tirbase_core::schema::parser::Rule::clone(&self) -> tirbase_core::schema::parser::Rule
 impl core::cmp::Eq for tirbase_core::schema::parser::Rule
@@ -8748,31 +8748,31 @@ pub type tirbase_core::store::compaction::CompactionPolicy::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::store::compaction::CompactionPolicy where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::store::compaction::CompactionPolicy where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_core::store::compaction::CompactionPolicy::vzip(self) -> V
-pub fn tirbase_core::store::compaction::compact_table(&rusqlite::Connection, &str, &mut automerge::autocommit::AutoCommit) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::compaction::compact_table(&rusqlite::Connection, &str, &mut automerge::autocommit::AutoCommit) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::compaction::should_compact(&tirbase_core::store::compaction::CompactionPolicy, u64) -> bool
 pub mod tirbase_core::store::projection
-pub fn tirbase_core::store::projection::clear_row_contamination(&rusqlite::Connection, &str, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::store::projection::mark_row_contaminated(&rusqlite::Connection, &str, &str) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::store::projection::project_table(&rusqlite::Connection, &str, &automerge::autocommit::AutoCommit) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::projection::clear_row_contamination(&rusqlite::Connection, &str, &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::projection::mark_row_contaminated(&rusqlite::Connection, &str, &str) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::projection::project_table(&rusqlite::Connection, &str, &automerge::autocommit::AutoCommit) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::projection::record_delta_row(&tirbase_core::crdt::delta::DeltaId, &str, &str)
 pub mod tirbase_core::store::sqlite
 pub const tirbase_core::store::sqlite::CREATE_SCHEMA_SQL: &str
-pub fn tirbase_core::store::sqlite::maintenance_integrity_check(&rusqlite::Connection) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::sqlite::maintenance_integrity_check(&rusqlite::Connection) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::sqlite::open(&str) -> core::result::Result<rusqlite::Connection, tirbase_core::errors::TirBaseError>
 pub struct tirbase_core::store::LocalStore
 impl tirbase_core::store::LocalStore
 pub fn tirbase_core::store::LocalStore::count_rows(&self, &str) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::list_automerge_tables(&self) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::list_projection_tables(&self) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::store::LocalStore::maintenance_integrity_check(&self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::LocalStore::maintenance_integrity_check(&self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::open(&str) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::query(&self, &str, core::option::Option<&serde_json::value::Value>) -> core::result::Result<alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::raw_conn(&self) -> &rusqlite::Connection
 pub fn tirbase_core::store::LocalStore::read(&self, &str, &str) -> core::result::Result<core::option::Option<serde_json::value::Value>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::read_all_rows(&self, &str) -> core::result::Result<alloc::vec::Vec<(alloc::string::String, serde_json::value::Value)>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::store::LocalStore::with_projection_savepoint<F, T>(&mut self, &str, F) -> core::result::Result<T, tirbase_core::errors::TirBaseError> where F: core::ops::function::FnOnce(&mut Self) -> core::result::Result<(bool, T), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::store::LocalStore::write(&mut self, &str, &str, &serde_json::value::Value) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::store::LocalStore::write_with_automerge(&mut self, &str, &str, &serde_json::value::Value, &tirbase_core::store::compaction::CompactionPolicy) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::LocalStore::write(&mut self, &str, &str, &serde_json::value::Value) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::store::LocalStore::write_with_automerge(&mut self, &str, &str, &serde_json::value::Value, &tirbase_core::store::compaction::CompactionPolicy) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl !core::marker::Freeze for tirbase_core::store::LocalStore
 impl core::marker::Send for tirbase_core::store::LocalStore
 impl !core::marker::Sync for tirbase_core::store::LocalStore
@@ -8891,11 +8891,11 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::traits::AssuranceLevel w
 pub fn tirbase_core::traits::AssuranceLevel::vzip(self) -> V
 pub struct tirbase_core::traits::SystemTimeSource
 impl tirbase_core::traits::SystemTimeSource
-pub fn tirbase_core::traits::SystemTimeSource::new() -> Self
+pub fn tirbase_core::traits::SystemTimeSource::new -> Self
 impl core::clone::Clone for tirbase_core::traits::SystemTimeSource
 pub fn tirbase_core::traits::SystemTimeSource::clone(&self) -> tirbase_core::traits::SystemTimeSource
 impl core::default::Default for tirbase_core::traits::SystemTimeSource
-pub fn tirbase_core::traits::SystemTimeSource::default() -> tirbase_core::traits::SystemTimeSource
+pub fn tirbase_core::traits::SystemTimeSource::default -> tirbase_core::traits::SystemTimeSource
 impl core::fmt::Debug for tirbase_core::traits::SystemTimeSource
 pub fn tirbase_core::traits::SystemTimeSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tirbase_core::traits::SystemTimeSource
@@ -8984,10 +8984,10 @@ pub fn tirbase_core::traits::SystemTimeSource::boot_id(&self) -> u64
 pub fn tirbase_core::traits::SystemTimeSource::monotonic_now(&self) -> u64
 pub fn tirbase_core::traits::SystemTimeSource::wall_hint(&self) -> core::option::Option<i64>
 pub fn tirbase_core::traits::install_time_source(alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>) -> core::option::Option<alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>>
-pub fn tirbase_core::traits::monotonic_now() -> u64
-pub fn tirbase_core::traits::time_source() -> alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>
-pub fn tirbase_core::traits::wall_hint() -> core::option::Option<i64>
-pub fn tirbase_core::traits::wall_hint_secs() -> core::option::Option<i64>
+pub fn tirbase_core::traits::monotonic_now -> u64
+pub fn tirbase_core::traits::time_source -> alloc::sync::Arc<dyn tirbase_core::traits::TimeSource>
+pub fn tirbase_core::traits::wall_hint -> core::option::Option<i64>
+pub fn tirbase_core::traits::wall_hint_secs -> core::option::Option<i64>
 pub mod tirbase_core::transport
 pub use tirbase_core::transport::NetworkBehaviour
 pub use tirbase_core::transport::NetworkBehaviour
@@ -9000,10 +9000,10 @@ pub tirbase_core::transport::ble::BleAdapter::local_did: tirbase_core::crdt::del
 pub tirbase_core::transport::ble::BleAdapter::peer_did: tirbase_core::crdt::delta::Did
 pub tirbase_core::transport::ble::BleAdapter::peripheral: core::option::Option<btleplug::corebluetooth::peripheral::Peripheral>
 impl tirbase_core::transport::ble::BleAdapter
-pub async fn tirbase_core::transport::ble::BleAdapter::disconnect(&mut self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::ble::BleAdapter::disconnect(&mut self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::transport::ble::BleAdapter::new(tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Did) -> core::result::Result<Self, tirbase_core::errors::TirBaseError>
-pub async fn tirbase_core::transport::ble::BleAdapter::scan_and_connect(&mut self, u64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub async fn tirbase_core::transport::ble::BleAdapter::send_chunks(&mut self, &[alloc::vec::Vec<u8>]) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::ble::BleAdapter::scan_and_connect(&mut self, u64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::ble::BleAdapter::send_chunks(&mut self, &[alloc::vec::Vec<u8>]) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::transport::ble::BleAdapter::subscribe_notifications(&mut self) -> core::result::Result<tokio::sync::mpsc::bounded::Receiver<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>
 impl core::marker::Freeze for tirbase_core::transport::ble::BleAdapter
 impl core::marker::Send for tirbase_core::transport::ble::BleAdapter
@@ -9415,12 +9415,12 @@ pub tirbase_core::transport::discovery::PeerDiscovery::retry_interval_secs: u64
 impl tirbase_core::transport::discovery::PeerDiscovery
 pub fn tirbase_core::transport::discovery::PeerDiscovery::active_peers(&self) -> alloc::vec::Vec<tirbase_core::crdt::delta::Did>
 pub fn tirbase_core::transport::discovery::PeerDiscovery::drain_due_retries(&mut self, i64) -> alloc::vec::Vec<tirbase_core::transport::discovery::RetryEntry>
-pub fn tirbase_core::transport::discovery::PeerDiscovery::enqueue_retry(&mut self, tirbase_core::transport::discovery::RetryEntry) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::discovery::PeerDiscovery::enqueue_retry(&mut self, tirbase_core::transport::discovery::RetryEntry) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::discovery::PeerDiscovery::find_relay_peer(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<tirbase_core::crdt::delta::Did>
 pub fn tirbase_core::transport::discovery::PeerDiscovery::is_active(&self, &tirbase_core::crdt::delta::Did) -> bool
 pub fn tirbase_core::transport::discovery::PeerDiscovery::is_direct_neighbor(&self, &tirbase_core::crdt::delta::Did) -> bool
 pub fn tirbase_core::transport::discovery::PeerDiscovery::new(u8, u64, u64, usize) -> Self
-pub fn tirbase_core::transport::discovery::PeerDiscovery::on_peer_discovered(&mut self, tirbase_core::transport::discovery::DiscoveredPeer, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::discovery::PeerDiscovery::on_peer_discovered(&mut self, tirbase_core::transport::discovery::DiscoveredPeer, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::discovery::PeerDiscovery::peer_transport(&self, &tirbase_core::crdt::delta::Did) -> core::option::Option<&tirbase_core::transport::discovery::PeerTransport>
 pub fn tirbase_core::transport::discovery::PeerDiscovery::remove_peer(&mut self, &tirbase_core::crdt::delta::Did)
 pub fn tirbase_core::transport::discovery::PeerDiscovery::retry_queue_len(&self) -> usize
@@ -9644,7 +9644,7 @@ pub struct tirbase_core::transport::fragment::ReassemblyBuffer
 impl tirbase_core::transport::fragment::ReassemblyBuffer
 pub fn tirbase_core::transport::fragment::ReassemblyBuffer::add_fragment(&mut self, tirbase_core::transport::fragment::DeltaFragment, &tirbase_core::crdt::delta::Did) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>
 impl core::default::Default for tirbase_core::transport::fragment::ReassemblyBuffer
-pub fn tirbase_core::transport::fragment::ReassemblyBuffer::default() -> tirbase_core::transport::fragment::ReassemblyBuffer
+pub fn tirbase_core::transport::fragment::ReassemblyBuffer::default -> tirbase_core::transport::fragment::ReassemblyBuffer
 impl core::fmt::Debug for tirbase_core::transport::fragment::ReassemblyBuffer
 pub fn tirbase_core::transport::fragment::ReassemblyBuffer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::fragment::ReassemblyBuffer
@@ -9970,12 +9970,12 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::saturate::Sat
 pub fn tirbase_core::transport::saturate::SaturateLease::vzip(self) -> V
 pub struct tirbase_core::transport::saturate::SaturateModeStateMachine
 impl tirbase_core::transport::saturate::SaturateModeStateMachine
-pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::activate(&mut self, tirbase_core::crdt::delta::Did, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::activate(&mut self, tirbase_core::crdt::delta::Did, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::lease(&self) -> core::option::Option<&tirbase_core::transport::saturate::SaturateLease>
 pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::new(usize, alloc::vec::Vec<u8>, i64) -> Self
-pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::renew(&mut self, tirbase_core::crdt::delta::Did, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::renew(&mut self, tirbase_core::crdt::delta::Did, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::state(&self) -> tirbase_core::transport::saturate::SaturateState
-pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::terminate(&mut self, alloc::vec::Vec<(tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>)>, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::terminate(&mut self, alloc::vec::Vec<(tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>)>, &[u8], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::tick(&mut self, i64)
 impl core::marker::Freeze for tirbase_core::transport::saturate::SaturateModeStateMachine
 impl core::marker::Send for tirbase_core::transport::saturate::SaturateModeStateMachine
@@ -10201,7 +10201,7 @@ pub struct tirbase_core::transport::security_event_sync::AppendOnlySecurityEvent
 impl tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::ingest(&mut self, alloc::vec::Vec<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>) -> alloc::vec::Vec<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>
 impl core::default::Default for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
-pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::default() -> tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
+pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::default -> tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
@@ -10249,7 +10249,7 @@ pub struct tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLi
 impl tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::allow(&mut self, &str, usize, u64) -> (usize, usize)
 impl core::default::Default for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
-pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::default() -> tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
+pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::default -> tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
@@ -10365,10 +10365,10 @@ pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncBatch::vzi
 pub struct tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 impl tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::handle_inbound(&mut self, tirbase_core::transport::security_event_sync::SecurityEventSyncBatch, u64) -> tirbase_core::transport::security_event_sync::SyncInboundDecision
-pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::new() -> Self
+pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::new -> Self
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::on_sync_failure(&self, &str, impl core::convert::Into<alloc::string::String>) -> tirbase_core::transport::security_event_sync::SyncInboundDecision
 impl core::default::Default for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
-pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::default() -> tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
+pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::default -> tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
@@ -10500,10 +10500,10 @@ pub mod tirbase_core::transport::session
 pub struct tirbase_core::transport::session::DuplexNoiseStream
 impl tirbase_core::transport::session::DuplexNoiseStream
 pub fn tirbase_core::transport::session::DuplexNoiseStream::from_duplex(tokio::io::util::mem::DuplexStream) -> Self
-pub fn tirbase_core::transport::session::DuplexNoiseStream::pair() -> (Self, Self)
+pub fn tirbase_core::transport::session::DuplexNoiseStream::pair -> (Self, Self)
 impl tirbase_core::transport::session::AsyncNoiseStream for tirbase_core::transport::session::DuplexNoiseStream
-pub fn tirbase_core::transport::session::DuplexNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
-pub fn tirbase_core::transport::session::DuplexNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::DuplexNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::DuplexNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 impl core::marker::Freeze for tirbase_core::transport::session::DuplexNoiseStream
 impl core::marker::Send for tirbase_core::transport::session::DuplexNoiseStream
 impl core::marker::Sync for tirbase_core::transport::session::DuplexNoiseStream
@@ -10786,10 +10786,10 @@ pub async fn tirbase_core::transport::session::SessionManager::initiate(&mut sel
 pub fn tirbase_core::transport::session::SessionManager::new(tirbase_core::crdt::delta::Did, u64) -> Self
 pub fn tirbase_core::transport::session::SessionManager::record_failure(&mut self, tirbase_core::crdt::delta::Did, alloc::string::String, i64)
 pub fn tirbase_core::transport::session::SessionManager::register_session(&mut self, tirbase_core::crdt::delta::Did, i64) -> tirbase_core::transport::session::NoiseSession
-pub fn tirbase_core::transport::session::SessionManager::rotate_keys(&mut self, &mut tirbase_core::transport::session::NoiseSession, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::session::SessionManager::rotate_keys(&mut self, &mut tirbase_core::transport::session::NoiseSession, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::session::SessionManager::store_credential(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::transport::session::ResumptionCredential)
 impl core::default::Default for tirbase_core::transport::session::SessionManager
-pub fn tirbase_core::transport::session::SessionManager::default() -> Self
+pub fn tirbase_core::transport::session::SessionManager::default -> Self
 impl core::marker::Freeze for tirbase_core::transport::session::SessionManager
 impl core::marker::Send for tirbase_core::transport::session::SessionManager
 impl core::marker::Sync for tirbase_core::transport::session::SessionManager
@@ -10837,11 +10837,11 @@ pub const tirbase_core::transport::session::MAX_ROTATION_INTERVAL_SECS: u64
 pub const tirbase_core::transport::session::MIN_RETRY_BACKOFF_SECS: i64
 pub const tirbase_core::transport::session::MIN_ROTATION_INTERVAL_SECS: u64
 pub trait tirbase_core::transport::session::AsyncNoiseStream: core::marker::Send + core::marker::Unpin
-pub fn tirbase_core::transport::session::AsyncNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
-pub fn tirbase_core::transport::session::AsyncNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::AsyncNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::AsyncNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 impl tirbase_core::transport::session::AsyncNoiseStream for tirbase_core::transport::session::DuplexNoiseStream
-pub fn tirbase_core::transport::session::DuplexNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
-pub fn tirbase_core::transport::session::DuplexNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::DuplexNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::DuplexNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub enum tirbase_core::transport::SyncInboundDecision
 pub tirbase_core::transport::SyncInboundDecision::Accepted(alloc::vec::Vec<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>)
 pub tirbase_core::transport::SyncInboundDecision::RateLimited
@@ -10916,7 +10916,7 @@ pub tirbase_core::transport::TirBaseBehaviourEvent::Identify(<libp2p_identify::b
 pub tirbase_core::transport::TirBaseBehaviourEvent::Mdns(<libp2p_mdns::behaviour::tokio::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm)
 pub tirbase_core::transport::TirBaseBehaviourEvent::Ping(<libp2p_ping::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm)
 impl core::fmt::Debug for tirbase_core::transport::TirBaseBehaviourEvent where libp2p_mdns::behaviour::tokio::Behaviour: libp2p_swarm::behaviour::NetworkBehaviour, libp2p_gossipsub::behaviour::Behaviour: libp2p_swarm::behaviour::NetworkBehaviour, libp2p_identify::behaviour::Behaviour: libp2p_swarm::behaviour::NetworkBehaviour, libp2p_ping::Behaviour: libp2p_swarm::behaviour::NetworkBehaviour, <libp2p_mdns::behaviour::tokio::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm: core::fmt::Debug, <libp2p_gossipsub::behaviour::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm: core::fmt::Debug, <libp2p_identify::behaviour::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm: core::fmt::Debug, <libp2p_ping::Behaviour as libp2p_swarm::behaviour::NetworkBehaviour>::ToSwarm: core::fmt::Debug
-pub fn tirbase_core::transport::TirBaseBehaviourEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error>
+pub fn tirbase_core::transport::TirBaseBehaviourEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::result::Result<, core::fmt::Error>
 impl core::marker::Freeze for tirbase_core::transport::TirBaseBehaviourEvent
 impl core::marker::Send for tirbase_core::transport::TirBaseBehaviourEvent
 impl core::marker::Sync for tirbase_core::transport::TirBaseBehaviourEvent
@@ -10962,7 +10962,7 @@ pub struct tirbase_core::transport::AppendOnlySecurityEventCollection
 impl tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::ingest(&mut self, alloc::vec::Vec<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>) -> alloc::vec::Vec<tirbase_core::transport::security_event_sync::SecurityEventSyncRecord>
 impl core::default::Default for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
-pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::default() -> tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
+pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::default -> tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
 pub fn tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::AppendOnlySecurityEventCollection
@@ -11017,21 +11017,21 @@ pub tirbase_core::transport::MeshTransport::scheduler: tirbase_core::transport::
 pub tirbase_core::transport::MeshTransport::session_manager: tirbase_core::transport::session::SessionManager
 impl tirbase_core::transport::MeshTransport
 pub fn tirbase_core::transport::MeshTransport::active_peers(&self) -> alloc::vec::Vec<tirbase_core::crdt::delta::Did>
-pub fn tirbase_core::transport::MeshTransport::dial_ble_bridge(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Did, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::dial_ble_bridge(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Did, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::drain_due_retries(&mut self, i64) -> alloc::vec::Vec<tirbase_core::transport::discovery::RetryEntry>
 pub fn tirbase_core::transport::MeshTransport::enqueue_outbound(&mut self, tirbase_core::crdt::delta::Delta)
-pub fn tirbase_core::transport::MeshTransport::enqueue_retry(&mut self, tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::enqueue_retry(&mut self, tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::has_backlog(&self) -> bool
 pub fn tirbase_core::transport::MeshTransport::high_queue_depth(&self) -> usize
-pub async fn tirbase_core::transport::MeshTransport::initiate_session(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::api::types::TrustLevel, &[u8], &[u8], core::option::Option<&mut dyn tirbase_core::transport::session::AsyncNoiseStream>, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::MeshTransport::initiate_session(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::api::types::TrustLevel, &[u8], &[u8], core::option::Option<&mut dyn tirbase_core::transport::session::AsyncNoiseStream>, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::new(tirbase_core::crdt::delta::Did, [u8; 32], tirbase_core::transport::TransportConfig) -> Self
-pub fn tirbase_core::transport::MeshTransport::on_peer_discovered(&mut self, tirbase_core::transport::discovery::DiscoveredPeer, i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::on_peer_discovered(&mut self, tirbase_core::transport::discovery::DiscoveredPeer, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::open_noise_substream(&self) -> tirbase_core::transport::session::DuplexNoiseStream
 pub fn tirbase_core::transport::MeshTransport::prepare_outbound(&self, &tirbase_core::crdt::delta::Delta) -> core::result::Result<alloc::vec::Vec<tirbase_core::transport::message::GossipMessage>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::remove_peer(&mut self, &tirbase_core::crdt::delta::Did)
-pub fn tirbase_core::transport::MeshTransport::send_delta(&mut self, &tirbase_core::crdt::delta::Did, &tirbase_core::crdt::delta::Delta) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub fn tirbase_core::transport::MeshTransport::send_receipt(&mut self, &tirbase_core::durability::receipt::DurabilityReceipt) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
-pub async fn tirbase_core::transport::MeshTransport::start(&mut self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::send_delta(&mut self, &tirbase_core::crdt::delta::Did, &tirbase_core::crdt::delta::Delta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::send_receipt(&mut self, &tirbase_core::durability::receipt::DurabilityReceipt) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::MeshTransport::start(&mut self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::take_swarm(&mut self, tokio::sync::mpsc::bounded::Sender<alloc::vec::Vec<u8>>) -> core::option::Option<libp2p_swarm::Swarm<tirbase_core::transport::TirBaseBehaviour>>
 pub fn tirbase_core::transport::MeshTransport::tick_timeouts(&mut self, i64)
 impl core::ops::drop::Drop for tirbase_core::transport::MeshTransport
@@ -11082,7 +11082,7 @@ pub struct tirbase_core::transport::PeerSecurityEventSyncLimiter
 impl tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::allow(&mut self, &str, usize, u64) -> (usize, usize)
 impl core::default::Default for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
-pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::default() -> tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
+pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::default -> tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
 pub fn tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::PeerSecurityEventSyncLimiter
@@ -11198,10 +11198,10 @@ pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncBatch::vzi
 pub struct tirbase_core::transport::SecurityEventSyncHandler
 impl tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::handle_inbound(&mut self, tirbase_core::transport::security_event_sync::SecurityEventSyncBatch, u64) -> tirbase_core::transport::security_event_sync::SyncInboundDecision
-pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::new() -> Self
+pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::new -> Self
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::on_sync_failure(&self, &str, impl core::convert::Into<alloc::string::String>) -> tirbase_core::transport::security_event_sync::SyncInboundDecision
 impl core::default::Default for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
-pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::default() -> tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
+pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::default -> tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 impl core::fmt::Debug for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
 pub fn tirbase_core::transport::security_event_sync::SecurityEventSyncHandler::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::security_event_sync::SecurityEventSyncHandler
@@ -11335,7 +11335,7 @@ pub type tirbase_core::transport::TirBaseBehaviour::ConnectionHandler = libp2p_s
 pub type tirbase_core::transport::TirBaseBehaviour::ToSwarm = tirbase_core::transport::TirBaseBehaviourEvent
 pub fn tirbase_core::transport::TirBaseBehaviour::handle_established_inbound_connection(&mut self, libp2p_swarm::connection::ConnectionId, libp2p_identity::peer_id::PeerId, &multiaddr::Multiaddr, &multiaddr::Multiaddr) -> core::result::Result<libp2p_swarm::THandler<Self>, libp2p_swarm::ConnectionDenied>
 pub fn tirbase_core::transport::TirBaseBehaviour::handle_established_outbound_connection(&mut self, libp2p_swarm::connection::ConnectionId, libp2p_identity::peer_id::PeerId, &multiaddr::Multiaddr, libp2p_core::connection::Endpoint, libp2p_core::transport::PortUse) -> core::result::Result<libp2p_swarm::THandler<Self>, libp2p_swarm::ConnectionDenied>
-pub fn tirbase_core::transport::TirBaseBehaviour::handle_pending_inbound_connection(&mut self, libp2p_swarm::connection::ConnectionId, &multiaddr::Multiaddr, &multiaddr::Multiaddr) -> core::result::Result<(), libp2p_swarm::ConnectionDenied>
+pub fn tirbase_core::transport::TirBaseBehaviour::handle_pending_inbound_connection(&mut self, libp2p_swarm::connection::ConnectionId, &multiaddr::Multiaddr, &multiaddr::Multiaddr) -> core::result::Result<, libp2p_swarm::ConnectionDenied>
 pub fn tirbase_core::transport::TirBaseBehaviour::handle_pending_outbound_connection(&mut self, libp2p_swarm::connection::ConnectionId, core::option::Option<libp2p_identity::peer_id::PeerId>, &[multiaddr::Multiaddr], libp2p_core::connection::Endpoint) -> core::result::Result<alloc::vec::Vec<multiaddr::Multiaddr>, libp2p_swarm::ConnectionDenied>
 pub fn tirbase_core::transport::TirBaseBehaviour::on_connection_handler_event(&mut self, libp2p_identity::peer_id::PeerId, libp2p_swarm::connection::ConnectionId, libp2p_swarm::THandlerOutEvent<Self>)
 pub fn tirbase_core::transport::TirBaseBehaviour::on_swarm_event(&mut self, libp2p_swarm::behaviour::FromSwarm<'_>)
@@ -11396,7 +11396,7 @@ pub tirbase_core::transport::TransportConfig::saturate_termination_threshold_m: 
 impl core::clone::Clone for tirbase_core::transport::TransportConfig
 pub fn tirbase_core::transport::TransportConfig::clone(&self) -> tirbase_core::transport::TransportConfig
 impl core::default::Default for tirbase_core::transport::TransportConfig
-pub fn tirbase_core::transport::TransportConfig::default() -> Self
+pub fn tirbase_core::transport::TransportConfig::default -> Self
 impl core::fmt::Debug for tirbase_core::transport::TransportConfig
 pub fn tirbase_core::transport::TransportConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_core::transport::TransportConfig

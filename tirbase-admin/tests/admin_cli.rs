@@ -1,7 +1,7 @@
-//! Task 9 integration tests (CLAIM-9.1..9.5, PV-3.10).
+//! integration tests (CLAIM-9.1..9.5, PV-3.10).
 //!
 //! 9.1 is satisfied by `cargo check -p tirbase-admin` and the clap-based CLI
-//! subcommand declaration in `src/main.rs`.  9.2/9.3/9.4/9.5 drive the
+//! subcommand declaration in `src/main.rs`. 9.2/9.3/9.4/9.5 drive the
 //! production command modules; 9.2 also verifies the issued token with two
 //! real `CoreHandle` instances.
 
@@ -37,7 +37,7 @@ fn core_config(storage: &std::path::Path, root_public: [u8; 32]) -> InitConfig {
 }
 
 #[test]
-fn task9_1_cli_declares_all_required_subcommands() {
+fn cli_declares_all_required_subcommands() {
     assert!(
         REQUIRED_SUBCOMMANDS.starts_with(&["enroll", "mint", "rotate", "inspect-identities"]),
         "task 9 subcommands must remain present: {REQUIRED_SUBCOMMANDS:?}"
@@ -51,7 +51,7 @@ fn task9_1_cli_declares_all_required_subcommands() {
 }
 
 #[tokio::test]
-async fn task9_2_enroll_issues_token_verified_by_two_real_core_handles() {
+async fn enroll_issues_token_verified_by_two_real_core_handles() {
     let (root_seed, root_public) = keypair::generate_keypair().unwrap();
     let device_key_path = temp_path("enroll", "device.json");
 
@@ -91,7 +91,7 @@ async fn task9_2_enroll_issues_token_verified_by_two_real_core_handles() {
 }
 
 #[tokio::test]
-async fn task9_3_mint_enforces_maximum_lifetime_86400s() {
+async fn mint_enforces_maximum_lifetime_86400s() {
     let (root_seed, root_public) = keypair::generate_keypair().unwrap();
     let did = "did:key:z6MkMintTestDevice";
 
@@ -134,7 +134,7 @@ async fn task9_3_mint_enforces_maximum_lifetime_86400s() {
 }
 
 #[test]
-fn task9_4_rotate_generates_new_identity_and_backs_up_old_key() {
+fn rotate_generates_new_identity_and_backs_up_old_key() {
     let dir = tempdir().unwrap();
     let key_path = dir.path().join("device-key.json");
     let initial = serde_json::json!({
@@ -168,7 +168,7 @@ fn task9_4_rotate_generates_new_identity_and_backs_up_old_key() {
 }
 
 #[test]
-fn task9_5_inspect_identities_reports_public_fields_without_private_seed() {
+fn inspect_identities_reports_public_fields_without_private_seed() {
     let dir = tempdir().unwrap();
     let key_path = dir.path().join("identity.json");
     let body = serde_json::json!({

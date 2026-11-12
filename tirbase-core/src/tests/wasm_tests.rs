@@ -83,13 +83,13 @@ async fn test_local_store_persists_across_reopen() {
     use serde_json::json;
 
     let path = "wasm-test-persist-6-3";
-    // Fresh database so the assertion is deterministic across test runs
-    // (IndexedDB is per-origin and survives between wasm-pack test sessions).
+ // Fresh database so the assertion is deterministic across test runs
+ // (IndexedDB is per-origin and survives between wasm-pack test sessions).
     crate::store::indexed_db::delete_database(path)
         .await
         .expect("delete prior database");
 
-    // First session: write a row, then drop the store — simulating a reload.
+ // First session: write a row, then drop the store — simulating a reload.
     {
         let mut store = LocalStore::open(path).await.expect("open first session");
         store
@@ -98,8 +98,8 @@ async fn test_local_store_persists_across_reopen() {
             .expect("write");
     }
 
-    // Second session: the row must have survived the reload (the acceptance
-    // criterion for the WASM LocalStore persistence story).
+ // Second session: the row must have survived the reload (the acceptance
+ // criterion for the WASM LocalStore persistence story).
     let store = LocalStore::open(path).await.expect("reopen after reload");
     let result = store.read("users", "user-1").expect("read after reopen");
     assert_eq!(
@@ -108,12 +108,12 @@ async fn test_local_store_persists_across_reopen() {
         "data written before the reload must be readable after it"
     );
 
-    // Query must see the reloaded row too.
+ // Query must see the reloaded row too.
     let rows = store.query("users", None).expect("query after reopen");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].0, "user-1");
 
-    // Clean up so a re-run stays deterministic.
+ // Clean up so a re-run stays deterministic.
     drop(store);
     crate::store::indexed_db::delete_database(path)
         .await
@@ -221,7 +221,7 @@ async fn test_quarantine_stores_and_retrieves() {
     assert_eq!(entries[0].id, id);
     assert_eq!(entries[0].raw_bytes, raw);
 
-    // Verify persistence: re-open the same IndexedDB DB and read back.
+ // Verify persistence: re-open the same IndexedDB DB and read back.
     let db2 = std::rc::Rc::new(
         IdbStore::open("test_quarantine")
             .await
@@ -271,7 +271,7 @@ async fn test_sidecar_record_and_order() {
     assert_eq!(entries[1].recorded_ts, 200);
     assert_eq!(entries[2].recorded_ts, 300);
 
-    // Verify persistence: re-open the same IndexedDB DB and read back.
+ // Verify persistence: re-open the same IndexedDB DB and read back.
     let db2 = std::rc::Rc::new(
         IdbStore::open("test_sidecar_order")
             .await
@@ -294,7 +294,7 @@ async fn test_compaction_snapshot_persisted_to_indexeddb() {
     use crate::store::indexed_db::IdbStore;
     use automerge::transaction::Transactable;
 
-    // Deterministic start: a previous run left snapshots behind.
+ // Deterministic start: a previous run left snapshots behind.
     crate::store::indexed_db::delete_database("test_compaction")
         .await
         .expect("delete prior database");
@@ -319,7 +319,7 @@ async fn test_compaction_snapshot_persisted_to_indexeddb() {
         "snapshot bytes must be non-empty"
     );
 
-    // Verify persistence across reload.
+ // Verify persistence across reload.
     let db2 = std::rc::Rc::new(
         IdbStore::open("test_compaction")
             .await
@@ -373,9 +373,9 @@ fn test_projection_mark_and_clear() {
 
 #[wasm_bindgen_test]
 fn test_trust_level_returns_valid_variant() {
-    // Before init, trust level should default to Unverified.
+ // Before init, trust level should default to Unverified.
     let tl = crate::wasm_exports::core_trust_level();
-    // Any valid trust level string is acceptable.
+ // Any valid trust level string is acceptable.
     assert!(
         !tl.is_empty(),
         "trust level must be a non-empty string: {tl}"
@@ -387,7 +387,7 @@ fn test_trust_level_returns_valid_variant() {
 #[wasm_bindgen_test]
 fn test_mesh_status_is_disconnected_before_init() {
     let status_val = crate::wasm_exports::core_mesh_status();
-    // Should be a JS object (not null).
+ // Should be a JS object (not null).
     assert!(!status_val.is_null(), "mesh_status must not be null");
 }
 
@@ -397,18 +397,18 @@ fn test_mesh_status_is_disconnected_before_init() {
 async fn test_init_write_read_round_trip() {
     use js_sys::JSON;
 
-    // Initialise with a dummy storage path (in-memory on WASM).
+ // Initialise with a dummy storage path (in-memory on WASM).
     crate::wasm_exports::core_init("wasm-test".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
-    // Write a row.
+ // Write a row.
     let data = JSON::parse(r#"{"msg": "hello"}"#).unwrap();
     crate::wasm_exports::core_write("test_table".to_string(), "k1".to_string(), data)
         .await
         .expect("core_write should succeed");
 
-    // Read it back.
+ // Read it back.
     let read_result = crate::wasm_exports::core_read("test_table".to_string(), "k1".to_string())
         .await
         .expect("core_read should succeed");
@@ -422,19 +422,19 @@ async fn test_init_write_read_round_trip() {
 async fn test_init_write_query() {
     use js_sys::JSON;
 
-    // Subphase 6.3: `core_init` now opens an IndexedDB database named after
-    // the storage path (persistent across runs), so wipe it first to keep the
-    // exact-row-count assertion deterministic.
+ // Subphase 6.3: `core_init` now opens an IndexedDB database named after
+ // the storage path (persistent across runs), so wipe it first to keep the
+ // exact-row-count assertion deterministic.
     crate::store::indexed_db::delete_database("wasm-test-query")
         .await
         .expect("delete prior database");
 
-    // Re-initialise to get a fresh store.
+ // Re-initialise to get a fresh store.
     crate::wasm_exports::core_init("wasm-test-query".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
-    // Write three rows to the same table.
+ // Write three rows to the same table.
     for i in 0u32..3 {
         let json_str = format!(r#"{{"index": {i}}}"#);
         let data = JSON::parse(&json_str).unwrap();
@@ -443,13 +443,13 @@ async fn test_init_write_query() {
             .expect("core_write should succeed");
     }
 
-    // Query all rows (no filter).
+ // Query all rows (no filter).
     let query_result =
         crate::wasm_exports::core_query("multi_table".to_string(), wasm_bindgen::JsValue::NULL)
             .await
             .expect("core_query should succeed");
 
-    // Result is a JSON array — parse and check length.
+ // Result is a JSON array — parse and check length.
     let arr_str = js_sys::JSON::stringify(&query_result)
         .expect("stringify")
         .as_string()
@@ -472,7 +472,7 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     use crate::identity::IdentityManager;
     use crate::transport::message::GossipMessage;
 
-    // Fresh in-memory instance (M=1, N=1 from core_init).
+ // Fresh in-memory instance (M=1, N=1 from core_init).
     crate::wasm_exports::core_init(
         "wasm-test-local-revocation".to_string(),
         vec![],
@@ -482,14 +482,14 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     .await
     .expect("core_init should succeed");
 
-    // Sanity: trust level is Unverified before the revocation is locally known.
+ // Sanity: trust level is Unverified before the revocation is locally known.
     assert_eq!(
         crate::wasm_exports::core_trust_level(),
         "Unverified",
         "trust level must be Unverified before revocation"
     );
 
-    // Produce a 1-of-1 RevocationDelta targeting THIS device's own DID.
+ // Produce a 1-of-1 RevocationDelta targeting THIS device's own DID.
     let local_did = crate::wasm_exports::CORE.with(|c| {
         c.borrow()
             .as_ref()
@@ -510,23 +510,23 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
             .expect("produce partial delta")
     });
 
-    // Deliver through the production WASM inbound entry point (the equivalent
-    // of the JS transport layer receiving a gossipsub message).
+ // Deliver through the production WASM inbound entry point (the equivalent
+ // of the JS transport layer receiving a gossipsub message).
     let msg = GossipMessage::InboundRevocationDelta(delta);
     let bytes = msg.to_bytes();
     crate::wasm_exports::core_receive_peer_message(&bytes)
         .await
         .expect("core_receive_peer_message should succeed");
 
-    // The local device's TrustLevel must now be REVOKED — this is the
-    // production caller of CapabilityManager::apply_revocation() on WASM.
+ // The local device's TrustLevel must now be REVOKED — this is the
+ // production caller of CapabilityManager::apply_revocation() on WASM.
     assert_eq!(
         crate::wasm_exports::core_trust_level(),
         "Revoked",
         "local device must be REVOKED after inbound RevocationDelta"
     );
 
-    // Write must be blocked by the gate.
+ // Write must be blocked by the gate.
     let data = js_sys::JSON::parse(r#"{"v": 1}"#).unwrap();
     let write_result =
         crate::wasm_exports::core_write("t".to_string(), "k".to_string(), data).await;
@@ -535,14 +535,14 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
         "REVOKED device must not be allowed to write"
     );
 
-    // Read must be blocked by the gate.
+ // Read must be blocked by the gate.
     let read_result = crate::wasm_exports::core_read("t".to_string(), "k".to_string()).await;
     assert!(
         read_result.is_err(),
         "REVOKED device must not be allowed to read"
     );
 
-    // Query must be blocked by the gate.
+ // Query must be blocked by the gate.
     let query_result =
         crate::wasm_exports::core_query("t".to_string(), wasm_bindgen::JsValue::NULL).await;
     assert!(
@@ -551,13 +551,13 @@ async fn test_inbound_revocation_of_local_device_blocks_write_read_query() {
     );
 }
 
-// ─── Task 42: WASM inbound Delta merging ─────────────────────────────────────
+// ─── : WASM inbound Delta merging ─────────────────────────────────────
 //
-// These tests verify sub-tasks 4 and 5 of Task 42:
-//   - Sub-task 4: receive_peer_message correctly handles inbound JSON-envelope Deltas
-//   - Sub-task 5: cross-build convergence — same Delta sequence produces same state
+// These tests verify sub- of :
+// - Sub-: receive_peer_message correctly handles inbound JSON-envelope Deltas
+// - Sub-: cross-build convergence — same Delta sequence produces same state
 
-/// Sub-task 4: feed a JSON-envelope Delta through core_receive_peer_message,
+/// Sub-: feed a JSON-envelope Delta through core_receive_peer_message,
 /// then call core_read and assert the correct value is returned.
 ///
 /// The JSON-envelope format is what WASM-produced Deltas use; this test confirms
@@ -570,16 +570,16 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     use crate::identity::keypair::{generate_keypair, sign};
     use crate::transport::message::GossipMessage;
 
-    // Re-initialise with a fresh in-memory store.
+ // Re-initialise with a fresh in-memory store.
     crate::wasm_exports::core_init("wasm-test-inbound-42".to_string(), vec![], None, vec![])
         .await
         .expect("core_init should succeed");
 
-    // Build a peer identity.
+ // Build a peer identity.
     let (peer_secret, peer_public) = generate_keypair().expect("keygen");
     let peer_did = derive_did_from_public_key(&peer_public);
 
-    // Build the JSON envelope that receive_inbound_wasm expects.
+ // Build the JSON envelope that receive_inbound_wasm expects.
     let written_data = serde_json::json!({"sensor": "humidity", "value": 55.0});
     let mut envelope = serde_json::Map::new();
     envelope.insert(
@@ -597,7 +597,7 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     }
     let envelope_bytes = serde_json::to_vec(&serde_json::Value::Object(envelope)).unwrap();
 
-    // Produce a properly-signed Delta with the DEFAULT_SCHEMA_HASH ([0u8; 32]).
+ // Produce a properly-signed Delta with the DEFAULT_SCHEMA_HASH ([0u8; 32]).
     let schema_hash = [0u8; 32];
     let mut delta = Delta {
         id: [0u8; 32],
@@ -615,23 +615,23 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     delta.signature = sign(&peer_secret, &canonical).expect("sign");
     delta.id = Delta::compute_id(&canonical);
 
-    // Serialise to GossipMessage bytes (the format core_receive_peer_message expects).
+ // Serialise to GossipMessage bytes (the format core_receive_peer_message expects).
     let msg = GossipMessage::InboundDelta(delta);
     let msg_bytes = msg.to_bytes();
 
-    // Feed the raw bytes through core_receive_peer_message.
+ // Feed the raw bytes through core_receive_peer_message.
     crate::wasm_exports::core_receive_peer_message(&msg_bytes)
         .await
         .expect("core_receive_peer_message should succeed");
 
-    // Read back the value — should match the written envelope.
+ // Read back the value — should match the written envelope.
     let read_result = crate::wasm_exports::core_read("sensors".to_string(), "h-1".to_string())
         .await
         .expect("core_read should succeed after inbound delta");
 
     assert!(!read_result.is_null(), "read result must not be null");
 
-    // Parse and verify data fields.
+ // Parse and verify data fields.
     let arr_str = js_sys::JSON::stringify(&read_result)
         .expect("stringify")
         .as_string()
@@ -655,7 +655,7 @@ async fn test_receive_peer_message_json_envelope_projects_to_store() {
     );
 }
 
-/// Sub-task 5: cross-build convergence test.
+/// Sub-: cross-build convergence test.
 ///
 /// Apply the same sequence of Deltas to two CrdtEngine instances (both using
 /// the WASM in-memory constructor) and verify that the resulting Automerge
@@ -677,7 +677,7 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
     let schema_hash =
         compute_schema_identifier_hash(&[("items", &[("id", "TEXT"), ("name", "TEXT")])]);
 
-    // Create two engines — one for "peer A" and one for "peer B".
+ // Create two engines — one for "peer A" and one for "peer B".
     let (secret_a, public_a) = generate_keypair().expect("keygen A");
     let did_a = derive_did_from_public_key(&public_a);
 
@@ -687,39 +687,39 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
     let mut engine_a = CrdtEngine::new(secret_a, public_a, did_a.clone(), schema_hash);
     let mut engine_b = CrdtEngine::new(secret_b, public_b, did_b.clone(), schema_hash);
 
-    // Produce a Delta from engine A (a real automerge changeset).
-    // Use empty automerge_bytes — the engine merges the bytes into its doc.
+ // Produce a Delta from engine A (a real automerge changeset).
+ // Use empty automerge_bytes — the engine merges the bytes into its doc.
     let delta_from_a = engine_a
         .produce_delta(vec![], PriorityClass::Low, vec![])
         .expect("produce delta from A");
 
-    // Apply A's Delta to engine B.
+ // Apply A's Delta to engine B.
     let outcome = engine_b.apply(&delta_from_a).expect("apply A->B");
     assert!(
         matches!(outcome, crate::crdt::merge::MergeOutcome::Merged { .. }),
         "Delta from A must merge into B: {outcome:?}"
     );
 
-    // Produce a Delta from engine B.
+ // Produce a Delta from engine B.
     let delta_from_b = engine_b
         .produce_delta(vec![], PriorityClass::Low, vec![])
         .expect("produce delta from B");
 
-    // Apply B's Delta to engine A.
+ // Apply B's Delta to engine A.
     let outcome_ba = engine_a.apply(&delta_from_b).expect("apply B->A");
     assert!(
         matches!(outcome_ba, crate::crdt::merge::MergeOutcome::Merged { .. }),
         "Delta from B must merge into A: {outcome_ba:?}"
     );
 
-    // Both engines have applied both Deltas.  Their clocks are NOT expected to
-    // be equal: `produce_delta` increments by one and `apply` sets
-    // `max(local, incoming) + 1`, so the author of the newest Delta and a site
-    // that only merged it legitimately end up at different values (A = 4,
-    // B = 3 here).  The invariant that matters is causal dominance: each clock
-    // is at least the highest Lamport it has seen, so the next Delta either
-    // engine produces (`lamport + 1`) is ordered after everything already
-    // merged.
+ // Both engines have applied both Deltas. Their clocks are NOT expected to
+ // be equal: `produce_delta` increments by one and `apply` sets
+ // `max(local, incoming) + 1`, so the author of the newest Delta and a site
+ // that only merged it legitimately end up at different values (A = 4,
+ // B = 3 here). The invariant that matters is causal dominance: each clock
+ // is at least the highest Lamport it has seen, so the next Delta either
+ // engine produces (`lamport + 1`) is ordered after everything already
+ // merged.
     let highest_seen = delta_from_a.lamport.max(delta_from_b.lamport);
     for (name, engine) in [("A", &engine_a), ("B", &engine_b)] {
         assert!(
@@ -730,16 +730,16 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
         );
     }
 
-    // Convergence of state, not just of clocks: after merging the same Delta
-    // set, both engines must serialise to byte-identical documents (Automerge
-    // encoding is deterministic for the same op set).
+ // Convergence of state, not just of clocks: after merging the same Delta
+ // set, both engines must serialise to byte-identical documents (Automerge
+ // encoding is deterministic for the same op set).
     assert_eq!(
         engine_a.convergent_state().automerge_bytes,
         engine_b.convergent_state().automerge_bytes,
         "both engines must converge to the same document bytes"
     );
 
-    // Root-level key sets from both engines' docs must be identical.
+ // Root-level key sets from both engines' docs must be identical.
     let roots_a = engine_a.doc_map_range_root();
     let roots_b = engine_b.doc_map_range_root();
     assert_eq!(
@@ -748,7 +748,7 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
         "both engines must have the same number of root keys"
     );
 
-    // Verify key-value pairs match (order may differ, so compare as sorted sets).
+ // Verify key-value pairs match (order may differ, so compare as sorted sets).
     let mut sorted_a: Vec<_> = roots_a.iter().map(|(k, _)| k.clone()).collect();
     let mut sorted_b: Vec<_> = roots_b.iter().map(|(k, _)| k.clone()).collect();
     sorted_a.sort();
@@ -760,7 +760,7 @@ fn test_wasm_crdt_engine_convergence_two_instances() {
 //
 // Before this subphase the WASM RevocationSubsystem invoked the CCE trigger
 // with an empty Delta-ID list (`vec![]` — no DAG to query), and the WASM
-// inbound revocation arm did nothing with the IDs it received.  Now the
+// inbound revocation arm did nothing with the IDs it received. Now the
 // subsystem maintains a per-author index fed by `CoreHandle::write` (local
 // device) and `receive_inbound_wasm` (signature-verified inbound merges), and
 // the revocation arms actually CCE-tag the authored IDs (Req 10.1 parity).
@@ -778,8 +778,8 @@ async fn test_inbound_revocation_cce_tags_actual_authored_delta_ids() {
         .await
         .expect("core_init should succeed");
 
-    // The local device writes a row — the produced signed Delta must be
-    // recorded as authored by the local DID (Subphase 6.3 write wiring).
+ // The local device writes a row — the produced signed Delta must be
+ // recorded as authored by the local DID (Subphase 6.3 write wiring).
     let data = js_sys::JSON::parse(r#"{"msg": "before revocation"}"#).unwrap();
     let write_result = crate::wasm_exports::core_write("t".to_string(), "k1".to_string(), data)
         .await
@@ -800,7 +800,7 @@ async fn test_inbound_revocation_cce_tags_actual_authored_delta_ids() {
         .try_into()
         .expect("deltaId must be 32 bytes");
 
-    // A Manager issues a 1-of-1 RevocationDelta targeting the local device.
+ // A Manager issues a 1-of-1 RevocationDelta targeting the local device.
     let local_did = crate::wasm_exports::CORE.with(|c| {
         c.borrow()
             .as_ref()
@@ -821,14 +821,14 @@ async fn test_inbound_revocation_cce_tags_actual_authored_delta_ids() {
         .expect("produce partial delta")
     });
 
-    // Deliver through the production WASM inbound entry point.
+ // Deliver through the production WASM inbound entry point.
     let msg = GossipMessage::InboundRevocationDelta(rev_delta);
     crate::wasm_exports::core_receive_peer_message(&msg.to_bytes())
         .await
         .expect("core_receive_peer_message should succeed");
 
-    // The WASM CCE must have CCE-tagged the ACTUAL authored Delta ID — not an
-    // empty list (Req 10.1 parity with the native revocation path).
+ // The WASM CCE must have CCE-tagged the ACTUAL authored Delta ID — not an
+ // empty list (Req 10.1 parity with the native revocation path).
     let incidents = crate::wasm_exports::CORE.with(|c| {
         c.borrow()
             .as_ref()

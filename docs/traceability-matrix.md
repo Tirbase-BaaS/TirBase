@@ -124,7 +124,7 @@ This matrix maps each PV requirement to its design section(s), test type, and te
 | PV-22.1 | §4.3 (now_est model) | unit test (now_est formula, no direct clock) | `tirbase-guard/tests/time_ratchet.rs` |
 | PV-22.2 | §4.3 (TimeRatchet persisted floor) | property-based (P17) | tirbase-guard/tests/properties.rs |
 | PV-22.3 | §4.5 (Stage 9, freshness + challenge nonce) | unit test (UNVERIFIED → challenge required, RD-10 policy) | `tirbase-guard/tests/time_ratchet.rs` |
-| PV-22.5 | §4.3 (TimeRatchet, advance()) | property-based (P14), adversary (S23) | tirbase-guard/tests/properties.rs, `tirbase-sim/scenarios/S23.toml` |
+| PV-22.5 | §4.3 (TimeRatchet, advance) | property-based (P14), adversary (S23) | tirbase-guard/tests/properties.rs, `tirbase-sim/scenarios/S23.toml` |
 | PV-23.1 | §System Invariants Catalog | simulation tick checks (INV-1..16) | `tirbase-sim/src/invariants.rs` |
 | PV-24.1 | §4.5 (coarse/fine rejection mapping) | unit test (mapping completeness in CI) | tirbase-types/tests/rejection_mapping.rs |
 | PV-24.2 | §4.5 (Stage 14, per-issuer rate limit) | unit test (10 cmd/s, retry-after) | tirbase-guard/tests/rate_limiter.rs |

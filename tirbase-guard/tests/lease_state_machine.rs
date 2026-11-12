@@ -1,4 +1,4 @@
-//! SingleWriterLease state-machine / exclusivity tests (Task 21.1/21.6 logic,
+//! SingleWriterLease state-machine / exclusivity tests (21.6 logic,
 //! CLAIM-21.1/21.4/21.6, PV-5.8/5.8a, INV-13). Uses the guard-side
 //! `SingleWriterLease` type and models the lease invariants.
 
@@ -22,7 +22,7 @@ fn claim_21_1_single_active_holder_modeled() {
         cooldown_until_mono_secs: None,
     };
     assert!(!a.is_expired(99) && !b.is_expired(99));
-    // exclusivity is enforced by the store; type carries single-holder state.
+ // exclusivity is enforced by the store; type carries single-holder state.
     assert_ne!(a.issuer_did, b.issuer_did);
 }
 

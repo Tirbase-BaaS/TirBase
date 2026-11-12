@@ -1,8 +1,8 @@
-//! Outbound-initiated cloud command channel (tasks 36.6, 36.8a–36.8f).
+//! Outbound-initiated cloud command channel (36.8f).
 //!
 //! # No inbound cloud listener
 //!
-//! The gateway never accepts a cloud connection.  It dials the configured
+//! The gateway never accepts a cloud connection. It dials the configured
 //! `cloud_endpoint` outbound over TLS and holds that connection open; there is
 //! deliberately no `cloud_listen_addr` configuration field, and
 //! [`crate::config::GatewayConfig::validate`] rejects unknown fields.
@@ -10,9 +10,9 @@
 //! # Device certificate authentication
 //!
 //! The TLS client authenticates with the configured device certificate and key
-//! (`cloud_device_cert_path` / `cloud_device_key_path`).  A gateway without
+//! (`cloud_device_cert_path` / `cloud_device_key_path`). A gateway without
 //! valid certificate material cannot complete a session with a cloud endpoint
-//! that requires client certificates.  The channel additionally sends a
+//! that requires client certificates. The channel additionally sends a
 //! `hello` message carrying the device DID and a `KeyProvider` signature over
 //! the DID, so the endpoint can bind the TLS identity to the TirBase identity.
 //!
@@ -27,7 +27,7 @@
 //!
 //! Each connection enforces `cloud_rate_limit_per_sec` inbound messages/second
 //! and answers excess traffic with a `rate_limit` message without processing
-//! it.  TLS material is re-read on every connection attempt, so rotating the
+//! it. TLS material is re-read on every connection attempt, so rotating the
 //! certificate files takes effect on the next reconnect without tearing down
 //! the active connection.
 //!
@@ -63,9 +63,9 @@ pub const CLOUD_DEVICE_HELLO_CONTEXT: &str = "TirBase/v1/CloudDeviceHello";
 /// One message retained by the offline outbound ring buffer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueuedCloudMessage {
-    /// Monotonically increasing enqueue sequence used to prove replay order.
+ /// Monotonically increasing enqueue sequence used to prove replay order.
     pub seq: u64,
-    /// Serialized newline-delimited JSON body.
+ /// Serialized newline-delimited JSON body.
     pub body: String,
 }
 
@@ -88,8 +88,8 @@ impl CloudOutbox {
         }
     }
 
-    /// Enqueue `body`; when the ring is full the oldest entry is dropped.
-    /// Returns the enqueue sequence.
+ /// Enqueue `body`; when the ring is full the oldest entry is dropped.
+ /// Returns the enqueue sequence.
     pub fn push(&self, body: String) -> u64 {
         let seq = self.next_seq.fetch_add(1, Ordering::Relaxed);
         let mut queue = match self.queue.lock() {
@@ -104,7 +104,7 @@ impl CloudOutbox {
         seq
     }
 
-    /// Remove and return all queued messages in enqueue order.
+ /// Remove and return all queued messages in enqueue order.
     pub fn drain(&self) -> Vec<QueuedCloudMessage> {
         let mut queue = match self.queue.lock() {
             Ok(guard) => guard,
@@ -226,7 +226,7 @@ enum CloudInbound {
 
 // ── TLS material ───────────────────────────────────────────────────────────
 
-/// Paths to the cloud TLS material.  Re-read on every connection attempt so a
+/// Paths to the cloud TLS material. Re-read on every connection attempt so a
 /// certificate rotation takes effect without dropping the active connection.
 #[derive(Debug, Clone)]
 pub struct CloudTlsPaths {
@@ -338,8 +338,8 @@ impl CloudClient {
         self.reconnects.load(Ordering::Relaxed)
     }
 
-    /// Send an outbound message now, or queue it for ordered replay on the next
-    /// connection.
+ /// Send an outbound message now, or queue it for ordered replay on the next
+ /// connection.
     pub fn enqueue(&self, body: String) {
         let sender = match self.sender.lock() {
             Ok(guard) => guard.clone(),
@@ -357,11 +357,11 @@ impl CloudClient {
         &self.endpoint
     }
 
-    /// Reconnect loop with exponential backoff.
+ /// Reconnect loop with exponential backoff.
     pub async fn run(self: Arc<Self>) {
-        // Control-plane boot notification.  If the endpoint is unreachable this
-        // is retained by the bounded outbox and replayed first on reconnect
-        // (task 36.8c).
+ // Control-plane boot notification. If the endpoint is unreachable this
+ // is retained by the bounded outbox and replayed first on reconnect
+ // ().
         self.outbox.push(
             serde_json::json!({
                 "type": "result",
@@ -421,7 +421,7 @@ impl CloudClient {
     async fn session(&self, stream: tokio_rustls::client::TlsStream<tokio::net::TcpStream>) {
         let (read_half, mut write_half) = tokio::io::split(stream);
 
-        // Device authentication proof, bound to the DID.
+ // Device authentication proof, bound to the DID.
         let hello = self.device_hello();
         if write_half
             .write_all(format!("{hello}\n").as_bytes())
@@ -430,7 +430,7 @@ impl CloudClient {
         {
             return;
         }
-        // Replay queued messages in order before accepting new traffic.
+ // Replay queued messages in order before accepting new traffic.
         for queued in self.outbox.drain() {
             tracing::info!(seq = queued.seq, "cloud channel replaying queued message");
             if write_half
@@ -469,7 +469,7 @@ impl CloudClient {
             if line.trim().is_empty() {
                 continue;
             }
-            // Per-connection inbound rate limit (task 36.8f).
+ // Per-connection inbound rate limit ().
             let now = self.runtime.time_source.monotonic_now();
             if now.saturating_sub(window_start) >= 1_000_000 {
                 window_start = now;
@@ -512,8 +512,8 @@ impl CloudClient {
                 }
             }
         }
-        // Drop the shared sender before joining the writer: otherwise the
-        // writer's receiver never closes and the reconnect loop stalls.
+ // Drop the shared sender before joining the writer: otherwise the
+ // writer's receiver never closes and the reconnect loop stalls.
         self.clear_sender();
         drop(tx);
         let _ = writer.await;

@@ -1,5 +1,5 @@
 //! Admin Unix-socket listener with SO_PEERCRED authentication (CLAIM-4.9.2).
-//! Task 13 wires `mode` (13.1/36.3h) and `lockdown-exit` (13.3/36.3i).
+//! wires `mode` (13.1/36.3h) and `lockdown-exit` (13.3/36.3i).
 
 use std::fmt;
 use std::sync::Arc;
@@ -33,49 +33,49 @@ pub struct AdminState {
     pub epochs: Option<Arc<EpochRegistry>>,
     pub trust_root: Option<Arc<TrustRootRecord>>,
     pub policy: Option<Arc<std::sync::Mutex<tirbase_guard::PolicyLifecycle>>>,
-    /// Task 13.1/13.3: operational mode and lockdown persistence.
+ /// /13.3: operational mode and lockdown persistence.
     pub node_mode: Option<Arc<NodeModeState>>,
     pub lockdown_store: Option<Arc<dyn LockdownStore>>,
     pub envelope_profile: Option<Arc<EnvelopeProfile>>,
-    /// Task 15.7: simulate() dry-run production caller (replaces stub).
+ /// : simulate() dry-run production caller (replaces stub).
     pub guard: Option<Arc<tirbase_guard::CommandGuard>>,
-    /// Task 16.2/16.3: production challenge nonce issuance/consumption store.
+ /// /16.3: production challenge nonce issuance/consumption store.
     pub challenge_store: Option<Arc<dyn ChallengeNonceStore>>,
-    /// Task 16.4/S32: max challenge nonce requests per device/target/param/minute.
+ /// /S32: max challenge nonce requests per device/target/param/minute.
     pub challenge_requests_per_minute: u32,
-    /// Task 21.2/21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
+ /// /21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
     pub primary_db_path: Option<std::path::PathBuf>,
-    /// Task 27: hash-chained security event log (export/GDPR production callers).
+ /// : hash-chained security event log (export/GDPR production callers).
     pub security_log: Option<std::sync::Arc<crate::security_log::SecurityEventLog>>,
-    /// Task 27: device key provider for signed exports/evidence bundles.
+ /// : device key provider for signed exports/evidence bundles.
     pub key_provider: Option<std::sync::Arc<dyn tirbase_core::traits::KeyProvider>>,
-    /// Task 36.3k/36.7: Stage-16 store supplies anti-replay window positions
-    /// and `SingleWriterLease` state for the Guard status API.
+ /// /36.7: Stage-16 store supplies anti-replay window positions
+ /// and `SingleWriterLease` state for the Guard status API.
     pub stage16: Option<Arc<crate::guard::SqliteStage16Store>>,
-    /// Task 36.3l/36.9: live core handle used to replay quarantine entries and
-    /// (via the mesh challenge path) request nonces from peers.
+ /// /36.9: live core handle used to replay quarantine entries and
+ /// (via the mesh challenge path) request nonces from peers.
     pub core_handle: Option<Arc<CoreHandle>>,
-    /// Task 36.3l: core.db path holding the schema quarantine ledger.
+ /// : core.db path holding the schema quarantine ledger.
     pub core_db_path: Option<std::path::PathBuf>,
-    /// Task 36.3l: authenticated-time ratchet for `/admin/time-reset`.
+ /// : authenticated-time ratchet for `/admin/time-reset`.
     pub ratchet: Option<Arc<std::sync::Mutex<TimeRatchet>>>,
-    /// Task 36.3l: time source used when evaluating signed operations.
+ /// : time source used when evaluating signed operations.
     pub time_source: Option<Arc<dyn TimeSource>>,
-    /// Task 36.3b: root CA seed used to mint scoped Biscuit tokens.  Never
-    /// serialized or logged.
+ /// : root CA seed used to mint scoped Biscuit tokens. Never
+ /// serialized or logged.
     pub mint_root_ca_seed: Option<Arc<Vec<u8>>>,
-    /// Task 36.3c: device key rotation backend.
+ /// : device key rotation backend.
     pub key_rotator: Option<Arc<dyn crate::key_rotation::KeyRotator>>,
-    /// Task 36.3e/PV-7.13: event-inspection view window in days (default 7).
+ /// /PV-7.13: event-inspection view window in days (default 7).
     pub events_view_window_days: i64,
-    /// Task 36.3e: page size cap for a single event-inspection query.
+ /// : page size cap for a single event-inspection query.
     pub events_page_size: usize,
-    /// Task 30.9 / RD-6: UpdateSigner-verified firmware/config updates and
-    /// PolicyAuthority-signed config rollback.
-    ///
-    /// `None` means this deployment has not configured the role keys and the
-    /// live config path; the endpoint then answers 503 rather than pretending
-    /// the capability exists.
+ /// / RD-6: UpdateSigner-verified firmware/config updates and
+ /// PolicyAuthority-signed config rollback.
+ ///
+ /// `None` means this deployment has not configured the role keys and the
+ /// live config path; the endpoint then answers 503 rather than pretending
+ /// the capability exists.
     pub self_update: Option<Arc<std::sync::Mutex<SelfUpdateController>>>,
 }
 
@@ -165,15 +165,15 @@ impl AdminState {
 /// Who is invoking the admin API.
 ///
 /// Local calls are authenticated by the kernel (`SO_PEERCRED` / `getpeereid`),
-/// which is the PV-11.2 model for the Unix socket.  Remote calls arrive over
+/// which is the PV-11.2 model for the Unix socket. Remote calls arrive over
 /// mTLS; the transport proves the client certificate, and a scoped Biscuit
 /// token proves the caller's role for privileged operations.
 #[derive(Debug, Clone, Default)]
 pub enum AdminCaller {
-    /// Kernel-attested local process (root or the gateway's own UID).
+ /// Kernel-attested local process (root or the gateway's own UID).
     #[default]
     Local,
-    /// Client-certificate-authenticated remote caller.
+ /// Client-certificate-authenticated remote caller.
     Remote { biscuit_token_hex: Option<String> },
 }
 
@@ -452,13 +452,13 @@ fn dispatch_enroll(
         Ok(request) => request,
         Err(error) => return bad_request(&format!("invalid enrollment request: {error}")),
     };
-    // Task 36.3a (PV-11.2): a remote enrollment must carry a PolicyAuthority
-    // delegation bound to this device DID, role and bootstrap nonce.  Local
-    // callers on the peer-credential socket are already trusted by the kernel,
-    // but a delegation supplied there is still verified when present.
+ // (PV-11.2): a remote enrollment must carry a PolicyAuthority
+ // delegation bound to this device DID, role and bootstrap nonce. Local
+ // callers on the peer-credential socket are already trusted by the kernel,
+ // but a delegation supplied there is still verified when present.
     let delegation = payload.get("delegation");
     if caller.is_local() && delegation.is_none() {
-        // kernel-attested local operator: trusted path
+ // kernel-attested local operator: trusted path
     } else {
         let Some(delegation) = delegation else {
             return serde_json::json!({
@@ -599,10 +599,10 @@ fn dispatch_policy(command: &str, state: Option<&AdminState>, now_est: i64) -> S
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Task 36 credentials and privileged-operation helpers
+// credentials and privileged-operation helpers
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Maximum admin token lifetime (PV-11.2, task 36.3b): 86,400 seconds.
+/// Maximum admin token lifetime (PV-11.2): 86,400 seconds.
 pub const MAX_ADMIN_MINT_TTL_SECS: u64 = 86_400;
 
 fn deny(status: u16, code: &str, error: &str, endpoint: &str) -> String {
@@ -658,7 +658,7 @@ fn verify_admin_token(
 /// Resolve the caller's credential claims.
 ///
 /// `Ok(None)` means a kernel-attested local caller with no token; local callers
-/// are trusted for privileged operations.  Remote callers must present a valid
+/// are trusted for privileged operations. Remote callers must present a valid
 /// token in the HTTP `Authorization: Bearer` header (mapped into the request)
 /// or the payload credential field.
 fn caller_claims(
@@ -703,7 +703,7 @@ fn require_privileged(
     }
 }
 
-// ── Enrollment delegation (task 36.3a) ─────────────────────────────────────
+// ── Enrollment delegation () ─────────────────────────────────────
 
 /// Domain-separated delegation payload signed by a PolicyAuthority.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -724,7 +724,7 @@ pub struct EnrollmentDelegationRequest {
     pub payload: EnrollmentDelegationPayload,
 }
 
-// ── Mint (task 36.3b) ──────────────────────────────────────────────────────
+// ── Mint () ──────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MintRequest {
@@ -759,8 +759,8 @@ fn dispatch_mint(
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid mint request: {e}")),
     };
-    // Task 36.3b wiring-mutation guard: a TTL above 86,400 s is rejected before
-    // any token is minted.  Removing this check makes the integration test fail.
+ // wiring-mutation guard: a TTL above 86,400 s is rejected before
+ // any token is minted. Removing this check makes the integration test fail.
     if request.ttl_secs > MAX_ADMIN_MINT_TTL_SECS {
         return deny(
             409,
@@ -795,7 +795,7 @@ fn dispatch_mint(
     }
 }
 
-// ── Rotate (task 36.3c) ────────────────────────────────────────────────────
+// ── Rotate () ────────────────────────────────────────────────────
 
 fn dispatch_rotate(state: Option<&AdminState>, caller: &AdminCaller) -> String {
     let Some(state) = state else {
@@ -822,7 +822,7 @@ fn dispatch_rotate(state: Option<&AdminState>, caller: &AdminCaller) -> String {
     }
 }
 
-// ── Events (task 36.3e) ────────────────────────────────────────────────────
+// ── Events () ────────────────────────────────────────────────────
 
 #[derive(Debug, Default, Deserialize)]
 struct EventsQuery {
@@ -850,8 +850,8 @@ fn dispatch_events(command: &str, state: Option<&AdminState>, now_est: i64) -> S
     let query: EventsQuery = payload_value(command)
         .and_then(|value| serde_json::from_value(value).ok())
         .unwrap_or_default();
-    // PV-7.13/PV-11.2: the view window defaults to 7 days and is always bounded
-    // by the configured security-event retention window.
+ // PV-7.13/PV-11.2: the view window defaults to 7 days and is always bounded
+ // by the configured security-event retention window.
     let view_days = state.events_view_window_days.max(1);
     let default_start = now_est.saturating_sub(view_days.saturating_mul(86_400));
     let window_start = query.since_est.unwrap_or(default_start);
@@ -898,7 +898,7 @@ fn dispatch_events(command: &str, state: Option<&AdminState>, now_est: i64) -> S
     .to_string()
 }
 
-// ── Guard status (tasks 36.3k / 36.7, PV-24.3) ─────────────────────────────
+// ── Guard status (36.7, PV-24.3) ─────────────────────────────
 
 fn dispatch_status(
     command: &str,
@@ -1023,7 +1023,7 @@ fn dispatch_status(
     .to_string()
 }
 
-// ── Quarantine replay (task 36.3l) ─────────────────────────────────────────
+// ── Quarantine replay () ─────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuarantineReplayPayload {
@@ -1099,9 +1099,9 @@ fn dispatch_quarantine_replay(command: &str, state: Option<&AdminState>, now_est
             )
         }
     };
-    // The core-local quarantine mirror has a `detail` column but not the
-    // derived.db replay bookkeeping; add it idempotently so replay status is
-    // durable wherever the entry lives.
+ // The core-local quarantine mirror has a `detail` column but not the
+ // derived.db replay bookkeeping; add it idempotently so replay status is
+ // durable wherever the entry lives.
     let _ = conn.execute_batch(
         "ALTER TABLE schema_quarantine ADD COLUMN replay_status TEXT;\n\
          ALTER TABLE schema_quarantine ADD COLUMN replay_ts INTEGER;",
@@ -1159,7 +1159,7 @@ fn dispatch_quarantine_replay(command: &str, state: Option<&AdminState>, now_est
     .to_string()
 }
 
-// ── Time reset (task 36.3l) ────────────────────────────────────────────────
+// ── Time reset () ────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct TimeResetRequest {
@@ -1220,7 +1220,7 @@ fn dispatch_time_reset(command: &str, state: Option<&AdminState>, _now_est: i64)
     }
 }
 
-// ── Restore (task 36.3l) ───────────────────────────────────────────────────
+// ── Restore () ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RestorePayload {
@@ -1317,7 +1317,7 @@ fn dispatch_restore(command: &str, state: Option<&AdminState>, now_est: i64) -> 
     }
 }
 
-// ── Self-update / config rollback (task 30.9, RD-6) ───────────────────────
+// ── Self-update / config rollback (RD-6) ───────────────────────
 
 fn dispatch_self_update(command: &str, state: Option<&AdminState>) -> String {
     let Some(controller) = state.and_then(|s| s.self_update.as_ref()) else {
@@ -1420,7 +1420,7 @@ fn dispatch_self_update(command: &str, state: Option<&AdminState>) -> String {
     }
 }
 
-// ── Rollout status (task 36.3l) ────────────────────────────────────────────
+// ── Rollout status () ────────────────────────────────────────────
 
 fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
     let mode = state
@@ -1455,7 +1455,7 @@ fn bad_request(message: &str) -> String {
     serde_json::json!({"status": 400, "error": message}).to_string()
 }
 /// Precise failure for an endpoint whose runtime state was not configured in
-/// this process (e.g. no `target_id`/envelope profile).  Never a 501: a 501
+/// this process (e.g. no `target_id`/envelope profile). Never a 501: a 501
 /// claims the endpoint does not exist, which is false — it is wired and will
 /// serve as soon as the required state is supplied.
 fn not_configured(endpoint: &str, missing: &str) -> String {
@@ -1489,7 +1489,7 @@ fn parse_cmd_field(json: &str) -> Option<String> {
 /// Resolve the peer's effective UID from an accepted Unix-domain socket.
 ///
 /// Linux/Android use `SO_PEERCRED`; the BSD family (macOS included) uses
-/// `getpeereid(2)`.  Both return the kernel-attested UID of the connecting
+/// `getpeereid(2)`. Both return the kernel-attested UID of the connecting
 /// process — the authentication property is identical, only the syscall differs.
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn peer_uid(fd: std::os::unix::io::RawFd) -> std::io::Result<u32> {
@@ -1633,7 +1633,7 @@ struct ChallengeRequest {
     nonce_hex: Option<String>,
 }
 
-/// Task 16.3/16.4 (CLAIM-16.3/16.4, PV-22.3, S32): issue or consume a
+/// /16.4 (CLAIM-16.3/16.4, PV-22.3, S32): issue or consume a
 /// challenge nonce for a critical parameter when freshness is `Unverified`.
 /// - Issue: payload `{target_id|target, param, [issuer_did]}`. Requires `critical: true` in the target's envelope profile and Unverified freshness. Enforces one-per-device/target/param/minute issuance limit.
 /// - Consume (admin/test hook): payload `{..., nonce_hex, issuer_did}` marks the nonce used exactly once through the durable store; second use is rejected.
@@ -1663,7 +1663,7 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
     }
     let target = tirbase_types::TargetId::new(&target_id);
 
-    // Consumption path (one-time-use proof / admin helper).
+ // Consumption path (one-time-use proof / admin helper).
     if let (Some(nonce_hex), Some(issuer_did)) =
         (req.nonce_hex.as_deref(), req.issuer_did.as_deref())
     {
@@ -1671,8 +1671,8 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
             let Some(nonce) = hex_decode_32(nonce_hex) else {
                 return bad_request("invalid nonce_hex");
             };
-            // Nonce expiry is monotonic, so consumption must use the guard's
-            // monotonic clock, not the authenticated wall estimate.
+ // Nonce expiry is monotonic, so consumption must use the guard's
+ // monotonic clock, not the authenticated wall estimate.
             let mono_now = st
                 .guard
                 .as_ref()
@@ -1695,7 +1695,7 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
         return not_configured("challenge", "challenge nonce store");
     }
 
-    // Issuance path (Task 16.3): only for Unverified + critical parameter.
+ // Issuance path (): only for Unverified + critical parameter.
     let Some(guard) = st.guard.as_ref() else {
         return not_configured("challenge", "CommandGuard with a decision pipeline");
     };
@@ -1720,12 +1720,12 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
     } else {
         st.challenge_requests_per_minute
     };
-    // Sync pipeline limit with admin/runtime config for S32 enforcement.
+ // Sync pipeline limit with admin/runtime config for S32 enforcement.
     pipeline.set_challenge_requests_per_minute(limit);
     if !pipeline.check_challenge_issue_rate_limit(&device_id, &target_id, &param, mono_now) {
         return serde_json::json!({"status":429,"error":"challenge nonce issuance rate limited (S32)","code":"CHALLENGE_RATE_LIMITED","retry_after_secs":60,"limit_per_minute":limit,"endpoint":"challenge"}).to_string();
     }
-    // In-process pipeline limit is authoritative for this admin endpoint (S32).
+ // In-process pipeline limit is authoritative for this admin endpoint (S32).
     let _ = st.challenge_store.as_ref();
     match pipeline.issue_challenge_nonce_for_device(&device_id, &issuer_did, &target_id, &param) {
         Ok(nonce) => serde_json::json!({
@@ -1833,13 +1833,13 @@ struct LeasePreemptRequest {
     new_issuer_did: Option<String>,
     #[serde(default)]
     lease_duration_secs: Option<i64>,
-    /// Bound into the signed payload when the caller supplies it; falls back to
-    /// the dispatch time for callers that sign with the admin clock.
+ /// Bound into the signed payload when the caller supplies it; falls back to
+ /// the dispatch time for callers that sign with the admin clock.
     #[serde(default)]
     now_est: Option<i64>,
 }
 
-/// Task 21.2 (CLAIM-21.2, PV-5.8a): M-of-N RevocationManager + PolicyAuthority
+/// (CLAIM-21.2, PV-5.8a): M-of-N RevocationManager + PolicyAuthority
 /// joint operation forcibly releases/reassigns a SingleWriterLease. Production
 /// caller: gateway admin Unix-socket path.
 fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
@@ -1866,7 +1866,7 @@ fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i6
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid lease-preempt: {e}")),
     };
-    // Require joint M-of-N: at least one PolicyAuthority and one RevocationManager signature.
+ // Require joint M-of-N: at least one PolicyAuthority and one RevocationManager signature.
     if let Some(opv) = op_val {
         let op: tirbase_guard::SignedOperation<LeasePreemptPayload> =
             match serde_json::from_value(opv) {
@@ -1960,7 +1960,7 @@ struct ClearUnknownRequest {
     entry_id_hex: String,
 }
 
-/// Task 21.9 (CLAIM-21.9, PV-5.11): PolicyAuthority operator-clear advances
+/// (CLAIM-21.9, PV-5.11): PolicyAuthority operator-clear advances
 /// Unknown -> Failed.
 fn dispatch_clear_unknown(command: &str, state: Option<&AdminState>, now_est: i64) -> String {
     let Some(st) = state else {
@@ -2049,7 +2049,7 @@ fn dispatch_clear_unknown(command: &str, state: Option<&AdminState>, now_est: i6
         .flatten();
     match crate::db::applied_effects_ledger::operator_clear_unknown_to_failed(&conn, &entry_id, now_est, b"operator_clear_policy_authority") {
         Ok(true) => {
-            // Task 21.9 runtime sync: unblock target if no Unknown entries remain.
+ // runtime sync: unblock target if no Unknown entries remain.
             if let Some(target_id) = target_before {
                 let still = crate::db::applied_effects_ledger::target_has_unknown(&conn, &target_id).unwrap_or(true);
                 if !still {
@@ -2070,7 +2070,7 @@ struct RevokeIssuerRequest {
     issuer_did: String,
 }
 
-/// Task 21.3 (CLAIM-21.3): release leases held by revoked issuer DID.
+/// (CLAIM-21.3): release leases held by revoked issuer DID.
 fn dispatch_revoke_issuer(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
     let Some(st) = state else {
         return not_configured("revoke-issuer", "admin runtime state");
@@ -2209,7 +2209,7 @@ struct SimulateRequest {
     caller_role: Option<String>,
 }
 
-/// Task 15.7 (CLAIM-15.7, PV-4.17): side-effect-free dry run.
+/// (CLAIM-15.7, PV-4.17): side-effect-free dry run.
 /// Skips Stage 0/9 nonce consumption/14 token consumption and Stages 16–19.
 fn dispatch_simulate(command: &str, state: Option<&AdminState>) -> String {
     let Some(guard) = state.and_then(|s| s.guard.as_ref()) else {
@@ -2262,7 +2262,7 @@ struct SequenceResetRequest {
     payload: tirbase_guard::anti_replay::AntiReplayWindowReset,
 }
 
-/// Task 20.3 (CLAIM-20.3, PV-5.5): PolicyAuthority-signed sequence-window reset
+/// (CLAIM-20.3, PV-5.5): PolicyAuthority-signed sequence-window reset
 /// for issuer re-enrollment or wrap-around.
 fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: i64) -> String {
     let Some(st) = state else {
@@ -2279,7 +2279,7 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid sequence-reset: {e}")),
     };
-    // Verify PA signatures and payload binding (domain-separated).
+ // Verify PA signatures and payload binding (domain-separated).
     let resolve = |did: &str| -> Option<Vec<u8>> {
         trust_root
             .role_thresholds
@@ -2305,7 +2305,7 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
         return serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"sequence-reset"})
             .to_string();
     }
-    // Require at least one PolicyAuthority role signature (trust root role registry enforces PA keys via resolver).
+ // Require at least one PolicyAuthority role signature (trust root role registry enforces PA keys via resolver).
     let has_pa = req
         .operation
         .signatures
@@ -2314,11 +2314,11 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
     if !has_pa {
         return serde_json::json!({"status":409,"error":"sequence-reset requires PolicyAuthority signature","endpoint":"sequence-reset"}).to_string();
     }
-    // Persist baseline. Uses primary.db path if configured via guard/store context in future; for now
-    // apply in-memory verified reset semantics and report success when a store is available via state.
-    // AdminState does not yet carry anti-replay store handle; the endpoint is wired as production caller
-    // and returns verified outcome. Persistence is performed by Stage 16 store on next command and by
-    // admin DB-backed reset when store handle is added (task 36.3l).
+ // Persist baseline. Uses primary.db path if configured via guard/store context in future; for now
+ // apply in-memory verified reset semantics and report success when a store is available via state.
+ // AdminState does not yet carry anti-replay store handle; the endpoint is wired as production caller
+ // and returns verified outcome. Persistence is performed by Stage 16 store on next command and by
+ // admin DB-backed reset when store handle is added ().
     serde_json::json!({
         "status": 200,
         "endpoint": "sequence-reset",

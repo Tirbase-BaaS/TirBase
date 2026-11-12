@@ -5,7 +5,7 @@
 # Exits non-zero if any crate's public API has changed.
 #
 # To update a manifest after an intentional API addition:
-#   cargo +nightly public-api -p <crate> > <crate>/public-api.txt
+# cargo +nightly public-api -p <crate> > <crate>/public-api.txt
 # then commit the updated file.
 set -euo pipefail
 
@@ -32,9 +32,9 @@ for CRATE in "${CRATES[@]}"; do
     continue
   fi
 
-  # Generate current public API into a temp file.
-  # Stderr is redirected separately so that compiler warnings don't pollute
-  # the API listing used for comparison.
+ # Generate current public API into a temp file.
+ # Stderr is redirected separately so that compiler warnings don't pollute
+ # the API listing used for comparison.
   CURRENT=$(mktemp)
   ERR=$(mktemp)
   if ! cargo +nightly public-api -p "${CRATE}" > "$CURRENT" 2>"$ERR"; then
@@ -46,9 +46,9 @@ for CRATE in "${CRATES[@]}"; do
   fi
   rm -f "$ERR"
 
-  # Diff: lines in CURRENT but not in MANIFEST are new (unapproved) items
+ # Diff: lines in CURRENT but not in MANIFEST are new (unapproved) items
   ADDED=$(comm -23 <(sort "$CURRENT") <(sort "$MANIFEST") || true)
-  # Lines in MANIFEST but not in CURRENT are removed items
+ # Lines in MANIFEST but not in CURRENT are removed items
   REMOVED=$(comm -13 <(sort "$CURRENT") <(sort "$MANIFEST") || true)
 
   if [[ -n "$ADDED" ]]; then

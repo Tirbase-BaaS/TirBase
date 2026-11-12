@@ -1,125 +1,125 @@
 name: Release SBOM and VEX (CLAIM-42.1, CLAIM-42.4)
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Release tag to attach SBOM assets to (workflow_dispatch only)"
-        required: false
-        type: string
+ release:
+ types: [published]
+ workflow_dispatch:
+ inputs:
+ release_tag:
+ description: "Release tag to attach SBOM assets to (workflow_dispatch only)"
+ required: false
+ type: string
 
 permissions:
-  contents: write
-  actions: read
+ contents: write
+ actions: read
 
 env:
-  CARGO_TERM_COLOR: always
+ CARGO_TERM_COLOR: always
 
 jobs:
-  sbom:
-    name: Generate CycloneDX SBOM, VEX, and release-deny gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+ sbom:
+ name: Generate CycloneDX SBOM, VEX, and release-deny gate
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+ with:
+ fetch-depth: 0
 
-      - name: Resolve release tag
-        id: tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release tag: ${TAG}"
+ - name: Resolve release tag
+ id: tag
+ shell: bash
+ run: |
+ set -euo pipefail
+ TAG="${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}"
+ echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+ echo "Resolved release tag: ${TAG}"
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+ - name: Install Rust stable
+ uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo registry and binaries
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            target
-          key: ${{ runner.os }}-cargo-sbom-${{ hashFiles('**/Cargo.lock') }}
+ - name: Cache cargo registry and binaries
+ uses: actions/cache@v4
+ with:
+ path: |
+ ~/.cargo/registry
+ ~/.cargo/git
+ ~/.cargo/bin
+ target
+ key: ${{ runner.os }}-cargo-sbom-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install cargo-cyclonedx
-        run: |
-          if ! command -v cargo-cyclonedx &>/dev/null; then
-            cargo install cargo-cyclonedx --locked
-          fi
+ - name: Install cargo-cyclonedx
+ run: |
+ if ! command -v cargo-cyclonedx &>/dev/null; then
+ cargo install cargo-cyclonedx --locked
+ fi
 
-      - name: Generate CycloneDX SBOM (CLAIM-42.1)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release-artifacts
-          # Workspace-level SBOM (JSON CycloneDX) including all crates/features.
-          cargo cyclonedx --all --format json --all-features --override-filename tirbase-sbom
-          SBOM_PATH="$(find . -maxdepth 3 -name 'tirbase-sbom*.json' | head -n 1)"
-          if [ -z "$SBOM_PATH" ]; then
-            echo "ERROR: cargo-cyclonedx did not produce tirbase-sbom*.json" >&2
-            exit 1
-          fi
-          cp "$SBOM_PATH" "release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
-          echo "SBOM written to release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
+ - name: Generate CycloneDX SBOM (CLAIM-42.1)
+ shell: bash
+ run: |
+ set -euo pipefail
+ mkdir -p release-artifacts
+ # Workspace-level SBOM (JSON CycloneDX) including all crates/features.
+ cargo cyclonedx --all --format json --all-features --override-filename tirbase-sbom
+ SBOM_PATH="$(find . -maxdepth 3 -name 'tirbase-sbom*.json' | head -n 1)"
+ if [ -z "$SBOM_PATH" ]; then
+ echo "ERROR: cargo-cyclonedx did not produce tirbase-sbom*.json" >&2
+ exit 1
+ fi
+ cp "$SBOM_PATH" "release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
+ echo "SBOM written to release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
 
-      - name: Attach or create VEX statements (CLAIM-42.1, CLAIM-42.4)
-        shell: bash
-        run: |
-          set -euo pipefail
-          VEX_SRC="docs/releases/vex-statements.json"
-          VEX_OUT="release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.vex.cdx.json"
-          if [ -f "$VEX_SRC" ]; then
-            cp "$VEX_SRC" "$VEX_OUT"
-          else
-            cat > "$VEX_OUT" <<'JSON'
-          {
-            "bomFormat": "CycloneDX",
-            "specVersion": "1.5",
-            "version": 1,
-            "vulnerabilities": []
-          }
-          JSON
-          fi
-          echo "VEX artifact prepared at ${VEX_OUT}"
-          echo "VEX_OUT=${VEX_OUT}" >> "$GITHUB_ENV"
+ - name: Attach or create VEX statements (CLAIM-42.1, CLAIM-42.4)
+ shell: bash
+ run: |
+ set -euo pipefail
+ VEX_SRC="docs/releases/vex-statements.json"
+ VEX_OUT="release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.vex.cdx.json"
+ if [ -f "$VEX_SRC" ]; then
+ cp "$VEX_SRC" "$VEX_OUT"
+ else
+ cat > "$VEX_OUT" <<'JSON'
+ {
+ "bomFormat": "CycloneDX",
+ "specVersion": "1.5",
+ "version": 1,
+ "vulnerabilities": []
+ }
+ JSON
+ fi
+ echo "VEX artifact prepared at ${VEX_OUT}"
+ echo "VEX_OUT=${VEX_OUT}" >> "$GITHUB_ENV"
 
-      - name: Release-time cargo-deny with VEX-flagged crate bans (CLAIM-42.4)
-        shell: bash
-        env:
-          VEX_PATH: ${{ env.VEX_OUT }}
-        run: |
-          set -euo pipefail
-          python3 scripts/release/check_vex_deny.py \
-            --base-deny deny.toml \
-            --vex "${VEX_PATH}" \
-            --out release-artifacts/deny.release.toml \
-            --lock Cargo.lock
-          echo "Generated release-specific deny config at release-artifacts/deny.release.toml"
-          cargo install cargo-deny --locked --version 0.16.3 >/dev/null 2>&1 || true
-          cargo deny --manifest-path Cargo.toml --config release-artifacts/deny.release.toml check all-features
+ - name: Release-time cargo-deny with VEX-flagged crate bans (CLAIM-42.4)
+ shell: bash
+ env:
+ VEX_PATH: ${{ env.VEX_OUT }}
+ run: |
+ set -euo pipefail
+ python3 scripts/release/check_vex_deny.py \
+ --base-deny deny.toml \
+ --vex "${VEX_PATH}" \
+ --out release-artifacts/deny.release.toml \
+ --lock Cargo.lock
+ echo "Generated release-specific deny config at release-artifacts/deny.release.toml"
+ cargo install cargo-deny --locked --version 0.16.3 >/dev/null 2>&1 || true
+ cargo deny --manifest-path Cargo.toml --config release-artifacts/deny.release.toml check all-features
 
-      - name: Upload SBOM and VEX to GitHub Release (CLAIM-42.1)
-        if: ${{ github.event_name == 'release' || inputs.release_tag != '' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          files: |
-            release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json
-            release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.vex.cdx.json
-            release-artifacts/deny.release.toml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ - name: Upload SBOM and VEX to GitHub Release (CLAIM-42.1)
+ if: ${{ github.event_name == 'release' || inputs.release_tag != '' }}
+ uses: softprops/action-gh-release@v2
+ with:
+ tag_name: ${{ steps.tag.outputs.tag }}
+ files: |
+ release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json
+ release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.vex.cdx.json
+ release-artifacts/deny.release.toml
+ env:
+ GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-vex-${{ steps.tag.outputs.tag }}
-          path: release-artifacts/
-          retention-days: 90
+ - name: Upload workflow artifacts
+ uses: actions/upload-artifact@v4
+ with:
+ name: sbom-vex-${{ steps.tag.outputs.tag }}
+ path: release-artifacts/
+ retention-days: 90

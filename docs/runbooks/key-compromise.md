@@ -20,26 +20,26 @@
 1. **Stop trust in the compromised credential:** revoke the DID/credential per authorized process (RevocationManager and/or policy-defined M-of-N). Do not issue new tokens/approvals with compromised material.
 2. **Isolate if needed:** if compromise is ongoing or scope unclear, enter/maintain **LOCKDOWN** (see `docs/runbooks/lockdown.md`) to halt commanded actuation while preserving diagnosis/export.
 3. **Preserve evidence:** export signed evidence bundle and logs before rotation/remediation steps that may change state.
-   ```bash
-   tirbase-admin export-evidence-bundle --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/evidence-bundle.json
-   tirbase-admin verify-log --db-path /var/lib/tirbase/primary.db --json
-   ```
+ ```bash
+ tirbase-admin export-evidence-bundle --db-path /var/lib/tirbase/primary.db --key-path <device-key.json> --output /secure/evidence-bundle.json
+ tirbase-admin verify-log --db-path /var/lib/tirbase/primary.db --json
+ ```
 
 ## Revocation procedure
 
 1. **Identify compromised identity scope:** DID(s), role(s), device(s), tokens, and dependent enrollments/leases.
 2. **Apply revocation through the authorized control plane** (RevocationManager credential; M-of-N where required by trust root/policy). Use deployment-specific signed revocation/re-enrollment operations; ensure propagation to connected peers (mesh sync) and local admission state.
 3. **Confirm enforcement:**
-   - Subsequent commands/deltas from revoked DID are rejected with typed authorization/revocation errors (coarse `UNAUTHORIZED`/revocation reasons as applicable).
-   - Leases held by revoked issuers released per guard rules; no further actuation accepted from revoked identity.
+ - Subsequent commands/deltas from revoked DID are rejected with typed authorization/revocation errors (coarse `UNAUTHORIZED`/revocation reasons as applicable).
+ - Leases held by revoked issuers released per guard rules; no further actuation accepted from revoked identity.
 4. **Rotate/replace affected keys and credentials:**
-   ```bash
-   # Rotate local device identity (backs up previous key); update dependent trust/enrollment as required
-   tirbase-admin rotate --key-path /var/lib/tirbase/device-key.json
-   # Inspect identities (public material only)
-   tirbase-admin inspect-identities --identity /var/lib/tirbase/device-key.json --identity /var/lib/tirbase/device-key.json.bak
-   ```
-   Re-enroll/re-mint scoped tokens only after trust root/role registries and epoch posture are correct (`tirbase-admin enroll`, `tirbase-admin mint` within TTL limits).
+ ```bash
+ # Rotate local device identity (backs up previous key); update dependent trust/enrollment as required
+ tirbase-admin rotate --key-path /var/lib/tirbase/device-key.json
+ # Inspect identities (public material only)
+ tirbase-admin inspect-identities --identity /var/lib/tirbase/device-key.json --identity /var/lib/tirbase/device-key.json.bak
+ ```
+ Re-enroll/re-mint scoped tokens only after trust root/role registries and epoch posture are correct (`tirbase-admin enroll`, `tirbase-admin mint` within TTL limits).
 5. **If root/trust material or epoch integrity is impacted:** follow `docs/runbooks/restore.md` (epoch bump + LOCKDOWN re-entry) and `docs/root-ceremony.md` processes; do not silently rewind counters.
 
 ## Post-revocation verification

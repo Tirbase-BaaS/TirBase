@@ -12,7 +12,7 @@ use tirbase_gateway::time_anchor::{
 
 #[derive(Debug, Default)]
 struct FixedWallTimeSource {
-    /// CLOCK_REALTIME hint in microseconds since Unix epoch (trait contract).
+ /// CLOCK_REALTIME hint in microseconds since Unix epoch (trait contract).
     wall_micros: i64,
     mono: Mutex<u64>,
 }
@@ -54,7 +54,7 @@ fn claim_53_1_time_anchor_service_produces_periodic_signed_cose_sign1_beacons() 
         sink.clone(),
     ));
 
-    // Produce multiple beacons (periodic generation exercised directly and via loop semantics).
+ // Produce multiple beacons (periodic generation exercised directly and via loop semantics).
     let b1 = svc.produce_beacon().expect("beacon 1");
     let b2 = svc.produce_beacon().expect("beacon 2");
     let b3 = svc.produce_beacon().expect("beacon 3");
@@ -70,7 +70,7 @@ fn claim_53_1_time_anchor_service_produces_periodic_signed_cose_sign1_beacons() 
 
     let published = sink.0.lock().unwrap();
     assert!(published.len() >= 3, "broadcast sink must receive periodic beacons");
-    // Signed COSE_Sign1 structure: protected/payload/signature present.
+ // Signed COSE_Sign1 structure: protected/payload/signature present.
     for b in published.iter() {
         assert!(!b.protected.is_empty());
         assert!(!b.payload.is_empty());
@@ -104,7 +104,7 @@ fn claim_53_2_multiple_peers_select_most_recent_valid_beacon_within_max_jump() {
     assert_eq!(selected_payload.issuer_did, peer_b.did());
     assert_eq!(selected_beacon.signature, newest_valid.signature);
 
-    // Empty/invalid-only set yields none.
+ // Empty/invalid-only set yields none.
     let bad = PeerBeacon { beacon: newest_valid, anchor_public_key: peer_a.public_key_bytes() };
     assert!(select_authenticated_beacon(&[bad], floor, max_jump).is_none());
 }

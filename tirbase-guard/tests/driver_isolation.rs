@@ -37,7 +37,7 @@ fn make_device_transport() -> DeviceTransport {
 
 #[test]
 fn test_scm_rights_blocked() {
-    // Part A (required by S35 Test ID): real child process receives device fd via SCM_RIGHTS.
+ // Part A (required by S35 Test ID): real child process receives device fd via SCM_RIGHTS.
     let transport = make_device_transport();
     assert!(transport.as_raw_fd() >= 0);
     let pair = create_driver_socketpair().expect("socketpair");
@@ -52,7 +52,7 @@ fn test_scm_rights_blocked() {
         .spawn()
         .expect("spawn driver isolation child");
 
-    // Parent must close its copy of child_fd after spawn.
+ // Parent must close its copy of child_fd after spawn.
     unsafe {
         libc::close(pair.child_fd);
     }
@@ -86,8 +86,8 @@ fn test_scm_rights_blocked() {
             stdout.contains("reason=SCMRightsAttempt") || stdout.contains("SCMRightsAttempt"),
             "child must report SCMRightsAttempt security event reason: {stdout}"
         );
-        // Production path emits/records SecurityEvent; this verifies the canonical
-        // reason/category used by the event catalog and S35.
+ // Production path emits/records SecurityEvent; this verifies the canonical
+ // reason/category used by the event catalog and S35.
         let ev = SecurityEvent::new(
             SecurityEventCategory::Driver,
             Severity::High,
@@ -101,8 +101,8 @@ fn test_scm_rights_blocked() {
             "Linux sandbox child should exit 0 after blocked attempt: {stdout}\n{stderr}"
         );
     } else {
-        // Non-Linux dev hosts cannot enforce Linux seccomp/landlock; verify real
-        // child fd passing and explicit platform status.
+ // Non-Linux dev hosts cannot enforce Linux seccomp/landlock; verify real
+ // child fd passing and explicit platform status.
         assert!(
             stdout.contains("UNAVAILABLE:") || stdout.contains("SCM_RIGHTS_ATTEMPT:"),
             "non-Linux child must report explicit sandbox status: {stdout}"
@@ -128,11 +128,11 @@ fn wiring_mutation_not_passing_scm_rights_breaks_child_receive() {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn child");
-    // Parent must close its copy of child_fd; otherwise peer close isn't observed.
+ // Parent must close its copy of child_fd; otherwise peer close isn't observed.
     unsafe {
         libc::close(pair.child_fd);
     }
-    // Intentionally do NOT send SCM_RIGHTS; close parent side so child sees EOF/error.
+ // Intentionally do NOT send SCM_RIGHTS; close parent side so child sees EOF/error.
     unsafe {
         libc::close(pair.parent_fd);
     }

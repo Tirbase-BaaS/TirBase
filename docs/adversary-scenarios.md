@@ -1,6 +1,6 @@
 # Adversary Scenarios Catalog
 
-**Status:** [CLAIM-3.7 — Proven]; S1–S35 are wired in `tirbase-sim/scenarios/*.toml` and executed by `tirbase-sim/src/runner.rs` (task 39, CLAIM-39.1–39.4).
+**Status:** [CLAIM-3.7 — Proven]; S1–S35 are wired in `tirbase-sim/scenarios/*.toml` and executed by `tirbase-sim/src/runner.rs` (CLAIM-39.1–39.4).
 
 This document catalogs all adversary scenarios (S1–S35) for TirBase. Each entry records the attack vector, expected system response, PV requirement reference, pass/fail criteria, and a test ID (populated when the corresponding `tirbase-sim` scenario or integration test is implemented).
 
@@ -25,7 +25,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** An adversary (or buggy client) sends a signed `CommandMessage` whose `desired_state` falls outside the `[min, max]` bounds defined in the `ParameterSpec` for the targeted parameter.
 
-**Expected Response:** `CommandGuard::admit()` reaches Stage 11 (envelope bounds check) and returns `RejectionCategory::EnvelopeViolation`. The command is not written to the `Applied_Effects_Ledger` and the driver is never contacted. A `SecurityEvent` with reason `EnvelopeViolation` is emitted.
+**Expected Response:** `CommandGuard::admit` reaches Stage 11 (envelope bounds check) and returns `RejectionCategory::EnvelopeViolation`. The command is not written to the `Applied_Effects_Ledger` and the driver is never contacted. A `SecurityEvent` with reason `EnvelopeViolation` is emitted.
 
 **PV Requirement:** PV-4.6
 
@@ -135,7 +135,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** An adversary replays an older, previously superseded `PolicyBundle` (with a lower version number) in an attempt to restore a weaker, more permissive policy.
 
-**Expected Response:** `PolicyLifecycle::ingest_bundle()` checks the incoming `bundle.version` against the `MonotonicCounterTrait`-backed anti-rollback counter. Since `bundle.version ≤ current_version`, the bundle is rejected with `PolicyVersionRollback` error. The active policy is unchanged.
+**Expected Response:** `PolicyLifecycle::ingest_bundle` checks the incoming `bundle.version` against the `MonotonicCounterTrait`-backed anti-rollback counter. Since `bundle.version ≤ current_version`, the bundle is rejected with `PolicyVersionRollback` error. The active policy is unchanged.
 
 **PV Requirement:** PV-4.8
 
@@ -157,7 +157,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** A single `PolicyAuthority` submits a policy bundle that loosens envelope bounds (e.g., raises a temperature setpoint maximum) without obtaining the required M co-signatures from distinct authorized roles.
 
-**Expected Response:** `classify_bundle()` determines the bundle is a loosening (new [min, max] ⊃ old [min, max]). `PolicyLifecycle` starts co-signature collection and does NOT apply the bundle. The bundle is held pending `M-of-N` co-signatures from the active policy's governance fields, subject to the active policy's time-lock.
+**Expected Response:** `classify_bundle` determines the bundle is a loosening (new [min, max] ⊃ old [min, max]). `PolicyLifecycle` starts co-signature collection and does NOT apply the bundle. The bundle is held pending `M-of-N` co-signatures from the active policy's governance fields, subject to the active policy's time-lock.
 
 **PV Requirement:** PV-4.10
 
@@ -179,7 +179,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** An attacker submits a WASM migration module that contains `f32`/`f64` float instructions, SIMD operations, threads, host-clock access, or host-randomness calls — any of which could introduce non-determinism or NaN bypass paths.
 
-**Expected Response:** At load time, `DeterministicWasmProfile::validate()` (via `wasmparser`) rejects the module before execution. The module is quarantined with `QuarantineReasonCode::EngineVersionMismatch` (float) or a profile-violation error. No execution occurs.
+**Expected Response:** At load time, `DeterministicWasmProfile::validate` (via `wasmparser`) rejects the module before execution. The module is quarantined with `QuarantineReasonCode::EngineVersionMismatch` (float) or a profile-violation error. No execution occurs.
 
 **PV Requirement:** PV-8.2, PV-8.2a
 
@@ -223,7 +223,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Expected Response:** `apply_incoming_delta` in `tirbase-core/src/crdt/merge.rs` checks the revocation set. If the delta's author DID is in the revocation set, the delta is rejected at merge time and quarantined in the `Schema_Quarantine_Ledger` with `QuarantineReasonCode::IssuerRevoked`. A `SecurityEvent` with reason `RevokedAuthorDelta` is emitted.
 
-**PV Requirement:** PV-6.1, referenced in G1 Gate (task 0.4)
+**PV Requirement:** PV-6.1, referenced in G1 Gate 
 
 **Pass Criteria:**
 - Revoked-author delta is quarantined before merge.
@@ -286,7 +286,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** A power-loss event (or `SIGKILL`) is injected at each write boundary within the Applied_Effects_Ledger path. This tests crash safety across the full command lifecycle.
 
-**Expected Response:** On process restart, `AppliedEffectsLedger::reconcile_on_boot()` scans all `Actuating` entries, calls `driver.read_back()` per driver (30s timeout), and transitions each entry to `Complete`, `Failed`, or `Unknown`. No entry remains in `Actuating` after reconciliation. `PRAGMA quick_check` runs at boot on both databases.
+**Expected Response:** On process restart, `AppliedEffectsLedger::reconcile_on_boot` scans all `Actuating` entries, calls `driver.read_back` per driver (30s timeout), and transitions each entry to `Complete`, `Failed`, or `Unknown`. No entry remains in `Actuating` after reconciliation. `PRAGMA quick_check` runs at boot on both databases.
 
 **PV Requirement:** PV-5.3, PV-5.4
 
@@ -394,7 +394,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 ## S18 — Guard Bypass Attempt
 
-**Attack Vector:** An adversary (or buggy internal code) attempts to construct an `ActuationPermit { _sealed: () }` outside the `tirbase-guard` crate, directly from any of the three ingress paths (mesh, cloud API, local admin API).
+**Attack Vector:** An adversary (or buggy internal code) attempts to construct an `ActuationPermit { _sealed:  }` outside the `tirbase-guard` crate, directly from any of the three ingress paths (mesh, cloud API, local admin API).
 
 **Expected Response:** The Rust compiler rejects the code at compile time because `ActuationPermit._sealed` is `pub(crate)` and cannot be named outside `tirbase-guard`. The `trybuild` compile-fail tests in `tirbase-guard/tests/compile_fail/` confirm this for all three ingress paths.
 
@@ -405,7 +405,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - No runtime bypass exists (structural guarantee via type system).
 
 **Fail Criteria:**
-- Any ingress path can construct `ActuationPermit` without `CommandGuard::admit()`.
+- Any ingress path can construct `ActuationPermit` without `CommandGuard::admit`.
 - A compile-fail test unexpectedly compiles successfully.
 
 **Test ID:** `tirbase-guard/tests/compile_fail/mesh_bypass.rs`, `cloud_bypass.rs`, `admin_bypass.rs` (trybuild)
@@ -416,7 +416,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** An adversary withholds a validly signed `CommandMessage` (with a short TTL) and delivers it after the command's `expiry_est` has passed. This is a classic "store-and-forward replay" against receipt-relative TTL schemes.
 
-**Expected Response:** Stage 8 (command expiry check) computes `ratchet.now_est()` and compares it against `cmd.expiry_est`. Since `now_est > cmd.expiry_est`, the command is rejected with `RejectionCategory::Expired`. The `TimeRatchet` prevents wall-clock manipulation from "unwinding" the expiry check.
+**Expected Response:** Stage 8 (command expiry check) computes `ratchet.now_est` and compares it against `cmd.expiry_est`. Since `now_est > cmd.expiry_est`, the command is rejected with `RejectionCategory::Expired`. The `TimeRatchet` prevents wall-clock manipulation from "unwinding" the expiry check.
 
 **PV Requirement:** PV-22.1, PV-12.8
 
@@ -506,7 +506,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** A forged `TimeBeacon` (or compromised `TimeAnchor`) claims a wall-clock time far in the future (e.g., `now + 86_401 seconds`), exceeding the `max_forward_jump_secs` limit (default 86,400 seconds). If accepted, this would permanently advance the `TimeRatchet` and expire all current credentials.
 
-**Expected Response:** `TimeRatchet::advance()` checks whether `beacon.wall_time − persisted_floor > max_forward_jump_secs`. The beacon exceeds this threshold and is rejected without updating `persisted_floor` or `last_beacon_time`. A `SecurityEvent(TimeAnchorRejected, FarFutureBeacon)` is emitted. A jump exceeding the limit requires M-of-N `TimeAnchor` co-signatures.
+**Expected Response:** `TimeRatchet::advance` checks whether `beacon.wall_time − persisted_floor > max_forward_jump_secs`. The beacon exceeds this threshold and is rejected without updating `persisted_floor` or `last_beacon_time`. A `SecurityEvent(TimeAnchorRejected, FarFutureBeacon)` is emitted. A jump exceeding the limit requires M-of-N `TimeAnchor` co-signatures.
 
 **PV Requirement:** PV-22.5, PV-12.8
 
@@ -567,8 +567,8 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - Attacker's flood evicts legitimate entries from other senders.
 - Operator cannot replay critical quarantined deltas because they were flushed.
 
-**Status:** PROVEN (task 23 / CLAIM-23.3,23.5)
-**Test ID:** `tirbase-sim/src/scenarios/s25_quarantine_flush.rs` (`s25_quarantine_flush_per_sender_isolation`, `s25_quarantine_flush_seeded_sweep`) | `tirbase-core/src/api/mod.rs::task23_pv6_hardening_tests::claim_23_5_schema_quarantine_per_sender_quota_isolated`
+**Status:** PROVEN (CLAIM-23.3,23.5)
+**Test ID:** `tirbase-sim/src/scenarios/s25_quarantine_flush.rs` (`s25_quarantine_flush_per_sender_isolation`, `s25_quarantine_flush_seeded_sweep`) | `tirbase-core/src/api/mod.rs::inbound_hardening_pv6_tests::claim_23_5_schema_quarantine_per_sender_quota_isolated`
 
 ---
 
@@ -597,7 +597,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** A `PolicyAuthority` submits a policy bundle that claims to be a "tightening" (narrowing envelope bounds) but also lowers the `policy_loosen_m` governance field, making future loosening easier.
 
-**Expected Response:** `classify_bundle()` applies the conservative governance-field check: any decrease in `policy_loosen_m` or `policy_loosen_n` is classified as Loosening (not Tightening). The bundle cannot be applied as a fast single-signer tightening; it must go through the full M-of-N loosening approval flow.
+**Expected Response:** `classify_bundle` applies the conservative governance-field check: any decrease in `policy_loosen_m` or `policy_loosen_n` is classified as Loosening (not Tightening). The bundle cannot be applied as a fast single-signer tightening; it must go through the full M-of-N loosening approval flow.
 
 **PV Requirement:** PV-4.11, Revision §14
 
@@ -684,7 +684,7 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 
 **Attack Vector:** A device reboots (or an adversary triggers a reboot). The monotonic clock (`CLOCK_BOOTTIME`) resets. If `TimeRatchet` performs `now_est = last_beacon_time + (mono_now − mono_at_beacon)` without checking the `boot_id`, the subtraction `mono_now − mono_at_beacon` yields a negative or very small value, causing `now_est` to drop far below `persisted_floor` — effectively making all recent commands appear expired.
 
-**Expected Response:** `TimeRatchet::now_est()` checks `ts.boot_id() != beacon_boot_id`. On mismatch (reboot occurred), the function returns `persisted_floor` directly without any monotonic subtraction. All credentials are evaluated conservatively against the floor. `FreshnessState` transitions to `Unverified` until a new beacon is received. Commands to critical parameters require challenge nonces.
+**Expected Response:** `TimeRatchet::now_est` checks `ts.boot_id != beacon_boot_id`. On mismatch (reboot occurred), the function returns `persisted_floor` directly without any monotonic subtraction. All credentials are evaluated conservatively against the floor. `FreshnessState` transitions to `Unverified` until a new beacon is received. Commands to critical parameters require challenge nonces.
 
 **PV Requirement:** PV-22.4, Revision §14
 
@@ -746,8 +746,8 @@ Scenarios are tracked by the deterministic simulator (`tirbase-sim`) and the int
 - Process runs out of memory and crashes (enables crash-loop LOCKDOWN via S24).
 - Legitimate pending deltas are lost without quarantine record.
 
-**Status:** PROVEN (task 23 / CLAIM-23.1,23.2)
-**Test ID:** `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` (`s33_pending_queue_bomb_bounded`, `s33_pending_queue_bomb_seeded_sweep`) | `tirbase-core/src/api/mod.rs::task23_pv6_hardening_tests::claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival`, `claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine`
+**Status:** PROVEN (CLAIM-23.1,23.2)
+**Test ID:** `tirbase-sim/src/scenarios/s33_pending_queue_bomb.rs` (`s33_pending_queue_bomb_bounded`, `s33_pending_queue_bomb_seeded_sweep`) | `tirbase-core/src/api/mod.rs::inbound_hardening_pv6_tests::claim_23_1_missing_dependency_pends_then_processes_on_dependency_arrival`, `claim_23_2_pending_queue_overflow_quarantined_to_schema_quarantine`
 
 ---
 

@@ -1,5 +1,5 @@
 # Adversary scenario 16 — Fleet Fan-Out (Per-Device Blast Radius)
-# Executed by tirbase-sim/src/runner.rs (task 39.1, CLAIM-39.1).
+# Executed by tirbase-sim/src/runner.rs (CLAIM-39.1).
 id = "S16"
 title = "Fleet Fan-Out (Per-Device Blast Radius)"
 seeds = 32

@@ -1,4 +1,4 @@
-//! InboundCaps configuration and enforcement (PV-6.3, task 24.1).
+//! InboundCaps configuration and enforcement (PV-6.3).
 //!
 //! Enforces caps on inbound deltas: per-DID rate limits (100 ops/s, burst 500),
 //! delta size (1 MiB), op count (1000), batch size (50 changes), heads (20),
@@ -51,7 +51,7 @@ impl InboundCaps {
         Self::default()
     }
 
-    /// Map a cap violation to the corresponding quarantine reason code.
+ /// Map a cap violation to the corresponding quarantine reason code.
     pub fn quarantine_reason_for_violation(violation: InboundCapViolation) -> ReasonCode {
         match violation {
             InboundCapViolation::RateExceeded => ReasonCode::RateExceeded,
@@ -81,8 +81,8 @@ pub enum InboundCapViolation {
 /// Per-sender token bucket enforcing `rate_ops_per_sec` / `rate_burst`.
 ///
 /// Tokens are tracked in thousandths of an operation so a sub-second refill is
-/// exact at microsecond resolution.  A sender's bucket is created full, so an
-/// idle sender can always burst up to `rate_burst` operations.  A configured
+/// exact at microsecond resolution. A sender's bucket is created full, so an
+/// idle sender can always burst up to `rate_burst` operations. A configured
 /// rate or burst of zero fails closed (every delta is rejected).
 #[derive(Debug, Default)]
 pub(crate) struct InboundRateLimiter {
@@ -98,8 +98,8 @@ struct TokenBucket {
 const TOKEN_MILLI: u64 = 1000;
 
 impl InboundRateLimiter {
-    /// Consume `ops` tokens for `sender`, refilling from elapsed monotonic time.
-    /// Returns `false` when the sender is over its configured rate/burst.
+ /// Consume `ops` tokens for `sender`, refilling from elapsed monotonic time.
+ /// Returns `false` when the sender is over its configured rate/burst.
     pub(crate) fn check(
         &mut self,
         sender: &str,

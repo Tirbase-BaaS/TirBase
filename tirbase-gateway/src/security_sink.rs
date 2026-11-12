@@ -1,6 +1,6 @@
-//! Gateway security event sink (PV-7.1, 19.4, INV-4, task 25 compatibility).
+//! Gateway security event sink (PV-7.1, 19.4, INV-4, compatibility).
 //!
-//! Task 25 replaces the skeleton log with [`crate::security_log::SecurityEventLog`].
+//! replaces the skeleton log with [`crate::security_log::SecurityEventLog`].
 //! [`GatewaySecurityEventLog`] remains as a compatibility wrapper used by older
 //! tests and lightweight boot paths.
 
@@ -28,22 +28,22 @@ impl Default for GatewaySecurityEventLog {
 }
 
 impl GatewaySecurityEventLog {
-    /// Construct an immediate/in-memory chained log.
+ /// Construct an immediate/in-memory chained log.
     pub fn new() -> Self {
         Self {
             inner: Arc::new(SecurityEventLog::new_memory()),
         }
     }
 
-    /// Construct a batched log (19.4 compatibility). Persistence is not wired
-    /// through this constructor; use [`SecurityEventLog::new_persistent`].
+ /// Construct a batched log (19.4 compatibility). Persistence is not wired
+ /// through this constructor; use [`SecurityEventLog::new_persistent`].
     pub fn new_batched() -> Self {
         Self {
             inner: Arc::new(SecurityEventLog::with_options_compat(true)),
         }
     }
 
-    /// Install this log as the process-wide sink.
+ /// Install this log as the process-wide sink.
     pub fn install(self) -> Arc<SecurityEventLog> {
         let log = self.inner.clone();
         tirbase_core::events::install_security_event_sink(log.clone());

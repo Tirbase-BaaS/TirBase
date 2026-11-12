@@ -1,4 +1,4 @@
-//! `tirbase-admin` subcommands (task 9 — CLAIM-9.1..9.5, PV-3.10; task 27 — export/verify).
+//! `tirbase-admin` subcommands (CLAIM-9.1..9.5, PV-3.10; — export/verify).
 
 pub mod enroll;
 pub mod export;

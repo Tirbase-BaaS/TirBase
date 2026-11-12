@@ -1,10 +1,10 @@
-//! Health endpoint and watchdog keepalive (task 4.9.3, task 13.7 — CLAIM-4.9.3,
+//! Health endpoint and watchdog keepalive (CLAIM-4.9.3,
 //! CLAIM-13.7, PV-4.15).
 //!
 //! * `GET /health` → 200 OK within 500 ms on 127.0.0.1 (liveness).
 //! * A dedicated forward-progress health-loop task runs independently of
-//!   command evaluation and sends `sd_notify WATCHDOG=1` on each iteration.
-//!   Stalling the loop causes the systemd watchdog to time out.
+//! command evaluation and sends `sd_notify WATCHDOG=1` on each iteration.
+//! Stalling the loop causes the systemd watchdog to time out.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -43,7 +43,7 @@ impl WatchdogNotifier for NoopWatchdogNotifier {
     fn notify_watchdog(&self) {}
 }
 
-/// Production sd_notify notifier (Linux).  On non-Linux or when not running
+/// Production sd_notify notifier (Linux). On non-Linux or when not running
 /// under systemd with watchdog enabled, the call is a harmless no-op/best-effort.
 #[derive(Debug, Default)]
 pub struct SdNotifyWatchdogNotifier;
@@ -51,8 +51,8 @@ impl WatchdogNotifier for SdNotifyWatchdogNotifier {
     fn notify_watchdog(&self) {
         #[cfg(target_os = "linux")]
         {
-            // Best-effort: if not under systemd watchdog this is ignored.
-            // Use the minimal NOTIFY_SOCKET protocol to avoid a libsystemd dep.
+ // Best-effort: if not under systemd watchdog this is ignored.
+ // Use the minimal NOTIFY_SOCKET protocol to avoid a libsystemd dep.
             if let Ok(socket_path) = std::env::var("NOTIFY_SOCKET") {
                 use std::os::unix::net::UnixDatagram;
                 if let Ok(sock) = UnixDatagram::unbound() {
@@ -69,8 +69,8 @@ impl WatchdogNotifier for SdNotifyWatchdogNotifier {
 
 /// Run the forward-progress health loop (CLAIM-13.7).
 ///
-/// `interval` controls cadence.  The loop is *not* tied to `evaluate()`/command
-/// admission; it proves the process is alive and making progress.  It stops
+/// `interval` controls cadence. The loop is *not* tied to `evaluate()`/command
+/// admission; it proves the process is alive and making progress. It stops
 /// when `shutdown` is notified.
 pub async fn run_health_loop(
     state: Arc<HealthLoopState>,
@@ -171,9 +171,9 @@ mod tests {
 
     #[tokio::test]
     async fn stalled_health_loop_stops_sending_watchdog_claim_13_7() {
-        // Wiring-mutation/proof proxy: if the loop does not run, no keepalives
-        // are sent. (A real watchdog timeout is a systemd behavior; this test
-        // proves the notifier is driven only by the loop.)
+ // Wiring-mutation/proof proxy: if the loop does not run, no keepalives
+ // are sent. (A real watchdog timeout is a systemd behavior; this test
+ // proves the notifier is driven only by the loop.)
         let state = HealthLoopState::new();
         let notifier = Arc::new(CountingNotifier::default());
         let shutdown = Arc::new(Notify::new());
@@ -185,7 +185,7 @@ mod tests {
         ));
         tokio::time::sleep(Duration::from_millis(70)).await;
         let before = notifier.count();
-        // "Stall" by stopping the loop (simulates a stalled forward-progress task).
+ // "Stall" by stopping the loop (simulates a stalled forward-progress task).
         shutdown.notify_one();
         let _ = task.await;
         tokio::time::sleep(Duration::from_millis(80)).await;

@@ -10,7 +10,7 @@ The script does not trust annotations: it scans the production source roots
 named-field `struct`, excluding `#[cfg(test)]` items and `tests/` directories,
 and fails if a struct is not listed below with both its name and its file.
 
-The per-struct list at the bottom is generated.  After adding or removing a
+The per-struct list at the bottom is generated. After adding or removing a
 struct, regenerate it and commit the result:
 
 ```bash
@@ -46,8 +46,8 @@ python3 scripts/state_inventory_scan.py --write
 <!-- BEGIN GENERATED STRUCT INVENTORY -->
 
 The rows below are generated from the production source by
-`scripts/state_inventory_scan.py`.  Every named-field struct in the
-source roots must appear here.  Regenerate with:
+`scripts/state_inventory_scan.py`. Every named-field struct in the
+source roots must appear here. Regenerate with:
 
 ```bash
 python3 scripts/state_inventory_scan.py --write
@@ -273,7 +273,7 @@ python3 scripts/state_inventory_scan.py --write
 | `NamedMonotonicCounter` | `tirbase-gateway/src/monotonic_counter.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `NodeModeState` | `tirbase-guard/src/node_mode.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `NoiseSession` | `tirbase-core/src/transport/session.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
-| `PaFixture` | `tirbase-gateway/src/task34_cli.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `PaFixture` | `tirbase-gateway/src/reference_cli.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `PaTrustFixture` | `tirbase-gateway/src/config.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ParamFloor` | `tirbase-guard/src/trust_root.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `ParamToml` | `tirbase-gateway/src/profiles.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
@@ -398,7 +398,7 @@ python3 scripts/state_inventory_scan.py --write
 | `TableDef` | `tirbase-core/src/schema/mod.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TargetAdmission` | `tirbase-guard/src/guard.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TargetStateRow` | `tirbase-gateway/src/db/target_state.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
-| `Task21HydrationReport` | `tirbase-gateway/src/guard.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
+| `RuntimeHydrationReport` | `tirbase-gateway/src/guard.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `Tier1QuorumTracker` | `tirbase-core/src/durability/quorum.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TimeAnchorEntry` | `tirbase-gateway/src/time_beacon.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |
 | `TimeAnchorService` | `tirbase-gateway/src/time_anchor.rs` | `RECONSTRUCTIBLE: value/state container; authoritative data lives in persisted ledgers or is derived from signed inputs` |

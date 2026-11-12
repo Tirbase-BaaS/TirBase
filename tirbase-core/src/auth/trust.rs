@@ -7,13 +7,13 @@ use crate::api::types::{TrustLevel, UnverifiedWarning};
 /// The TrustLevel state machine for a device.
 ///
 /// Transitions:
-///   VERIFIED  → UNVERIFIED  (token expiry, no revocation)
-///   UNVERIFIED → VERIFIED   (new valid token received)
-///   VERIFIED  → REVOKED     (Revocation_Delta received)
-///   UNVERIFIED → REVOKED    (Revocation_Delta received)
+/// VERIFIED → UNVERIFIED (token expiry, no revocation)
+/// UNVERIFIED → VERIFIED (new valid token received)
+/// VERIFIED → REVOKED (Revocation_Delta received)
+/// UNVERIFIED → REVOKED (Revocation_Delta received)
 pub struct TrustLevelStateMachine {
     level: TrustLevel,
-    /// UTC timestamp (microseconds) when the device became UNVERIFIED.
+ /// UTC timestamp (microseconds) when the device became UNVERIFIED.
     unverified_since: Option<i64>,
 }
 
@@ -25,18 +25,18 @@ impl TrustLevelStateMachine {
         }
     }
 
-    /// Current trust level.
+ /// Current trust level.
     pub fn level(&self) -> TrustLevel {
         self.level
     }
 
-    /// Transition to VERIFIED when a valid Biscuit token is received (Req 8.3).
+ /// Transition to VERIFIED when a valid Biscuit token is received (Req 8.3).
     pub fn on_valid_token(&mut self) {
         self.level = TrustLevel::Verified;
         self.unverified_since = None;
     }
 
-    /// Transition to UNVERIFIED when the token expires (Req 8.4).
+ /// Transition to UNVERIFIED when the token expires (Req 8.4).
     pub fn on_token_expired(&mut self, now_micros: i64) {
         if self.level != TrustLevel::Revoked {
             self.level = TrustLevel::Unverified;
@@ -46,14 +46,14 @@ impl TrustLevelStateMachine {
         }
     }
 
-    /// Transition to REVOKED when a Revocation_Delta is received (Req 8.5).
+ /// Transition to REVOKED when a Revocation_Delta is received (Req 8.5).
     pub fn on_revocation(&mut self) {
         self.level = TrustLevel::Revoked;
         self.unverified_since = None;
     }
 
-    /// If the device is UNVERIFIED, return a warning to deliver to the caller
-    /// on every operation (Req 8.4).
+ /// If the device is UNVERIFIED, return a warning to deliver to the caller
+ /// on every operation (Req 8.4).
     pub fn unverified_warning(&self) -> Option<UnverifiedWarning> {
         if self.level == TrustLevel::Unverified {
             self.unverified_since.map(|ts| UnverifiedWarning {
@@ -108,9 +108,9 @@ mod tests {
         sm.on_revocation();
         assert_eq!(sm.level(), TrustLevel::Revoked);
 
-        // The state machine layer itself does not guard against on_valid_token
-        // after revocation — that guard lives in CapabilityManager.verify_token().
-        // This test documents that behaviour explicitly.
+ // The state machine layer itself does not guard against on_valid_token
+ // after revocation — that guard lives in CapabilityManager.verify_token().
+ // This test documents that behaviour explicitly.
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod tests {
     fn test_expiry_does_not_affect_revoked() {
         let mut sm = TrustLevelStateMachine::new(TrustLevel::Revoked);
         sm.on_token_expired(1_000_000);
-        // on_token_expired is guarded — Revoked stays Revoked
+ // on_token_expired is guarded — Revoked stays Revoked
         assert_eq!(
             sm.level(),
             TrustLevel::Revoked,

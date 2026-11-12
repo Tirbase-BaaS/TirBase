@@ -2,33 +2,33 @@
 # check-geiger.sh — CLAIM-2.4
 #
 # Usage:
-#   check-geiger.sh <new-report.json> [baseline.json]
+# check-geiger.sh <new-report.json> [baseline.json]
 #
 # Counts the total unsafe blocks in a `cargo geiger --output-format Json`
 # report and compares it to the previous baseline. If the count has
 # increased the script exits with status 1 and prints the old vs. new
-# counts.  If no baseline is supplied the script exits 0 (first run) and
+# counts. If no baseline is supplied the script exits 0 (first run) and
 # prints the initial count.
 #
 # The script counts ONLY the "used" unsafe counters so that unused dead-code
-# blocks do not mask real regressions.  The JSON structure produced by
+# blocks do not mask real regressions. The JSON structure produced by
 # cargo-geiger looks like:
 #
-#   {
-#     "packages": [
-#       {
-#         "unsafety": {
-#           "used": {
-#             "exprs": { "safe": N, "unsafe_": N },
-#             "item_impls": { "safe": N, "unsafe_": N },
-#             "item_traits": { "safe": N, "unsafe_": N },
-#             "methods": { "safe": N, "unsafe_": N }
-#           },
-#           ...
-#         }
-#       }
-#     ]
-#   }
+# {
+# "packages": [
+# {
+# "unsafety": {
+# "used": {
+# "exprs": { "safe": N, "unsafe_": N },
+# "item_impls": { "safe": N, "unsafe_": N },
+# "item_traits": { "safe": N, "unsafe_": N },
+# "methods": { "safe": N, "unsafe_": N }
+# },
+# ...
+# }
+# }
+# ]
+# }
 #
 # We sum every `unsafe_` field inside every `used` block across all packages.
 
@@ -52,8 +52,8 @@ fi
 # ---------------------------------------------------------------------------
 count_unsafe() {
     local file="$1"
-    # Sum all `unsafe_` values that live inside a `used` object.
-    # python3 is available on the GitHub-hosted ubuntu-latest runner.
+ # Sum all `unsafe_` values that live inside a `used` object.
+ # python3 is available on the GitHub-hosted ubuntu-latest runner.
     python3 - "$file" <<'PYEOF'
 import json, sys
 
@@ -62,7 +62,7 @@ def count(obj):
     if isinstance(obj, dict):
         for k, v in obj.items():
             if k == "used":
-                # v is a dict like {"exprs": {...}, "item_impls": {...}, ...}
+ # v is a dict like {"exprs": {...}, "item_impls": {...}, ...}
                 for category_counts in v.values():
                     if isinstance(category_counts, dict):
                         total += category_counts.get("unsafe_", 0)
@@ -88,7 +88,7 @@ echo "cargo-geiger: current unsafe block count = ${NEW_COUNT}"
 # ---------------------------------------------------------------------------
 if [[ -z "$BASELINE" || ! -f "$BASELINE" ]]; then
     echo "No baseline found — this is the first run. Saving count ${NEW_COUNT} as the new baseline."
-    # The CI step saves NEW_REPORT as the artifact; nothing more to do here.
+ # The CI step saves NEW_REPORT as the artifact; nothing more to do here.
     exit 0
 fi
 

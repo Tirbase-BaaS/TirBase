@@ -1,9 +1,9 @@
-//! Hash-chained security event log (PV-7.1–PV-7.6, INV-4, task 25).
+//! Hash-chained security event log (PV-7.1–PV-7.6, INV-4).
 //!
 //! Production callers:
 //! - [`SecurityEventLog`] implements [`SecurityEventSink`] and is installed as the
-//!   process-wide sink so every `tirbase-core`/`tirbase-guard` `emit()` call site
-//!   produces a chained, persisted record (CLAIM-25.1).
+//! process-wide sink so every `tirbase-core`/`tirbase-guard` `emit()` call site
+//! produces a chained, persisted record (CLAIM-25.1).
 //! - Checkpoint loop: [`SecurityEventLog::spawn_checkpoint_loop`] (CLAIM-25.3).
 //! - DB segment tracking helpers live alongside the log (CLAIM-25.5).
 //!
@@ -11,9 +11,9 @@
 //! - Per-event device signatures are NOT stored (checkpoints only, PV-7.3).
 //! - `prev_hash = SHA-256(canonical_cbor(prev_chained_event_body))` (PV-7.2).
 //! - In-memory ring bounded to 10,000; on overflow retains oldest checkpoint
-//!   anchors and the most recent events (CLAIM-25.2, PV-7.6).
+//! anchors and the most recent events (CLAIM-25.2, PV-7.6).
 //! - High/Critical events flush immediately through the 19.4 group-commit
-//!   batcher path; checkpoints are signed rows written to `security_events`.
+//! batcher path; checkpoints are signed rows written to `security_events`.
 
 #![allow(dead_code)] // APIs wired incrementally by 25.3 loop/admin paths.
 
@@ -58,15 +58,15 @@ pub struct SecurityEvent {
     pub best_effort_wall_time: i64,
     pub time_source_flag: TimeSourceFlag,
     pub prev_hash: [u8; 32],
-    /// Present only on signed checkpoint rows (PV-7.3).
+ /// Present only on signed checkpoint rows (PV-7.3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checkpoint_signature: Option<DeviceSignature>,
-    /// Present only on checkpoint rows: SHA-256 of canonical checkpoint body.
+ /// Present only on checkpoint rows: SHA-256 of canonical checkpoint body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checkpoint_hash: Option<[u8; 32]>,
-    /// GDPR salted commitments entering the hash chain (CLAIM-27.1, PV-7.7, RD-3).
-    /// Each is `(field_name, SHA-256(random_salt ‖ value_plaintext))`.
-    /// Empty for events without personal fields.
+ /// GDPR salted commitments entering the hash chain (CLAIM-27.1, PV-7.7, RD-3).
+ /// Each is `(field_name, SHA-256(random_salt ‖ value_plaintext))`.
+ /// Empty for events without personal fields.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub personal_commitments: Vec<PersonalFieldCommitment>,
 }
@@ -75,7 +75,7 @@ pub struct SecurityEvent {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PersonalFieldCommitment {
     pub field_name: String,
-    /// `SHA-256(random_salt ‖ value_plaintext)` — the salted form in the chain.
+ /// `SHA-256(random_salt ‖ value_plaintext)` — the salted form in the chain.
     pub commitment: [u8; 32],
 }
 
@@ -93,7 +93,7 @@ pub struct ChainHashBody<'a> {
     pub time_source_flag: &'a str,
     pub prev_hash: &'a [u8; 32],
     pub is_checkpoint: bool,
-    /// GDPR salted commitments (CLAIM-27.1); always included (empty vec = no personal fields).
+ /// GDPR salted commitments (CLAIM-27.1); always included (empty vec = no personal fields).
     pub personal_commitments: &'a [PersonalFieldCommitment],
 }
 
@@ -156,8 +156,8 @@ pub fn read_personal_fields_for_seq(
 
 pub fn canonical_hash_bytes(body: &ChainHashBody<'_>) -> [u8; 32] {
     let mut buf = Vec::with_capacity(256);
-    // ciborium produces deterministic CBOR for canonical map key ordering in
-    // struct fields as declared; body field order is fixed.
+ // ciborium produces deterministic CBOR for canonical map key ordering in
+ // struct fields as declared; body field order is fixed.
     let _ = ciborium::ser::into_writer(body, &mut buf);
     let digest = Sha256::digest(&buf);
     let mut out = [0u8; 32];
@@ -236,7 +236,7 @@ impl CategoryRateLimiter {
         severity: Severity,
         now: u64,
     ) -> (bool, Option<u64>) {
-        // S14: HIGH/CRITICAL bypass the rate limiter.
+ // S14: HIGH/CRITICAL bypass the rate limiter.
         if matches!(severity, Severity::High | Severity::Critical) {
             return (true, None);
         }
@@ -268,7 +268,7 @@ impl CategoryRateLimiter {
             return (true, summary);
         }
         state.suppressed_in_window = state.suppressed_in_window.saturating_add(1);
-        // Emit a suppression summary once per window if not already emitted recently.
+ // Emit a suppression summary once per window if not already emitted recently.
         let summary = if state.suppressed_in_window == 1
             || state
                 .window_last_emitted
@@ -276,7 +276,7 @@ impl CategoryRateLimiter {
                 .unwrap_or(true)
         {
             state.window_last_emitted = Some(now);
-            // summary count reported separately; keep accumulating.
+ // summary count reported separately; keep accumulating.
             Some(state.suppressed_in_window)
         } else {
             None
@@ -323,9 +323,9 @@ impl SecurityEventRing {
         if total <= self.cap {
             return;
         }
-        // Keep all anchors (bounded in practice by checkpoints) and trim oldest
-        // non-anchor recent events first. If anchors alone exceed cap (pathological),
-        // retain the oldest anchors (first) and newest anchors to fit.
+ // Keep all anchors (bounded in practice by checkpoints) and trim oldest
+ // non-anchor recent events first. If anchors alone exceed cap (pathological),
+ // retain the oldest anchors (first) and newest anchors to fit.
         while self.anchors.len() + self.recent.len() > self.cap {
             if let Some(front) = self.recent.front() {
                 let front_anchor = front.checkpoint_signature.is_some()
@@ -337,7 +337,7 @@ impl SecurityEventRing {
                             | ReasonCode::TailTruncation
                     );
                 if front_anchor {
-                    // Don't drop anchors from recent; drop oldest non-anchor by scanning.
+ // Don't drop anchors from recent; drop oldest non-anchor by scanning.
                     if let Some(pos) = self.recent.iter().position(|e| {
                         !(e.checkpoint_signature.is_some()
                             || matches!(
@@ -351,7 +351,7 @@ impl SecurityEventRing {
                         self.recent.remove(pos);
                         continue;
                     }
-                    // Only anchors remain in recent; trim middle anchors from anchors vec if over cap.
+ // Only anchors remain in recent; trim middle anchors from anchors vec if over cap.
                     if self.anchors.len() > 2 && self.anchors.len() + self.recent.len() > self.cap {
                         let mid = self.anchors.len() / 2;
                         self.anchors.remove(mid);
@@ -373,7 +373,7 @@ impl SecurityEventRing {
     }
 
     fn len(&self) -> usize {
-        // anchors may duplicate recent; count unique by seq for diagnostics.
+ // anchors may duplicate recent; count unique by seq for diagnostics.
         self.recent.len()
     }
 
@@ -430,9 +430,9 @@ impl SqliteEventBackend {
 
 impl EventBatchBackend for SqliteEventBackend {
     fn flush(&self, batch: Vec<SecurityEventPayload>) {
-        // Payload-only flush path: real chaining/persistence happens in
-        // SecurityEventLog::emit() which writes chained rows. This backend is a
-        // compatibility hook for the batcher; no-op to avoid double-writing.
+ // Payload-only flush path: real chaining/persistence happens in
+ // SecurityEventLog::emit() which writes chained rows. This backend is a
+ // compatibility hook for the batcher; no-op to avoid double-writing.
         let _ = batch;
     }
 }
@@ -479,8 +479,8 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
             FOREIGN KEY (seq) REFERENCES security_events(seq)
         );",
     )?;
-    // 26.7a (PV-7.10): cloud-anchor checkpoint acknowledgements, one row per
-    // anchor, recording the chain position the anchor has witnessed.
+ // 26.7a (PV-7.10): cloud-anchor checkpoint acknowledgements, one row per
+ // anchor, recording the chain position the anchor has witnessed.
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS cloud_anchor_witness (
             anchor_did      TEXT PRIMARY KEY,
@@ -489,8 +489,8 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
             observed_at     INTEGER NOT NULL
         );",
     )?;
-    // 28.3 (PV-7.9): received mesh security-event records are merged into an
-    // append-only table keyed by their origin chain position.
+ // 28.3 (PV-7.9): received mesh security-event records are merged into an
+ // append-only table keyed by their origin chain position.
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS synced_security_events (
             origin_did         TEXT    NOT NULL,
@@ -536,9 +536,9 @@ struct LogState {
 /// 28.2 (PV-7.13): on-disk rolling retention and archive-then-delete rotation.
 #[derive(Debug, Clone)]
 pub struct SecurityLogRetentionConfig {
-    /// 0 disables age-based retention.
+ /// 0 disables age-based retention.
     pub max_age_secs: i64,
-    /// 0 disables size-based retention.
+ /// 0 disables size-based retention.
     pub max_bytes: i64,
     pub archive_dir: PathBuf,
     pub check_interval: Duration,
@@ -578,21 +578,21 @@ pub struct SecurityEventLog {
     checkpoint: CheckpointConfig,
     batcher: Option<Arc<GroupCommitBatcher>>,
     checkpoint_stop: AtomicBool,
-    /// Retained for diagnostics; checkpoint timing uses state.last_checkpoint_mono.
+ /// Retained for diagnostics; checkpoint timing uses state.last_checkpoint_mono.
     _checkpoint_every_secs: AtomicU64,
     last_emit_wall: AtomicI64,
     node_mode: RwLock<Option<Arc<NodeModeState>>>,
     rate_limit_enabled: AtomicBool,
     retention: RwLock<Option<SecurityLogRetentionConfig>>,
     rotation_stop: AtomicBool,
-    /// 26.7: real mesh-peer witness source (`true` when a mesh peer is connected).
+ /// 26.7: real mesh-peer witness source (`true` when a mesh peer is connected).
     witness_source: RwLock<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
-    /// 26.7a: set once a verified cloud-anchor acknowledgement has been
-    /// ingested, so checkpoints stop reporting `NoWitnessAvailable`.
+ /// 26.7a: set once a verified cloud-anchor acknowledgement has been
+ /// ingested, so checkpoints stop reporting `NoWitnessAvailable`.
     cloud_anchor_seen: AtomicBool,
-    /// 28.3: production publisher for local security-event sync batches.
+ /// 28.3: production publisher for local security-event sync batches.
     sync_publisher: RwLock<Option<SyncPublisher>>,
-    /// 28.3: bounded outbound backlog drained by `spawn_security_event_sync_loop`.
+ /// 28.3: bounded outbound backlog drained by `spawn_security_event_sync_loop`.
     sync_outbox: Mutex<Vec<SecurityEventSyncRecord>>,
 }
 
@@ -612,18 +612,18 @@ impl Default for SecurityEventLog {
 }
 
 impl SecurityEventLog {
-    /// In-memory log (tests/compat). No DB persistence, no key signing.
+ /// In-memory log (tests/compat). No DB persistence, no key signing.
     pub fn new_memory() -> Self {
         Self::with_options_inner(None, None, CheckpointConfig::default(), false, false)
     }
 
-    /// Compatibility: batched in-memory constructor used by legacy wrappers.
+ /// Compatibility: batched in-memory constructor used by legacy wrappers.
     pub(crate) fn with_options_compat(batched: bool) -> Self {
         Self::with_options_inner(None, None, CheckpointConfig::default(), batched, false)
     }
 
-    /// Production constructor: persists to `primary_db` and uses `key_provider`
-    /// for checkpoint signatures when available.
+ /// Production constructor: persists to `primary_db` and uses `key_provider`
+ /// for checkpoint signatures when available.
     pub fn new_persistent(
         primary_db: impl Into<PathBuf>,
         key_provider: Option<Arc<dyn KeyProvider>>,
@@ -632,7 +632,7 @@ impl SecurityEventLog {
         Self::new_persistent_with_mode(primary_db, key_provider, batched, None)
     }
 
-    /// Production constructor with node-mode integration (26.1/26.4/26.7).
+ /// Production constructor with node-mode integration (26.1/26.4/26.7).
     pub fn new_persistent_with_mode(
         primary_db: impl Into<PathBuf>,
         key_provider: Option<Arc<dyn KeyProvider>>,
@@ -713,7 +713,7 @@ impl SecurityEventLog {
         self.rate_limit_enabled.store(enabled, Ordering::Relaxed);
     }
 
-    /// Install as process-wide sink.
+ /// Install as process-wide sink.
     pub fn install(self: &Arc<Self>) -> Arc<Self> {
         tirbase_core::events::install_security_event_sink(self.clone());
         self.clone()
@@ -750,16 +750,16 @@ impl SecurityEventLog {
             .restricted_by_tamper
     }
 
-    /// 26.1 compatibility name.
+ /// 26.1 compatibility name.
     pub fn verify_hash_chain(&self) -> Result<Option<u64>, String> {
         self.verify_hash_chain_at_startup()
     }
 
-    /// 26.1: verify persisted hash chain at startup. On broken link, emit
-    /// `TamperDetection` identifying the first broken sequence number, enter
-    /// `Restricted` mode, and open a new chain segment from the next valid
-    /// event boundary (next seq). Returns `Ok(None)` when intact, or the first
-    /// broken sequence number when tamper was detected/handled.
+ /// 26.1: verify persisted hash chain at startup. On broken link, emit
+ /// `TamperDetection` identifying the first broken sequence number, enter
+ /// `Restricted` mode, and open a new chain segment from the next valid
+ /// event boundary (next seq). Returns `Ok(None)` when intact, or the first
+ /// broken sequence number when tamper was detected/handled.
     pub fn verify_hash_chain_at_startup(&self) -> Result<Option<u64>, String> {
         let Some(conn) = self.open_db()? else {
             return Ok(None);
@@ -838,7 +838,7 @@ impl SecurityEventLog {
         }
 
         if let Some(broken_seq) = first_broken {
-            // Ensure state continues after the known tail/chain and open a new segment.
+ // Ensure state continues after the known tail/chain and open a new segment.
             {
                 let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
                 st.next_seq = max_seq.saturating_add(1).max(st.next_seq);
@@ -850,7 +850,7 @@ impl SecurityEventLog {
                 "hash-chain break detected at startup: first_broken_seq={broken_seq} (CLAIM-26.1, PV-7.4, INV-4)"
             );
             self.enter_restricted(&detail);
-            // Emit tamper detection as a fresh, verifiable record in the new segment.
+ // Emit tamper detection as a fresh, verifiable record in the new segment.
             let _ = self.start_new_segment("tamper-detection-recovery");
             self.append_payload_internal(
                 SecurityEventPayload::new(
@@ -865,7 +865,7 @@ impl SecurityEventLog {
             return Ok(Some(broken_seq));
         }
 
-        // Intact: set tip/next from DB if needed.
+ // Intact: set tip/next from DB if needed.
         if max_seq > 0 {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             st.next_seq = max_seq.saturating_add(1).max(st.next_seq);
@@ -933,8 +933,8 @@ impl SecurityEventLog {
             if prev_hash.len() == 32 {
                 hash.copy_from_slice(&prev_hash);
             }
-            // prev_hash stored on the row is prev of that row; chain tip hash is hash(row).
-            // Reload last row as full record hash approximation: compute from stored fields.
+ // prev_hash stored on the row is prev of that row; chain tip hash is hash(row).
+ // Reload last row as full record hash approximation: compute from stored fields.
             let tip_hash = self.compute_stored_row_hash(&conn, seq).unwrap_or(hash);
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             st.next_seq = seq.saturating_add(1);
@@ -977,8 +977,8 @@ impl SecurityEventLog {
         if row.9.len() == 32 {
             prev.copy_from_slice(&row.9);
         }
-        // GDPR (CLAIM-27.1): reconstruct commitments from stored plaintext+salt so
-        // chain verification/hashing matches the committed form that entered the chain.
+ // GDPR (CLAIM-27.1): reconstruct commitments from stored plaintext+salt so
+ // chain verification/hashing matches the committed form that entered the chain.
         let personal_commitments: Vec<PersonalFieldCommitment> =
             read_personal_fields_for_seq(conn, seq)
                 .unwrap_or_default()
@@ -1024,7 +1024,7 @@ impl SecurityEventLog {
         Ok(())
     }
 
-    /// Open/start a new chain segment (25.5). Production caller for recovery paths.
+ /// Open/start a new chain segment (25.5). Production caller for recovery paths.
     pub fn start_new_segment(&self, reason: &str) -> Result<u64, String> {
         let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let old_seg = st.segment_id;
@@ -1083,13 +1083,13 @@ impl SecurityEventLog {
     }
 
     fn time_flag(&self) -> TimeSourceFlag {
-        // Monotonic/boot-time is always available; wall clock is a hint.
+ // Monotonic/boot-time is always available; wall clock is a hint.
         TimeSourceFlag::LogicalFallback
     }
 
-    /// Emit a security event with GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3).
-    /// Production caller for personal-field events: salted commitments enter the
-    /// hash chain; plaintext is stored in `security_event_personal_fields`.
+ /// Emit a security event with GDPR personal fields (CLAIM-27.1, PV-7.7, RD-3).
+ /// Production caller for personal-field events: salted commitments enter the
+ /// hash chain; plaintext is stored in `security_event_personal_fields`.
     pub fn append_payload_with_personal_fields(
         &self,
         mut payload: SecurityEventPayload,
@@ -1099,8 +1099,8 @@ impl SecurityEventLog {
         self.append_payload(payload)
     }
 
-    /// Append payload as a chained record (25.1). Returns the chained record.
-    /// Applies S14 per-category rate limiting (100/sec, HIGH/CRITICAL bypass).
+ /// Append payload as a chained record (25.1). Returns the chained record.
+ /// Applies S14 per-category rate limiting (100/sec, HIGH/CRITICAL bypass).
     pub fn append_payload(&self, payload: SecurityEventPayload) -> SecurityEvent {
         self.append_payload_internal(payload, false)
     }
@@ -1128,7 +1128,7 @@ impl SecurityEventLog {
 
         if let Some(count) = suppress_summary_count {
             if suppressed || count > 0 {
-                // Avoid recursion by emitting summary via direct append with bypass.
+ // Avoid recursion by emitting summary via direct append with bypass.
                 let summary_payload = SecurityEventPayload::new(
                     SecurityEventCategory::SecurityLog,
                     Severity::Medium,
@@ -1140,7 +1140,7 @@ impl SecurityEventLog {
                     payload.category.as_str(),
                     count
                 ));
-                // Only emit when first suppressed or periodic marker.
+ // Only emit when first suppressed or periodic marker.
                 if suppressed || count == 1 {
                     let _ = self.append_payload_internal(summary_payload, true);
                 }
@@ -1148,9 +1148,9 @@ impl SecurityEventLog {
         }
 
         if suppressed {
-            // Return a synthetic non-persisted view is not possible; persist a minimal marker-less
-            // path by returning current chain tip view is unsafe. Instead, record suppression above
-            // and return a synthetic event (not persisted as the dropped payload).
+ // Return a synthetic non-persisted view is not possible; persist a minimal marker-less
+ // path by returning current chain tip view is unsafe. Instead, record suppression above
+ // and return a synthetic event (not persisted as the dropped payload).
             let st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             return SecurityEvent {
                 seq: st.next_seq.saturating_sub(1),
@@ -1173,9 +1173,9 @@ impl SecurityEventLog {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             let seq = st.next_seq;
             st.next_seq = st.next_seq.saturating_add(1);
-            // GDPR (CLAIM-27.1, PV-7.7, RD-3): compute salted commitments for personal fields.
-            // Plaintext is stored separately in security_event_personal_fields; only commitments
-            // enter the hash chain. Wiring mutation: storing plaintext in the chain must fail tests.
+ // GDPR (CLAIM-27.1, PV-7.7, RD-3): compute salted commitments for personal fields.
+ // Plaintext is stored separately in security_event_personal_fields; only commitments
+ // enter the hash chain. Wiring mutation: storing plaintext in the chain must fail tests.
             let mut personal_commitments: Vec<PersonalFieldCommitment> = Vec::new();
             let mut personal_rows: Vec<(String, [u8; 32], String)> = Vec::new();
             for pf in &payload.personal_fields {
@@ -1221,8 +1221,8 @@ impl SecurityEventLog {
             let _ = self.ensure_segment_row(&conn, rec.segment_id, 1, [0u8; 32], "boot");
         }
 
-        // 28.3 (PV-7.9): every appended record is offered to the mesh sync
-        // publisher so peers receive the security-event stream.
+ // 28.3 (PV-7.9): every appended record is offered to the mesh sync
+ // publisher so peers receive the security-event stream.
         self.enqueue_security_event_sync(&rec);
 
         if let Some(batcher) = &self.batcher {
@@ -1235,8 +1235,8 @@ impl SecurityEventLog {
         rec
     }
 
-    /// 25.3: create a signed checkpoint row if a key provider is available.
-    /// Checkpoint is stored as a security_events row with is_checkpoint=1.
+ /// 25.3: create a signed checkpoint row if a key provider is available.
+ /// Checkpoint is stored as a security_events row with is_checkpoint=1.
     pub fn try_checkpoint(&self) -> Result<Option<u64>, String> {
         let kp = match self.key_provider() {
             Some(k) => k,
@@ -1278,18 +1278,18 @@ impl SecurityEventLog {
             self.persist_record(&conn, &checkpoint_rec)
                 .map_err(|e| format!("persist checkpoint: {e}"))?;
         }
-        // 28.3 (PV-7.9): checkpoint rows propagate to peers like any other record.
+ // 28.3 (PV-7.9): checkpoint rows propagate to peers like any other record.
         self.enqueue_security_event_sync(&checkpoint_rec);
-        // 26.7: record the real observed witness state; the source is wired
-        // from the live mesh peer table in `CoreHandle` startup
-        // (`set_witness_source`). Cloud-anchor gossip (task 36.8) is absent.
+ // 26.7: record the real observed witness state; the source is wired
+ // from the live mesh peer table in `CoreHandle` startup
+ // (`set_witness_source`). Cloud-anchor gossip () is absent.
         let (has_mesh_peers, has_cloud_anchor) = self.witness_state();
         let _ = self.record_checkpoint_witness_status(has_mesh_peers, has_cloud_anchor);
         let _ = &mut checkpoint_rec;
         Ok(Some(checkpoint_rec.seq))
     }
 
-    /// 25.3 production caller: background checkpoint loop (100 events or 60s).
+ /// 25.3 production caller: background checkpoint loop (100 events or 60s).
     pub fn spawn_checkpoint_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let this = Arc::clone(self);
         tokio::spawn(async move {
@@ -1315,7 +1315,7 @@ impl SecurityEventLog {
         self.checkpoint_stop.store(true, Ordering::Relaxed);
     }
 
-    /// 28.2 (PV-7.13, CLAIM-28.2): configure rolling retention/rotation.
+ /// 28.2 (PV-7.13, CLAIM-28.2): configure rolling retention/rotation.
     pub fn set_retention(&self, cfg: SecurityLogRetentionConfig) {
         *self.retention.write().unwrap_or_else(|p| p.into_inner()) = Some(cfg);
     }
@@ -1324,7 +1324,7 @@ impl SecurityEventLog {
         self.rotation_stop.store(true, Ordering::Relaxed);
     }
 
-    /// 28.2 production caller: background rotation job (PV-7.13).
+ /// 28.2 production caller: background rotation job (PV-7.13).
     pub fn spawn_retention_rotation_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let this = Arc::clone(self);
         tokio::spawn(async move {
@@ -1436,8 +1436,8 @@ impl SecurityEventLog {
         Ok(())
     }
 
-    /// 28.2 (PV-7.13): rotate/archive oldest signed/closed segment(s) when retention
-    /// limits are exceeded (90 days or 1 GB, whichever first; configurable).
+ /// 28.2 (PV-7.13): rotate/archive oldest signed/closed segment(s) when retention
+ /// limits are exceeded (90 days or 1 GB, whichever first; configurable).
     pub fn rotate_retention_if_needed(&self) -> Result<u64, String> {
         let Some(cfg) = self.retention_cfg() else {
             return Ok(0);
@@ -1474,7 +1474,7 @@ impl SecurityEventLog {
             return Ok(0);
         }
         let mut rotated = 0u64;
-        // Rotate one oldest closed segment at a time; keep current active segment.
+ // Rotate one oldest closed segment at a time; keep current active segment.
         loop {
             let total_bytes_now: i64 = conn
                 .query_row(
@@ -1563,7 +1563,7 @@ impl SecurityEventLog {
         self.len() == 0
     }
 
-    /// Snapshot of chained records (ring view).
+ /// Snapshot of chained records (ring view).
     pub fn chained_events(&self) -> Vec<SecurityEvent> {
         self.state
             .lock()
@@ -1572,7 +1572,7 @@ impl SecurityEventLog {
             .snapshot()
     }
 
-    /// Compatibility view for code expecting payload events.
+ /// Compatibility view for code expecting payload events.
     pub fn events(&self) -> Vec<SecurityEventPayload> {
         self.chained_events()
             .into_iter()
@@ -1598,8 +1598,8 @@ impl SecurityEventLog {
         }
     }
 
-    /// 26.4 production caller hook: compare peer-observed checkpoint hash.
-    /// PV-7.10 discrepancy => emit `TailTruncation` and enter Restricted.
+ /// 26.4 production caller hook: compare peer-observed checkpoint hash.
+ /// PV-7.10 discrepancy => emit `TailTruncation` and enter Restricted.
     pub fn observe_peer_checkpoint(
         &self,
         peer_did: &str,
@@ -1622,9 +1622,9 @@ impl SecurityEventLog {
         self.detect_checkpoint_discrepancy(&conn, peer_did, peer_seq, peer_checkpoint_hash)
     }
 
-    /// 26.4/26.7a: shared PV-7.10 discrepancy check against the local tail.
-    /// A witness that has seen a higher sequence number, or a different hash at
-    /// the same sequence number, means the local log was truncated or forked.
+ /// 26.4/26.7a: shared PV-7.10 discrepancy check against the local tail.
+ /// A witness that has seen a higher sequence number, or a different hash at
+ /// the same sequence number, means the local log was truncated or forked.
     fn detect_checkpoint_discrepancy(
         &self,
         conn: &Connection,
@@ -1664,13 +1664,13 @@ impl SecurityEventLog {
         Ok(false)
     }
 
-    /// 26.7a (PV-7.10) production caller: ingest a verified cloud-anchor
-    /// acknowledgement. `acknowledged` is the `(seq, checkpoint_hash)` the
-    /// anchor has now witnessed; `previously_witnessed` is the anchor's prior
-    /// view of this device's chain, which is compared against the local tail so
-    /// a single gateway can detect tail truncation without mesh peers.
-    ///
-    /// Returns `true` when truncation was detected.
+ /// 26.7a (PV-7.10) production caller: ingest a verified cloud-anchor
+ /// acknowledgement. `acknowledged` is the `(seq, checkpoint_hash)` the
+ /// anchor has now witnessed; `previously_witnessed` is the anchor's prior
+ /// view of this device's chain, which is compared against the local tail so
+ /// a single gateway can detect tail truncation without mesh peers.
+ ///
+ /// Returns `true` when truncation was detected.
     pub fn note_cloud_anchor_witness(
         &self,
         anchor_did: &str,
@@ -1703,8 +1703,8 @@ impl SecurityEventLog {
         }
     }
 
-    /// 26.7: single-gateway witness fallback at checkpoint time.
-    /// `has_mesh_peers` / `has_cloud_anchor` come from production callers.
+ /// 26.7: single-gateway witness fallback at checkpoint time.
+ /// `has_mesh_peers` / `has_cloud_anchor` come from production callers.
     pub fn record_checkpoint_witness_status(
         &self,
         has_mesh_peers: bool,
@@ -1728,11 +1728,11 @@ impl SecurityEventLog {
         Ok(())
     }
 
-    /// 26.7 production caller hook: install the real mesh-peer witness source.
-    /// The closure returns `true` when a mesh peer is connected; the gateway
-    /// wires it from the live mesh peer table (see [`crate::mesh_wiring`]).
-    /// The cloud-anchor half of the witness state is maintained by
-    /// [`Self::note_cloud_anchor_witness`].
+ /// 26.7 production caller hook: install the real mesh-peer witness source.
+ /// The closure returns `true` when a mesh peer is connected; the gateway
+ /// wires it from the live mesh peer table (see [`crate::mesh_wiring`]).
+ /// The cloud-anchor half of the witness state is maintained by
+ /// [`Self::note_cloud_anchor_witness`].
     pub fn set_witness_source<F>(&self, source: F)
     where
         F: Fn() -> bool + Send + Sync + 'static,
@@ -1743,8 +1743,8 @@ impl SecurityEventLog {
             .unwrap_or_else(|p| p.into_inner()) = Some(Arc::new(source));
     }
 
-    /// 26.7: observed witness state at checkpoint time. Without a wired source
-    /// the device is assumed isolated (degraded detection, not bricked).
+ /// 26.7: observed witness state at checkpoint time. Without a wired source
+ /// the device is assumed isolated (degraded detection, not bricked).
     fn witness_state(&self) -> (bool, bool) {
         let has_mesh_peers = self
             .witness_source
@@ -1757,9 +1757,9 @@ impl SecurityEventLog {
         (has_mesh_peers, has_cloud_anchor)
     }
 
-    /// 28.3 production caller hook: install the mesh publisher for local
-    /// security-event sync batches (the gateway wires
-    /// `CoreHandle::publish_security_event_sync`).
+ /// 28.3 production caller hook: install the mesh publisher for local
+ /// security-event sync batches (the gateway wires
+ /// `CoreHandle::publish_security_event_sync`).
     pub fn set_security_event_sync_publisher<F>(&self, sender_did: impl Into<String>, publisher: F)
     where
         F: Fn(SecurityEventSyncBatch) + Send + Sync + 'static,
@@ -1773,9 +1773,9 @@ impl SecurityEventLog {
         });
     }
 
-    /// 28.3: queue an appended local record for mesh sync (no-op until a
-    /// publisher is installed). The outbox is bounded; oldest records are
-    /// dropped on overflow so a slow link cannot grow memory without limit.
+ /// 28.3: queue an appended local record for mesh sync (no-op until a
+ /// publisher is installed). The outbox is bounded; oldest records are
+ /// dropped on overflow so a slow link cannot grow memory without limit.
     fn enqueue_security_event_sync(&self, rec: &SecurityEvent) {
         let publisher_installed = self
             .sync_publisher
@@ -1815,10 +1815,10 @@ impl SecurityEventLog {
         outbox.push(record);
     }
 
-    /// 28.3 receive-path merge: persist a synced peer record append-only.
-    /// Returns `true` when the record was new (dedupe key is the origin
-    /// chain position), matching the core collection's `compaction=none`
-    /// semantics.
+ /// 28.3 receive-path merge: persist a synced peer record append-only.
+ /// Returns `true` when the record was new (dedupe key is the origin
+ /// chain position), matching the core collection's `compaction=none`
+ /// semantics.
     pub fn persist_synced_event(&self, record: &SecurityEventSyncRecord) -> Result<bool, String> {
         let Some(conn) = self.open_db()? else {
             return Ok(false);
@@ -1850,8 +1850,8 @@ impl SecurityEventLog {
         Ok(inserted > 0)
     }
 
-    /// 28.3: drain up to [`SECURITY_EVENT_SYNC_BATCH_MAX`] queued records to
-    /// the installed publisher. Returns the number of records published.
+ /// 28.3: drain up to [`SECURITY_EVENT_SYNC_BATCH_MAX`] queued records to
+ /// the installed publisher. Returns the number of records published.
     pub fn flush_security_event_sync(&self) -> usize {
         let Some((sender_did, publish)) = self
             .sync_publisher
@@ -1878,8 +1878,8 @@ impl SecurityEventLog {
         published
     }
 
-    /// 28.3 production caller: background mesh sync publisher for appended
-    /// security events.
+ /// 28.3 production caller: background mesh sync publisher for appended
+ /// security events.
     pub fn spawn_security_event_sync_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let this = Arc::clone(self);
         tokio::spawn(async move {
@@ -1910,9 +1910,9 @@ impl SecurityEventLog {
 
 impl SecurityEventSink for SecurityEventLog {
     fn emit(&self, event: SecurityEventPayload) {
-        // Real decision-point metrics (CLAIM-35.5): every security event that
-        // reaches the gateway sink increments its severity counter, and Delta
-        // quarantine events increment the quarantine-entry counter.
+ // Real decision-point metrics (CLAIM-35.5): every security event that
+ // reaches the gateway sink increments its severity counter, and Delta
+ // quarantine events increment the quarantine-entry counter.
         let metrics = crate::metrics::global_metrics();
         metrics.inc_security_event(event.severity.as_str());
         if matches!(event.reason_code, ReasonCode::DeltaQuarantined) {
@@ -2074,8 +2074,8 @@ mod tests {
         }
 
         proptest! {
-            /// P18 (CLAIM-26.6, PV-7.4, INV-4): any interior modification of a
-            /// committed event at any position is detected by hash-chain verification.
+ /// P18 (CLAIM-26.6, PV-7.4, INV-4): any interior modification of a
+ /// committed event at any position is detected by hash-chain verification.
             #[test]
             fn any_interior_modification_detected(
                 n in 3usize..20usize,
@@ -2115,14 +2115,14 @@ mod tests {
                 }
                 let broken = verify_chain_records(&records);
                 prop_assert!(broken.is_some(), "interior modification at idx={} must be detected", idx);
-                // first broken is at idx (if prev_hash link broken there) or idx+1 (successor sees wrong prev)
+ // first broken is at idx (if prev_hash link broken there) or idx+1 (successor sees wrong prev)
                 let b = broken.unwrap();
                 prop_assert!(b == records[idx].seq || b == records[idx+1].seq,
                     "broken seq {} must identify modified position {} or successor {}", b, records[idx].seq, records[idx+1].seq);
             }
         }
 
-        /// Wiring mutation guard: skipping interior hash checks must fail.
+ /// Wiring mutation guard: skipping interior hash checks must fail.
         #[test]
         fn skipping_interior_hash_check_fails() {
             let mut records = Vec::new();

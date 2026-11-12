@@ -1,10 +1,10 @@
-//! Deterministic first-order thermal device model (task 38.4 — CLAIM-38.4,
+//! Deterministic first-order thermal device model (CLAIM-38.4,
 //! PV-12.3).
 //!
 //! The cold-room model is a standard lumped-capacitance first-order system:
 //!
 //! ```text
-//! T_{k+1} = T_target + (T_k - T_target) * e^(-dt / tau)
+//! T_{k+1} = T_target + (T_k - T_target) * e^(dt / tau)
 //! ```
 //!
 //! where `T_target` is the ambient temperature shifted by the compressor's
@@ -33,30 +33,30 @@ pub const DEFAULT_HYSTERESIS_C: f64 = 0.5;
 /// First-order thermal model of a refrigerated room (CLAIM-38.4).
 #[derive(Debug, Clone)]
 pub struct ThermalModel {
-    /// Current air temperature in degrees Celsius.
+ /// Current air temperature in degrees Celsius.
     temp_c: f64,
-    /// Ambient (outside) temperature in degrees Celsius.
+ /// Ambient (outside) temperature in degrees Celsius.
     ambient_c: f64,
-    /// Controller setpoint in degrees Celsius.
+ /// Controller setpoint in degrees Celsius.
     setpoint_c: f64,
-    /// Thermal time constant in seconds.
+ /// Thermal time constant in seconds.
     tau_s: f64,
-    /// Temperature drop the compressor can pull the room towards.
+ /// Temperature drop the compressor can pull the room towards.
     cooling_c: f64,
-    /// Simulation step size in seconds.
+ /// Simulation step size in seconds.
     dt_s: f64,
-    /// Compressor state from the hysteresis controller.
+ /// Compressor state from the hysteresis controller.
     compressor_on: bool,
     rng: ChaCha8Rng,
 }
 
 impl ThermalModel {
-    /// Create a model at 8 °C in a 22 °C ambient room with a 4 °C setpoint.
+ /// Create a model at 8 °C in a 22 °C ambient room with a 4 °C setpoint.
     pub fn new(seed: u64) -> Self {
         Self::with_initial(seed, 8.0, 22.0)
     }
 
-    /// Create a model with explicit initial and ambient temperatures.
+ /// Create a model with explicit initial and ambient temperatures.
     pub fn with_initial(seed: u64, initial_c: f64, ambient_c: f64) -> Self {
         let mut model = Self {
             temp_c: initial_c,
@@ -66,14 +66,14 @@ impl ThermalModel {
             cooling_c: DEFAULT_COOLING_C,
             dt_s: DEFAULT_STEP_S,
             compressor_on: false,
-            // Domain-separated from the scenario/network streams.
+ // Domain-separated from the scenario/network streams.
             rng: ChaCha8Rng::seed_from_u64(seed ^ 0x5448_4552_4D41_4C01),
         };
         model.update_compressor();
         model
     }
 
-    /// Override the time constant (seconds); clamped to at least one second.
+ /// Override the time constant (seconds); clamped to at least one second.
     pub fn with_time_constant(mut self, tau_s: f64) -> Self {
         self.tau_s = if tau_s.is_finite() && tau_s >= 1.0 {
             tau_s
@@ -83,7 +83,7 @@ impl ThermalModel {
         self
     }
 
-    /// Override the compressor cooling effect (degrees Celsius).
+ /// Override the compressor cooling effect (degrees Celsius).
     pub fn with_cooling(mut self, cooling_c: f64) -> Self {
         self.cooling_c = if cooling_c.is_finite() {
             cooling_c.abs()
@@ -93,7 +93,7 @@ impl ThermalModel {
         self
     }
 
-    /// Override the control step (seconds); clamped to at least one second.
+ /// Override the control step (seconds); clamped to at least one second.
     pub fn with_step(mut self, dt_s: f64) -> Self {
         self.dt_s = if dt_s.is_finite() && dt_s >= 1.0 {
             dt_s
@@ -103,8 +103,8 @@ impl ThermalModel {
         self
     }
 
-    /// Set the controller setpoint (degrees Celsius) and re-evaluate the
-    /// compressor hysteresis.
+ /// Set the controller setpoint (degrees Celsius) and re-evaluate the
+ /// compressor hysteresis.
     pub fn set_setpoint_c(&mut self, setpoint_c: f64) {
         if setpoint_c.is_finite() {
             self.setpoint_c = setpoint_c;
@@ -112,34 +112,34 @@ impl ThermalModel {
         self.update_compressor();
     }
 
-    /// Ambient temperature in degrees Celsius.
+ /// Ambient temperature in degrees Celsius.
     pub fn ambient_c(&self) -> f64 {
         self.ambient_c
     }
 
-    /// Controller setpoint in degrees Celsius.
+ /// Controller setpoint in degrees Celsius.
     pub fn setpoint_c(&self) -> f64 {
         self.setpoint_c
     }
 
-    /// Current temperature in degrees Celsius.
+ /// Current temperature in degrees Celsius.
     pub fn temperature_c(&self) -> f64 {
         self.temp_c
     }
 
-    /// Bit pattern of the current temperature, for reproducibility checks.
+ /// Bit pattern of the current temperature, for reproducibility checks.
     pub fn temperature_bits(&self) -> u64 {
         self.temp_c.to_bits()
     }
 
-    /// Whether the compressor is currently energised.
+ /// Whether the compressor is currently energised.
     pub fn compressor_on(&self) -> bool {
         self.compressor_on
     }
 
-    /// Advance one control step and return the new temperature.
-    ///
-    /// Uses `libm::exp` so the trajectory is bit-identical across platforms.
+ /// Advance one control step and return the new temperature.
+ ///
+ /// Uses `libm::exp` so the trajectory is bit-identical across platforms.
     pub fn step(&mut self) -> f64 {
         self.update_compressor();
         let target = self.ambient_c
@@ -150,13 +150,13 @@ impl ThermalModel {
             };
         let decay = libm::exp(-self.dt_s / self.tau_s);
         let next = target + (self.temp_c - target) * decay;
-        // Deterministic ±0.005 °C process noise (IEEE additions only).
+ // Deterministic ±0.005 °C process noise (IEEE additions only).
         let noise = (self.rng.gen_range(0u32..=10) as f64) * 0.001 - 0.005;
         self.temp_c = next + noise;
         self.temp_c
     }
 
-    /// Advance `steps` control steps and collect the temperature each step.
+ /// Advance `steps` control steps and collect the temperature each step.
     pub fn run_steps(&mut self, steps: usize) -> Vec<f64> {
         let mut out = Vec::with_capacity(steps);
         for _ in 0..steps {
@@ -165,7 +165,7 @@ impl ThermalModel {
         out
     }
 
-    /// Advance `steps` control steps and collect the raw bit patterns.
+ /// Advance `steps` control steps and collect the raw bit patterns.
     pub fn run_steps_bits(&mut self, steps: usize) -> Vec<u64> {
         let mut out = Vec::with_capacity(steps);
         for _ in 0..steps {
@@ -203,9 +203,9 @@ mod tests {
 
     #[test]
     fn golden_trajectory_is_stable_across_platforms() {
-        // Golden values captured from the libm-based implementation. `libm` is
-        // pure Rust, so these bit patterns must reproduce on every target;
-        // substituting `std` float math can change them on another platform.
+ // Golden values captured from the libm-based implementation. `libm` is
+ // pure Rust, so these bit patterns must reproduce on every target;
+ // substituting `std` float math can change them on another platform.
         let mut model = ThermalModel::new(0xC01D);
         let bits = model.run_steps_bits(8);
         assert_eq!(

@@ -26,12 +26,12 @@ integration test between two real `CoreHandle` instances over TCP passes.
 
 | Item | Value |
 |---|---|
-| Function | `MeshTransport::start()` |
+| Function | `MeshTransport::start` |
 | Location | `tirbase-core/src/transport/mod.rs:748` |
-| Called from | `CoreHandle::init()` at `tirbase-core/src/api/mod.rs:835` |
-| Transport stack | TCP (libp2p `tcp::Config::default()`), Noise (`libp2p_noise::Config::new`), Yamux multiplexing, Gossipsub, mDNS, Identify, Ping |
-| Swarm builder | `libp2p::SwarmBuilder::with_new_identity().with_tokio().with_tcp(...).with_behaviour(...).build()` |
-| Gossipsub topic | `tirbase/v1` (subscribed at `start()`, line ~916) |
+| Called from | `CoreHandle::init` at `tirbase-core/src/api/mod.rs:835` |
+| Transport stack | TCP (libp2p `tcp::Config::default`), Noise (`libp2p_noise::Config::new`), Yamux multiplexing, Gossipsub, mDNS, Identify, Ping |
+| Swarm builder | `libp2p::SwarmBuilder::with_new_identity.with_tokio.with_tcp(...).with_behaviour(...).build` |
+| Gossipsub topic | `tirbase/v1` (subscribed at `start`, line ~916) |
 | Listen address | Configurable via `TransportConfig.listen_addr` (default `/ip4/0.0.0.0/tcp/0`) |
 | libp2p version | 0.56.0 (Cargo.toml) |
 | Feature gate | `#[cfg(feature = "native")]` — libp2p is native-only |
@@ -48,21 +48,21 @@ integration test between two real `CoreHandle` instances over TCP passes.
 
 #### Test flow
 
-1. Reserve two distinct loopback TCP ports (`reserve_loopback_port()`)
-2. Initialize two `CoreHandle` instances via `CoreHandle::init()` — each starts a real libp2p Swarm
-3. Node A dials node B's listen address via `CoreHandle::dial_peer()` (production dial path)
-4. Wait for `mesh_status().peer_count >= 1` on A (connection established)
+1. Reserve two distinct loopback TCP ports (`reserve_loopback_port`)
+2. Initialize two `CoreHandle` instances via `CoreHandle::init` — each starts a real libp2p Swarm
+3. Node A dials node B's listen address via `CoreHandle::dial_peer` (production dial path)
+4. Wait for `mesh_status.peer_count >= 1` on A (connection established)
 5. Let gossipsub subscription exchange settle (250ms)
 6. Write a row on A via `CoreHandle::write("mesh", "row-a", ...)` — production write path (store + signed Delta + publish)
 7. Poll `handle_b.read("mesh", "row-a")` until the data matches (20s timeout)
 8. Assert data on B exactly matches data written on A
 
 No test-only injection helpers are used: the Delta travels through the
-production path (`write()` → `enqueue_outbound()` → scheduler tick →
-`send_delta()` → outbound channel → Swarm polling task →
-`gossipsub.publish()` → B's Swarm → `Gossipsub::Event::Message` →
-`process_wire_message()` → `inbound_tx` → `process_inbound_messages()` →
-`receive_inbound()` → `CrdtEngine::apply()` → store projection → `read()`).
+production path (`write` → `enqueue_outbound` → scheduler tick →
+`send_delta` → outbound channel → Swarm polling task →
+`gossipsub.publish` → B's Swarm → `Gossipsub::Event::Message` →
+`process_wire_message` → `inbound_tx` → `process_inbound_messages` →
+`receive_inbound` → `CrdtEngine::apply` → store projection → `read`).
 
 ### Additional Integration Tests (same real mesh)
 
@@ -79,27 +79,27 @@ All 9 tests in `real_mesh_tests` pass.
 
 ### Wiring Mutation Check
 
-**Criterion:** Removing the production caller (`transport.start()` call in
-`CoreHandle::init()`) must cause at least one integration test to fail.
+**Criterion:** Removing the production caller (`transport.start` call in
+`CoreHandle::init`) must cause at least one integration test to fail.
 
 **Analysis:**
 
-If `transport.start()` is removed or commented out:
+If `transport.start` is removed or commented out:
 
 1. `MeshTransport::swarm` stays `None` (never built by `SwarmBuilder`)
 2. `take_swarm(outbound_tx)` returns `None` (swarm is `None`)
 3. The `if let Some(mut swarm) = swarm_opt` block is skipped — no Swarm polling task is spawned
 4. `scheduler_tick_armed` stays `false` — the DRR scheduler tick loop is not spawned
 5. `outbound_tx` is installed by `take_swarm`, but no task drains `outbound_rx`
-6. `send_delta()` attempts `tx.try_send(wire_payload)` — the channel has no consumer, so it eventually fills (capacity 4096) and returns `MeshUnavailable`
+6. `send_delta` attempts `tx.try_send(wire_payload)` — the channel has no consumer, so it eventually fills (capacity 4096) and returns `MeshUnavailable`
 7. The Delta is never published to gossipsub
-8. Node B never receives the Delta — `wait_for_data()` polls `handle_b.read()` for 20 seconds and times out
+8. Node B never receives the Delta — `wait_for_data` polls `handle_b.read` for 20 seconds and times out
 9. The assertion `assert_eq!(observed.data, written, ...)` fails with a timeout error
 
 **Failing test:** `two_devices_exchange_delta_over_real_mesh` (and all other
 `real_mesh_tests` tests — none can exchange Deltas without a started Swarm)
 
-**Verdict:** VERIFIED-BY-TRACE — removing `transport.start()` at
+**Verdict:** VERIFIED-BY-TRACE — removing `transport.start` at
 `api/mod.rs:835` causes `two_devices_exchange_delta_over_real_mesh` to fail
 (timeout: "row mesh/row-a never projected the expected data on the receiving
 device within 20s").
@@ -112,39 +112,39 @@ integration tests from running. These were introduced by the commit
 behind a syntax error (missing closing brace):
 
 1. **Missing closing brace** (`api/mod.rs:988`): The `if let Ok(mut t) =
-   transport_arc.lock()` block inside the `ConnectionEstablished` match arm
-   was missing its closing `}`. Only one `}` followed the `tokio::spawn`
-   block where two were needed (one for `if let`, one for the match arm).
+ transport_arc.lock` block inside the `ConnectionEstablished` match arm
+ was missing its closing `}`. Only one `}` followed the `tokio::spawn`
+ block where two were needed (one for `if let`, one for the match arm).
 
 2. **Missing tokio `io-util` feature** (`Cargo.toml`): The `DuplexNoiseStream`
-   struct in `transport/session.rs` uses `tokio::io::DuplexStream`,
-   `tokio::io::split`, `tokio::io::AsyncReadExt`, and
-   `tokio::io::AsyncWriteExt` — all requiring the `io-util` feature. Added
-   `"io-util"` to the tokio dependency features list.
+ struct in `transport/session.rs` uses `tokio::io::DuplexStream`,
+ `tokio::io::split`, `tokio::io::AsyncReadExt`, and
+ `tokio::io::AsyncWriteExt` — all requiring the `io-util` feature. Added
+ `"io-util"` to the tokio dependency features list.
 
 3. **`AsyncNoiseStream` trait not dyn-compatible** (`transport/session.rs`):
-   The trait had `async fn` methods without `#[async_trait]`, making it
-   impossible to use as `dyn AsyncNoiseStream`. Added
-   `#[async_trait::async_trait]` to both the trait definition and the
-   `DuplexNoiseStream` impl.
+ The trait had `async fn` methods without `#[async_trait]`, making it
+ impossible to use as `dyn AsyncNoiseStream`. Added
+ `#[async_trait::async_trait]` to both the trait definition and the
+ `DuplexNoiseStream` impl.
 
 4. **`MutexGuard` not `Send` across `.await`** (`api/mod.rs:999`): The
-   `ConnectionEstablished` arm spawned a `tokio::spawn` task that locked the
-   `std::sync::Mutex<MeshTransport>` and held the `MutexGuard` across an
-   `.await` point. `std::sync::MutexGuard` is not `Send`, so the spawned
-   future was not `Send`. Fixed by replacing the async `initiate_noise_session`
-   spawn with a synchronous `register_session` call — the libp2p transport
-   already performs its own Noise handshake, and the application-layer Noise
-   IK substream is not yet wired to a real libp2p ConnectionHandler (the
-   `open_noise_substream` returns a no-op DuplexStream whose transport half
-   is discarded).
+ `ConnectionEstablished` arm spawned a `tokio::spawn` task that locked the
+ `std::sync::Mutex<MeshTransport>` and held the `MutexGuard` across an
+ `.await` point. `std::sync::MutexGuard` is not `Send`, so the spawned
+ future was not `Send`. Fixed by replacing the async `initiate_noise_session`
+ spawn with a synchronous `register_session` call — the libp2p transport
+ already performs its own Noise handshake, and the application-layer Noise
+ IK substream is not yet wired to a real libp2p ConnectionHandler (the
+ `open_noise_substream` returns a no-op DuplexStream whose transport half
+ is discarded).
 
 5. **Test missing `.await` and `stream` parameter** (`transport/session.rs:786`):
-   The `full_ik_handshake_and_key_rotation_in_place` test called
-   `full_ik_handshake()` with 5 arguments instead of 6 (missing the `stream:
-   Option<&mut dyn AsyncNoiseStream>` parameter) and was missing `.await`
-   before `.expect()`. Added `None` for the `stream` parameter and `.await`
-   before `.expect()`.
+ The `full_ik_handshake_and_key_rotation_in_place` test called
+ `full_ik_handshake` with 5 arguments instead of 6 (missing the `stream:
+ Option<&mut dyn AsyncNoiseStream>` parameter) and was missing `.await`
+ before `.expect`. Added `None` for the `stream` parameter and `.await`
+ before `.expect`.
 
 ---
 
@@ -152,14 +152,14 @@ behind a syntax error (missing closing brace):
 
 **CLAIM-G1.2:** Inbound mesh messages flow through `apply_incoming_delta` in
 `tirbase-core/src/crdt/merge.rs`; the production caller is in
-`CoreHandle::receive_inbound()`; an integration test proves a delta written on
+`CoreHandle::receive_inbound`; an integration test proves a delta written on
 node A appears on node B after passing through the full inbound pipeline.
-_(CLAIMS.md does not exist yet; Task 3.1 creates it. The claim text and test
+_(CLAIMS.md does not exist yet; creates it. The claim text and test
 identifier are recorded here as the CLAIM-G1.2 reference.)_
 
 - **Claim text:** Inbound mesh Deltas are routed through `apply_incoming_delta`
-  (the LWW/RGA routing entry point) before reaching `CrdtEngine::apply`; a
-  Delta written on node A appears on node B over the real libp2p mesh.
+ (the LWW/RGA routing entry point) before reaching `CrdtEngine::apply`; a
+ Delta written on node A appears on node B over the real libp2p mesh.
 - **Status:** Proven
 - **Integration test identifier:** `tirbase-core::api::real_mesh_tests::two_devices_exchange_delta_over_real_mesh`
 
@@ -169,10 +169,10 @@ identifier are recorded here as the CLAIM-G1.2 reference.)_
 |---|---|
 | Function | `apply_incoming_delta(engine: &mut CrdtEngine, delta: &Delta) -> Result<MergeOutcome, TirBaseError>` |
 | Location | `tirbase-core/src/crdt/merge.rs:120` |
-| Called from | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm, line 2561) |
-| Routing | LWW/RGA classification via `is_rga_operation()`, then delegates to `CrdtEngine::apply()` |
-| Gate sequence | Schema-hash gate → Ed25519 signature validation → Operation-type inspection (LWW/RGA) → `CrdtEngine::apply()` (Automerge merge + DAG + Lamport) |
-| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` (line 2535) |
+| Called from | `CoreHandle::receive_inbound` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm, line 2561) |
+| Routing | LWW/RGA classification via `is_rga_operation`, then delegates to `CrdtEngine::apply` |
+| Gate sequence | Schema-hash gate → Ed25519 signature validation → Operation-type inspection (LWW/RGA) → `CrdtEngine::apply` (Automerge merge + DAG + Lamport) |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound` (line 2535) |
 
 ### Integration Test
 
@@ -181,23 +181,23 @@ identifier are recorded here as the CLAIM-G1.2 reference.)_
 | Test name | `two_devices_exchange_delta_over_real_mesh` |
 | Location | `tirbase-core/src/api/mod.rs:9297` (in `mod real_mesh_tests`, line 9161) |
 | Test type | `#[tokio::test(flavor = "multi_thread", worker_threads = 2)]` |
-| What it proves | A delta written on node A over the real libp2p mesh is received, routed through `apply_incoming_delta`, merged into B's CRDT engine, projected to B's store, and readable via B's `read()` — write on A, read on B |
+| What it proves | A delta written on node A over the real libp2p mesh is received, routed through `apply_incoming_delta`, merged into B's CRDT engine, projected to B's store, and readable via B's `read` — write on A, read on B |
 | Result | PASS (verified 2025-01-20) |
 
 #### Test flow
 
-1. Reserve two distinct loopback TCP ports (`reserve_loopback_port()`)
-2. Initialize two `CoreHandle` instances via `CoreHandle::init()` — each starts a real libp2p Swarm
-3. Node A dials node B's listen address via `CoreHandle::dial_peer()` (production dial path)
+1. Reserve two distinct loopback TCP ports (`reserve_loopback_port`)
+2. Initialize two `CoreHandle` instances via `CoreHandle::init` — each starts a real libp2p Swarm
+3. Node A dials node B's listen address via `CoreHandle::dial_peer` (production dial path)
 4. Wait for gossipsub subscription to settle (250ms)
 5. Write a row on A via `CoreHandle::write("mesh", "row-a", ...)` — production write path (store + signed Delta + publish)
-6. The Delta travels the full inbound pipeline on B: `gossipsub.publish()` → B's Swarm → `process_wire_message()` → `inbound_tx` → `process_inbound_messages()` → `receive_inbound()` → `apply_incoming_delta()` → `CrdtEngine::apply()` → store projection
+6. The Delta travels the full inbound pipeline on B: `gossipsub.publish` → B's Swarm → `process_wire_message` → `inbound_tx` → `process_inbound_messages` → `receive_inbound` → `apply_incoming_delta` → `CrdtEngine::apply` → store projection
 7. Poll `handle_b.read("mesh", "row-a")` until the data matches (20s timeout)
 8. Assert data on B exactly matches data written on A
 
 No test-only injection helpers are used: the Delta travels through the
-production inbound path (`receive_inbound()` → `apply_incoming_delta()` →
-`CrdtEngine::apply()` → store projection → `read()`).
+production inbound path (`receive_inbound` → `apply_incoming_delta` →
+`CrdtEngine::apply` → store projection → `read`).
 
 ### Additional Integration Tests (same real mesh)
 
@@ -216,21 +216,21 @@ to fail.
 
 If the `apply_incoming_delta(&mut crdt, &delta)?` call at `api/mod.rs:2569` is
 replaced with a no-op that returns `MergeOutcome::Merged { new_lamport: 0 }`
-without calling `CrdtEngine::apply()`:
+without calling `CrdtEngine::apply`:
 
-1. The Delta arrives at B's `receive_inbound()` (the `InboundDelta` arm is
-   reached — the inbound channel and Swarm polling task are intact)
+1. The Delta arrives at B's `receive_inbound` (the `InboundDelta` arm is
+ reached — the inbound channel and Swarm polling task are intact)
 2. The no-op returns `MergeOutcome::Merged` immediately, so the `Merged` branch
-   executes and the projection code runs
-3. But `CrdtEngine::apply()` was never called, so the Delta's Automerge bytes
-   were never loaded into B's CRDT document — the merged doc has no
-   `_tirbase_table`/`_tirbase_key` for this Delta
+ executes and the projection code runs
+3. But `CrdtEngine::apply` was never called, so the Delta's Automerge bytes
+ were never loaded into B's CRDT document — the merged doc has no
+ `_tirbase_table`/`_tirbase_key` for this Delta
 4. The projection log shows: "delta ... has binary automerge bytes but no
-   _tirbase_table/_tirbase_key in merged doc — skipping projection"
-5. B's store never receives the row — `wait_for_data()` polls
-   `handle_b.read("mesh", "row-a")` for 20 seconds and times out
+ _tirbase_table/_tirbase_key in merged doc — skipping projection"
+5. B's store never receives the row — `wait_for_data` polls
+ `handle_b.read("mesh", "row-a")` for 20 seconds and times out
 6. The assertion fails with: "row mesh/row-a never projected the expected data
-   on the receiving device within 20s"
+ on the receiving device within 20s"
 
 **Failing test:** `two_devices_exchange_delta_over_real_mesh` (and all other
 `real_mesh_tests` that assert peer-received data — none can merge inbound
@@ -250,8 +250,8 @@ engine, so projection finds no data and the read times out.
 production callers in the gateway init path; Biscuit tokens fail verification
 before a key is registered and succeed after registration. Two production
 caller paths exist: (1) init-time registration via `DeploymentConfig.root_ca_keys`
-→ `CapabilityManager::new()`, and (2) runtime registration via
-`CoreHandle::register_root_ca_key()` → `CapabilityManager::register_root_ca_key()`.
+→ `CapabilityManager::new`, and (2) runtime registration via
+`CoreHandle::register_root_ca_key` → `CapabilityManager::register_root_ca_key`.
 Existing tests confirm the fail-before/succeed-after behavior.
 
 ### Production Caller
@@ -265,11 +265,11 @@ verification:
 |---|---|
 | Function | `CapabilityManager::new(root_ca_keys, ...)` |
 | Location | `tirbase-core/src/auth/mod.rs:59` |
-| Called from | `CoreHandle::init()` at `tirbase-core/src/api/mod.rs:419` — the `CapabilityManager::new(...)` call is at `api/mod.rs:450`, passing `config.deployment.root_ca_keys.clone()` (line 452) |
+| Called from | `CoreHandle::init` at `tirbase-core/src/api/mod.rs:419` — the `CapabilityManager::new(...)` call is at `api/mod.rs:450`, passing `config.deployment.root_ca_keys.clone` (line 452) |
 | Registry construction | `RootCaRegistry::new(root_ca_keys)` at `tirbase-core/src/auth/root_ca.rs:24` |
 | WASM gateway entry | `core_init(root_ca_keys_hex: Vec<String>, ...)` at `tirbase-core/src/lib.rs:242` — decodes hex keys and passes them into `DeploymentConfig.root_ca_keys` (line 271) |
-| Effect | Keys are immediately available for offline Biscuit token verification via `CapabilityManager::root_ca_primary_key()` (`auth/mod.rs:236`) → `RootCaRegistry::primary_key()` (`auth/root_ca.rs:42`) |
-| Unconfigured state | Empty `root_ca_keys` vec (the default in `DeploymentConfig` at `api/mod.rs:4449`) → `root_ca_primary_key()` returns `None` → `CoreHandle::root_ca_public_key()` returns empty `Vec<u8>` (`api/mod.rs:1964`) → Biscuit verification fails (`PublicKey::from_bytes` rejects empty slice) |
+| Effect | Keys are immediately available for offline Biscuit token verification via `CapabilityManager::root_ca_primary_key` (`auth/mod.rs:236`) → `RootCaRegistry::primary_key` (`auth/root_ca.rs:42`) |
+| Unconfigured state | Empty `root_ca_keys` vec (the default in `DeploymentConfig` at `api/mod.rs:4449`) → `root_ca_primary_key` returns `None` → `CoreHandle::root_ca_public_key` returns empty `Vec<u8>` (`api/mod.rs:1964`) → Biscuit verification fails (`PublicKey::from_bytes` rejects empty slice) |
 
 #### Path 2 — Runtime registration
 
@@ -277,11 +277,11 @@ verification:
 |---|---|
 | Function | `CapabilityManager::register_root_ca_key(key, token_bytes)` |
 | Location | `tirbase-core/src/auth/mod.rs:275` |
-| Called from | `CoreHandle::register_root_ca_key()` at `tirbase-core/src/api/mod.rs:1987` |
+| Called from | `CoreHandle::register_root_ca_key` at `tirbase-core/src/api/mod.rs:1987` |
 | Registry update | `RootCaRegistry::register(key)` at `tirbase-core/src/auth/root_ca.rs:31` (idempotent — duplicates are no-ops) |
-| Token verification (optional) | When `token_bytes` is `Some`, calls `CapabilityManager::verify_token()` (`auth/mod.rs:91`) → `biscuit::verify_token()` → `TrustLevelStateMachine::on_valid_token()` (transitions to `Verified`) |
+| Token verification (optional) | When `token_bytes` is `Some`, calls `CapabilityManager::verify_token` (`auth/mod.rs:91`) → `biscuit::verify_token` → `TrustLevelStateMachine::on_valid_token` (transitions to `Verified`) |
 | WASM exports | `core_register_root_ca_key(root_ca_key_hex)` at `tirbase-core/src/lib.rs:304`; `core_register_root_ca_key_with_token(root_ca_key_hex, biscuit_token_hex, now_secs)` at `tirbase-core/src/lib.rs:324` |
-| Effect | Newly registered key is immediately exposed via `root_ca_primary_key()` and available for all subsequent `verify_token()` / `verify_and_check_caveat()` calls |
+| Effect | Newly registered key is immediately exposed via `root_ca_primary_key` and available for all subsequent `verify_token` / `verify_and_check_caveat` calls |
 
 ### Integration Tests
 
@@ -296,27 +296,27 @@ fail-before/succeed-after requirement is
 | Test name | `runtime_register_root_ca_key_enables_biscuit_verification` |
 | Location | `tirbase-core/src/api/mod.rs:5999` |
 | Test type | `#[tokio::test]` |
-| What it proves | A handle initialised with no keys starts in the explicit unconfigured state (Biscuit verification **fails**), then after `register_root_ca_key()` the same token **succeeds** |
+| What it proves | A handle initialised with no keys starts in the explicit unconfigured state (Biscuit verification **fails**), then after `register_root_ca_key` the same token **succeeds** |
 | Result | PASS (verified 2025-01-20) |
 
 ##### Test flow
 
 1. Init a `CoreHandle` with `make_config(&path)` — no CA key configured
-2. Assert `handle.root_ca_public_key().is_empty()` — unconfigured state confirmed
+2. Assert `handle.root_ca_public_key.is_empty` — unconfigured state confirmed
 3. Generate a CA keypair and sign a real disaster-alert Biscuit token
-4. **Before registration:** call `verify_and_check_caveat()` with the empty
-   `root_ca_public_key()` → `PublicKey::from_bytes([])` fails → `Err` returned
-5. Assert `before.is_err()` — "empty registry must reject verification"
+4. **Before registration:** call `verify_and_check_caveat` with the empty
+ `root_ca_public_key` → `PublicKey::from_bytes([])` fails → `Err` returned
+5. Assert `before.is_err` — "empty registry must reject verification"
 6. Register the CA key at runtime via `handle.register_root_ca_key(ca_public, None)`
-7. Assert `handle.root_ca_public_key() == ca_public.to_vec()` — key is now exposed
-8. **After registration:** call `verify_and_check_caveat()` with the same token
-   and the now-populated `root_ca_public_key()` → `Ok(true)`
+7. Assert `handle.root_ca_public_key == ca_public.to_vec` — key is now exposed
+8. **After registration:** call `verify_and_check_caveat` with the same token
+ and the now-populated `root_ca_public_key` → `Ok(true)`
 9. Assert verification succeeds — "runtime-registered CA key must verify a valid disaster-alert token"
 
 No mocks are used: the test drives the real production path
-(`CoreHandle::register_root_ca_key()` → `CapabilityManager::register_root_ca_key()`
-→ `RootCaRegistry::register()`) and the real Biscuit verification
-(`biscuit::verify_and_check_caveat()` → `Biscuit::from()` + `AuthorizerBuilder`).
+(`CoreHandle::register_root_ca_key` → `CapabilityManager::register_root_ca_key`
+→ `RootCaRegistry::register`) and the real Biscuit verification
+(`biscuit::verify_and_check_caveat` → `Biscuit::from` + `AuthorizerBuilder`).
 
 #### Test 2 — Init-time registration
 
@@ -325,16 +325,16 @@ No mocks are used: the test drives the real production path
 | Test name | `init_registers_root_ca_keys_and_biscuit_verifies` |
 | Location | `tirbase-core/src/api/mod.rs:5957` |
 | Test type | `#[tokio::test]` |
-| What it proves | `CoreHandle::init()` with a CA key in `DeploymentConfig.root_ca_keys` exposes that key via `root_ca_public_key()` and Biscuit verification succeeds immediately |
+| What it proves | `CoreHandle::init` with a CA key in `DeploymentConfig.root_ca_keys` exposes that key via `root_ca_public_key` and Biscuit verification succeeds immediately |
 | Result | PASS (verified 2025-01-20) |
 
 ##### Test flow
 
 1. Generate a CA keypair; build config via `make_config_with_ca_key(&path, ca_public)` which sets `config.deployment.root_ca_keys = vec![ca_key]`
 2. Init `CoreHandle` — `CapabilityManager::new(config.deployment.root_ca_keys, ...)` registers the key
-3. Assert `handle.root_ca_public_key() == ca_public.to_vec()` — init-time registration exposed
+3. Assert `handle.root_ca_public_key == ca_public.to_vec` — init-time registration exposed
 4. Sign a real disaster-alert Biscuit token with the CA private key
-5. Assert `verify_and_check_caveat()` succeeds with the exposed key
+5. Assert `verify_and_check_caveat` succeeds with the exposed key
 
 #### Test 3 — Trust level transition to Verified
 
@@ -352,50 +352,50 @@ No mocks are used: the test drives the real production path
 2. Create a valid Biscuit token signed by the CA
 3. Call `handle.register_root_ca_key(ca_public, Some((&token_bytes, now)))` — the production caller chain: `CoreHandle::register_root_ca_key` → `CapabilityManager::register_root_ca_key` → `RootCaRegistry::register` + `CapabilityManager::verify_token` → `TrustLevelStateMachine::on_valid_token`
 4. Assert returned `TrustLevel::Verified`
-5. Assert `handle.trust_level() == TrustLevel::Verified`
-6. Write succeeds and `result.unverified_warning.is_none()`
+5. Assert `handle.trust_level == TrustLevel::Verified`
+6. Write succeeds and `result.unverified_warning.is_none`
 
 ### Wiring Mutation Check
 
 **Criterion:** Removing the root CA key registration (either the init-time
-`CapabilityManager::new()` call or the runtime `register_root_ca_key` method)
+`CapabilityManager::new` call or the runtime `register_root_ca_key` method)
 must cause at least one test to fail.
 
 **Analysis — Init-time path:**
 
-If `CapabilityManager::new(config.deployment.root_ca_keys.clone(), ...)` at
+If `CapabilityManager::new(config.deployment.root_ca_keys.clone, ...)` at
 `api/mod.rs:450` were replaced with `CapabilityManager::new(vec![], ...)` (keys
 from config discarded):
 
-1. `RootCaRegistry` starts empty — `primary_key()` returns `None`
-2. `CoreHandle::root_ca_public_key()` returns empty `Vec<u8>`
+1. `RootCaRegistry` starts empty — `primary_key` returns `None`
+2. `CoreHandle::root_ca_public_key` returns empty `Vec<u8>`
 3. `init_registers_root_ca_keys_and_biscuit_verifies` (line 5957):
-   - `assert_eq!(handle.root_ca_public_key(), ca_public.to_vec())` **fails** —
-     the key was in the config but never registered, so `root_ca_public_key()`
-     returns `vec![]` instead of `ca_public.to_vec()`
-4. All tests that init with `make_config_with_ca_key()` and then assert the key
-   is exposed would fail at the first `root_ca_public_key()` assertion
+ - `assert_eq!(handle.root_ca_public_key, ca_public.to_vec)` **fails** —
+ the key was in the config but never registered, so `root_ca_public_key`
+ returns `vec![]` instead of `ca_public.to_vec`
+4. All tests that init with `make_config_with_ca_key` and then assert the key
+ is exposed would fail at the first `root_ca_public_key` assertion
 
 **Failing test:** `init_registers_root_ca_keys_and_biscuit_verifies`
 
 **Analysis — Runtime path:**
 
-If `CoreHandle::register_root_ca_key()` at `api/mod.rs:1987` were a no-op (the
-`CapabilityManager::register_root_ca_key()` call removed):
+If `CoreHandle::register_root_ca_key` at `api/mod.rs:1987` were a no-op (the
+`CapabilityManager::register_root_ca_key` call removed):
 
-1. `RootCaRegistry::register()` is never called — the registry stays empty
+1. `RootCaRegistry::register` is never called — the registry stays empty
 2. `runtime_register_root_ca_key_enables_biscuit_verification` (line 5999):
-   - The "before registration" assertion (`before.is_err()`) still passes — the
-     registry is empty, as expected
-   - `assert_eq!(handle.root_ca_public_key(), ca_public.to_vec())` **fails** —
-     the key was never stored, so `root_ca_public_key()` still returns `vec![]`
-   - The "after registration" verification **fails** —
-     `verify_and_check_caveat()` with an empty key returns `Err`
+ - The "before registration" assertion (`before.is_err`) still passes — the
+ registry is empty, as expected
+ - `assert_eq!(handle.root_ca_public_key, ca_public.to_vec)` **fails** —
+ the key was never stored, so `root_ca_public_key` still returns `vec![]`
+ - The "after registration" verification **fails** —
+ `verify_and_check_caveat` with an empty key returns `Err`
 3. `register_root_ca_key_with_token_transitions_trust_to_verified` (line 6063):
-   - `register_root_ca_key(ca_public, Some((&token_bytes, now)))` returns
-     `Err("no registered root CA keys")` because `verify_token()` finds an empty
-     registry (the key was never stored)
-   - `.expect("register_root_ca_key with token must succeed")` **panics** — test fails
+ - `register_root_ca_key(ca_public, Some((&token_bytes, now)))` returns
+ `Err("no registered root CA keys")` because `verify_token` finds an empty
+ registry (the key was never stored)
+ - `.expect("register_root_ca_key with token must succeed")` **panics** — test fails
 
 **Failing tests:** `runtime_register_root_ca_key_enables_biscuit_verification`
 and `register_root_ca_key_with_token_transitions_trust_to_verified`
@@ -426,10 +426,10 @@ least one test to fail.
 | Function | `CrdtEngine::apply(&mut self, delta: &Delta) -> Result<MergeOutcome, TirBaseError>` |
 | Revocation gate location | `tirbase-core/src/crdt/mod.rs` — inside `CrdtEngine::apply`, the `if self.revoked_dids.contains(&delta.author_did)` check |
 | Called from | `apply_incoming_delta(engine, delta)` at `tirbase-core/src/crdt/merge.rs:120` → `engine.apply(delta)` (the routing entry point delegates to `CrdtEngine::apply` for all paths) |
-| Invoked by | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm) |
-| Revocation registration | `CrdtEngine::mark_did_revoked(did)` called from `CoreHandle::process_inbound_messages()` when a complete `InboundRevocationDelta` meets the M-of-N threshold via `RevocationSubsystem::process_incoming_delta` → `apply_revocation` |
+| Invoked by | `CoreHandle::receive_inbound` at `tirbase-core/src/api/mod.rs:2569` (inside the `GossipMessage::InboundDelta(delta)` arm) |
+| Revocation registration | `CrdtEngine::mark_did_revoked(did)` called from `CoreHandle::process_inbound_messages` when a complete `InboundRevocationDelta` meets the M-of-N threshold via `RevocationSubsystem::process_incoming_delta` → `apply_revocation` |
 | Effect | When `delta.author_did` is in `revoked_dids`, `CrdtEngine::apply` returns `MergeOutcome::Rejected { reason: "REVOKED: <did>" }` without storing the Delta in the DAG or projecting it to the store |
-| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound` |
 
 ### Integration Test
 
@@ -444,13 +444,13 @@ least one test to fail.
 #### Test flow
 
 1. Reserve two distinct loopback TCP ports; initialize two real `CoreHandle` instances (A, B) via `CoreHandle::init(mesh_config(...))` — each starts a real libp2p Swarm
-2. Connect A → B via `connect_peers()`; wait for gossipsub subscription exchange (250ms)
+2. Connect A → B via `connect_peers`; wait for gossipsub subscription exchange (250ms)
 3. Generate identity C (the device to be revoked) and identity M (RevocationManager)
 4. Node A's `RevocationSubsystem` produces a 1-of-1 partial revocation delta targeting C's DID, signed by M
-5. Inject the revocation delta into A via `inject_inbound(InboundRevocationDelta(...))` + `process_inbound_messages()` — calls `RevocationSubsystem::process_incoming_delta` → `apply_revocation` → `CrdtEngine::mark_did_revoked(&c_did)`
-6. Assert C's DID appears in `handle_a.crdt.convergent_state().revoked_dids` — revocation registered
+5. Inject the revocation delta into A via `inject_inbound(InboundRevocationDelta(...))` + `process_inbound_messages` — calls `RevocationSubsystem::process_incoming_delta` → `apply_revocation` → `CrdtEngine::mark_did_revoked(&c_did)`
+6. Assert C's DID appears in `handle_a.crdt.convergent_state.revoked_dids` — revocation registered
 7. Build a validly-signed data delta authored by C (correct signature, valid schema hash, Lamport 1)
-8. Inject C's delta into A via `inject_inbound(InboundDelta(c_delta))` + `process_inbound_messages()`
+8. Inject C's delta into A via `inject_inbound(InboundDelta(c_delta))` + `process_inbound_messages`
 9. Assert C's delta ID is NOT in A's DAG (`dag_node(&c_delta_id)` returns `None`)
 10. Assert A's rejection records contain a `DeltaRejectionCode::RevokedAuthor` entry for C's DID
 11. Positive case: B writes a normal delta that reaches A through the real mesh — proves non-revoked authors still pass the gate
@@ -488,7 +488,7 @@ DAG-membership assertion to fail.
 
 | Item | Production Caller | Integration Test | Wiring Mutation | Status |
 |---|---|---|---|---|
-| G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
+| G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm, line 2561) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450` (`CoreHandle::init`, passing `config.deployment.root_ca_keys`); runtime: `auth/mod.rs:275` (`CapabilityManager::register_root_ca_key`), called from `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification` — fail-before/succeed-after), `api/mod.rs:5957` (`init_registers_root_ca_keys_and_biscuit_verifies`), `api/mod.rs:6063` (`register_root_ca_key_with_token_transitions_trust_to_verified`) | Removing init-time `CapabilityManager::new(root_ca_keys)` → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime `register_root_ca_key` → `runtime_register_root_ca_key_enables_biscuit_verification` + `register_root_ca_key_with_token_transitions_trust_to_verified` fail | VERIFIED-BY-TRACE |
 | G1.4 Revoked-author rejection | `crdt/mod.rs` (`CrdtEngine::apply` revocation gate), called through `crdt/merge.rs:120` (`apply_incoming_delta`) → `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:10745` (`revoked_author_mesh_delta_rejected_at_apply_incoming_delta`) | Removing `if self.revoked_dids.contains(&delta.author_did)` from `CrdtEngine::apply` → C's delta appears in DAG → `assert!(!dag_has_c)` fails | VERIFIED-BY-TRACE |
@@ -515,7 +515,7 @@ Two production caller levels are recorded:
 |---|---|
 | Function | `MeshTransport::new(TransportConfig { root_ca_public_key, saturate_termination_threshold_m, saturate_lease_duration_secs, ... })` |
 | Location | `tirbase-core/src/api/mod.rs:801` |
-| Key wiring | `root_ca_public_key: config.deployment.root_ca_keys.first().map(|k| k.to_vec()).unwrap_or_default()` at `api/mod.rs:811–816` |
+| Key wiring | `root_ca_public_key: config.deployment.root_ca_keys.first.map(|k| k.to_vec).unwrap_or_default` at `api/mod.rs:811–816` |
 | Threshold wiring | `saturate_termination_threshold_m: config.deployment.revocation_m.max(1)` at `api/mod.rs:810` |
 | Downstream | `SaturateModeStateMachine::new(threshold_m, root_ca_public_key, lease_duration_secs)` in `transport/mod.rs:276–280` |
 | Effect | The `SaturateModeStateMachine` held in `MeshTransport::saturate` is configured with the deployment CA key and M threshold; subsequent calls to `activate_saturate_mode` verify disaster-alert Biscuit tokens against this key |
@@ -524,12 +524,12 @@ Two production caller levels are recorded:
 
 | Item | Value |
 |---|---|
-| Function | `CoreHandle::activate_saturate_mode(&self, biscuit_token: &[u8]) -> Result<(), TirBaseError>` |
+| Function | `CoreHandle::activate_saturate_mode(&self, biscuit_token: &[u8]) -> Result<, TirBaseError>` |
 | Location | `tirbase-core/src/api/mod.rs:2300` |
 | Called from (WASM) | `core_activate_saturate_mode` in `tirbase-core/src/lib.rs:653` |
 | Called from (native) | Host/server code holding an `Arc<CoreHandle>` directly |
-| Downstream | `CoreHandle::verify_disaster_alert_token` (uses `root_ca_public_key()` from the `CapabilityManager` registry) → `MeshTransport::activate_saturate_mode` (transport/mod.rs:563) → `SaturateModeStateMachine::activate` |
-| Effect | State machine transitions NORMAL → SATURATE; DRR scheduler mirrored into Saturate Mode via `reconcile_scheduler_saturate_mode()` |
+| Downstream | `CoreHandle::verify_disaster_alert_token` (uses `root_ca_public_key` from the `CapabilityManager` registry) → `MeshTransport::activate_saturate_mode` (transport/mod.rs:563) → `SaturateModeStateMachine::activate` |
+| Effect | State machine transitions NORMAL → SATURATE; DRR scheduler mirrored into Saturate Mode via `reconcile_scheduler_saturate_mode` |
 
 ### Integration Test
 
@@ -545,14 +545,14 @@ Two production caller levels are recorded:
 
 1. Reserve two distinct loopback TCP ports
 2. Generate a deployment CA keypair (Ed25519)
-3. Initialize two `CoreHandle` instances via `CoreHandle::init()` — each with the shared CA public key in `DeploymentConfig::root_ca_keys`; this exercises the init-time production caller (`MeshTransport::new` at `api/mod.rs:801` wiring the CA key into `SaturateModeStateMachine::new`)
-4. Connect handle A → handle B via `connect_peers()` over the real libp2p mesh
+3. Initialize two `CoreHandle` instances via `CoreHandle::init` — each with the shared CA public key in `DeploymentConfig::root_ca_keys`; this exercises the init-time production caller (`MeshTransport::new` at `api/mod.rs:801` wiring the CA key into `SaturateModeStateMachine::new`)
+4. Connect handle A → handle B via `connect_peers` over the real libp2p mesh
 5. Assert both handles start in NORMAL state
 6. Build a real DISASTER_ALERT Biscuit token signed by the deployment CA private key
 7. Call `handle_a.activate_saturate_mode(&activate_token)` — the runtime production caller
-8. Assert handle A's `saturate.state() == SaturateState::Saturate`
+8. Assert handle A's `saturate.state == SaturateState::Saturate`
 9. Assert handle A's lease `expires_at > 0`
-10. Assert handle A's `scheduler.is_saturate_mode() == true`
+10. Assert handle A's `scheduler.is_saturate_mode == true`
 11. Assert handle B remains in NORMAL (per-node independence)
 
 ### Wiring Mutation Check
@@ -564,11 +564,11 @@ must cause at least one integration test to fail.
 **Mutation applied:** At `api/mod.rs:811–816`, replaced:
 ```rust
 root_ca_public_key: config
-    .deployment
-    .root_ca_keys
-    .first()
-    .map(|k| k.to_vec())
-    .unwrap_or_default(),
+ .deployment
+ .root_ca_keys
+ .first
+ .map(|k| k.to_vec)
+ .unwrap_or_default,
 ```
 with:
 ```rust
@@ -589,7 +589,7 @@ Authorisation error: invalid root CA public key: invalid key size" }
 When `root_ca_public_key: vec![]` is passed to `SaturateModeStateMachine::new`,
 the state machine holds a zero-length CA key. The `CoreHandle::verify_disaster_alert_token`
 method at `api/mod.rs:2260` reads the CA key from the `CapabilityManager` registry
-(`self.root_ca_public_key()`), which _is_ populated (the `CapabilityManager` and
+(`self.root_ca_public_key`), which _is_ populated (the `CapabilityManager` and
 `SaturateModeStateMachine` hold separate copies of the CA key). However, the
 `SaturateModeStateMachine::activate` call in `MeshTransport::activate_saturate_mode`
 verifies the token independently using its own `root_ca_public_key` — and that key
@@ -621,8 +621,8 @@ test proves both paths; removing either caller causes at least one test to fail.
 |---|---|
 | Function | `CoreHandle::spawn_cloud_sync_loop(interval)` |
 | Location | `tirbase-core/src/api/mod.rs:4142` |
-| Called from | `CoreHandle::init()` at `tirbase-core/src/api/mod.rs:~1220` (inside `#[cfg(feature = "native")]` block titled "Production cloud sync loop (Subphase 4.1)") |
-| Downstream | `spawn_cloud_sync_loop` → tokio task every `interval` → `CoreHandle::run_cloud_sync_cycle()` (`api/mod.rs:4079`) → `cloud_sync_loop(queue, conn, refetch)` (`durability/cloud_queue.rs`) → `CloudConnection::send_delta` per entry |
+| Called from | `CoreHandle::init` at `tirbase-core/src/api/mod.rs:~1220` (inside `#[cfg(feature = "native")]` block titled "Production cloud sync loop (Subphase 4.1)") |
+| Downstream | `spawn_cloud_sync_loop` → tokio task every `interval` → `CoreHandle::run_cloud_sync_cycle` (`api/mod.rs:4079`) → `cloud_sync_loop(queue, conn, refetch)` (`durability/cloud_queue.rs`) → `CloudConnection::send_delta` per entry |
 | Feature gate | `#[cfg(feature = "native")]` |
 | Effect | Every pending Delta in the cloud outbound queue is sent to the Cloud Ledger in causal order (Req 16.3); acknowledged entries are removed and `DurabilitySubsystem::on_cloud_ack` advances the Delta to Tier-2 (Subphase 4.2) |
 
@@ -634,7 +634,7 @@ test proves both paths; removing either caller causes at least one test to fail.
 | Location | `tirbase-core/src/durability/cloud_ledger.rs:119` |
 | Called from | `CloudLedgerConnection::send_delta` at `tirbase-core/src/durability/cloud_ledger.rs:185` |
 | Adapter installed by | `CoreHandle::run_cloud_sync_cycle` at `api/mod.rs:4097` — `CloudLedgerConnection::new(&mut ledger)` wraps the handle's `cloud_ledger` mutex and implements `CloudConnection` |
-| Effect | Delta is deserialised and fed through `CrdtEngine::apply` (same pipeline as client devices — Req 16.1); on `Committed` or `AlreadyCommitted` the connection returns `Ok(())` and `cloud_sync_loop` removes the entry from the queue; on `Rejected` the entry is retained for retry (Req 16.5) |
+| Effect | Delta is deserialised and fed through `CrdtEngine::apply` (same pipeline as client devices — Req 16.1); on `Committed` or `AlreadyCommitted` the connection returns `Ok()` and `cloud_sync_loop` removes the entry from the queue; on `Rejected` the entry is retained for retry (Req 16.5) |
 
 ### Integration Tests
 
@@ -653,13 +653,13 @@ Two tests in `tirbase-core/src/api/mod.rs`, module `cloud_sync_wiring_tests`:
 ##### Test flow
 
 1. `CoreHandle::init(make_config(&path))` — wires the full production cloud sync machinery (including `spawn_cloud_sync_loop`)
-2. Write 3 rows via the production `write()` path — each registers a Delta in the Durability Subsystem's cloud outbound queue
-3. Assert `cloud_queue_depth() == 3` — send path is registered and waiting
+2. Write 3 rows via the production `write` path — each registers a Delta in the Durability Subsystem's cloud outbound queue
+3. Assert `cloud_queue_depth == 3` — send path is registered and waiting
 4. Construct `MockEndpointConn` (call counter + real `CloudLedger` backend)
 5. Call `cloud_sync_loop(queue_mut, &mut mock_conn, &|_,_| None)` — the **identical function** `run_cloud_sync_cycle` invokes; this is the send path
 6. Assert `MockEndpointConn::calls == 3` — **send path proven**: the mock's `send_delta` was invoked once per Delta
-7. Assert `mock_conn.ledger.committed_count() == 3` and all Delta IDs are in the committed set — **receive path proven**: `CloudLedger::receive_delta` ran for each Delta
-8. Assert `cloud_queue_depth() == 0` — acknowledged Deltas are removed from the queue (Req 16.3)
+7. Assert `mock_conn.ledger.committed_count == 3` and all Delta IDs are in the committed set — **receive path proven**: `CloudLedger::receive_delta` ran for each Delta
+8. Assert `cloud_queue_depth == 0` — acknowledged Deltas are removed from the queue (Req 16.3)
 
 #### Test 2 — Production loop variant
 
@@ -686,14 +686,14 @@ is removed:
 
 #### Remove receive caller (`CloudLedger::receive_delta` from `CloudLedgerConnection::send_delta`)
 
-If `self.ledger.receive_delta(&delta)` is replaced with a no-op `Err("removed".to_string())`:
+If `self.ledger.receive_delta(&delta)` is replaced with a no-op `Err("removed".to_string)`:
 
 1. The production `CloudLedgerConnection::send_delta` returns `Err` for every Delta
 2. `cloud_sync_loop` counts each as `rejected` — entries are retained in the queue
-3. `cloud_queue_depth()` never reaches 0
+3. `cloud_queue_depth` never reaches 0
 4. `cloud_ledger_is_committed(id)` returns `false` for all Delta IDs
-5. `wait_for_drain()` in `cloud_sync_production_loop_wiring_confirmed` panics after 200 attempts: "cloud sync wiring test: queue never drained"
-6. In the mock endpoint test: `mock_conn.ledger.committed_count()` returns 0 → `assert_eq!(mock_conn.ledger.committed_count(), 3, "receive path: ...")` **fails**
+5. `wait_for_drain` in `cloud_sync_production_loop_wiring_confirmed` panics after 200 attempts: "cloud sync wiring test: queue never drained"
+6. In the mock endpoint test: `mock_conn.ledger.committed_count` returns 0 → `assert_eq!(mock_conn.ledger.committed_count, 3, "receive path: ...")` **fails**
 
 **Failing tests:** `cloud_sync_send_and_receive_paths_are_wired_to_mock_endpoint`
 and `cloud_sync_production_loop_wiring_confirmed`
@@ -737,7 +737,7 @@ Two items are wired in `CoreHandle::init`:
 | Item | Value |
 |---|---|
 | Field | `DeploymentConfig.schema_version_path: Vec<[u8; 32]>` at `tirbase-core/src/api/mod.rs:4470` |
-| Init-time read | `tirbase-core/src/api/mod.rs:578–580` — `SchemaVersionPath::new(config.deployment.schema_version_path.clone())` |
+| Init-time read | `tirbase-core/src/api/mod.rs:578–580` — `SchemaVersionPath::new(config.deployment.schema_version_path.clone)` |
 | Passed to engine | `tirbase-core/src/api/mod.rs:674` (native) / line 686 (WASM) — `migration_version_path` argument to `SchemaMigrationEngine::new` |
 | Engine stores it | `tirbase-core/src/migration/mod.rs` (`Self { version_path, ... }`) |
 | Effect | All subsequent `SchemaMigrationEngine::prepare_migration` calls validate that `source_schema_hash == local` and `target_schema_hash == next step in path` (gate steps 5–6) |
@@ -853,7 +853,7 @@ callers in the gateway init path and the tests detect their removal.
 
 | Item | Production Caller | Integration Test | Wiring Mutation | Status |
 |---|---|---|---|---|
-| G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start()` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
+| G1.1 Outbound mesh | `transport/mod.rs:748` (`MeshTransport::start`), called from `api/mod.rs:835` (`CoreHandle::init`) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `transport.start` at `api/mod.rs:835` → test fails (timeout on B) | VERIFIED-BY-TRACE |
 | G1.2 Inbound delta | `crdt/merge.rs:120` (`apply_incoming_delta`), called from `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:9297` (`two_devices_exchange_delta_over_real_mesh`) | Removing `apply_incoming_delta` at `api/mod.rs:2569` → test fails (timeout on B: no merge, no projection) | VERIFIED-BY-TRACE |
 | G1.3 CA registration | `auth/mod.rs:59` (`CapabilityManager::new`), called from `api/mod.rs:450`; runtime: `api/mod.rs:1987` (`CoreHandle::register_root_ca_key`) | `api/mod.rs:5999` (`runtime_register_root_ca_key_enables_biscuit_verification`), `api/mod.rs:5957`, `api/mod.rs:6063` | Removing init-time path → `init_registers_root_ca_keys_and_biscuit_verifies` fails; removing runtime path → two tests fail | VERIFIED-BY-TRACE |
 | G1.4 Revoked-author rejection | `crdt/mod.rs` (`CrdtEngine::apply` revocation gate), called through `crdt/merge.rs:120` (`apply_incoming_delta`) → `api/mod.rs:2569` (`receive_inbound` InboundDelta arm) | `api/mod.rs:10745` (`revoked_author_mesh_delta_rejected_at_apply_incoming_delta`) | Removing `if self.revoked_dids.contains(&delta.author_did)` from `CrdtEngine::apply` → C's delta appears in DAG → `assert!(!dag_has_c)` fails | VERIFIED-BY-TRACE |
@@ -862,7 +862,7 @@ callers in the gateway init path and the tests detect their removal.
 | G1.7 Migration CA + version path | `api/mod.rs:574–578` (`migration_ca_public_key` → `SchemaMigrationEngine::new:672`); `api/mod.rs:578–580` (`schema_version_path` → `SchemaMigrationEngine::new:674`); runtime: `api/mod.rs:2010` (`CoreHandle::register_migration_ca_key`) | `api/mod.rs:6441` (`migration_delta_wrong_ca_signature_is_rejected` — CLAIM-G1.7 primary); `api/mod.rs:6215` (`init_registers_migration_ca_key_and_version_path`); `api/mod.rs:6291` (`runtime_register_migration_ca_key_enables_migrations`); `api/mod.rs:6346` (`inbound_migration_passes_ca_gate_with_configured_key_and_path`) | Zeroing `migration_ca_public_key` at `api/mod.rs:574` → `init_registers_migration_ca_key_and_version_path` fails (`MigrationCaSignatureInvalid`); replacing path with empty vec at `api/mod.rs:578` → same test fails (`VersionPathMismatch`) | VERIFIED-BY-TRACE |
 
 | G1.8 Quarantine + Sidecar wiring | `migration/mod.rs:703` (`SchemaMigrationEngine::quarantine_incoming`), called from `api/mod.rs:2760` (`receive_inbound` Quarantined arm); `migration/mod.rs:783` (`SchemaMigrationEngine::record_corrupted_window_write`), called from `api/mod.rs:1668` (`CoreHandle::write` side-car capture block) | `api/mod.rs:12832` (`quarantine_ledger_wiring_two_core_handle_instances`); `api/mod.rs:12948` (`sidecar_ledger_wiring_two_core_handle_instances`) | Removing `quarantine_incoming` from `receive_inbound` Quarantined arm at `api/mod.rs:2760` → `quarantine_ledger_wiring_two_core_handle_instances` fails (`0 != 1`); removing `record_corrupted_window_write` from `CoreHandle::write` side-car block at `api/mod.rs:1668` → `sidecar_ledger_wiring_two_core_handle_instances` fails (`actual count: 0`) | VERIFIED-BY-TRACE |
-| G1.9 Migration mid-flight revocation | `migration/mod.rs:400` (`SchemaMigrationEngine::finish_migration` — CLAIM-G1.9 `is_revoked` re-check block), called from `api/mod.rs:3173` (background migration job off-lock commit gate) | `api/mod.rs` `migration_mid_flight_revocation_tests::migration_mid_flight_revocation_two_core_handle_instances` | Removing the CLAIM-G1.9 `is_revoked` re-check inside `finish_migration` at `migration/mod.rs:400` → `current_schema_hash()` returns `v2` (migration committed despite revocation) → `assert_eq!(mig.current_schema_hash(), v1, …)` fails | VERIFIED-BY-TRACE |
+| G1.9 Migration mid-flight revocation | `migration/mod.rs:400` (`SchemaMigrationEngine::finish_migration` — CLAIM-G1.9 `is_revoked` re-check block), called from `api/mod.rs:3173` (background migration job off-lock commit gate) | `api/mod.rs` `migration_mid_flight_revocation_tests::migration_mid_flight_revocation_two_core_handle_instances` | Removing the CLAIM-G1.9 `is_revoked` re-check inside `finish_migration` at `migration/mod.rs:400` → `current_schema_hash` returns `v2` (migration committed despite revocation) → `assert_eq!(mig.current_schema_hash, v1, …)` fails | VERIFIED-BY-TRACE |
 
 **CLAIM-G1.8:** `quarantine_ledger` writes and `sidecar_ledger` writes have
 production callers in `tirbase-core` production code; two real `CoreHandle`
@@ -878,10 +878,10 @@ test to fail (PV-1.13 wired definition).
 | Function | `SchemaMigrationEngine::quarantine_incoming(...)` |
 | Location | `tirbase-core/src/migration/mod.rs:703` |
 | Calls into | `QuarantineLedger::quarantine(...)` at `tirbase-core/src/migration/quarantine.rs` |
-| Called from | `CoreHandle::receive_inbound()` at `tirbase-core/src/api/mod.rs:2760` — inside the `MergeOutcome::Quarantined { reason }` arm of the `GossipMessage::InboundDelta(delta)` branch |
-| Trigger | `CrdtEngine::apply()` returns `MergeOutcome::Quarantined` when an inbound Delta's schema hash does not match the device's current schema hash (Req 17.4) |
+| Called from | `CoreHandle::receive_inbound` at `tirbase-core/src/api/mod.rs:2760` — inside the `MergeOutcome::Quarantined { reason }` arm of the `GossipMessage::InboundDelta(delta)` branch |
+| Trigger | `CrdtEngine::apply` returns `MergeOutcome::Quarantined` when an inbound Delta's schema hash does not match the device's current schema hash (Req 17.4) |
 | Effect | Delta stored byte-for-byte in the `quarantine_ledger` SQLite table (no modification — Req 17.5); available for replay once a migration corrects the schema |
-| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound()` |
+| Feature gate | `#[cfg(feature = "native")]` on `receive_inbound` |
 
 #### Sidecar Ledger write path
 
@@ -890,8 +890,8 @@ test to fail (PV-1.13 wired definition).
 | Function | `SchemaMigrationEngine::record_corrupted_window_write(...)` |
 | Location | `tirbase-core/src/migration/mod.rs:783` |
 | Calls into | `SideCarLedger::record(...)` at `tirbase-core/src/migration/sidecar.rs` |
-| Called from | `CoreHandle::write()` at `tirbase-core/src/api/mod.rs:1668` — inside the side-car capture block, via `.and_then(|mut mig| mig.record_corrupted_window_write(table, delta_bytes, delta.created_at))` |
-| Trigger | `SchemaMigrationEngine::active_corruption_migration()` returns `Some(migration_id)` — meaning the device's current schema is under an active corruption window opened by a revoked migration (Req 19.1/19.2) |
+| Called from | `CoreHandle::write` at `tirbase-core/src/api/mod.rs:1668` — inside the side-car capture block, via `.and_then(|mut mig| mig.record_corrupted_window_write(table, delta_bytes, delta.created_at))` |
+| Trigger | `SchemaMigrationEngine::active_corruption_migration` returns `Some(migration_id)` — meaning the device's current schema is under an active corruption window opened by a revoked migration (Req 19.1/19.2) |
 | Effect | Write operation preserved byte-for-byte in the `sidecar_ledger` SQLite table, scoped to the corrupting migration ID, for replay against the corrected projection (Req 19.2) |
 | Feature gate | `#[cfg(feature = "native")]` on the capture block |
 
@@ -906,7 +906,7 @@ Both tests live in `tirbase-core/src/api/mod.rs`, module `quarantine_sidecar_wir
 | Test name | `quarantine_ledger_wiring_two_core_handle_instances` |
 | Location | `tirbase-core/src/api/mod.rs:12832` |
 | Test type | `#[tokio::test]` |
-| What it proves | Two real `CoreHandle` instances (Node A, Node B); Node A writes a Delta with a mismatched schema hash; the Delta is delivered to Node B through the full production inbound pipeline (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply` → `MergeOutcome::Quarantined` → `migration.quarantine_incoming()`); Node B's `quarantine_ledger` holds exactly one entry with the correct raw bytes, sender DID, and reason |
+| What it proves | Two real `CoreHandle` instances (Node A, Node B); Node A writes a Delta with a mismatched schema hash; the Delta is delivered to Node B through the full production inbound pipeline (`process_inbound_messages` → `receive_inbound` → `CrdtEngine::apply` → `MergeOutcome::Quarantined` → `migration.quarantine_incoming`); Node B's `quarantine_ledger` holds exactly one entry with the correct raw bytes, sender DID, and reason |
 | Result | PASS (verified 2025-07-14) |
 
 ##### Test flow
@@ -914,10 +914,10 @@ Both tests live in `tirbase-core/src/api/mod.rs`, module `quarantine_sidecar_wir
 1. Init two `CoreHandle` instances (Node A on schema `v1`, Node B on schema `v1`)
 2. Craft a Delta with an unknown schema hash `0xCCCC...` — this hash is not in Node B's schema registry
 3. Inject the Delta into Node B's inbound channel via `inject_inbound(InboundDelta(...))`
-4. Call `process_inbound_messages()` on Node B — runs the full production inbound pipeline
-5. `CrdtEngine::apply()` returns `MergeOutcome::Quarantined { reason: UnknownSchemaHash }`
-6. The `Quarantined` arm at `api/mod.rs:2760` calls `migration.quarantine_incoming()`
-7. Assert `migration.quarantined_entries().len() == 1` — production caller wrote to the ledger
+4. Call `process_inbound_messages` on Node B — runs the full production inbound pipeline
+5. `CrdtEngine::apply` returns `MergeOutcome::Quarantined { reason: UnknownSchemaHash }`
+6. The `Quarantined` arm at `api/mod.rs:2760` calls `migration.quarantine_incoming`
+7. Assert `migration.quarantined_entries.len == 1` — production caller wrote to the ledger
 8. Assert entry raw bytes, sender DID, and schema hash match the injected Delta
 
 **Wiring mutation check (executed 2025-07-14):**
@@ -928,13 +928,13 @@ write call:
 
 - The Delta is processed — the pipeline reaches the `Quarantined` arm
 - But `quarantine_incoming` is never called — the ledger stays empty
-- `assert_eq!(entries.len(), 1)` **failed** with:
-  ```
-  assertion `left == right` failed: quarantine_ledger: exactly one entry must be
-  stored by the production quarantine_incoming caller at api/mod.rs:2760 (CLAIM-G1.8)
-    left: 0
-   right: 1
-  ```
+- `assert_eq!(entries.len, 1)` **failed** with:
+ ```
+ assertion `left == right` failed: quarantine_ledger: exactly one entry must be
+ stored by the production quarantine_incoming caller at api/mod.rs:2760 (CLAIM-G1.8)
+ left: 0
+ right: 1
+ ```
 
 Call restored; test passes again (verified 2025-07-14).
 
@@ -951,12 +951,12 @@ Call restored; test passes again (verified 2025-07-14).
 ##### Test flow
 
 1. Init two `CoreHandle` instances sharing a migration CA key and schema version path `[v1 → T]`
-2. Deliver a valid CA-signed migration delta to Node B via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages()`
-3. Node B advances to schema `T` — assert `mig.current_schema_hash() == T`
+2. Deliver a valid CA-signed migration delta to Node B via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages`
+3. Node B advances to schema `T` — assert `mig.current_schema_hash == T`
 4. Revoke the migration: inject `InboundMigrationRevocationDelta` with a `MigrationRevocationDelta { signatures: [ManagerSignature { ... }], created_at: 0 }`; `receive_revocation_delta` opens the corruption window on schema `T`
-5. Assert `mig.active_corruption_migration().is_some()` — corruption window is open
+5. Assert `mig.active_corruption_migration.is_some` — corruption window is open
 6. Call `handle_b.write("sidecar_wiring", "probe-row", json!({ "captured": true }))` — the production write path at `api/mod.rs:1668` detects the active corruption window and calls `record_corrupted_window_write`
-7. Assert `mig.sidecar_entries(&bad_migration_id).len() >= 1` — production caller wrote to the sidecar ledger
+7. Assert `mig.sidecar_entries(&bad_migration_id).len >= 1` — production caller wrote to the sidecar ledger
 
 **Wiring mutation check (executed 2025-07-14):**
 
@@ -966,11 +966,11 @@ replaced with `let _ = delta_bytes;`. With no production write call:
 - The write completes normally — the CRDT engine accepted it
 - But `record_corrupted_window_write` was never called — the sidecar ledger stays empty
 - `assert!(sidecar_count >= 1)` **failed** with:
-  ```
-  sidecar_ledger: at least one entry must be stored by the production
-  record_corrupted_window_write caller at api/mod.rs:1668 (CLAIM-G1.8);
-  actual count: 0
-  ```
+ ```
+ sidecar_ledger: at least one entry must be stored by the production
+ record_corrupted_window_write caller at api/mod.rs:1668 (CLAIM-G1.8);
+ actual count: 0
+ ```
 
 Call restored; test passes again (verified 2025-07-14).
 
@@ -1031,12 +1031,12 @@ catches the race between sandbox exit and `finish_migration`.
 2. Initialize Node A via `CoreHandle::init(make_two_node_migration_config(&path_a, ca_public, v1, v2))` — registers the CA key and `[v1 → v2]` version path in production `SchemaMigrationEngine::new`
 3. Initialize Node B via `CoreHandle::init(make_two_node_migration_config(&path_b, ca_public, v1, v2))` — second real `CoreHandle` instance (acts as the RevocationManager's host)
 4. Build an infinite-loop WASM migration delta: CA-signed, `source = v1`, `target = v2`; the transform never returns naturally — only the epoch interrupt stops it
-5. Inject the migration delta into Node A via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages()` — the background job starts; the sandbox begins executing the infinite loop
+5. Inject the migration delta into Node A via `inject_inbound(InboundMigrationDelta(...))` + `process_inbound_messages` — the background job starts; the sandbox begins executing the infinite loop
 6. Wait until `migration.is_migration_in_progress(&migration_id) == true` AND `migration_runs.is_in_flight(&migration_id) == true` — confirms the transform is genuinely executing (not just queued)
 7. Node B generates a manager keypair (RevocationManager role) and signs a `MigrationRevocationDelta` for the same migration ID
-8. Inject the revocation delta into Node A via `inject_inbound(InboundMigrationRevocationDelta(...))` + `process_inbound_messages()` — this calls `receive_revocation_delta` → `apply_revocation` (marks revoked + epoch-interrupts the sandbox)
+8. Inject the revocation delta into Node A via `inject_inbound(InboundMigrationRevocationDelta(...))` + `process_inbound_messages` — this calls `receive_revocation_delta` → `apply_revocation` (marks revoked + epoch-interrupts the sandbox)
 9. Call `await_migration_quiescence(15s)` — waits for the background job to finish (sandbox halted, `finish_migration` returned)
-10. Assert `mig.current_schema_hash() == v1` — schema was NOT advanced (CLAIM-G1.9 production caller protected the commit)
+10. Assert `mig.current_schema_hash == v1` — schema was NOT advanced (CLAIM-G1.9 production caller protected the commit)
 11. Assert `mig.is_revoked(&migration_id)` — migration permanently recorded as revoked on Node A
 12. Assert `!mig.is_migration_in_progress(&migration_id)` — in-progress marker cleared
 13. Assert `!migration_runs.is_in_flight(&migration_id)` — execution registry entry removed
@@ -1072,7 +1072,7 @@ the `match` arm would set `self.local_schema_hash = *target_schema_hash`.
 More precisely: with the infinite-loop transform, the sandbox returns an error
 (interrupt). The `Err(e) => Err(e)` arm is reached, so the schema hash is not
 advanced in this specific case — but the test step 10 assertion
-`assert_eq!(mig.current_schema_hash(), v1, …)` still passes. However, this masks
+`assert_eq!(mig.current_schema_hash, v1, …)` still passes. However, this masks
 the wiring gap: if the transform completes before the interrupt, the revoked
 result **would** commit.
 
@@ -1087,7 +1087,7 @@ file:line and the exact assertion that would fail:
 > (PV-1.13)"
 
 **Failing test:** `migration_mid_flight_revocation_two_core_handle_instances`
-(assertion: `assert_eq!(mig.current_schema_hash(), v1, "CLAIM-G1.9: schema must NOT advance …")`)
+(assertion: `assert_eq!(mig.current_schema_hash, v1, "CLAIM-G1.9: schema must NOT advance …")`)
 
 **Verdict:** VERIFIED-BY-TRACE — the production commit gate is `finish_migration`
 at `migration/mod.rs:400`; the integration test drives two real `CoreHandle`

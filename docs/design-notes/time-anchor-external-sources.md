@@ -1,7 +1,7 @@
 # Authenticated Time — External Source Evaluation (PV-22, CLAIM-53.4)
 
-**Status:** Design note (evaluation). No external time backend is wired in production by this note.  
-**Date:** 2026-11-11  
+**Status:** Design note (evaluation). No external time backend is wired in production by this note. 
+**Date:** 2026-11-11 
 **Scope:** Evaluate NTS, Roughtime, and Galileo OSNMA as external/auxiliary sources for the TirBase authenticated-time model (PV-22, PV-28). The gateway's v1 trust root for command expiry and freshness remains the signed `TimeBeacon` / `TimeRatchet` path (`tirbase-guard::time`, `tirbase-gateway::time_beacon`, `TimeAnchorService`).
 
 ## Context and requirements (PV-22, PV-28)
@@ -9,7 +9,7 @@
 - Command/token expiry uses **authenticated time** (`now_est`), never the unauthenticated wall clock. `now_est = last_beacon_time + (mono_now − mono_at_beacon)` floored at `persisted_floor`; `mono_now` is `CLOCK_BOOTTIME` (suspend-aware, monotonic).
 - The ratchet is **monotone**: `persisted_floor` never decreases (except an explicit M-of-N operator time-reset path). A beacon older than the floor is rejected as replay; a forward jump larger than `max_forward_jump_secs` requires an M-of-N `TimeAnchor` quorum.
 - After reboot (boot-id change), freshness is `Unverified` and `now_est` is floored at `persisted_floor` until a new authenticated beacon is accepted; critical parameters require a challenge nonce while unverified.
-- Beacons are signed (`SignedOperation<TimeBeacon>` / COSE_Sign1 beacon envelope in `TimeAnchorService`) and admitted through `TimeRatchet::advance()`; peer selection uses the most recent valid beacon satisfying the max-forward-jump constraint (PV-28.3).
+- Beacons are signed (`SignedOperation<TimeBeacon>` / COSE_Sign1 beacon envelope in `TimeAnchorService`) and admitted through `TimeRatchet::advance`; peer selection uses the most recent valid beacon satisfying the max-forward-jump constraint (PV-28.3).
 
 Any external source must therefore (a) provide **authenticated** time or a verifiable proof, (b) be mapped into ratchet admission with the same monotonicity/quorum/max-jump rules, and (c) fail closed (loss or spoofing of the external source must not move `now_est` backwards or past policy without quorum).
 
@@ -66,7 +66,7 @@ Any external source must therefore (a) provide **authenticated** time or a verif
 
 ## Recommended integration posture
 
-1. **Keep `TimeRatchet` + signed TirBase beacons as the enforcement boundary.** External sources never directly set `now_est`; they feed a TimeAnchor (or equivalent trusted signer path) that produces signed `TimeBeacon`/COSE_Sign1 beacons admitted via `TimeRatchet::advance()`.
+1. **Keep `TimeRatchet` + signed TirBase beacons as the enforcement boundary.** External sources never directly set `now_est`; they feed a TimeAnchor (or equivalent trusted signer path) that produces signed `TimeBeacon`/COSE_Sign1 beacons admitted via `TimeRatchet::advance`.
 2. **Preserve invariants:** monotone `persisted_floor`, reboot → `Unverified`, max-forward-jump with M-of-N for large jumps, per-anchor sequence/validity checks, and domain-separated verification.
 3. **Defense in depth:** prefer multi-source corroboration (e.g. OSNMA + local peer beacons, or NTS-backed anchor + peer quorum) for large adjustments; treat single-source jumps conservatively.
 4. **Deployment profiles:** NTS for connected/cloud-managed anchors; OSNMA for partition-tolerant/GNSS-equipped edges; Roughtime only as optional coarse corroboration if/when a pinned, audited profile is adopted.

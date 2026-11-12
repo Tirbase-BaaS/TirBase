@@ -1,17 +1,17 @@
 //! Scenario S35 — driver fd leakage (PV-4.21, PV-10.4).
 //!
 //! The driver child must be unable to pass file descriptors (including the
-//! device fd) to any process.  The control is a seccomp-BPF deny-list installed
-//! before the child parses any frame.  Because seccomp is Linux-only and this
+//! device fd) to any process. The control is a seccomp-BPF deny-list installed
+//! before the child parses any frame. Because seccomp is Linux-only and this
 //! crate forbids `unsafe`, the scenario verifies the production wiring
 //! structurally *and* checks that the runtime isolation test exists:
 //!
 //! * `tirbase-drivers/src/isolation.rs` denies `sendmsg` (the `SCM_RIGHTS`
-//!   send path) and installs `PR_SET_NO_NEW_PRIVS` before seccomp;
+//! send path) and installs `PR_SET_NO_NEW_PRIVS` before seccomp;
 //! * `tirbase-guard/src/bin/driver_isolation_child.rs` calls
-//!   `apply_child_sandbox` before entering its frame loop;
+//! `apply_child_sandbox` before entering its frame loop;
 //! * `tirbase-guard/tests/driver_isolation.rs::test_scm_rights_blocked` runs the
-//!   real child process and asserts the attempt is blocked on Linux.
+//! real child process and asserts the attempt is blocked on Linux.
 //!
 //! Removing any of those controls makes this scenario fail.
 

@@ -3,9 +3,9 @@
 //!
 //! Runs at gateway boot before accepting commands:
 //! 1. Scan for pre-Actuating legacy states and mark `Failed` with
-//!    `OLD_SCHEMA_ENTRY` (19.3). `Actuating` is never treated as pre-Actuating.
+//! `OLD_SCHEMA_ENTRY` (19.3). `Actuating` is never treated as pre-Actuating.
 //! 2. Scan `Actuating` entries and perform driver read-back (30s timeout);
-//!    mark `Complete`, `Failed`, or `Unknown` (19.2).
+//! mark `Complete`, `Failed`, or `Unknown` (19.2).
 //! 3. Emit `ReconciliationComplete` or `ReconciliationTimeout`.
 
 use std::sync::Arc;
@@ -47,8 +47,8 @@ pub fn reconcile_on_boot(
     }
     let mut summary = ReconciliationSummary::default();
 
-    // 19.3: pre-Actuating legacy states (e.g. `Intent` from older schema) ->
-    // Failed/OLD_SCHEMA_ENTRY. Must not touch Actuating.
+ // 19.3: pre-Actuating legacy states (e.g. `Intent` from older schema) ->
+ // Failed/OLD_SCHEMA_ENTRY. Must not touch Actuating.
     let pre = applied_effects_ledger::mark_pre_actuating_as_old_schema_failed(conn, completion_ts)?;
     summary.pre_actuating_marked_failed = pre;
     if pre > 0 {
@@ -64,7 +64,7 @@ pub fn reconcile_on_boot(
         );
     }
 
-    // 19.2: resolve Actuating entries via driver read-back (30s timeout each).
+ // 19.2: resolve Actuating entries via driver read-back (30s timeout each).
     let actuating = applied_effects_ledger::list_actuating(conn)?;
     let started_micros = tirbase_core::traits::monotonic_now();
     for entry in actuating {

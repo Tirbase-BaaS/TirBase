@@ -1,6 +1,6 @@
-//! Task 39 integration test — TOML scenario catalog + ≥1,000 seeded runs.
+//! integration test — TOML scenario catalog + ≥1,000 seeded runs.
 //!
-//! CI executes every declared seed of the S1–S35 catalog.  The runner prints a
+//! CI executes every declared seed of the S1–S35 catalog. The runner prints a
 //! failing scenario's seed before returning (PV-12.2); the test below asserts
 //! both the catalog shape and the failure-report contract.
 

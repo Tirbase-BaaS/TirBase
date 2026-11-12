@@ -15,9 +15,9 @@ pub const DRIVER_RESTART_MAX_RETRIES: u32 = 5;
 /// Supervisor-visible decision for a driver crash/restart cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriverRestartDecision {
-    /// Restart the persistent child after `backoff`.
+ /// Restart the persistent child after `backoff`.
     Restart { attempt: u32, backoff: Duration },
-    /// Bounded retries exhausted; escalate to supervisor LOCKDOWN accounting.
+ /// Bounded retries exhausted; escalate to supervisor LOCKDOWN accounting.
     EscalateLockdown { attempts: u32 },
 }
 
@@ -60,10 +60,10 @@ impl DriverLifecycle {
         self.consecutive_crashes
     }
 
-    /// Records a child crash and returns the next action.
-    ///
-    /// After `max_retries` crashes, the decision is `EscalateLockdown` so the
-    /// guard supervisor can apply crash-loop LOCKDOWN escalation (S24).
+ /// Records a child crash and returns the next action.
+ ///
+ /// After `max_retries` crashes, the decision is `EscalateLockdown` so the
+ /// guard supervisor can apply crash-loop LOCKDOWN escalation (S24).
     pub fn record_crash(&mut self) -> DriverRestartDecision {
         self.consecutive_crashes = self.consecutive_crashes.saturating_add(1);
         if self.consecutive_crashes > self.max_retries {
@@ -80,7 +80,7 @@ impl DriverLifecycle {
         }
     }
 
-    /// Resets crash accounting after a healthy/stable child period.
+ /// Resets crash accounting after a healthy/stable child period.
     pub fn record_stable(&mut self) {
         self.consecutive_crashes = 0;
     }
@@ -145,7 +145,7 @@ mod tests {
         }
     }
 
-    // [CLAIM-33.7] 1s initial, 60s max, 5 retries, escalation feeds supervisor.
+ // [CLAIM-33.7] 1s initial, 60s max, 5 retries, escalation feeds supervisor.
     #[test]
     fn exponential_backoff_and_lockdown_escalation() {
         let mut lc = DriverLifecycle::default();

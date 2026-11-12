@@ -1,4 +1,4 @@
-//! Signed postcondition evaluation for migration shadow output (PV-8.4, Task 30.2).
+//! Signed postcondition evaluation for migration shadow output (PV-8.4).
 //!
 //! Postconditions are evaluated against the shadow run's store state (real
 //! projection data). A failure discards the shadow and preserves pre-execution
@@ -139,7 +139,7 @@ fn evaluate_check(
                         hex::encode(got)
                     )));
                 }
-                // Basic structural validity: printable + parseable.
+ // Basic structural validity: printable + parseable.
                 let printed = crate::schema::printer::print(schema);
                 crate::schema::parser::parse(&printed).map_err(|errors| {
                     TirBaseError::DeltaMalformed {
@@ -150,7 +150,7 @@ fn evaluate_check(
                     }
                 })?;
             } else {
-                // No schema definition registered; accept hash match by contract.
+ // No schema definition registered; accept hash match by contract.
                 if want != target_schema_hash {
                     return Ok(Some(format!(
                         "schema hash mismatch (no definition): expected {}, got {}",

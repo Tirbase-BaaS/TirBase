@@ -1,6 +1,6 @@
 //! `challenge_nonces` SQLite store (PV-22.3, CLAIM-14.10/16.1/16.2).
 //!
-//! Task 16.1/16.2: stores `ChallengeNonce` rows with `device_id, param,
+//! /16.2: stores `ChallengeNonce` rows with `device_id, param,
 //! nonce: [u8;32], issued_at_mono, expires_at_mono`; nonce is consumed after a
 //! single valid use. Pipeline binding also persists `issuer_did`/`target_id`
 //! so Stage 9 can enforce the command binding on consumption.
@@ -109,7 +109,7 @@ impl SqliteChallengeNonceStore {
         }
     }
 
-    /// Insert a challenge nonce row (test/compat convenience).
+ /// Insert a challenge nonce row (test/compat convenience).
     pub fn insert_row(&self, row: &ChallengeNonceRow) -> Result<(), String> {
         let nonce = hex_decode_32(&row.nonce_hex)
             .ok_or_else(|| format!("invalid nonce_hex {:?}", row.nonce_hex))?;
@@ -124,7 +124,7 @@ impl SqliteChallengeNonceStore {
         };
         <Self as ChallengeNonceStore>::insert(self, &challenge)?;
         if row.consumed {
-            // test convenience: mark consumed
+ // test convenience: mark consumed
             self.lock()
                 .execute(
                     &format!("UPDATE {CHALLENGE_NONCES_TABLE} SET consumed=1 WHERE nonce=?1"),
@@ -135,7 +135,7 @@ impl SqliteChallengeNonceStore {
         Ok(())
     }
 
-    /// Legacy hex-based consumption helper retained for existing tests.
+ /// Legacy hex-based consumption helper retained for existing tests.
     pub fn consume_if_valid_hex(
         &self,
         nonce_hex: &str,
@@ -187,9 +187,9 @@ impl SqliteChallengeNonceStore {
             .map_err(|e| format!("load nonce: {e}"))
     }
 
-    /// `GET /admin/challenge` and tests: count recent issuance events for S32
-    /// rate limiting. Counts unexpired rows (consumed or not) issued in the
-    /// current minute window for the device/target/param key.
+ /// `GET /admin/challenge` and tests: count recent issuance events for S32
+ /// rate limiting. Counts unexpired rows (consumed or not) issued in the
+ /// current minute window for the device/target/param key.
     pub fn count_recent_issuance(
         &self,
         device_id: &str,

@@ -129,8 +129,8 @@ pub struct Stage16Request<'a> {
     pub lease_duration_secs: i64,
     pub max_consecutive_renewals: u32,
     pub original_result_json: &'a str,
-    /// Idempotency retention window in seconds (CLAIM-20.5). Clamped to
-    /// [1 min, 7 days]; default 24h.
+ /// Idempotency retention window in seconds (CLAIM-20.5). Clamped to
+ /// [1 min, 7 days]; default 24h.
     pub idempotency_retention_secs: i64,
 }
 
@@ -231,7 +231,7 @@ where
     R: Read,
     S: Stage16Store + ?Sized,
 {
-    // Stage 18: permit minted here (only tirbase-guard can mint), dispatch after fsync'd commit.
+ // Stage 18: permit minted here (only tirbase-guard can mint), dispatch after fsync'd commit.
     let permit = ActuationPermit::new(
         cmd.target_id.clone(),
         cmd.param.clone(),
@@ -241,7 +241,7 @@ where
     proxy
         .dispatch(permit, io.frame)
         .map_err(|e| format!("stage18 dispatch: {e}"))?;
-    // Stage 19: await confirmation
+ // Stage 19: await confirmation
     let terminal = read_driver_confirmation(driver_reader, io.timeout);
     store
         .finalize_terminal(
@@ -258,7 +258,7 @@ where
 
 fn read_driver_confirmation<R: Read>(reader: &mut R, _timeout: Duration) -> EffectTerminalState {
     let mut buf = [0u8; 128];
-    // Blocking read approximation; real socketpair/timeout handled by gateway executor.
+ // Blocking read approximation; real socketpair/timeout handled by gateway executor.
     match reader.read(&mut buf) {
         Ok(n) if n > 0 => {
             let s = String::from_utf8_lossy(&buf[..n]).to_ascii_uppercase();

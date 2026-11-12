@@ -1,4 +1,4 @@
-//! Post-execution author revocation check hook (PV-8.7, Task 30.6).
+//! Post-execution author revocation check hook (PV-8.7).
 
 #![allow(dead_code)]
 

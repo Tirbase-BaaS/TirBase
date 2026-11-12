@@ -1,4 +1,4 @@
-//! Task 14 integration tests: CommandGuard admit pipeline Stages 0–15
+//! integration tests: CommandGuard admit pipeline Stages 0–15
 //! (CLAIM-14.1–14.17).
 
 use std::collections::BTreeMap;
@@ -284,7 +284,7 @@ fn claim_14_15_drift_exceeded() {
     let h = Harness::new(false);
     h.pipeline.set_issuer_rps(1000);
     let _tok = h.token();
-    // make a restrictive drift profile
+ // make a restrictive drift profile
     let mut p = profile(false);
     p.parameters[0].drift_window_secs = 3600;
     p.parameters[0].max_delta_in_window = fpv(10);
@@ -352,7 +352,7 @@ fn claim_14_15_drift_exceeded() {
         now_est_secs: Some(1_000),
         simulate: false,
     };
-    // seed history
+ // seed history
     let mut cmd1 = CommandMessage {
         issuer_did: Did::new(issuer.did()),
         role: CommandRole::CommandIssuer,
@@ -452,7 +452,7 @@ fn simulate_skips_issuer_token_consumption_claim_14_10_16() {
     assert!(h.admit(&cmd, &ctx2).is_ok());
 }
 
-/// Task 9.6 / CLAIM-56.1: a credential for the wrong role is rejected by the
+/// / CLAIM-56.1: a credential for the wrong role is rejected by the
 /// table-driven authorization matrix on the production admission path. Before
 /// 56.1 was wired in, Stage 4 used an ad-hoc `!= CommandIssuer` comparison and
 /// the matrix had no production caller at all.

@@ -11,12 +11,12 @@
 //!
 //! Properties proved:
 //! 1. `scale_mantissa` never panics and never wraps: for every `i64` mantissa
-//!    and every admissible `exp_delta` (`0..=38`) it either returns a scaled
-//!    `i128` or `None`; it is total in the safe domain (always `Some`).
+//! and every admissible `exp_delta` (`0..=38`) it either returns a scaled
+//! `i128` or `None`; it is total in the safe domain (always `Some`).
 //! 2. `compare_scaled` is a total ordering decision: it always returns one of
-//!    `-1`, `0`, `1`, and it is consistent with the bounds it was given.
+//! `-1`, `0`, `1`, and it is consistent with the bounds it was given.
 //! 3. A value equal to its minimum or maximum bound is never classified outside
-//!    the envelope.
+//! the envelope.
 
 #![allow(dead_code)]
 
@@ -36,12 +36,12 @@ fn main() {
 mod proofs {
     use super::core::{compare_scaled, scale_mantissa};
 
-    /// The production scaling path is total and panic-free across the whole
-    /// admissible exponent-delta domain, including `i64::MIN`/`MAX` mantissas.
-    ///
-    /// Equality against the mathematical product is checked below on a small
-    /// (fully expanded) delta domain; this harness establishes the no-panic /
-    /// no-silent-wrap property for the full `0..=38` domain.
+ /// The production scaling path is total and panic-free across the whole
+ /// admissible exponent-delta domain, including `i64::MIN`/`MAX` mantissas.
+ ///
+ /// Equality against the mathematical product is checked below on a small
+ /// (fully expanded) delta domain; this harness establishes the no-panic /
+ /// no-silent-wrap property for the full `0..=38` domain.
     #[kani::proof]
     #[kani::unwind(40)]
     fn scale_mantissa_is_panic_free_in_full_domain() {
@@ -58,8 +58,8 @@ mod proofs {
         }
     }
 
-    /// Exactness: over a small, fully expanded delta domain the scaled value is
-    /// precisely `mantissa × 10^delta` (nothing wraps silently).
+ /// Exactness: over a small, fully expanded delta domain the scaled value is
+ /// precisely `mantissa × 10^delta` (nothing wraps silently).
     #[kani::proof]
     #[kani::unwind(6)]
     fn scale_mantissa_matches_exact_product_for_small_deltas() {
@@ -71,7 +71,7 @@ mod proofs {
         assert_eq!(scale_mantissa(mantissa, exp_delta), exact);
     }
 
-    /// Ordering is total and respects the bounds for every i128 triple.
+ /// Ordering is total and respects the bounds for every i128 triple.
     #[kani::proof]
     fn compare_scaled_is_total_and_sound() {
         let value: i128 = kani::any();
@@ -90,8 +90,8 @@ mod proofs {
         }
     }
 
-    /// A value exactly on either bound is inside the envelope — the property
-    /// that would break if the comparison used strict-only bounds.
+ /// A value exactly on either bound is inside the envelope — the property
+ /// that would break if the comparison used strict-only bounds.
     #[kani::proof]
     fn boundary_values_are_within_bounds() {
         let bound: i128 = kani::any();

@@ -1,27 +1,27 @@
-//! Hardware-counter DB-generation binding (task 6.7a — CLAIM-6.7a, PV-9.8, RD-2).
+//! Hardware-counter DB-generation binding (CLAIM-6.7a, PV-9.8, RD-2).
 //!
 //! A Level 1 software counter lives in `primary.db` (WAL +
 //! `synchronous=FULL`) and is therefore durable, but a *restored older
-//! snapshot* rolls it back silently.  The hardware counter (TPM2 NV index or
+//! snapshot* rolls it back silently. The hardware counter (TPM2 NV index or
 //! eMMC RPMB) cannot be rolled back by a filesystem restore, so binding the
 //! two detects the attack:
 //!
 //! * At each checkpoint cadence the current software value is written to the
-//!   hardware NV counter, but only once the software counter has advanced by
-//!   `sw_increment_per_hw_write` since the last NV write (NV wear-leveling).
+//! hardware NV counter, but only once the software counter has advanced by
+//! `sw_increment_per_hw_write` since the last NV write (NV wear-leveling).
 //! * At boot, if `hw_counter > sw_counter_at_last_hw_write`, the software
-//!   counter was reset while the hardware counter advanced.  That is a
-//!   rollback: emit [`ReasonCode::MonotonicCounterRegression`] and persist
-//!   `lockdown_state` so LOCKDOWN survives the crash/reboot.
+//! counter was reset while the hardware counter advanced. That is a
+//! rollback: emit [`ReasonCode::MonotonicCounterRegression`] and persist
+//! `lockdown_state` so LOCKDOWN survives the crash/reboot.
 //!
 //! State lives in the `monotonic_counters` table (a PrimaryLedger):
 //!
-//! | key                          | meaning                                     |
+//! | key | meaning |
 //! |------------------------------|---------------------------------------------|
-//! | `hw_counter_value`           | last value written to the hardware counter  |
-//! | `sw_counter_at_last_hw_write`| software value at that write                |
-//! | `sw_increment_per_hw_write`  | software advance before the next NV write   |
-//! | `lockdown_state`             | `1` once a regression has been detected      |
+//! | `hw_counter_value` | last value written to the hardware counter |
+//! | `sw_counter_at_last_hw_write`| software value at that write |
+//! | `sw_increment_per_hw_write` | software advance before the next NV write |
+//! | `lockdown_state` | `1` once a regression has been detected |
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -33,43 +33,43 @@ use tirbase_core::traits::{AssuranceLevel, MonotonicCounterTrait};
 
 /// Default software-counter advance between hardware NV writes.
 ///
-/// TPM2 NV indices are typically rated for ~512k writes.  Writing every 1,000
+/// TPM2 NV indices are typically rated for ~512k writes. Writing every 1,000
 /// software increments leaves ample headroom for a multi-year deployment even
 /// on a busy gateway.
 pub const DEFAULT_SW_INCREMENT_PER_HW_WRITE: u64 = 1_000;
 
-/// Table holding the binding state (also used by task 13.2 for `lockdown_state`).
+/// Table holding the binding state (also used by for `lockdown_state`).
 pub const MONOTONIC_COUNTERS_TABLE: &str = "monotonic_counters";
 
 /// Keys used in [`MONOTONIC_COUNTERS_TABLE`].
 pub mod keys {
-    /// Last value written to the hardware NV counter.
+ /// Last value written to the hardware NV counter.
     pub const HW_COUNTER_VALUE: &str = "hw_counter_value";
-    /// Software counter value at the last hardware write.
+ /// Software counter value at the last hardware write.
     pub const SW_COUNTER_AT_LAST_HW_WRITE: &str = "sw_counter_at_last_hw_write";
-    /// Software-counter advance required before the next hardware write.
+ /// Software-counter advance required before the next hardware write.
     pub const SW_INCREMENT_PER_HW_WRITE: &str = "sw_increment_per_hw_write";
-    /// `1` after a rollback has been detected.
+ /// `1` after a rollback has been detected.
     pub const LOCKDOWN_STATE: &str = "lockdown_state";
 }
 
 /// Result of the boot comparison.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BootCheck {
-    /// Hardware and software counters agree (or there is no hardware counter).
+ /// Hardware and software counters agree (or there is no hardware counter).
     Consistent,
-    /// Hardware counter is ahead of the software counter: rollback detected and
-    /// LOCKDOWN persisted.
+ /// Hardware counter is ahead of the software counter: rollback detected and
+ /// LOCKDOWN persisted.
     Regression {
-        /// Value read from the hardware NV counter.
+ /// Value read from the hardware NV counter.
         hw_counter: u64,
-        /// Software value recorded at the last hardware write.
+ /// Software value recorded at the last hardware write.
         sw_counter_at_last_hw_write: u64,
     },
 }
 
 impl BootCheck {
-    /// True when a rollback was detected.
+ /// True when a rollback was detected.
     #[cfg(test)]
     pub fn is_regression(&self) -> bool {
         matches!(self, BootCheck::Regression { .. })
@@ -96,10 +96,10 @@ pub struct HardwareCounterBinding {
 }
 
 impl HardwareCounterBinding {
-    /// Open the binding state in the counter database at `db_path`.
-    ///
-    /// `hardware` normally comes from
-    /// [`crate::monotonic_counter::default_hardware_counter`].
+ /// Open the binding state in the counter database at `db_path`.
+ ///
+ /// `hardware` normally comes from
+ /// [`crate::monotonic_counter::default_hardware_counter`].
     pub fn open(
         db_path: impl AsRef<Path>,
         hardware: Arc<dyn MonotonicCounterTrait>,
@@ -137,7 +137,7 @@ impl HardwareCounterBinding {
             hardware,
         };
 
-        // Record the wear-leveling threshold once, on first open.
+ // Record the wear-leveling threshold once, on first open.
         if binding
             .read_value(keys::SW_INCREMENT_PER_HW_WRITE)?
             .is_none()
@@ -151,21 +151,21 @@ impl HardwareCounterBinding {
         Ok(binding)
     }
 
-    /// The hardware counter this binding writes to.
+ /// The hardware counter this binding writes to.
     pub fn hardware(&self) -> &Arc<dyn MonotonicCounterTrait> {
         &self.hardware
     }
 
-    /// Compare the hardware counter with the software value recorded at the
-    /// last hardware write.
-    ///
-    /// A regression persists `lockdown_state = 1` and emits a Critical
-    /// `MonotonicCounterRegression` security event before returning.
+ /// Compare the hardware counter with the software value recorded at the
+ /// last hardware write.
+ ///
+ /// A regression persists `lockdown_state = 1` and emits a Critical
+ /// `MonotonicCounterRegression` security event before returning.
     pub fn check_at_boot(&self) -> Result<BootCheck, TirBaseError> {
         let device_hw = self.hardware.read()?;
         let persisted_hw = self.read_value(keys::HW_COUNTER_VALUE)?.unwrap_or_default();
-        // Use the higher of the live device value and the last persisted value:
-        // a restore can drag the DB (and therefore the persisted value) back.
+ // Use the higher of the live device value and the last persisted value:
+ // a restore can drag the DB (and therefore the persisted value) back.
         let hw_counter = device_hw.max(persisted_hw);
         let sw_counter_at_last_hw_write = self
             .read_value(keys::SW_COUNTER_AT_LAST_HW_WRITE)?
@@ -194,11 +194,11 @@ impl HardwareCounterBinding {
         Ok(BootCheck::Consistent)
     }
 
-    /// Write the software counter to the hardware counter at checkpoint
-    /// cadence, subject to the wear-leveling threshold.
-    ///
-    /// Returns `true` when a hardware write happened.  Level 1 deployments (no
-    /// hardware counter) only record the software value.
+ /// Write the software counter to the hardware counter at checkpoint
+ /// cadence, subject to the wear-leveling threshold.
+ ///
+ /// Returns `true` when a hardware write happened. Level 1 deployments (no
+ /// hardware counter) only record the software value.
     pub fn record_checkpoint(&self, sw_counter_value: u64) -> Result<bool, TirBaseError> {
         let increment = self
             .read_value(keys::SW_INCREMENT_PER_HW_WRITE)?
@@ -223,12 +223,12 @@ impl HardwareCounterBinding {
         Ok(true)
     }
 
-    /// True once a rollback has been detected (LOCKDOWN is persisted).
+ /// True once a rollback has been detected (LOCKDOWN is persisted).
     pub fn is_lockdown(&self) -> Result<bool, TirBaseError> {
         Ok(self.read_value(keys::LOCKDOWN_STATE)?.unwrap_or_default() == 1)
     }
 
-    /// Read a binding value by key.
+ /// Read a binding value by key.
     pub fn read_value(&self, key: &str) -> Result<Option<u64>, TirBaseError> {
         let conn = self.lock();
         let mut stmt = conn
@@ -248,7 +248,7 @@ impl HardwareCounterBinding {
         }
     }
 
-    /// Upsert a binding value.
+ /// Upsert a binding value.
     pub fn write_value(&self, key: &str, value: u64) -> Result<(), TirBaseError> {
         let value = i64::try_from(value).map_err(|_| TirBaseError::LocalStoreWriteFailed {
             reason: format!("hardware counter binding value {value} exceeds i64::MAX"),
@@ -278,7 +278,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-    /// Level 2 fake hardware counter that counts NV writes.
+ /// Level 2 fake hardware counter that counts NV writes.
     #[derive(Debug, Default)]
     struct FakeHardwareCounter {
         value: AtomicU64,
@@ -360,8 +360,8 @@ mod tests {
     #[test]
     fn hardware_ahead_of_software_is_a_rollback_and_enters_lockdown() {
         let db = temp_db("rollback");
-        // Pretend the software counter was reset: 100 recorded at the last NV
-        // write, but the NV counter has advanced to 900.
+ // Pretend the software counter was reset: 100 recorded at the last NV
+ // write, but the NV counter has advanced to 900.
         let binding = open(&db, Arc::new(FakeHardwareCounter::new(900)), 1_000);
         binding.write_value(keys::HW_COUNTER_VALUE, 100).unwrap();
         binding

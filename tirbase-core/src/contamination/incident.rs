@@ -15,21 +15,21 @@ pub type IncidentId = Uuid;
 pub enum IncidentState {
     Open,
     Closed,
-    /// Superseded by a CompositeIncidentInstance.
+ /// Superseded by a CompositeIncidentInstance.
     SupersededBy(IncidentId),
-    /// Decomposed back into independent ICOs after a root was resolved.
+ /// Decomposed back into independent ICOs after a root was resolved.
     Decomposed,
 }
 
 /// The taint source that opened an incident (Req 10.1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaintSource {
-    /// A Revocation_Delta was applied (Req 10.1 / Table row 1).
+ /// A Revocation_Delta was applied (Req 10.1 / Table row 1).
     DeviceRevocation { revocation_delta_id: DeltaId },
-    /// A Migration_Revocation_Delta was applied (Req 10.1 / Table row 2).
+ /// A Migration_Revocation_Delta was applied (Req 10.1 / Table row 2).
     BadMigration { migration_id: [u8; 32] },
-    /// A write was made while the local projection was CONTAMINATED or
-    /// the incoming Delta stream was quarantined (Req 10.1 / Table row 3, 19.5).
+ /// A write was made while the local projection was CONTAMINATED or
+ /// the incoming Delta stream was quarantined (Req 10.1 / Table row 3, 19.5).
     HumanReaction {
         triggered_by_incident_id: IncidentId,
     },
@@ -39,21 +39,21 @@ pub enum TaintSource {
 /// contamination incident (Req 10.7).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncidentContextObject {
-    /// UUID v7 (Req 10.7).
+ /// UUID v7 (Req 10.7).
     pub id: IncidentId,
     pub state: IncidentState,
     pub taint_source: TaintSource,
-    /// The original Delta(s) that started this incident.
+ /// The original Delta(s) that started this incident.
     pub contamination_roots: Vec<DeltaId>,
-    /// All transitively descended Deltas (Req 10.2).
+ /// All transitively descended Deltas (Req 10.2).
     pub contaminated_deltas: BTreeSet<DeltaId>,
-    /// All rows in the Local Store derived from contaminated Deltas (Req 10.7).
+ /// All rows in the Local Store derived from contaminated Deltas (Req 10.7).
     pub affected_rows: Vec<AffectedRow>,
-    /// Set when two or more independent chains share a node (Req 10.5).
+ /// Set when two or more independent chains share a node (Req 10.5).
     pub composite_of: Option<Vec<IncidentId>>,
     pub created_at: i64,
     pub updated_at: i64,
-    /// Immutable audit log for VERIFY_DATA and ADMIN_CLOSE operations (Req 11.4).
+ /// Immutable audit log for VERIFY_DATA and ADMIN_CLOSE operations (Req 11.4).
     pub audit_log: Vec<AuditEntry>,
 }
 
@@ -62,7 +62,7 @@ pub struct IncidentContextObject {
 pub struct AffectedRow {
     pub table: String,
     pub row_key: String,
-    /// The most recent contaminated Delta that set this row.
+ /// The most recent contaminated Delta that set this row.
     pub delta_id: DeltaId,
 }
 
@@ -71,9 +71,9 @@ pub struct AffectedRow {
 pub struct AuditEntry {
     pub operation: AuditOperation,
     pub manager_did: Did,
-    /// UTC timestamp (microseconds).
+ /// UTC timestamp (microseconds).
     pub utc_timestamp: i64,
-    /// Affected Delta IDs (or incident ID for AdminClose).
+ /// Affected Delta IDs (or incident ID for AdminClose).
     pub affected_delta_ids: Vec<DeltaId>,
 }
 
@@ -89,25 +89,25 @@ pub enum AuditOperation {
 ///
 /// When overlap is detected the original `IncidentContextObject`s are marked
 /// `IncidentState::SupersededBy(composite_id)` and this record becomes the
-/// single active incident for the merged chain.  If one root is later resolved
+/// single active incident for the merged chain. If one root is later resolved
 /// the composite is `IncidentState::Decomposed` and surviving sub-chains are
 /// re-registered as fresh `IncidentContextObject`s (Req 10.6).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositeIncidentInstance {
-    /// UUID v7 — unique ID for this composite.
+ /// UUID v7 — unique ID for this composite.
     pub id: IncidentId,
     pub state: IncidentState,
-    /// IDs of the original `IncidentContextObject`s that were merged.
+ /// IDs of the original `IncidentContextObject`s that were merged.
     pub composite_of: Vec<IncidentId>,
-    /// Union of contamination roots from all merged chains.
+ /// Union of contamination roots from all merged chains.
     pub contamination_roots: Vec<DeltaId>,
-    /// Union of all transitively reachable Deltas from every merged chain.
+ /// Union of all transitively reachable Deltas from every merged chain.
     pub contaminated_deltas: BTreeSet<DeltaId>,
-    /// Union of all affected Local Store rows (deduplicated by row_key).
+ /// Union of all affected Local Store rows (deduplicated by row_key).
     pub affected_rows: Vec<AffectedRow>,
     pub created_at: i64,
     pub updated_at: i64,
-    /// Immutable audit log — same semantics as `IncidentContextObject::audit_log`.
+ /// Immutable audit log — same semantics as `IncidentContextObject::audit_log`.
     pub audit_log: Vec<AuditEntry>,
 }
 
@@ -118,8 +118,8 @@ pub struct CompositeIncidentInstance {
 ///
 /// Steps:
 /// 1. Create a new `CompositeIncidentInstance` whose `composite_of` lists both
-///    source ICO IDs, and whose `contaminated_deltas` / `contamination_roots` /
-///    `affected_rows` are the deduplicated union of the two sources.
+/// source ICO IDs, and whose `contaminated_deltas` / `contamination_roots` /
+/// `affected_rows` are the deduplicated union of the two sources.
 /// 2. Mark both source ICOs as `IncidentState::SupersededBy(composite_id)`.
 ///
 /// Returns the composite's `IncidentId`.
@@ -130,7 +130,7 @@ pub fn composite_merge(
 ) -> (IncidentId, CompositeIncidentInstance) {
     let composite_id = Uuid::now_v7();
 
-    // Union of contamination roots (deduped via BTreeSet).
+ // Union of contamination roots (deduped via BTreeSet).
     let mut roots: Vec<DeltaId> = ico_a.contamination_roots.clone();
     for r in &ico_b.contamination_roots {
         if !roots.contains(r) {
@@ -138,14 +138,14 @@ pub fn composite_merge(
         }
     }
 
-    // Union of contaminated deltas.
+ // Union of contaminated deltas.
     let contaminated_deltas: std::collections::BTreeSet<DeltaId> = ico_a
         .contaminated_deltas
         .union(&ico_b.contaminated_deltas)
         .copied()
         .collect();
 
-    // Union of affected rows (deduped by row_key).
+ // Union of affected rows (deduped by row_key).
     let mut affected_rows = ico_a.affected_rows.clone();
     for row in &ico_b.affected_rows {
         if !affected_rows
@@ -168,7 +168,7 @@ pub fn composite_merge(
         audit_log: vec![],
     };
 
-    // Mark both source ICOs as superseded.
+ // Mark both source ICOs as superseded.
     ico_a.state = IncidentState::SupersededBy(composite_id);
     ico_b.state = IncidentState::SupersededBy(composite_id);
 

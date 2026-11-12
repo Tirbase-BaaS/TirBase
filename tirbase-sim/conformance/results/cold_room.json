@@ -1,16 +1,16 @@
 [
-  {
-    "profile": "cold_room",
-    "scenario": "nominal_install_and_runtime_behavior",
-    "kind": "nominal",
-    "passed": true,
-    "detail": "installed 1 params; safe defaults in envelope"
-  },
-  {
-    "profile": "cold_room",
-    "scenario": "boundary_above_device_model_rejected",
-    "kind": "boundary",
-    "passed": true,
-    "detail": "boundary violation rejected by profile/device validation"
-  }
+ {
+ "profile": "cold_room",
+ "scenario": "nominal_install_and_runtime_behavior",
+ "kind": "nominal",
+ "passed": true,
+ "detail": "installed 1 params; safe defaults in envelope"
+ },
+ {
+ "profile": "cold_room",
+ "scenario": "boundary_above_device_model_rejected",
+ "kind": "boundary",
+ "passed": true,
+ "detail": "boundary violation rejected by profile/device validation"
+ }
 ]
