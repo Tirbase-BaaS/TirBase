@@ -106,6 +106,12 @@ paths:
  Maximum lifetime is 86,400 seconds. A request with `ttl_secs > 86400`
  is rejected with `409 MINT_TTL_EXCEEDED` before any token is minted.
  Remote callers require an Auditor or PolicyAuthority credential.
+
+ `caveat` attaches a `caveat("...")` fact to the token. It is restricted to
+ the core allowlist — currently `disaster-alert` — which is the credential
+ `activate_saturate_mode` requires, so DISASTER_ALERT activation is issued
+ through this endpoint rather than a test-only hook. An unknown caveat is
+ rejected with `400 MINT_CAVEAT_REJECTED`.
  requestBody:
  required: true
  content:
@@ -122,6 +128,10 @@ paths:
  type: integer
  minimum: 3600
  maximum: 86400
+ caveat:
+ type: string
+ enum: [disaster-alert]
+ description: Optional caveat fact; only the core allowlist is accepted.
  responses:
  '200':
  description: Token minted
@@ -135,6 +145,7 @@ paths:
  did: { type: string }
  role: { type: string }
  ttl_secs: { type: integer }
+ caveat: { type: string, description: Present when a caveat was requested }
  '400': { $ref: '#/components/responses/BadRequest' }
  '403': { $ref: '#/components/responses/Forbidden' }
  '409':

@@ -63,8 +63,6 @@ export function fixtures(): WasmFixtures {
       '-q',
       '-p',
       'tirbase-core',
-      '--features',
-      'test-hooks',
       '--example',
       'wasm_e2e_fixtures',
     ],

@@ -21,6 +21,12 @@ export interface ClientOptions {
   baseUrl: string;
   token?: string;
   fetchImpl?: typeof fetch;
+  /**
+   * Extra request-init fields merged into every request (browsers:
+   * credentials; Node/undici: a dispatcher for a pre-configured TLS agent).
+   * Transport-level options the client itself does not model go here.
+   */
+  fetchInit?: Record<string, unknown>;
 }
 
 export type Json = Record<string, unknown>;

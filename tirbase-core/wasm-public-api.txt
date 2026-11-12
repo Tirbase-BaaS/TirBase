@@ -736,6 +736,8 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::api::InitConfig where V:
 pub fn tirbase_core::api::InitConfig::vzip(self) -> V
 pub mod tirbase_core::auth
 pub mod tirbase_core::auth::biscuit
+pub const tirbase_core::auth::biscuit::ALLOWED_CAVEATS: &[&str]
+pub fn tirbase_core::auth::biscuit::create_token_with_caveat(&str, &str, u64, &str, &[u8]) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
 pub enum tirbase_core::auth::biscuit::TokenVerifyError
 pub tirbase_core::auth::biscuit::TokenVerifyError::OtherFailure(tirbase_core::errors::TirBaseError)
 pub tirbase_core::auth::biscuit::TokenVerifyError::TokenExpired

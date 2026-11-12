@@ -21,7 +21,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
-import https from 'node:https';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,6 +32,7 @@ import {
   GatewayAdminClient,
   OPERATION_IDS,
 } from '../dist/index.js';
+import { createMtlsFetch } from '../dist/mtls.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../../..');
@@ -75,52 +75,6 @@ function freePort() {
 }
 
 /** HTTPS fetch limited to what `GatewayAdminClient` uses. */
-function mtlsFetch({ cert, key, ca }) {
-  return (url, init = {}) =>
-    new Promise((resolve, reject) => {
-      const target = new URL(url);
-      const headers = { ...init.headers };
-      // The remote admin surface is a deliberately small HTTP/1.1 reader that
-      // honours Content-Length and rejects chunked bodies, so send an explicit
-      // length instead of letting Node chunk the request.
-      if (init.body !== undefined) {
-        headers['content-length'] = String(Buffer.byteLength(init.body));
-      }
-      const request = https.request(
-        {
-          hostname: target.hostname,
-          port: target.port,
-          path: `${target.pathname}${target.search}`,
-          method: init.method ?? 'GET',
-          headers,
-          cert,
-          key,
-          ca,
-          // The test CA signs the server certificate for 127.0.0.1; the
-          // trusted CA is supplied above, so the handshake is genuinely
-          // verified (no rejectUnauthorized:false).
-          rejectUnauthorized: true,
-        },
-        (response) => {
-          let body = '';
-          response.on('data', (chunk) => {
-            body += chunk;
-          });
-          response.on('end', () => {
-            resolve({
-              ok: response.statusCode >= 200 && response.statusCode < 300,
-              status: response.statusCode,
-              json: async () => JSON.parse(body),
-            });
-          });
-        },
-      );
-      request.on('error', reject);
-      if (init.body !== undefined) request.write(init.body);
-      request.end();
-    });
-}
-
 /** Mint a Biscuit token through the real local admin socket. */
 function mintOverUnixSocket(socketPath, payload) {
   return new Promise((resolve, reject) => {
@@ -239,7 +193,10 @@ before(async () => {
   client = new GatewayAdminClient({
     baseUrl: `https://${setup.remoteAddr}`,
     token,
-    fetchImpl: mtlsFetch({
+    // The shipped Node mTLS transport, verified against the test CA (no
+    // rejectUnauthorized:false): a browser would use its own certificate store
+    // and plain `fetch` with `fetchInit: { credentials: 'include' }`.
+    fetchImpl: createMtlsFetch({
       cert: fs.readFileSync(setup.clientCertPath),
       key: fs.readFileSync(setup.clientKeyPath),
       ca: fs.readFileSync(setup.caCertPath),
@@ -270,7 +227,7 @@ test('remote admin requires a client certificate', async () => {
   const anonymous = new GatewayAdminClient({
     baseUrl: `https://${setup.remoteAddr}`,
     token,
-    fetchImpl: mtlsFetch({ ca: fs.readFileSync(setup.caCertPath) }),
+    fetchImpl: createMtlsFetch({ ca: fs.readFileSync(setup.caCertPath) }),
   });
   await assert.rejects(
     () => anonymous.mode(),
@@ -313,6 +270,33 @@ test('mint returns a real scoped token and enforces the TTL ceiling', async () =
   const error = expectTypedDenial(tooLong, 'mintToken(ttl>86400)');
   assert.equal(error.status, 409);
   assert.equal(error.code, 'MINT_TTL_EXCEEDED');
+
+  // DISASTER_ALERT issuance (Req 13.1): the same endpoint issues the
+  // caveat token saturate activation needs, so no test-only mint hook is
+  // involved.
+  const disaster = expectTypedSuccess(
+    await client.mint({
+      did: 'did:key:sdk-e2e-issuer',
+      role: 'PolicyAuthority',
+      ttl_secs: 3600,
+      caveat: 'disaster-alert',
+    }),
+    'mintToken(caveat)',
+  );
+  assert.equal(disaster.caveat, 'disaster-alert');
+  assert.match(disaster.token_hex, /^[0-9a-f]+$/);
+
+  const badCaveat = expectTypedDenial(
+    await client.mint({
+      did: 'did:key:sdk-e2e-issuer',
+      role: 'PolicyAuthority',
+      ttl_secs: 3600,
+      caveat: 'ttl_override("true")',
+    }),
+    'mintToken(bad caveat)',
+  );
+  assert.equal(badCaveat.status, 400);
+  assert.equal(badCaveat.code, 'MINT_CAVEAT_REJECTED');
 });
 
 test('challenge and simulate run the real pipelines', async () => {

@@ -731,6 +731,12 @@ struct MintRequest {
     did: String,
     role: String,
     ttl_secs: u64,
+ /// Optional `caveat("...")` fact. Restricted to
+ /// [`tirbase_core::auth::biscuit::ALLOWED_CAVEATS`]; today that is
+ /// `disaster-alert`, the credential `activate_saturate_mode` requires
+ /// (Req 13.1, 13.7), so emergency activation no longer needs a test hook.
+    #[serde(default)]
+    caveat: Option<String>,
 }
 
 fn dispatch_mint(
@@ -775,22 +781,50 @@ fn dispatch_mint(
     if request.did.trim().is_empty() || request.role.trim().is_empty() {
         return bad_request("mint requires did and role");
     }
-    match tirbase_core::auth::biscuit::create_token(
-        &request.did,
-        &request.role,
-        request.ttl_secs,
-        seed.as_slice(),
-        false,
-    ) {
-        Ok(token) => serde_json::json!({
-            "status": 200,
-            "endpoint": "mint",
-            "did": request.did,
-            "role": request.role,
-            "ttl_secs": request.ttl_secs,
-            "token_hex": hex::encode(&token),
-        })
-        .to_string(),
+    if let Some(caveat) = request.caveat.as_deref() {
+        if !tirbase_core::auth::biscuit::ALLOWED_CAVEATS.contains(&caveat) {
+            return deny(
+                400,
+                "MINT_CAVEAT_REJECTED",
+                &format!(
+                    "mint rejects caveat {caveat:?}; allowed caveats: {:?}",
+                    tirbase_core::auth::biscuit::ALLOWED_CAVEATS
+                ),
+                "mint",
+            );
+        }
+    }
+    let minted = match request.caveat.as_deref() {
+        Some(caveat) => tirbase_core::auth::biscuit::create_token_with_caveat(
+            &request.did,
+            &request.role,
+            request.ttl_secs,
+            caveat,
+            seed.as_slice(),
+        ),
+        None => tirbase_core::auth::biscuit::create_token(
+            &request.did,
+            &request.role,
+            request.ttl_secs,
+            seed.as_slice(),
+            false,
+        ),
+    };
+    match minted {
+        Ok(token) => {
+            let mut body = serde_json::json!({
+                "status": 200,
+                "endpoint": "mint",
+                "did": request.did,
+                "role": request.role,
+                "ttl_secs": request.ttl_secs,
+                "token_hex": hex::encode(&token),
+            });
+            if let Some(caveat) = request.caveat {
+                body["caveat"] = serde_json::json!(caveat);
+            }
+            body.to_string()
+        }
         Err(error) => deny(400, "MINT_FAILED", &error.to_string(), "mint"),
     }
 }

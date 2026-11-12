@@ -29,12 +29,10 @@ required-features = ["native"]
 # `wasm`   is used when compiling to wasm32-unknown-unknown for the TypeScript SDK.
 
 # Fixture generator for the TypeScript SDK e2e suite (see
-# `tirbase-sdk/src/__helpers__/real-core.ts`). It mints the DISASTER_ALERT
-# caveat token with the production signing code, which is only reachable with
-# the `test-hooks` gate, so the example never builds in a release configuration.
+# `tirbase-sdk/src/__helpers__/real-core.ts`). All credentials it mints come
+# from the production token builders, so it builds in a plain configuration.
 [[example]]
 name = "wasm_e2e_fixtures"
-required-features = ["test-hooks"]
 
 [features]
 default = ["native"]

@@ -9,21 +9,24 @@ export class GatewayAdminClient {
   readonly baseUrl: string;
   readonly token?: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly fetchInit: Record<string, unknown>;
 
   constructor(opts: ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     this.token = opts.token;
     this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchInit = opts.fetchInit ?? {};
   }
 
   private async request<T = unknown>(method: string, path: string, body?: Json): Promise<AdminResult<T>> {
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.token) headers['authorization'] = `Bearer ${this.token}`;
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      ...this.fetchInit,
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    } as RequestInit);
     let data: any = undefined;
     try { data = await res.json(); } catch { data = undefined; }
     if (res.ok) return { ok: true, status: res.status, data: data as T };

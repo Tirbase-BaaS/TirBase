@@ -487,6 +487,65 @@ fn admin_mint_enforces_max_lifetime_and_returns_scoped_token() {
     assert_eq!(claims.role, "CommandIssuer");
 }
 
+/// DISASTER_ALERT issuance goes through the privileged mint endpoint: the
+/// token carries a real `caveat("disaster-alert")` that the production
+/// caveat verifier accepts, and the caveat is an allowlist rather than free
+/// text (the value is interpolated into a Datalog fact).
+#[test]
+fn admin_mint_issues_disaster_alert_caveat_token() {
+    let gateway = Gateway::start("mint-caveat", false);
+    let now = tirbase_core::traits::wall_hint_secs().unwrap_or_default();
+
+    let minted = gateway.cmd(json!({
+        "cmd":"mint",
+        "payload":{
+            "did":"did:key:test-disaster",
+            "role":"PolicyAuthority",
+            "ttl_secs":3600,
+            "caveat":"disaster-alert"
+        }
+    }));
+    assert_non_501("mint", &minted, &gateway);
+    assert_eq!(minted["status"], 200, "caveat mint: {minted}");
+    assert_eq!(minted["caveat"], "disaster-alert");
+
+    let token = hex::decode(minted["token_hex"].as_str().expect("token_hex")).unwrap();
+    let ca = gateway.ca.public_key_bytes();
+    assert!(
+        tirbase_core::auth::biscuit::verify_and_check_caveat(
+            &token,
+            "disaster-alert",
+            &ca,
+            now
+        )
+        .expect("caveat token must verify"),
+        "the minted token must carry caveat(\"disaster-alert\")"
+    );
+    assert!(
+        !tirbase_core::auth::biscuit::verify_and_check_caveat(&token, "other", &ca, now)
+            .expect("caveat check must run"),
+        "the caveat must be exact, not a prefix or wildcard"
+    );
+    let claims = tirbase_core::auth::biscuit::verify_token(&token, &ca, now)
+        .expect("caveat token verifies against the root CA");
+    assert_eq!(claims.role, "PolicyAuthority");
+
+    let rejected = gateway.cmd(json!({
+        "cmd":"mint",
+        "payload":{
+            "did":"did:key:test-disaster",
+            "role":"PolicyAuthority",
+            "ttl_secs":3600,
+            "caveat":"ttl_override(\"true\")"
+        }
+    }));
+    assert_eq!(
+        rejected["status"], 400,
+        "an unlisted caveat must be rejected before minting: {rejected}"
+    );
+    assert_eq!(rejected["code"], "MINT_CAVEAT_REJECTED");
+}
+
 #[test]
 fn admin_rotate_rotates_the_device_identity() {
     let gateway = Gateway::start("rotate", false);

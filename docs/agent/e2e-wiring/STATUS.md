@@ -169,7 +169,7 @@ Scope: `tirbase-sdk/` manager operations and `sdk/typescript/` only. Rows INV-12
 | 5 | `read`/`query` always reported `contaminated: false`; `verify_data` never cleared resolved rows on WASM | both consult the CCE; WASM `verify_data` removes resolved rows (native parity) |
 | 6 | Trust-level spelling mismatch (`Unverified` vs `UNVERIFIED`) leaked into the SDK type | `normalizeTrustLevel` at the bridge boundary |
 | 7 | wasm-bindgen rejects with bare strings, breaking the SDK's `Error` contract | every export goes through `call`/`callAsync` → `asCoreError()` (`name: 'TirBaseCoreError'`) |
-| 8 | The `caveat("disaster-alert")` token had no production minting path, so `activate_saturate_mode` was unreachable outside tests | `create_token_with_caveat` keeps production signing, gated on `test`/`test-hooks`; documented as a blocker below |
+| 8 | The `caveat("disaster-alert")` token had no production minting path, so `activate_saturate_mode` was unreachable outside tests | `create_token_with_caveat` is now an ungated production builder, and the gateway `mint` endpoint issues the token (`caveat: "disaster-alert"`, core allowlist); the fixture no longer needs `test-hooks` (see §3.3) |
 | 9 | `initiate_revocation` took a `manager_token` string and never looked at it — any non-blank value authorised a revocation | signature is now `(&self, target_did, manager_token: &[u8], now_secs)`; the token is verified offline against the deployment root CA, expiry is enforced at `now_secs`, and the role must be `RevocationManager` (see §3.2) |
 
 ### Tests added (fail-before / pass-after)
@@ -191,7 +191,7 @@ Coverage of the manager surface: `initiateRevocation` (partial delta + real outb
 | `cargo test -p tirbase-core --features native` | **719 lib passed / 0 failed** + all integration suites |
 | `cargo test -p tirbase-core --features native --lib tests::api_parity` | **6 passed** (parser now also reads `call('core_*')`/`callAsync('core_*')`) |
 | `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
-| `cd sdk/typescript && npm test` | **8 passed / 8** (builds the TS SDK, runs the e2e) |
+| `cd sdk/typescript && npm test` | **10 passed / 10** (builds the TS SDK, runs the e2e plus the client transport unit tests) |
 | `bash scripts/check-gateway-sdk-generated.sh` | **OK** (generator fixed; see below) |
 | `cargo +nightly public-api -p tirbase-core` | unchanged surface: the caveat minter is `#[cfg(any(test, feature = "test-hooks"))]`, so no manifest churn |
 
@@ -206,10 +206,10 @@ Coverage of the manager surface: `initiateRevocation` (partial delta + real outb
 
 ### Blockers / still-open items (do not mark wired)
 
-1. **DISASTER_ALERT token issuance has no operator-facing surface.** `activate_saturate_mode` requires a root-CA-signed `caveat("disaster-alert")` token, but neither `biscuit::create_token` nor the gateway `mint` endpoint can produce one (mint hard-codes the role → fact mapping and has no caveat field). The e2e mints it with the same production signing code under `test-hooks`. Closing this needs an admin/manager issuance path — a product/API decision, not wiring.
+1. ~~DISASTER_ALERT token issuance has no operator-facing surface~~ — **fixed** in §3.3: `POST /admin/mint` accepts `caveat: "disaster-alert"`, and the SDK fixture mints it through the production builder with no feature flag.
 2. ~~`initiate_revocation` does not verify the manager token~~ — **fixed** in §3.2: the token is verified against the root CA, expiry-checked and role-checked (`RevocationManager`) before any signature is produced or gossiped.
 3. **Signed admin operations are exercised to their auth gate, not through it.** `enroll`/`policy`/`lockdown-exit`/`chain-recovery`/`sequence-reset`/`lease-preempt`/`quarantine-replay`/`time-reset`/`unknown-clear`/`restore`/`epoch-bump` require PolicyAuthority or M-of-3 TimeAnchor `SignedOperation` bodies. Re-implementing the guard's canonical encoding in JavaScript would create a second security-critical implementation, so the TS test asserts the typed answer (never 404/501/silent skip) and the signed success paths stay covered by `tirbase-gateway/tests/admin_endpoints_binary.rs`.
-4. **`sdk/typescript` mTLS uses a custom `fetchImpl`.** The generated client only needs `ok`/`status`/`json()`; the test provides an `https` adapter with a client certificate. Node's global `fetch` cannot present client certificates, so remote admin from a browser/undici client remains unsupported.
+4. ~~`sdk/typescript` mTLS requires a hand-written adapter~~ — **fixed** in §3.4: the package ships `createMtlsFetch` (subpath `./mtls`) and `fetchInit` for undici dispatchers; browsers use their own certificate store. Browser *certificate provisioning* is still out of band, because JavaScript cannot attach a client certificate.
 
 ### Files
 
@@ -248,6 +248,46 @@ enqueued on the transport, and `revocationStatus` stays `PENDING` with zero sign
 The fixture generator additionally emits `auditorTokenHex` (trusted-CA token with the wrong role) so the SDK
 suite can prove the role gate end to end.
 
+### 3.3 DISASTER_ALERT issuance without a test hook
+
+`activate_saturate_mode` requires a root-CA-signed `caveat("disaster-alert")` token, and there was no way to mint one
+outside `test-hooks`: `biscuit::create_token` has no caveat parameter and the admin `mint` endpoint only emitted the
+`did`/`role`/`issued_at` facts. Emergency activation therefore depended on a test-only build.
+
+- `tirbase_core::auth::biscuit::create_token_with_caveat` is now an ordinary public builder (the `test-hooks` gate is
+  gone), and `ALLOWED_CAVEATS` is a closed allowlist. The caveat is interpolated into a Datalog fact, so free text
+  would have been a fact-injection primitive (`ttl_override("true")` is rejected, not just ignored).
+- `POST /admin/mint` accepts an optional `caveat`; it is validated against the allowlist (`400
+  MINT_CAVEAT_REJECTED` otherwise), minted with the production builder, and echoed in the response. The OpenAPI
+  document and generated SDK carry the field.
+- The Rust fixture example no longer needs `test-hooks`, so `tirbase-sdk`'s real-WASM suite generates fixtures from a
+  plain build (the `--features test-hooks` flag and the example's `required-features` are removed).
+
+| Evidence | Result |
+|----------|--------|
+| `cargo test -p tirbase-gateway --test admin_endpoints_binary admin_mint` | **2 passed**, including `admin_mint_issues_disaster_alert_caveat_token`: the minted token satisfies `verify_and_check_caveat("disaster-alert")`, fails for any other caveat, and an unlisted caveat returns `400 MINT_CAVEAT_REJECTED` |
+| `cd sdk/typescript && npm test` | **10 passed**, including the caveat mint and the allowlist denial through the generated client |
+| `cd tirbase-sdk && npx jest` | **102 passed**, fixtures now generated without `--features test-hooks` |
+
+### 3.4 Gateway admin SDK transports (Node, undici, browser)
+
+The generated client only needs a `fetch`-shaped function, so remote admin required every caller to reimplement the
+client-certificate request. The package now ships the transport it needs:
+
+- `createMtlsFetch({ cert, key, ca, ... })` in `src/mtls.ts` (hand-written, exported from the `./mtls` subpath so a
+  browser bundle never imports `node:https`). It verifies the server against `ca` by default and sends an explicit
+  `Content-Length`, which the gateway's remote admin reader requires.
+- `ClientOptions.fetchInit` is merged into every request (after which `method`, `headers` and `body` always win), which
+  covers an undici `dispatcher` bound to a TLS agent and a browser `credentials: 'include'`.
+
+Browsers still cannot attach a client certificate from JavaScript: they select one from the OS/browser store during
+the handshake, so provisioning is out of band. That limitation is documented in the package README, not worked around.
+
+| Evidence | Result |
+|----------|--------|
+| `cd sdk/typescript && npm test` | **10 passed**: the e2e drives the real gateway through the shipped `createMtlsFetch`, and `test/client-options.test.mjs` pins the `fetchInit` merge and that transport fields cannot override the request the client owns |
+| `bash scripts/check-gateway-sdk-generated.sh` | OK — the new `caveat` field and `fetchInit` are generator output, not hand edits |
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -265,9 +305,10 @@ suite can prove the role gate end to end.
 - Charter: `docs/agent/e2e-wiring/00-charter.md`.
 - WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
 - Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
-- WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence, CI jobs and the items it leaves open
-  (DISASTER_ALERT issuance surface, signed admin operations proven to the auth gate, and no mTLS-capable browser
-  `fetch`). §3.2 records the follow-up that authenticated `initiate_revocation`.
+- WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence and CI jobs. §3.2 records the follow-up
+  that authenticated `initiate_revocation`, §3.3 the DISASTER_ALERT issuance path and §3.4 the gateway SDK
+  transports. The one remaining item is signed admin operations proven only to their auth gate, which stays with
+  `tirbase-gateway/tests/admin_endpoints_binary.rs`.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.
