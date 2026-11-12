@@ -527,7 +527,14 @@ impl TimeRatchet {
         let required_m = required_m.max(1);
         let mut verified: BTreeSet<String> = BTreeSet::new();
         for entry in &operation.signatures {
-            if entry.role != CommandRole::TimeAnchor {
+            // Task 9.6: a time reset is an M-of-N TimeAnchor operation; the
+            // capability matrix is the authority on which roles may sign it.
+            if crate::auth_matrix::check_role_authorization(
+                crate::auth_matrix::AuthOperation::TimeRatchetResetLargeJump,
+                entry.role,
+            )
+            .is_err()
+            {
                 return Err(TimeRatchetError::NonAnchorSignature {
                     signer_did: entry.signer_did.clone(),
                     role: entry.role,
@@ -608,7 +615,14 @@ impl TimeRatchet {
 
         let mut verified: BTreeSet<String> = BTreeSet::new();
         for entry in &operation.signatures {
-            if entry.role != CommandRole::TimeAnchor {
+            // Task 9.6: beacon acceptance is a TimeAnchor operation; the
+            // capability matrix decides which roles may sign it.
+            let role_allowed = crate::auth_matrix::check_role_authorization(
+                crate::auth_matrix::AuthOperation::SubmitTimeBeacon,
+                entry.role,
+            )
+            .is_ok();
+            if !role_allowed {
                 self.emit(
                     Severity::High,
                     ReasonCode::BeaconRejected,

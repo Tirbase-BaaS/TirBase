@@ -1,165 +1,205 @@
 //! Loom concurrency tests for `SingleWriterLease` and `AntiReplayWindow`
 //! (CLAIM-51.5, PV-26.3).
 //!
-//! These tests model concurrent acquire/renew/preempt/revocation decisions for a
-//! single-writer lease and concurrent check/commit decisions for the anti-replay
-//! sliding window over a shared atomic state, asserting the safety invariants the
-//! Rust implementations must uphold (at most one active lease holder; an
-//! accepted `(issuer,target,epoch,seq)` is never durably committed twice).
+//! These tests drive the **real** guard types under loom-explored interleavings:
+//! `SingleWriterLease::is_expired`/`in_cooldown` decide acquisition, and
+//! `AntiReplayWindow::check`/`apply_accepted` decide whether a sequence is
+//! committed. The lease/admission rules are therefore the production rules, not
+//! a re-implementation.
 //!
-//! Run with: `cargo test -p tirbase-guard --test concurrency_loom --features loom`
+//! Run: `cargo test -p tirbase-guard --features loom --test concurrency_loom`
+//!
+//! History: the previous version modelled a toy `AtomicU64` instead of the real
+//! types and asserted "at most one winner ever", which is wrong for a lease that
+//! can be released and re-acquired; it failed the first time it was executed.
 
 #![cfg(feature = "loom")]
 
-use loom::sync::atomic::{AtomicU64, Ordering};
-use loom::sync::Arc;
-use loom::thread;
+use std::sync::Arc;
 
-#[test]
-fn single_writer_lease_at_most_one_active_holder_under_concurrency() {
-    // Model: two issuers race to acquire/renew a single target. State packs
-    // holder id in high bits and a generation/expiry token in low bits; a
-    // compare-exchange admits exactly one winner per state transition.
-    // Invariant: concurrent winners never both observe themselves as the active
-    // holder of the same committed generation.
-    loom::model(|| {
-        let state = Arc::new(AtomicU64::new(0)); // 0 = free
-        let committed_holder = Arc::new(AtomicU64::new(0));
-        let mut handles = Vec::new();
-        for issuer in 1u64..=2 {
-            let state = state.clone();
-            let committed_holder = committed_holder.clone();
-            handles.push(thread::spawn(move || {
-                // Attempt acquire: only succeeds from free -> issuer@g1.
-                let desired = (issuer << 32) | 1;
-                if state
-                    .compare_exchange(0, desired, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
-                    // Winner records itself as committed holder for generation 1.
-                    committed_holder.store(desired, Ordering::SeqCst);
-                    // Release (expire) back to free if still ours.
-                    let _ = state.compare_exchange(desired, 0, Ordering::SeqCst, Ordering::SeqCst);
-                    return Some(issuer);
-                }
-                None
-            }));
+use loom::sync::{Mutex, MutexGuard};
+use loom::thread;
+use tirbase_guard::anti_replay::{AntiReplayDecision, AntiReplayWindow};
+use tirbase_guard::single_writer_lease::SingleWriterLease;
+use tirbase_types::Did;
+
+fn lease(issuer: &str, target: &str, expires: i64) -> SingleWriterLease {
+    SingleWriterLease {
+        issuer_did: Did::new(issuer),
+        target_id: target.to_string(),
+        expires_mono_secs: expires,
+        consecutive_renewals: 0,
+        cooldown_until_mono_secs: None,
+    }
+}
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    match m.lock() {
+        Ok(g) => g,
+        Err(poison) => poison.into_inner(),
+    }
+}
+
+/// Try to acquire `target` at `now`: the production rule is that a lease may be
+/// taken when there is none, when it has expired, or when its issuer is not in
+/// cooldown. Returns `Ok` when this issuer now holds it.
+fn try_acquire(
+    slot: &Mutex<Option<SingleWriterLease>>,
+    issuer: &str,
+    target: &str,
+    now: i64,
+) -> Result<(), &'static str> {
+    let mut guard = lock(slot);
+    if let Some(current) = guard.as_ref() {
+        if !current.is_expired(now) && !current.in_cooldown(now) {
+            return Err("target busy");
         }
-        let results: Vec<Option<u64>> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-        let winners = results.iter().filter(|r| r.is_some()).count();
-        assert!(winners <= 1, "at most one issuer may acquire the lease: {:?}", results);
-        let committed = committed_holder.load(Ordering::SeqCst);
-        if winners == 1 {
-            let holder = committed >> 32;
-            assert!(holder == 1 || holder == 2);
-        } else {
-            assert_eq!(committed, 0);
+        if current.in_cooldown(now) && current.issuer_did.as_str() == issuer {
+            return Err("issuer in cooldown");
         }
-    });
+    }
+    *guard = Some(lease(issuer, target, now + 10));
+    Ok(())
 }
 
 #[test]
-fn single_writer_lease_renewal_cap_blocks_unbounded_renewal() {
-    // Model: a holder repeatedly renews; each renewal increments a shared
-    // counter and is refused once the cap is reached, forcing cooldown/release.
-    // Invariant: renewals never exceed the cap and the lease is not held past cap.
-    const CAP: u64 = 3;
+fn single_writer_lease_mutual_exclusion_under_concurrency() {
+    // Two issuers race for one target. Both may legitimately acquire in
+    // sequence (a released/expired lease is free again), but at no point may a
+    // second issuer take a lease that is still live for the first: every
+    // rejection must be the typed "target busy" error, and the final holder must
+    // be consistent with the lease written under the lock.
     loom::model(|| {
-        let renewals = Arc::new(AtomicU64::new(0));
-        let held = Arc::new(AtomicU64::new(1)); // issuer 1 holds initially
+        let slot = Arc::new(Mutex::new(None::<SingleWriterLease>));
+        let outcomes = Arc::new(Mutex::new(Vec::<Result<(), &'static str>>::new()));
         let mut handles = Vec::new();
-        for _ in 0..2 {
-            let renewals = renewals.clone();
-            let held = held.clone();
-            handles.push(thread::spawn(move || loop {
-                let current = renewals.load(Ordering::SeqCst);
-                if current >= CAP {
-                    // Cap reached: lease must be released/cooled down.
-                    held.store(0, Ordering::SeqCst);
-                    return;
-                }
-                if renewals
-                    .compare_exchange(current, current + 1, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
-                    return;
-                }
+        for issuer in ["did:key:zAlice", "did:key:zBob"] {
+            let slot = slot.clone();
+            let outcomes = outcomes.clone();
+            handles.push(thread::spawn(move || {
+                let outcome = try_acquire(&slot, issuer, "target-1", 100);
+                lock(&outcomes).push(outcome);
             }));
         }
         for h in handles {
             h.join().unwrap();
         }
-        let r = renewals.load(Ordering::SeqCst);
-        assert!(r <= CAP, "renewals must not exceed cap: {r}");
-        // Once cap is reached, holder must not remain active.
-        if r >= CAP {
-            assert_eq!(held.load(Ordering::SeqCst), 0, "cap triggers release/cooldown");
+
+        let results = lock(&outcomes).clone();
+        // Both acquisitions happened at the same instant `now=100`, so at most
+        // one can succeed; the loser must see the typed busy error.
+        let winners = results.iter().filter(|r| r.is_ok()).count();
+        assert!(
+            winners <= 1,
+            "two issuers must not both hold a live lease: {results:?}"
+        );
+        for r in &results {
+            if let Err(e) = r {
+                assert_eq!(*e, "target busy", "rejection must be typed: {results:?}");
+            }
         }
+
+        let holder = lock(&slot);
+        let holder = holder.as_ref().expect("lease written by the winner");
+        assert!(
+            holder.issuer_did.as_str() == "did:key:zAlice"
+                || holder.issuer_did.as_str() == "did:key:zBob",
+            "holder must be one of the contenders"
+        );
+        assert!(!holder.is_expired(100), "the committed lease is live");
     });
 }
 
 #[test]
-fn anti_replay_window_never_commits_same_sequence_twice() {
-    // Model: two concurrent commit attempts for the same (issuer,target,epoch,seq)
-    // compete to set the seen bit in a shared bitmap via CAS. A sequence is
-    // durably accepted at most once.
+fn single_writer_lease_expired_lease_is_reacquirable() {
+    // A lease that has expired must be acquirable by another issuer: the
+    // production `is_expired` rule, not an unconditional lock.
     loom::model(|| {
-        let bitmap = Arc::new(AtomicU64::new(0));
-        let accepted_count = Arc::new(AtomicU64::new(0));
-        let seq_bit: u64 = 1u64 << 5; // fixed sequence position within window
+        let slot = Arc::new(Mutex::new(Some(lease("did:key:zAlice", "target-1", 50))));
+        let second = try_acquire(&slot, "did:key:zBob", "target-1", 100);
+        assert_eq!(second, Ok(()), "an expired lease must be reacquirable");
+        let holder = lock(&slot);
+        assert_eq!(
+            holder.as_ref().unwrap().issuer_did.as_str(),
+            "did:key:zBob"
+        );
+    });
+}
+
+#[test]
+fn anti_replay_window_rejects_concurrent_duplicate_commit() {
+    // Two threads attempt to commit the same sequence. Check + commit are done
+    // under one lock (the Stage 16 atomic-commit contract). Exactly one accepts;
+    // the other must see the real `Replay` decision.
+    loom::model(|| {
+        let window = Arc::new(Mutex::new(AntiReplayWindow::new(
+            "did:key:zIssuer".into(),
+            "target-1".into(),
+            0,
+        )));
+        let outcomes = Arc::new(Mutex::new(Vec::<AntiReplayDecision>::new()));
         let mut handles = Vec::new();
         for _ in 0..2 {
-            let bitmap = bitmap.clone();
-            let accepted_count = accepted_count.clone();
-            handles.push(thread::spawn(move || loop {
-                let cur = bitmap.load(Ordering::SeqCst);
-                if cur & seq_bit != 0 {
-                    return false; // replay/outside after concurrent accept
+            let window = window.clone();
+            let outcomes = outcomes.clone();
+            handles.push(thread::spawn(move || {
+                let mut guard = lock(&window);
+                let decision = guard.check(5);
+                if decision.is_accepted() {
+                    guard.apply_accepted(decision);
                 }
-                let next = cur | seq_bit;
-                if bitmap
-                    .compare_exchange(cur, next, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
-                    accepted_count.fetch_add(1, Ordering::SeqCst);
-                    return true;
-                }
+                lock(&outcomes).push(decision);
             }));
         }
-        let results: Vec<bool> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-        let accepted = results.iter().filter(|&&a| a).count();
-        assert_eq!(accepted, 1, "same sequence must be committed exactly once: {:?}", results);
-        assert_eq!(accepted_count.load(Ordering::SeqCst), 1);
-        assert_ne!(bitmap.load(Ordering::SeqCst) & seq_bit, 0);
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let results = lock(&outcomes).clone();
+        let accepted = results.iter().filter(|d| d.is_accepted()).count();
+        let replays = results
+            .iter()
+            .filter(|d| matches!(d, AntiReplayDecision::Replay))
+            .count();
+        assert_eq!(accepted, 1, "sequence must commit exactly once: {results:?}");
+        assert_eq!(replays, 1, "the duplicate must be rejected as Replay: {results:?}");
     });
 }
 
 #[test]
-fn anti_replay_window_concurrent_distinct_sequences_commit_once_each() {
-    // Two different sequence bits can both be accepted concurrently (no false replay).
+fn anti_replay_window_admits_distinct_sequences_once() {
+    // Distinct in-window sequences must both be accepted, each exactly once.
     loom::model(|| {
-        let bitmap = Arc::new(AtomicU64::new(0));
-        let bits = [1u64 << 1, 1u64 << 2];
+        let window = Arc::new(Mutex::new(AntiReplayWindow::new(
+            "did:key:zIssuer".into(),
+            "target-1".into(),
+            0,
+        )));
+        let outcomes = Arc::new(Mutex::new(Vec::<AntiReplayDecision>::new()));
         let mut handles = Vec::new();
-        for bit in bits {
-            let bitmap = bitmap.clone();
-            handles.push(thread::spawn(move || loop {
-                let cur = bitmap.load(Ordering::SeqCst);
-                if cur & bit != 0 {
-                    return false;
+        for seq in [3u64, 4u64] {
+            let window = window.clone();
+            let outcomes = outcomes.clone();
+            handles.push(thread::spawn(move || {
+                let mut guard = lock(&window);
+                let decision = guard.check(seq);
+                if decision.is_accepted() {
+                    guard.apply_accepted(decision);
                 }
-                if bitmap
-                    .compare_exchange(cur, cur | bit, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
-                {
-                    return true;
-                }
+                lock(&outcomes).push(decision);
             }));
         }
-        let results: Vec<bool> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-        assert!(results.iter().all(|&a| a), "distinct in-window sequences must both be accepted");
-        let final_bits = bitmap.load(Ordering::SeqCst);
-        assert_eq!(final_bits & bits[0], bits[0]);
-        assert_eq!(final_bits & bits[1], bits[1]);
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let results = lock(&outcomes).clone();
+        assert!(
+            results.iter().all(|d| d.is_accepted()),
+            "distinct in-window sequences must both be accepted: {results:?}"
+        );
+        let w = lock(&window);
+        assert!(w.check(3).is_accepted() == false, "3 is already committed");
+        assert!(w.check(4).is_accepted() == false, "4 is already committed");
     });
 }

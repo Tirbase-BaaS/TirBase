@@ -760,14 +760,17 @@ pub fn admit_stages_0_to_15(
             &cmd.target_id,
         );
     }
-    if claims.role != CommandRole::CommandIssuer {
-        // v1 command path requires CommandIssuer; admin roles use other paths.
+    // CLAIM-56.1 / task 9.6: command admission is authorized by the table-driven
+    // `AUTHORIZATION_MATRIX` (the single source of truth), not by an ad-hoc role
+    // comparison. Every `—` cell therefore denies with a typed matrix error that
+    // is surfaced here as `ScopeViolation`.
+    if let Err(authorization_error) = crate::auth_matrix::check_role_authorization(
+        crate::auth_matrix::AuthOperation::SubmitCommand,
+        claims.role,
+    ) {
         return reject(
             AdmitRejection::ScopeViolation,
-            format!(
-                "token role {:?} not authorized for command admission",
-                claims.role
-            ),
+            format!("{authorization_error} (command admission)"),
             &cmd.issuer_did,
             &cmd.target_id,
         );

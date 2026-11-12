@@ -683,7 +683,15 @@ pub fn verify_decommission_credential(
     device_id: &str,
     credential: &DecommissionCredential,
 ) -> Result<(), EpochError> {
-    if credential.role != CommandRole::RevocationManager {
+    // Task 9.6: decommission authorization is decided by the capability
+    // matrix, not by an ad-hoc role comparison. Any role the matrix denies for
+    // `DecommissionDevice` is rejected identically.
+    if crate::auth_matrix::check_role_authorization(
+        crate::auth_matrix::AuthOperation::DecommissionDevice,
+        credential.role,
+    )
+    .is_err()
+    {
         return Err(EpochError::RevocationManagerRequired {
             role: credential.role,
         });

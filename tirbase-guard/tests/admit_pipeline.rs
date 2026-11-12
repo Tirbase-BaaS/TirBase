@@ -451,3 +451,47 @@ fn simulate_skips_issuer_token_consumption_claim_14_10_16() {
     };
     assert!(h.admit(&cmd, &ctx2).is_ok());
 }
+
+/// Task 9.6 / CLAIM-56.1: a credential for the wrong role is rejected by the
+/// table-driven authorization matrix on the production admission path. Before
+/// 56.1 was wired in, Stage 4 used an ad-hoc `!= CommandIssuer` comparison and
+/// the matrix had no production caller at all.
+#[test]
+fn claim_9_6_wrong_role_tokens_rejected_by_authorization_matrix() {
+    let h = Harness::new(false);
+    let denied_roles = [
+        "PolicyAuthority",
+        "UpdateSigner",
+        "RevocationManager",
+        "Auditor",
+        "TimeAnchor",
+    ];
+    for (index, role) in denied_roles.iter().enumerate() {
+        let tok = create_command_token(
+            h.issuer.did(),
+            role,
+            3600,
+            "pump-1",
+            "speed",
+            &[],
+            &h.root_ca_priv,
+        )
+        .unwrap_or_else(|e| panic!("mint {role} token: {e}"));
+        let cmd = h.cmd(200 + index as u64);
+        let ctx = AdmitContext {
+            ingress: IngressSource::LocalAdmin,
+            source_key: "matrix-test",
+            biscuit_token: Some(&tok),
+            now_est_secs: Some(1_000),
+            simulate: false,
+        };
+        let rejection = h
+            .admit(&cmd, &ctx)
+            .expect_err(&format!("role {role} must be denied on the command path"));
+        assert_eq!(
+            rejection,
+            AdmitRejection::ScopeViolation,
+            "role {role} must be rejected by the authorization matrix"
+        );
+    }
+}
