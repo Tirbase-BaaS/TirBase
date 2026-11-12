@@ -10,9 +10,9 @@
 //! consumption for Stage 0, Stage 9 nonce consumption, and Stage 14 per-issuer
 //! consumption (PV-4.17, CLAIM-14.10, CLAIM-14.16).
 
-// `HashMap` is banned in tirbase-guard and tirbase-sim (clippy::disallowed_types,
-/): hash iteration order is not deterministic, which breaks simulator
-// reproducibility. `BTreeMap` keeps deterministic order and is sufficient here.
+// `HashMap` is banned in tirbase-guard and tirbase-sim (clippy::disallowed_types): hash iteration order
+// is not deterministic, which breaks simulator reproducibility. `BTreeMap` keeps deterministic
+// order and is sufficient here.
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};

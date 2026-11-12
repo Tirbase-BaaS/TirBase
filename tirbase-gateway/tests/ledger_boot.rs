@@ -17,7 +17,7 @@ static REBUILD_PROBE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn tmp(tag: &str) -> PathBuf {
     let u = tirbase_core::traits::monotonic_now();
-    let p = std::env::temp_dir().join(format!("tirbase-task31-{tag}-{u}"));
+    let p = std::env::temp_dir().join(format!("tirbase-ledger-boot-{tag}-{u}"));
     let _ = std::fs::create_dir_all(&p);
     p
 }

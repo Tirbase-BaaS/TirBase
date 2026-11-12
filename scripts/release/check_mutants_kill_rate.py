@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enforce release-time mutation kill rate for security-critical modules.
 
-Task 42.6 / CLAIM-42.6 / PV-2.4:
+CLAIM-42.6 / PV-2.4:
 - Run against cargo-mutants output directory containing outcomes.json.
 - Require >= min kill rate across mutants whose source file path starts with any
   configured critical prefix.

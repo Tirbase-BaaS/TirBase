@@ -31,7 +31,7 @@ use tokio::sync::Notify;
 static N: AtomicU64 = AtomicU64::new(0);
 fn tmp_dir(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!(
-        "tirbase-task13-{tag}-{}-{}",
+        "tirbase-node-mode-lockdown-{tag}-{}-{}",
         std::process::id(),
         N.fetch_add(1, Ordering::Relaxed)
     ));

@@ -50,7 +50,7 @@ budget_value() {
 measurement_line() {
   local kind="$1" value="$2" budget="$3" unit="$4"
   if [[ "$budget" == "0" ]]; then
-    echo "MEASURED ${kind}=${value}${unit} (no numerical budget set — task 44.2 / PV-15.7 measure-first pending)"
+    echo "MEASURED ${kind}=${value}${unit} (no numerical budget set (PV-15.7 measure-first pending))"
   else
     echo "MEASURED ${kind}=${value}${unit} budget=${budget}${unit}"
   fi

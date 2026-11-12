@@ -27,7 +27,7 @@ static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
 fn temp_dir(tag: &str) -> PathBuf {
     let unique = NEXT_DIR.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
-        "tirbase-task35-{tag}-{}-{unique}",
+        "tirbase-gateway-binary-{tag}-{}-{unique}",
         std::process::id()
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");
@@ -511,7 +511,7 @@ fn claim_35_4_local_admin_signed_command_reaches_guard_and_moves_metrics() {
     let request = json!({
         "command": cmd,
         "biscuit_token_hex": hex::encode(&token),
-        "source_key": "task35-binary",
+        "source_key": "gateway-binary",
     })
     .to_string();
 

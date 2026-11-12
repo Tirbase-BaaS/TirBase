@@ -428,7 +428,7 @@ async fn main() -> Result<()> {
         let running = service.spawn_periodic();
         tracing::info!(
             interval_secs,
-            "periodic time anchor beacon broadcast started (task 53.1)"
+            "periodic time anchor beacon broadcast started (time-anchor beacon)"
         );
         Some(running)
     } else {
@@ -736,7 +736,7 @@ async fn main() -> Result<()> {
                         let client = Arc::new(client);
                         tracing::info!(
                             endpoint = client.endpoint(),
-                            "outbound cloud channel starting (task 36.8)"
+                            "outbound cloud channel starting (outbound cloud channel)"
                         );
                         tokio::spawn(client.run());
                     }

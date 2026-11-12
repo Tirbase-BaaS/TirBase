@@ -14,7 +14,7 @@ use tirbase_gateway::security_log::{SecurityEventLog, SecurityLogRetentionConfig
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let d = std::env::temp_dir().join(format!("tirbase-task28-{tag}-{}-{n}", std::process::id()));
+    let d = std::env::temp_dir().join(format!("tirbase-log-flood-sync-{tag}-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
     d

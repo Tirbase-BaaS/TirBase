@@ -28,7 +28,7 @@ use tirbase_types::CommandRole;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
     let u = NEXT.fetch_add(1, Ordering::Relaxed);
-    let d = std::env::temp_dir().join(format!("tirbase-task26-{tag}-{}-{u}", std::process::id()));
+    let d = std::env::temp_dir().join(format!("tirbase-tamper-detection-{tag}-{}-{u}", std::process::id()));
     std::fs::create_dir_all(&d).unwrap();
     d
 }

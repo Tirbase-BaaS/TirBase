@@ -573,7 +573,7 @@ fn admin_enroll_requires_matching_policy_authority_delegation_when_supplied() {
 
 #[test]
 fn admin_status_and_additional_endpoints_over_binary() {
-    let gateway = Gateway::start("task36l", false);
+    let gateway = Gateway::start("admin-endpoints", false);
 
  // ── 36.3k/36.7 Guard status API ────────────────────────────────────────
     let issuer = "did:key:status-issuer";

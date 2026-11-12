@@ -24,7 +24,7 @@ static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
 fn temp_dir(tag: &str) -> PathBuf {
     let unique = NEXT_DIR.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
-        "tirbase-task18-{tag}-{}-{unique}",
+        "tirbase-db-split-{tag}-{}-{unique}",
         std::process::id()
     ));
     std::fs::create_dir_all(&dir).expect("create temp dir");

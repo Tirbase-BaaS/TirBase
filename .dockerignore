@@ -1,4 +1,4 @@
-# Build context for the OCI image (task 37.3).
+# Build context for the OCI image (OCI image build).
 # Only the prebuilt gateway binary (staged into dist/ by the CI job) and its
 # container config are copied into the image.
 *

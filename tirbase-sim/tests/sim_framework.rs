@@ -261,7 +261,7 @@ fn guard_and_sim_sources_do_not_use_hash_map() {
     }
     assert!(
         offenders.is_empty(),
-        "HashMap is banned in tirbase-guard and tirbase-sim (task 38.7): {offenders:?}"
+        "HashMap is banned in tirbase-guard and tirbase-sim (deterministic iteration order): {offenders:?}"
     );
 }
 

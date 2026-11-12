@@ -1,4 +1,4 @@
-# TirBase gateway OCI image (PV-11.4, task 37.3 — CLAIM-37.3).
+# TirBase gateway OCI image (PV-11.4, CLAIM-37.3).
 #
 # The binary is built outside this image with the same glibc baseline as the
 # Debian 11 package (cross/x86_64-unknown-linux-gnu, glibc 2.31), so the image

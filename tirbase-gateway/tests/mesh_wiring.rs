@@ -28,7 +28,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
-        "tirbase-task26-mesh-wiring-{tag}-{}-{n}",
+        "tirbase-mesh-wiring-{tag}-{}-{n}",
         std::process::id()
     ));
     std::fs::create_dir_all(&dir).unwrap();

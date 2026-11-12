@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS quarantine_ledger (
     migration_id BLOB
 );
 
--- PV-6.7 / task 23: replayable CRDT schema quarantine (core-local mirror of derived.db shape).
+-- PV-6.7: replayable CRDT schema quarantine (core-local mirror of derived.db shape).
 CREATE TABLE IF NOT EXISTS schema_quarantine (
     id           BLOB PRIMARY KEY,
     sender_did   TEXT NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS schema_quarantine (
     detail       TEXT
 );
 
--- PV-6.7 / task 23.4: non-replayable rate/oversize quarantine summaries.
+-- PV-6.7: non-replayable rate/oversize quarantine summaries.
 CREATE TABLE IF NOT EXISTS rate_quarantine_summary (
     sender_did     TEXT NOT NULL,
     window_start   INTEGER NOT NULL,

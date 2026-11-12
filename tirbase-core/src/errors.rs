@@ -127,7 +127,7 @@ pub enum TirBaseError {
     UnknownMigrationHash { migration_id: String },
 
  /// (PV-8.5a): Contract migration lacks verified fleet precondition.
-    #[error("Contract migration requires verified fleet precondition (task 37.5 inventory hook): {migration_id}")]
+    #[error("Contract migration requires verified fleet precondition (fleet-inventory dependency hook): {migration_id}")]
     FleetPreconditionMissing { migration_id: String },
 
  /// (PV-8.4): signed postcondition evaluation failed on shadow output.

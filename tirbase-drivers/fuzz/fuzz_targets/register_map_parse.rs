@@ -1,4 +1,6 @@
 #![no_main]
+// SPDX-License-Identifier: AGPL-3.0-only
+
 
 use libfuzzer_sys::fuzz_target;
 use tirbase_drivers::ModbusRegisterMap;

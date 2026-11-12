@@ -16,7 +16,7 @@ fn temp_db(tag: &str) -> std::path::PathBuf {
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "tirbase-task32-{tag}-{}-{n}.db",
+        "tirbase-power-loss-restore-{tag}-{}-{n}.db",
         std::process::id()
     ))
 }

@@ -16,6 +16,6 @@ disallowed-methods = [
 # `tirbase-gateway` were migrated to BTreeMap as well, so the lint is enforced
 # workspace-wide.
 disallowed-types = [
-    { path = "std::collections::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },
-    { path = "std::collections::hash_map::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, task 38.7)" },
+    { path = "std::collections::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, deterministic iteration order)" },
+    { path = "std::collections::hash_map::HashMap", reason = "Use BTreeMap or IndexMap instead: HashMap iteration order is non-deterministic (PV-12, deterministic iteration order)" },
 ]

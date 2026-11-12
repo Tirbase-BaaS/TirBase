@@ -126,7 +126,7 @@ impl ModbusTcpCodec {
     }
 
     fn fpv_to_raw(&self, value: &FixedPointValue) -> Result<i16, DriverError> {
- // Normalize to codec exponent by integer scaling when possible.
+        // Normalize to codec exponent by integer scaling when possible.
         let mut mantissa = value.mantissa;
         let mut exponent = value.exponent;
         while exponent < self.scale_exponent {
@@ -146,7 +146,7 @@ impl ModbusTcpCodec {
             .map_err(|_| DriverError::Codec(format!("value {mantissa} out of i16 register range")))
     }
 
- /// Build FC 03 request (read holding registers).
+    /// Build FC 03 request (read holding registers).
     pub fn build_fc03(&mut self, address: u16, quantity: u16) -> Frame {
         let tid = self.alloc_tid();
         let pdu = [
@@ -162,7 +162,7 @@ impl ModbusTcpCodec {
         out
     }
 
- /// Build FC 04 request (read input registers).
+    /// Build FC 04 request (read input registers).
     pub fn build_fc04(&mut self, address: u16, quantity: u16) -> Frame {
         let tid = self.alloc_tid();
         let pdu = [
@@ -178,7 +178,7 @@ impl ModbusTcpCodec {
         out
     }
 
- /// Build FC 06 request (write single register).
+    /// Build FC 06 request (write single register).
     pub fn build_fc06(&mut self, address: u16, value: u16) -> Frame {
         let tid = self.alloc_tid();
         let pdu = [
@@ -194,7 +194,7 @@ impl ModbusTcpCodec {
         out
     }
 
- /// Build FC 16 request (write multiple registers).
+    /// Build FC 16 request (write multiple registers).
     pub fn build_fc16(&mut self, address: u16, values: &[u16]) -> Frame {
         let tid = self.alloc_tid();
         let quantity = values.len() as u16;
@@ -427,7 +427,7 @@ impl DriverTrait for ModbusTcpCodec {
     fn encode_actuation(&self, permit: &ActuationPermitRef) -> DriverResult<Frame> {
         let mut c = self.clone();
         let raw = self.fpv_to_raw(&permit.value)? as u16;
- // Default to FC 16 (multiple registers) for actuation; also supports single.
+        // Default to FC 16 (multiple registers) for actuation; also supports single.
         Ok(c.build_fc16(self.holding_register, &[raw]))
     }
 
@@ -447,7 +447,7 @@ impl DriverTrait for ModbusTcpCodec {
             }
             0x10 => {
                 decode_write_multiple_response(&adu.pdu, self.holding_register, self.quantity)?;
- // FC16 echoes address/qty only; read-back callers should follow with a read.
+                // FC16 echoes address/qty only; read-back callers should follow with a read.
                 Ok(self.raw_to_fpv(0))
             }
             fc => Err(DriverError::InvalidFrame(format!(
@@ -798,7 +798,7 @@ pub fn open_modbus_rtu(
         Mode::empty(),
     )
     .map_err(std::io::Error::from)?;
- // SAFETY: `nix::fcntl::open` returns a freshly opened fd on success.
+    // SAFETY: `nix::fcntl::open` returns a freshly opened fd on success.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
     let mut tio = termios::tcgetattr(owned.as_fd()).map_err(std::io::Error::from)?;
     termios::cfmakeraw(&mut tio);
@@ -874,7 +874,7 @@ pub fn open_modbus_rtu(
             | LocalFlags::ISIG
             | LocalFlags::IEXTEN,
     );
- // VMIN=0, VTIME in deciseconds for bounded reads.
+    // VMIN=0, VTIME in deciseconds for bounded reads.
     tio.control_chars[termios::SpecialCharacterIndices::VMIN as usize] = 0;
     tio.control_chars[termios::SpecialCharacterIndices::VTIME as usize] =
         ((config.read_timeout_ms / 100).clamp(1, 255)) as u8;
@@ -942,7 +942,7 @@ impl<T: std::io::Read + std::io::Write> ModbusRtuClient<T> {
             .write_all(&frame)
             .and_then(|_| self.transport.flush())
             .map_err(|e| DriverError::Codec(format!("rtu write: {e}")))?;
- // RTU response: unit + pdu + crc(2). resp_len includes unit+pdu+crc.
+        // RTU response: unit + pdu + crc(2). resp_len includes unit+pdu+crc.
         let mut buf = vec![0u8; resp_len];
         read_exact_timeout(&mut self.transport, &mut buf, self.io_timeout, &*self.clock)?;
         let (uid, resp_pdu) = parse_rtu_frame(&buf)?;

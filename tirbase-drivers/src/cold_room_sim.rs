@@ -17,14 +17,14 @@ use crate::driver_trait::{
 /// the same seed/inputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FirstOrderThermalModel {
- /// Temperature in millidegrees Celsius (10^-3).
+    /// Temperature in millidegrees Celsius (10^-3).
     pub temp_mdeg_c: i64,
     pub ambient_mdeg_c: i64,
     pub setpoint_mdeg_c: i64,
     pub compressor_on: bool,
- /// Time constant in seconds.
+    /// Time constant in seconds.
     pub tau_s: i64,
- /// Cooling effect in millidegrees when compressor is on.
+    /// Cooling effect in millidegrees when compressor is on.
     pub cooling_mdeg_c: i64,
     pub step_s: i64,
     seed: u64,
@@ -49,7 +49,7 @@ impl FirstOrderThermalModel {
     }
 
     fn next_u64(&mut self) -> u64 {
- // xorshift64* — deterministic, tiny, no deps.
+        // xorshift64* — deterministic, tiny, no deps.
         let mut x = self.rng_state.wrapping_add(self.seed.rotate_left(7));
         x ^= x >> 12;
         x ^= x << 25;
@@ -58,7 +58,7 @@ impl FirstOrderThermalModel {
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
     }
 
- /// Advance one step. Returns current temperature in millidegrees.
+    /// Advance one step. Returns current temperature in millidegrees.
     pub fn step(&mut self) -> i64 {
         self.update_compressor();
         let cooling = if self.compressor_on {
@@ -68,10 +68,10 @@ impl FirstOrderThermalModel {
         };
         let target = self.ambient_mdeg_c.saturating_add(cooling);
         let delta = target.saturating_sub(self.temp_mdeg_c);
- // dt/tau in fixed-point: step_s / tau_s, scaled by 1_000_000 for integer math.
+        // dt/tau in fixed-point: step_s / tau_s, scaled by 1_000_000 for integer math.
         let tau = self.tau_s.max(1);
         let change = delta.saturating_mul(self.step_s).saturating_mul(1_000_000) / tau / 1_000_000;
- // Deterministic tiny process noise from seed (bounded ±5 mdeg).
+        // Deterministic tiny process noise from seed (bounded ±5 mdeg).
         let noise = ((self.next_u64() % 11) as i64) - 5;
         self.temp_mdeg_c = self
             .temp_mdeg_c
@@ -90,7 +90,7 @@ impl FirstOrderThermalModel {
     }
 
     fn update_compressor(&mut self) {
- // Simple hysteresis: on above setpoint+500 mdeg, off below setpoint-500 mdeg.
+        // Simple hysteresis: on above setpoint+500 mdeg, off below setpoint-500 mdeg.
         if self.temp_mdeg_c > self.setpoint_mdeg_c.saturating_add(500) {
             self.compressor_on = true;
         } else if self.temp_mdeg_c < self.setpoint_mdeg_c.saturating_sub(500) {
@@ -99,7 +99,7 @@ impl FirstOrderThermalModel {
     }
 
     pub fn temperature_fpv(&self) -> FixedPointValue {
- // millidegrees -> exponent -3, unit degC
+        // millidegrees -> exponent -3, unit degC
         FixedPointValue::new(self.temp_mdeg_c, -3, UNIT_DEG_C)
     }
 

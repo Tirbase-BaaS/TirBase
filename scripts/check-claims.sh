@@ -238,7 +238,7 @@ if [[ "${#missing_claims[@]}" -gt 0 ]]; then
   printf '  - %s\n' "${missing_claims[@]}" >&2
   echo "" >&2
   echo "Fix: add a non-empty Test Identifier to each row above, or change its Status to 'Planned'." >&2
-  echo "     See PV-2.2 and task 3.1 for the requirement." >&2
+  echo "     See PV-2.2 for the requirement." >&2
   status=1
 fi
 

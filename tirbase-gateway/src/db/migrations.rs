@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS policy_bundles (
 );
 
 -- Pending multi-party approvals. Schema matches `SqlitePendingApprovalsStore`
--- (task 12.8, CLAIM-12.8, PV-4.10).
+-- (CLAIM-12.8, PV-4.10).
 CREATE TABLE IF NOT EXISTS pending_approvals (
     op_id               TEXT PRIMARY KEY,
     op_type             TEXT NOT NULL,
@@ -546,7 +546,7 @@ CREATE TABLE IF NOT EXISTS device_epoch (
 );
 
 -- Enrollment nonces (PV-3.13). Schema matches `SqliteEnrollmentNonceStore`
--- (task 8.5, CLAIM-8.5).
+-- (CLAIM-8.5).
 CREATE TABLE IF NOT EXISTS enrollment_nonces (
     nonce           BLOB PRIMARY KEY,
     recorded_at_est INTEGER NOT NULL,

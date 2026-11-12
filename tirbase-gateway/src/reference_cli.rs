@@ -129,7 +129,7 @@ pub fn run_mqtt_smoke(
         .context("parse CA cert PEM")?;
     let cfg = client_config_with_roots(certs, false).map_err(|e| anyhow::anyhow!("{e}"))?;
     let mut client =
-        MqttTlsClient::connect_mqtts(uri, "tirbase-gateway-task34", cfg, Duration::from_secs(5))
+        MqttTlsClient::connect_mqtts(uri, "tirbase-gateway-reference-profile", cfg, Duration::from_secs(5))
             .map_err(|e| anyhow::anyhow!("{e}"))?;
     client
         .publish_qos0(topic, payload.as_bytes())

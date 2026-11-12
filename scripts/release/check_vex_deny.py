@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate a release-specific cargo-deny config that also bans crates flagged in VEX.
 
-Task 42.4 / CLAIM-42.4 / PV-14.4:
-- Start from the per-PR deny.toml (task 2.2).
+CLAIM-42.4 / PV-14.4:
+- Start from the per-PR deny.toml.
 - Read a CycloneDX VEX document and treat any vulnerability marked as affected
   (or not explicitly not_affected/fixed) as a release-blocking signal for the
   component it names.
