@@ -12,10 +12,12 @@
   ],
   "scripts": {
     "build:wasm": "wasm-pack build --target web --out-dir ../tirbase-sdk/wasm ../tirbase-core --no-default-features --features wasm && node ./scripts/prepare-wasm-package.mjs",
+    "build:wasm:test": "wasm-pack build --target nodejs --out-dir ../tirbase-sdk/wasm-test ../tirbase-core --no-default-features --features wasm && node ./scripts/prepare-wasm-test-package.mjs",
     "build:ts": "tsc --project tsconfig.json",
     "build": "npm run build:wasm && npm run build:ts",
-    "pretest": "npm run build:wasm",
+    "pretest": "npm run build:wasm && npm run build:wasm:test",
     "test": "jest",
+    "test:wasm-e2e": "jest src/__tests__/tirbase-wasm.test.ts src/__tests__/tirbase-manager-ops.wasm.test.ts",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit"
   },

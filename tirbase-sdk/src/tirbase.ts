@@ -84,7 +84,7 @@ export class TirBase {
    */
   private static _wasmLoader: (
     config: InitConfig,
-  ) => Promise<WasmCore> = async (_config) => loadWasmCore();
+  ) => Promise<WasmCore> = async (config) => loadWasmCore(config);
 
   // ── constructor (private) ─────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ export class TirBase {
    * Call in test `afterEach` / `afterAll` to avoid test pollution.
    */
   static _resetWasmLoader(): void {
-    TirBase._wasmLoader = async (_config) => loadWasmCore();
+    TirBase._wasmLoader = async (config) => loadWasmCore(config);
   }
 
   // ── Guard ─────────────────────────────────────────────────────────────────
@@ -273,6 +273,32 @@ export class TirBase {
    */
   get meshStatus(): MeshStatus {
     return this._meshStatus;
+  }
+
+  /**
+   * This device's `did:key:` DID (Req 7.1).
+   *
+   * Delegates to `core_local_did`; stable for the lifetime of the instance.
+   */
+  get localDid(): string {
+    this._assertInitialized();
+    return this._wasm.localDid();
+  }
+
+  /**
+   * Drain the DRR scheduler and return the wire frames to send to peers.
+   *
+   * Each returned `Uint8Array` is a fully framed `GossipMessage` produced by
+   * the production transport (Delta, Delta fragment, or Revocation_Delta
+   * envelope). A JS transport delivers the bytes to a remote peer, whose SDK
+   * feeds them to [`receivePeerMessage`]. This is the send half of the WASM
+   * mesh path; `receivePeerMessage` is the receive half.
+   *
+   * @param linkCapacityBytes  DRR epoch budget in bytes (default 1 MiB).
+   */
+  drainOutboundMessages(linkCapacityBytes?: number): Uint8Array[] {
+    this._assertInitialized();
+    return this._wasm.drainOutboundMessages(linkCapacityBytes);
   }
 
   /**
@@ -424,6 +450,12 @@ export class TirBase {
       const type = event['type'] as string | undefined;
       switch (type) {
         case 'trustLevelChanged': {
+          // Manager operations can revoke a *peer* device. Only a change to
+          // this device's own DID may move the SDK's local trust level.
+          const changedDid = String(event['did'] ?? '');
+          if (changedDid !== '' && changedDid !== this._wasm.localDid()) {
+            break;
+          }
           const newLevel = String(event['new']).toUpperCase() as TrustLevel;
           this._applyTrustLevelChange(newLevel);
           break;
@@ -478,47 +510,113 @@ export class TirBase {
    */
   private _parseIco(raw: unknown): IncidentContextObject {
     const r = raw as Record<string, unknown>;
-    const compositeOf = r['composite_of'] as string[] | null | undefined;
+    const compositeOf = (r['composite_of'] ?? r['compositeOf']) as
+      | unknown[]
+      | null
+      | undefined;
+    const roots = (r['contamination_roots'] ??
+      r['contaminationRoots'] ??
+      []) as unknown[];
+    const affectedRows = (r['affected_rows'] ??
+      r['affectedRows'] ??
+      []) as Record<string, unknown>[];
+    const auditLog = (r['audit_log'] ?? r['auditLog'] ?? []) as Record<
+      string,
+      unknown
+    >[];
     const ico: IncidentContextObject = {
       id: String(r['id'] ?? ''),
+      // The Rust ICO serialises `IncidentState` with its Debug-style variant
+      // name (`"Open"`, `"Closed"`, or an externally tagged
+      // `{"SupersededBy": ...}` object).
       state:
-        String(r['state'] ?? 'Open').toLowerCase() === 'closed'
+        String(
+          typeof r['state'] === 'string'
+            ? r['state']
+            : Object.keys((r['state'] ?? {}) as object)[0] ?? 'Open',
+        ).toLowerCase() === 'closed'
           ? 'CLOSED'
           : 'OPEN',
       taintSource: this._parseTaintSource(
         r['taint_source'] ?? r['taintSource'],
       ),
-      contaminationRoots: (
-        (r['contamination_roots'] ?? r['contaminationRoots'] ?? []) as string[]
-      ),
+      contaminationRoots: roots.map((root) => this._hexId(root)),
       affectedTableCount: Number(
-        r['affected_table_count'] ?? r['affectedTableCount'] ?? 0,
+        r['affected_table_count'] ??
+          r['affectedTableCount'] ??
+          new Set(affectedRows.map((row) => String(row['table'] ?? ''))).size,
       ),
       affectedRowCount: Number(
-        r['affected_row_count'] ?? r['affectedRowCount'] ?? 0,
+        r['affected_row_count'] ??
+          r['affectedRowCount'] ??
+          affectedRows.length,
       ),
-      affectedRows: (
-        (r['affected_rows'] ?? r['affectedRows'] ?? []) as AffectedRow[]
-      ),
+      affectedRows: affectedRows.map((row): AffectedRow => ({
+        table: String(row['table'] ?? ''),
+        rowKey: String(row['row_key'] ?? row['rowKey'] ?? row['key'] ?? ''),
+        deltaId: this._hexId(row['delta_id'] ?? row['deltaId']),
+      })),
       createdAt: new Date(
         Number(r['created_at'] ?? r['createdAt'] ?? 0) / 1000,
       ),
       updatedAt: new Date(
         Number(r['updated_at'] ?? r['updatedAt'] ?? 0) / 1000,
       ),
-      auditLog: [],
+      auditLog: auditLog.map((entry) => ({
+        operation:
+          String(entry['operation'] ?? 'VerifyData').toLowerCase() ===
+          'adminclose'
+            ? 'ADMIN_CLOSE'
+            : 'VERIFY_DATA',
+        managerDid: String(entry['manager_did'] ?? entry['managerDid'] ?? ''),
+        utcTimestamp: new Date(
+          Number(entry['utc_timestamp'] ?? entry['utcTimestamp'] ?? 0) / 1000,
+        ),
+        affectedDeltaIds: (
+          (entry['affected_delta_ids'] ??
+            entry['affectedDeltaIds'] ??
+            []) as unknown[]
+        ).map((id) => this._hexId(id)),
+      })),
     };
     if (compositeOf != null) {
-      ico.compositeOf = compositeOf;
+      ico.compositeOf = compositeOf.map((id) => this._hexId(id));
     }
     return ico;
+  }
+
+  /**
+   * Render a Rust identifier as a hex string.
+   *
+   * `DeltaId`/`IncidentId` values cross the WASM boundary either as hex
+   * strings or as `[u8; 32]` JSON arrays; both become lowercase hex.
+   */
+  private _hexId(value: unknown): string {
+    if (Array.isArray(value)) {
+      return value
+        .map((byte) => Number(byte).toString(16).padStart(2, '0'))
+        .join('');
+    }
+    return String(value ?? '');
   }
 
   /**
    * Convert a raw taint_source JSON object to a typed `TaintSource`.
    */
   private _parseTaintSource(raw: unknown): TaintSource {
-    const r = (raw ?? {}) as Record<string, unknown>;
+    // The Rust enum serialises externally tagged:
+    //   {"DeviceRevocation": {"revocation_delta_id": [...]}}
+    // or already-flattened camel/snake-case objects in older shapes.
+    const outer = (raw ?? {}) as Record<string, unknown>;
+    const variant = ['DeviceRevocation', 'BadMigration', 'HumanReaction'].find(
+      (name) => outer[name] !== undefined,
+    );
+    const r = variant
+      ? ({ ...(outer[variant] as object), tag: variant } as Record<
+          string,
+          unknown
+        >)
+      : outer;
     const tag = String(r['tag'] ?? r['type'] ?? 'DeviceRevocation');
     if (tag === 'BadMigration' || tag === 'BAD_MIGRATION') {
       return {
@@ -534,7 +632,7 @@ export class TirBase {
     }
     return {
       type: 'DEVICE_REVOCATION',
-      revocationDeltaId: String(r['revocation_delta_id'] ?? ''),
+      revocationDeltaId: this._hexId(r['revocation_delta_id'] ?? ''),
     };
   }
 
@@ -552,6 +650,7 @@ export class TirBase {
   }): Promise<void> {
     this._assertInitialized();
     await this._wasm.initiateRevocation(params.targetDid, params.managerToken);
+    this._pollWasmEvents();
   }
 
   /**
@@ -561,7 +660,9 @@ export class TirBase {
     targetDid: string;
   }): Promise<RevocationStatus> {
     this._assertInitialized();
-    return this._wasm.revocationStatus(params.targetDid);
+    const status = await this._wasm.revocationStatus(params.targetDid);
+    this._pollWasmEvents();
+    return status;
   }
 
   /**
@@ -578,6 +679,7 @@ export class TirBase {
       params.managerToken,
       params.nowSecs,
     );
+    this._pollWasmEvents();
   }
 
   /**
@@ -590,6 +692,7 @@ export class TirBase {
   }): Promise<void> {
     this._assertInitialized();
     await this._wasm.adminClose(params.incidentId, params.managerToken, params.nowSecs);
+    this._pollWasmEvents();
   }
 
   /**
@@ -605,6 +708,7 @@ export class TirBase {
     await this._wasm.activateSaturateMode(
       params.biscuitTokenHex,
     );
+    this._pollWasmEvents();
   }
 
   /**
@@ -621,6 +725,7 @@ export class TirBase {
   }): Promise<void> {
     this._assertInitialized();
     await this._wasm.renewSaturateMode(params.biscuitTokenHex);
+    this._pollWasmEvents();
   }
 
   /**
@@ -643,6 +748,7 @@ export class TirBase {
       params.terminationMessageHex,
       params.coManagerSignatures,
     );
+    this._pollWasmEvents();
   }
 
   /**
@@ -661,17 +767,23 @@ export class TirBase {
    * @param bytes  Raw `GossipMessage` bytes as produced by `GossipMessage::to_bytes()`
    *               on the Rust side.  Must be a `Uint8Array`.
    */
-  receivePeerMessage(bytes: Uint8Array): void {
+  async receivePeerMessage(bytes: Uint8Array): Promise<void> {
     if (!this._initialized) {
       // Silently ignore if not yet initialised — the SDK may not be set up yet
-      // when transport bytes arrive.  Callers that need error visibility can
-      // wrap in a try/catch after calling this method.
+      // when transport bytes arrive.
       return;
     }
-    // Fire-and-forget: the underlying WASM call is async but we expose a
-    // synchronous entry point matching the WebRTC `ondatachannel` pattern.
-    // Errors are logged inside receive_inbound_wasm; they don't propagate here.
-    void this._wasm.receiveMessage?.(bytes);
+    const receive = this._wasm.receiveMessage;
+    if (receive === undefined) {
+      return;
+    }
+    // Await the WASM inbound pipeline so a transport that wants to know when
+    // the merge (and any side-effect events) has completed can do so. Callers
+    // that fire-and-forget may ignore the returned promise; awaiting it is
+    // still the correct way to sequence a send (`drainOutboundMessages`) with
+    // the peer's receive and read.
+    await receive.call(this._wasm, bytes);
+    this._pollWasmEvents();
   }
 
   // ── Deployment config helpers ─────────────────────────────────────────────
@@ -680,8 +792,11 @@ export class TirBase {
    * Normalise an `InitConfig` for passing to the Rust Core.
    * Fills in default DeploymentConfig values where omitted.
    */
-  static _normaliseConfig(config: InitConfig): Required<InitConfig> {
-    const defaults: Required<DeploymentConfig> = {
+  static _normaliseConfig(config: InitConfig): {
+    storagePath: string;
+    deploymentConfig: DeploymentConfig;
+  } {
+    const defaults: DeploymentConfig = {
       revocationM: 2,
       revocationN: 3,
       biscuitTtlSecs: 3600,

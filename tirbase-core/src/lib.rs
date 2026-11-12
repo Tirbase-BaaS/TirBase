@@ -84,6 +84,10 @@ use wasm_bindgen::prelude::*;
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum WasmEvent {
     TrustLevelChanged {
+        /// DID whose trust level changed. Manager operations can revoke a
+        /// *peer* device, so the SDK must not apply this to the local device
+        /// unless the DID matches its own.
+        did: String,
         previous: String,
         new: String,
     },
@@ -250,13 +254,41 @@ mod wasm_exports {
  /// order, oldest → newest (Req 18.3a). An empty array is the explicit
  /// unconfigured state: no version step validates until the path is
  /// registered (Subphase 5.1).
+ ///
+ /// `deployment_json` — optional JSON object carrying the deployment
+ /// thresholds the SDK's `InitConfig.deploymentConfig` exposes
+ /// (`revocation_m`, `revocation_n`, `biscuit_ttl_secs`,
+ /// `anchor_attested_location`, `spatial_diversity_min`, `quorum_k`,
+ /// `quorum_n`, `saturate_lease_duration_secs`). `None`/empty keeps the spec
+ /// defaults (1-of-1 revocation, 1-of-1 quorum, 60-minute Saturate lease).
+ /// Unknown fields are rejected so a typo in the SDK config cannot be
+ /// silently ignored.
     #[wasm_bindgen]
     pub async fn core_init(
         storage_path: String,
         root_ca_keys_hex: Vec<String>,
         migration_ca_key_hex: Option<String>,
         schema_version_path_hex: Vec<String>,
+        deployment_json: Option<String>,
     ) -> Result<(), JsValue> {
+        #[derive(Debug, Default, serde::Deserialize)]
+        #[serde(default, deny_unknown_fields, rename_all = "snake_case")]
+        struct DeploymentOverrides {
+            revocation_m: Option<usize>,
+            revocation_n: Option<usize>,
+            biscuit_ttl_secs: Option<u64>,
+            anchor_attested_location: Option<bool>,
+            spatial_diversity_min: Option<usize>,
+            quorum_k: Option<usize>,
+            quorum_n: Option<usize>,
+            saturate_lease_duration_secs: Option<i64>,
+        }
+
+        let overrides: DeploymentOverrides = match deployment_json.as_deref() {
+            Some(raw) if !raw.trim().is_empty() => serde_json::from_str(raw)
+                .map_err(|e| to_js_err(format!("deployment_json: {e}")))?,
+            _ => DeploymentOverrides::default(),
+        };
         let mut root_ca_keys = Vec::with_capacity(root_ca_keys_hex.len());
         for key_hex in &root_ca_keys_hex {
             root_ca_keys.push(decode_root_ca_key_hex(key_hex)?);
@@ -273,9 +305,9 @@ mod wasm_exports {
             storage_path,
             listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
             deployment: api::DeploymentConfig {
-                revocation_m: 1,
-                revocation_n: 1,
-                biscuit_ttl_secs: 3600,
+                revocation_m: overrides.revocation_m.unwrap_or(1),
+                revocation_n: overrides.revocation_n.unwrap_or(1),
+                biscuit_ttl_secs: overrides.biscuit_ttl_secs.unwrap_or(3600),
  // WASM export surface hardcodes the default 1h TTL, which is
  // within the 1h–24h default range, so no accepted-risk override
  // is granted here.
@@ -288,15 +320,18 @@ mod wasm_exports {
  // definitions; field-level additive-vs-breaking classification
  // (Subphase 5.3) is a native deployment-config capability.
                 schema_definitions: vec![],
-                anchor_attested_location: false,
+                anchor_attested_location: overrides.anchor_attested_location.unwrap_or(false),
                 beacon_public_keys: vec![],
-                spatial_diversity_min: 1,
+                spatial_diversity_min: overrides.spatial_diversity_min.unwrap_or(1),
                 max_single_sector_fraction: 0.7,
-                quorum_k: 1,
-                quorum_n: 1,
- // Spec-default 60-minute Saturate_Mode lease window (Req 13.3);
- // the WASM export surface does not expose lease-duration tuning.
-                saturate_lease_duration_secs: 3600,
+                quorum_k: overrides.quorum_k.unwrap_or(1),
+                quorum_n: overrides.quorum_n.unwrap_or(1),
+ // Spec-default 60-minute Saturate_Mode lease window (Req 13.3),
+ // overridable by the deployment so runtime tests and deployments
+ // with a shorter failover window can tune it.
+                saturate_lease_duration_secs: overrides
+                    .saturate_lease_duration_secs
+                    .unwrap_or(3600),
                 mesh_mtu: 0,
                 beacon_signal_loss_threshold_secs: 300,
             },
@@ -517,11 +552,59 @@ mod wasm_exports {
         json_to_js(&js).unwrap_or(JsValue::NULL)
     }
 
+ /// Return this device's `did:key:` DID (Req 7.1).
+ ///
+ /// Manager operations that target the local device (e.g. revoking the
+ /// current identity to prove the write gate) need the DID the WASM instance
+ /// was initialised with. The value is stable for the lifetime of the CORE
+ /// slot.
+    #[wasm_bindgen]
+    pub fn core_local_did() -> Result<js_sys::JsString, JsValue> {
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow
+                .as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            Ok(js_sys::JsString::from(handle.local_did()))
+        })
+    }
+
+ /// Drain the DRR scheduler and return the wire frames the JavaScript
+ /// transport must deliver to peers.
+ ///
+ /// Each element is a `Uint8Array` carrying one `GossipMessage` payload
+ /// (possibly a fragment when the deployment MTU is small). A JS transport
+ /// calls this after a write (and on its own cadence) and hands the bytes to
+ /// the remote peer, which feeds them to `core_receive_peer_message`. This is
+ /// the send half of the WASM mesh path: without it the SDK could receive
+ /// peer messages but never produce one.
+ ///
+ /// `link_capacity_bytes` is the DRR epoch budget (Default-Share forwarding),
+ /// mirroring the native scheduler tick.
+    #[wasm_bindgen]
+    pub fn core_drain_outbound_messages(
+        link_capacity_bytes: u32,
+    ) -> Result<js_sys::Array, JsValue> {
+        CORE.with(|c| {
+            let borrow = c.borrow();
+            let handle = borrow
+                .as_ref()
+                .ok_or_else(|| to_js_err("core_init() must be called first"))?;
+            let frames = handle
+                .transport
+                .lock()
+                .map_err(|e| to_js_err(format!("transport mutex poisoned: {e}")))?
+                .drain_outbound_frames(u64::from(link_capacity_bytes))
+                .map_err(to_js_err)?;
+            let out = js_sys::Array::new();
+            for frame in frames {
+                out.push(&js_sys::Uint8Array::from(frame.as_slice()));
+            }
+            Ok(out)
+        })
+    }
+
  // ── Manager operations ────────────────────────────────────────────────────
- //
- // These map to the manager-facing `WasmCore` methods in wasm-bridge.ts.
- // Full P2P gossip and CCE integration requires native-only transports;
- // on WASM the operations are accepted (no error) but are no-ops for v1.
 
  /// Gossip a partial RevocationDelta for the target DID (Req 9.1).
  ///

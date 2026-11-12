@@ -14,7 +14,8 @@
   "scripts": {
     "generate": "node ../../scripts/generate-gateway-sdk.mjs",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/gateway-admin.e2e.test.mjs"
   },
   "devDependencies": {
     "typescript": "5.8.3"

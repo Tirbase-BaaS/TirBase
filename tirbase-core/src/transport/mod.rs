@@ -744,6 +744,39 @@ impl MeshTransport {
         self.scheduler.enqueue(queued);
     }
 
+ /// Drain the DRR scheduler and return the serialised wire frames a host
+ /// transport must send.
+ ///
+ /// This is the WASM counterpart of [`Self::tick_scheduler`]: on WASM there
+ /// is no libp2p Swarm or outbound channel, so the JavaScript transport owns
+ /// delivery. Each returned `Vec<u8>` is a full `GossipMessage` payload (the
+ /// output of `prepare_outbound(...).to_bytes()`), exactly as the native
+ /// Swarm publish path frames it. Synthetic revocation envelopes
+ /// (`author_did == "tirbase/revocation"`, produced by
+ /// `enqueue_revocation_gossip`) already carry a pre-framed `GossipMessage`
+ /// in `automerge_bytes` and are returned verbatim so the receiver can
+ /// dispatch them as `InboundRevocationDelta`.
+ ///
+ /// Production caller on WASM: `core_drain_outbound_messages` (lib.rs).
+    #[cfg(not(feature = "native"))]
+    pub(crate) fn drain_outbound_frames(
+        &mut self,
+        link_capacity_bytes: u64,
+    ) -> Result<Vec<Vec<u8>>, TirBaseError> {
+        let drained = self.scheduler.tick(link_capacity_bytes);
+        let mut frames = Vec::new();
+        for queued in drained {
+            if queued.delta.author_did == "tirbase/revocation" {
+                frames.push(queued.delta.automerge_bytes.clone());
+                continue;
+            }
+            for msg in self.prepare_outbound(&queued.delta)? {
+                frames.push(msg.to_bytes());
+            }
+        }
+        Ok(frames)
+    }
+
  // ── Fragmentation ─────────────────────────────────────────────────────────
 
  /// Serialise and optionally fragment a Delta for transmission (Req 5.7).

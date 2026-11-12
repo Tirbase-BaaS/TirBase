@@ -206,9 +206,28 @@ export interface SaturateManagerSignature {
  * Deployment-specific configuration matching Rust `DeploymentConfig`.
  */
 export interface DeploymentConfig {
+  /**
+   * Hex-encoded Ed25519 root CA public keys (64 hex chars each) trusted for
+   * offline Biscuit-token verification. Empty/omitted is the explicit
+   * unconfigured state: no token verifies until a key is supplied here.
+   */
+  rootCaPublicKeys?: string[];
+  /**
+   * Hex-encoded Ed25519 Migration CA public key. Omitted is the explicit
+   * unconfigured state: no inbound Migration_Delta verifies (Req 18.2).
+   */
+  migrationCaPublicKey?: string;
+  /**
+   * Ordered schema-version path (hex-encoded hashes, oldest → newest) used as
+   * the migration version gate (Req 18.3a).
+   */
+  schemaVersionPath?: string[];
   /** Revocation threshold M (signatures required). */
   revocationM?: number;
-  /** Revocation threshold N (total manager DIDs). */
+  /**
+   * Revocation threshold N (total manager DIDs). Also supplies the M-of-N
+   * Manager-signature threshold for Saturate_Mode termination (Req 13.6).
+   */
   revocationN?: number;
   /** Biscuit token TTL in seconds (1h–24h). */
   biscuitTtlSecs?: number;

@@ -1,6 +1,6 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1 of 8 (inventory + foundations)
+**Workstream:** 1–2 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK)
 **Branch:** `main`
 **Baseline HEAD:** `5bea300`
 **Last updated:** 2026-11-12
@@ -72,7 +72,7 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-09 | MTU discovery + per-path fragmentation (L138) | `transport/{session,fragment}.rs`, production send | `wired` | `real_mesh_tests` low-MTU round-trip cases (Item 22 in `tests/README.md`) | 1 | — |
 | INV-10 | 0-RTT session resumption (L154) | `transport/session.rs` resume cache | `under-proven` | session unit tests; no live re-dial over the wire | 3 | — |
 | INV-11 | Key rotation and session-cache invalidation (L164/167) | `transport/session.rs`, `auth` | `under-proven` | unit tests only; no rotation mid-mesh e2e | 3 | — |
-| INV-12 | SDK surfaces real-time trust levels (L176) | `tirbase-sdk` `onTrustLevelChanged` ← `core_poll_events` | `under-proven` | real-WASM test proves init trust `Unverified`; event transitions still driven by `MockWasmCore` in `tirbase.test.ts` | 7 | — |
+| INV-12 | SDK surfaces real-time trust levels (L176) | `tirbase-sdk` `onTrustLevelChanged` ← `core_poll_events` | **`wired`** | `tirbase-manager-ops.wasm.test.ts`: `presentToken` moves a real WASM instance to `VERIFIED` and emits `trust-level-changed`; an invalid token leaves `UNVERIFIED` plus the unverified warning; a peer revocation no longer mutates the local level (`TrustLevelChanged` now carries `did`) | 7 | WS2 |
 | INV-13 | M-of-N revocation accumulates gossip across peers (L235) | `auth` revocation collector ← `receive_inbound` revocation deltas | `under-proven` | `revocation_delta_enqueued_at_high_priority_after_threshold_met` + property 7; not accumulated from two live peers | 3 | — |
 | INV-14 | A node one gossip round from the mesh isolates a revoked device (L255) | `auth`/`api` revocation application | `under-proven` | threshold logic tested; no timed e2e isolation assertion | 3 | — |
 | INV-15 | Contamination forward trace identifies tainted devices (L260/262) | `contamination` → `verify_contamination` | `under-proven` | composite-incident + revocation mesh tests exist; no revoked-author → CCE tag e2e | 6 | — |
@@ -87,8 +87,8 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-24 | LOW-priority peer guaranteed service within 10 epochs (L460/462) | `transport/scheduler.rs` | `under-proven` | property 13; not measured end-to-end | 5 | — |
 | INV-25 | Each table is a separate Automerge document (L464) | `crdt/mod.rs` uses **one** `AutoCommit` with per-table keys | `stale-docs` (claim is false) | inspection: single `self.doc`, `_tirbase_table` root keys; compaction keyed by table name only | 2 | — |
 | INV-26 | `CompactionPolicy::None` never compacts (L466) | `store/compaction.rs::should_compact` | `under-proven` | code returns `false`; no test asserts it | 2 | — |
-| INV-27 | TypeScript SDK path is WASM → store → mesh (L468) | `tirbase-sdk/src/wasm-bridge.ts` | `under-proven` (partly closed) | WS1 adds real-WASM write/read/query; mesh leg still mock-driven | 7 | WS1 partial |
-| INV-28 | SDK exposes manager operations (fleet, revocation, checkpoint, challenge) (L473) | `tirbase-sdk` delegation table | `under-proven` | delegation covered by `tirbase.test.ts` with `MockWasmCore`; real exports now parity-checked | 7 | — |
+| INV-27 | TypeScript SDK path is WASM → store → mesh (L468) | `tirbase-sdk/src/wasm-bridge.ts` | **`wired`** (WASM → store → peers) | production init now calls `core_init` with the deployment config; `receivePeerMessage` is async, merges a peer's signed Delta through the real WASM inbound path and polls events; `drainOutboundMessages` exposes real outbound frames. Cloud leg remains INV-02 (WS 4) | 7 | WS2 |
+| INV-28 | SDK exposes manager operations (fleet, revocation, checkpoint, challenge) (L473) | `tirbase-sdk` delegation table | **`wired`** | `tirbase-manager-ops.wasm.test.ts` (11 tests) drives every manager op on real WASM; `sdk/typescript/test/gateway-admin.e2e.test.mjs` drives all 19 `ADMIN_PATHS`/`OPERATION_IDS` through the generated client against the real gateway binary | 7 | WS2 |
 | INV-29 | 22-property suite (10 proptest + 12 deterministic) is wired (L475) | `src/tests/properties.rs`, `Cargo.toml` | `under-proven` | suite runs in CI; several properties are documented gaps (see INV-36…INV-43) | 2 | — |
 
 ### 2.2 README property bullets
@@ -154,6 +154,70 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | B4 | Source-driven API parity instead of hard-coded lists: parses `impl CoreHandle`, `#[wasm_bindgen]` exports in `lib.rs`, and the TS `WasmCore` interface + `required('core_*')` calls, with an explicit documented exclusion policy | `tirbase-core/src/tests/api_parity.rs` | 6/6 pass; injected rename → 2 tests fail, exit 101, file restored |
 | B5 | Mandatory CI gates in the `test` job (no `continue-on-error`, no `|| true`, no `--ignored`): real-mesh suite, projection (binary + JSON), API parity — alongside the pre-existing real-WASM build + SDK tests | `.github/workflows/ci.yml` | local equivalents green (steps 1–8) |
 
+## 3.1 WS2 — TypeScript manager ops + gateway admin SDK (PROMPT 2 of 8)
+
+Scope: `tirbase-sdk/` manager operations and `sdk/typescript/` only. Rows INV-12/INV-27/INV-28.
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | `loadWasmCore` never called `core_init`; the whole SDK ran on `MockWasmCore` | `initialiseCore(mod, config)` performs the real init; `loadWasmCore(config?, wasmUrl?)` forwards `InitConfig` |
+| 2 | `core_init` hard-coded M=1/N=1 deployment thresholds, so M-of-N was impossible from WASM | optional 5th `deployment_json` arg (`deny_unknown_fields`), sourced from `InitConfig.deploymentConfig` |
+| 3 | Revocation gossip was only enqueued under `#[cfg(test)]`/native, so a WASM device never produced peer revocation bytes | `enqueue_revocation_gossip` unconditional; `core_drain_outbound_messages` + `MeshTransport::drain_outbound_frames` expose the frames; WASM `write()` enqueues outbound |
+| 4 | `TrustLevelChanged` had no `did`, so a peer's revocation marked the *local* device REVOKED | event carries `did`; SDK applies it only when `did === localDid()` |
+| 5 | `read`/`query` always reported `contaminated: false`; `verify_data` never cleared resolved rows on WASM | both consult the CCE; WASM `verify_data` removes resolved rows (native parity) |
+| 6 | Trust-level spelling mismatch (`Unverified` vs `UNVERIFIED`) leaked into the SDK type | `normalizeTrustLevel` at the bridge boundary |
+| 7 | wasm-bindgen rejects with bare strings, breaking the SDK's `Error` contract | every export goes through `call`/`callAsync` → `asCoreError()` (`name: 'TirBaseCoreError'`) |
+| 8 | The `caveat("disaster-alert")` token had no production minting path, so `activate_saturate_mode` was unreachable outside tests | `create_token_with_caveat` keeps production signing, gated on `test`/`test-hooks`; documented as a blocker below |
+
+### Tests added (fail-before / pass-after)
+
+| Suite | File | Cases |
+|-------|------|-------|
+| Real-WASM manager operations | `tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts` | 11 |
+| Real-gateway admin SDK | `sdk/typescript/test/gateway-admin.e2e.test.mjs` | 8 |
+
+Both run against real artefacts: the SDK suite loads a `wasm-pack --target nodejs` build of the same crate/features as the browser bundle (one module copy per simulated device, so each has its own WASM thread-local `CORE`), and the gateway suite boots `target/debug/tirbase-gateway` with the mTLS remote listener and drives `GatewayAdminClient` over real TLS with a client certificate.
+
+Coverage of the manager surface: `initiateRevocation` (partial delta + real outbound frame), two-manager accumulation to the 2-of-3 threshold, contamination incident creation observed by both `pollEvents` and the emitter, `verifyData` root resolution, `adminClose` (archives without certifying), saturate activate/renew/threshold-termination/insufficient-signature rejection, `presentToken` trust transitions + unverified warnings, and `receivePeerMessage` raw-byte peer merge. Gateway coverage: all 19 paths/operation ids, typed success or typed denial for each, `MINT_TTL_EXCEEDED`, anonymous-client handshake rejection.
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cd tirbase-sdk && npx jest` | **101 passed / 101**, 3 suites (was 90/90 before; +11 real-WASM manager tests) |
+| `cargo test -p tirbase-core --features native` | **718 lib passed / 0 failed** + all integration suites |
+| `cargo test -p tirbase-core --features native --lib tests::api_parity` | **6 passed** (parser now also reads `call('core_*')`/`callAsync('core_*')`) |
+| `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
+| `cd sdk/typescript && npm test` | **8 passed / 8** (builds the TS SDK, runs the e2e) |
+| `bash scripts/check-gateway-sdk-generated.sh` | **OK** (generator fixed; see below) |
+| `cargo +nightly public-api -p tirbase-core` | unchanged surface: the caveat minter is `#[cfg(any(test, feature = "test-hooks"))]`, so no manifest churn |
+
+### Generated gateway SDK drift (pre-existing, repaired)
+
+`scripts/check-gateway-sdk-generated.sh` failed on the starting tree: the generator matched path keys with `^\s{2}`, which is satisfied by the newline before each path line except `paths:` itself, so `/admin/enroll` was silently dropped; the committed sources had also been hand-edited (SPDX headers). The generator now matches `^ {1,2}`, emits the SPDX header, and writes the manifest with stable formatting. Output currently equals the committed sources (19 operations, 19 paths); the manifest commit is a whitespace-only reformat.
+
+### CI
+
+- `test` job: `npm test` (both WASM targets via `pretest`, so the real-WASM suites run) plus an explicit `npm run test:wasm-e2e` step.
+- New `gateway-admin-sdk-e2e` job: builds `tirbase-gateway`, installs `sdk/typescript`, runs `npm test` with `TIRBASE_GATEWAY_BIN`.
+
+### Blockers / still-open items (do not mark wired)
+
+1. **DISASTER_ALERT token issuance has no operator-facing surface.** `activate_saturate_mode` requires a root-CA-signed `caveat("disaster-alert")` token, but neither `biscuit::create_token` nor the gateway `mint` endpoint can produce one (mint hard-codes the role → fact mapping and has no caveat field). The e2e mints it with the same production signing code under `test-hooks`. Closing this needs an admin/manager issuance path — a product/API decision, not wiring.
+2. **`initiate_revocation` does not verify the manager token** (it only rejects an empty string). The e2e proves the partial delta and gossip, and that `verify_data`/`admin_close_ico` reject foreign/expired tokens, but the initiation call itself is not authenticated. Flagged for the security owner.
+3. **Signed admin operations are exercised to their auth gate, not through it.** `enroll`/`policy`/`lockdown-exit`/`chain-recovery`/`sequence-reset`/`lease-preempt`/`quarantine-replay`/`time-reset`/`unknown-clear`/`restore`/`epoch-bump` require PolicyAuthority or M-of-3 TimeAnchor `SignedOperation` bodies. Re-implementing the guard's canonical encoding in JavaScript would create a second security-critical implementation, so the TS test asserts the typed answer (never 404/501/silent skip) and the signed success paths stay covered by `tirbase-gateway/tests/admin_endpoints_binary.rs`.
+4. **`sdk/typescript` mTLS uses a custom `fetchImpl`.** The generated client only needs `ok`/`status`/`json()`; the test provides an `https` adapter with a client certificate. Node's global `fetch` cannot present client certificates, so remote admin from a browser/undici client remains unsupported.
+
+### Files
+
+- Core: `src/lib.rs`, `src/api/mod.rs`, `src/transport/mod.rs`, `src/contamination/mod.rs`, `src/auth/biscuit.rs`, `src/auth/revocation.rs`, `src/tests/api_parity.rs`, `examples/wasm_e2e_fixtures.rs`.
+- SDK: `src/wasm-bridge.ts`, `src/tirbase.ts`, `src/types.ts`, `src/__helpers__/real-core.ts`, `src/__tests__/tirbase-manager-ops.wasm.test.ts`, `src/__tests__/tirbase.test.ts` (mock implements the two new `WasmCore` members), `src/__tests__/tirbase-wasm.test.ts` (5-arg `coreInit`), `scripts/prepare-wasm-test-package.mjs`, `package.json`.
+- Gateway: `examples/admin_e2e_setup.rs`; `sdk/typescript/package.json`, `sdk/typescript/test/gateway-admin.e2e.test.mjs`; `scripts/generate-gateway-sdk.mjs`, `sdk/typescript/generation-manifest.json`; `.github/workflows/ci.yml`, `.gitignore`.
+
+Commit for this workstream: the commit that adds this section (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -171,6 +235,9 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 - Charter: `docs/agent/e2e-wiring/00-charter.md`.
 - WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
 - Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
-- WS2 should start from INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
+- WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence, CI jobs and the four items it leaves open
+  (DISASTER_ALERT issuance surface, unauthenticated `initiate_revocation`, signed admin operations proven to the auth
+  gate, and no mTLS-capable browser `fetch`).
+- The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

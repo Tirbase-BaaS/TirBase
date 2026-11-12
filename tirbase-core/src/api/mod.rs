@@ -88,7 +88,6 @@ pub(crate) fn now_secs() -> i64 {
 /// (author `tirbase/revocation`, `PriorityClass::High`); receiving peers parse
 /// the embedded `GossipMessage::InboundRevocationDelta` and accumulate the
 /// signatures via `RevocationSubsystem::process_incoming_delta`.
-#[cfg(feature = "native")]
 fn enqueue_revocation_gossip(
     transport: &mut MeshTransport,
     rev_delta: &crate::auth::RevocationDelta,
@@ -1847,6 +1846,11 @@ impl CoreHandle {
  // durability registration above are already committed, and a device
  // must keep operating while the mesh is unavailable (Req 3.3), so a
  // publish failure is logged rather than failing the write.
+ //
+ // On WASM there is no Swarm: the Delta is placed on the transport's DRR
+ // scheduler and the JavaScript transport drains it via
+ // `core_drain_outbound_messages`, which frames the same
+ // `GossipMessage` payloads the native publish path sends.
         #[cfg(feature = "native")]
         if let Err(e) = self
             .transport
@@ -1860,6 +1864,13 @@ impl CoreHandle {
                 "[write] outbound publish failed for delta {}: {e} — delta remains durably queued",
                 hex::encode(delta.id)
             );
+        }
+
+        #[cfg(not(feature = "native"))]
+        {
+            if let Ok(mut transport) = self.transport.lock() {
+                transport.enqueue_outbound(delta.clone());
+            }
         }
 
  // 7. Collect unverified warning (Req 8.4).
@@ -1923,12 +1934,21 @@ impl CoreHandle {
             })?
             .unverified_warning();
 
+ // Req 10.7/19.5 — report the CCE's active contamination state for this
+ // row instead of hardcoding `false`, so resolution (VERIFY_DATA) is
+ // observable through the read path.
+        let contaminated = self
+            .cce
+            .lock()
+            .map(|cce| cce.is_row_contaminated(table, key))
+            .unwrap_or(false);
+
         Ok(QueryResult {
             table: table.to_string(),
             key: key.to_string(),
             data,
             unverified_warning,
-            contaminated: false,
+            contaminated,
         })
     }
 
@@ -1973,14 +1993,17 @@ impl CoreHandle {
             })?
             .unverified_warning();
 
+        let cce = self.cce.lock().map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("cce mutex poisoned: {e}"),
+        })?;
         let results = rows
             .into_iter()
             .map(|(row_key, data)| QueryResult {
+                contaminated: cce.is_row_contaminated(table, &row_key),
                 table: table.to_string(),
                 key: row_key,
                 data,
                 unverified_warning: unverified_warning.clone(),
-                contaminated: false,
             })
             .collect();
 
@@ -2208,10 +2231,10 @@ impl CoreHandle {
 
  // 2. Gossip the partial delta at HIGH priority so peer Manager devices
  // can accumulate signatures (Req 9.1 — mesh-accumulated model).
- // On WASM there is no Swarm scheduler: the JS transport layer handles
- // peer messaging, so nothing is enqueued here (same as the WASM
- // export's behaviour).
-        #[cfg(feature = "native")]
+ // The synthetic revocation envelope is enqueued on both targets: on
+ // native the Swarm scheduler publishes it, on WASM the JavaScript
+ // transport drains it via `core_drain_outbound_messages` and delivers
+ // the bytes to peers.
         {
             if let Ok(mut transport) = transport_arc.lock() {
                 enqueue_revocation_gossip(&mut transport, &partial);
@@ -2231,60 +2254,32 @@ impl CoreHandle {
                 &partial,
                 &mut |applied_did, complete_delta| {
  // Req 9.2: the threshold is now met — gossip the complete
- // RevocationDelta at HIGH priority.
-                    #[cfg(feature = "native")]
-                    {
-                        eprintln!(
-                            "[initiate] gossiping complete RevocationDelta at HIGH priority for {applied_did}"
-                        );
-                        if let Ok(mut transport) = transport_arc.lock() {
-                            enqueue_revocation_gossip(&mut transport, complete_delta);
-                        }
-                    }
-                    #[cfg(not(feature = "native"))]
-                    {
- // No Swarm scheduler on WASM — the JS transport layer
- // handles peer messaging (best-effort, Req 9.2).
-                        eprintln!(
-                            "[initiate] RevocationDelta threshold met for {applied_did} (WASM: JS transport handles gossip)"
-                        );
+ // RevocationDelta at HIGH priority (native Swarm publish / WASM
+ // JS-transport drain, same synthetic envelope).
+                    eprintln!(
+                        "[initiate] gossiping complete RevocationDelta at HIGH priority for {applied_did}"
+                    );
+                    if let Ok(mut transport) = transport_arc.lock() {
+                        enqueue_revocation_gossip(&mut transport, complete_delta);
                     }
                 },
                 &mut |revoked_did, delta_ids| {
- // Req 10.1: tag all Deltas authored by the revoked DID.
-                    #[cfg(feature = "native")]
-                    {
-                        if let Ok(mut cce) = cce_arc.lock() {
-                            for delta_id in delta_ids {
-                                let _ = cce.tag_contamination_root(
-                                    delta_id,
-                                    crate::contamination::incident::TaintSource::DeviceRevocation {
-                                        revocation_delta_id: delta_id,
-                                    },
-                                );
-                            }
-                        }
-                    }
-                    #[cfg(not(feature = "native"))]
-                    {
- // Req 10.1 parity (Subphase 6.3): CCE-tag every Delta
- // authored by the revoked DID in the WASM CCE's
- // in-memory DAG + tag store — the `delta_ids` here are
- // the ACTUAL authored Delta IDs supplied by the WASM
- // RevocationSubsystem's per-author index.
-                        eprintln!(
-                            "[initiate] CCE tagging {} deltas for revoked DID {revoked_did} (WASM)",
-                            delta_ids.len()
-                        );
-                        if let Ok(mut cce) = cce_arc.lock() {
-                            for delta_id in delta_ids {
-                                let _ = cce.tag_contamination_root(
-                                    delta_id,
-                                    crate::contamination::incident::TaintSource::DeviceRevocation {
-                                        revocation_delta_id: delta_id,
-                                    },
-                                );
-                            }
+ // Req 10.1: tag all Deltas authored by the revoked DID. On WASM the
+ // `delta_ids` come from the RevocationSubsystem's per-author index
+ // (`record_authored_delta`), the analogue of the native DAG query, and
+ // the CCE tags them in its in-memory DAG + tag store.
+                    eprintln!(
+                        "[initiate] CCE tagging {} deltas for revoked DID {revoked_did}",
+                        delta_ids.len()
+                    );
+                    if let Ok(mut cce) = cce_arc.lock() {
+                        for delta_id in delta_ids {
+                            let _ = cce.tag_contamination_root(
+                                delta_id,
+                                crate::contamination::incident::TaintSource::DeviceRevocation {
+                                    revocation_delta_id: delta_id,
+                                },
+                            );
                         }
                     }
                 },

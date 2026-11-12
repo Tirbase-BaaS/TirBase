@@ -908,6 +908,12 @@ impl CausalContaminationEngine {
             .map(|ico| ico.id)
             .collect();
 
+ // Rows whose resolution clears their contamination flag. The native path
+ // calls `store::projection::clear_row_contamination`; the WASM analogue is
+ // dropping the row from the in-memory `contaminated_rows` index so
+ // `read()`/`query()` report `contaminated: false` after VERIFY_DATA.
+        let mut resolved_rows: Vec<(String, String)> = Vec::new();
+
         for ico_id in &ico_ids {
             let ico = match self.incidents.get_mut(ico_id) {
                 Some(i) => i,
@@ -939,6 +945,8 @@ impl CausalContaminationEngine {
                             resolved_at: at,
                         },
                     );
+                }                for row in &ico.affected_rows {
+                    resolved_rows.push((row.table.clone(), row.row_key.clone()));
                 }
  // All roots resolved → IncidentClosed event.
                 #[cfg(feature = "wasm")]
@@ -962,6 +970,10 @@ impl CausalContaminationEngine {
                     crate::push_wasm_event(crate::WasmEvent::IncidentUpdated { ico: ico_json });
                 }
             }
+        }
+
+        for row in resolved_rows {
+            self.contaminated_rows.remove(&row);
         }
 
  // Prune contaminated_rows for any row that no longer has an active OPEN incident.

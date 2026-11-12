@@ -597,6 +597,15 @@ jobs:
  working-directory: tirbase-sdk
  run: npm test
 
+ # The `pretest` hook above builds both WASM targets: the browser ESM package
+ # and a Node-target artefact under `wasm-test/` that Jest loads directly.
+ # This step names the real-WASM manager-operation e2e suite separately so a
+ # regression there is visible in the CI summary rather than buried in the
+ # full Jest output.
+ - name: Real-WASM manager-operation e2e (tirbase-sdk)
+ working-directory: tirbase-sdk
+ run: npm run test:wasm-e2e
+
  fuzz-smoke:
  name: cargo-fuzz smoke (CLAIM-40.1, PV-12.6)
  runs-on: ubuntu-latest
@@ -1302,6 +1311,47 @@ jobs:
 
  - name: Regenerate SDK and reject manual changes
  run: bash scripts/check-gateway-sdk-generated.sh
+
+ gateway-admin-sdk-e2e:
+ name: gateway admin TypeScript SDK e2e (real binary over mTLS)
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v4
+
+ - name: Install Rust stable
+ uses: dtolnay/rust-toolchain@stable
+
+ - name: Cache cargo registry
+ uses: actions/cache@v4
+ with:
+ path: |
+ ~/.cargo/registry
+ ~/.cargo/git
+ target
+ key: ${{ runner.os }}-cargo-gateway-sdk-e2e-${{ hashFiles('**/Cargo.lock') }}
+
+ - name: Build gateway binary
+ run: cargo build -p tirbase-gateway --bin tirbase-gateway
+
+ - name: Setup Node.js
+ uses: actions/setup-node@v4
+ with:
+ node-version: '20'
+
+ - name: Install SDK dependencies
+ working-directory: sdk/typescript
+ run: npm install --no-audit --no-fund
+
+ # The test boots the real gateway with the mTLS remote admin listener
+ # enabled, mints a token over the local admin socket, and drives every
+ # ADMIN_PATHS/OPERATION_IDS entry through the generated client. The PKI,
+ # trust root and signed simulate command come from
+ # tirbase-gateway/examples/admin_e2e_setup.rs.
+ - name: Run gateway admin SDK e2e
+ working-directory: sdk/typescript
+ env:
+ TIRBASE_GATEWAY_BIN: ${{ github.workspace }}/target/debug/tirbase-gateway
+ run: npm test
 
  wasm-public-api-diff:
  name: WASM exports diff against cargo public-api (CLAIM-49.3)

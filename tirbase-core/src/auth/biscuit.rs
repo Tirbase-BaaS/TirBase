@@ -172,10 +172,20 @@ fn build_token(
         })
 }
 
-/// Build a Biscuit token carrying a `caveat("...")` fact, for tests exercising
-/// the production `verify_and_check_caveat` path (Req 13.1).
-#[cfg(test)]
-pub(crate) fn create_token_with_caveat(
+/// Build a Biscuit token carrying a `caveat("...")` fact.
+///
+/// Used to produce the `caveat("disaster-alert")` token a DISASTER_ALERT
+/// activation/renewal presents (Req 13.1, 13.7). Gated on `test` /
+/// `test-hooks` because the reference deployment has no manager-facing
+/// DISASTER_ALERT issuance surface yet; fixture tooling mints the token with
+/// the same production signing code and the WASM core verifies it with the
+/// production [`verify_and_check_caveat`] path (signature, expiry and the
+/// exact caveat fact).
+///
+/// TTL validation matches [`create_token`]: 1h–24h (no accepted-risk
+/// override).
+#[cfg(any(test, feature = "test-hooks"))]
+pub fn create_token_with_caveat(
     did: &str,
     role: &str,
     ttl_secs: u64,

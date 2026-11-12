@@ -722,6 +722,7 @@ impl RevocationSubsystem {
  // Push TrustLevelChanged event (WASM target only).
             #[cfg(feature = "wasm")]
             crate::push_wasm_event(crate::WasmEvent::TrustLevelChanged {
+                did: delta.target_did.clone(),
                 previous: "Verified".to_string(),
                 new: "Revoked".to_string(),
             });

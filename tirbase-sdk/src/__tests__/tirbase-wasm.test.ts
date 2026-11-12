@@ -66,21 +66,21 @@ try {
   const coreInit = mod.core_init;
 
   if (op === 'init-success') {
-    await coreInit(':memory:', [], null, []);
+    await coreInit(':memory:', [], null, [], null);
     const trustLevel = mod.core_trust_level();
     const meshStatus = mod.core_mesh_status();
     output.results = { trustLevel, meshStatus };
   } else if (op === 'write-read-roundtrip') {
     // Req 2.3: a write through the real WASM core is readable back through
     // the real read path (and visible to query). No mocks on this path.
-    await coreInit(':memory:', [], null, []);
+    await coreInit(':memory:', [], null, [], null);
     const payload = { sensor: 'temp', value: 7, ok: true };
     const written = await mod.core_write('harness', 'row-1', payload);
     const read = await mod.core_read('harness', 'row-1');
     const queried = await mod.core_query('harness', null);
     output.results = { payload, written, read, queried };
   } else if (op === 'write-error') {
-    await coreInit(':memory:', [], null, []);
+    await coreInit(':memory:', [], null, [], null);
     try {
       const circular = {};
       circular.self = circular;

@@ -5,8 +5,8 @@
 //! 1. the complete `CoreHandle` public IO/manager method set
 //!    (`tirbase-core/src/api/mod.rs`),
 //! 2. the `#[wasm_bindgen]` free-function exports in `tirbase-core/src/lib.rs`,
-//! 3. the `WasmCore` TypeScript interface and the `required('core_*')`
-//!    delegations in `tirbase-sdk/src/wasm-bridge.ts`.
+//! 3. the `WasmCore` TypeScript interface and the `required('core_*')` /
+//!    `call('core_*')` delegations in `tirbase-sdk/src/wasm-bridge.ts`.
 //!
 //! Unlike a hand-maintained name list compared against another hand-maintained
 //! name list, this test parses the real source files (`include_str!`) on every
@@ -43,6 +43,8 @@ const SDK_REQUIRED_EXPORTS: &[&str] = &[
     "core_renew_saturate_mode",
     "core_terminate_saturate_mode",
     "core_receive_peer_message",
+    "core_drain_outbound_messages",
+    "core_local_did",
     "core_poll_events",
 ];
 
@@ -102,6 +104,7 @@ const IO_MANAGER_EXPORTS: &[(&str, &str, &str)] = &[
         "core_receive_peer_message",
         "receiveMessage",
     ),
+    ("local_did", "core_local_did", "localDid"),
 ];
 
 /// Canonical list of every `pub` method on `CoreHandle` that deliberately has
@@ -175,10 +178,6 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
     (
         "request_mesh_challenge",
         "native-only mesh control plane; no SDK call site",
-    ),
-    (
-        "local_did",
-        "synchronous local accessor; DID is available from core_init state",
     ),
     (
         "memory_budget_metrics",
@@ -325,16 +324,23 @@ fn sdk_wasmcore_methods() -> BTreeSet<String> {
         .collect()
 }
 
-/// Every `required('core_*')` delegation name in `wasm-bridge.ts`.
+/// Every `core_*` export named by a `wasm-bridge.ts` delegation.
+///
+/// The bridge resolves exports through `required(...)`, and calls them through
+/// `call(...)` / `callAsync(...)` wrappers that add error normalisation. All
+/// three spell the export name as a string literal at the call site, so the
+/// parser accepts any of them and still fails if a delegation names an export
+/// `lib.rs` does not define.
 fn sdk_required_exports() -> BTreeSet<String> {
     let mut found = BTreeSet::new();
-    let needle = "required('";
-    let mut rest = SDK_BRIDGE_SOURCE;
-    while let Some(idx) = rest.find(needle) {
-        rest = &rest[idx + needle.len()..];
-        let name: String = rest.chars().take_while(|c| *c != '\'').collect();
-        if name.starts_with("core_") {
-            found.insert(name);
+    for needle in ["required('", "call('", "callAsync('"] {
+        let mut rest = SDK_BRIDGE_SOURCE;
+        while let Some(idx) = rest.find(needle) {
+            rest = &rest[idx + needle.len()..];
+            let name: String = rest.chars().take_while(|c| *c != '\'').collect();
+            if name.starts_with("core_") {
+                found.insert(name);
+            }
         }
     }
     found
@@ -537,6 +543,7 @@ fn all_corehandle_public_methods_are_accounted_for() {
     // silently).
     const NON_DELEGATING_EXPORTS: &[&str] = &[
         "core_register_root_ca_key_with_token",
+        "core_drain_outbound_messages",
         "core_poll_events",
         "core_schema_identifier_hash",
         "core_schema_print",

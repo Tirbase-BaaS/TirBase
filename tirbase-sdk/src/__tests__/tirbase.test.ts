@@ -1204,6 +1204,14 @@ class PersistentMockWasmCore implements WasmCore {
     return { status: 'connected', peerCount: 0 };
   }
 
+  localDid(): string {
+    return 'did:key:z6MkPersistentMock';
+  }
+
+  drainOutboundMessages(): Uint8Array[] {
+    return [];
+  }
+
   async read(table: string, key: string): Promise<unknown> {
     const composite = `${table}\u{1f}${key}`;
     const entry = this.store.get(composite);
