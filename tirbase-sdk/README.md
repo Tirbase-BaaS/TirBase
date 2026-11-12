@@ -8,15 +8,24 @@ TypeScript SDK wrapping the WASM-compiled `tirbase-core` — offline-first, loca
 npm install @tirbase/sdk
 ```
 
+`@tirbase/sdk` is the Apache-2.0 TypeScript wrapper. It depends on
+`@tirbase/core-wasm`, which is the AGPL-3.0-only `tirbase-core` compiled to
+WASM. The two are separate packages so the wrapper can stay permissive while the
+runtime stays copyleft.
+
 ## Building the WASM Artefact
 
-The `tirbase-sdk/wasm/` directory is **not committed** — it is a generated build artefact. Before using the SDK (or running integration tests against the real WASM module), build it from the workspace root:
+The `tirbase-sdk/wasm/` directory is the source of the separately published
+`@tirbase/core-wasm` package. It is a generated build artefact. Before using the
+SDK (or running integration tests against the real WASM module), build it from
+the workspace root:
 
 ```bash
-wasm-pack build tirbase-core \
-  --no-default-features --features wasm \
+wasm-pack build \
   --target web \
-  --out-dir ../tirbase-sdk/wasm
+  --out-dir ../tirbase-sdk/wasm \
+  tirbase-core \
+  --no-default-features --features wasm
 ```
 
 Or via the npm script from the `tirbase-sdk/` directory:

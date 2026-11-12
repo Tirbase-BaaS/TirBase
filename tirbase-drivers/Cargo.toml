@@ -3,11 +3,12 @@ name = "tirbase-drivers"
 version = "0.1.0"
 edition = "2021"
 description = "Device driver framework and driver implementations for TirBase"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [dependencies]
 # STRICT: tirbase-drivers MUST NOT depend on tirbase-guard or tirbase-core (design.md §Dependency edges, PV-10.3, CLAIM-33.1/33.8)
-tirbase-types = { workspace = true }
+tirbase-types      = { workspace = true }
+tirbase-driver-api = { workspace = true }
 # 34.2: real MQTT 3.1.1 bridge over rustls (external TLS deps allowed).
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
 rustls-pki-types = "1"

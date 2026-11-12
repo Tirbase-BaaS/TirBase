@@ -28,8 +28,12 @@ node_modules/
 package-lock.json
 **/package-lock.json
 
-# tirbase-sdk/wasm/ — generated WASM artefact (produced by wasm-pack, not committed)
-tirbase-sdk/wasm/
+# tirbase-sdk/wasm/ — generated WASM artefact (produced by wasm-pack).
+# The build output is ignored, but the @tirbase/core-wasm manifest and its
+# ignore file are tracked so a fresh clone can resolve the npm workspace.
+tirbase-sdk/wasm/*
+!tirbase-sdk/wasm/package.json
+!tirbase-sdk/wasm/.gitignore
 
 # Kellnr data directory (Docker volume is external, but in case of local binary mode)
 .kellnr/data/

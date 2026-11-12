@@ -1,18 +1,49 @@
 # Contributing to TirBase
 
 Thank you for your interest in contributing to TirBase. This document describes the
-contribution workflow, the Developer Certificate of Origin (DCO) sign-off requirement,
-and the project's code-review process.
+contribution workflow, the Contributor Licence Agreement (CLA), the Developer
+Certificate of Origin (DCO) sign-off requirement, and the project's code-review
+process.
 
 ---
 
 ## Table of Contents
 
-1. [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
-2. [Contribution Workflow](#contribution-workflow)
-3. [Issue Templates](#issue-templates)
-4. [Coding Guidelines](#coding-guidelines)
-5. [Security Policy](#security-policy)
+1. [Contributor Licence Agreement (CLA)](#contributor-licence-agreement-cla)
+2. [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
+3. [Contribution Workflow](#contribution-workflow)
+4. [Issue Templates](#issue-templates)
+5. [Coding Guidelines](#coding-guidelines)
+6. [Security Policy](#security-policy)
+
+---
+
+## Contributor Licence Agreement (CLA)
+
+TirBase is dual-licensed: the runtime is AGPL-3.0-only, and the project also
+offers commercial/OEM licences. The DCO alone does not grant the project the
+right to relicense a contribution commercially. For that reason, **every
+contributor must sign the [Contributor Licence Agreement](CLA.md) before a pull
+request can be merged.**
+
+The CLA:
+
+- keeps you as the owner of your contribution;
+- grants the project a perpetual, irrevocable licence to use, sublicense, and
+  relicense the contribution under AGPL-3.0-only, Apache-2.0, or commercial
+  terms;
+- includes a patent grant and the usual representations that the contribution
+  is yours to submit.
+
+To sign, comment on your first pull request with:
+
+```text
+I have read the TirBase CLA and I hereby sign the CLA.
+```
+
+Corporate contributors must arrange an entity-level CLA with the maintainers
+before opening a pull request. See [CLA.md](CLA.md) for the full text and the
+corporate process.
 
 ---
 
@@ -119,7 +150,9 @@ git rebase --signoff HEAD~<N>
    (two real `CoreHandle` instances, the gateway binary, or the SDK). See
    `docs/RFC-workspace.md` for the crate responsibilities and test-level guidance.
 
-6. **Sign off all commits.** Use `git commit -s` (see the DCO section above).
+6. **Sign the CLA and sign off all commits.** Sign the [CLA](CLA.md) on your
+   first pull request, and use `git commit -s` for every commit (see the DCO
+   section above). Both are required before merge.
 
 7. **Open a pull request** against the `main` branch. Fill in the PR description:
    - *What* changed and *why*.

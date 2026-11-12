@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Dependency-free fixed-point arithmetic core (INV-1, CLAIM-4.4, CLAIM-51.6).
 //
 // This module deliberately has **no dependencies and no error types** so that

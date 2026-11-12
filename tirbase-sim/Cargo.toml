@@ -3,7 +3,7 @@ name = "tirbase-sim"
 version = "0.1.0"
 edition = "2021"
 description = "Seeded deterministic adversary simulator for TirBase"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [dependencies]
 tirbase-types   = { workspace = true }

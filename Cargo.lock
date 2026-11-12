@@ -4981,6 +4981,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tirbase-driver-api"
+version = "0.1.0"
+dependencies = [
+ "tirbase-types",
+]
+
+[[package]]
 name = "tirbase-drivers"
 version = "0.1.0"
 dependencies = [
@@ -4989,6 +4996,7 @@ dependencies = [
  "rcgen",
  "rustls",
  "rustls-pki-types",
+ "tirbase-driver-api",
  "tirbase-sim",
  "tirbase-types",
  "webpki-roots 0.26.11",

@@ -16,12 +16,13 @@
 #![warn(dead_code)]
 
 pub mod cold_room_sim;
-pub mod driver_trait;
 pub mod isolation;
 pub mod lifecycle;
 pub mod modbus;
 pub mod mqtt;
-pub mod register_map;
+
+// Re-export the Apache-2.0 driver API under the historical module paths.
+pub use tirbase_driver_api::{driver_trait, register_map};
 
 pub use cold_room_sim::{ColdRoomSimDriver, FirstOrderThermalModel};
 pub use driver_trait::{

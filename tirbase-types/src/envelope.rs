@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Envelope profile data model (tasks 10.1–10.4 — CLAIM-10.1…CLAIM-10.4,
 //! PV-4.5, INV-1).
 //!

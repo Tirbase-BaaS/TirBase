@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! `DriverTrait` — pure codec interface for device drivers (CLAIM-33.2, PV-10.1).
 //!
 //! Drivers are **codecs only**: they encode/decode frames. The guard process

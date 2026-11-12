@@ -18,7 +18,7 @@ name = "tirbase-gateway"
 version = "0.1.0"
 edition = "2021"
 description = "TirBase hardened edge gateway binary"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [[bin]]
 name = "tirbase-gateway"

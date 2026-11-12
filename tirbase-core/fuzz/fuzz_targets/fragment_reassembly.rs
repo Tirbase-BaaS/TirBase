@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 #![no_main]
 
 //! Fuzz target for MTU fragmentation and reassembly (task 24.3, PV-6.3).

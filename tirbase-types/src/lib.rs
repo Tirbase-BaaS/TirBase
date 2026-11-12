@@ -1,4 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+
 #![no_std]
+
 //! Shared newtypes and value types for TirBase.
 //! This crate is `no_std`-capable; only `serde` is a dependency.
 //! See design.md §4.1 for the full type list.

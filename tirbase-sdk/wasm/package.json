@@ -1,0 +1,18 @@
+{
+  "name": "@tirbase/core-wasm",
+  "type": "module",
+  "description": "TirBase core compiled to WASM (AGPL-3.0-only)",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "files": [
+    "tirbase_core_bg.wasm",
+    "tirbase_core.js",
+    "tirbase_core.d.ts",
+    "tirbase_core_bg.wasm.d.ts"
+  ],
+  "main": "tirbase_core.js",
+  "types": "tirbase_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

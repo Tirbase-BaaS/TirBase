@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Policy bundle wire types (task 12.1 — CLAIM-12.1, PV-4.8).
 //!
 //! `PolicyBundle` is the artefact submitted to the policy-push path.  The

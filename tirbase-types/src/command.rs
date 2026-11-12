@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! `CommandMessage` — signed declarative desired-state command (PV-4.1, PV-4.2,
 //! CLAIM-11.1).
 //!

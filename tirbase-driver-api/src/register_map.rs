@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Modbus register-map format and parser (CLAIM-34.8, PV-10.4/10.7).
 //!
 //! Format (TOML/line-oriented docs) per parameter:

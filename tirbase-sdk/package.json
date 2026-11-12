@@ -1,15 +1,17 @@
 {
   "name": "@tirbase/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK wrapping the WASM-compiled tirbase-core — offline-first, local-first BaaS",
+  "description": "Apache-2.0 TypeScript SDK wrapper over the AGPL-3.0-only TirBase core WASM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist/",
-    "wasm/"
+    "dist/"
+  ],
+  "workspaces": [
+    "wasm"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build ../tirbase-core --no-default-features --features wasm --target web --out-dir ../tirbase-sdk/wasm",
+    "build:wasm": "wasm-pack build --target web --out-dir ../tirbase-sdk/wasm ../tirbase-core --no-default-features --features wasm && node ./scripts/prepare-wasm-package.mjs",
     "build:ts": "tsc --project tsconfig.json",
     "build": "npm run build:wasm && npm run build:ts",
     "pretest": "npm run build:wasm",
@@ -26,8 +28,9 @@
     "tirbase",
     "wasm"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
+    "@tirbase/core-wasm": "0.1.0",
     "eventemitter3": "5.0.4"
   },
   "devDependencies": {

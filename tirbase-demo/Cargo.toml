@@ -3,7 +3,7 @@ name = "tirbase-demo"
 version = "0.1.0"
 edition = "2021"
 description = "TirBase vertical demo packs (cold-chain, energy-edge, water, logistics, etc.)"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 tirbase-types = { workspace = true }

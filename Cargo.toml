@@ -3,6 +3,7 @@ members = [
     "tirbase-types",
     "tirbase-core",
     "tirbase-guard",
+    "tirbase-driver-api",
     "tirbase-drivers",
     "tirbase-gateway",
     "tirbase-admin",
@@ -14,8 +15,9 @@ resolver = "2"
 [workspace.dependencies]
 fail = "0.5"
 tirbase-types   = { path = "tirbase-types" }
-tirbase-core    = { path = "tirbase-core" }
-tirbase-guard   = { path = "tirbase-guard" }
-tirbase-drivers = { path = "tirbase-drivers" }
+tirbase-core       = { path = "tirbase-core" }
+tirbase-guard      = { path = "tirbase-guard" }
+tirbase-driver-api = { path = "tirbase-driver-api" }
+tirbase-drivers    = { path = "tirbase-drivers" }
 tirbase-gateway = { path = "tirbase-gateway" }
 tirbase-sim     = { path = "tirbase-sim" }

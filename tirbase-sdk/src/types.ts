@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Core TypeScript types for the @tirbase/sdk public API.
  *

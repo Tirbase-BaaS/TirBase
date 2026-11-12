@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * WASM bridge abstraction layer.
  *
@@ -19,11 +21,29 @@ import type {
   TrustLevel,
   WriteResult,
 } from './types';
+import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 
 // Resolve the directory of this file for locating the WASM artefacts.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const _dirname = dirname((<any>module).filename || '.');
+const _moduleFile = (<any>module).filename || resolve('.', 'index.js');
+const _dirname = dirname(_moduleFile);
+const _require = createRequire(_moduleFile);
+
+/**
+ * Resolve the separately published AGPL core package.
+ *
+ * The SDK wrapper is Apache-2.0 and does not bundle the WASM core. The core is
+ * published as `@tirbase/core-wasm` under AGPL-3.0-only. Fall back to the local
+ * workspace build when the package is not installed (development/tests).
+ */
+function defaultCoreWasmEntry(): string {
+  try {
+    return _require.resolve('@tirbase/core-wasm');
+  } catch {
+    return resolve(_dirname, '../wasm/tirbase_core.js');
+  }
+}
 
 // ─── WasmCore interface ───────────────────────────────────────────────────────
 
@@ -128,7 +148,7 @@ export interface WasmCore {
  * @throws {Error} If the WASM module cannot be fetched or instantiated.
  */
 export async function loadWasmCore(wasmUrl?: string): Promise<WasmCore> {
-  const defaultJsPath = resolve(_dirname, '../wasm/tirbase_core.js');
+  const defaultJsPath = defaultCoreWasmEntry();
   const jsPath = wasmUrl ?? defaultJsPath;
 
   try {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Integration tests that drive the TypeScript SDK through a REAL compiled
  * tirbase-core WASM module (produced by `wasm-pack build --features wasm`).

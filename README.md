@@ -514,7 +514,20 @@ TirBase emits structured diagnostic entries at startup for all known operational
 
 ## License
 
-TirBase is open-source software released under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+TirBase uses a split open-source licence:
+
+- **Runtime and server** — `tirbase-core`, `tirbase-guard`, `tirbase-gateway`,
+  `tirbase-drivers`, `tirbase-admin`, `tirbase-sim`, and the WASM core are
+  licensed under the [GNU Affero General Public License v3.0 only](LICENSE)
+  (`AGPL-3.0-only`).
+- **Integration surface** — `tirbase-types`, the reference vertical demo packs,
+  and the generated `@tirbase/gateway-admin-sdk` are licensed under the
+  [Apache License 2.0](LICENSE-APACHE).
+- **Commercial licensing** — OEM embedding, certified builds, and support are
+  available under a separate commercial licence.
+
+There is no MIT-licensed first-party code in this repository. See [LICENSING.md](LICENSING.md)
+for the full component matrix, the SDK packaging caveat, and contribution terms.
 
 ---
 
