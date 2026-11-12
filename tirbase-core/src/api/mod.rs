@@ -722,6 +722,21 @@ impl CoreHandle {
 
         let migration = Arc::new(Mutex::new(migration));
 
+        // Task 29.3 (PV-8.2a): when the deployment configures an UpdateSigner
+        // key, signed `ExecutionProfileVersion` metadata is authenticated at
+        // the migration ingress gate. Unconfigured deployments keep the
+        // previous behaviour (profile/fuel-hash match only).
+        if let Some(update_signer_key) = config.deployment.update_signer_public_key {
+            migration
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!(
+                        "migration mutex poisoned wiring UpdateSigner key: {e}"
+                    ),
+                })?
+                .set_update_signer_public_key(update_signer_key);
+        }
+
         // ── Fleet precondition verifier (task 37.5, PV-11.3) ──────────────────
         //
         // Contract migrations (task 30.3) commit to the fleet inventory snapshot
@@ -5497,6 +5512,16 @@ pub struct DeploymentConfig {
     /// key here at init time or via [`CoreHandle::register_migration_ca_key`]
     /// at runtime (Subphase 5.1).
     pub migration_ca_public_key: Option<[u8; 32]>,
+    /// Ed25519 public key of the deployment's `UpdateSigner` role, used to
+    /// authenticate signed `ExecutionProfileVersion` metadata carried by a
+    /// `MigrationDelta` (task 29.3, PV-8.2a).
+    ///
+    /// `None` (the default) is the explicit *unconfigured* state: profile
+    /// metadata is still matched on `profile_id` + `fuel_cost_table_hash`, but
+    /// it cannot be authenticated.  When set, a delta whose profile metadata
+    /// carries a missing or invalid UpdateSigner signature is rejected and
+    /// quarantined with `ENGINE_VERSION_MISMATCH`.
+    pub update_signer_public_key: Option<[u8; 32]>,
     /// Ordered schema-version update path (oldest → newest) of this deployment
     /// (Req 18.3a).  A Migration_Delta is accepted only when its
     /// `source_schema_hash` equals the device's current schema hash and its
@@ -5602,6 +5627,7 @@ impl Default for DeploymentConfig {
             extended_ttl_accepted_risk: false,
             root_ca_keys: vec![],
             migration_ca_public_key: None,
+            update_signer_public_key: None,
             schema_version_path: vec![],
             schema_definitions: vec![],
             anchor_attested_location: false,
@@ -5637,6 +5663,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -5961,6 +5988,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6065,6 +6093,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6188,6 +6217,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6276,6 +6306,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6349,6 +6380,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6490,6 +6522,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -6554,6 +6587,7 @@ mod tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -8628,6 +8662,7 @@ mod inbound_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -9712,6 +9747,7 @@ mod inbound_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -9815,6 +9851,7 @@ mod inbound_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -9932,6 +9969,7 @@ mod inbound_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -10303,6 +10341,7 @@ mod convergence_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -10463,6 +10502,7 @@ mod real_mesh_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -12285,6 +12325,7 @@ mod cloud_sync_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -12676,6 +12717,7 @@ mod tier2_ack_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -12877,6 +12919,7 @@ mod tier2_ack_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: enabled,
@@ -13143,6 +13186,7 @@ mod diversity_config_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -13470,6 +13514,7 @@ mod composite_incident_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -13885,6 +13930,7 @@ mod quarantine_sidecar_wiring_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: Some(ca_public),
+                update_signer_public_key: None,
                 schema_version_path: version_path,
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -13911,6 +13957,7 @@ mod quarantine_sidecar_wiring_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -14420,6 +14467,7 @@ mod cloud_sync_wiring_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -14815,6 +14863,7 @@ mod migration_mid_flight_revocation_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: Some(ca_public),
+                update_signer_public_key: None,
                 schema_version_path: vec![v1, v2],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -15062,6 +15111,7 @@ mod task23_pv6_hardening_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,
@@ -15469,6 +15519,7 @@ mod task24_wiring_tests {
                 extended_ttl_accepted_risk: false,
                 root_ca_keys: vec![],
                 migration_ca_public_key: None,
+                update_signer_public_key: None,
                 schema_version_path: vec![],
                 schema_definitions: vec![],
                 anchor_attested_location: false,

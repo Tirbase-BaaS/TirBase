@@ -100,6 +100,11 @@ pub struct SchemaMigrationEngine {
     /// Minimum number of Manager DID signatures required for a revocation delta.
     revocation_threshold_m: usize,
 
+    /// Task 29.3 (PV-8.2a): UpdateSigner key used to authenticate signed
+    /// `ExecutionProfileVersion` metadata. `None` means "not configured":
+    /// profile metadata is matched but not signature-verified.
+    update_signer_public_key: Option<[u8; 32]>,
+
     /// Handle to the local store for migration sandbox host functions (native only).
     #[cfg(feature = "native")]
     store: Arc<Mutex<crate::store::LocalStore>>,
@@ -192,6 +197,7 @@ impl SchemaMigrationEngine {
             revocation_registry: RevokedMigrationRegistry::default(),
             blacklisted_senders: HashSet::new(),
             revocation_threshold_m,
+            update_signer_public_key: None,
             #[cfg(feature = "native")]
             store,
             quarantine_ledger,
@@ -233,6 +239,16 @@ impl SchemaMigrationEngine {
     /// `core_register_migration_ca_key` WASM export.
     pub(crate) fn register_ca_public_key(&mut self, key: [u8; 32]) {
         self.ca_public_key = key;
+    }
+
+    /// Register the deployment's `UpdateSigner` Ed25519 public key used to
+    /// authenticate signed `ExecutionProfileVersion` metadata (task 29.3,
+    /// PV-8.2a). Takes effect for subsequent migration deltas.
+    ///
+    /// Production caller: `CoreHandle::init` (from
+    /// `DeploymentConfig.update_signer_public_key`).
+    pub fn set_update_signer_public_key(&mut self, key: [u8; 32]) {
+        self.update_signer_public_key = Some(key);
     }
 
     /// Task 30.1/30.2/30.5: run shadow migration and evaluate postconditions.
@@ -597,6 +613,31 @@ impl SchemaMigrationEngine {
                     expected_fuel_hash: hex::encode(active_profile.fuel_cost_table_hash),
                     got_fuel_hash: hex::encode(p.fuel_cost_table_hash),
                 });
+            }
+
+            // Task 29.3 (PV-8.2a): when an UpdateSigner key is configured, the
+            // profile metadata must carry a valid UpdateSigner signature. A
+            // missing/invalid signature is treated like an engine mismatch:
+            // quarantine the transform and refuse it.
+            if let Some(update_signer_key) = self.update_signer_public_key {
+                if let Err(signature_error) = p.verify_signature(&update_signer_key) {
+                    let _ = self.quarantine_ledger.quarantine(
+                        sender_did.to_string(),
+                        delta.transform_bytes.clone(),
+                        Some(delta.source_schema_hash),
+                        QuarantineReason::EngineVersionMismatch,
+                        delta.created_at,
+                    );
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::EngineVersionMismatch,
+                        Some(hex::encode(delta.id)),
+                        format!(
+                            "[migration] PV-8.2a/29.3 ExecutionProfileVersion not signed by UpdateSigner from {sender_did}: {signature_error}"
+                        ),
+                    );
+                    return Err(signature_error);
+                }
             }
         }
 
@@ -1608,6 +1649,84 @@ mod tests {
         assert!(
             !engine.is_blacklisted("did:key:z6MkVersionMismatch"),
             "version path mismatch must NOT blacklist the sender"
+        );
+    }
+
+    // ─── Test: UpdateSigner-gated execution profile (task 29.3) ───────────────
+
+    #[test]
+    #[cfg(feature = "native")]
+    fn update_signer_key_gates_execution_profile_end_to_end() {
+        use crate::migration::profile::{ActiveExecutionProfile, ExecutionProfileVersion};
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let (ca_secret, ca_public) = generate_keypair().expect("keygen");
+        let source = [0x10u8; 32];
+        let target = [0x11u8; 32];
+        let wasm = trivial_wasm_bytes();
+        let transform_sha256: [u8; 32] = Sha256::digest(&wasm).into();
+        let ca_sig = sign(&ca_secret, &wasm).expect("ca sign");
+
+        let active = ActiveExecutionProfile::default();
+        let unsigned = ExecutionProfileVersion {
+            profile_id: active.profile_id,
+            fuel_cost_table_hash: active.fuel_cost_table_hash,
+            conformance_corpus_hash: active.conformance_corpus_hash,
+            update_signer_signature: Vec::new(),
+        };
+        let build_delta = |profile: ExecutionProfileVersion| MigrationDelta {
+            id: transform_sha256,
+            author_did: "did:key:z6MkMgr1".to_string(),
+            signature: Ed25519Signature::default(),
+            source_schema_hash: source,
+            target_schema_hash: target,
+            transform_bytes: wasm.clone(),
+            ca_signature: CaSignature(ca_sig.0.clone()),
+            transform_sha256,
+            priority: PriorityClass::Medium,
+            created_at: 0,
+            execution_profile: Some(profile),
+            migration_kind: crate::migration::migration_delta::MigrationKind::Legacy,
+            fleet_precondition_hash: None,
+            postconditions: None,
+        };
+
+        let signing_key = SigningKey::from_bytes(&[9u8; 32]);
+        let update_signer_public_key = signing_key.verifying_key().to_bytes();
+
+        let mut engine = make_engine_with_path(ca_public, source, target);
+        engine.set_update_signer_public_key(update_signer_public_key);
+
+        // Unsigned profile metadata must be refused at the ingress gate.
+        let rejected = engine.receive_migration_delta(
+            build_delta(unsigned.clone()),
+            "did:key:z6MkUnsignedProfile",
+        );
+        assert!(
+            matches!(
+                rejected,
+                Err(TirBaseError::MigrationExecutionProfileMismatch { .. })
+            ),
+            "unsigned ExecutionProfileVersion must be rejected: {rejected:?}"
+        );
+
+        // The same metadata, signed by the configured UpdateSigner, is accepted
+        // and the migration proceeds to completion.
+        let mut signed = unsigned;
+        signed.update_signer_signature = signing_key
+            .sign(&signed.canonical_bytes())
+            .to_bytes()
+            .to_vec();
+        signed
+            .verify_signature(&signing_key.verifying_key().to_bytes())
+            .expect("locally signed profile must verify against its own key");
+        let accepted = engine.receive_migration_delta(
+            build_delta(signed),
+            "did:key:z6MkSignedProfile",
+        );
+        assert!(
+            matches!(accepted, Ok(MigrationResult::Success)),
+            "UpdateSigner-signed profile must be accepted: {accepted:?}"
         );
     }
 

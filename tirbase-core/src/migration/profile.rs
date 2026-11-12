@@ -411,6 +411,30 @@ mod tests {
     }
 
     #[test]
+    fn update_signer_signature_verifies_and_tampering_is_rejected() {
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let key = SigningKey::from_bytes(&[7u8; 32]);
+        let active = ActiveExecutionProfile::default();
+        let mut meta = ExecutionProfileVersion {
+            profile_id: active.profile_id,
+            fuel_cost_table_hash: active.fuel_cost_table_hash,
+            conformance_corpus_hash: active.conformance_corpus_hash,
+            update_signer_signature: Vec::new(),
+        };
+        meta.update_signer_signature = key.sign(&meta.canonical_bytes()).to_bytes().to_vec();
+        meta.verify_signature(&key.verifying_key().to_bytes())
+            .expect("valid UpdateSigner signature must verify");
+
+        meta.conformance_corpus_hash[0] ^= 0xFF;
+        assert!(
+            meta.verify_signature(&key.verifying_key().to_bytes())
+                .is_err(),
+            "tampered metadata must not verify"
+        );
+    }
+
+    #[test]
     fn execution_profile_matches_active_default() {
         let active = ActiveExecutionProfile::default();
         let meta = ExecutionProfileVersion {

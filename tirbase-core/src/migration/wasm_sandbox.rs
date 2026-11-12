@@ -751,6 +751,67 @@ mod tests {
         .expect("parse log_message WAT")
     }
 
+    /// Identity transform used by the P12 property test: copies the raw JSON
+    /// bytes of row `(t,k)` into row `(t,o)`.
+    fn identity_wasm() -> Vec<u8> {
+        wat::parse_str(
+            r#"(module
+              (import "host" "read_row"  (func $read  (param i32 i32 i32 i32 i32 i32) (result i32)))
+              (import "host" "write_row" (func $write (param i32 i32 i32 i32 i32 i32)))
+              (memory (export "memory") 4)
+              (data (i32.const 0) "t")
+              (data (i32.const 1) "k")
+              (data (i32.const 2) "o")
+              (func (export "run")
+                (local $n i32)
+                (local.set $n
+                  (call $read (i32.const 0) (i32.const 1) (i32.const 1) (i32.const 1) (i32.const 1024) (i32.const 1024)))
+                (call $write (i32.const 0) (i32.const 1) (i32.const 2) (i32.const 1) (i32.const 1024) (local.get $n)))
+            )"#,
+        )
+        .expect("parse identity WAT")
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(48))]
+
+        /// P12 (task 29.5, PV-8.1): for **generated** inputs, the same migration
+        /// module executed twice produces byte-identical output. The previous
+        /// coverage was a single fixed vector, which is not a property test.
+        #[test]
+        fn p12_repeated_execution_byte_identical_for_generated_inputs(
+            n in proptest::prelude::any::<i64>(),
+        ) {
+            let wasm = identity_wasm();
+            let migration_id = [0x12u8; 32];
+            let mut outputs = Vec::new();
+            for run in 0..2 {
+                let store = test_store();
+                store
+                    .lock()
+                    .unwrap()
+                    .write("t", "k", &serde_json::json!({"n": n}))
+                    .expect("seed generated input");
+                let result = execute_migration(&wasm, migration_id, 30, &store)
+                    .expect("sandbox call");
+                proptest::prop_assert_eq!(
+                    result,
+                    MigrationResult::Success,
+                    "run {} failed",
+                    run
+                );
+                let value = store
+                    .lock()
+                    .unwrap()
+                    .read("t", "o")
+                    .expect("read output")
+                    .expect("output row written");
+                outputs.push(serde_json::to_vec(&value).expect("encode output"));
+            }
+            proptest::prop_assert_eq!(&outputs[0], &outputs[1]);
+        }
+    }
+
     #[test]
     fn trivial_migration_succeeds() {
         let wasm = trivial_wasm();
