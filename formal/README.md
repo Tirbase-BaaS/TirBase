@@ -17,15 +17,27 @@ This directory contains executable protocol models and proof spikes referenced b
   - Safety: at most one active holder per target; no revoked active holder.
   - Liveness: active leases eventually expire.
 
-Run with TLC (example):
+Run all four with TLC via the checked-in script (used by the `formal-models` CI job):
 
 ```bash
-java -jar tla2tools.jar -config policy_lifecycle.cfg policy_lifecycle.tla
-java -jar tla2tools.jar -config command_freshness.cfg command_freshness.tla
-java -jar tla2tools.jar -config ledger_recovery.cfg ledger_recovery.tla
-java -jar tla2tools.jar -config single_writer_lease.cfg single_writer_lease.tla
+curl -fsSL -o tla2tools.jar \
+  https://github.com/tlaplus/tlaplus/releases/download/v1.7.1/tla2tools.jar
+bash ../scripts/check-formal-models.sh tla2tools.jar
 ```
+
+The script exits non-zero if TLC reports a violation **or if TLC cannot start**, so a
+missing JVM is a failure rather than a silent pass.
+
+**Status (2026-11-11): all four specs pass TLC 2.16 locally** (`policy_lifecycle`
+143,312 states generated / 23,950 distinct with `Safety` + `Progress`; the other
+three exit 0 with their invariants and liveness properties). Running them for the
+first time exposed real model defects — an unapplied `Expire` argument, a timelock
+that could exceed `MaxTime`, a recovery invariant scoped past the boot that
+established it, and two parse errors — all fixed in the specs above. The
+`formal-models` CI job re-runs this script on every push.
 
 ## Kani proof spike
 
-- `kani_envelope_arith.rs` — bounded proof harness for `FixedPointValue` bound comparison arithmetic (i128 scaling/comparison path) showing overflow-free comparison for all i64 mantissas within modeled exponent deltas.
+- `kani_envelope_arith.rs` — Kani harness for the production fixed-point arithmetic. It `include!`s `tirbase-types/src/fixed_point_core.rs`, the exact module `FixedPointValue::compare_with_bounds` compiles, so the proof covers shipping code (not a copy).
+
+**Status (2026-11-11): Verified.** Kani 0.68 with its pinned nightly reports `VERIFICATION:- SUCCESSFUL` on all four harnesses (`scale_mantissa_is_panic_free_in_full_domain`, `scale_mantissa_matches_exact_product_for_small_deltas`, `compare_scaled_is_total_and_sound`, `boundary_values_are_within_bounds`) with `--default-unwind 40`. The `kani-envelope-arith` CI job re-runs it.

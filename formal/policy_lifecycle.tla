@@ -64,6 +64,8 @@ StartLoosening(v, timelock, cancelWin, m, n, sigs0) ==
   /\ ~pending.present
   /\ timelock \in 1..MaxTime
   /\ cancelWin \in 0..timelock
+  /\ now + timelock <= MaxTime
+  /\ now + cancelWin <= MaxTime
   /\ m \in 1..MaxM /\ n \in m..MaxN
   /\ sigs0 \in 0..n
   /\ pending' = [present |-> TRUE,
@@ -113,7 +115,9 @@ RejectRollback(v) ==
 Next ==
   \/ Tick
   \/ \E v \in Versions: IngestTightening(v)
-  \/ \E v \in Versions, t \in 1..MaxTime, c \in 0..MaxTime, m \in 1..MaxM, n \in m..MaxN, s \in 0..n:
+  \/ \E v \in Versions, t \in 1..MaxTime, c \in 0..MaxTime, m \in 1..MaxM:
+      \E n \in m..MaxN:
+       \E s \in 0..n:
         StartLoosening(v,t,c,m,n,s)
   \/ AddCoSignature
   \/ CancelLoosening
@@ -123,12 +127,17 @@ Next ==
 Spec == Init /\ [][Next]_vars /\ WF_vars(ApplyLoosening \/ Tick)
 
 \* Safety: no bad state reachable.
-SafetyNoRollback == active_version >= committed_counter_initial
 committed_counter_initial == 1
+SafetyNoRollback == active_version >= committed_counter_initial
 
 SafetyMonotonicCommitted == committed_counter >= 1
 SafetyNoUncommittedActive == active_version <= committed_counter
-SafetyNoTimelockBypass == pending.present => (active_version < pending.version \/ ~pending.cancelled /\ pending.sigs >= pending.required_m /\ now >= pending.timelock_until => TRUE)
+\* A pending loosening may only be active below the committed version while it
+\* is still pending; otherwise its timelock and quorum must both have been met.
+SafetyNoTimelockBypass ==
+  pending.present =>
+    \/ active_version < pending.version
+    \/ (~pending.cancelled /\ pending.sigs >= pending.required_m /\ now >= pending.timelock_until)
 
 \* Stronger invariants used by TLC.
 InvNoRollback == active_version = committed_counter \/ (pending.present /\ ~pending.cancelled => active_version < pending.version)

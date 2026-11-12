@@ -51,6 +51,7 @@ Acquire(t,i) ==
   /\ i \notin revoked
   /\ ~Active(t)
   /\ ~InCooldown(t,i)
+  /\ now + LeaseDur <= MaxTime
   /\ holder' = [holder EXCEPT ![t] = i]
   /\ expires' = [expires EXCEPT ![t] = now + LeaseDur]
   /\ renewals' = [renewals EXCEPT ![t] = 0]
@@ -64,6 +65,7 @@ Renew(t,i) ==
   /\ Active(t)
   /\ holder[t] = i
   /\ renewals[t] < MaxRenewals
+  /\ now + LeaseDur <= MaxTime
   /\ expires' = [expires EXCEPT ![t] = now + LeaseDur]
   /\ renewals' = [renewals EXCEPT ![t] = @ + 1]
   /\ UNCHANGED <<holder, cooldown, cooldown_for, revoked, now>>
@@ -102,6 +104,7 @@ Revoke(i) ==
 Preempt(t,i) ==
   /\ t \in Targets /\ i \in Issuers
   /\ i \notin revoked
+  /\ now + LeaseDur <= MaxTime
   /\ holder' = [holder EXCEPT ![t] = i]
   /\ expires' = [expires EXCEPT ![t] = now + LeaseDur]
   /\ renewals' = [renewals EXCEPT ![t] = 0]
@@ -118,12 +121,12 @@ Next ==
   \/ \E i \in Issuers: Revoke(i)
   \/ \E t \in Targets, i \in Issuers: Preempt(t,i)
 
-Spec == Init /\ [][Next]_vars /\ WF_vars(Tick \/ Expire)
+Spec == Init /\ [][Next]_vars /\ WF_vars(Tick \/ (\E t \in Targets: Expire(t)))
 
 \* Safety: at most one issuer holds an active lease for a target.
 SafetyExclusive ==
   \A t \in Targets:
-    Active(t) => holder[t] \in Issuers /\ \A i \in Issuers: (holder[t] = i => TRUE)
+    Active(t) => holder[t] \in Issuers
 
 \* Structural exclusivity (single holder value) and no revoked holder active.
 SafetyNoRevokedHolder == \A t \in Targets: Active(t) => holder[t] \notin revoked

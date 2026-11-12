@@ -270,6 +270,9 @@ fn checked_pow10(exp: u32) -> Option<i64> {
 }
 
 /// Scale `mantissa` (which is at `src_exp`) to `dst_exp` using i128 arithmetic.
+///
+/// The arithmetic itself lives in [`fixed_point_core`] so that the Kani proof
+/// (CLAIM-51.6) verifies the exact code this function compiles.
 /// Returns an error if the required scale factor overflows i128.
 fn scale_to_i128(mantissa: i64, src_exp: i8, dst_exp: i8) -> Result<i128, FixedPointError> {
     let exp_delta = src_exp as i16 - dst_exp as i16;
@@ -277,23 +280,7 @@ fn scale_to_i128(mantissa: i64, src_exp: i8, dst_exp: i8) -> Result<i128, FixedP
         exp_delta >= 0,
         "dst_exp must be ≤ src_exp (we chose the minimum)"
     );
-    let m = mantissa as i128;
-    if exp_delta == 0 {
-        return Ok(m);
-    }
-    // Scale factor: 10^exp_delta in i128.
-    // i128::MAX ≈ 1.7 × 10^38; exp_delta ≤ 255, so 10^39 would overflow.
-    // In practice exponents are i8 values so exp_delta ≤ 255. We cap at 38.
-    if exp_delta > 38 {
-        return Err(FixedPointError::OverflowOnConversion);
-    }
-    let mut scale: i128 = 1;
-    for _ in 0..exp_delta {
-        scale = scale
-            .checked_mul(10)
-            .ok_or(FixedPointError::OverflowOnConversion)?;
-    }
-    m.checked_mul(scale)
+    crate::fixed_point_core::scale_mantissa(mantissa, exp_delta)
         .ok_or(FixedPointError::OverflowOnConversion)
 }
 

@@ -23,6 +23,7 @@ pub use serde;
 //   UnitId constants, UnitDescriptor, and unit_descriptor() lookup.
 //   (CLAIM-4.2, CLAIM-4.4, CLAIM-4.6, PV-21.1, INV-1)
 pub mod fixed_point;
+pub(crate) mod fixed_point_core;
 pub use fixed_point::{
     unit_descriptor, BoundsCheck, FixedPointError, FixedPointValue, UnitDescriptor, UNIT_A,
     UNIT_BAR, UNIT_BOOLEAN, UNIT_DEG_C, UNIT_DESCRIPTORS, UNIT_HZ, UNIT_KPA, UNIT_KW, UNIT_M3H,

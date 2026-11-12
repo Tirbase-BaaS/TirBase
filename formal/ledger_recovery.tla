@@ -31,12 +31,17 @@ Init ==
   /\ reconciled = FALSE
 
 \* Stage 16 atomic commit writes Actuating durably before dispatch (INV-12).
+\* New work begins: the previous boot's reconciliation no longer describes the
+\* whole state, so `reconciled` is cleared.  Without this, the
+\* "nothing is stuck Actuating after recovery" invariant would be falsified by
+\* any legitimately dispatched entry after a successful recovery.
 CommitActuating(e) ==
   /\ ~crashed
   /\ state[e] = "None"
   /\ state' = [state EXCEPT ![e] = "Actuating"]
   /\ committed' = committed \union {e}
-  /\ UNCHANGED <<crashed, readback, reconciled>>
+  /\ reconciled' = FALSE
+  /\ UNCHANGED <<crashed, readback>>
 
 \* Dispatch/driver outcome can complete or fail after commit.
 DriverComplete(e) ==
@@ -83,7 +88,12 @@ OperatorClearUnknown(e) ==
   /\ state' = [state EXCEPT ![e] = "Failed"]
   /\ UNCHANGED <<committed, crashed, readback, reconciled>>
 
+\* Terminal states have no transition of their own; stuttering keeps TLC from
+\* reporting a false deadlock once every entry is Complete/Failed.
+Stutter == UNCHANGED vars
+
 Next ==
+  \/ Stutter
   \/ \E e \in Entries: CommitActuating(e)
   \/ \E e \in Entries: DriverComplete(e)
   \/ \E e \in Entries: DriverFail(e)

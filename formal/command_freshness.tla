@@ -29,12 +29,14 @@ Init ==
   /\ accepted = {}
   /\ now_seq \in Seqs
 
+\* Defined before first use: TLA+ requires operators to be declared above
+\* their use site.
+Max(S) == CHOOSE x \in S : \A y \in S : y <= x
+
 Tick ==
   /\ now_seq < Max(Seqs)
   /\ now_seq' = now_seq + 1
   /\ UNCHANGED <<epoch, highest, accepted>>
-
-Max(S) == CHOOSE x \in S : \A y \in S : y <= x
 
 InWindow(i,t,s) ==
   LET h == highest[<<i,t>>]
