@@ -79,6 +79,46 @@ pub(crate) fn now_secs() -> i64 {
     crate::traits::wall_hint_secs().unwrap_or_default()
 }
 
+/// Wire-framing author for SYNTHETIC control-plane gossip envelopes.
+///
+/// These envelopes are ordinary `Delta`s whose `automerge_bytes` hold a
+/// pre-framed `GossipMessage`, so they ride the DRR scheduler at HIGH
+/// priority and are unwrapped by `receive_inbound`'s `InboundDelta` arm
+/// before the CRDT merge gate (which would reject an unsigned synthetic
+/// Delta).
+const REVOCATION_GOSSIP_AUTHOR: &str = "tirbase/revocation";
+
+/// Author of synthetic Saturate_Mode termination co-signature envelopes
+/// (Req 13.6) — same framing as [`REVOCATION_GOSSIP_AUTHOR`].
+const SATURATE_GOSSIP_AUTHOR: &str = "tirbase/saturate";
+
+/// Window (microseconds) within which a below-threshold RevocationDelta is
+/// still re-gossiped every scheduling epoch. Mirrors the 24h window the
+/// complete-delta re-announcement uses; older accumulations are no longer
+/// retransmitted (their initiators must restart the revocation).
+const PENDING_REVOCATION_GOSSIP_WINDOW_MICROS: i64 = 24 * 3600 * 1_000_000;
+
+/// Enqueue a synthetic control-plane envelope on the scheduler.
+///
+/// `payload` must already be a serialised `GossipMessage`; the wrapper exists
+/// only to give the DRR scheduler a priority class and a wire author the
+/// receiver can dispatch on.
+fn enqueue_control_envelope(transport: &mut MeshTransport, author: &str, payload: Vec<u8>) {
+    let wrapper = crate::crdt::delta::Delta {
+        id: [0u8; 32],
+        author_did: author.to_string(),
+        signature: crate::crdt::delta::Ed25519Signature::default(),
+        schema_hash: [0u8; 32],
+        automerge_bytes: payload,
+        priority: crate::crdt::delta::PriorityClass::High,
+        causal_parents: vec![],
+        tags: vec![],
+        lamport: 0,
+        created_at: 0,
+    };
+    transport.enqueue_outbound(wrapper);
+}
+
 /// Wrap a `RevocationDelta` in a HIGH-priority outbound Delta and enqueue it on
 /// the mesh transport scheduler, so the scheduler tick loop gossips it to
 /// peers (Req 9.1 partial-delta gossip from initiating Managers; Req 9.2
@@ -94,20 +134,24 @@ fn enqueue_revocation_gossip(
 ) {
     use crate::transport::message::GossipMessage;
     let gossip_msg = GossipMessage::InboundRevocationDelta(rev_delta.clone());
-    let gossip_bytes = gossip_msg.to_bytes();
-    let wrapper = crate::crdt::delta::Delta {
-        id: [0u8; 32],
-        author_did: "tirbase/revocation".to_string(),
-        signature: crate::crdt::delta::Ed25519Signature::default(),
-        schema_hash: [0u8; 32],
-        automerge_bytes: gossip_bytes,
-        priority: crate::crdt::delta::PriorityClass::High,
-        causal_parents: vec![],
-        tags: vec![],
-        lamport: 0,
-        created_at: 0,
+    enqueue_control_envelope(transport, REVOCATION_GOSSIP_AUTHOR, gossip_msg.to_bytes());
+}
+
+/// Wrap a Manager's Saturate_Mode termination co-signature in a HIGH-priority
+/// envelope so peers can collect the M-of-N set over the mesh (Req 13.6).
+fn enqueue_saturate_cosignature_gossip(
+    transport: &mut MeshTransport,
+    message: &[u8],
+    signer_did: crate::crdt::delta::Did,
+    signature: Vec<u8>,
+) {
+    use crate::transport::message::GossipMessage;
+    let gossip_msg = GossipMessage::SaturateTerminationCoSignature {
+        message: message.to_vec(),
+        signer_did,
+        signature,
     };
-    transport.enqueue_outbound(wrapper);
+    enqueue_control_envelope(transport, SATURATE_GOSSIP_AUTHOR, gossip_msg.to_bytes());
 }
 
 /// Wire-framing author for synthetic fleet-inventory gossip envelopes
@@ -1539,7 +1583,214 @@ impl CoreHandle {
         }
     }
 
- /// Exclude a now-revoked device from Tier-1 quorum (Req 8.6, 14.6).
+    /// Apply an inbound (possibly partial) `RevocationDelta` on the native
+    /// path: accumulate signatures, and on M-of-N apply the revocation
+    /// side effects (Req 9.1-9.4, 8.6, 10.1, 14.6).
+    ///
+    /// Reached from two production wire framings: the direct
+    /// `GossipMessage::InboundRevocationDelta` variant, and the synthetic
+    /// `tirbase/revocation` envelope that carries one inside an
+    /// `InboundDelta` (the framing `enqueue_revocation_gossip` produces).
+    fn handle_inbound_revocation_delta(
+        &self,
+        rev_delta: crate::auth::RevocationDelta,
+    ) -> Result<(), TirBaseError> {
+            let cce_clone = self.cce.clone();
+            let transport_clone = self.transport.clone();
+
+            let mut rev =
+                self.revocation
+                    .lock()
+                    .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                        reason: format!("revocation mutex: {e}"),
+                    })?;
+
+            let result = rev.process_incoming_delta(
+                &rev_delta,
+                &mut |target_did, complete_delta| {
+ // Req 9.2: gossip the complete RevocationDelta at HIGH priority.
+                    eprintln!(
+                        "[inbound] gossiping RevocationDelta at HIGH priority for revoked DID: {target_did}"
+                    );
+                    let gossip_msg =
+                        crate::transport::message::GossipMessage::InboundRevocationDelta(
+                            complete_delta.clone(),
+                        );
+                    if let Ok(mut t) = transport_clone.lock() {
+                        enqueue_control_envelope(
+                            &mut t,
+                            REVOCATION_GOSSIP_AUTHOR,
+                            gossip_msg.to_bytes(),
+                        );
+                    }
+                },
+                &mut |target_did, delta_ids| {
+ // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
+                    eprintln!(
+                        "[inbound] CCE tagging {} deltas for revoked DID: {target_did}",
+                        delta_ids.len()
+                    );
+                    if let Ok(mut cce) = cce_clone.lock() {
+                        for delta_id in delta_ids {
+                            let _ = cce.tag_contamination_root(
+                                delta_id,
+                                crate::contamination::incident::TaintSource::DeviceRevocation {
+                                    revocation_delta_id: delta_id,
+                                },
+                            );
+                        }
+                    }
+                },
+            );
+
+            match result {
+                Ok(crate::auth::RevocationStatus::Applied) => {
+                    eprintln!(
+                        "[inbound] RevocationDelta applied for {}",
+                        rev_delta.target_did
+                    );
+
+ // Req 8.6 — a validated revocation makes the target
+ // DID locally known as REVOKED: register it in the CRDT
+ // engine so `CrdtEngine::apply` rejects all future
+ // inbound Deltas authored by it (the local write/read
+ // gate of Req 8.5 only protects this device's own
+ // operations, not the merge path).
+                    drop(rev);
+                    {
+                        let mut crdt = self.crdt.lock().map_err(|e| {
+                            TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("crdt mutex: {e}"),
+                            }
+                        })?;
+                        crdt.mark_did_revoked(&rev_delta.target_did);
+                    }
+                    eprintln!(
+                        "[inbound] CRDT engine now rejects Deltas authored by revoked DID {}",
+                        rev_delta.target_did
+                    );
+
+ // Req 8.6/14.6 — the revoked device can no longer attest
+ // durability: withdraw the receipts it already contributed and
+ // reject any it sends from now on.
+                    self.withdraw_revoked_issuer(&rev_delta.target_did);
+
+ // Req 8.5 — a validated revocation targeting THIS
+ // device makes the REVOKED status locally known: apply
+ // it to the CapabilityManager so the local write/read
+ // gate (`ensure_local_trust_allows_io`) blocks all
+ // further I/O immediately. Revocations of *other*
+ // devices must not trip this device's own gate.
+                    if rev_delta.target_did == self.identity.did() {
+                        self.capability
+                            .lock()
+                            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                                reason: format!("capability mutex poisoned: {e}"),
+                            })?
+                            .apply_revocation()?;
+                        eprintln!(
+                            "[inbound] local device {} is REVOKED — write/read/query gates now block",
+                            rev_delta.target_did
+                        );
+                    }
+                }
+                Ok(crate::auth::RevocationStatus::Pending {
+                    collected,
+                    required,
+                }) => {
+                    eprintln!(
+                        "[inbound] RevocationDelta pending {collected}/{required} sigs for {}",
+                        rev_delta.target_did
+                    );
+                }
+                Err(e) => {
+                    eprintln!("[inbound] RevocationDelta processing failed: {e}");
+                }
+            }
+        Ok(())
+    }
+
+     /// Apply an inbound Manager co-signature for a Saturate_Mode Lease
+    /// Termination Delta (Req 13.6).
+    ///
+    /// The signature is verified against the signer DID over the canonical
+    /// lease-bound termination message, and that message's embedded lease
+    /// window must be live — invalid, duplicate, stale and wrong-message
+    /// signatures are rejected fail-closed by
+    /// [`crate::transport::saturate::SaturateModeStateMachine::record_termination_signature`]
+    /// and leave the mode untouched.
+    ///
+    /// A device that has not yet co-signed the request adds its own signature
+    /// and re-broadcasts it at HIGH priority, so the M-of-N set converges over
+    /// the mesh. Once M distinct valid signatures are collected the lease
+    /// terminates and the DRR scheduler mirror is reconciled out of
+    /// Saturate_Mode.
+    fn handle_inbound_saturate_cosignature(
+        &self,
+        message: Vec<u8>,
+        signer_did: String,
+        signature: Vec<u8>,
+    ) -> Result<(), TirBaseError> {
+        use crate::transport::saturate::SaturateState;
+
+        let mut transport =
+            self.transport
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("transport mutex poisoned: {e}"),
+                })?;
+
+        let now = now_secs();
+        match transport
+            .saturate
+            .record_termination_signature(&message, &signer_did, &signature, now)
+        {
+            Ok(count) => eprintln!(
+                "[inbound] saturate termination co-signature {count} collected from {signer_did}"
+            ),
+            Err(e) => {
+                eprintln!("[inbound] saturate termination co-signature rejected: {e}");
+                return Ok(());
+            }
+        }
+
+ // Co-sign the same canonical message with this device's own Manager
+ // identity once, and re-broadcast so the requester (and every other
+ // peer) can collect the set.
+        let local_did = self.identity.did().to_string();
+        let mut own_signature: Option<Vec<u8>> = None;
+        if transport.saturate.state() == SaturateState::Saturate
+            && !transport.saturate.has_termination_signature(&local_did)
+        {
+            if let Ok(sig) = self.identity.sign(&message) {
+                if transport
+                    .saturate
+                    .record_termination_signature(&message, &local_did, sig.as_ref(), now)
+                    .is_ok()
+                {
+                    own_signature = Some(sig.to_vec());
+                }
+            }
+        }
+
+        let terminated = transport.saturate.terminate_with_collected(now)?;
+ // `tick_saturate` is the single reconciler: a just-terminated lease
+ // clears the DRR scheduler's Saturate_Mode flag here.
+        transport.tick_saturate(now);
+        if terminated {
+            eprintln!(
+                "[inbound] Saturate_Mode terminated by M-of-N co-signatures — scheduler mirror cleared"
+            );
+        }
+
+        if let Some(sig) = own_signature {
+            enqueue_saturate_cosignature_gossip(&mut transport, &message, local_did, sig);
+        }
+
+        Ok(())
+    }
+
+    /// Exclude a now-revoked device from Tier-1 quorum (Req 8.6, 14.6).
  ///
  /// Called from every path that observes a validated revocation: the native
  /// and WASM inbound `RevocationDelta` arms and `initiate_revocation` when
@@ -2755,7 +3006,10 @@ impl CoreHandle {
  // The local device signs the canonical termination message with its
  // own Manager identity, then any co-signatures collected from other
  // Managers are appended. Distinctness and validity are enforced by
- // the state machine when the threshold is counted.
+ // the state machine when the threshold is counted. Co-signatures
+ // collected over the mesh (`request_saturate_termination`) cover the
+ // lease-bound canonical message, which is what `terminate_with_collected`
+ // verifies.
         let manager_did = self.identity.did().to_string();
         let local_signature = self.identity.sign(message)?;
         let mut signatures = Vec::with_capacity(co_manager_signatures.len() + 1);
@@ -2769,6 +3023,74 @@ impl CoreHandle {
                 reason: format!("transport mutex poisoned: {e}"),
             })?
             .terminate_saturate_mode(signatures, message, now)
+    }
+
+    /// The canonical, lease-bound Saturate_Mode Lease Termination message for
+ /// this device's ACTIVE lease (Req 13.6).
+ ///
+ /// `None` when this device is not in Saturate_Mode. Every Manager
+ /// co-signature for a termination covers exactly these bytes, and
+ /// [`CoreHandle::terminate_saturate_mode`] rejects any other message, so a
+ /// signature cannot be replayed against a different lease or epoch.
+    pub fn saturate_termination_message(&self) -> Option<Vec<u8>> {
+        self.transport
+            .lock()
+            .ok()
+            .and_then(|t| t.saturate.canonical_termination_message())
+    }
+
+    /// Number of distinct Manager co-signatures collected for the current
+    /// Saturate_Mode termination request (Req 13.6).
+    pub fn saturate_termination_signature_count(&self) -> usize {
+        self.transport
+            .lock()
+            .map(|t| t.saturate.collected_termination_signature_count())
+            .unwrap_or(0)
+    }
+
+    /// Request M-of-N termination of Saturate_Mode: sign the canonical
+    /// lease-bound termination message with this device's Manager identity and
+    /// gossip the co-signature at HIGH priority (Req 13.6).
+    ///
+    /// Peers in Saturate_Mode verify the message, add their own signature and
+    /// re-broadcast; once M distinct valid signatures are collected the lease
+    /// terminates on every participating device and the DRR scheduler mirror is
+    /// cleared. Returns the canonical message that was signed.
+    ///
+    /// Fails closed when this device is not in Saturate_Mode (there is no lease
+    /// to bind a termination request to).
+    pub fn request_saturate_termination(&self) -> Result<Vec<u8>, TirBaseError> {
+        let mut transport =
+            self.transport
+                .lock()
+                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("transport mutex poisoned: {e}"),
+                })?;
+
+        let message = transport
+            .saturate
+            .canonical_termination_message()
+            .ok_or(TirBaseError::AuthorisationFailed {
+                reason: "Saturate_Mode is not active; there is no lease-bound termination message"
+                    .to_string(),
+            })?;
+
+        let manager_did = self.identity.did().to_string();
+        let signature = self.identity.sign(&message)?;
+        transport.saturate.record_termination_signature(
+            &message,
+            &manager_did,
+            &signature.to_vec(),
+            now_secs(),
+        )?;
+        enqueue_saturate_cosignature_gossip(
+            &mut transport,
+            &message,
+            manager_did,
+            signature.to_vec(),
+        );
+
+        Ok(message)
     }
 
  // ─── Manager operations — Contamination resolution (Req 11.1, 11.2) ────────
@@ -3285,6 +3607,34 @@ impl CoreHandle {
                         }
                     }
                 }
+ // Revocation gossip (Req 9.1/9.2): a synthetic envelope carries a
+ // (possibly partial) `RevocationDelta` in `automerge_bytes`. Unwrap it
+ // before the CRDT merge gate — an unsigned synthetic Delta would be
+ // rejected there, which is exactly why partial deltas never crossed the
+ // mesh: peers must accumulate these signatures instead.
+                if delta.author_did == REVOCATION_GOSSIP_AUTHOR {
+                    if let Some(GossipMessage::InboundRevocationDelta(rev_delta)) =
+                        crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
+                    {
+                        return self.handle_inbound_revocation_delta(rev_delta);
+                    }
+                }
+ // Saturate_Mode termination co-signatures (Req 13.6): same synthetic
+ // envelope framing, dispatched through the M-of-N collection handler.
+                if delta.author_did == SATURATE_GOSSIP_AUTHOR {
+                    if let Some(GossipMessage::SaturateTerminationCoSignature {
+                        message,
+                        signer_did,
+                        signature,
+                    }) = crate::transport::message::GossipMessage::from_bytes(&delta.automerge_bytes)
+                    {
+                        return self.handle_inbound_saturate_cosignature(
+                            message,
+                            signer_did,
+                            signature,
+                        );
+                    }
+                }
  // PV-6 / : enforce every configured InboundCaps value
  // before merge (connections, rate/burst, size, op count, batch,
  // heads, deps per change, traversal budget). Dep check and
@@ -3660,124 +4010,7 @@ impl CoreHandle {
                 }
             }
             GossipMessage::InboundRevocationDelta(rev_delta) => {
-                let cce_clone = self.cce.clone();
-                let transport_clone = self.transport.clone();
-
-                let mut rev =
-                    self.revocation
-                        .lock()
-                        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                            reason: format!("revocation mutex: {e}"),
-                        })?;
-
-                let result = rev.process_incoming_delta(
-                    &rev_delta,
-                    &mut |target_did, complete_delta| {
- // Req 9.2: gossip the complete RevocationDelta at HIGH priority.
-                        eprintln!(
-                            "[inbound] gossiping RevocationDelta at HIGH priority for revoked DID: {target_did}"
-                        );
-                        let gossip_msg = GossipMessage::InboundRevocationDelta(complete_delta.clone());
-                        let gossip_bytes = gossip_msg.to_bytes();
-                        let revocation_delta_wrapper = crate::crdt::delta::Delta {
-                            id: [0u8; 32],
-                            author_did: "tirbase/revocation".to_string(),
-                            signature: crate::crdt::delta::Ed25519Signature::default(),
-                            schema_hash: [0u8; 32],
-                            automerge_bytes: gossip_bytes,
-                            priority: crate::crdt::delta::PriorityClass::High,
-                            causal_parents: vec![],
-                            tags: vec![],
-                            lamport: 0,
-                            created_at: 0,
-                        };
-                        if let Ok(mut t) = transport_clone.lock() {
-                            t.enqueue_outbound(revocation_delta_wrapper);
-                        }
-                    },
-                    &mut |target_did, delta_ids| {
- // CCE tagging of all Deltas authored by the revoked DID (Req 10.1).
-                        eprintln!(
-                            "[inbound] CCE tagging {} deltas for revoked DID: {target_did}",
-                            delta_ids.len()
-                        );
-                        if let Ok(mut cce) = cce_clone.lock() {
-                            for delta_id in delta_ids {
-                                let _ = cce.tag_contamination_root(
-                                    delta_id,
-                                    crate::contamination::incident::TaintSource::DeviceRevocation {
-                                        revocation_delta_id: delta_id,
-                                    },
-                                );
-                            }
-                        }
-                    },
-                );
-
-                match result {
-                    Ok(crate::auth::RevocationStatus::Applied) => {
-                        eprintln!(
-                            "[inbound] RevocationDelta applied for {}",
-                            rev_delta.target_did
-                        );
-
- // Req 8.6 — a validated revocation makes the target
- // DID locally known as REVOKED: register it in the CRDT
- // engine so `CrdtEngine::apply` rejects all future
- // inbound Deltas authored by it (the local write/read
- // gate of Req 8.5 only protects this device's own
- // operations, not the merge path).
-                        drop(rev);
-                        {
-                            let mut crdt = self.crdt.lock().map_err(|e| {
-                                TirBaseError::LocalStoreWriteFailed {
-                                    reason: format!("crdt mutex: {e}"),
-                                }
-                            })?;
-                            crdt.mark_did_revoked(&rev_delta.target_did);
-                        }
-                        eprintln!(
-                            "[inbound] CRDT engine now rejects Deltas authored by revoked DID {}",
-                            rev_delta.target_did
-                        );
-
- // Req 8.6/14.6 — the revoked device can no longer attest
- // durability: withdraw the receipts it already contributed and
- // reject any it sends from now on.
-                        self.withdraw_revoked_issuer(&rev_delta.target_did);
-
- // Req 8.5 — a validated revocation targeting THIS
- // device makes the REVOKED status locally known: apply
- // it to the CapabilityManager so the local write/read
- // gate (`ensure_local_trust_allows_io`) blocks all
- // further I/O immediately. Revocations of *other*
- // devices must not trip this device's own gate.
-                        if rev_delta.target_did == self.identity.did() {
-                            self.capability
-                                .lock()
-                                .map_err(|e| TirBaseError::LocalStoreWriteFailed {
-                                    reason: format!("capability mutex poisoned: {e}"),
-                                })?
-                                .apply_revocation()?;
-                            eprintln!(
-                                "[inbound] local device {} is REVOKED — write/read/query gates now block",
-                                rev_delta.target_did
-                            );
-                        }
-                    }
-                    Ok(crate::auth::RevocationStatus::Pending {
-                        collected,
-                        required,
-                    }) => {
-                        eprintln!(
-                            "[inbound] RevocationDelta pending {collected}/{required} sigs for {}",
-                            rev_delta.target_did
-                        );
-                    }
-                    Err(e) => {
-                        eprintln!("[inbound] RevocationDelta processing failed: {e}");
-                    }
-                }
+                self.handle_inbound_revocation_delta(rev_delta)?;
             }
             GossipMessage::FleetInventoryUpdate(update) => {
                 let report = self.apply_inbound_fleet_update(update);
@@ -4290,6 +4523,18 @@ impl CoreHandle {
                     frag.total_fragments,
                 );
                 return Ok(());
+            }
+            GossipMessage::SaturateTerminationCoSignature {
+                message,
+                signer_did,
+                signature,
+            } => {
+ // Req 13.6 on WASM: the JS transport delivers peer frames verbatim, so
+ // a Manager co-signature arrives as its own variant. The shared
+ // production handler verifies it against the canonical lease message,
+ // co-signs locally and terminates once M distinct valid signatures are
+ // collected.
+                return self.handle_inbound_saturate_cosignature(message, signer_did, signature);
             }
             GossipMessage::InboundDelta(delta) => {
  // (PV-11.3): unwrap a synthetic fleet-gossip envelope
@@ -5078,6 +5323,19 @@ impl CoreHandle {
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 ticker.tick().await;
+                // Partial RevocationDeltas still below M are re-gossiped every
+                // epoch (Req 9.1/9.2): a Manager that contributed while the mesh
+                // was partitioned is still counted once it reconnects, and the
+                // retransmission stops the moment the threshold is met. The
+                // revocation lock is taken BEFORE the transport lock — the same
+                // order `initiate_revocation` uses — so the two cannot deadlock.
+                let pending_partial_revocations = handle
+                    .revocation
+                    .lock()
+                    .map(|rev| {
+                        rev.build_pending_partial_deltas(PENDING_REVOCATION_GOSSIP_WINDOW_MICROS)
+                    })
+                    .unwrap_or_default();
                 match handle.transport.lock() {
                     Ok(mut transport) => {
                         let now_us = now_micros();
@@ -5151,6 +5409,10 @@ impl CoreHandle {
                             Err(e) => {
                                 eprintln!("[scheduler-loop] DRR tick failed: {e}");
                             }
+                        }
+
+                        for rev_delta in &pending_partial_revocations {
+                            enqueue_revocation_gossip(&mut transport, rev_delta);
                         }
                     }
                     Err(e) => {
@@ -17075,3 +17337,6 @@ mod inbound_cap_rejection_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "native"))]
+mod revocation_saturate_mesh_tests;

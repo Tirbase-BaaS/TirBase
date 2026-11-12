@@ -1,8 +1,8 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1–3 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity)
+**Workstream:** 1–4 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination)
 **Branch:** `main`
-**Baseline HEAD:** `5bea300`
+**Baseline HEAD:** `5bea300` (WS4 started from `36ba045`)
 **Last updated:** 2026-11-12
 
 This ledger is the single source of truth for the wiring effort. It records the verified baseline,
@@ -73,8 +73,8 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-10 | 0-RTT session resumption (L154) | `transport/session.rs` resume cache | `under-proven` | session unit tests; no live re-dial over the wire | 3 | — |
 | INV-11 | Key rotation and session-cache invalidation (L164/167) | `transport/session.rs`, `auth` | `under-proven` | unit tests only; no rotation mid-mesh e2e | 3 | — |
 | INV-12 | SDK surfaces real-time trust levels (L176) | `tirbase-sdk` `onTrustLevelChanged` ← `core_poll_events` | **`wired`** | `tirbase-manager-ops.wasm.test.ts`: `presentToken` moves a real WASM instance to `VERIFIED` and emits `trust-level-changed`; an invalid token leaves `UNVERIFIED` plus the unverified warning; a peer revocation no longer mutates the local level (`TrustLevelChanged` now carries `did`) | 7 | WS2 |
-| INV-13 | M-of-N revocation accumulates gossip across peers (L235) | `auth` revocation collector ← `receive_inbound` revocation deltas | `under-proven` | `revocation_delta_enqueued_at_high_priority_after_threshold_met` + property 7; not accumulated from two live peers | 3 | — |
-| INV-14 | A node one gossip round from the mesh isolates a revoked device (L255) | `auth`/`api` revocation application | `under-proven` | threshold logic tested; no timed e2e isolation assertion | 3 | — |
+| INV-13 | M-of-N revocation accumulates gossip across peers (L235) | `auth` revocation collector ← `receive_inbound` revocation deltas | **`wired`** | `api::revocation_saturate_mesh_tests::{partial_revocation_deltas_accumulate_across_offline_managers, below_threshold_never_revokes_and_threshold_signature_always_does, revocation_negative_cases_fail_closed}` (§3.7): three real Swarms produce partial deltas while partitioned and accumulate to M=2/3 over the wire | 4 | WS4 |
+| INV-14 | A node one gossip round from the mesh isolates a revoked device (L255) | `auth`/`api` revocation application | **`wired`** | `api::revocation_saturate_mesh_tests::partial_revocation_deltas_accumulate_across_offline_managers` asserts isolation reaches every peer within one production gossip round of the first observer (1 s scheduler epoch + 50 ms drain) and the revoked author's Deltas being rejected at `apply_incoming_delta` | 4 | WS4 |
 | INV-15 | Contamination forward trace identifies tainted devices (L260/262) | `contamination` → `verify_contamination` | `under-proven` | composite-incident + revocation mesh tests exist; no revoked-author → CCE tag e2e | 6 | — |
 | INV-16 | Sidecar replay after corrected migration, tagged on success (L279) | `migration::SideCarLedger::replay_sidecar` | `under-proven` | `sidecar.rs` unit tests + property 22; not exercised through a production migration run | 6 | — |
 | INV-17 | Replay conflicts flagged for manual resolution without abort (L286) | `migration/sidecar.rs` conflict counting | `under-proven` | `replay_with_conflicts_does_not_append_replay_complete_tag`; flag not surfaced through API | 6 | — |
@@ -390,6 +390,82 @@ receipt/quorum path in `src/api/mod.rs`, and the real-mesh tests. Rows INV-18/IN
 Commit for this workstream: the commit that adds this section
 (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
 
+## 3.7 WS4 — Revocation gossip accumulation + M-of-N Saturate termination (PROMPT 4 of 8)
+
+Scope: `tirbase-core/src/auth/revocation.rs`, `tirbase-core/src/transport/saturate.rs`,
+`tirbase-core/src/transport/message.rs`, the manager-operation/mesh paths in
+`tirbase-core/src/api/mod.rs`, `tirbase-core/src/tests/api_parity.rs` and the
+`tirbase-core` public API manifests. Rows INV-13/INV-14.
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | **Gossiped RevocationDeltas never crossed the native mesh.** `enqueue_revocation_gossip` publishes a synthetic `Delta` with `author_did == "tirbase/revocation"` whose `automerge_bytes` holds a `GossipMessage::InboundRevocationDelta`, but `receive_inbound`'s `InboundDelta` arm only unwrapped the **fleet** envelope. On the receiving peer the wrapper fell into `apply_incoming_delta`, which rejected it (unsigned synthetic Delta from an unresolvable author), so only the initiating device's local bookkeeping ever saw a signature. | The `tirbase/revocation` envelope is unwrapped before the merge gate and dispatched to `handle_inbound_revocation_delta` — the direct-variant arm was extracted into that one method, so both wire framings run the same implementation. |
+| 2 | **Below-threshold deltas were gossiped exactly once, at initiation.** A Manager that produced its partial delta while partitioned never got its signature to peers after reconnection (the production scheduler drained it once, with no subscribers, and dropped it). | `PendingRevocationStore::pending_partial_deltas` / `RevocationSubsystem::build_pending_partial_deltas` expose accumulations still below M; `spawn_scheduler_tick_loop` re-enqueues them at HIGH priority once per epoch (at most one per pending target per epoch, and it stops the moment M is met — once applied the target is excluded). |
+| 3 | **M-of-N Saturate termination had no mesh path at all.** `terminate_saturate_mode` only accepted co-signatures collected out of band; there was no message, no canonical lease binding and no collection state. | Canonical lease-bound termination message (`TERMINATION_MESSAGE_PREFIX`; epoch = lease activation timestamp, plus expiry window and activating manager DID), `SaturateModeStateMachine::{canonical_termination_message, build_termination_message, parse_termination_message, validate_termination_message, is_current_termination_message, record_termination_signature, collected_termination_signatures, collected_termination_signature_count, has_termination_signature, terminate_with_collected}`, `CoreHandle::{saturate_termination_message, saturate_termination_signature_count, request_saturate_termination}`, and the HIGH-priority `GossipMessage::SaturateTerminationCoSignature` envelope (synthetic `tirbase/saturate` framing on native, its own variant on WASM). Receivers verify signature + canonical shape + a live lease window, co-sign once themselves, re-broadcast, and terminate when M distinct valid signatures are collected. Activation, renewal, expiry and termination all clear the collected set, so a signature set can never outlive its lease epoch. |
+
+### Tests added (`api::revocation_saturate_mesh_tests`, all real Swarms)
+
+| Test | Peers | Proves |
+|------|-------|--------|
+| `partial_revocation_deltas_accumulate_across_offline_managers` | 4 | Three Managers each call `initiate_revocation` with a real root-CA `RevocationManager` token **while disconnected** (asserted `peer_count == 0`, each holds `Pending{1,2}`); the HIGH-priority classification is observed at the publish point (an `InboundDelta` wrapper with `PriorityClass::High` carrying `InboundRevocationDelta` for the target); after reconnecting the full mesh every peer isolates the target **within one production gossip round of the first observer** (bounded by 1 s scheduler epoch + 50 ms drain, measured on the monotonic clock; the bound is the fan-out delay, not mesh-formation time on a loaded host), records it through `device_revocation_status` with a receipt timestamp, and holds an immutable 2-signature delta recoverable via `build_recent_revocation_deltas`. The revoked author's later signed Delta is rejected by `apply_incoming_delta` (`MergeOutcome::Rejected`) on every peer, never reaches the DAG and is never projected, while an honest author's Delta merges over the same path. |
+| `below_threshold_never_revokes_and_threshold_signature_always_does` | 4 | M=3: two Managers' contributions stay `Pending{2,3}` and never revoke across two full gossip rounds on any peer; the third Manager's initiation revokes on every peer within one round. |
+| `revocation_negative_cases_fail_closed` | 2 | A duplicated Manager signature counts once (never twice); a signature bound to another target DID is rejected outright (cross-target replay: no accumulation, no revocation); an expired manager token, a non-`RevocationManager` role and a foreign-CA token are all rejected with `AuthorisationFailed` and contribute nothing; a replayed complete delta and a late third signature leave the applied delta unchanged (2 signatures, identical `created_at`). |
+| `saturate_activation_routes_high_only_and_holds_medium_low` | 1 | Real `CoreHandle` activation with a DISASTER_ALERT token puts the state machine and DRR mirror in SATURATE; one Delta per priority class enqueued through the production scheduler: HIGH is served, MEDIUM and LOW stay queued (held, not dropped); M-of-N termination with a real distinct co-manager signature clears lease + mirror, after which the held MEDIUM/LOW Deltas are served. |
+| `saturate_renewal_is_bounded_and_requires_valid_tokens` | 2 | Activation opens the configured 60 s window; a heartbeat extends by exactly one configured window from `now` and records `last_renewed_at`; repeated renewal never accumulates windows; foreign-CA and caveat-less tokens are rejected without moving the lease; renewal outside SATURATE fails. |
+| `saturate_termination_below_threshold_preserves_mode_over_mesh` | 2 | With M=3, a mesh request collects only 2 distinct signatures (requester + peer, the peer co-signing over the wire) and both devices stay SATURATE with the mirror intact across two gossip rounds. |
+| `saturate_termination_m_of_n_collected_over_real_mesh` | 3 | Invalid, wrong-message and expired-lease co-signatures published over the real mesh are all rejected (count stays 0, mode untouched); a duplicated signature counts once; the remaining peers co-sign the canonical lease-bound message over the wire and M=3 terminates **every** peer with the scheduler mirror cleared inside two gossip rounds; afterwards no canonical message exists and renewal is rejected. |
+| `canonical_termination_message_is_lease_bound` | unit | The canonical message embeds the lease epoch/expiry/manager, a stale window is rejected, and a renewal changes the message so previously collected signatures no longer authorise termination. |
+| `auth::revocation::tests::test_pending_partial_deltas_track_accumulation_until_threshold` | unit | The partial-delta re-gossip list carries accumulated signatures below M and excludes an applied target. |
+
+**Fails-before evidence.** With the `tirbase/revocation` envelope unwrap disabled
+(`if false && delta.author_did == REVOCATION_GOSSIP_AUTHOR`), `partial_revocation_deltas_accumulate_across_offline_managers`
+fails (`0 passed; 1 failed`, the peers never isolate the device); restoring it passes. The Saturate tests fail
+before the change because `request_saturate_termination`/`SaturateTerminationCoSignature` do not exist
+(no mesh collection path to compile against).
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cargo test -p tirbase-core --features native` | **740 lib passed / 0 failed**, 0 ignored (was 731), every integration suite green (`contamination_resolution` 8, `crash_recovery` 1, `fleet_inventory` 2, `security_event_sync` 2, `shadow_postconditions` 5, `time_source_injection` 1) |
+| `cargo test --features native --lib -- --test-threads=1 revocation_saturate_mesh_tests::` | 7/7 new mesh tests + the lease-bound unit test pass individually and in the parallel suite |
+| `cargo check --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
+| `cargo check --workspace` | clean |
+| `cargo +nightly public-api -p tirbase-core` | approved additions appended to `public-api.txt` / `wasm-public-api.txt` (3 `CoreHandle` methods, the pending-partial-delta accessors, the canonical termination-message API and the `SaturateTerminationCoSignature` variant) |
+
+### Honest limits (do not overclaim)
+
+1. **Same host, loopback TCP.** Every test runs several Swarms in one process over loopback. This is a real
+   transport (genuine gossipsub publish/subscribe, fragmentation, drain loops), but it does not prove
+   cross-host/NAT behaviour (INV-43 stays open).
+2. **Managers are self-certifying.** `RevocationDelta`/termination signatures are verified against the
+   signer's `did:key`; there is no registry of the N authorised Manager DIDs, so "unauthorised manager" is
+   proven at the credential boundary (token role expiry/CA/role checks in `initiate_revocation`) and for
+   revoked signing keys, not against a per-fleet manager roster.
+3. **`RevocationDelta` has no epoch/sequence field**, so "stale epoch/sequence" is represented by (a) manager
+   token expiry and (b) replay of an already-applied delta, both proven above. Stale-lease binding *is*
+   proven for the Saturate termination message, which carries the lease epoch explicitly.
+4. **Peer-issued termination requests are accepted on a live-lease check.** A co-manager co-signs any
+   well-formed termination message whose embedded lease window is live; it cannot verify that the requester
+   actually holds that lease (the requester's lease is local state). M-of-N still bounds the damage: M
+   distinct Managers must co-sign, duplicates/invalid/expired sets are rejected, and the requester's own
+   signatures are bound to its own canonical message.
+5. **Re-gossip cadence is per scheduler epoch.** A pending partial delta is retransmitted once per DRR epoch
+   (1 s in production) until M is met; this is bounded but does produce periodic control traffic for a
+   revocation that stays below threshold for a long time (24 h window, then it stops).
+
+### Files
+
+- Core: `src/auth/revocation.rs`, `src/transport/saturate.rs`, `src/transport/message.rs`,
+  `src/transport/mod.rs` (WASM outbound-frame passthrough for the `tirbase/saturate` author),
+  `src/api/mod.rs`, `src/api/revocation_saturate_mesh_tests.rs` (new), `src/tests/api_parity.rs`,
+  `public-api.txt`, `wasm-public-api.txt`.
+
+Commit for this workstream: the commit that adds this section
+(`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -412,6 +488,7 @@ Commit for this workstream: the commit that adds this section
   that authenticated `initiate_revocation`, §3.3 the DISASTER_ALERT issuance path, §3.4 the gateway SDK transports
   and §3.5 the gateway→WASM saturate e2e. The one remaining item is signed admin operations proven only to their auth gate, which stays with
   `tirbase-gateway/tests/admin_endpoints_binary.rs`.
+- WS4 (prompt 4 of 8) closed INV-13/INV-14 and added the mesh path for M-of-N Saturate termination; see §3.7.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

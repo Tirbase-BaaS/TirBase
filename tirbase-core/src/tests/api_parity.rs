@@ -144,6 +144,24 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
         "fleet control plane is native-only (CLI/admin), not an SDK boundary",
     ),
     (
+        "saturate_termination_message",
+        "Saturate_Mode termination collection is a native host/mesh-manager \
+         operation; the JS bridge collects co-signatures and calls \
+         core_terminate_saturate_mode",
+    ),
+    (
+        "saturate_termination_signature_count",
+        "Saturate_Mode termination collection is a native host/mesh-manager \
+         operation; the JS bridge collects co-signatures and calls \
+         core_terminate_saturate_mode",
+    ),
+    (
+        "request_saturate_termination",
+        "Saturate_Mode termination collection is a native host/mesh-manager \
+         operation; the JS bridge collects co-signatures and calls \
+         core_terminate_saturate_mode",
+    ),
+    (
         "subscribe_fleet_updates",
         "native-only tokio broadcast channel",
     ),

@@ -27,8 +27,21 @@ pub enum GossipMessage {
     InboundDeltaFragment(DeltaFragment),
  /// A signed DurabilityReceipt from a peer (Req 14.6).
     InboundDurabilityReceipt(DurabilityReceipt),
- /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
+     /// A (possibly partial) RevocationDelta from a peer (Req 9.3).
     InboundRevocationDelta(RevocationDelta),
+    /// A Manager's co-signature over a canonical Saturate_Mode Lease
+    /// Termination message (Req 13.6).
+    ///
+    /// Gossiped at HIGH priority so the M-of-N signature set for a lease can
+    /// be collected over the real mesh instead of out of band. Receivers
+    /// verify the signature, the canonical message shape and the embedded
+    /// lease window before counting it; a peer that has not yet co-signed the
+    /// message adds its own signature and re-broadcasts.
+    SaturateTerminationCoSignature {
+        message: Vec<u8>,
+        signer_did: Did,
+        signature: Vec<u8>,
+    },
  /// A schema-migration Delta from a peer (Req 18).
     InboundMigrationDelta(Box<MigrationDelta>),
  /// A migration-revocation Delta from a peer (Req 18.5).

@@ -766,7 +766,9 @@ impl MeshTransport {
         let drained = self.scheduler.tick(link_capacity_bytes);
         let mut frames = Vec::new();
         for queued in drained {
-            if queued.delta.author_did == "tirbase/revocation" {
+            if queued.delta.author_did == "tirbase/revocation"
+                || queued.delta.author_did == "tirbase/saturate"
+            {
                 frames.push(queued.delta.automerge_bytes.clone());
                 continue;
             }

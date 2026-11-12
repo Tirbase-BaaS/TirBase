@@ -11452,3 +11452,25 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::TransportConf
 pub fn tirbase_core::transport::TransportConfig::vzip(self) -> V
 pub const tirbase_core::transport::SECURITY_EVENT_SYNC_MAX_PER_PEER_PER_MIN: usize
 pub const tirbase_core::transport::SECURITY_EVENT_SYNC_RETRY_SECS: u64
+pub const tirbase_core::transport::saturate::TERMINATION_MESSAGE_PREFIX: &str
+pub fn tirbase_core::api::CoreHandle::request_saturate_termination(&self) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::saturate_termination_message(&self) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn tirbase_core::api::CoreHandle::saturate_termination_signature_count(&self) -> usize
+pub fn tirbase_core::auth::revocation::PendingRevocationStore::pending_partial_deltas(&self, i64) -> alloc::vec::Vec<tirbase_core::auth::revocation::RevocationDelta>
+pub fn tirbase_core::auth::revocation::RevocationSubsystem::build_pending_partial_deltas(&self, i64) -> alloc::vec::Vec<tirbase_core::auth::revocation::RevocationDelta>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::build_termination_message(&tirbase_core::transport::saturate::SaturateLease) -> alloc::vec::Vec<u8>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::canonical_termination_message(&self) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::collected_termination_signature_count(&self) -> usize
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::collected_termination_signatures(&self) -> &[(tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>)]
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::has_termination_signature(&self, &str) -> bool
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::is_current_termination_message(&self, &[u8]) -> bool
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::parse_termination_message(&[u8]) -> core::option::Option<(i64, i64, i64, alloc::string::String)>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::record_termination_signature(&mut self, &[u8], &tirbase_core::crdt::delta::Did, &[u8], i64) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::validate_termination_message(&self, &[u8], i64) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::saturate::SaturateModeStateMachine::terminate_with_collected(&mut self, i64) -> core::result::Result<bool, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::auth::revocation::PendingRevocationStore::pending_partial_deltas(&self, i64) -> alloc::vec::Vec<tirbase_core::auth::revocation::RevocationDelta>
+pub fn tirbase_core::auth::revocation::RevocationSubsystem::build_pending_partial_deltas(&self, i64) -> alloc::vec::Vec<tirbase_core::auth::revocation::RevocationDelta>
+pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature
+pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::message: alloc::vec::Vec<u8>
+pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::signature: alloc::vec::Vec<u8>
+pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::signer_did: tirbase_core::crdt::delta::Did

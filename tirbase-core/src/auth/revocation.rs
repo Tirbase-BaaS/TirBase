@@ -255,6 +255,29 @@ impl PendingRevocationStore {
         })
     }
 
+     /// Build one partial (below-threshold) `RevocationDelta` per target that
+ /// has accumulated at least one signature but has not yet reached M.
+ ///
+ /// These are the deltas the mesh re-gossips at HIGH priority every
+ /// scheduling epoch (see `CoreHandle::spawn_scheduler_tick_loop`), so a
+ /// Manager that contributed while its peers were offline is still counted
+ /// once the mesh reconnects (Req 9.1/9.2). Only accumulations started
+ /// within `within_micros` are returned, mirroring
+ /// [`Self::build_revocation_delta`]'s use by the complete-delta
+ /// re-announcement path.
+    pub fn pending_partial_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
+        let cutoff = current_timestamp_micros() - within_micros;
+        self.pending
+            .values()
+            .filter(|p| p.signatures.len() < p.threshold_m && p.initiated_at >= cutoff)
+            .map(|p| RevocationDelta {
+                target_did: p.target_did.clone(),
+                signatures: p.signatures.clone(),
+                created_at: p.initiated_at,
+            })
+            .collect()
+    }
+
  /// Emit a warning string if M=1, N=1 (single manager has unilateral exile power).
  ///
  /// Returns `Some(warning)` when M=1 and N=1 (Req 9.7).
@@ -540,6 +563,20 @@ impl RevocationSubsystem {
         self.store.status(target_did)
     }
 
+ /// Partial (below-threshold) RevocationDeltas still accumulating signatures
+ /// — re-gossiped by the mesh scheduler each epoch so offline Managers'
+ /// contributions converge after reconnection (Req 9.1/9.2).
+ ///
+ /// Targets this device has already applied are excluded (their
+ /// signatures are immutable, see [`Self::build_recent_revocation_deltas`]).
+    pub fn build_pending_partial_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
+        self.store
+            .pending_partial_deltas(within_micros)
+            .into_iter()
+            .filter(|d| !self.revoked_dids.contains(&d.target_did))
+            .collect()
+    }
+
  /// Emit a 1-of-1 revocation warning if applicable (Req 9.7).
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
@@ -821,6 +858,17 @@ impl RevocationSubsystem {
         self.store.status(target_did)
     }
 
+ /// Partial (below-threshold) RevocationDeltas still accumulating signatures
+ /// — re-gossiped by the mesh scheduler each epoch so offline Managers'
+ /// contributions converge after reconnection (Req 9.1/9.2).
+    pub fn build_pending_partial_deltas(&self, within_micros: i64) -> Vec<RevocationDelta> {
+        self.store
+            .pending_partial_deltas(within_micros)
+            .into_iter()
+            .filter(|d| !self.revoked_dids.contains(&d.target_did))
+            .collect()
+    }
+
     pub fn check_1_of_1_warning(&self) -> Option<String> {
         PendingRevocationStore::check_1_of_1_warning(self.threshold_m, self.threshold_n)
     }
@@ -931,6 +979,39 @@ mod tests {
                 }
             ),
             "expected Pending(1/3), got: {status:?}"
+        );
+    }
+
+ // ─── Test 1b: pending partial deltas are re-gossipable ────────────────────
+
+    #[test]
+    fn test_pending_partial_deltas_track_accumulation_until_threshold() {
+        let mut sys = make_subsystem(2, 3);
+        let target = "did:key:z6MkTargetPending1".to_string();
+        let (mgr1_did, mgr1_sk) = make_manager();
+
+        let delta = partial_delta(&sys, &target, &mgr1_did, &mgr1_sk);
+        sys.process_incoming_delta(&delta, &mut noop_gossip, &mut noop_cce)
+            .expect("one signature must accumulate");
+
+ // Below threshold: exactly one re-gossipable partial delta carrying the
+ // single accumulated signature.
+        let pending = sys.build_pending_partial_deltas(24 * 3600 * 1_000_000);
+        assert_eq!(pending.len(), 1, "one pending target must be re-gossiped");
+        assert_eq!(pending[0].target_did, target);
+        assert_eq!(pending[0].signatures.len(), 1);
+
+ // Once M is met the target is applied and must no longer be re-gossiped.
+        let (mgr2_did, mgr2_sk) = make_manager();
+        let second = partial_delta(&sys, &target, &mgr2_did, &mgr2_sk);
+        let status = sys
+            .process_incoming_delta(&second, &mut noop_gossip, &mut noop_cce)
+            .expect("second signature must apply");
+        assert_eq!(status, RevocationStatus::Applied);
+        assert!(
+            sys.build_pending_partial_deltas(24 * 3600 * 1_000_000)
+                .is_empty(),
+            "an applied revocation must not be re-gossiped as a partial delta"
         );
     }
 

@@ -58,6 +58,26 @@ impl SaturateLease {
     }
 }
 
+/// Canonical domain-separated prefix of a Lease Termination Delta message
+/// (Req 13.6).
+///
+/// A termination message is `"tirbase:saturate-terminate:v1|epoch=<n>|
+/// activated_at=<n>|expires_at=<n>|manager=<did>"`. Binding the message to
+/// the lease's activation timestamp (its epoch) and expiry window means a
+/// signature collected for one lease can never terminate a later one, and a
+/// replayed message whose lease window has elapsed is rejected.
+pub const TERMINATION_MESSAGE_PREFIX: &str = "tirbase:saturate-terminate:v1";
+
+/// A collected M-of-N termination request: the canonical message plus the
+/// distinct Manager signatures gathered for it over the mesh (Req 13.6).
+#[derive(Debug, Clone)]
+pub(crate) struct TerminationRequest {
+ /// The canonical, lease-bound termination message the signatures cover.
+    message: Vec<u8>,
+ /// Distinct Manager `(did, raw Ed25519 signature)` contributions.
+    signatures: Vec<(Did, Vec<u8>)>,
+}
+
 /// The Saturate_Mode state machine.
 ///
 /// Callers must provide a root CA public key slice (32 bytes) so that Biscuit
@@ -75,6 +95,11 @@ pub struct SaturateModeStateMachine {
  /// lease opened by `activate()` expires `lease_duration_secs` after its
  /// `activated_at`/renewal timestamp.
     lease_duration_secs: i64,
+ /// Co-signatures collected for the current lease's canonical termination
+ /// message (Req 13.6). Announced over the mesh at HIGH priority and
+ /// verified on receipt; cleared by activation, renewal, expiry and a
+ /// successful termination so no signature set can outlive its lease.
+    termination_request: Option<TerminationRequest>,
 }
 
 impl SaturateModeStateMachine {
@@ -105,6 +130,7 @@ impl SaturateModeStateMachine {
             termination_threshold_m,
             root_ca_public_key,
             lease_duration_secs,
+            termination_request: None,
         }
     }
 
@@ -140,7 +166,7 @@ impl SaturateModeStateMachine {
  // Verify the token and check for the disaster-alert caveat.
         self.verify_disaster_alert_token(biscuit_token, now_secs)?;
 
- // Token valid — activate the lease.
+         // Token valid — activate the lease.
         let expires_at = now_secs + self.lease_duration_secs;
         self.lease = Some(SaturateLease {
             activated_at: now_secs,
@@ -149,6 +175,9 @@ impl SaturateModeStateMachine {
             activating_manager_did: manager_did,
         });
         self.state = SaturateState::Saturate;
+        // A new lease is a new epoch: signatures gathered for the previous
+        // lease must never authorise terminating this one (Req 13.6).
+        self.termination_request = None;
         Ok(())
     }
 
@@ -183,6 +212,9 @@ impl SaturateModeStateMachine {
             Some(lease) => {
                 lease.expires_at = now_secs + self.lease_duration_secs;
                 lease.last_renewed_at = Some(now_secs);
+            // Renewal moves the lease epoch (its expiry window changes), so
+                // any partially collected termination must be re-signed.
+                self.termination_request = None;
             }
             None => {
  // Should not happen if state is SATURATE, but be defensive.
@@ -235,6 +267,7 @@ impl SaturateModeStateMachine {
  // Threshold met — terminate immediately.
         self.state = SaturateState::Normal;
         self.lease = None;
+        self.termination_request = None;
         Ok(())
     }
 
@@ -248,6 +281,7 @@ impl SaturateModeStateMachine {
                 if lease.is_expired(now_secs) {
                     self.state = SaturateState::Normal;
                     self.lease = None;
+                    self.termination_request = None;
                 }
             }
         }
@@ -268,6 +302,214 @@ impl SaturateModeStateMachine {
         if let Some(lease) = self.lease.as_mut() {
             lease.expires_at = expires_at;
         }
+    }
+
+ // ── Canonical termination message + M-of-N collection over the mesh ──────
+
+ /// The canonical termination message for the ACTIVE lease (Req 13.6).
+ ///
+ /// `None` when not in SATURATE (there is no lease to bind to). The message
+ /// is deterministic for a given lease, which is what makes it a canonical
+ /// co-signing target: it embeds the lease epoch (its activation timestamp),
+ /// the expiry window and the activating Manager DID.
+    pub fn canonical_termination_message(&self) -> Option<Vec<u8>> {
+        if self.state != SaturateState::Saturate {
+            return None;
+        }
+        self.lease.as_ref().map(Self::build_termination_message)
+    }
+
+ /// Render the canonical termination message for `lease`.
+    pub fn build_termination_message(lease: &SaturateLease) -> Vec<u8> {
+        format!(
+            "{TERMINATION_MESSAGE_PREFIX}|epoch={}|activated_at={}|expires_at={}|manager={}",
+            lease.activated_at, lease.activated_at, lease.expires_at, lease.activating_manager_did
+        )
+        .into_bytes()
+    }
+
+ /// Parse a canonical termination message into
+ /// `(epoch, activated_at, expires_at, manager_did)`.
+ ///
+ /// Returns `None` for anything that is not exactly the canonical shape —
+ /// the parser is deliberately strict so a free-form byte string can never be
+ /// signed or accepted as a Lease Termination Delta.
+    pub fn parse_termination_message(message: &[u8]) -> Option<(i64, i64, i64, String)> {
+        let text = std::str::from_utf8(message).ok()?;
+        let rest = text
+            .strip_prefix(TERMINATION_MESSAGE_PREFIX)?
+            .strip_prefix('|')?;
+        let mut epoch = None;
+        let mut activated_at = None;
+        let mut expires_at = None;
+        let mut manager = None;
+        for part in rest.split('|') {
+            let (key, value) = part.split_once('=')?;
+            match key {
+                "epoch" => epoch = Some(value.parse::<i64>().ok()?),
+                "activated_at" => activated_at = Some(value.parse::<i64>().ok()?),
+                "expires_at" => expires_at = Some(value.parse::<i64>().ok()?),
+                "manager" if !value.is_empty() => manager = Some(value.to_string()),
+                _ => return None,
+            }
+        }
+        let (epoch, activated_at, expires_at, manager) = (epoch?, activated_at?, expires_at?, manager?);
+        // The epoch IS the lease's activation timestamp; a message whose two
+        // lease fields disagree is malformed rather than merely old.
+        if epoch != activated_at {
+            return None;
+        }
+        Some((epoch, activated_at, expires_at, manager))
+    }
+
+ /// Validate a termination message: canonical shape, and a lease window that
+ /// is live at `now_secs` (Req 13.6).
+ ///
+ /// A stale (already-expired) or not-yet-active window fails closed with
+ /// `AuthorisationFailed`, so a replayed termination cannot revive a dead
+ /// lease or pre-terminate a future one.
+    pub fn validate_termination_message(
+        &self,
+        message: &[u8],
+        now_secs: i64,
+    ) -> Result<(), TirBaseError> {
+        let (_, activated_at, expires_at, manager) =
+            Self::parse_termination_message(message).ok_or(TirBaseError::AuthorisationFailed {
+                reason: "termination message is not a canonical Saturate_Mode lease message"
+                    .to_string(),
+            })?;
+        if activated_at > now_secs {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: format!(
+                    "termination message lease epoch {activated_at} is in the future (now {now_secs})"
+                ),
+            });
+        }
+        if expires_at <= now_secs {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: format!(
+                    "termination message lease window expired at {expires_at} (now {now_secs})"
+                ),
+            });
+        }
+        if manager.is_empty() {
+            return Err(TirBaseError::AuthorisationFailed {
+                reason: "termination message has no activating manager DID".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+ /// Is `message` the canonical termination message for the active lease?
+    pub fn is_current_termination_message(&self, message: &[u8]) -> bool {
+        self.canonical_termination_message()
+            .map(|canonical| canonical == message)
+            .unwrap_or(false)
+    }
+
+ /// Record one Manager co-signature over a canonical termination message
+ /// (Req 13.6).
+ ///
+ /// Fail-closed rules, in order:
+ /// 1. this device must itself be in SATURATE with a live lease,
+ /// 2. `message` must be canonical and its lease window live at `now_secs`
+ /// (stale/expired/premature windows are rejected),
+ /// 3. the signature must verify against `signer_did` over `message`
+ /// (invalid or wrong-message signatures are rejected before any state
+ /// change).
+ ///
+ /// Distinct Manager DIDs are counted once (a duplicate is idempotent, not an
+ /// extra vote), and nothing is stored past M. A message different from the
+ /// one already being collected starts a fresh request — a superseded epoch
+ /// cannot top up the old signature set.
+ ///
+ /// Returns the number of distinct valid signatures collected.
+    pub fn record_termination_signature(
+        &mut self,
+        message: &[u8],
+        signer_did: &Did,
+        signature: &[u8],
+        now_secs: i64,
+    ) -> Result<usize, TirBaseError> {
+        if self.state != SaturateState::Saturate || self.lease.is_none() {
+            return Err(TirBaseError::SignatureVerificationFailed {
+                reason: "termination co-signature rejected: not in SATURATE mode".to_string(),
+            });
+        }
+
+        self.validate_termination_message(message, now_secs)?;
+
+        if !verify_did_signature(signer_did, signature, message) {
+            return Err(TirBaseError::SignatureVerificationFailed {
+                reason: format!(
+                    "termination co-signature from '{signer_did}' does not verify over the supplied \
+                     termination message"
+                ),
+            });
+        }
+
+        match self.termination_request.as_mut() {
+            Some(request) if request.message == message => {
+                if request.signatures.iter().any(|(did, _)| did == signer_did) {
+                    // Duplicate Manager contribution: idempotent, never an
+                    // extra vote toward M.
+                    return Ok(request.signatures.len());
+                }
+                if request.signatures.len() < self.termination_threshold_m {
+                    request
+                        .signatures
+                        .push((signer_did.clone(), signature.to_vec()));
+                }
+                Ok(request.signatures.len())
+            }
+            _ => {
+                self.termination_request = Some(TerminationRequest {
+                    message: message.to_vec(),
+                    signatures: vec![(signer_did.clone(), signature.to_vec())],
+                });
+                Ok(1)
+            }
+        }
+    }
+
+ /// Distinct Manager DIDs collected for the current termination request.
+    pub fn collected_termination_signatures(&self) -> &[(Did, Vec<u8>)] {
+        self.termination_request
+            .as_ref()
+            .map(|r| r.signatures.as_slice())
+            .unwrap_or(&[])
+    }
+
+ /// Number of distinct Manager signatures collected for the current request.
+    pub fn collected_termination_signature_count(&self) -> usize {
+        self.collected_termination_signatures().len()
+    }
+
+ /// Has `did` already co-signed the current termination request?
+    pub fn has_termination_signature(&self, did: &str) -> bool {
+        self.collected_termination_signatures()
+            .iter()
+            .any(|(d, _)| d == did)
+    }
+
+ /// Terminate using the collected M-of-N signature set, if it meets the
+ /// threshold (Req 13.6).
+ ///
+ /// Returns `Ok(true)` when this call transitioned SATURATE → NORMAL,
+ /// `Ok(false)` otherwise (not in SATURATE, no request, or below M). Below M
+ /// the mode is preserved (invariant (b)).
+    pub fn terminate_with_collected(&mut self, now_secs: i64) -> Result<bool, TirBaseError> {
+        if self.state != SaturateState::Saturate {
+            return Ok(false);
+        }
+        let Some(request) = self.termination_request.clone() else {
+            return Ok(false);
+        };
+        if request.signatures.len() < self.termination_threshold_m {
+            return Ok(false);
+        }
+        self.terminate(request.signatures, &request.message, now_secs)?;
+        Ok(self.state == SaturateState::Normal)
     }
 
  // ── Private helpers ───────────────────────────────────────────────────────
