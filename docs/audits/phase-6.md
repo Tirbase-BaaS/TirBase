@@ -49,9 +49,9 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 | 30.4 | Implement expand-then-contract rule: verify schema diff in shadow run — Expand adds ≥1 field and removes 0; Co… | PV-8.5a | `tirbase-core/src/migration/shadow.rs:17` | — | TRACED-CALLER |
 | 30.5 | Implement mid-execution cancellation at fuel-check boundaries; record QuarantineLog entry for in-progress tran… | PV-8.6 | `tirbase-core/src/migration/ (directory cited; no distinct call site named)` | — | TRACED-ARTIFACT |
 | 30.6 | Implement post-execution revocation check before committing shadow to primary: if transform author DID is revo… | PV-8.7 | `tirbase-core/src/migration/author_revocation.rs:10` | — | TRACED-CALLER |
-| 30.7 | Produce docs/RFC-tuf.md evaluating TUF adoption (BLOCKED: awaiting owner decision RD-6); include threat model,… | PV-8.8 | `docs/RFC-tuf.md:1` | — | TRACED-ARTIFACT |
+| 30.7 | Produce docs/RFC-tuf.md evaluating TUF adoption (RD-6 recorded: TUF metadata semantics adopted); include threat model,… | PV-8.8 | `docs/RFC-tuf.md:1` | — | TRACED-ARTIFACT |
 | 30.8 | Implement staged-rollout primitives for migrations and firmware: canary ring assignment (ring size 1–100 devic… | PV-8.9 | `tirbase-admin/src/cmd/rollout.rs:13` | — | TRACED-CALLER |
-| 30.9 | [BLOCKED RD-6, scaffolded] Implement gateway self-update and config rollback (BLOCKED: awaiting RFC-tuf.md mer… | PV-11.6 | `tirbase-gateway/src/self_update.rs:13` | — | BLOCKED |
+| 30.9 | Implement gateway self-update and config rollback (RD-6 recorded; admin endpoint wired) | PV-11.6 | `tirbase-gateway/src/admin.rs` (`dispatch_self_update`)<br>`tirbase-gateway/src/main.rs` (controller wiring) | `tirbase-gateway/tests/self_update_admin.rs` (4 tests) | DONE |
 | 30.10 | Run TUF crate spike: evaluate tough or rust-tuf crate requiring injected TimeSource and gossip transport; veri… | PV-8.8, RD-6 | `docs/RFC-tuf.md:24`<br>`tirbase-core/src/traits.rs:50` (`TimeSource`) | — | TRACED-CALLER |
 | 30.11 | Scenarios S8 (malicious migration) and S36 (postcondition failure / shadow discard preserves pre-execution sta… | PV-12.5 | `tirbase-sim/src/scenarios/s8_malicious_migration.rs:10` | — | TRACED-CALLER |
 
@@ -71,7 +71,7 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 - **30.6** (`TRACED-CALLER`) — Production caller traced; no executable test evidence resolved.
 - **30.7** (`TRACED-ARTIFACT`) — Document/CI deliverable traced; no runtime caller applies.
 - **30.8** (`TRACED-CALLER`) — Production caller traced; no executable test evidence resolved.
-- **30.9** (`BLOCKED`) — Awaiting RFC-tuf.md approval per RD-6; the task is explicitly marked blocked.
+- **30.9** (`DONE`) — RD-6 is recorded as adopted (TUF metadata semantics over the existing signed transport). `/admin/self-update` performs UpdateSigner-verified atomic apply, PolicyAuthority-signed rollback, checkpoint and status; `tirbase-gateway/tests/self_update_admin.rs` exercises all four paths.
 - **30.10** (`TRACED-CALLER`) — Production caller traced; no executable test evidence resolved.
 - **30.11** (`TRACED-CALLER`) — Production caller traced; no executable test evidence resolved.
 

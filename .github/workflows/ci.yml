@@ -1342,3 +1342,59 @@ jobs:
             exit 1
           fi
           echo "OK: README Status section matches CLAIMS.md."
+
+  formal-models:
+    name: TLA+ model check (CLAIM-51.1–51.4, PV-26.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download TLA+ tools
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.1/tla2tools.jar
+
+      - name: Model-check every spec with TLC
+        run: bash scripts/check-formal-models.sh "$RUNNER_TEMP/tla2tools.jar"
+
+  concurrency-models:
+    name: loom/shuttle concurrency models (CLAIM-51.5, PV-26.3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: loom model check (real SingleWriterLease / AntiReplayWindow)
+        run: cargo test -p tirbase-guard --features loom --test concurrency_loom
+
+      - name: shuttle schedule check (real SingleWriterLease / AntiReplayWindow)
+        run: cargo test -p tirbase-guard --features shuttle --test concurrency_shuttle
+
+  kani-envelope-arith:
+    name: Kani overflow proof (CLAIM-51.6, PV-26.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Kani has no preinstalled runner here; install it explicitly and let a
+      # failure to install fail the job (never a silent pass).
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+
+      # Single-file Kani harness. It models the guard's i128 comparison; it does
+      # not yet link `tirbase-types`, so CLAIM-51.6 stays Planned until the
+      # harness is moved onto the real type and observed green.
+      - name: Run the envelope-arithmetic proof harnesses
+        run: kani formal/kani_envelope_arith.rs

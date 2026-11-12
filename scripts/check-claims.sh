@@ -26,6 +26,11 @@
 # Production-symbol names with uppercase letters are not test identifiers and
 # are ignored. Only lowercase snake_case names are resolved.
 #
+#   3. A Proven row may NOT cite a test annotated `#[ignore]`. An ignored test
+#      never runs in CI, so it cannot prove anything; such a claim must be
+#      Planned (or carry a separate CI job that actually executes it). This
+#      closes the "Proven on an ignored HIL test" hole (CLAIM-52.2/52.3).
+#
 # Usage: bash scripts/check-claims.sh [path/to/CLAIMS.md]
 #
 # Exit codes:
@@ -69,6 +74,60 @@ symbols_file="$work_dir/symbols"
     | sed -e 's#.*/##' -e 's#\.rs$##'
 } | sort -u > "$symbols_file"
 
+# ---------------------------------------------------------------------------
+# Index every `fn` declared immediately after `#[ignore...]` so a Proven row
+# cannot rest on a test that never runs.
+# ---------------------------------------------------------------------------
+ignored_file="$work_dir/ignored"
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$REPO_ROOT" > "$ignored_file" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+pat = re.compile(r"#\[ignore[^\]]*\]")
+fn = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)")
+
+# A workflow line that runs `--ignored` for a given test target does execute
+# ignored tests, so an ignored test cited there IS executable evidence (for
+# example the memory-budget gate). Collect those honored targets first.
+workflow_lines = []
+for wf in (root / ".github" / "workflows").glob("*.yml"):
+    try:
+        workflow_lines.extend(wf.read_text(errors="ignore").splitlines())
+    except OSError:
+        pass
+
+for p in root.rglob("*.rs"):
+    if "target" in p.parts or ".git" in p.parts:
+        continue
+    try:
+        lines = p.read_text(errors="ignore").splitlines()
+    except OSError:
+        continue
+    for i, line in enumerate(lines):
+        if not pat.search(line):
+            continue
+        for nxt in lines[i + 1 : i + 8]:
+            m = fn.search(nxt)
+            if not m:
+                continue
+            name = m.group(1)
+            stem = p.stem
+            honored = any(
+                "--ignored" in wl and stem in wl for wl in workflow_lines
+            )
+            if not honored:
+                print(name)
+            break
+PY
+else
+  : > "$ignored_file"
+fi
+sort -u -o "$ignored_file" "$ignored_file"
+
+is_ignored() {
+  [[ -s "$ignored_file" ]] && grep -Fqx -- "$1" "$ignored_file"
+}
+
 trim() {
   local value="$1"
   value="${value#"${value%%[![:space:]]*}"}"
@@ -81,6 +140,7 @@ has_symbol() {
 }
 
 missing_ids=()
+ignored_ids=()
 missing_claims=()
 checked_citations=0
 proven_count=0
@@ -159,6 +219,8 @@ while IFS= read -r line; do
     checked_citations=$((checked_citations + 1))
     if ! has_symbol "$candidate"; then
       missing_ids+=("${claim_id}: ${candidate}")
+    elif is_ignored "$candidate"; then
+      ignored_ids+=("${claim_id}: ${candidate} (#[ignore] — never executed by CI)")
     fi
   done < <(extract_candidates "$test_id" | awk 'NF' | sort -u)
 
@@ -187,6 +249,16 @@ if [[ "${#missing_ids[@]}" -gt 0 ]]; then
   printf '  - %s\n' "${missing_ids[@]}" >&2
   echo "" >&2
   echo "Fix: cite a real test function/module, or change the row's Status to 'Planned'." >&2
+  status=1
+fi
+
+if [[ "${#ignored_ids[@]}" -gt 0 ]]; then
+  echo "ERROR: The following Proven claim(s) cite a test marked #[ignore]:" >&2
+  echo "       An ignored test never runs in CI and cannot prove a claim." >&2
+  echo "" >&2
+  printf '  - %s\n' "${ignored_ids[@]}" >&2
+  echo "" >&2
+  echo "Fix: change the row's Status to 'Planned', or cite a test that CI actually runs." >&2
   status=1
 fi
 

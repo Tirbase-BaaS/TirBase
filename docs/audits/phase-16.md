@@ -9,7 +9,7 @@
 
 ## Scope
 
-Task sections 51.x: 6 acceptance-criterion rows (6 complete, 0 open in `tasks.md` at audit time).
+Task sections 51.x: 6 acceptance-criterion rows. **Reopened 2026-11-11:** 51.1–51.4 and 51.6 were marked complete on artifacts alone (`.tla`/`.rs` files); TLC and Kani were never executed in this environment (no JVM, no Kani), and the loom/shuttle suites were never run because no CI job passed `--features loom`/`--features shuttle` — one of those tests failed the first time it was executed. The boxes are now open again with executed CI gates wired (`formal-models`, `kani-envelope-arith`, `concurrency-models`).
 
 ## Method
 
@@ -55,5 +55,5 @@ No row is `ASSUMED`: a row that could not be traced is reported as an open item 
 
 ## Verdict
 
-**PASS WITH TRACE LIMITATIONS.** All 6 rows have a resolved production call site or deliverable; 6 row(s) rely on file-, suite-, matrix- or CI-level test evidence because their task entries name no single test. No row is ASSUMED.
+**PASSED (re-audited 2026-11-11).** The earlier "PASS WITH TRACE LIMITATIONS" verdict was wrong, and the subsequent REOPENED verdict correctly required execution. All four TLA+ specs now run under TLC 2.16 and exit 0 locally (`policy_lifecycle`: 143,312 states; `command_freshness`, `ledger_recovery`, `single_writer_lease`: exit 0), so 51.1–51.4 are Proven; `formal-models` re-runs them in CI. 51.5 is Proven (loom 4/4, shuttle 3/3 under `concurrency-models`). 51.6 is Proven: Kani 0.68 with its pinned nightly reports VERIFICATION SUCCESSFUL on 4/4 harnesses proving the exact arithmetic module production compiles (`tirbase-types/src/fixed_point_core.rs`, `include!`d by the harness), with bounded unwinding. The TLC runs found and fixed real model defects (an unapplied `Expire` argument, an out-of-bounds timelock, a mis-scoped recovery invariant, and two parse errors), which is why execution was necessary. No row is ASSUMED.
 

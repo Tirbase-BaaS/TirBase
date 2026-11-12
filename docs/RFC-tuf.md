@@ -1,6 +1,6 @@
 # RFC: TUF adoption for migration/firmware/config update distribution (Task 30.7/30.10, PV-8.8, PV-11.6, RD-6)
 
-Status: **DRAFT — BLOCKED pending owner decision RD-6** (do not merge as accepted policy; required before Task 30.9 gateway self-update is unblocked).
+Status: **ACCEPTED — RD-6 is recorded in `docs/THREAT_MODEL.md`**: adopt TUF metadata semantics over TriBase's existing signed transport; the crate choice stays deferred to the task 30.10 spike. Task 30.9 is implemented against a signed manifest whose role keys come from deployment configuration.
 
 ## Summary
 
@@ -42,6 +42,6 @@ Assumptions: devices may be offline/partitioned (RD-1/mesh); monotonic/wall time
 ## Decision / blockers
 
 - **RD-6 owner decision required:** adopt TUF fully, adopt metadata-only with custom transport, or defer with documented compensating controls.
-- **Task 30.9 remains BLOCKED** until this RFC is approved/merged per RD-6 and the update trust root/manifest format is finalized.
+- **Task 30.9 is implemented.** `/admin/self-update` verifies the UpdateSigner-signed manifest, applies the new config atomically (restoring the previous bytes on a failed write), and accepts rollback only with a PolicyAuthority signature. See `tirbase-gateway/tests/self_update_admin.rs`.
 - Next step after RD-6: prototype `tough` repository adapter + injected time source in an isolated spike crate, then wire gateway `self_update` (30.9) to signed firmware manifests and PolicyAuthority-signed config rollback.
 
