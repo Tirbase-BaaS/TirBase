@@ -967,6 +967,7 @@ impl CoreHandle {
  // reassembles them via `process_wire_message` →
  // `ReassemblyBuffer` (Req 5.7–5.8).
                 mtu: config.deployment.mesh_mtu,
+                mesh_ble_enabled: config.deployment.mesh_ble_enabled,
                 ..TransportConfig::default()
             },
         );
@@ -991,6 +992,17 @@ impl CoreHandle {
         let (inbound_tx, inbound_rx) =
             tokio::sync::mpsc::channel::<crate::transport::message::GossipMessage>(1024);
         let inbound_rx = Arc::new(tokio::sync::Mutex::new(inbound_rx));
+
+ // ── BLE bridge inbound wiring (Req 5.3) ───────────────────────────────
+ // Reassembled BLE messages are pushed onto the same inbound channel
+ // Gossipsub messages use, so `receive_inbound` merges them with no
+ // BLE-specific path. Only configured when the deployment enables BLE.
+        #[cfg(feature = "native")]
+        if config.deployment.mesh_ble_enabled {
+            if let Ok(mut t) = transport.lock() {
+                t.set_ble_dispatch(inbound_tx.clone());
+            }
+        }
 
  // ── Native: take the Swarm and spawn the polling task ─────────────────
  //
@@ -1075,13 +1087,30 @@ impl CoreHandle {
  // before the `.await` on the channel
  // send so the future remains `Send`
  // (std::sync::MutexGuard is !Send).
+                                            let mut relay_forward: Option<Vec<u8>> = None;
                                             let processed = {
                                                 if let Ok(mut t) = transport_arc.lock() {
                                                     match msg {
-                                                        crate::transport::message::GossipMessage::RelayDelta { target_did, delta }
-                                                            if target_did == t.local_did =>
-                                                        {
-                                                            Some(crate::transport::message::GossipMessage::InboundDelta(delta))
+                                                        crate::transport::message::GossipMessage::RelayDelta { target_did, delta, hop_count, visited } => {
+                                                            let target_for_record = target_did.clone();
+                                                            let mut visited_for_record = visited.clone();
+                                                            let decision = t.relay_decision(target_did, delta, hop_count, visited);
+                                                            match decision {
+                                                                crate::transport::RelayDecision::Deliver(m) => Some(m),
+                                                                crate::transport::RelayDecision::Forward(m) => {
+                                                                    #[cfg(test)]
+                                                                    {
+                                                                        visited_for_record.push(t.local_did.clone());
+                                                                        t.record_relay_forward(target_for_record, hop_count.saturating_add(1), visited_for_record);
+                                                                    }
+                                                                    relay_forward = Some(m.to_bytes());
+                                                                    None
+                                                                }
+                                                                crate::transport::RelayDecision::Drop(reason) => {
+                                                                    eprintln!("[transport-loop] relay envelope dropped: {reason}");
+                                                                    None
+                                                                }
+                                                            }
                                                         }
                                                         _ => t.process_wire_message(msg),
                                                     }
@@ -1089,6 +1118,23 @@ impl CoreHandle {
                                                     Some(msg)
                                                 }
                                             };
+                                            if let Some(bytes) = relay_forward {
+ // Re-publish the relay envelope onward (Req 5.5). The forwarded
+ // envelope carries an incremented hop count and this node in its
+ // visited set, so a cycle cannot loop and a chain is hop-bounded.
+                                                match swarm
+                                                    .behaviour_mut()
+                                                    .gossipsub
+                                                    .publish(gossip_topic.clone(), bytes)
+                                                {
+                                                    Ok(id) => eprintln!(
+                                                        "[transport-loop] relay forwarded envelope {id}"
+                                                    ),
+                                                    Err(e) => eprintln!(
+                                                        "[transport-loop] relay forward publish failed: {e}"
+                                                    ),
+                                                }
+                                            }
                                             if let Some(msg) = processed {
                                                 if tx_clone.send(msg).await.is_err() {
  // Receiver dropped — CoreHandle is gone.
@@ -1437,6 +1483,21 @@ impl CoreHandle {
                 &handle,
                 std::time::Duration::from_millis(SCHEDULER_TICK_INTERVAL_MS),
             );
+        }
+
+ // ── BLE bridge startup (Req 5.3) ─────────────────────────────────────
+ //
+ // When the deployment enables BLE, drain reassembled BLE messages into
+ // the mesh inbound path and attach the platform radio. Without a radio
+ // (no adapter, or a headless CI host) the bridge loop simply never
+ // receives a chunk; the rest of the mesh is unaffected.
+        #[cfg(feature = "native")]
+        if config.deployment.mesh_ble_enabled {
+            CoreHandle::spawn_ble_inbound_drain_loop(
+                &handle,
+                std::time::Duration::from_millis(INBOUND_DRAIN_INTERVAL_MS),
+            );
+            crate::transport::MeshTransport::spawn_platform_ble_bridge(handle.transport.clone());
         }
 
  // ── Production cloud sync loop (Subphase 4.1) ────────────────────────
@@ -5286,7 +5347,24 @@ impl CoreHandle {
                 Ok(())
             }
 
-            GossipMessage::RelayDelta { target_did, delta } => {
+            GossipMessage::RelayDelta {
+                target_did,
+                delta,
+                hop_count,
+                visited,
+            } => {
+ // WASM has no Swarm polling task; the JS transport owns re-publishing.
+ // A relay envelope must still be bounded and loop-checked locally: drop
+ // anything this device already carried or that exhausted its hop budget.
+                let _ = visited;
+                if target_did != self.identity.did() {
+                    if hop_count >= crate::transport::TransportConfig::default().max_hop_count {
+                        eprintln!(
+                            "[wasm-inbound] RelayDelta for {target_did} dropped: hop budget exhausted"
+                        );
+                    }
+                    return Ok(());
+                }
                 if target_did == self.identity.did() {
                     eprintln!(
                         "[wasm-inbound] RelayDelta for local device {} — processing as InboundDelta",
@@ -5406,6 +5484,32 @@ impl CoreHandle {
                     Err(e) => {
                         eprintln!("[inbound-loop] drain failed: {e}");
                     }
+                }
+            }
+        })
+    }
+
+ /// Spawn the BLE inbound drain loop for this handle.
+ ///
+ /// The BLE bridge runner pushes fully reassembled `GossipMessage`s onto the
+ /// transport's BLE inbound channel; this loop polls them through
+ /// `poll_ble_inbound`, which reassembles any fragments and dispatches the
+ /// result onto the mesh inbound channel (so `receive_inbound` merges it like
+ /// any Gossipsub message). Spawned by `CoreHandle::init` when the deployment
+ /// enables BLE.
+ #[cfg(feature = "native")]
+    pub(crate) fn spawn_ble_inbound_drain_loop(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let handle = self.clone();
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                if let Ok(mut transport) = handle.transport.lock() {
+                    transport.poll_ble_inbound();
                 }
             }
         })
@@ -6129,14 +6233,25 @@ pub struct DeploymentConfig {
     pub saturate_lease_duration_secs: i64,
  /// Active mesh transport MTU in bytes (Req 5.7).
  ///
- /// When set to a non-zero value below 256, the transport fragments
- /// outbound Deltas into `DeltaFragment`s no larger than this MTU and
- /// reassembles them on the receiving peer. A value of 0 (the default)
- /// means "do not fragment" — Deltas are sent as whole `GossipMessage::InboundDelta`
- /// payloads. Deployments operating over physical transports with small
- /// MTUs (LoRa, Iridium — design §Architecture) set this to their
- /// transport's MTU so large Deltas are split and reassembled cleanly.
+ /// When non-zero, the transport fragments outbound Deltas into
+ /// `DeltaFragment`s no larger than this MTU and reassembles them on the
+ /// receiving peer. A value of 0 (the default) means "do not fragment" —
+ /// Deltas are sent as whole `GossipMessage::InboundDelta` payloads.
+ /// Deployments operating over physical transports with small MTUs (LoRa,
+ /// Iridium, BLE — design §Architecture) set this to their transport's MTU
+ /// so large Deltas are split and reassembled cleanly. `256` is the BLE/LoRa
+ /// class MTU the transport tests exercise.
     pub mesh_mtu: usize,
+ /// Enable the BLE transport bridge for LAN-less/offline topologies
+ /// (Req 5.3).
+ ///
+ /// When `true`, `CoreHandle::init` creates the BLE bridge channels, routes
+ /// Deltas addressed to a `BleBridge`-discovered peer through them instead
+ /// of Gossipsub, dispatches reassembled BLE messages into the mesh inbound
+ /// channel, and starts the platform radio bridge. The framing/bridge loop
+ /// is `transport::ble::run_ble_bridge` and is CI-tested over an emulated
+ /// link; only the radio adapter needs hardware.
+    pub mesh_ble_enabled: bool,
  /// Beacon signal-loss threshold in seconds (Req 15.4).
  ///
  /// The duration a beacon must be unreachable (no valid beacon token
@@ -6179,6 +6294,7 @@ impl Default for DeploymentConfig {
             quorum_n: 0,
             saturate_lease_duration_secs: crate::transport::saturate::SATURATE_LEASE_DURATION_SECS,
             mesh_mtu: 0,
+            mesh_ble_enabled: false,
             beacon_signal_loss_threshold_secs: 300,
         }
     }
@@ -6215,6 +6331,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -6568,6 +6685,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -6673,6 +6791,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -6917,6 +7036,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -7008,6 +7128,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -7084,6 +7205,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -7228,6 +7350,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -7295,6 +7418,7 @@ mod tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -9370,6 +9494,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -10455,6 +10580,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -10559,6 +10685,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         };
@@ -10677,6 +10804,7 @@ mod inbound_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         })
@@ -11049,6 +11177,7 @@ mod convergence_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         };
@@ -14026,6 +14155,7 @@ mod cloud_sync_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -14418,6 +14548,7 @@ mod tier2_ack_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -14620,6 +14751,7 @@ mod tier2_ack_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -14887,6 +15019,7 @@ mod diversity_config_tests {
                 quorum_n: quorum_k + 2,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -15215,6 +15348,7 @@ mod composite_incident_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -15631,6 +15765,7 @@ mod quarantine_sidecar_wiring_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -15658,6 +15793,7 @@ mod quarantine_sidecar_wiring_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -16168,6 +16304,7 @@ mod cloud_sync_wiring_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -16564,6 +16701,7 @@ mod migration_mid_flight_revocation_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -16811,6 +16949,7 @@ mod inbound_hardening_pv6_tests {
                 quorum_k: 1,
                 quorum_n: 1,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 saturate_lease_duration_secs: 3600,
                 beacon_signal_loss_threshold_secs: 300,
             },
@@ -17220,6 +17359,7 @@ mod inbound_hardening_wiring_tests {
                 quorum_n: 1,
                 saturate_lease_duration_secs: 3600,
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         }
@@ -17503,6 +17643,9 @@ mod inbound_cap_rejection_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "native"))]
+mod network_wiring_mesh_tests;
 
 #[cfg(all(test, feature = "native"))]
 mod revocation_saturate_mesh_tests;

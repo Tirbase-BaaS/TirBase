@@ -333,6 +333,7 @@ mod wasm_exports {
                     .saturate_lease_duration_secs
                     .unwrap_or(3600),
                 mesh_mtu: 0,
+                mesh_ble_enabled: false,
                 beacon_signal_loss_threshold_secs: 300,
             },
         };

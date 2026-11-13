@@ -1,9 +1,9 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1–5 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination; CCE + Side-Car replay/recovery)
+**Workstream:** 1–6 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination; CCE + Side-Car replay/recovery; fragmentation + multi-hop relay + BLE bridge + Noise 0-RTT/rotation)
 **Branch:** `main`
 **Baseline HEAD:** `5bea300` (WS4 started from `36ba045`)
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 This ledger is the single source of truth for the wiring effort. It records the verified baseline,
 every gap/PARTIAL annotation found in the repository, each item's classification under the charter
@@ -67,11 +67,11 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-04 | API is identical across targets, differences are compile-time (L88) | `impl CoreHandle` ↔ `lib.rs` exports ↔ `WasmCore` | `wired` | `tests::api_parity` (source-parsed, 6 tests) + drift injection failed it | 1 | WS1 |
 | INV-05 | Cross-device scalar LWW conflict resolution (L109) | `api::write` → `receive_inbound` merge → `read` | `wired` | `api::real_mesh_tests::two_devices_concurrent_scalar_write_lww_wins_over_real_mesh` (2 real Swarms) | 1 | WS1 |
 | INV-06 | Cross-device RGA concurrent list edits (L113) | no public list-write API; RGA exists only in `crdt` internals | `genuinely-unwired` | property tests exercise RGA at engine level; nothing reaches it from `CoreHandle`/SDK | 2 | — |
-| INV-07 | BLE bridge for LAN-less/offline topologies (L123) | `transport/ble.rs` (unit-level) | `hardware-blocked` | no BLE adapter/CI job; unit tests only; documented Phase 1 blocker | 3 | — |
-| INV-08 | Multi-hop relay topologies (L126) | `transport/discovery.rs` `find_relay_peer`, `message.rs` relay envelope | `under-proven` | discovery/relay unit tests exist; no e2e relay through two Swarms | 3 | — |
+| INV-07 | BLE bridge for LAN-less/offline topologies (L123) | `transport/ble.rs` `run_ble_bridge` ← `MeshTransport::send_delta`/`bind_ble_link` ← `DeploymentConfig::mesh_ble_enabled` | **`wired` (emulated link); radio `hardware-blocked`** | `transport::tests::ble_bridge_carries_a_fragmented_delta_over_an_emulated_link` (§3.9); real radio test `#[ignore]`d and not run | 6 | WS6 |
+| INV-08 | Multi-hop relay topologies (L126) | `transport/discovery.rs` `find_relay_peer`, `MeshTransport::relay_decision` ← Swarm poll task re-publish | **`wired`** | `api::network_wiring_mesh_tests::three_node_chain_relays_a_delta_with_bounded_hops_and_no_duplicates` (§3.9): A–B–C chain, hop bounded, loop dropped, one forward | 6 | WS6 |
 | INV-09 | MTU discovery + per-path fragmentation (L138) | `transport/{session,fragment}.rs`, production send | `wired` | `real_mesh_tests` low-MTU round-trip cases (Item 22 in `tests/README.md`) | 1 | — |
-| INV-10 | 0-RTT session resumption (L154) | `transport/session.rs` resume cache | `under-proven` | session unit tests; no live re-dial over the wire | 3 | — |
-| INV-11 | Key rotation and session-cache invalidation (L164/167) | `transport/session.rs`, `auth` | `under-proven` | unit tests only; no rotation mid-mesh e2e | 3 | — |
+| INV-10 | 0-RTT session resumption (L154) | `transport/session.rs` `initiate_with_0rtt` / `respond` ← `MeshTransport::{initiate_session_with_payload, accept_noise_session}` | **`wired`** | `api::network_wiring_mesh_tests::{noise_session_resumes_with_0rtt_and_rotates_keys_in_place, resumption_negative_cases_fall_back_or_fail_closed}` (§3.9) | 6 | WS6 |
+| INV-11 | Key rotation and session-cache invalidation (L164/167) | `transport/session.rs` `rotate_keys` ← `spawn_scheduler_tick_loop` → `tick_key_rotation` | **`wired`** | `noise_session_resumes_with_0rtt_and_rotates_keys_in_place` (§3.9): rekey in place, data continues, pre-rotation frame rejected | 6 | WS6 |
 | INV-12 | SDK surfaces real-time trust levels (L176) | `tirbase-sdk` `onTrustLevelChanged` ← `core_poll_events` | **`wired`** | `tirbase-manager-ops.wasm.test.ts`: `presentToken` moves a real WASM instance to `VERIFIED` and emits `trust-level-changed`; an invalid token leaves `UNVERIFIED` plus the unverified warning; a peer revocation no longer mutates the local level (`TrustLevelChanged` now carries `did`) | 7 | WS2 |
 | INV-13 | M-of-N revocation accumulates gossip across peers (L235) | `auth` revocation collector ← `receive_inbound` revocation deltas | **`wired`** | `api::revocation_saturate_mesh_tests::{partial_revocation_deltas_accumulate_across_offline_managers, below_threshold_never_revokes_and_threshold_signature_always_does, revocation_negative_cases_fail_closed}` (§3.7): three real Swarms produce partial deltas while partitioned and accumulate to M=2/3 over the wire | 4 | WS4 |
 | INV-14 | A node one gossip round from the mesh isolates a revoked device (L255) | `auth`/`api` revocation application | **`wired`** | `api::revocation_saturate_mesh_tests::partial_revocation_deltas_accumulate_across_offline_managers` asserts isolation reaches every peer within one production gossip round of the first observer (1 s scheduler epoch + 50 ms drain) and the revoked author's Deltas being rejected at `apply_incoming_delta` | 4 | WS4 |
@@ -562,6 +562,97 @@ signed-tag append removed, the human-reaction test times out on the tag assertio
 Commit for this workstream: the commit that adds this section
 (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
 
+
+## 3.9 WS6 — Fragmentation, multi-hop relay, BLE bridge, Noise 0-RTT + rotation (PROMPT 6 of 8)
+
+Scope: `tirbase-core/src/transport/{ble,fragment,session,message,mod}.rs`, the relay path in the
+Swarm polling task (`src/api/mod.rs`), `DeploymentConfig::mesh_ble_enabled`, and the new real-mesh
+suites. Rows INV-07/INV-08/INV-09/INV-10/INV-11.
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | **`mesh_mtu = 256` did not fragment.** `prepare_outbound` only fragmented when `0 < mtu < 256`, so the exact MTU the prompt/`DeploymentConfig` documents produced whole-Delta frames. | Any non-zero `mtu` fragments at that size; `0` still disables fragmentation. The `DeploymentConfig::mesh_mtu` doc now says "non-zero" and names 256 as the BLE/LoRa-class value. |
+| 2 | **Multi-hop relay had no forwarding half.** `send_delta` wrapped a non-neighbour Delta in `GossipMessage::RelayDelta`, but the receiving poll task only unwrapped it when the target was itself; a relay node silently dropped every envelope for someone else. The envelope carried no hop count or visited set, so even a forwarder could not bound or de-loop. | `RelayDelta` now carries `hop_count` and `visited`; `MeshTransport::relay_decision` returns `Deliver` / `Forward` / `Drop` (loop, or hop budget reached), and the production Swarm polling task re-publishes `Forward` envelopes (`gossipsub.publish`) with `hop_count + 1` and itself appended to `visited`. The WASM inbound arm bounds/drops relay envelopes it cannot forward. |
+| 3 | **Fragments had no timeout, and a duplicate after completion re-opened slot.** A partial Delta could be pinned until capacity eviction, and a duplicate fragment arriving after reassembly opened a fresh, never-completing assembly. | `ReassemblyBuffer::add_fragment_at(now_us)` expires assemblies older than `FRAGMENT_STALE_TIMEOUT_US` (30 s) on insertion, and the last `MAX_COMPLETED_ASSEMBLIES` (1024) completed Delta ids absorb retransmissions. `BleChunkAssembler` has the same completed-id guard. |
+| 4 | **The Noise wire framing was unusable and `initiate` never resumed.** `AsyncNoiseStream::read_noise_message` read exactly `buf.len()` and the caller used `msg2.len()` (65535) as the message length, so a real stream could never complete a handshake; `SessionManager::initiate` always ran a full IK handshake and only *stored* a resumption credential. There was no responder implementation at all. | Length-prefixed framing (4-byte BE) shared by `DuplexNoiseStream` and a new `TcpNoiseStream`; `read_noise_message` returns the byte count. `SessionManager::initiate_with_0rtt` attempts a cached-ticket resumption that carries the first application frame inside handshake message 1, with counters (`ResumptionStats`) and a transparent full-handshake fallback; `SessionManager::respond` (+ `MeshTransport::accept_noise_session`) implement the responder half. Every flight is bounded by `HANDSHAKE_FLIGHT_TIMEOUT` (5 s). |
+| 5 | **The BLE I/O loop was untestable dead-end code and BLE inbound never reached the CRDT.** Framing/assembly lived inline in a `tokio::spawn` inside `start()`, reachable only with a real radio; `poll_ble_inbound` recorded the message under `cfg(test)` and dropped it otherwise. There was also no deployment switch: `TransportConfig::mesh_ble_enabled` was always `false` from `CoreHandle::init`. | The loop is now `transport::ble::run_ble_bridge` behind a `BleLink` trait. `MeshTransport::{init_ble_channels, bind_ble_link, spawn_platform_ble_bridge}` start it (radio or emulated link), `poll_ble_inbound` dispatches reassembled messages into the mesh inbound channel (`set_ble_dispatch`), and `DeploymentConfig::mesh_ble_enabled` enables the whole path from `CoreHandle::init` (channels + drain loop + platform radio). |
+
+### Tests added (all run in the mandatory `test` job)
+
+| Test | What it proves |
+|------|----------------|
+| `api::network_wiring_mesh_tests::fragmented_large_row_crosses_a_256_byte_mesh_mtu` | Two real Swarms, `mesh_mtu = 256`: a 1.2 KiB row leaves A as several `InboundDeltaFragment` frames (each payload ≤ 256, same delta id, consistent totals, no whole-Delta frame), is reassembled on B and readable through the ordinary `read()` path, and is merged into B's DAG. |
+| `api::network_wiring_mesh_tests::incomplete_fragment_set_is_never_partially_applied` | Every fragment but one is fed through `process_wire_message`: nothing is delivered, no row is projected, the DAG has no node; the partial expires (`expire_stale`) after `FRAGMENT_STALE_TIMEOUT_US`; a complete retransmission then applies through `receive_inbound`. |
+| `transport::tests::{out_of_order_and_duplicate_fragments_reassemble_exactly_once, missing_fragment_leaves_no_partial_delta_and_times_out}` | Out-of-order + duplicated fragments reassemble exactly once (and are not retained); a missing fragment yields no Delta and the partial times out. |
+| `api::network_wiring_mesh_tests::three_node_chain_relays_a_delta_with_bounded_hops_and_no_duplicates` | A–B–C chain with no A–C link: A publishes exactly one `RelayDelta` (hop 0, visited `[A]`), B forwards exactly once (hop 1, visited contains B), C receives and projects the row, C never re-forwards, and the Delta is in C's DAG. |
+| `api::network_wiring_mesh_tests::{relay_hop_bound_is_enforced_by_the_transport, transport::tests::relay_drops_loops_and_exhausted_hop_budget}` | `relay_decision` delivers for the target, forwards with `hop_count + 1`, drops a repeated node (loop) and drops at `max_hop_count`. |
+| `transport::tests::ble_bridge_carries_a_fragmented_delta_over_an_emulated_link` | Two transports joined by an emulated `BleLink`: `send_delta` selects the BLE path (the Gossipsub channel stays empty), `ble::run_ble_bridge` chunks/assembles through the production framing, and `poll_ble_inbound` dispatches the reassembled `InboundDelta` for the production inbound path. |
+| `transport::tests::ble_chunk_assembler_accepts_out_of_order_and_duplicate_chunks` | `BleChunkAssembler` completes a multi-chunk group delivered in reverse with a duplicate, and holds no slot afterwards. |
+| `api::network_wiring_mesh_tests::noise_session_resumes_with_0rtt_and_rotates_keys_in_place` | Two real Swarms + a real loopback TCP Noise exchange: first connection is a full handshake (`full_handshakes = 1`), the reconnect is a 0-RTT resumption (`resumptions = 1`, `full_handshakes` unchanged, payload delivered in flight 1, `resumed = true` on both sides), `tick_key_rotation` rekeys in place past the configured interval, data still decrypts after rotation, and a frame captured under the pre-rotation keys is rejected. |
+| `api::network_wiring_mesh_tests::resumption_negative_cases_fall_back_or_fail_closed` | A ticket cached for another peer never satisfies this peer's lookup (full handshake); an expired ticket (> 24 h injected clock) falls back to a full handshake; a tampered ticket fails closed, is evicted, and the next connection is a full handshake; filling the cache beyond 1024 entries evicts the peer's ticket and forces a full handshake. |
+| `api::network_wiring_mesh_tests::revoked_peer_is_refused_at_the_handshake_layer` | `initiate_session(..., TrustLevel::Revoked, ...)` returns `PeerRevoked` before any byte is written (the peer stream stays silent) and registers no session. |
+| `transport::fragment::tests::{incomplete_assembly_is_discarded_after_the_stale_timeout, duplicate_fragment_index_is_idempotent_and_completes}` | Deterministic-clock timeout and duplicate idempotence at the buffer level. |
+| `transport::tests::ble_hardware_scan_connect_and_write_round_trip` | **Hardware-gated** (`#[ignore]`, documented): real adapter scan/connect/subscribe/chunk write. Not run in CI. |
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cargo test -p tirbase-core --features native --lib api::network_wiring_mesh_tests -- --test-threads=1` | **7 passed / 0 failed** |
+| `cargo test -p tirbase-core --features native --lib transport::` | **116 passed / 0 failed / 1 ignored** (only the BLE hardware test) |
+| `cargo test -p tirbase-core --features native` | **762 lib passed / 0 failed / 1 ignored**; every integration suite passes (8/1/2/2/5/1 …) |
+| `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean |
+| `cargo check --workspace --all-targets` | clean |
+| `cargo +nightly public-api -p tirbase-core` | WS6 additions recorded in `public-api.txt` / `wasm-public-api.txt` |
+
+### Honest limits (do not overclaim)
+
+1. **BLE is wired and tested over an emulated link; real-radio verification is hardware-gated.**
+   `ble_hardware_scan_connect_and_write_round_trip` is `#[ignore]`d and was **not** run here (no
+   BLE adapter/peripheral was available). The GATT write/subscribe/scan code is unverified on
+   hardware; what is proven is the bridge/framing/selection/dispatch path that the radio plugs into.
+2. **Multi-hop is proven on one host, loopback, single process.** The chain test uses three
+   Swarms in one process; the relay entry in A's peer table is registered through
+   `on_peer_discovered` (what relay discovery would do) rather than via mDNS. It does not prove
+   cross-host relays, NAT traversal, or bandwidth accounting per hop.
+3. **"No duplication" at the Delta layer is idempotent-merge + single-forward evidence.** C
+   receives the envelope once per forwarder (its own Swarms' gossipsub propagation may also carry
+   the same envelope), so duplication is prevented by the single forward per relay plus
+   `apply_incoming_delta` idempotence, not by a wire-level exactly-once guarantee.
+4. **0-RTT here means "cached ticket + first application frame in handshake message 1".** It is not
+   a separate Noise `psk` pattern; a resumption still costs one round trip for message 2, but the
+   data is in flight from the first flight. The ticket is the cached remote static key plus its
+   issue time, bound to the peer DID and cached for 24 h.
+5. **Rotation cipher states are exercised in memory.** The session was established over real
+   loopback TCP, and rotation is the production `tick_key_rotation` → `snow`
+   `rekey_outgoing/rekey_incoming`, but the post-rotation frames are encrypted/decrypted through the
+   stored transport states rather than re-sent over the socket. Old-frame rejection replays a frame
+   captured under the pre-rotation keys; it proves "not accepted", not the exact rejection reason.
+6. **`scripts/check-public-api.sh` fails on this machine independently of WS6** (pre-existing
+   toolchain rendering drift: `tirbase-guard`, untouched here, reports additions; `tirbase-core`
+   already reported removed/re-rendered lines). Only the WS6 items were appended to the manifests.
+7. **Relay envelopes are not authenticated separately.** A relay forwards the wrapped, signed
+   Delta; the target verifies the Delta signature exactly as for a direct delivery. Hop/visited
+   fields are routing metadata, not a trust assertion.
+
+### Files
+
+- `tirbase-core/src/transport/fragment.rs` (timeout + completed-id ring, tests)
+- `tirbase-core/src/transport/ble.rs` (`BleLink`, `run_ble_bridge`, `BleChunkAssembler`, `chunk_id_for`, adapter impl)
+- `tirbase-core/src/transport/session.rs` (length-prefixed framing, `TcpNoiseStream`, 0-RTT resumption, `respond`, `ResumptionStats`)
+- `tirbase-core/src/transport/message.rs` (`RelayDelta` hop/visited)
+- `tirbase-core/src/transport/mod.rs` (fragment threshold, `relay_decision`, `SessionEstablishment`, BLE channels/bridge/dispatch, tests)
+- `tirbase-core/src/api/mod.rs` (relay forwarding + recording, BLE deployment wiring, `DeploymentConfig::mesh_ble_enabled`, WASM relay bound)
+- `tirbase-core/src/api/network_wiring_mesh_tests.rs` (new suite)
+- `tirbase-core/src/api/mesh_harness.rs`, `tirbase-core/src/lib.rs` (deployment field literals)
+- `.github/workflows/ci.yml` (two mandatory WS6 steps)
+- `tirbase-core/public-api.txt`, `tirbase-core/wasm-public-api.txt`
+
+Commit for this workstream: the commit that adds this section
+(`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -588,6 +679,8 @@ Commit for this workstream: the commit that adds this section
 - WS5 (prompt 5 of 8) closed INV-15/INV-16/INV-17, added the native incident event surface, real-mesh
   migration/revocation distribution, Side-Car replay projection + resume, composite extension, and reconciled
   the `tests/README.md` Item 7 projection-gap text; see §3.8.
+- WS6 (prompt 6 of 8) closed INV-08/INV-10/INV-11 and took INV-07 to `wired (emulated link)` with the
+  radio hardware-gated; it also extended INV-09 to the documented `mesh_mtu = 256` path; see §3.9.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

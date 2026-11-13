@@ -11,6 +11,7 @@
 use crate::api::types::TrustLevel;
 use crate::crdt::delta::Did;
 use crate::errors::TirBaseError;
+use crate::events::{emit_transport, ReasonCode, Severity};
 use lru::LruCache;
 use std::num::NonZeroUsize;
 
@@ -88,6 +89,9 @@ pub(crate) fn ed25519_privkey_to_x25519(ed25519_privkey: &[u8]) -> Result<Vec<u8
 /// Maximum number of 0-RTT resumption credentials cached (Req 6.2).
 pub const MAX_RESUMPTION_CACHE: usize = 1024;
 
+/// The Noise handshake pattern used by every TirBase session.
+const NOISE_PATTERN: &str = "Noise_IK_25519_AESGCM_SHA256";
+
 /// Minimum key-rotation interval in seconds (Req 6.4).
 pub const MIN_ROTATION_INTERVAL_SECS: u64 = 60;
 
@@ -99,6 +103,33 @@ pub const MIN_RETRY_BACKOFF_SECS: i64 = 30;
 
 /// 24-hour credential validity in seconds (Req 6.2).
 pub const CREDENTIAL_VALIDITY_SECS: i64 = 24 * 3_600;
+
+/// Upper bound on a single handshake flight.
+///
+/// Every wire read/write on the production Noise path is wrapped in this
+/// deadline, so a peer that vanishes mid-handshake produces
+/// `NoiseHandshakeFailed` instead of blocking the caller forever. It is a
+/// bound, not a sleep: the exchange completes as soon as the bytes arrive.
+pub const HANDSHAKE_FLIGHT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Counters for the Noise session-establishment paths (Req 6.2–6.3).
+///
+/// These are the observable evidence that a reconnect used the cached 0-RTT
+/// ticket instead of a full handshake: a resumption increments `resumptions`
+/// and leaves `full_handshakes` unchanged, while any fallback (expired ticket,
+/// tampered ticket, unknown peer, evicted cache entry, or a failed wire
+/// exchange) increments `resumption_fallbacks` and then `full_handshakes`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ResumptionStats {
+    /// Full Noise_IK handshakes completed (one round trip, no 0-RTT payload).
+    pub full_handshakes: u64,
+    /// Session reconnects that resumed from a cached ticket and carried the
+    /// first application payload inside handshake message 1 (0-RTT).
+    pub resumptions: u64,
+    /// Resumption attempts that were rejected and fell back to a full
+    /// handshake (or failed closed).
+    pub resumption_fallbacks: u64,
+}
 
 // ─── AsyncNoiseStream trait ─────────────────────────────────────────────────────
 
@@ -119,9 +150,49 @@ pub trait AsyncNoiseStream: Send + Unpin {
  /// Write a handshake or transport message and flush.
     async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()>;
 
- /// Read a handshake or transport message. The caller provides a buffer;
- /// this method reads exactly `buf.len()` bytes or returns an error.
-    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<()>;
+ /// Read one handshake message into `buf`, returning the number of bytes
+ /// read. Messages are length-prefixed on the wire (4-byte big-endian
+ /// length), so the reader never has to know Noise's message size in
+ /// advance and never returns uninitialised tail bytes as payload.
+    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
+}
+
+/// 4-byte big-endian length prefix used by every stream-backed Noise
+/// handshake message (`AsyncNoiseStream` implementations).
+const NOISE_FRAME_PREFIX: usize = 4;
+
+/// Write one length-prefixed Noise message to an async writer.
+async fn write_framed<W: tokio::io::AsyncWrite + Unpin>(
+    w: &mut W,
+    msg: &[u8],
+) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt as _;
+    let len = u32::try_from(msg.len())
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "noise message too large"))?;
+    let mut buf = Vec::with_capacity(NOISE_FRAME_PREFIX + msg.len());
+    buf.extend_from_slice(&len.to_be_bytes());
+    buf.extend_from_slice(msg);
+    w.write_all(&buf).await?;
+    w.flush().await
+}
+
+/// Read one length-prefixed Noise message from an async reader.
+async fn read_framed<R: tokio::io::AsyncRead + Unpin>(
+    r: &mut R,
+    buf: &mut [u8],
+) -> std::io::Result<usize> {
+    use tokio::io::AsyncReadExt as _;
+    let mut len_bytes = [0u8; NOISE_FRAME_PREFIX];
+    r.read_exact(&mut len_bytes).await?;
+    let len = u32::from_be_bytes(len_bytes) as usize;
+    if len > buf.len() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("noise message of {len} bytes exceeds buffer of {}", buf.len()),
+        ));
+    }
+    r.read_exact(&mut buf[..len]).await?;
+    Ok(len)
 }
 
 /// Adapter that wraps a `tokio::io::DuplexStream` half as an
@@ -159,14 +230,48 @@ impl DuplexNoiseStream {
 #[async_trait::async_trait]
 impl AsyncNoiseStream for DuplexNoiseStream {
     async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()> {
-        use tokio::io::AsyncWriteExt as _;
-        self.tx.write_all(msg).await?;
-        self.tx.flush().await
+        write_framed(&mut self.tx, msg).await
     }
 
-    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
-        use tokio::io::AsyncReadExt as _;
-        self.rx.read_exact(buf).await.map(|_| ())
+    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        read_framed(&mut self.rx, buf).await
+    }
+}
+
+/// Adapter that carries the Noise_IK handshake over a real loopback TCP
+/// connection (the production substream shape, and what the two-Swarm
+/// 0-RTT/rotation tests use over loopback).
+#[cfg(feature = "native")]
+pub struct TcpNoiseStream {
+    rx: tokio::io::ReadHalf<tokio::net::TcpStream>,
+    tx: tokio::io::WriteHalf<tokio::net::TcpStream>,
+}
+
+#[cfg(feature = "native")]
+impl TcpNoiseStream {
+    pub fn new(stream: tokio::net::TcpStream) -> Self {
+        stream
+            .set_nodelay(true)
+            .expect("TCP_NODELAY is supported on loopback");
+        let (rx, tx) = tokio::io::split(stream);
+        Self { rx, tx }
+    }
+
+    /// Connect to `addr` and wrap the socket as an `AsyncNoiseStream`.
+    pub async fn connect(addr: &str) -> std::io::Result<Self> {
+        Ok(Self::new(tokio::net::TcpStream::connect(addr).await?))
+    }
+}
+
+#[cfg(feature = "native")]
+#[async_trait::async_trait]
+impl AsyncNoiseStream for TcpNoiseStream {
+    async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()> {
+        write_framed(&mut self.tx, msg).await
+    }
+
+    async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        read_framed(&mut self.rx, buf).await
     }
 }
 
@@ -238,6 +343,11 @@ pub struct NoiseSession {
  /// Configured key rotation interval in seconds (60–86400 — Req 6.4).
     pub rotation_interval_secs: u64,
 
+ /// `true` when this session was established by a 0-RTT resumption (the
+ /// cached ticket was reused and the first application payload travelled in
+ /// handshake message 1). `false` for a full Noise_IK handshake.
+    pub resumed: bool,
+
  /// Native-only: live Noise transport state (present only when this session
  /// was created by a local `full_ik_handshake`; `None` for sessions registered
  /// after an external transport such as libp2p already performed the handshake).
@@ -266,6 +376,8 @@ pub struct SessionManager {
     pub rotation_interval_secs: u64,
  /// The local device DID (needed as cache key half).
     pub local_did: Did,
+ /// Full-handshake / resumption / fallback counters (Req 6.2–6.3 evidence).
+    pub stats: ResumptionStats,
 }
 
 impl SessionManager {
@@ -279,7 +391,21 @@ impl SessionManager {
             failure_records: Vec::new(),
             rotation_interval_secs: interval,
             local_did,
+            stats: ResumptionStats::default(),
         }
+    }
+
+ /// Snapshot of the handshake/resumption counters.
+    pub fn resumption_stats(&self) -> ResumptionStats {
+        self.stats
+    }
+
+ /// `true` when a valid (< 24 h) resumption ticket exists for `peer_did`.
+ ///
+ /// This is the production decision predicate: only a non-expired cached
+ /// ticket permits the 0-RTT path (Req 6.2).
+    pub fn can_resume(&self, peer_did: &Did, now_secs: i64) -> bool {
+        self.has_valid_credential(peer_did, now_secs)
     }
 
  // ── Public helpers (no feature gate) ─────────────────────────────────────
@@ -336,10 +462,11 @@ impl SessionManager {
  /// actual connectivity.
     #[cfg(feature = "native")]
     pub fn register_session(&mut self, peer_did: Did, now_secs: i64) -> NoiseSession {
-        let session = NoiseSession {
+                    let session = NoiseSession {
             remote_did: peer_did.clone(),
             last_rotated_secs: now_secs,
             rotation_interval_secs: self.rotation_interval_secs,
+            resumed: false,
             transport: None,
         };
         self.store_credential(
@@ -391,17 +518,6 @@ impl SessionManager {
             });
         }
 
- // Step 3 — evict expired credential (Req 6.3)
-        let cred_key = PeerPair {
-            local_did: self.local_did.clone(),
-            remote_did: peer_did.clone(),
-        };
-        if let Some(cred) = self.resumption_cache.peek(&cred_key) {
-            if !cred.is_valid(now_secs) {
-                self.resumption_cache.pop(&cred_key);
-            }
-        }
-
  // Step 4 — full IK handshake (production: messages exchanged over `stream`;
  // test: in-process responder when responder_privkey_for_test is Some).
         self.full_ik_handshake(
@@ -413,6 +529,272 @@ impl SessionManager {
             now_secs,
         )
         .await
+    }
+
+ /// Initiate a session, attempting 0-RTT resumption from the cached ticket
+ /// before falling back to a full Noise_IK handshake (Req 6.2–6.3).
+ ///
+ /// A resumption reuses the cached remote static key from the previous
+ /// handshake and carries `zero_rtt_payload` (the first application frame)
+ /// inside handshake **message 1** — data is in flight with the first
+ /// flight, so no extra round trip is spent on a fresh handshake. The peer
+ /// accepts that payload only because the IK message authenticates it under
+ /// the cached static key; an expired, tampered, foreign or evicted ticket
+ /// fails before the payload can be trusted, and the caller transparently
+ /// receives a full handshake instead (`stats.resumption_fallbacks` plus
+ /// `stats.full_handshakes`).
+ #[cfg(feature = "native")]
+    #[allow(clippy::too_many_arguments)]
+    pub async fn initiate_with_0rtt(
+        &mut self,
+        peer_did: Did,
+        peer_trust_level: TrustLevel,
+        local_static_privkey: &[u8],
+        remote_static_pubkey: &[u8],
+        mut stream: Option<&mut dyn AsyncNoiseStream>,
+        now_secs: i64,
+        zero_rtt_payload: &[u8],
+    ) -> Result<NoiseSession, TirBaseError> {
+ // Step 1 — REVOKED check (Req 6.7). This runs before any byte is
+ // written, so a revoked peer is refused at the handshake layer.
+        if peer_trust_level == TrustLevel::Revoked {
+            return Err(TirBaseError::PeerRevoked {
+                peer_did: peer_did.clone(),
+            });
+        }
+
+ // Step 2 — backoff check (Req 6.6)
+        if self.in_backoff(&peer_did, now_secs) {
+            return Err(TirBaseError::NoiseHandshakeFailed {
+                peer_did: peer_did.clone(),
+                reason: "retry backoff active".to_string(),
+            });
+        }
+
+ // Step 3 — ticket lookup / expiry eviction (Req 6.2–6.3)
+        let cred_key = PeerPair {
+            local_did: self.local_did.clone(),
+            remote_did: peer_did.clone(),
+        };
+        let credential = self.resumption_cache.peek(&cred_key).cloned();
+
+        if let Some(cred) = credential {
+            if !cred.is_valid(now_secs) {
+                self.resumption_cache.pop(&cred_key);
+                self.stats.resumption_fallbacks += 1;
+            } else if let Some(slot) = stream.as_mut() {
+                let session = self
+                    .try_resume(
+                        &peer_did,
+                        &cred,
+                        local_static_privkey,
+                        *slot,
+                        zero_rtt_payload,
+                        now_secs,
+                    )
+                    .await;
+                match session {
+                    Ok(session) => {
+ // Refresh the ticket timestamp: a resumed session extends the
+ // window from the resumption, not from the original handshake.
+                        self.store_credential(
+                            peer_did.clone(),
+                            ResumptionCredential {
+                                peer_did: peer_did.clone(),
+                                issued_at: now_secs,
+                                credential_bytes: cred.credential_bytes.clone(),
+                            },
+                        );
+                        self.stats.resumptions += 1;
+                        return Ok(session);
+                    }
+                    Err(e) => {
+                        self.resumption_cache.pop(&cred_key);
+                        self.stats.resumption_fallbacks += 1;
+                        emit_transport(
+                            Severity::Medium,
+                            ReasonCode::HandshakeFailed,
+                            None,
+                            format!(
+                                "[session] 0-RTT resumption for {peer_did} failed ({e}); \
+                             falling back to a full Noise IK handshake"
+                            ),
+                        );
+                    }
+                }
+            } else {
+ // No stream to resume over (in-process test path) — count the
+                // fallback and run the normal handshake.
+                self.stats.resumption_fallbacks += 1;
+            }
+        }
+
+ // Step 5 — full IK handshake (production: messages exchanged over `stream`;
+ // test: in-process responder when responder_privkey_for_test is Some).
+        self.full_ik_handshake(
+            peer_did,
+            local_static_privkey,
+            remote_static_pubkey,
+            None,
+            stream,
+            now_secs,
+        )
+        .await
+    }
+
+ /// Attempt a 0-RTT resumption flight using the cached ticket's static key.
+ #[cfg(feature = "native")]
+    async fn try_resume(
+        &mut self,
+        peer_did: &Did,
+        cred: &ResumptionCredential,
+        local_static_privkey: &[u8],
+        stream: &mut dyn AsyncNoiseStream,
+        zero_rtt_payload: &[u8],
+        now_secs: i64,
+    ) -> Result<NoiseSession, TirBaseError> {
+        use snow::Builder;
+
+        let make_err = |reason: String| TirBaseError::NoiseHandshakeFailed {
+            peer_did: peer_did.clone(),
+            reason,
+        };
+
+        let mut initiator = Builder::new(
+            NOISE_PATTERN.parse().expect("valid Noise pattern"),
+        )
+        .local_private_key(local_static_privkey)
+        .map_err(|e| make_err(format!("local_private_key: {e}")))?
+        .remote_public_key(&cred.credential_bytes)
+        .map_err(|e| make_err(format!("cached ticket key rejected: {e}")))?
+        .build_initiator()
+        .map_err(|e| make_err(format!("build_initiator: {e}")))?;
+
+ // 0-RTT: the first application frame rides in message 1.
+        let mut msg1 = vec![0u8; 65535];
+        let n1 = initiator
+            .write_message(zero_rtt_payload, &mut msg1)
+            .map_err(|e| make_err(format!("0-RTT write_message 1: {e}")))?;
+
+        tokio::time::timeout(
+            HANDSHAKE_FLIGHT_TIMEOUT,
+            stream.write_noise_message(&msg1[..n1]),
+        )
+        .await
+        .map_err(|_| make_err("0-RTT flight 1 timed out".to_string()))?
+        .map_err(|e| make_err(format!("0-RTT flight 1 write: {e}")))?;
+
+        let mut msg2 = vec![0u8; 65535];
+        let n2 = tokio::time::timeout(
+            HANDSHAKE_FLIGHT_TIMEOUT,
+            stream.read_noise_message(&mut msg2),
+        )
+        .await
+        .map_err(|_| make_err("0-RTT flight 2 timed out".to_string()))?
+        .map_err(|e| make_err(format!("0-RTT flight 2 read: {e}")))?;
+
+        let mut plain = vec![0u8; 65535];
+        initiator
+            .read_message(&msg2[..n2], &mut plain)
+            .map_err(|e| make_err(format!("cached ticket rejected by peer: {e}")))?;
+
+        let transport = initiator
+            .into_transport_mode()
+            .map_err(|e| make_err(format!("into_transport_mode: {e}")))?;
+
+        Ok(NoiseSession {
+            remote_did: peer_did.clone(),
+            last_rotated_secs: now_secs,
+            rotation_interval_secs: self.rotation_interval_secs,
+            resumed: true,
+            transport: Some(transport),
+        })
+    }
+
+ /// Respond to a Noise_IK handshake initiated by a peer over `stream`.
+ ///
+ /// This is the counterpart production half of
+ /// [`SessionManager::initiate_with_0rtt`]: it reads flight 1, accepts any
+ /// 0-RTT payload it carries (returned to the caller so the receiving
+ /// transport can apply it immediately), writes flight 2 and enters
+ /// transport mode. On success the initiator's static key is cached as a
+ /// resumption ticket for this peer, so both directions can resume.
+ #[cfg(feature = "native")]
+    pub async fn respond(
+        &mut self,
+        peer_did: Did,
+        local_static_privkey: &[u8],
+        stream: &mut dyn AsyncNoiseStream,
+        now_secs: i64,
+    ) -> Result<(NoiseSession, Vec<u8>), TirBaseError> {
+        use snow::Builder;
+
+        let make_err = |reason: String| TirBaseError::NoiseHandshakeFailed {
+            peer_did: peer_did.clone(),
+            reason,
+        };
+
+        let mut responder = Builder::new(NOISE_PATTERN.parse().expect("valid Noise pattern"))
+            .local_private_key(local_static_privkey)
+            .map_err(|e| make_err(format!("responder local_private_key: {e}")))?
+            .build_responder()
+            .map_err(|e| make_err(format!("build_responder: {e}")))?;
+
+        let mut msg1 = vec![0u8; 65535];
+        let n1 = tokio::time::timeout(
+            HANDSHAKE_FLIGHT_TIMEOUT,
+            stream.read_noise_message(&mut msg1),
+        )
+        .await
+        .map_err(|_| make_err("handshake flight 1 timed out".to_string()))?
+        .map_err(|e| make_err(format!("handshake flight 1 read: {e}")))?;
+
+        let mut payload = vec![0u8; 65535];
+        let payload_len = responder
+            .read_message(&msg1[..n1], &mut payload)
+            .map_err(|e| make_err(format!("handshake flight 1 rejected: {e}")))?;
+        payload.truncate(payload_len);
+
+        let mut msg2 = vec![0u8; 65535];
+        let n2 = responder
+            .write_message(&[], &mut msg2)
+            .map_err(|e| make_err(format!("handshake flight 2 write: {e}")))?;
+
+        tokio::time::timeout(
+            HANDSHAKE_FLIGHT_TIMEOUT,
+            stream.write_noise_message(&msg2[..n2]),
+        )
+        .await
+        .map_err(|_| make_err("handshake flight 2 timed out".to_string()))?
+        .map_err(|e| make_err(format!("handshake flight 2 write: {e}")))?;
+
+        let transport = responder
+            .into_transport_mode()
+            .map_err(|e| make_err(format!("into_transport_mode: {e}")))?;
+
+        let cred_bytes = transport
+            .get_remote_static()
+            .map(|k| k.to_vec())
+            .unwrap_or_default();
+        self.store_credential(
+            peer_did.clone(),
+            ResumptionCredential {
+                peer_did: peer_did.clone(),
+                issued_at: now_secs,
+                credential_bytes: cred_bytes,
+            },
+        );
+
+        Ok((
+            NoiseSession {
+                remote_did: peer_did,
+                last_rotated_secs: now_secs,
+                rotation_interval_secs: self.rotation_interval_secs,
+                resumed: !payload.is_empty(),
+                transport: Some(transport),
+            },
+            payload,
+        ))
     }
 
  /// Perform a full Noise_IK_25519_AESGCM_SHA256 handshake.
@@ -525,7 +907,7 @@ impl SessionManager {
  // Read message 2 from the responder (the remote e + payer).
             let mut msg2 = vec![0u8; 65535];
             let n2 = match stream.read_noise_message(&mut msg2).await {
-                Ok(()) => msg2.len(),
+                Ok(n) => n,
                 Err(e) => {
                     let reason = format!("stream read_message 2: {e}");
                     self.record_failure(peer_did.clone(), reason.clone(), now_secs);
@@ -562,10 +944,13 @@ impl SessionManager {
             },
         );
 
+        self.stats.full_handshakes += 1;
+
         Ok(NoiseSession {
             remote_did: peer_did,
             last_rotated_secs: now_secs,
             rotation_interval_secs: self.rotation_interval_secs,
+            resumed: false,
             transport: Some(transport),
         })
     }

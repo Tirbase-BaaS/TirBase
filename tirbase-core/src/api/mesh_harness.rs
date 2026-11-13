@@ -68,6 +68,7 @@ pub(crate) fn mesh_deployment() -> DeploymentConfig {
         quorum_n: 1,
         saturate_lease_duration_secs: 3600,
         mesh_mtu: 0,
+        mesh_ble_enabled: false,
         beacon_signal_loss_threshold_secs: 300,
     }
 }

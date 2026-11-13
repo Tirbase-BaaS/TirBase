@@ -56,6 +56,17 @@ pub enum GossipMessage {
         target_did: Did,
  /// The Delta payload to forward.
         delta: Delta,
+ /// Hops already traversed (0 when the originator published it).
+        ///
+        /// A relay increments this before re-publishing and refuses to
+        /// forward once it reaches the configured `max_hop_count`, so a
+        /// relay chain is bounded.
+        hop_count: u8,
+ /// DIDs of the nodes that have already carried this envelope.
+        ///
+        /// A relay that finds its own DID here drops the envelope instead of
+        /// re-publishing it, so a cycle in the relay topology cannot loop.
+        visited: Vec<Did>,
     },
  /// External checkpoint anchoring (PV-7.10, CLAIM-26.3/26.4).
  /// Gossiped to peers on sync connections so receivers can detect tail truncation.

@@ -121,6 +121,196 @@ pub fn reassemble_ble_chunks(
     reassemble(fragments, sender_did)
 }
 
+/// Stable chunk-group id for a framed `GossipMessage` payload.
+///
+/// BLE chunks are grouped by this 32-byte id so several Deltas can be in
+/// flight on the same characteristic without interleaving. It is derived from
+/// the payload itself (SHA-256), so both ends agree without a side channel and
+/// two different payloads can never share an assembly slot.
+pub fn chunk_id_for(payload: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut id = [0u8; 32];
+    id.copy_from_slice(Sha256::digest(payload).as_slice());
+    id
+}
+
+/// The radio half of the BLE bridge.
+///
+/// `run_ble_bridge` owns all framing, chunking, assembly and dispatch; a
+/// `BleLink` only moves already-framed chunks. The production implementation
+/// ([`BleAdapter`]) writes GATT characteristics; tests supply an in-memory
+/// link, so the CI proof exercises the same framing/bridge code as the radio
+/// path rather than a parallel implementation.
+#[async_trait::async_trait]
+pub trait BleLink: Send {
+    /// Write one framed chunk to the peer characteristic.
+    async fn send_chunk(&mut self, chunk: &[u8]) -> Result<(), TirBaseError>;
+
+    /// Receive the next framed chunk, or `Ok(None)` once the link is closed.
+    async fn recv_chunk(&mut self) -> Result<Option<Vec<u8>>, TirBaseError>;
+}
+
+/// In-progress BLE chunk assemblies, keyed by [`chunk_id_for`].
+///
+/// Out-of-order chunks are accepted, duplicate chunk indices are idempotent
+/// (the later copy replaces the earlier one), inconsistent `total_fragments`
+/// for the same id is a clean failure, and a finished assembly is handed to
+/// the canonical `fragment::reassemble` for validation.
+#[derive(Debug, Default)]
+pub struct BleChunkAssembler {
+    pending: std::collections::BTreeMap<[u8; 32], Vec<DeltaFragment>>,
+    /// Recently completed chunk groups (a retransmitted chunk is a no-op).
+    completed: std::collections::VecDeque<[u8; 32]>,
+}
+
+impl BleChunkAssembler {
+    /// Feed one chunk. Returns the complete payload bytes once every fragment
+    /// of that group has arrived, `None` while still incomplete.
+    pub fn push_chunk(&mut self, chunk: Vec<u8>) -> Result<Option<Vec<u8>>, TirBaseError> {
+        let fragment = parse_ble_chunk(&chunk)?;
+        let id = fragment.delta_id;
+        let total = fragment.total_fragments;
+
+        if self.completed.contains(&id) {
+            return Ok(None);
+        }
+
+        let sender_did = format!("ble-{}", hex::encode(id));
+
+        if total == 0 || fragment.fragment_index >= total {
+            return Err(TirBaseError::FragmentReassemblyFailed {
+                sender_did,
+                expected: total,
+            });
+        }
+
+        // Reject a group whose chunks disagree about the fragment count; drop
+        // the whole assembly so a malformed stream cannot wedge the slot.
+        if let Some(existing) = self.pending.get(&id) {
+            if existing.iter().any(|f| f.total_fragments != total) {
+                self.pending.remove(&id);
+                return Err(TirBaseError::FragmentReassemblyFailed {
+                    sender_did,
+                    expected: total,
+                });
+            }
+        }
+
+        let entry = self.pending.entry(id).or_default();
+        if let Some(slot) = entry
+            .iter_mut()
+            .find(|f| f.fragment_index == fragment.fragment_index)
+        {
+            *slot = fragment;
+        } else {
+            entry.push(fragment);
+        }
+
+        let complete = self
+            .pending
+            .get(&id)
+            .map(|frags| frags.len() == total as usize)
+            .unwrap_or(false);
+        if !complete {
+            return Ok(None);
+        }
+
+        let fragments = self.pending.remove(&id).expect("checked above");
+        let bytes = reassemble(fragments, &sender_did)?;
+        self.completed.push_back(id);
+        while self.completed.len() > crate::transport::fragment::MAX_COMPLETED_ASSEMBLIES {
+            self.completed.pop_front();
+        }
+        Ok(Some(bytes))
+    }
+
+    /// Number of groups still incomplete (bounded by the link's in-flight set).
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
+}
+
+/// Drive the BLE bridge until the outbound channel closes or the link ends.
+///
+/// Outbound: every framed `GossipMessage` received on `outbound_rx` is split
+/// into BLE chunks ([`fragment_for_ble`]) and written to the link.
+///
+/// Inbound: every notified chunk is fed to [`BleChunkAssembler`]; a completed
+/// payload is parsed as a `GossipMessage` and pushed to `inbound_tx`, which the
+/// transport drains through `poll_ble_inbound` → `process_wire_message`.
+///
+/// Production caller: `MeshTransport::start` spawns this with the platform
+/// [`BleAdapter`]; CI passes an emulated link through
+/// `MeshTransport::bind_ble_link`.
+pub async fn run_ble_bridge<L: BleLink>(
+    mut link: L,
+    mut outbound_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+    inbound_tx: tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>,
+) {
+    use crate::transport::message::GossipMessage;
+
+    let mut assembler = BleChunkAssembler::default();
+
+    loop {
+        tokio::select! {
+            outbound = outbound_rx.recv() => {
+                let Some(payload) = outbound else {
+                    // Transport dropped its sender: nothing more will be sent.
+                    return;
+                };
+                let chunks = fragment_for_ble(chunk_id_for(&payload), &payload);
+                for chunk in &chunks {
+                    if let Err(e) = link.send_chunk(chunk).await {
+                        crate::events::emit_transport(
+                            crate::events::Severity::Medium,
+                            crate::events::ReasonCode::HandshakeFailed,
+                            None,
+                            format!("[transport] BLE send failed: {e}"),
+                        );
+                        return;
+                    }
+                }
+            }
+            received = link.recv_chunk() => {
+                match received {
+                    Ok(Some(chunk)) => match assembler.push_chunk(chunk) {
+                        Ok(Some(bytes)) => match GossipMessage::from_bytes(&bytes) {
+                            Some(msg) => {
+                                if inbound_tx.send(msg).await.is_err() {
+                                    return;
+                                }
+                            }
+                            None => crate::events::emit_transport(
+                                crate::events::Severity::Medium,
+                                crate::events::ReasonCode::FragmentReassemblyFailed,
+                                None,
+                                "[transport] BLE reassembly produced a non-GossipMessage payload".to_string(),
+                            ),
+                        },
+                        Ok(None) => {}
+                        Err(e) => crate::events::emit_transport(
+                            crate::events::Severity::Medium,
+                            crate::events::ReasonCode::FragmentReassemblyFailed,
+                            None,
+                            format!("[transport] BLE reassembly failed: {e}"),
+                        ),
+                    },
+                    Ok(None) => return,
+                    Err(e) => {
+                        crate::events::emit_transport(
+                            crate::events::Severity::Medium,
+                            crate::events::ReasonCode::HandshakeFailed,
+                            None,
+                            format!("[transport] BLE receive failed: {e}"),
+                        );
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ─── BleAdapter ───────────────────────────────────────────────────────────────
 
 /// Wraps a platform BLE adapter and manages a single BLE peer connection.
@@ -131,6 +321,8 @@ pub struct BleAdapter {
     pub local_did: Did,
     pub peer_did: Did,
     pub char_handle: Option<btleplug::api::Characteristic>,
+    /// Notification stream receiver installed by `subscribe_notifications`.
+    notify_rx: Option<tokio::sync::mpsc::Receiver<Vec<u8>>>,
 }
 
 impl BleAdapter {
@@ -161,6 +353,7 @@ impl BleAdapter {
             local_did,
             peer_did,
             char_handle: None,
+            notify_rx: None,
         })
     }
 
@@ -265,11 +458,12 @@ impl BleAdapter {
         Ok(())
     }
 
- /// Subscribe to notifications on the TirBase characteristic and return
- /// an async stream of received `Vec<u8>` chunks.
-    pub async fn subscribe_notifications(
-        &mut self,
-    ) -> Result<tokio::sync::mpsc::Receiver<Vec<u8>>, TirBaseError> {
+ /// Subscribe to notifications on the TirBase characteristic.
+ ///
+ /// Received chunks are delivered through [`BleAdapter::take_notifications`]
+ /// (the bridge runner owns receive scheduling); the subscription itself is a
+ /// radio operation, not part of the framing loop.
+    pub async fn subscribe_notifications(&mut self) -> Result<(), TirBaseError> {
         let chr = self
             .char_handle
             .as_ref()
@@ -311,7 +505,14 @@ impl BleAdapter {
         });
 
         self.peripheral = Some(peripheral);
-        Ok(rx)
+        self.notify_rx = Some(rx);
+        Ok(())
+    }
+
+ /// Move the notification receiver out of the adapter (used by the bridge
+ /// runner, which owns receive scheduling).
+    pub fn take_notifications(&mut self) -> Option<tokio::sync::mpsc::Receiver<Vec<u8>>> {
+        self.notify_rx.take()
     }
 
  /// Disconnect from the peer.
@@ -327,6 +528,38 @@ impl BleAdapter {
         self.connected = false;
         self.peripheral = None;
         self.char_handle = None;
+        self.notify_rx = None;
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl BleLink for BleAdapter {
+    async fn send_chunk(&mut self, chunk: &[u8]) -> Result<(), TirBaseError> {
+        let chr = self
+            .char_handle
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
+                reason: "BLE not connected — no characteristic".to_string(),
+            })?;
+        let peripheral = self
+            .peripheral
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
+                reason: "BLE not connected — no peripheral".to_string(),
+            })?;
+        peripheral
+            .write(chr, chunk, WriteType::WithResponse)
+            .await
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("BLE write failed: {e}"),
+            })
+    }
+
+    async fn recv_chunk(&mut self) -> Result<Option<Vec<u8>>, TirBaseError> {
+        match self.notify_rx.as_mut() {
+            Some(rx) => Ok(rx.recv().await),
+            None => Ok(None),
+        }
     }
 }

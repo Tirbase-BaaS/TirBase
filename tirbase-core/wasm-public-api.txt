@@ -11474,3 +11474,261 @@ pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignat
 pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::message: alloc::vec::Vec<u8>
 pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::signature: alloc::vec::Vec<u8>
 pub tirbase_core::transport::message::GossipMessage::SaturateTerminationCoSignature::signer_did: tirbase_core::crdt::delta::Did
+pub tirbase_core::api::DeploymentConfig::mesh_ble_enabled: bool
+impl tirbase_core::transport::ble::BleLink for tirbase_core::transport::ble::BleAdapter
+pub struct tirbase_core::transport::ble::BleChunkAssembler
+impl tirbase_core::transport::ble::BleChunkAssembler
+pub fn tirbase_core::transport::ble::BleChunkAssembler::pending_count(&self) -> usize
+pub fn tirbase_core::transport::ble::BleChunkAssembler::push_chunk(&mut self, alloc::vec::Vec<u8>) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>
+impl core::default::Default for tirbase_core::transport::ble::BleChunkAssembler
+pub fn tirbase_core::transport::ble::BleChunkAssembler::default() -> tirbase_core::transport::ble::BleChunkAssembler
+impl core::fmt::Debug for tirbase_core::transport::ble::BleChunkAssembler
+pub fn tirbase_core::transport::ble::BleChunkAssembler::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_core::transport::ble::BleChunkAssembler
+impl core::marker::Send for tirbase_core::transport::ble::BleChunkAssembler
+impl core::marker::Sync for tirbase_core::transport::ble::BleChunkAssembler
+impl core::marker::Unpin for tirbase_core::transport::ble::BleChunkAssembler
+impl core::marker::UnsafeUnpin for tirbase_core::transport::ble::BleChunkAssembler
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::ble::BleChunkAssembler
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::ble::BleChunkAssembler
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::ble::BleChunkAssembler where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::ble::BleChunkAssembler where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::ble::BleChunkAssembler where U: core::convert::From<T>
+pub fn tirbase_core::transport::ble::BleChunkAssembler::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::ble::BleChunkAssembler where U: core::convert::Into<T>
+pub type tirbase_core::transport::ble::BleChunkAssembler::Error = core::convert::Infallible
+pub fn tirbase_core::transport::ble::BleChunkAssembler::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::ble::BleChunkAssembler where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::ble::BleChunkAssembler::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::ble::BleChunkAssembler::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_core::transport::ble::BleChunkAssembler where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::ble::BleChunkAssembler::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::ble::BleChunkAssembler where T: ?core::marker::Sized
+pub fn tirbase_core::transport::ble::BleChunkAssembler::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::ble::BleChunkAssembler where T: ?core::marker::Sized
+pub fn tirbase_core::transport::ble::BleChunkAssembler::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_core::transport::ble::BleChunkAssembler
+pub fn tirbase_core::transport::ble::BleChunkAssembler::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::ble::BleChunkAssembler where T: core::any::Any
+pub fn tirbase_core::transport::ble::BleChunkAssembler::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::ble::BleChunkAssembler::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::ble::BleChunkAssembler::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::ble::BleChunkAssembler::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::ble::BleChunkAssembler where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::ble::BleChunkAssembler::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::ble::BleChunkAssembler
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::ble::BleChunkAssembler where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::ble::BleChunkAssembler
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::ble::BleChunkAssembler
+impl<T> typenum::type_operators::Same for tirbase_core::transport::ble::BleChunkAssembler
+pub type tirbase_core::transport::ble::BleChunkAssembler::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::ble::BleChunkAssembler where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::ble::BleChunkAssembler where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::ble::BleChunkAssembler::vzip(self) -> V
+pub trait tirbase_core::transport::ble::BleLink: core::marker::Send
+pub fn tirbase_core::transport::ble::BleLink::recv_chunk<'life0, 'async_trait>(&'life0 mut self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub fn tirbase_core::transport::ble::BleLink::send_chunk<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), tirbase_core::errors::TirBaseError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl tirbase_core::transport::ble::BleLink for tirbase_core::transport::ble::BleAdapter
+pub fn tirbase_core::transport::ble::chunk_id_for(&[u8]) -> [u8; 32]
+pub async fn tirbase_core::transport::ble::run_ble_bridge<L: tirbase_core::transport::ble::BleLink>(L, tokio::sync::mpsc::bounded::Receiver<alloc::vec::Vec<u8>>, tokio::sync::mpsc::bounded::Sender<tirbase_core::transport::message::GossipMessage>)
+pub fn tirbase_core::transport::fragment::ReassemblyBuffer::add_fragment_at(&mut self, tirbase_core::transport::fragment::DeltaFragment, &tirbase_core::crdt::delta::Did, i64) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::fragment::ReassemblyBuffer::expire_stale(&mut self, i64) -> usize
+pub const tirbase_core::transport::fragment::FRAGMENT_STALE_TIMEOUT_US: i64
+pub const tirbase_core::transport::fragment::MAX_COMPLETED_ASSEMBLIES: usize
+pub tirbase_core::transport::session::NoiseSession::resumed: bool
+pub struct tirbase_core::transport::session::ResumptionStats
+pub tirbase_core::transport::session::ResumptionStats::full_handshakes: u64
+pub tirbase_core::transport::session::ResumptionStats::resumption_fallbacks: u64
+pub tirbase_core::transport::session::ResumptionStats::resumptions: u64
+impl core::clone::Clone for tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::ResumptionStats::clone(&self) -> tirbase_core::transport::session::ResumptionStats
+impl core::cmp::Eq for tirbase_core::transport::session::ResumptionStats
+impl core::cmp::PartialEq for tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::ResumptionStats::eq(&self, &tirbase_core::transport::session::ResumptionStats) -> bool
+impl core::default::Default for tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::ResumptionStats::default() -> tirbase_core::transport::session::ResumptionStats
+impl core::fmt::Debug for tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::ResumptionStats::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_core::transport::session::ResumptionStats
+impl core::marker::StructuralPartialEq for tirbase_core::transport::session::ResumptionStats
+impl core::marker::Freeze for tirbase_core::transport::session::ResumptionStats
+impl core::marker::Send for tirbase_core::transport::session::ResumptionStats
+impl core::marker::Sync for tirbase_core::transport::session::ResumptionStats
+impl core::marker::Unpin for tirbase_core::transport::session::ResumptionStats
+impl core::marker::UnsafeUnpin for tirbase_core::transport::session::ResumptionStats
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::session::ResumptionStats
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::session::ResumptionStats
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::transport::session::ResumptionStats where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::session::ResumptionStats::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::session::ResumptionStats where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::session::ResumptionStats where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::session::ResumptionStats::equivalent(&self, &K) -> bool
+pub fn tirbase_core::transport::session::ResumptionStats::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::session::ResumptionStats where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::session::ResumptionStats where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::session::ResumptionStats where U: core::convert::From<T>
+pub fn tirbase_core::transport::session::ResumptionStats::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::session::ResumptionStats where U: core::convert::Into<T>
+pub type tirbase_core::transport::session::ResumptionStats::Error = core::convert::Infallible
+pub fn tirbase_core::transport::session::ResumptionStats::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::session::ResumptionStats where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::session::ResumptionStats::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::session::ResumptionStats::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::transport::session::ResumptionStats where T: core::clone::Clone
+pub type tirbase_core::transport::session::ResumptionStats::Owned = T
+pub fn tirbase_core::transport::session::ResumptionStats::clone_into(&self, &mut T)
+pub fn tirbase_core::transport::session::ResumptionStats::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::transport::session::ResumptionStats where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::session::ResumptionStats::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::session::ResumptionStats where T: ?core::marker::Sized
+pub fn tirbase_core::transport::session::ResumptionStats::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::session::ResumptionStats where T: ?core::marker::Sized
+pub fn tirbase_core::transport::session::ResumptionStats::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::transport::session::ResumptionStats where T: core::clone::Clone
+pub unsafe fn tirbase_core::transport::session::ResumptionStats::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::ResumptionStats::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::session::ResumptionStats where T: core::any::Any
+pub fn tirbase_core::transport::session::ResumptionStats::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::session::ResumptionStats::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::session::ResumptionStats::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::session::ResumptionStats::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::session::ResumptionStats where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::session::ResumptionStats::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::session::ResumptionStats
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::session::ResumptionStats where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::session::ResumptionStats
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::session::ResumptionStats
+impl<T> typenum::type_operators::Same for tirbase_core::transport::session::ResumptionStats
+pub type tirbase_core::transport::session::ResumptionStats::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::session::ResumptionStats where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::session::ResumptionStats where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::session::ResumptionStats::vzip(self) -> V
+pub tirbase_core::transport::session::SessionManager::stats: tirbase_core::transport::session::ResumptionStats
+pub fn tirbase_core::transport::session::SessionManager::can_resume(&self, &tirbase_core::crdt::delta::Did, i64) -> bool
+pub async fn tirbase_core::transport::session::SessionManager::initiate_with_0rtt(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::api::types::TrustLevel, &[u8], &[u8], core::option::Option<&mut dyn tirbase_core::transport::session::AsyncNoiseStream>, i64, &[u8]) -> core::result::Result<tirbase_core::transport::session::NoiseSession, tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::session::SessionManager::respond(&mut self, tirbase_core::crdt::delta::Did, &[u8], &mut dyn tirbase_core::transport::session::AsyncNoiseStream, i64) -> core::result::Result<(tirbase_core::transport::session::NoiseSession, alloc::vec::Vec<u8>), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::session::SessionManager::resumption_stats(&self) -> tirbase_core::transport::session::ResumptionStats
+pub struct tirbase_core::transport::session::TcpNoiseStream
+impl tirbase_core::transport::session::TcpNoiseStream
+pub async fn tirbase_core::transport::session::TcpNoiseStream::connect(&str) -> core::io::error::Result<Self>
+pub fn tirbase_core::transport::session::TcpNoiseStream::new(tokio::net::tcp::stream::TcpStream) -> Self
+impl tirbase_core::transport::session::AsyncNoiseStream for tirbase_core::transport::session::TcpNoiseStream
+pub fn tirbase_core::transport::session::TcpNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<usize>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::TcpNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+impl core::marker::Freeze for tirbase_core::transport::session::TcpNoiseStream
+impl core::marker::Send for tirbase_core::transport::session::TcpNoiseStream
+impl core::marker::Sync for tirbase_core::transport::session::TcpNoiseStream
+impl core::marker::Unpin for tirbase_core::transport::session::TcpNoiseStream
+impl core::marker::UnsafeUnpin for tirbase_core::transport::session::TcpNoiseStream
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::session::TcpNoiseStream
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::session::TcpNoiseStream
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::session::TcpNoiseStream where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::session::TcpNoiseStream where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::session::TcpNoiseStream where U: core::convert::From<T>
+pub fn tirbase_core::transport::session::TcpNoiseStream::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::session::TcpNoiseStream where U: core::convert::Into<T>
+pub type tirbase_core::transport::session::TcpNoiseStream::Error = core::convert::Infallible
+pub fn tirbase_core::transport::session::TcpNoiseStream::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::session::TcpNoiseStream where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::session::TcpNoiseStream::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::session::TcpNoiseStream::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_core::transport::session::TcpNoiseStream where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::session::TcpNoiseStream::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::session::TcpNoiseStream where T: ?core::marker::Sized
+pub fn tirbase_core::transport::session::TcpNoiseStream::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::session::TcpNoiseStream where T: ?core::marker::Sized
+pub fn tirbase_core::transport::session::TcpNoiseStream::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_core::transport::session::TcpNoiseStream
+pub fn tirbase_core::transport::session::TcpNoiseStream::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::session::TcpNoiseStream where T: core::any::Any
+pub fn tirbase_core::transport::session::TcpNoiseStream::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::session::TcpNoiseStream::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::session::TcpNoiseStream::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::session::TcpNoiseStream::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::session::TcpNoiseStream where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::session::TcpNoiseStream::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::session::TcpNoiseStream
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::session::TcpNoiseStream where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::session::TcpNoiseStream
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::session::TcpNoiseStream
+impl<T> typenum::type_operators::Same for tirbase_core::transport::session::TcpNoiseStream
+pub type tirbase_core::transport::session::TcpNoiseStream::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::session::TcpNoiseStream where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::session::TcpNoiseStream where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::session::TcpNoiseStream::vzip(self) -> V
+pub const tirbase_core::transport::session::HANDSHAKE_FLIGHT_TIMEOUT: core::time::Duration
+impl tirbase_core::transport::session::AsyncNoiseStream for tirbase_core::transport::session::TcpNoiseStream
+pub fn tirbase_core::transport::session::TcpNoiseStream::read_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 mut [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<usize>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn tirbase_core::transport::session::TcpNoiseStream::write_noise_message<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 [u8]) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::io::error::Result<()>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub async fn tirbase_core::transport::MeshTransport::accept_noise_session(&mut self, tirbase_core::crdt::delta::Did, &[u8], &mut dyn tirbase_core::transport::session::AsyncNoiseStream, i64) -> core::result::Result<(tirbase_core::transport::SessionEstablishment, alloc::vec::Vec<u8>), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::bind_ble_link<L: tirbase_core::transport::ble::BleLink + 'static>(&mut self, L) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::init_ble_channels(&mut self) -> core::result::Result<(), tirbase_core::errors::TirBaseError>
+pub async fn tirbase_core::transport::MeshTransport::initiate_session_with_payload(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::api::types::TrustLevel, &[u8], &[u8], core::option::Option<&mut dyn tirbase_core::transport::session::AsyncNoiseStream>, i64, &[u8]) -> core::result::Result<tirbase_core::transport::SessionEstablishment, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::set_ble_dispatch(&mut self, tokio::sync::mpsc::bounded::Sender<tirbase_core::transport::message::GossipMessage>)
+pub fn tirbase_core::transport::MeshTransport::spawn_platform_ble_bridge(alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::transport::MeshTransport>>)
+pub struct tirbase_core::transport::SessionEstablishment
+pub tirbase_core::transport::SessionEstablishment::resumed: bool
+pub tirbase_core::transport::SessionEstablishment::zero_rtt_payload_len: usize
+impl core::clone::Clone for tirbase_core::transport::SessionEstablishment
+pub fn tirbase_core::transport::SessionEstablishment::clone(&self) -> tirbase_core::transport::SessionEstablishment
+impl core::cmp::Eq for tirbase_core::transport::SessionEstablishment
+impl core::cmp::PartialEq for tirbase_core::transport::SessionEstablishment
+pub fn tirbase_core::transport::SessionEstablishment::eq(&self, &tirbase_core::transport::SessionEstablishment) -> bool
+impl core::fmt::Debug for tirbase_core::transport::SessionEstablishment
+pub fn tirbase_core::transport::SessionEstablishment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_core::transport::SessionEstablishment
+impl core::marker::StructuralPartialEq for tirbase_core::transport::SessionEstablishment
+impl core::marker::Freeze for tirbase_core::transport::SessionEstablishment
+impl core::marker::Send for tirbase_core::transport::SessionEstablishment
+impl core::marker::Sync for tirbase_core::transport::SessionEstablishment
+impl core::marker::Unpin for tirbase_core::transport::SessionEstablishment
+impl core::marker::UnsafeUnpin for tirbase_core::transport::SessionEstablishment
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::transport::SessionEstablishment
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::transport::SessionEstablishment
+impl<Q, K> equivalent::Equivalent<K> for tirbase_core::transport::SessionEstablishment where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::SessionEstablishment::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::SessionEstablishment where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_core::transport::SessionEstablishment where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_core::transport::SessionEstablishment::equivalent(&self, &K) -> bool
+pub fn tirbase_core::transport::SessionEstablishment::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_core::transport::SessionEstablishment where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_core::transport::SessionEstablishment where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_core::transport::SessionEstablishment where U: core::convert::From<T>
+pub fn tirbase_core::transport::SessionEstablishment::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_core::transport::SessionEstablishment where U: core::convert::Into<T>
+pub type tirbase_core::transport::SessionEstablishment::Error = core::convert::Infallible
+pub fn tirbase_core::transport::SessionEstablishment::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_core::transport::SessionEstablishment where U: core::convert::TryFrom<T>
+pub type tirbase_core::transport::SessionEstablishment::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_core::transport::SessionEstablishment::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_core::transport::SessionEstablishment where T: core::clone::Clone
+pub type tirbase_core::transport::SessionEstablishment::Owned = T
+pub fn tirbase_core::transport::SessionEstablishment::clone_into(&self, &mut T)
+pub fn tirbase_core::transport::SessionEstablishment::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_core::transport::SessionEstablishment where T: 'static + ?core::marker::Sized
+pub fn tirbase_core::transport::SessionEstablishment::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_core::transport::SessionEstablishment where T: ?core::marker::Sized
+pub fn tirbase_core::transport::SessionEstablishment::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_core::transport::SessionEstablishment where T: ?core::marker::Sized
+pub fn tirbase_core::transport::SessionEstablishment::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_core::transport::SessionEstablishment where T: core::clone::Clone
+pub unsafe fn tirbase_core::transport::SessionEstablishment::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_core::transport::SessionEstablishment
+pub fn tirbase_core::transport::SessionEstablishment::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_core::transport::SessionEstablishment where T: core::any::Any
+pub fn tirbase_core::transport::SessionEstablishment::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::SessionEstablishment::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_core::transport::SessionEstablishment::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_core::transport::SessionEstablishment::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_core::transport::SessionEstablishment where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_core::transport::SessionEstablishment::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_core::transport::SessionEstablishment
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_core::transport::SessionEstablishment where T: ?core::marker::Sized
+impl<T> tracing::instrument::Instrument for tirbase_core::transport::SessionEstablishment
+impl<T> tracing::instrument::WithSubscriber for tirbase_core::transport::SessionEstablishment
+impl<T> typenum::type_operators::Same for tirbase_core::transport::SessionEstablishment
+pub type tirbase_core::transport::SessionEstablishment::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_core::transport::SessionEstablishment where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::transport::SessionEstablishment where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_core::transport::SessionEstablishment::vzip(self) -> V

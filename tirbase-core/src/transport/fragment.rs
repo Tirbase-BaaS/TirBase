@@ -121,11 +121,37 @@ pub const MAX_REASSEMBLY_SLOTS: usize = 1024;
 /// Maximum `total_fragments` value accepted for any single Delta assembly.
 pub const MAX_FRAGMENTS_PER_DELTA: u32 = 4096;
 
+/// How long an incomplete assembly is held before it is discarded.
+///
+/// A Delta whose fragments never all arrive must not pin memory forever, and
+/// a later fragment arriving after this window must NOT be stitched onto the
+/// stale partial (that would mix two transmissions). Stale assemblies are
+/// dropped on the next fragment insertion, so a missing fragment surfaces as
+/// a clean timeout rather than an indefinitely pending Delta.
+pub const FRAGMENT_STALE_TIMEOUT_US: i64 = 30_000_000;
+
+/// One in-progress Delta assembly.
+#[derive(Debug)]
+struct PendingAssembly {
+    slots: Vec<Option<DeltaFragment>>,
+ /// Monotonic microseconds when the first fragment of this assembly arrived.
+    started_at_us: i64,
+}
+
+/// How many completed Delta ids are remembered to absorb retransmissions.
+///
+ /// A duplicate fragment that arrives *after* its Delta was reassembled must
+ /// not open a new partial assembly (it can never complete, and it would pin
+ /// a slot until the stale timeout). The most recent completions are kept.
+pub const MAX_COMPLETED_ASSEMBLIES: usize = 1024;
+
 /// Partial reassembly buffer held until all fragments arrive.
 #[derive(Debug, Default)]
 pub struct ReassemblyBuffer {
  /// Keyed by delta_id. Each entry is a slot array sized to total_fragments.
-    pending: std::collections::BTreeMap<[u8; 32], Vec<Option<DeltaFragment>>>,
+    pending: std::collections::BTreeMap<[u8; 32], PendingAssembly>,
+ /// Recently completed delta ids (bounded ring).
+    completed: std::collections::VecDeque<[u8; 32]>,
 }
 
 impl ReassemblyBuffer {
@@ -137,6 +163,18 @@ impl ReassemblyBuffer {
     #[cfg(test)]
     pub(crate) fn has_delta(&self, id: &[u8; 32]) -> bool {
         self.pending.contains_key(id)
+    }
+
+ /// Drop every partial assembly older than [`FRAGMENT_STALE_TIMEOUT_US`].
+ ///
+ /// Called on each insertion (so an active stream of fragments keeps the
+ /// buffer clean without a timer task) and directly by tests that need a
+ /// deterministic clock.
+    pub fn expire_stale(&mut self, now_us: i64) -> usize {
+        let before = self.pending.len();
+        self.pending
+            .retain(|_, a| now_us.saturating_sub(a.started_at_us) < FRAGMENT_STALE_TIMEOUT_US);
+        before - self.pending.len()
     }
 }
 
@@ -157,7 +195,23 @@ impl ReassemblyBuffer {
         fragment: DeltaFragment,
         sender_did: &Did,
     ) -> Result<Option<Vec<u8>>, TirBaseError> {
+        self.add_fragment_at(fragment, sender_did, crate::traits::monotonic_now() as i64)
+    }
+
+ /// Insert a fragment with an explicit monotonic timestamp (microseconds).
+    pub fn add_fragment_at(
+        &mut self,
+        fragment: DeltaFragment,
+        sender_did: &Did,
+        now_us: i64,
+    ) -> Result<Option<Vec<u8>>, TirBaseError> {
         let delta_id = fragment.delta_id;
+
+ // A retransmitted fragment for an already-completed Delta is a no-op.
+        if self.completed.contains(&delta_id) {
+            return Ok(None);
+        }
+
         let total = fragment.total_fragments as usize;
         let idx = fragment.fragment_index as usize;
 
@@ -186,13 +240,16 @@ impl ReassemblyBuffer {
             });
         }
 
- // Guard 2: evict the entry with the fewest filled slots when the cap is reached
+ // Guard 2: drop partial assemblies whose fragments stopped arriving.
+        self.expire_stale(now_us);
+
+ // Guard 3: evict the entry with the fewest filled slots when the cap is reached
         if !self.pending.contains_key(&delta_id) && self.pending.len() >= MAX_REASSEMBLY_SLOTS {
  // Find the key with the fewest Some slots (oldest / least-progressed)
             let evict_key = self
                 .pending
                 .iter()
-                .min_by_key(|(_, slots)| slots.iter().filter(|s| s.is_some()).count())
+                .min_by_key(|(_, a)| a.slots.iter().filter(|s| s.is_some()).count())
                 .map(|(k, _)| *k)
                 .unwrap(); // safe: pending is non-empty here
 
@@ -208,34 +265,39 @@ impl ReassemblyBuffer {
             );
         }
 
- // Initialise slot array on first fragment for this delta_id
-        let slots = self
-            .pending
-            .entry(delta_id)
-            .or_insert_with(|| vec![None; total]);
+ // Initialise the assembly on the first fragment for this delta_id
+        let assembly = self.pending.entry(delta_id).or_insert_with(|| PendingAssembly {
+            slots: vec![None; total],
+            started_at_us: now_us,
+        });
 
  // Validate total_fragments is consistent
-        if slots.len() != total {
+        if assembly.slots.len() != total {
             return Err(TirBaseError::FragmentReassemblyFailed {
                 sender_did: sender_did.clone(),
                 expected: total as u32,
             });
         }
 
- // Store the fragment (ignore duplicate — idempotent)
-        slots[idx] = Some(fragment);
+ // Store the fragment (a duplicate index is idempotent)
+        assembly.slots[idx] = Some(fragment);
 
  // Check if all slots are filled
-        if slots.iter().all(|s| s.is_some()) {
+        if assembly.slots.iter().all(|s| s.is_some()) {
             let fragments: Vec<DeltaFragment> = self
                 .pending
                 .remove(&delta_id)
                 .unwrap()
+                .slots
                 .into_iter()
                 .map(|s| s.unwrap())
                 .collect();
 
             let bytes = reassemble(fragments, sender_did)?;
+            self.completed.push_back(delta_id);
+            while self.completed.len() > MAX_COMPLETED_ASSEMBLIES {
+                self.completed.pop_front();
+            }
             return Ok(Some(bytes));
         }
 
@@ -526,5 +588,62 @@ mod tests {
         assert!(buf.add_fragment(frags[1].clone(), &did).unwrap().is_none());
         let result = buf.add_fragment(frags[2].clone(), &did).unwrap();
         assert_eq!(result.unwrap(), data);
+    }
+
+ // ── Missing-fragment timeout (bounded, deterministic clock) ───────────────
+
+    #[test]
+    fn incomplete_assembly_is_discarded_after_the_stale_timeout() {
+        let data: Vec<u8> = (0u8..255).cycle().take(300).collect();
+        let frags = fragment(DELTA_ID, &data, 100); // 3 fragments
+        let mut buf = ReassemblyBuffer::default();
+        let did = SENDER_DID.to_string();
+
+        assert!(buf
+            .add_fragment_at(frags[0].clone(), &did, 1_000)
+            .unwrap()
+            .is_none());
+        assert!(buf
+            .add_fragment_at(frags[1].clone(), &did, 2_000)
+            .unwrap()
+            .is_none());
+        assert_eq!(buf.pending_count(), 1);
+
+ // The third fragment arrives after the window: the stale partial must be
+ // dropped, NOT completed with the late fragment.
+        let late = 2_000 + FRAGMENT_STALE_TIMEOUT_US + 1;
+        let result = buf.add_fragment_at(frags[2].clone(), &did, late).unwrap();
+        assert!(
+            result.is_none(),
+            "a fragment arriving after the stale timeout must not complete the old assembly"
+        );
+
+ // The late fragment started a fresh assembly, so exactly one slot is held.
+        assert_eq!(
+            buf.pending_count(),
+            1,
+            "only the new (incomplete) assembly may remain"
+        );
+        assert_eq!(
+            buf.expire_stale(late + FRAGMENT_STALE_TIMEOUT_US + 1),
+            1,
+            "the fresh assembly expires on its own clock"
+        );
+        assert_eq!(buf.pending_count(), 0);
+    }
+
+    #[test]
+    fn duplicate_fragment_index_is_idempotent_and_completes() {
+        let data: Vec<u8> = (0u8..255).cycle().take(300).collect();
+        let frags = fragment(DELTA_ID, &data, 100);
+        let mut buf = ReassemblyBuffer::default();
+        let did = SENDER_DID.to_string();
+
+        assert!(buf.add_fragment_at(frags[0].clone(), &did, 0).unwrap().is_none());
+ // Duplicate of index 0 (an at-most-once network delivering twice).
+        assert!(buf.add_fragment_at(frags[0].clone(), &did, 1).unwrap().is_none());
+        assert!(buf.add_fragment_at(frags[1].clone(), &did, 2).unwrap().is_none());
+        let done = buf.add_fragment_at(frags[2].clone(), &did, 3).unwrap();
+        assert_eq!(done.expect("duplicate fragments must not block completion"), data);
     }
 }

@@ -556,6 +556,19 @@ jobs:
  cargo test -p tirbase-core --features native --lib \
  api::real_mesh_tests::json_envelope_delta_over_real_mesh_projects_to_peer_store
 
+ # WS6: fragmentation at mesh_mtu=256, 3-node multi-hop relay through the
+ # production poll task, and Noise 0-RTT resumption / rotation / revocation
+ # over real loopback TCP between two Swarm-backed handles. The BLE bridge
+ # framing is covered by the transport tests (`transport::tests::ble_*`) over
+ # an emulated link; only the radio test is hardware-gated (see below).
+ - name: WS6 e2e (fragmentation, multi-hop relay, 0-RTT, rotation, revocation)
+ run: >-
+ cargo test -p tirbase-core --features native --lib api::network_wiring_mesh_tests
+ -- --test-threads=1
+
+ - name: WS6 transport (fragmentation bounds, relay loop/hop limits, BLE bridge)
+ run: cargo test -p tirbase-core --features native --lib transport::
+
  - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
  run: cargo test -p tirbase-core --features native --lib tests::api_parity
 
