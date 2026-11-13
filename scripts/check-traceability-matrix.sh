@@ -51,6 +51,7 @@ done
 # Normalize, dedupe, and filter to plausible repo-relative paths.
 seen_list=$'\n'
 missing=()
+external=()
 checked=0
 for p in "${paths[@]}"; do
   [[ -z "$p" ]] && continue
@@ -78,6 +79,16 @@ for p in "${paths[@]}"; do
     resolved=".github/workflows/$p"
   fi
 
+ # A path under a git-ignored tree (for example the private `.kiro` spec
+ # corpus) is intentionally absent from the repository, so it is not a repo
+ # path this gate can verify. Count it as external instead of missing —
+ # otherwise the gate is red on every fresh clone, where those files never
+ # exist.
+  if [[ ! -e "$resolved" ]] && git check-ignore -q -- "$p" 2>/dev/null; then
+    external+=("$p")
+    continue
+  fi
+
   checked=$((checked + 1))
   if [[ ! -e "$resolved" ]]; then
     missing+=("$p")
@@ -92,4 +103,8 @@ if [[ ${#missing[@]} -gt 0 ]]; then
   exit 1
 fi
 
-echo "OK: traceability matrix paths exist (${checked} unique path references checked)."
+external_note=""
+if [[ ${#external[@]} -gt 0 ]]; then
+  external_note=", ${#external[@]} git-ignored path(s) skipped (${external[*]})"
+fi
+echo "OK: traceability matrix paths exist (${checked} unique path references checked${external_note})."
