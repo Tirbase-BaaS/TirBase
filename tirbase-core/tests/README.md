@@ -1203,30 +1203,40 @@ Tests (all native, in `api::real_mesh_tests`):
  truncated stream returns `None` for every fragment and the buffer retains
  the incomplete `delta_id` (no corruption).
 
-The WASM build has a **pre-existing** compile error
-(`await` inside a non-async closure at api/mod.rs:2935, present before this
-subphase — confirmed via `git stash` + check) in the `receive_inbound_wasm`
-binary-projection path. Subphase 7.4 does not expand WASM test coverage
-beyond the compile-verified `core_receive_peer_message` wiring; the native
-integration tests cover the reassembly semantics.
+The WASM build compiles and is exercised end-to-end. `scripts/cross-build-parity.sh`
+builds the real-WASM artifact and compares its deterministic state hash against
+the native build for an identical canonical Delta sequence (Property 1), so the
+`receive_inbound_wasm` binary-projection path is compiled and run, not merely
+compile-checked.
 
 ---
 
 ## Cross-Device Mesh Sync
 
-**Status:** PARTIAL (real-mesh Delta + Tier-1 receipt exchange landed)
+**Status:** VERIFIED
 
 Properties and requirements that depend on real P2P message delivery
 (Req 4.3–4.7, 5.1–5.8, 9.2–9.4, 14.2–14.4, 16.3) cannot be fully verified
-within a single-process unit test. Two-device real-mesh coverage is landed in
-`api::real_mesh_tests`: Phase 0.3(a)/(b) (Delta exchange and full
-write→gossip→receive→merge round trip, Item 7's mesh half), Subphase 4.5
-(Tier-1 durability via genuine receipt exchange, Item 13), and Subphase 7.4
-(low-MTU fragmented Delta transport + clean reassembly failure handling,
-Item 22). The remaining deficits
-deficits — e.g. live mesh transport of RevocationDeltas, MigrationDeltas, and
-cloud sync over a real network — are deferred to the post-v1 integration test
-suite in `durability/integration_tests.rs`.
+within a single-process unit test. They are now covered over loopback Swarm
+between real `CoreHandle` instances:
+
+- **Delta exchange, write→gossip→receive→merge, Tier-1 receipts, low-MTU
+  fragmented transport** — `api::real_mesh_tests` (Phase 0.3(a)/(b), Subphase
+  4.5, Subphase 7.4).
+- **Revocation accumulation and threshold enforcement** —
+  `api::revocation_saturate_mesh_tests` (Property 7).
+- **Migration execution and mid-flight revocation** —
+  `api::migration_mid_flight_revocation_tests`.
+- **Cloud outbound queue** — `api::drr_compaction_queue_tests`.
+- **Side-Car replay and recovery** — `api::contamination_mesh_tests`.
+- **Fragmentation and multi-hop relay** — `api::network_wiring_mesh_tests`.
+- **0-RTT resumption and key rotation** — `api::network_wiring_mesh_tests`.
+- **DRR byte floors and per-table compaction** —
+  `api::drr_compaction_queue_tests`.
+
+Residuals that remain unproven in CI: real BLE radio (hardware-gated; only the
+emulated-link test runs), cross-host RF behaviour, and the full 100,000-delta
+queue run (present but `#[ignore]`d as a scale test).
 
 ---
 

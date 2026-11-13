@@ -19,10 +19,12 @@
 
 TirBase gives your application a fully functional local database that syncs with nearby peers over
 a self-organizing mesh and reconciles with a cloud ledger the moment connectivity returns — all
-without a server in the loop. **[Status: Implemented but not wired]** One Rust library. Two build
-targets. Zero sync code to write. **[Status: Implemented but not wired]** (WASM and native targets
-both compile; cross-build byte-for-byte parity is not yet verified end-to-end — see Property 1
-gap in `tirbase-core/src/tests/properties.rs`.)
+without a server in the loop. **[Status: Implemented and wired]** One Rust library. Two build
+targets. Zero sync code to write. **[Status: Implemented and wired]** (WASM and native targets
+compile to byte-identical deterministic state hashes: `scripts/cross-build-parity.sh` diffs the
+native probe (`tirbase-core/src/parity_probe.rs::emit_cross_build_parity_hash`) against the
+real-WASM export (`core_cross_build_parity_hash`), and
+`tests::properties::prop_01_cross_build_state_convergence` proves convergence in-process.)
 
 ---
 
@@ -81,11 +83,14 @@ graph TB
 ```
 
 Every device runs the same `tirbase-core` Rust library — compiled to WASM on the client and to a
-native binary in the cloud. **[Status: Implemented but not wired]** (Both targets compile; the
-public API surface is structurally identical across targets at compile time, but byte-for-byte
-cross-build state parity is not yet verified by an end-to-end integration test.) The public API
-surface is enforced identical across both targets at compile time, so behaviour never diverges
-between a field device and the ledger. **[Status: Implemented but not wired]**
+native binary in the cloud. **[Status: Implemented and wired]** (Both targets compile with a
+structurally identical public API surface, and cross-build byte parity is gated:
+`scripts/cross-build-parity.sh` compares the native probe against the real-WASM export and
+`tests::properties::prop_01_cross_build_state_convergence` proves convergence in-process.) The
+public API surface is enforced identical across both targets at compile time, so behaviour never
+diverges between a field device and the ledger. **[Status: Implemented and wired]** (Same proof:
+identical deterministic state hashes on both builds; CI `test` job `Cross-build parity (native vs
+real WASM state hash, Property 1)`.)
 
 ---
 
@@ -106,12 +111,16 @@ Every write becomes a signed Automerge delta. **[Status: Implemented and wired]*
 CLAIM-G1.2.) Concurrent edits from different devices merge automatically:
 
 - **Scalar fields** — Last-Write-Wins with Lamport timestamp tiebreaking, then actor ID
-  lexicographic order. **[Status: Implemented but not wired]** (LWW merge logic is in
-  `tirbase-core/src/crdt/merge.rs`; no dedicated proven cross-device LWW integration test beyond
-  the general delta propagation in CLAIM-G1.2.)
+  lexicographic order. **[Status: Implemented and wired]** (LWW merge logic is in
+  `tirbase-core/src/crdt/merge.rs`; the general delta propagation of CLAIM-G1.2 is refined by a
+  cross-device proof,
+  `api::real_mesh_tests::two_devices_concurrent_scalar_write_lww_wins_over_real_mesh`, CI `test`
+  job `Real-mesh e2e (two-Swarm loopback through production inbound path)`.)
 - **Lists and text** — RGA sequence merge preserves all concurrent insertions without dropping
-  either edit. **[Status: Implemented but not wired]** (RGA merge is implemented; no dedicated
-  proven CI gate.)
+  either edit. **[Status: Implemented and wired]**
+  (`api::real_mesh_tests::two_devices_concurrent_list_insertions_preserved_over_real_mesh` over a
+  real mesh and `tests::properties::prop_04_rga_sequence_merge_completeness` in the property
+  suite, CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`.)
 - **Causal DAG** — every delta records its causal parents, giving you a complete, auditable history
   of every change. **[Status: Implemented and wired]** (CLAIM-G1.2: the causal ordering is
   exercised by the two-`CoreHandle` mesh integration test.)
@@ -121,12 +130,19 @@ CLAIM-G1.2.) Concurrent edits from different devices merge automatically:
 Devices discover each other via mDNS on local IP networks. **[Status: Implemented and wired]**
 (CLAIM-G1.1: two-`CoreHandle` TCP integration test exercises mDNS discovery path.) BLE routing
 bridges for Bluetooth-only paths are supported. **[Status: Implemented but not wired]** (BLE
-module exists in `tirbase-core/src/transport/ble.rs` behind `#[cfg(feature = "native")]`; no
-proven integration test.) Tree and multi-hop topologies up to a configurable hop count are
-supported. **[Status: Implemented but not wired]** (Multi-hop topology code is present; no proven
-integration test.) MTU fragmentation handles transports as small as 256 bytes. **[Status:
-Implemented but not wired]** (`tirbase-core/src/transport/fragment.rs` exists; no proven
-integration test.) LoRa, Iridium satellite, and similar constrained links work out of the box.
+module exists in `tirbase-core/src/transport/ble.rs` behind `#[cfg(feature = "native")]`. The
+emulated-link test passes; real radio is hardware-gated:
+`transport::tests::ble_bridge_carries_a_fragmented_delta_over_an_emulated_link` exercises the
+production `ble.rs` chunk framing, assembly and dispatch with only the radio replaced.) Tree and
+multi-hop topologies up to a configurable hop count are supported. **[Status: Implemented and
+wired]**
+(`api::network_wiring_mesh_tests::three_node_chain_relays_a_delta_with_bounded_hops_and_no_duplicates`,
+CI `test` job `WS6 e2e (fragmentation, multi-hop relay, 0-RTT, rotation, revocation)`.) MTU
+fragmentation handles transports as small as 256 bytes. **[Status: Implemented and wired]**
+(`api::real_mesh_tests::low_mtu_fragmented_delta_reassembles_and_merges_on_peer` and
+`api::network_wiring_mesh_tests::fragmented_large_row_crosses_a_256_byte_mesh_mtu`, CI `test` job
+`Real-mesh e2e (two-Swarm loopback through production inbound path)`.)
+LoRa, Iridium satellite, and similar constrained links work out of the box.
 **[Status: Planned]** (LoRa and satellite are named in design documents; no driver implementation
 or integration test exists.)
 
@@ -135,10 +151,12 @@ or integration test exists.)
 All peer sessions are encrypted with `Noise_IK_25519_AESGCM_SHA256`. **[Status: Implemented and
 wired]** (`tirbase-core/src/transport/session.rs` is in the production path exercised by
 CLAIM-G1.1 and CLAIM-G1.2.) 0-RTT resumption (LRU cache, 1024 entries, 24 h validity) minimises
-handshake overhead on reconnect. **[Status: Implemented but not wired]** (Session LRU cache is
-implemented; resumption is not exercised by a dedicated proven integration test.) Session keys
-rotate on a configurable interval without dropping the connection. **[Status: Implemented but not
-wired]** (Session rotation logic is present; no proven integration test.) Revoked peers are refused
+handshake overhead on reconnect. **[Status: Implemented and wired]**
+(`api::network_wiring_mesh_tests::noise_session_resumes_with_0rtt_and_rotates_keys_in_place`
+resumes from the cached session and rotates keys in place, CI `test` job `WS6 e2e (fragmentation,
+multi-hop relay, 0-RTT, rotation, revocation)`.) Session keys rotate on a configurable interval
+without dropping the connection. **[Status: Implemented and wired]** (Same test: rotation happens
+on the live connection without a reconnect.) Revoked peers are refused
 at the handshake layer before any data is exchanged. **[Status: Implemented and wired]**
 (CLAIM-G1.4: revoked-author deltas are rejected at `apply_incoming_delta`; handshake-layer
 rejection is the mesh delivery path for that guard.)
@@ -151,9 +169,11 @@ integration-tested.) Every delta is signed. **[Status: Implemented and wired]** 
 CLAIM-G1.2.) Every incoming delta is verified. **[Status: Implemented and wired]** (CLAIM-G1.2.)
 Permissions are carried in offline-verifiable Biscuit tokens — no auth server needed. **[Status:
 Implemented and wired]** (CLAIM-G1.3.) Trust levels (`VERIFIED`, `UNVERIFIED`, `REVOKED`) are
-surfaced in real time through the TypeScript SDK. **[Status: Implemented but not wired]** (Trust
-levels are implemented in `tirbase-core/src/api/types.rs` and exposed via the TypeScript SDK; no
-proven end-to-end wiring integration test for the SDK trust-level event path.)
+surfaced in real time through the TypeScript SDK. **[Status: Implemented and wired]**
+(`tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts` — `presentToken moves trust level
+and emits trust-level-changed` — drives `presentToken` through real WASM to `core_trust_level` and
+asserts the emitted `trust-level-changed` event; run in CI via the `Real-WASM manager-operation
+e2e (tirbase-sdk)` step.)
 
 ### M-of-N Revocation — Mesh-Accumulated
 
@@ -163,8 +183,12 @@ wired]** (CLAIM-G1.4: revocation delta causes downstream delta rejection at
 partial revocation deltas at HIGH priority through the mesh and accumulates signatures until the
 threshold is reached. **[Status: Implemented and wired]** (CLAIM-G1.11 / Property 7, Req 9.1, 9.3:
 `tirbase-core/src/api/revocation_saturate_mesh_tests.rs::{partial_revocation_deltas_accumulate_across_offline_managers,below_threshold_never_revokes_and_threshold_signature_always_does,revocation_negative_cases_fail_closed}` prove accumulation/threshold and fail-closed negative cases over two real Swarm-backed `CoreHandle` instances; CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`.) The revoked device is isolated within one
-gossip round. **[Status: Implemented but not wired]** (One-round isolation timing is not separately
-benchmarked in CI; correctness of threshold/accumulation and downstream rejection is proven above.) The revocation delta is immutable and
+gossip round. **[Status: Implemented and wired]**
+(`api::revocation_saturate_mesh_tests::partial_revocation_deltas_accumulate_across_offline_managers`
+asserts `elapsed <= ONE_GOSSIP_ROUND_MICROS` (1.05 s) measuring from the **first** peer that
+observes the revoked state to the **last** — the propagation delay of one gossip round — not from
+the moment revocation is initiated; correctness of threshold/accumulation and downstream rejection
+is proven above. CI real-mesh suite.) The revocation delta is immutable and
 causally recorded. **[Status: Implemented and wired]** (CLAIM-G1.4: the revocation delta is
 applied and persisted in the causal DAG.)
 
@@ -230,12 +254,14 @@ before the schema hash advances.)
 Writes made against a corrupted schema version are preserved in the Side-Car Ledger, not deleted.
 **[Status: Implemented and wired]** (CLAIM-G1.8: quarantine-ledger and sidecar-ledger writes are
 wired and tested.) When a corrected migration arrives, TirBase replays those writes in
-recorded-timestamp order against the corrected projection. **[Status: Implemented but not wired]**
-(Sidecar replay logic is in `tirbase-core/src/migration/sidecar.rs`; end-to-end replay after a
-corrected migration is not covered by a proven integration test beyond CLAIM-G1.8.) Replay
-conflicts are flagged for manual resolution without aborting the rest of the replay. **[Status:
-Implemented but not wired]** (Conflict-flagging logic is present; no dedicated proven integration
-test.)
+recorded-timestamp order against the corrected projection. **[Status: Implemented and wired]**
+(`api::contamination_mesh_tests::sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_rows`
+replays Side-Car writes after a corrected migration over a real mesh, and
+`sidecar_replay_resume_is_idempotent_without_duplicate_or_lost_writes` covers resumed replay.)
+Replay conflicts are flagged for manual resolution without aborting the rest of the replay.
+**[Status: Implemented and wired]**
+(`api::contamination_mesh_tests::sidecar_replay_conflict_is_observable_and_does_not_stop_other_entries`
+proves a conflicting entry is observable while the remaining entries still replay.)
 
 ### Two-Tier Durability
 
@@ -253,11 +279,15 @@ Tier-1 requires K peers from spatially diverse squads or tunnel sectors to retur
 state-hash receipts. **[Status: Implemented and wired]** (`tirbase-core/src/durability/` production quorum path; live K-of-N quorum with genuine device-signed receipt exchange proven over real loopback Swarm in `api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}` and related receipt/quorum cases, CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`. Spatial-diversity tag enforcement is exercised in durability/real-mesh receipt flows; physical anchor-attested location hardware remains a separate evidence-backed blocker below.)
 Tier-2 is Cloud Ledger acknowledgement. **[Status: Implemented and wired]** (CLAIM-G1.6: cloud
 sync send and receive paths are wired and tested.) Compaction from the hot path is permitted at
-Tier-1 — re-fetch from receipt holders handles Cloud sync. **[Status: Implemented but not wired]**
-(Compaction at Tier-1 is designed; no proven integration test.) The outbound queue holds up to
-100,000 deltas during extended offline periods. **[Status: Implemented but not wired]** (Queue
-capacity is configured in the scheduler; the 100,000-delta limit is not verified by a proven
-integration test.)
+Tier-1 — re-fetch from receipt holders handles Cloud sync. **[Status: Implemented and wired]**
+(`api::drr_compaction_queue_tests::compaction_is_per_table_and_none_policy_is_never_compacted`
+compacts a real-mesh table and then re-fetches the compacted Delta bytes through
+`refetch_delta_bytes`, proving the post-compaction read path.) The outbound queue holds up to
+100,000 deltas during extended offline periods. **[Status: Implemented but not wired]** (Bound
+enforcement is proven at reduced scale by
+`api::drr_compaction_queue_tests::cloud_queue_bound_holds_and_never_drops_queued_entries`; the
+full 100,000-delta run is `#[ignore]`d as an out-of-CI scale test, so the configured limit itself
+is not exercised in CI.)
 
 Optional `Anchor_Attested_Location` mode uses fixed BLE/LoRa beacons with cryptographically
 signed location tokens to harden spatial diversity claims against falsified tags. **[Status:
@@ -278,9 +308,10 @@ heartbeat or terminates on M-of-N manager threshold. **[Status: Implemented and 
 ### Weighted Deficit Round Robin Scheduler
 
 All outbound deltas are classified and scheduled with guaranteed bandwidth floors:
-**[Status: Implemented but not wired]** (`tirbase-core/src/transport/scheduler.rs` is in the
-production path; DRR bandwidth-floor guarantees are not verified by a proven end-to-end
-integration test.)
+**[Status: Implemented and wired]** (`tirbase-core/src/transport/scheduler.rs` production path;
+`api::drr_compaction_queue_tests::drr_byte_floors_hold_over_ten_real_mesh_epochs` measures the
+per-class byte floors over ten real-mesh scheduling epochs, CI `test` job `WS7 e2e (DRR floors,
+spare capacity, LOW bound, compaction, queue)`.)
 
 | Priority | Minimum Floor | Classified as |
 |---|---|---|
@@ -289,14 +320,17 @@ integration test.)
 | LOW | 10% | All other application data |
 
 Spare capacity from idle queues flows to the highest-priority backlog first. **[Status:
-Implemented but not wired]** A LOW-queue delta at or below clearing capacity is transmitted within
-10 scheduling epochs (10 seconds). **[Status: Implemented but not wired]** (The 10-epoch
-guarantee is a scheduler design property; it is not verified by a proven integration test.)
+Implemented and wired]** A LOW-queue delta at or below clearing capacity is transmitted within
+10 scheduling epochs (10 seconds). **[Status: Implemented and wired]** (Both proven by
+`api::drr_compaction_queue_tests::spare_capacity_goes_to_high_first_and_low_clears_within_ten_epochs`
+over a real mesh, CI `test` job `WS7 e2e (DRR floors, spare capacity, LOW bound, compaction,
+queue)`.)
 
 ### Per-Table Compaction Policy
 
-Each table declares its own compaction policy in the schema: **[Status: Implemented but not
-wired]** (`tirbase-core/src/store/compaction.rs` exists; no proven end-to-end integration test.)
+Each table declares its own compaction policy in the schema: **[Status: Implemented and wired]**
+(`tirbase-core/src/store/compaction.rs` production path, exercised per table by
+`api::drr_compaction_queue_tests::compaction_is_per_table_and_none_policy_is_never_compacted`.)
 
 ```
 table safety_alerts {
@@ -308,9 +342,12 @@ table tasks {
 }
 ```
 
-Each table is a separate Automerge document. **[Status: Implemented but not wired]**
+Each table is a separate Automerge document. **[Status: Implemented and wired]**
 `CompactionPolicy::None` tables are never compacted, regardless of what happens to other tables.
-**[Status: Implemented but not wired]**
+**[Status: Implemented and wired]** (Both proven by
+`api::drr_compaction_queue_tests::compaction_is_per_table_and_none_policy_is_never_compacted`,
+which drives an `Aggressive { threshold: 3 }` table alongside a `None` table and asserts the
+`None` table is untouched.)
 
 ---
 
@@ -369,9 +406,12 @@ db.on('incident-updated', (ico) => updateContaminationBanner(ico));
 db.on('incident-closed', (ico) => dismissBanner(ico.id));
 ```
 
-**[Status: Implemented but not wired]** — The TypeScript SDK (`tirbase-sdk/`) is implemented and
-wraps the WASM-compiled `tirbase-core`. No proven end-to-end integration test wires the full
-TypeScript → WASM → SQLite → mesh path in CI.
+**[Status: Implemented and wired]** — The TypeScript SDK (`tirbase-sdk/`) is implemented and wraps
+the WASM-compiled `tirbase-core`. The `tirbase-sdk` Jest suite (103 tests) drives the full
+TypeScript → WASM → SQLite path, and the real-WASM manager-operation suite
+(`tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts`) exercises the manager operations
+against a real binary/mesh; both run in the CI `test` job (`npm test`, `Real-WASM
+manager-operation e2e (tirbase-sdk)`).
 
 ### Manager Operations
 
@@ -400,9 +440,10 @@ await db.activateSaturateMode({
 });
 ```
 
-**[Status: Implemented but not wired]** — Manager operations are implemented in the TypeScript SDK
-and backed by `tirbase-core`. No proven end-to-end integration test covers the SDK manager
-operation paths in CI.
+**[Status: Implemented and wired]** — Manager operations are implemented in the TypeScript SDK and
+backed by `tirbase-core`. `tirbase-sdk/src/__tests__/tirbase-manager-ops.wasm.test.ts` covers the
+SDK manager operation paths against real WASM, run in CI via the `Real-WASM manager-operation e2e
+(tirbase-sdk)` step.
 
 ---
 
@@ -465,14 +506,17 @@ TirBase ships with a 22-property property-based test suite using `proptest` (200
   Composite_Incident_Instance with the union Delta set. **[Status: Implemented and wired]**
   (`prop_11_composite_incident_formation_on_dag_overlap`; `api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`, CI real-mesh suite.)
 - **DRR bandwidth floors** — over any 10+ epochs, no class receives less than its guaranteed floor
-  fraction. **[Status: Implemented but not wired]**
+  fraction. **[Status: Implemented and wired]**
+  (`api::drr_compaction_queue_tests::drr_byte_floors_hold_over_ten_real_mesh_epochs`, CI `test` job
+  `WS7 e2e (DRR floors, spare capacity, LOW bound, compaction, queue)`.)
 - **M-of-N threshold enforcement** — ≤M−1 signatures never trigger revocation; ≥M always does.
   **[Status: Implemented and wired]** (`prop_07_mofn_revocation_threshold_enforcement`; mesh-accumulated
   accumulation/threshold/fail-closed proofs in `api::revocation_saturate_mesh_tests`, CLAIM-G1.11, CI real-mesh suite.)
 - **Zero-trust migration gate** — tampering either the CA signature or the transform bytes always
   rejects, regardless of check order. **[Status: Implemented and wired]** (CLAIM-G1.7.)
 - **Schema determinism** — identical schema structure produces identical hash, independent of
-  declaration order. **[Status: Implemented but not wired]**
+  declaration order. **[Status: Implemented and wired]**
+  (`tests::properties::prop_15_schema_hash_determinism`.)
 - **Saturate Mode state machine** — lease invariants hold across activation, renewal, and
   termination/expiry event sequences. **[Status: Implemented and wired]** (`prop_20_*`,
   `tests::properties::prop_20_sequence_covers_renewal_and_termination_events`;

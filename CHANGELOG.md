@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0).
 - **Closeout audit:** `docs/audits/e2e-wiring-ws8-closeout.md` (workstream → production caller → test → CI job → residual risk).
 
 ### Changed
-- Reconciled `README.md`, `CLAIMS.md` (added CLAIM-G1.11), `docs/traceability-matrix.md`/tests/property docs, and `tirbase-core/tests/README.md` to match CI-proven status for previously documented property/parity gaps; residual hardware/environment/scale blockers are now explicit and evidence-backed.
+- Reconciled `README.md`, `CLAIMS.md` (CLAIM-G1.11 plus CLAIM-59.1–59.7 for cross-build parity, schema determinism, DRR/compaction/queue, real-mesh transport wiring, contamination/Side-Car replay, LWW/RGA merge, and the TypeScript SDK surface), `docs/traceability-matrix.md` (rows added for Req 1.4/Property 1, Property 7/Req 9.1 and 9.3, Property 15/Req 17.1 and 20.5, DRR/compaction/queue, CCE/Side-Car, and mesh transport), and `tirbase-core/tests/README.md` (stale WASM compile-error note replaced; Cross-Device Mesh Sync moved from PARTIAL to VERIFIED) to match CI-proven status; residual hardware/environment/scale blockers (real BLE radio, cross-host RF, and the full 100,000-delta queue run) are explicit and evidence-backed.
 
 ### Removed
 - None.
