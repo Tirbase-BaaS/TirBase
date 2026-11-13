@@ -68,9 +68,16 @@ symbols_file="$work_dir/symbols"
 {
   grep -rhoE '\b(fn|mod)[[:space:]]+[a-z_][a-z0-9_]*' \
     --include='*.rs' --exclude-dir=target --exclude-dir=.git \
+    --exclude-dir=node_modules --exclude-dir=dist \
+    --exclude-dir=build --exclude-dir=.venv \
     -- "$REPO_ROOT" 2>/dev/null \
     | awk '{print $2}'
-  find "$REPO_ROOT" -name '*.rs' -not -path '*/target/*' -not -path '*/.git/*' 2>/dev/null \
+ # `-prune`, not `-not -path`: `-not -path` still descends into target/
+ # (hundreds of thousands of entries) and only filters the output.
+  find "$REPO_ROOT" \
+    \( -name target -o -name .git -o -name node_modules \
+       -o -name dist -o -name build -o -name .venv \) -prune -o \
+    -name '*.rs' -type f -print 2>/dev/null \
     | sed -e 's#.*/##' -e 's#\.rs$##'
 } | sort -u > "$symbols_file"
 
@@ -81,7 +88,7 @@ symbols_file="$work_dir/symbols"
 ignored_file="$work_dir/ignored"
 if command -v python3 >/dev/null 2>&1; then
   python3 - "$REPO_ROOT" > "$ignored_file" <<'PY'
-import pathlib, re, sys
+import os, pathlib, re, sys
 root = pathlib.Path(sys.argv[1])
 pat = re.compile(r"#\[ignore[^\]]*\]")
 fn = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)")
@@ -96,9 +103,17 @@ for wf in (root / ".github" / "workflows").glob("*.yml"):
     except OSError:
         pass
 
-for p in root.rglob("*.rs"):
-    if "target" in p.parts or ".git" in p.parts:
-        continue
+SKIP_DIRS = {"target", ".git", "node_modules", "dist", "build", ".venv"}
+
+# os.walk prunes the skipped directories instead of descending into them.
+paths = []
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+    for name in filenames:
+        if name.endswith(".rs"):
+            paths.append(pathlib.Path(dirpath) / name)
+
+for p in paths:
     try:
         lines = p.read_text(errors="ignore").splitlines()
     except OSError:
@@ -124,19 +139,16 @@ else
 fi
 sort -u -o "$ignored_file" "$ignored_file"
 
-is_ignored() {
-  [[ -s "$ignored_file" ]] && grep -Fqx -- "$1" "$ignored_file"
-}
+# Citations are collected and resolved in one pass at the end: spawning a
+# grep per citation cost ~44s of the script's runtime.
+citations_file="$work_dir/citations"
+: > "$citations_file"
 
 trim() {
   local value="$1"
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
   printf '%s' "$value"
-}
-
-has_symbol() {
-  grep -Fqx -- "$1" "$symbols_file"
 }
 
 missing_ids=()
@@ -146,33 +158,67 @@ checked_citations=0
 proven_count=0
 
 # Emit candidate identifiers for one Test Identifier cell.
+#
+# One awk process per cell, not a chain of grep|sed|tr per cell: the pipeline
+# version spawned ~8 processes for each of ~370 rows, which was the last
+# remaining chunk of the script's runtime.
 extract_candidates() {
-  local cell="$1"
-  local span
+  awk '
+  {
+    line = $0
 
- # `a::b::name` chains anywhere in the cell: keep the final segment only,
- # so `tirbase-gateway/tests/lease_ops.rs::claim_21_1_x` cites `claim_21_1_x`.
-  grep -oE '([A-Za-z_][A-Za-z0-9_]*::)+[a-z_][A-Za-z0-9_]*' <<<"$cell" \
-    | sed 's/.*:://' || true
+    # `a::b::name` chains anywhere in the cell: keep the final segment only,
+    # so `tirbase-gateway/tests/lease_ops.rs::claim_21_1_x` cites `claim_21_1_x`.
+    rest = line
+    while (match(rest, /([A-Za-z_][A-Za-z0-9_]*::)+[a-z_][A-Za-z0-9_]*/)) {
+      tok = substr(rest, RSTART, RLENGTH)
+      n = split(tok, seg, "::")
+      print seg[n]
+      rest = substr(rest, RSTART + RLENGTH)
+    }
 
- # `{a,b}` brace groups, but only inside backticked spans that name a Rust
- # file (e.g. `security_log.rs::{set_witness_source,try_checkpoint}`). Other
- # braces are struct literals or SQL/config placeholders, not citations.
-  while IFS= read -r span; do
-    [[ "$span" == *'.rs'* ]] || continue
-    grep -oE '\{[^{}]*\}' <<<"$span" | tr -d '{}' | tr ',' '\n' \
-      | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/\.rs$//' || true
-  done < <(grep -oE '`[^`]*`' <<<"$cell" | tr -d '`' || true)
+    # `{a,b}` brace groups, but only inside backticked spans that name a Rust
+    # file (e.g. `security_log.rs::{set_witness_source,try_checkpoint}`).
+    # Other braces are struct literals or SQL/config placeholders.
+    rest = line
+    while (match(rest, /`[^`]*`/)) {
+      span = substr(rest, RSTART + 1, RLENGTH - 2)
+      rest = substr(rest, RSTART + RLENGTH)
+      if (index(span, ".rs") == 0) continue
+      inner = span
+      while (match(inner, "[{][^{}]*[}]")) {
+        group = substr(inner, RSTART + 1, RLENGTH - 2)
+        inner = substr(inner, RSTART + RLENGTH)
+        n = split(group, item, ",")
+        for (i = 1; i <= n; i++) {
+          val = item[i]
+          gsub(/^[[:space:]]+/, "", val)
+          gsub(/[[:space:]]+$/, "", val)
+          sub(/\.rs$/, "", val)
+          print val
+        }
+      }
+    }
 
- # Backticked bare identifiers.
-  grep -oE '`[a-z_][a-z0-9_]*`' <<<"$cell" | tr -d '`' || true
+    # Backticked bare identifiers.
+    rest = line
+    while (match(rest, /`[a-z_][a-z0-9_]*`/)) {
+      print substr(rest, RSTART + 1, RLENGTH - 2)
+      rest = substr(rest, RSTART + RLENGTH)
+    }
 
- # Unbackticked cells: treat comma-separated bare identifiers as citations.
-  if [[ "$cell" != *'`'* ]]; then
-    tr ',' '\n' <<<"$cell" \
-      | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
-      | grep -E '^[a-z_][a-z0-9_]*$' || true
-  fi
+    # Unbackticked cells: comma-separated bare identifiers are citations.
+    if (index(line, "`") == 0) {
+      n = split(line, item, ",")
+      for (i = 1; i <= n; i++) {
+        val = item[i]
+        gsub(/^[[:space:]]+/, "", val)
+        gsub(/[[:space:]]+$/, "", val)
+        if (val ~ /^[a-z_][a-z0-9_]*$/) print val
+      }
+    }
+  }
+' <<<"$1"
 }
 
 while IFS= read -r line; do
@@ -217,14 +263,26 @@ while IFS= read -r line; do
  # `tests` and `mod` name modules, not test functions.
     [[ "$candidate" == "tests" || "$candidate" == "mod" ]] && continue
     checked_citations=$((checked_citations + 1))
-    if ! has_symbol "$candidate"; then
-      missing_ids+=("${claim_id}: ${candidate}")
-    elif is_ignored "$candidate"; then
-      ignored_ids+=("${claim_id}: ${candidate} (#[ignore] — never executed by CI)")
-    fi
+    printf '%s\t%s\n' "$claim_id" "$candidate" >> "$citations_file"
   done < <(extract_candidates "$test_id" | awk 'NF' | sort -u)
 
 done < "$CLAIMS_FILE"
+
+# Resolve every collected citation against the symbol index in a single awk
+# pass, preserving claim order in the diagnostics.
+while IFS=$'\t' read -r claim_id candidate verdict; do
+  case "$verdict" in
+    missing) missing_ids+=("${claim_id}: ${candidate}") ;;
+    ignored) ignored_ids+=("${claim_id}: ${candidate} (#[ignore] — never executed by CI)") ;;
+  esac
+done < <(awk -F'\t' -v syms="$symbols_file" -v igns="$ignored_file" '
+  FILENAME == syms { sym[$0] = 1; next }
+  FILENAME == igns { ign[$0] = 1; next }
+  {
+    if (!($2 in sym))      print $1 "\t" $2 "\tmissing"
+    else if ($2 in ign)    print $1 "\t" $2 "\tignored"
+  }
+' "$symbols_file" "$ignored_file" "$citations_file")
 
 # ---------------------------------------------------------------------------
 # Report results.
