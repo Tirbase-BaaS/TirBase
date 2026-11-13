@@ -348,36 +348,24 @@ let mut index_maps: Vec<ObjectElementIndex> = Vec::new();
             continue;
         }
 
+        // Automerge RGA ordering for concurrent same-position insertions is
+        // deterministic and convergent across all replicas that observe the
+        // same operation set. A per-receiver "incoming-first" override here
+        // would be applied asymmetrically (only on the peer that receives the
+        // higher-lamport delta in the definitive zone), breaking convergence.
+        // Record the divergence for observability but do not rewrite the
+        // merged order.
         report.divergences += 1;
-        emit_crdt(Severity::Medium, ReasonCode::MergeVerified, None, format!(
-            "[CRDT] RGA DIVERGENCE list='{}': rule says incoming element first (lamport {} > local {}) but \
-             merged order has local first — OVERRIDING order",
-            key, delta_lamport, local_lamport,
-        ));
- // Delete both conflicting elements (higher index first so the lower one
- // does not shift) and re-insert them in the rule order at the run
- // start. The corrective write is local, so every future peer merge
- // converges on the rule ordering.
-        let (lo, hi) = (idx_local.min(idx_incoming), idx_local.max(idx_incoming));
-        let result = (|| -> Result<(), automerge::AutomergeError> {
-            doc.delete(&obj, hi)?;
-            doc.delete(&obj, lo)?;
-            doc.insert(&obj, lo, conflict.incoming_value.clone())?;
-            doc.insert(&obj, lo + 1, conflict.local_value.clone())?;
-            Ok(())
-        })();
-        match result {
-            Ok(()) => report.overrides_applied += 1,
-            Err(e) => {
-                report.overrides_failed += 1;
-                emit_crdt(
-                    Severity::Medium,
-                    ReasonCode::MergeVerified,
-                    None,
-                    format!("[CRDT] RGA OVERRIDE FAILED list='{}': {e}", key),
-                );
-            }
-        }
+        emit_crdt(
+            Severity::Medium,
+            ReasonCode::MergeVerified,
+            None,
+            format!(
+                "[CRDT] RGA DIVERGENCE list='{}': rule prediction says incoming element first (lamport {} > local {}) but \
+                 merged order has local first — preserving Automerge-convergent order (no override)",
+                key, delta_lamport, local_lamport,
+            ),
+        );
     }
 
     report

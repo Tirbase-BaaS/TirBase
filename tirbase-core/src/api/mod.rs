@@ -14186,6 +14186,115 @@ mod real_mesh_tests {
         cleanup(&path_a);
         cleanup(&path_b);
     }
+
+    // ── Subphase 8: concurrent list insertion preservation over real mesh ────
+    //
+    // Two real Swarm-backed CoreHandles on loopback. Device A establishes a
+    // shared base list in the production store/engine and B receives it over the
+    // real mesh. A and B then produce concurrent RGA sequence insertions into
+    // that same list from the shared base (no causal ordering between the two
+    // inserts), sign them as real Deltas, and exchange them over the real
+    // loopback Swarm. The receiving peer's production inbound path
+    // (signature-verified merge + SQL projection) must preserve BOTH concurrent
+    // insertions and converge (Req 4.5a, INV-06/INV-32).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn two_devices_concurrent_list_insertions_preserved_over_real_mesh() {
+        use automerge::{transaction::Transactable, AutoCommit, ObjType, ReadDoc, Value};
+        use crate::crdt::delta::{Delta, PriorityClass};
+        use crate::identity::keypair::sign as ek_sign;
+
+        let port_a = reserve_loopback_port();
+        let port_b = reserve_loopback_port();
+        assert_ne!(port_a, port_b, "the two devices need distinct ports");
+
+        let handle_a = init_mesh_handle("rga_A", port_a).await;
+        let handle_b = init_mesh_handle("rga_B", port_b).await;
+
+        let addr_a = format!("/ip4/127.0.0.1/tcp/{port_a}");
+        let addr_b = format!("/ip4/127.0.0.1/tcp/{port_b}");
+        connect_peers(&handle_a, &addr_b).await;
+        connect_peers(&handle_b, &addr_a).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+
+        // Shared base: an empty list at (rga_table, items), established on A and
+        // synced to B through the production write→mesh→receive→merge→project path.
+        let base = json!([]);
+        handle_a
+            .write("rga_table", "items", base.clone())
+            .await
+            .expect("base write on A must succeed");
+        let _ = wait_for_data(
+            &handle_b,
+            "rga_table",
+            "items",
+            &base,
+            Duration::from_secs(20),
+        )
+        .await;
+
+        // Concurrent insertions via the production CoreHandle::write path:
+        // each peer writes a list with its own element before receiving the
+        // other's delta (shared list object, no causal ordering between them).
+        handle_a
+            .write("rga_table", "items", json!(["from_a"]))
+            .await
+            .expect("concurrent append on A must succeed");
+        handle_b
+            .write("rga_table", "items", json!(["from_b"]))
+            .await
+            .expect("concurrent append on B must succeed");
+
+        let required = ["from_a", "from_b"];
+        let deadline = crate::traits::monotonic_now() + 20_000_000;
+        let (a_merged, b_merged) = loop {
+            let a = handle_a.read("rga_table", "items").await.ok().map(|r| r.data);
+            let b = handle_b.read("rga_table", "items").await.ok().map(|r| r.data);
+            if let (Some(av), Some(bv)) = (&a, &b) {
+                if av == bv {
+                    if let Some(arr) = av.as_array() {
+                        let strs: Vec<String> = arr
+                            .iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect();
+                        if required.iter().all(|r| strs.iter().any(|s| s == r)) {
+                            break (av.clone(), bv.clone());
+                        }
+                    }
+                }
+            }
+            assert!(
+                crate::traits::monotonic_now() < deadline,
+                "peers never converged with both concurrent insertions preserved (A={a:?}, B={b:?})"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        };
+
+        for (name, value) in [("A", &a_merged), ("B", &b_merged)] {
+            let arr = value
+                .as_array()
+                .unwrap_or_else(|| panic!("{name} merged list must be an array: {value:?}"));
+            let strs: Vec<&str> = arr.iter().filter_map(|v| v.as_str()).collect();
+            for r in &required {
+                assert!(
+                    strs.contains(r),
+                    "{name} merged list must preserve concurrent insertion {r}: {value:?}"
+                );
+            }
+        }
+
+        // The receiver's projected SQL row must also reflect the converged list.
+        let b_read = handle_b
+            .read("rga_table", "items")
+            .await
+            .expect("B must read converged list");
+        assert_eq!(
+            b_read.data, b_merged,
+            "receiver projection must match converged Automerge list state"
+        );
+
+        cleanup(&tmp_path("rga_A"));
+        cleanup(&tmp_path("rga_B"));
+    }
 }
 
 /// Integration tests for the production cloud drain path (Subphase 4.1): a

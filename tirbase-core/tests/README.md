@@ -20,39 +20,33 @@ implementation plan. Each entry lists one of three statuses:
 
 **Status:** VERIFIED
 
-The test (`prop_01_cross_build_state_convergence` in `src/tests/properties.rs`)
-applies identical Delta sequences to two independent `CrdtEngine` instances
-compiled to the **same** native target and verifies their Lamport clocks
-converge.
+`prop_01_cross_build_state_convergence` exercises in-process convergence and
+`src/tests/convergence_tests.rs` compares native (`--features native`, SQLite
+ChangesetDag) and native-built WASM-engine-mode (`--features wasm`, DAG-less)
+convergent state over the same deterministic signed sequence.
 
-`src/tests/convergence_tests.rs` adds the true cross-build convergence test:
-a canonical delta sequence (scalar write, additive schema migration, DID
-revocation, contamination-tagged write) is run under both `--features native`
-(which builds the SQLite-backed `ChangesetDag`) and
-`--features wasm` (which builds the DAG-less WASM engine). Each build
-serialises its engine's convergent state via `CrdtEngine::convergent_state`
-and asserts the expected Lamport clock, schema hash set, and revoked-DID set.
-Because both test modules use the same deterministic Ed25519 keypair (fixed
-32-byte seed via `ed25519-dalek::SigningKey::from_bytes`) the signed deltas
-are identical and the Automerge document bytes converge byte-for-byte.
-
-The one documented structural divergence (`native_dag_divergence_is_explicit` /
-`wasm_no_dag_divergence_is_explicit`) is that the native engine persists a
-`ChangesetDag` in SQLite while the WASM engine has no DAG; the convergent
-state serialisation deliberately excludes the DAG so the comparison is valid.
+**Cross-build parity proof (CI):** `scripts/cross-build-parity.sh` runs an
+identical canonical delta sequence (scalar write, real list/RGA write, signed
+Migration Deltas, DID revocation, contamination-tagged write) on the native
+build and on a real `wasm32` build (`wasm-pack --target nodejs`, features
+`wasm,parity-probe`) and asserts byte-identical deterministic state hashes
+derived from serialized `CrdtEngine` state plus signed MigrationDelta bytes.
+Probe: `tirbase-core/src/parity_probe.rs::emit_cross_build_parity_hash` and
+WASM export `core_cross_build_parity_hash`. CI: `test` job step
+`Cross-build parity (native vs real WASM state hash, Property 1)`.
 
 ---
 
 ### Property 2 — CRDT Causal Commutativity (Req 4.7)
 
-**Status:** PARTIAL
+**Status:** VERIFIED (in-process property + real-mesh convergence proof)
 
-Tests that applying the same Delta set in different orders (forward vs. reverse)
-results in the same merge count on both engines.
-
-**Deferred aspect:** True multi-device commutativity over a live P2P mesh is
-not tested. The property exercises CRDT semantics in isolation without a
-transport layer.
+`prop_02_crdt_causal_commutativity` verifies merge commutativity in isolation.
+Multi-device convergence over two real Swarm-backed `CoreHandle` instances
+through the production transport/inbound merge/projection path is proven by
+`api::real_mesh_tests::two_devices_concurrent_scalar_write_lww_wins_over_real_mesh`
+and `api::real_mesh_tests::two_devices_concurrent_list_insertions_preserved_over_real_mesh`
+(CI: `Real-mesh e2e (two-Swarm loopback through production inbound path)`).
 
 ---
 
@@ -60,10 +54,11 @@ transport layer.
 
 **Status:** VERIFIED
 
-`prop_03_lww_scalar_conflict_resolution` passes 200 cases. The
-`CrdtEngine` is initialised with the DID public-key bytes as the Automerge
-actor ID (`AutoCommit::with_actor`), ensuring the LWW tiebreak uses the same
-key material as the spec mandates.
+`prop_03_lww_scalar_conflict_resolution` passes 200 cases (in-process LWW
+tiebreak with DID-derived actor ID). Receiver-side LWW over a real loopback
+mesh is proven by
+`api::real_mesh_tests::two_devices_concurrent_scalar_write_lww_wins_over_real_mesh`
+(CI real-mesh suite).
 
 ---
 
@@ -71,9 +66,12 @@ key material as the spec mandates.
 
 **Status:** VERIFIED
 
-`prop_04_rga_sequence_merge_completeness` passes 200 cases. Concurrent list
-insertions are sorted by `(lamport DESC, actor_id DESC)` and verified to be
-consistent with `rga_incoming_has_priority`.
+`prop_04_rga_sequence_merge_completeness` passes 200 cases (in-process RGA).
+Concurrent list insertion preservation/convergence on the receiver over two real
+Swarm-backed mesh peers through the production write/transport/merge/projection
+path is proven by
+`api::real_mesh_tests::two_devices_concurrent_list_insertions_preserved_over_real_mesh`
+(CI real-mesh suite).
 
 ---
 
@@ -81,9 +79,12 @@ consistent with `rga_incoming_has_priority`.
 
 **Status:** VERIFIED
 
-`prop_05_write_before_acknowledge_durability` passes 200 cases against a
-live in-memory SQLite store, confirming data is readable from the projection
-table before the function returns.
+`prop_05_write_before_acknowledge_durability` passes 200 cases against a live
+in-memory SQLite store, confirming data is readable before acknowledgment.
+Live K-of-N Tier-1 durability with genuine device-signed receipt exchange over
+real loopback Swarm is proven by
+`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}`
+(CI real-mesh suite).
 
 ---
 
@@ -100,8 +101,13 @@ covering both valid round-trips and tampered-payload rejection.
 
 **Status:** VERIFIED
 
-`prop_07_mofn_revocation_threshold_enforcement` passes 200 cases across all
-values of M from 1 to 4, using real Ed25519 signatures.
+`prop_07_mofn_revocation_threshold_enforcement` passes 200 cases across M=1..4
+using real Ed25519 signatures. Real-mesh accumulation/threshold enforcement and
+negative/fail-closed cases over two Swarm-backed `CoreHandle` instances
+(production signing, gossip, inbound validation, accumulation, application) are
+proven by
+`api::revocation_saturate_mesh_tests::{partial_revocation_deltas_accumulate_across_offline_managers,below_threshold_never_revokes_and_threshold_signature_always_does,revocation_negative_cases_fail_closed}`
+(CI `Real-mesh e2e ...` coverage, CLAIM-G1.11).
 
 ---
 
@@ -109,14 +115,22 @@ values of M from 1 to 4, using real Ed25519 signatures.
 
 **Status:** VERIFIED
 
-`prop_08_contamination_propagates_to_all_descendants` passes 200 cases with
-linear DAG chains of 3–8 nodes, confirmed via direct SQLite tag reads.
+`prop_08_contamination_propagates_to_all_descendants` passes 200 cases (in-process DAG/tag proof).
+Production real-mesh e2e proof: revoked-author taint propagation, descendant
+tags/events and human-reaction join are exercised in
+`api::contamination_mesh_tests::{revoked_author_taint_propagates_and_events_emitted,receiver_deltas_become_tainted_descendants,human_reaction_joins_independently_tainted_chain}`
+(CI real-mesh suite).
 
 ---
 
 ### Property 9 — CONTAMINATED Tag Persists Until All Roots Resolved (Req 10.3)
 
 **Status:** VERIFIED
+
+`prop_09_contaminated_tag_persists_until_all_roots_resolved` (in-process).
+Real-mesh composite decompose/decontaminate and append-only tag behavior are
+exercised in `api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`
+(CI real-mesh suite).
 
 `prop_09_contaminated_tag_persists_until_all_roots_resolved` passes 200 cases
 with a two-root / shared-descendant DAG structure, verified via tag reads.
@@ -127,6 +141,10 @@ with a two-root / shared-descendant DAG structure, verified via tag reads.
 
 **Status:** VERIFIED
 
+`prop_10_tag_log_monotonic_append_only` (in-process). Append-only/monotonic tag
+behavior is additionally exercised by contamination mesh e2e proofs in
+`api::contamination_mesh_tests` (CI real-mesh suite).
+
 `prop_10_tag_log_monotonic_append_only` passes 200 cases, confirming the tag
 log length is non-decreasing and no entry is modified or removed.
 
@@ -135,6 +153,11 @@ log length is non-decreasing and no entry is modified or removed.
 ### Property 11 — Composite Incident Formation on DAG Overlap (Req 10.5)
 
 **Status:** VERIFIED
+
+`prop_11_composite_incident_formation_on_dag_overlap` (in-process). Composite
+ICO formation/merge/decompose over real mesh is proven by
+`api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`
+(CI real-mesh suite).
 
 `prop_11_composite_incident_formation_on_dag_overlap` passes 200 cases,
 confirming that two contamination chains sharing a node produce exactly one
@@ -163,19 +186,13 @@ within 10 epochs.
 
 ### Property 14 — Tier-1 Quorum Detection (Req 14.2, 14.3)
 
-**Status:** PARTIAL
+**Status:** VERIFIED
 
 `prop_14_tier1_quorum_detection` passes 200 cases with real Ed25519-signed
-receipts and a mock `DurabilitySubsystem`.
-
-**Deferred aspect:** Live K-of-N quorum formation with distinct networked
-peers is not exercised here. The in-process test uses injected receipts rather
-than receipts from distinct tokio tasks over loopback libp2p. Full live
-quorum testing is now landed in Subphase 4.5 (`api::real_mesh_tests::
-two_devices_reach_tier1_durability_via_genuine_receipt_exchange`, Item 13):
-two real Swarm-backed devices exchange a Delta and a *genuine* (device-signed)
-receipt over loopback, and the writer reaches Tier-1 through the production
-quorum path.
+receipts. Live K-of-N quorum with genuine device-signed receipt exchange over
+real loopback Swarm is proven by
+`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}`
+and related receipt/quorum cases (CI: `Real-mesh e2e (two-Swarm loopback through production inbound path)` with `--test-threads=1`).
 
 ---
 
@@ -241,23 +258,20 @@ with line, column, and description.
 **Status:** VERIFIED
 
 `prop_20_saturate_mode_state_machine_invariants` covers invariants (a)–(d)
-with a mock (non-Biscuit) state machine at 200 cases.
+with a mock (non-Biscuit) state machine at 200 cases. `prop_20_biscuit`
+(sub-properties 20a–20d) exercises the full Biscuit token verification path at
+30 cases per sub-property. Dedicated sequence coverage for activation, renewal,
+and M-of-N termination events is provided by
+`tests::properties::prop_20_sequence_covers_renewal_and_termination_events`.
 
-`prop_20_biscuit` (sub-properties 20a–20d) exercises the full Biscuit token
-verification path at **30 cases per sub-property** — reduced from 200 because
-each case creates and verifies a fresh Biscuit token. The Biscuit Datalog
-authorizer now uses `authorize_with_limits` with a generous budget
-(10 000 iterations) to avoid per-authorizer budget exhaustion across the full
-test suite.
-
-**Production wiring (Subphase 3.1–3.2):** activation, heartbeat renewal, and
-M-of-N termination are exercised over the real production path — the
-`SaturateModeStateMachine` instantiated inside `MeshTransport` — by
-integration tests at the transport level (`transport::tests::renew_saturate_*`,
-`transport::tests::terminate_saturate_mode_*`) and at the `CoreHandle` level
-(`api::tests::saturate_mode_lifecycle_routes_through_state_machine_and_scheduler`),
-including the regression assert that a successful M-of-N termination clears the
-DRR scheduler's Saturate_Mode flag (the bare `set_saturate_mode(true)` boolean
+**Production/mesh e2e wiring (CI):** activation, bounded renewal, and M-of-N
+termination (threshold met and below-threshold preserved) are proven over real
+Swarm-backed `CoreHandle` instances in
+`api::revocation_saturate_mesh_tests::{saturate_mode_activation_propagates_via_saturate_delta,saturate_renewal_is_bounded_and_requires_valid_tokens,saturate_termination_m_of_n_collected_over_real_mesh,saturate_termination_below_threshold_preserves_mode_over_mesh}`
+(CI: `Real-mesh e2e (two-Swarm loopback through production inbound path)` with `--test-threads=1`). Transport/CoreHandle lifecycle wiring is also covered by
+`transport::tests::renew_saturate_*`, `transport::tests::terminate_saturate_mode_*`,
+and `api::tests::saturate_mode_lifecycle_routes_through_state_machine_and_scheduler`,
+including termination clearing the DRR Saturate_Mode flag (bare `set_saturate_mode(true)` boolean
 bypass could never demote it). Renewal/termination on WASM are reachable via
 the `core_renew_saturate_mode` / `core_terminate_saturate_mode` exports.
 

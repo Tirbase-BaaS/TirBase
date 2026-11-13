@@ -161,11 +161,10 @@ Revocation doesn't require all M managers to be online simultaneously. **[Status
 wired]** (CLAIM-G1.4: revocation delta causes downstream delta rejection at
 `apply_incoming_delta`.) Each manager submits their signature independently; TirBase gossips
 partial revocation deltas at HIGH priority through the mesh and accumulates signatures until the
-threshold is reached. **[Status: Implemented but not wired]** (M-of-N accumulation logic is in
-`auth/revocation.rs`; gossip-level partial accumulation across real disconnected peers is not
-covered by a proven integration test beyond CLAIM-G1.4.) The revoked device is isolated within one
-gossip round. **[Status: Implemented but not wired]** (One-round isolation is the design intent;
-timing is not verified by a proven integration test.) The revocation delta is immutable and
+threshold is reached. **[Status: Implemented and wired]** (CLAIM-G1.11 / Property 7, Req 9.1, 9.3:
+`tirbase-core/src/api/revocation_saturate_mesh_tests.rs::{partial_revocation_deltas_accumulate_across_offline_managers,below_threshold_never_revokes_and_threshold_signature_always_does,revocation_negative_cases_fail_closed}` prove accumulation/threshold and fail-closed negative cases over two real Swarm-backed `CoreHandle` instances; CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`.) The revoked device is isolated within one
+gossip round. **[Status: Implemented but not wired]** (One-round isolation timing is not separately
+benchmarked in CI; correctness of threshold/accumulation and downstream rejection is proven above.) The revocation delta is immutable and
 causally recorded. **[Status: Implemented and wired]** (CLAIM-G1.4: the revocation delta is
 applied and persisted in the causal DAG.)
 
@@ -173,8 +172,8 @@ applied and persisted in the causal DAG.)
 
 When a device is revoked, a migration is found to be corrupted, or a human writes against a
 contaminated projection, TirBase automatically traces taint forward through the entire Changeset
-DAG. **[Status: Implemented but not wired]** (`tirbase-core/src/contamination/` is fully
-implemented; no proven end-to-end wiring integration test in CLAIMS.md.)
+DAG. **[Status: Implemented and wired]** (`tirbase-core/src/contamination/` production path;
+proven over real Swarm-backed mesh in `api::contamination_mesh_tests::{revoked_author_taint_propagates_and_events_emitted,receiver_deltas_become_tainted_descendants,human_reaction_joins_independently_tainted_chain,composite_ico_merge_decompose_and_decontaminate_over_mesh,human_reaction_sidecar_write_quarantine_and_ico_over_mesh,sidecar_replay_conflict_resume_idempotent_projection_over_real_mesh}`, CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`.)
 
 ```mermaid
 flowchart TD
@@ -192,11 +191,10 @@ flowchart TD
     DECON --> DECOMPOSE["Decompose Composite\nback to independent incidents"]
 ```
 
-Tags are append-only — nothing is ever deleted from the audit log. **[Status: Implemented but not
-wired]** (Append-only taint logic is implemented; no proven CI gate verifying the append-only
-invariant end-to-end.) Composite incidents form automatically when contamination chains share a
+Tags are append-only — nothing is ever deleted from the audit log. **[Status: Implemented and
+wired]** (append-only/monotonic taint tags verified in-process by `prop_10_tag_log_monotonic_append_only` and exercised over the production real-mesh contamination path in `api::contamination_mesh_tests`, CI real-mesh suite.) Composite incidents form automatically when contamination chains share a
 node and decompose back into independent records when one chain is resolved. **[Status:
-Implemented but not wired]**
+Implemented and wired]** (`api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`, CI real-mesh suite.)
 
 ### Zero-Trust Schema Migration Over the Mesh
 
@@ -252,9 +250,7 @@ flowchart LR
 ```
 
 Tier-1 requires K peers from spatially diverse squads or tunnel sectors to return signed
-state-hash receipts. **[Status: Implemented but not wired]** (`tirbase-core/src/durability/`
-implements quorum formation with real Ed25519 signatures; live K-of-N quorum across real networked
-peers is not covered by a proven integration test — see Property 5 gap in `properties.rs`.)
+state-hash receipts. **[Status: Implemented and wired]** (`tirbase-core/src/durability/` production quorum path; live K-of-N quorum with genuine device-signed receipt exchange proven over real loopback Swarm in `api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}` and related receipt/quorum cases, CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)`. Spatial-diversity tag enforcement is exercised in durability/real-mesh receipt flows; physical anchor-attested location hardware remains a separate evidence-backed blocker below.)
 Tier-2 is Cloud Ledger acknowledgement. **[Status: Implemented and wired]** (CLAIM-G1.6: cloud
 sync send and receive paths are wired and tested.) Compaction from the hot path is permitted at
 Tier-1 — re-fetch from receipt holders handles Cloud sync. **[Status: Implemented but not wired]**
@@ -276,9 +272,8 @@ Mode activation is wired through the init-time `SaturateModeStateMachine` and te
 real `CoreHandle` instances.) All available bandwidth routes to HIGH-priority deltas for 60
 minutes. **[Status: Implemented and wired]** (CLAIM-G1.5.) MEDIUM and LOW queues are held without
 dropping. **[Status: Implemented and wired]** (CLAIM-G1.5.) The lease renews with a signed
-heartbeat or terminates on M-of-N manager threshold. **[Status: Implemented but not wired]**
-(Heartbeat renewal is implemented and unit-tested in `saturate.rs`; the M-of-N termination path
-is not covered by a proven integration test — see Property 20 gap in `properties.rs`.)
+heartbeat or terminates on M-of-N manager threshold. **[Status: Implemented and wired]**
+(renewal and M-of-N termination proven over real Swarm-backed mesh in `api::revocation_saturate_mesh_tests::{saturate_renewal_is_bounded_and_requires_valid_tokens,saturate_termination_m_of_n_collected_over_real_mesh,saturate_termination_below_threshold_preserves_mode_over_mesh}` and by `tests::properties::prop_20_sequence_covers_renewal_and_termination_events`; CI `test` job `Real-mesh e2e (two-Swarm loopback through production inbound path)` and workspace tests.)
 
 ### Weighted Deficit Round Robin Scheduler
 
@@ -447,34 +442,41 @@ wasm    = ["wasm-bindgen", "js-sys", "web-sys"]
 ## Correctness Guarantees
 
 TirBase ships with a 22-property property-based test suite using `proptest` (200 iterations each).
-**[Status: Implemented but not wired]** (The suite exists in
-`tirbase-core/src/tests/properties.rs`; properties are run in CI via `cargo test`, but several
-properties have documented end-to-end gaps — see the gap annotations in `properties.rs`. The suite
-is not backed by individual `Proven` rows in CLAIMS.md.) Properties cover:
+**[Status: Implemented and wired]** (suite in `tirbase-core/src/tests/properties.rs`, run in CI via workspace/core tests; previously documented in-scope gaps for Properties 1, 2/3/4 mesh LWW+RGA preservation, 5/14 live quorum, 7 M-of-N accumulation, 8–11 contamination/ICO, and 20 renewal/termination are now closed by CI-run proofs named below and in `docs/audits/e2e-wiring-ws8-closeout.md`. Remaining residuals are explicit, evidence-backed hardware/environment/scale blockers, not vague deferrals.) Properties cover:
 
-- **Cross-build convergence** — WASM and native produce byte-for-byte identical state for any
-  ordered Delta sequence, including Migration Deltas (the primary wasm3/wasmtime divergence
-  vector). **[Status: Implemented but not wired]** (See Property 1 gap in `properties.rs`.)
+- **Cross-build convergence** — native and real WASM produce byte-identical deterministic state
+  hashes for an identical canonical ordered Delta sequence including signed Migration Deltas and
+  list/RGA writes. **[Status: Implemented and wired]** (`scripts/cross-build-parity.sh`, probes
+  `tirbase-core/src/parity_probe.rs::emit_cross_build_parity_hash` and `core_cross_build_parity_hash`;
+  CI `test` job `Cross-build parity (native vs real WASM state hash, Property 1)`.)
 - **CRDT causal commutativity** — any valid topological ordering of a Delta set produces identical
-  final state. **[Status: Implemented but not wired]** (See Properties 2/3/4 gap in
-  `properties.rs`.)
+  final state. **[Status: Implemented and wired]** (in-process `prop_02_crdt_causal_commutativity`;
+  multi-device convergence over real Swarm-backed mesh proven by
+  `api::real_mesh_tests::{two_devices_concurrent_scalar_write_lww_wins_over_real_mesh,two_devices_concurrent_list_insertions_preserved_over_real_mesh}`,
+  CI real-mesh suite.)
 - **LWW and RGA merge semantics** — scalar conflicts and concurrent list edits are resolved
-  deterministically. **[Status: Implemented but not wired]**
+  deterministically. **[Status: Implemented and wired]** (`prop_03_lww_scalar_conflict_resolution`,
+  `prop_04_rga_sequence_merge_completeness`; receiver-side LWW and concurrent list insertion
+  preservation proven over real mesh in `api::real_mesh_tests`, CI real-mesh suite.)
 - **Contamination completeness** — every reachable DAG descendant carries a CONTAMINATED tag; no
-  tag is ever modified or removed. **[Status: Implemented but not wired]**
+  tag is ever modified or removed. **[Status: Implemented and wired]** (`prop_08`–`prop_10`; real-mesh
+  propagation/tags/human-reaction and sidecar/ICO proofs in `api::contamination_mesh_tests`, CI real-mesh suite.)
 - **Composite incident formation** — two chains sharing a DAG node produce exactly one
-  Composite_Incident_Instance with the union Delta set. **[Status: Implemented but not wired]**
+  Composite_Incident_Instance with the union Delta set. **[Status: Implemented and wired]**
+  (`prop_11_composite_incident_formation_on_dag_overlap`; `api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`, CI real-mesh suite.)
 - **DRR bandwidth floors** — over any 10+ epochs, no class receives less than its guaranteed floor
   fraction. **[Status: Implemented but not wired]**
 - **M-of-N threshold enforcement** — ≤M−1 signatures never trigger revocation; ≥M always does.
-  **[Status: Implemented but not wired]** (Property test exists; no dedicated proven CLAIMS.md
-  row.)
+  **[Status: Implemented and wired]** (`prop_07_mofn_revocation_threshold_enforcement`; mesh-accumulated
+  accumulation/threshold/fail-closed proofs in `api::revocation_saturate_mesh_tests`, CLAIM-G1.11, CI real-mesh suite.)
 - **Zero-trust migration gate** — tampering either the CA signature or the transform bytes always
   rejects, regardless of check order. **[Status: Implemented and wired]** (CLAIM-G1.7.)
 - **Schema determinism** — identical schema structure produces identical hash, independent of
   declaration order. **[Status: Implemented but not wired]**
-- **Saturate Mode state machine** — all four lease invariants hold across every event sequence.
-  **[Status: Implemented but not wired]** (See Property 20 gap in `properties.rs`.)
+- **Saturate Mode state machine** — lease invariants hold across activation, renewal, and
+  termination/expiry event sequences. **[Status: Implemented and wired]** (`prop_20_*`,
+  `tests::properties::prop_20_sequence_covers_renewal_and_termination_events`;
+  `api::revocation_saturate_mesh_tests` saturate activation/renewal/termination over real mesh, CI real-mesh suite.)
 
 ---
 

@@ -3,57 +3,52 @@
 //! Uses `proptest` with `ProptestConfig::with_cases(200)` on every test block.
 //! Tests gated on `#[cfg(feature = "native")]` require a live SQLite connection.
 //!
-//! # End-to-End Test Gap Tracking ()
+//! # End-to-End / Cross-Build Proof Status ()
 //!
-//! The following properties have documented gaps where full end-to-end verification
-//! cannot be achieved in the current in-process test environment:
+//! This suite contains property-level proofs (all 22 properties, 200 cases where
+//! configured) and is supplemented by CI-run production-path e2e proofs:
 //!
 //! ## Property 1 — Cross-Build State Convergence (Req 1.4)
-//! **Gap:** The test verifies Lamport clock equality between two in-process engines
-//! (both compiled to the same `native` target). True byte-for-byte cross-build
-//! parity — comparing WASM module output against native binary output on identical
-//! input — requires running the WASM build under `wasm-bindgen-test` or
-//! `wasmi` execution and comparing serialised Local Store state against a native
-//! build's output. This cannot be done within a single `cargo test` invocation.
+//! **Proven (CI):** `scripts/cross-build-parity.sh` runs an identical canonical
+//! delta sequence (scalar write, real list/RGA write, signed Migration Deltas,
+//! revocation, contamination-tagged write) on the native build and on a real
+//! `wasm32` build (`wasm-pack --target nodejs`, `features wasm,parity-probe`)
+//! and asserts byte-identical deterministic state hashes derived from the
+//! serialized `CrdtEngine` state (`b"tirbase-cross-build-parity-v1"` +
+//! `parity_state_bytes()` + signed MigrationDelta bytes). CI: `test` job step
+//! `Cross-build parity (native vs real WASM state hash, Property 1)`.
+//! Probe: `tirbase-core/src/parity_probe.rs::emit_cross_build_parity_hash` (native)
+//! and `core_cross_build_parity_hash` WASM export.
 //!
-//! **Mitigation:** The WASM build compiles without errors (`cargo check --no-default-features
-//! --features wasm --target wasm32-unknown-unknown`), `wasm_tests.rs` confirms the
-//! WASM in-memory store round-trips correctly, and the Automerge library's own
-//! cross-platform convergence guarantees provide the underlying correctness assurance.
-//! The Migration_Delta corpus in Property 1 explicitly exercises the `wasmi`
-//! divergence risk path.
+//! ## Properties 2 / 3 / 4 — Multi-Device CRDT Sync over Real Mesh (Req 4.5, 4.5a, 4.7)
+//! **Proven (CI):** over two real Swarm-backed `CoreHandle` instances on loopback,
+//! through the production write → outbound transport → signature-verified inbound
+//! merge → SQL projection path: scalar LWW tiebreaking on the receiver is proven by
+//! `api::real_mesh_tests::two_devices_concurrent_scalar_write_lww_wins_over_real_mesh`,
+//! and concurrent list insertion preservation/convergence on the receiver is proven by
+//! `api::real_mesh_tests::two_devices_concurrent_list_insertions_preserved_over_real_mesh`.
+//! CI: `test` job step `Real-mesh e2e (two-Swarm loopback through production inbound path)`.
+//! Property 2 commutativity / Property 3 LWW / Property 4 RGA semantics are also covered
+//! by in-process property proofs in this file (`prop_02`, `prop_03`, `prop_04`).
 //!
-//! ## Properties 5 / 14 — Durability via Live Quorum (Req 3.2, 14.2)
-//! **Gap:** Tier-1 durability requires K peers to each return a signed receipt.
-//! In the current test harness `DurabilitySubsystem` operates against mock receipts.
-//! A live quorum requires two or more networked devices (or two in-process tokio tasks
-//! that each spin up a full `CoreHandle` with distinct key identities and communicate
-//! over a loopback libp2p Swarm).
-//!
-//! **Mitigation:** `durability/` unit tests cover K-of-N quorum formation with
-//! real Ed25519 signatures and state-hash verification. Property 5 verifies the
-//! write-before-acknowledge SQLite durability guarantee directly. The live
-//! multi-peer quorum path is deferred to the integration test suite in
-//! `durability/integration_tests.rs` (post-v1).
+//! ## Properties 5 / 14 — Durability and Live Quorum (Req 3.2, 14.2)
+//! **Proven (CI):** Property 5 write-before-acknowledge durability is covered by
+//! `prop_05_write_before_acknowledge_durability` (live SQLite). Live multi-peer Tier-1
+//! quorum with genuine device-signed receipt exchange over real loopback Swarm is proven
+//! by `api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,
+//! three_peers_reach_tier1_durability_via_genuine_receipt_exchange}` and related
+//! quorum/receipt validation cases in the same CI real-mesh suite.
 //!
 //! ## Property 20 — Saturate Mode Lease State Machine (Req 13)
-//! **Gap:** The heartbeat renewal path (invariant from Req 13.4) is exercised by
-//! `saturate::tests::renew_extends_lease_by_60_minutes` as a unit test. The
-//! proptest for Property 20 does not include a `renew()` case because proptest
-//! cannot easily generate valid time-ordered sequences of activation + renewal
-//! events with distinct Biscuit tokens without a custom strategy. The 30-case
-//! limit was imposed to avoid Biscuit's per-process Datalog execution budget.
-//!
-//! **Mitigation:** The four `prop_20_biscuit` sub-properties cover invariants (a)–(d)
-//! with real tokens. The renewal path is fully covered by the named unit test above.
-//!
-//! ## Properties 2 / 3 / 4 — Multi-Device CRDT Sync (Req 4.5, 4.7)
-//! **Gap:** True multi-device sync over a live P2P mesh is not exercised. The
-//! properties test CRDT merge semantics in isolation (no transport layer).
-//!
-//! **Mitigation:** This is a known v1 limitation. Multi-device mesh sync requires
-//! two or more live peers communicating over a loopback libp2p Swarm — a capability
-//! deferred to `durability/integration_tests.rs` post-v1.
+//! **Proven (CI):** invariants (a)–(d) are covered by `prop_20_saturate_mode_state_machine_invariants`
+//! and `prop_20_biscuit::*`; renewal and termination events are covered by the dedicated
+//! state-machine sequence test `prop_20_sequence_covers_renewal_and_termination_events`
+//! (activation → renewal extends lease → M-of-N termination returns to NORMAL, and
+//! renewal/expiry semantics) and by real-mesh e2e proofs in
+//! `api::revocation_saturate_mesh_tests::{saturate_renewal_is_bounded_and_requires_valid_tokens,
+//! saturate_termination_m_of_n_collected_over_real_mesh,
+//! saturate_termination_below_threshold_preserves_mode_over_mesh}`
+//! (CI: `test` job `Real-mesh e2e ...` / revocation+saturate coverage).
 
 #![allow(
     dead_code,
@@ -1909,6 +1904,85 @@ mod prop_20_biscuit {
             prop_assert!(sm.lease().is_none(), "(d): lease must be cleared after expiry");
         }
     }
+}
+
+/// Property 20 (sequence) — activation, renewal, and M-of-N termination events
+/// covered in one deterministic state-machine sequence (Req 13.1, 13.3–13.6).
+///
+/// Supplements `prop_20_*`/`prop_20_biscuit` and the real-mesh saturate e2e
+/// proofs in `api::revocation_saturate_mesh_tests`.
+#[cfg(all(test, feature = "native"))]
+#[test]
+fn prop_20_sequence_covers_renewal_and_termination_events() {
+    use crate::transport::saturate::{
+        make_disaster_alert_token_for_test, SaturateModeStateMachine, SaturateState,
+        SATURATE_LEASE_DURATION_SECS,
+    };
+    use ed25519_dalek::{Signer, SigningKey};
+
+    fn did_key(sk: &SigningKey) -> String {
+        let vk = sk.verifying_key().to_bytes();
+        let mut raw = vec![0xED, 0x01];
+        raw.extend_from_slice(&vk);
+        format!("did:key:z{}", bs58::encode(&raw).into_string())
+    }
+
+    let (token, ca_pub) = make_disaster_alert_token_for_test(7200);
+    let (renew_token, _ca_pub2) = {
+        // Build a renewal token verifiable by the same CA by reusing the same key
+        // material through the state machine's configured CA: the helper returns a
+        // fresh CA; instead, activate/renew with the same verified token source.
+        // make_disaster_alert_token_for_test returns (token, ca_pub) for that token.
+        (token.clone(), ca_pub.clone())
+    };
+
+    // Fresh state machine (m=2) and activation.
+    let now = crate::traits::wall_hint_secs().unwrap_or(1_700_000_000);
+    let mut sm = SaturateModeStateMachine::new(2, ca_pub.clone(), SATURATE_LEASE_DURATION_SECS);
+    sm.activate("did:key:z6MkManager".to_string(), &token, now)
+        .expect("activation must succeed with valid disaster-alert token");
+    assert_eq!(sm.state(), SaturateState::Saturate);
+    let initial_expiry = sm.lease().expect("lease after activation").expires_at;
+    assert_eq!(initial_expiry, now + SATURATE_LEASE_DURATION_SECS);
+
+    // Renewal event: extends the lease from the renewal timestamp.
+    let renew_at = now + 5 * 60;
+    sm.renew("did:key:z6MkManager".to_string(), &token, renew_at)
+        .expect("renewal must succeed with valid heartbeat token in SATURATE");
+    assert_eq!(sm.state(), SaturateState::Saturate, "renewal keeps SATURATE");
+    let renewed_expiry = sm.lease().expect("lease after renewal").expires_at;
+    assert_eq!(
+        renewed_expiry,
+        renew_at + SATURATE_LEASE_DURATION_SECS,
+        "renewal must extend lease by the configured duration from renewal time"
+    );
+
+    // Termination event: M-of-N (2) valid distinct manager signatures over the
+    // canonical, lease-bound termination message revert to NORMAL.
+    let msg = sm
+        .canonical_termination_message()
+        .expect("active lease must have canonical termination message");
+    let sk1 = SigningKey::from_bytes(&[0xA1u8; 32]);
+    let sk2 = SigningKey::from_bytes(&[0xB2u8; 32]);
+    let did1 = did_key(&sk1);
+    let did2 = did_key(&sk2);
+    let sig1 = sk1.sign(&msg).to_bytes().to_vec();
+    let sig2 = sk2.sign(&msg).to_bytes().to_vec();
+    sm.terminate(vec![(did1, sig1), (did2, sig2)], &msg, renew_at + 60)
+        .expect("M-of-N termination must succeed");
+    assert_eq!(sm.state(), SaturateState::Normal, "termination returns to NORMAL");
+    assert!(sm.lease().is_none(), "lease cleared after termination");
+
+    // Expiry event after a fresh activation+renewal sequence (no termination).
+    let mut sm2 = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
+    sm2.activate("did:key:z6MkManager".to_string(), &token, now)
+        .expect("activation");
+    sm2.renew("did:key:z6MkManager".to_string(), &token, now + 60)
+        .expect("renewal");
+    let expiry = sm2.lease().unwrap().expires_at;
+    sm2.tick(expiry + 1);
+    assert_eq!(sm2.state(), SaturateState::Normal, "expiry after renewal reverts to NORMAL");
+    assert!(sm2.lease().is_none());
 }
 
 // ─── Property 21 — Migration Revocation Halts In-Progress Transforms (Req 18.5–18.7)

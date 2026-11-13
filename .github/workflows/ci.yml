@@ -581,6 +581,9 @@ jobs:
  - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
  run: cargo test -p tirbase-core --features native --lib tests::api_parity
 
+    - name: Cross-build parity (native vs real WASM state hash, Property 1)
+      run: ./scripts/cross-build-parity.sh
+
  # / CLAIM-39.1: the TOML catalog S1–S35 executes 1,120 seeded
  # scenarios per run (>= 1,000 required). A failing scenario prints its
  # seed before the runner exits.

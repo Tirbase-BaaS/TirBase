@@ -656,6 +656,47 @@ impl CrdtEngine {
  /// diagnostics) assert that a specific inbound Delta — identified by the
  /// Delta ID its author produced — actually landed in this engine's DAG
  /// after a merge.
+    /// Deterministic byte encoding of the cross-build-comparable engine state.
+    ///
+    /// Used only by the `parity-probe` feature: the native binary and the real
+    /// WASM module each run the same canonical Delta sequence and emit a
+    /// SHA-256 of these bytes, which `scripts/cross-build-parity.sh` diffs
+    /// (Property 1). The encoding is stable by construction: tables sorted by
+    /// name, schemas and revoked DIDs sorted, little-endian scalars. The
+    /// native-only DAG is excluded because the WASM build has no DAG.
+    #[cfg(feature = "parity-probe")]
+    pub(crate) fn parity_state_bytes(&mut self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&self.lamport.to_le_bytes());
+
+        let mut tables: Vec<String> = self.docs.keys().cloned().collect();
+        tables.sort();
+        for table in tables {
+            out.extend_from_slice(table.as_bytes());
+            out.push(0);
+            if let Some(doc) = self.docs.get_mut(&table) {
+                out.extend_from_slice(&doc.save());
+            }
+            out.push(0);
+        }
+
+        let mut schemas: Vec<SchemaIdentifierHash> =
+            self.known_schemas.iter().copied().collect();
+        schemas.sort();
+        for schema in schemas {
+            out.extend_from_slice(&schema);
+        }
+
+        let mut revoked: Vec<&Did> = self.revoked_dids.iter().collect();
+        revoked.sort();
+        for did in revoked {
+            out.extend_from_slice(did.as_bytes());
+            out.push(0);
+        }
+
+        out
+    }
+
     #[cfg(feature = "native")]
     pub(crate) fn dag_node(&self, delta_id: &DeltaId) -> Result<Option<DagNode>, TirBaseError> {
         self.dag.get(delta_id)
@@ -1306,6 +1347,34 @@ impl CrdtEngine {
         };
 
         let value = match doc.get(automerge::ROOT, key.as_str()).ok().flatten() {
+            Some((Value::Object(automerge::ObjType::List), list_id)) => {
+                use automerge::ScalarValueRef;
+                serde_json::Value::Array(
+                    doc.list_range(&list_id, ..)
+                        .filter_map(|item| match item.value {
+                            automerge::ValueRef::Scalar(ScalarValueRef::Str(s)) => {
+                                Some(serde_json::Value::String(s.to_string()))
+                            }
+                            automerge::ValueRef::Scalar(ScalarValueRef::Int(n)) => {
+                                Some(serde_json::json!(n))
+                            }
+                            automerge::ValueRef::Scalar(ScalarValueRef::Uint(n)) => {
+                                Some(serde_json::json!(n))
+                            }
+                            automerge::ValueRef::Scalar(ScalarValueRef::F64(f)) => {
+                                Some(serde_json::json!(f))
+                            }
+                            automerge::ValueRef::Scalar(ScalarValueRef::Boolean(b)) => {
+                                Some(serde_json::Value::Bool(b))
+                            }
+                            automerge::ValueRef::Scalar(ScalarValueRef::Null) => {
+                                Some(serde_json::Value::Null)
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                )
+            }
             Some((Value::Scalar(sv), _)) => match sv.as_ref() {
                 ScalarValue::Str(s) => serde_json::from_str::<serde_json::Value>(s.as_str())
                     .unwrap_or_else(|_| serde_json::Value::String(s.to_string())),
@@ -1421,7 +1490,64 @@ impl CrdtEngine {
                     }
                 })?;
             }
-            serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+            serde_json::Value::Array(items) => {
+                use automerge::ReadDoc;
+                // A list value is written as a real Automerge sequence, not as
+                // an opaque JSON string. Before this branch existed, arrays
+                // were serialised into a scalar string, so concurrent list
+                // writes from two devices were resolved by LWW and one side's
+                // insertions were silently dropped — contradicting the RGA
+                // merge guarantee (Req 4.5a). The list object is reused when
+                // it already exists, so concurrent append-style writes merge
+                // as RGA sequence operations and preserve both sides.
+                let list_id = match doc.get(automerge::ROOT, key).ok().flatten() {
+                    Some((automerge::Value::Object(automerge::ObjType::List), id)) => id,
+                    _ => doc
+                        .put_object(automerge::ROOT, key, automerge::ObjType::List)
+                        .map_err(|e| TirBaseError::DeltaMalformed {
+                            reason: format!("automerge put_object {key} (list) failed: {e}"),
+                        })?,
+                };
+
+                // Replace the current contents: deletions only target elements
+                // this device has already seen, so a concurrent peer's
+                // insertions are never removed.
+                let existing = doc.length(&list_id);
+                for i in (0..existing).rev() {
+                    doc.delete(&list_id, i).map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("automerge delete {key}[{i}] failed: {e}"),
+                    })?;
+                }
+
+                for (i, item) in items.iter().enumerate() {
+                    let res = match item {
+                        serde_json::Value::String(s) => doc.insert(&list_id, i, s.as_str()),
+                        serde_json::Value::Number(n) => {
+                            if let Some(v) = n.as_i64() {
+                                doc.insert(&list_id, i, v)
+                            } else if let Some(v) = n.as_u64() {
+                                doc.insert(&list_id, i, v)
+                            } else {
+                                doc.insert(&list_id, i, n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        serde_json::Value::Bool(b) => doc.insert(&list_id, i, *b),
+                        serde_json::Value::Null => doc.insert(&list_id, i, ()),
+                        composite => {
+                            let json_str = serde_json::to_string(composite).map_err(|e| {
+                                TirBaseError::DeltaMalformed {
+                                    reason: format!("serialise list element failed: {e}"),
+                                }
+                            })?;
+                            doc.insert(&list_id, i, json_str.as_str())
+                        }
+                    };
+                    res.map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("automerge insert {key}[{i}] failed: {e}"),
+                    })?;
+                }
+            }
+            serde_json::Value::Object(_) => {
                 let json_str =
                     serde_json::to_string(value).map_err(|e| TirBaseError::DeltaMalformed {
                         reason: format!("serialise composite value failed: {e}"),
@@ -1513,13 +1639,13 @@ impl CrdtEngine {
  /// assert the *actual* merged value, not just the Lamport-comparison rule
  /// (Subphase 7.1 — Req 4.5). Returns `None` if the key is absent.
     pub fn read_scalar(&self, key: &str) -> Option<serde_json::Value> {
-        use automerge::{ReadDoc, Value};
+        use automerge::{ReadDoc, ScalarValueRef, Value, ValueRef};
 
         self.doc()
             .get(automerge::ROOT, key)
             .ok()
             .flatten()
-            .and_then(|(val, _exid)| match &val {
+            .and_then(|(val, exid)| match &val {
                 Value::Scalar(sv) => {
                     use automerge::ScalarValue;
                     match sv.as_ref() {
@@ -1532,6 +1658,29 @@ impl CrdtEngine {
                         _ => None,
                     }
                 }
+                // A list object is projected as a JSON array so the write /
+                // merge paths can read merged sequence state through the same
+                // accessor as scalars (`CoreHandle::read` → SQL projection).
+                Value::Object(automerge::ObjType::List) => Some(serde_json::Value::Array(
+                    self.doc()
+                        .list_range(&exid, ..)
+                        .filter_map(|item| match item.value {
+                            ValueRef::Scalar(ScalarValueRef::Str(s)) => {
+                                Some(serde_json::Value::String(s.to_string()))
+                            }
+                            ValueRef::Scalar(ScalarValueRef::Int(n)) => Some(serde_json::json!(n)),
+                            ValueRef::Scalar(ScalarValueRef::Uint(n)) => Some(serde_json::json!(n)),
+                            ValueRef::Scalar(ScalarValueRef::F64(f)) => Some(serde_json::json!(f)),
+                            ValueRef::Scalar(ScalarValueRef::Boolean(b)) => {
+                                Some(serde_json::Value::Bool(b))
+                            }
+                            ValueRef::Scalar(ScalarValueRef::Null) => {
+                                Some(serde_json::Value::Null)
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                )),
                 Value::Object(_) => None,
             })
     }

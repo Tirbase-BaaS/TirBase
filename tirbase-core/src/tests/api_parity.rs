@@ -23,6 +23,8 @@ use std::collections::BTreeSet;
 const API_SOURCE: &str = include_str!("../api/mod.rs");
 const LIB_SOURCE: &str = include_str!("../lib.rs");
 const SDK_BRIDGE_SOURCE: &str = include_str!("../../../tirbase-sdk/src/wasm-bridge.ts");
+const SDK_TYPES_SOURCE: &str = include_str!("../../../sdk/typescript/src/types.ts");
+const GATEWAY_OPENAPI_SOURCE: &str = include_str!("../../../docs/api/gateway-admin-openapi.yaml");
 
 /// Every `#[wasm_bindgen]` export must either be claimed by the SDK here or
 /// be a deliberately SDK-independent helper (schema helpers, registration
@@ -602,6 +604,9 @@ fn all_corehandle_public_methods_are_accounted_for() {
         "core_schema_identifier_hash",
         "core_schema_print",
         "core_schema_parse",
+        // Property 1 cross-build parity probe (feature-gated: wasm+parity-probe).
+        // Not a CoreHandle delegation and not part of the production SDK surface.
+        "core_cross_build_parity_hash",
     ];
     let mapped_exports: BTreeSet<&str> = IO_MANAGER_EXPORTS.iter().map(|(_, e, _)| *e).collect();
     let mut undocumented: Vec<&str> = exports
@@ -630,4 +635,98 @@ fn sdk_production_callers_have_wasm_exports() {
         );
         assert!(exports.contains(export), "lib.rs is missing {export}");
     }
+}
+
+fn sdk_ts_string_array_const(source: &str, const_name: &str) -> BTreeSet<String> {
+    let marker = format!("export const {const_name} = [");
+    let start = source
+        .find(&marker)
+        .unwrap_or_else(|| panic!("types.ts must contain `{marker}`"));
+    let rest = &source[start + marker.len()..];
+    let end = rest
+        .find("] as const;")
+        .unwrap_or_else(|| panic!("types.ts const {const_name} must end with `] as const;`"));
+    rest[..end]
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim().trim_end_matches(',');
+            if trimmed.len() >= 2 && trimmed.starts_with('"') && trimmed.ends_with('"') {
+                Some(trimmed[1..trimmed.len() - 1].to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn openapi_operation_ids(source: &str) -> BTreeSet<String> {
+    source
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            trimmed
+                .strip_prefix("operationId:")
+                .map(|rest| rest.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
+        .collect()
+}
+
+fn openapi_admin_paths(source: &str) -> BTreeSet<String> {
+    let mut paths = BTreeSet::new();
+    let mut in_paths = false;
+    for line in source.lines() {
+        if line == "paths:" {
+            in_paths = true;
+            continue;
+        }
+        if !in_paths {
+            continue;
+        }
+        // Next top-level section (e.g. "components:", "security:")
+        if !line.starts_with(' ') && !line.is_empty() {
+            break;
+        }
+        // Path item keys are indented by one space under `paths:`.
+        if let Some(rest) = line.strip_prefix(" /") {
+            if let Some(path) = rest.strip_suffix(':') {
+                paths.insert(format!("/{path}"));
+            }
+        }
+    }
+    paths
+}
+
+/// `sdk/typescript/src/types.ts` ADMIN_PATHS and OPERATION_IDS must stay in
+/// lockstep with `docs/api/gateway-admin-openapi.yaml` (auto-generation source
+/// of truth, CLAIM-49.2). Prevents SDK↔spec drift.
+#[test]
+fn sdk_typescript_admin_constants_match_gateway_openapi() {
+    let sdk_ops = sdk_ts_string_array_const(SDK_TYPES_SOURCE, "OPERATION_IDS");
+    let sdk_paths = sdk_ts_string_array_const(SDK_TYPES_SOURCE, "ADMIN_PATHS");
+    let spec_ops = openapi_operation_ids(GATEWAY_OPENAPI_SOURCE);
+    let spec_paths = openapi_admin_paths(GATEWAY_OPENAPI_SOURCE);
+
+    assert!(
+        !sdk_ops.is_empty() && !sdk_paths.is_empty(),
+        "parser found empty SDK constants — parser is broken"
+    );
+    assert!(
+        !spec_ops.is_empty() && !spec_paths.is_empty(),
+        "parser found empty OpenAPI operations/paths — parser is broken"
+    );
+
+    let missing_ops: Vec<_> = spec_ops.difference(&sdk_ops).collect();
+    let extra_ops: Vec<_> = sdk_ops.difference(&spec_ops).collect();
+    assert!(
+        missing_ops.is_empty() && extra_ops.is_empty(),
+        "OPERATION_IDS drift: missing in SDK={missing_ops:?}, extra in SDK={extra_ops:?}"
+    );
+
+    let missing_paths: Vec<_> = spec_paths.difference(&sdk_paths).collect();
+    let extra_paths: Vec<_> = sdk_paths.difference(&spec_paths).collect();
+    assert!(
+        missing_paths.is_empty() && extra_paths.is_empty(),
+        "ADMIN_PATHS drift: missing in SDK={missing_paths:?}, extra in SDK={extra_paths:?}"
+    );
 }

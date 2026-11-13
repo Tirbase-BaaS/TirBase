@@ -55,6 +55,11 @@ pub mod store;
 pub mod traits;
 pub mod transport;
 
+// Cross-build parity probe (Property 1). Compiled only for the explicit
+// probe build; never part of release artifacts.
+#[cfg(feature = "parity-probe")]
+pub mod parity_probe;
+
 // ─── Test suites ─────────────────────────────────────────────────────────────
 // `src/tests/mod.rs` gates its own submodules by target: the property and
 // parity suites need the native crates (SQLite, sockets, `proptest`), while
@@ -1042,6 +1047,16 @@ mod wasm_exports {
         })?;
         let json = serde_json::to_string(&schema).map_err(to_js_err)?;
         js_sys::JSON::parse(&json).map_err(|e| e)
+    }
+
+    /// Cross-build parity probe (Property 1, Req 1.4). Runs the canonical
+    /// Delta sequence on a fresh WASM engine and returns the deterministic
+    /// SHA-256 state hash; `scripts/cross-build-parity.sh` diffs this against
+    /// the native probe's hash. Compiled only for the explicit probe build.
+    #[cfg(feature = "parity-probe")]
+    #[wasm_bindgen]
+    pub fn core_cross_build_parity_hash() -> String {
+        crate::parity_probe::canonical_state_hash()
     }
 }
 

@@ -40,6 +40,10 @@ failpoints = ["fail/failpoints"]
 # Test-only setup/inspection hooks (e.g. `CoreHandle::test_cce`).  Never enabled
 # for release builds; CI enables it only for the integration-test suite.
 test-hooks = []
+# Cross-build parity probe (Property 1): native/WASM probes emit a
+# deterministic state hash over the same canonical Delta sequence. Enabled only
+# by CI/scripts; never for release artifacts.
+parity-probe = []
 native  = [
     "dep:rusqlite",
     "rusqlite?/bundled",
