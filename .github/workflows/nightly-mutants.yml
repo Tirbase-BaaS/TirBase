@@ -1,82 +1,82 @@
 name: Nightly cargo-mutants
 
 on:
- schedule:
- # Run at 02:00 UTC every day (CLAIM-2.5)
- - cron: "0 2 * * *"
- workflow_dispatch:
+  schedule:
+    # Run at 02:00 UTC every day (CLAIM-2.5)
+    - cron: "0 2 * * *"
+  workflow_dispatch:
 
 env:
- CARGO_TERM_COLOR: always
- RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
- cargo-mutants-nightly:
- name: cargo-mutants (guard, ledger, CRDT-validation)
- runs-on: ubuntu-latest
+  cargo-mutants-nightly:
+    name: cargo-mutants (guard, ledger, CRDT-validation)
+    runs-on: ubuntu-latest
 
- steps:
- - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
 
- - name: Install cargo-mutants
- # Install only if not already present from the cache.
- run: |
- if ! command -v cargo-mutants &>/dev/null; then
- cargo install cargo-mutants --locked
- fi
+      - name: Install cargo-mutants
+        # Install only if not already present from the cache.
+        run: |
+          if ! command -v cargo-mutants &>/dev/null; then
+          cargo install cargo-mutants --locked
+          fi
 
- # -----------------------------------------------------------------------
- # Step 1: Mutate tirbase-guard (CLAIM-2.5)
- # Covers the guard pipeline and the Applied Effects Ledger (ledger modules).
- # Exits non-zero if any mutant survives, which fails this CI step.
- # -----------------------------------------------------------------------
- - name: Run cargo-mutants on tirbase-guard (CLAIM-2.5)
- run: |
- cargo mutants \
- --package tirbase-guard \
- --timeout 120 \
- --jobs 2 \
- --no-shuffle
+      # -----------------------------------------------------------------------
+      # Step 1: Mutate tirbase-guard (CLAIM-2.5)
+      # Covers the guard pipeline and the Applied Effects Ledger (ledger modules).
+      # Exits non-zero if any mutant survives, which fails this CI step.
+      # -----------------------------------------------------------------------
+      - name: Run cargo-mutants on tirbase-guard (CLAIM-2.5)
+        run: |
+          cargo mutants \
+          --package tirbase-guard \
+          --timeout 120 \
+          --jobs 2 \
+          --no-shuffle
 
- - name: Upload tirbase-guard mutants artifact
- if: always
- uses: actions/upload-artifact@v4
- with:
- name: mutants-tirbase-guard
- path: mutants.out/
- retention-days: 30
+      - name: Upload tirbase-guard mutants artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-tirbase-guard
+          path: mutants.out/
+          retention-days: 30
 
- # -----------------------------------------------------------------------
- # Step 2: Mutate tirbase-core scoped to CRDT-validation modules (CLAIM-2.5)
- # The --file flag restricts mutation to files under tirbase-core/src/crdt/.
- # Exits non-zero if any mutant survives, which fails this CI step.
- # -----------------------------------------------------------------------
- - name: Run cargo-mutants on tirbase-core (CRDT modules) (CLAIM-2.5)
- run: |
- cargo mutants \
- --package tirbase-core \
- --file tirbase-core/src/crdt/ \
- --timeout 120 \
- --jobs 2 \
- --no-shuffle
+      # -----------------------------------------------------------------------
+      # Step 2: Mutate tirbase-core scoped to CRDT-validation modules (CLAIM-2.5)
+      # The --file flag restricts mutation to files under tirbase-core/src/crdt/.
+      # Exits non-zero if any mutant survives, which fails this CI step.
+      # -----------------------------------------------------------------------
+      - name: Run cargo-mutants on tirbase-core (CRDT modules) (CLAIM-2.5)
+        run: |
+          cargo mutants \
+          --package tirbase-core \
+          --file tirbase-core/src/crdt/ \
+          --timeout 120 \
+          --jobs 2 \
+          --no-shuffle
 
- - name: Upload tirbase-core CRDT mutants artifact
- if: always
- uses: actions/upload-artifact@v4
- with:
- name: mutants-tirbase-core-crdt
- path: mutants.out/
- retention-days: 30
+      - name: Upload tirbase-core CRDT mutants artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-tirbase-core-crdt
+          path: mutants.out/
+          retention-days: 30

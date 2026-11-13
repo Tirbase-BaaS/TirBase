@@ -5,85 +5,86 @@ name: hil
 # public pull requests and must only target provisioned, trusted lab runners.
 
 on:
- workflow_dispatch:
- inputs:
- hil_profile:
- description: "Lab profile/harness target (see docs/hil-test-procedure.md)"
- required: false
- default: "reference"
- run_power_cut:
- description: "Run power-cut failpoints (requires smart PDU)"
- required: false
- type: boolean
- default: false
+  workflow_dispatch:
+    inputs:
+      hil_profile:
+        description: "Lab profile/harness target (see docs/hil-test-procedure.md)"
+        required: false
+        default: "reference"
+      run_power_cut:
+        description: "Run power-cut failpoints (requires smart PDU)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
- contents: read
+  contents: read
 
 concurrency:
- group: hil-${{ github.ref }}
- cancel-in-progress: false
+  group: hil-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
- hil:
- name: HIL (maintainer-triggered)
- # Guard: never run for pull_request events and only on explicitly labeled,
- # trusted self-hosted lab hardware. Adjust the label to match the lab.
- if: >-
- github.event_name == 'workflow_dispatch' &&
- github.event.pull_request == null
- runs-on:
- - self-hosted
- - linux
- - hil-lab
- timeout-minutes: 120
- steps:
- - name: Checkout
- uses: actions/checkout@v4
+  hil:
+    name: HIL (maintainer-triggered)
+    # Guard: never run for pull_request events and only on explicitly labeled,
+    # trusted self-hosted lab hardware. Adjust the label to match the lab.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.pull_request == null
+    # actionlint: ignore(runner-label)
+    runs-on:
+      - self-hosted
+      - linux
+      - hil-lab
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
- - name: Hardware availability gate
- shell: bash
- run: |
- set -euo pipefail
- echo "HIL workflow is maintainer-triggered and restricted to trusted lab runners."
- echo "BLOCKED until lab hardware is provisioned (RD-7, CLAIM-52.1)."
- echo "Profile: ${{ inputs.hil_profile }}"
- echo "Power-cut failpoints requested: ${{ inputs.run_power_cut }}"
- echo
- echo "Required lab assets (docs/reference-hardware.md, docs/hil-test-procedure.md):"
- echo " - Gateway (RPi 4B 1GB class) with deployed commit-under-test"
- echo " - USB RS-485 adapter + Modbus RTU device or real-bus simulator"
- echo " - Smart PDU for power-cut tests (when run_power_cut=true)"
- echo
- if [[ "${HIL_LAB_READY:-}" != "true" ]]; then
- echo "::error::HIL lab not provisioned/configured (set HIL_LAB_READY=true on the trusted runner only after hardware validation)."
- exit 1
- fi
+      - name: Hardware availability gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "HIL workflow is maintainer-triggered and restricted to trusted lab runners."
+          echo "BLOCKED until lab hardware is provisioned (RD-7, CLAIM-52.1)."
+          echo "Profile: ${{ inputs.hil_profile }}"
+          echo "Power-cut failpoints requested: ${{ inputs.run_power_cut }}"
+          echo
+          echo "Required lab assets (docs/reference-hardware.md, docs/hil-test-procedure.md):"
+          echo " - Gateway (RPi 4B 1GB class) with deployed commit-under-test"
+          echo " - USB RS-485 adapter + Modbus RTU device or real-bus simulator"
+          echo " - Smart PDU for power-cut tests (when run_power_cut=true)"
+          echo
+          if [[ "${HIL_LAB_READY:-}" != "true" ]]; then
+          echo "::error::HIL lab not provisioned/configured (set HIL_LAB_READY=true on the trusted runner only after hardware validation)."
+          exit 1
+          fi
 
- - name: Modbus FC 03/04/06/16 round-trips and envelope rejection
- shell: bash
- run: |
- set -euo pipefail
- # Runs against real RS-485/Modbus hardware. Requires HIL_SERIAL,
- # HIL_MODBUS_UNIT and HIL_REGISTER_MAP to be configured on the runner.
- cargo test -p tirbase-gateway --test hil_modbus_roundtrip -- --ignored --nocapture
+      - name: Modbus FC 03/04/06/16 round-trips and envelope rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Runs against real RS-485/Modbus hardware. Requires HIL_SERIAL,
+          # HIL_MODBUS_UNIT and HIL_REGISTER_MAP to be configured on the runner.
+          cargo test -p tirbase-gateway --test hil_modbus_roundtrip -- --ignored --nocapture
 
- - name: Power-cut failpoints (intent/actuating and completion)
- if: ${{ inputs.run_power_cut }}
- shell: bash
- env:
- HIL_PDU_CONTROL: ${{ vars.HIL_PDU_CONTROL }}
- run: |
- set -euo pipefail
- # Drives the smart PDU; maintainer/lab-only. See docs/hil-test-procedure.md.
- cargo test -p tirbase-gateway --test hil_power_cut -- --ignored --nocapture
+      - name: Power-cut failpoints (intent/actuating and completion)
+        if: ${{ inputs.run_power_cut }}
+        shell: bash
+        env:
+          HIL_PDU_CONTROL: ${{ vars.HIL_PDU_CONTROL }}
+        run: |
+          set -euo pipefail
+          # Drives the smart PDU; maintainer/lab-only. See docs/hil-test-procedure.md.
+          cargo test -p tirbase-gateway --test hil_power_cut -- --ignored --nocapture
 
- - name: Upload HIL evidence
- if: always
- uses: actions/upload-artifact@v4
- with:
- name: hil-evidence-${{ github.run_id }}
- path: |
- target/hil-evidence/
- docs/hil-test-procedure.md
- if-no-files-found: warn
+      - name: Upload HIL evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hil-evidence-${{ github.run_id }}
+          path: |
+            target/hil-evidence/
+            docs/hil-test-procedure.md
+          if-no-files-found: warn

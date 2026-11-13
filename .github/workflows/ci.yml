@@ -1,1510 +1,1512 @@
 name: CI
 
 on:
- push:
- branches: ["main", "develop"]
- pull_request:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
 
 env:
- CARGO_TERM_COLOR: always
- RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
- license-hash-check:
- name: LICENSE integrity check (CLAIM-3.6)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Verify LICENSE SHA-256 against known-good hash in CODEOWNERS (CLAIM-3.6)
- # Reads the known-good SHA-256 from the `# LICENSE-SHA256: <hex>` comment
- # line in .github/CODEOWNERS, recomputes the digest of LICENSE, and fails
- # CI with a clear error message if they differ. This blocks any pull
- # request that modifies the LICENSE file without updating the hash.
- run: |
- KNOWN=$(grep -m1 'LICENSE-SHA256:' .github/CODEOWNERS | awk '{print $NF}')
- if [ -z "$KNOWN" ]; then
- echo "ERROR: Could not find a '# LICENSE-SHA256: <hash>' line in .github/CODEOWNERS."
- exit 1
- fi
- ACTUAL=$(sha256sum LICENSE | awk '{print $1}')
- if [ "$ACTUAL" != "$KNOWN" ]; then
- echo "ERROR: LICENSE SHA-256 mismatch — the file may have been modified."
- echo " Expected (from CODEOWNERS): $KNOWN"
- echo " Computed (from LICENSE): $ACTUAL"
- echo ""
- echo "If the LICENSE change is intentional and has been reviewed, update the"
- echo "'# LICENSE-SHA256:' line in .github/CODEOWNERS to: $ACTUAL"
- exit 1
- fi
- echo "OK: LICENSE SHA-256 matches the known-good hash in CODEOWNERS ($ACTUAL)."
-
- cargo-deny:
- name: cargo-deny (license / advisory / ban check)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Run cargo-deny checks (CLAIM-2.2)
- # EmbarkStudios/cargo-deny-action is faster than `cargo install cargo-deny`
- # because it downloads a pre-built binary instead of compiling from source.
- # `command: check` runs all four checks: licenses, bans, advisories, sources.
- uses: EmbarkStudios/cargo-deny-action@v2
- with:
- command: check
- arguments: --all-features
-
- cargo-audit:
- name: cargo-audit (vulnerability advisory check)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Run cargo-audit (CLAIM-2.3)
- # Uses the rustsec/audit-check action which downloads a pre-built binary
- # and fails the job if any unignored vulnerability is found.
- # Pre-existing advisories acknowledged at gate-wiring time are listed in
- # audit.toml at the workspace root (mirroring deny.toml's ignore list).
- uses: rustsec/audit-check@v2
- with:
- token: ${{ secrets.GITHUB_TOKEN }}
-
- cargo-geiger:
- name: cargo-geiger (unsafe block gate)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-geiger-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cargo-geiger
- # Install only if not already cached from a previous run.
- # cargo-geiger needs the nightly-compatible syn feature; the stable
- # toolchain is sufficient for the binary itself.
- run: |
- if ! command -v cargo-geiger &>/dev/null; then
- cargo install cargo-geiger --locked
- fi
-
- - name: Run cargo geiger (CLAIM-2.4)
- # Produce a JSON report for reliable machine parsing.
- # `--quiet` suppresses progress bars that would pollute the artifact.
- # `|| true` prevents the step from failing on non-zero exit codes that
- # cargo-geiger can emit when it encounters crates it cannot fully
- # instrument (those packages are still counted in the output).
- run: |
- cargo geiger --workspace --output-format Json --quiet 2>/dev/null \
- > geiger-report.json || true
- echo "Generated geiger-report.json ($(wc -c < geiger-report.json) bytes)"
-
- - name: Download previous geiger baseline
- # `continue-on-error: true` means the step is skipped silently on the
- # very first run when no artifact named `geiger-baseline` exists yet.
- uses: actions/download-artifact@v4
- continue-on-error: true
- with:
- name: geiger-baseline
- path: geiger-baseline/
-
- - name: Compare unsafe count against baseline (CLAIM-2.4)
- # Scripts are committed to the repo so the comparison logic is
- # auditable and does not rely on inline YAML heredocs.
- run: |
- bash scripts/check-geiger.sh \
- geiger-report.json \
- geiger-baseline/geiger-report.json
-
- - name: Save new geiger baseline artifact
- # Only runs if the comparison step passed (no net increase).
- # This artifact is downloaded by the NEXT run to serve as the baseline.
- uses: actions/upload-artifact@v4
- with:
- name: geiger-baseline
- path: geiger-report.json
- # Retain for 90 days — long enough to cover any reasonable PR cadence.
- retention-days: 90
-
- layer-isolation:
- name: Dependency layer isolation checks
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-layer-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Check tirbase-core layer isolation
- run: |
- # tirbase-core MUST NOT declare tirbase-guard or tirbase-drivers as dependencies.
- # Grep the [dependencies] section only (stops at the next section header).
- MANIFEST="tirbase-core/Cargo.toml"
- if grep -E '^\s*(tirbase-guard|tirbase-drivers)\s*=' "$MANIFEST"; then
- echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-drivers)."
- echo " tirbase-core must not import tirbase-guard or tirbase-drivers (design.md §Dependency edges)."
- exit 1
- fi
- echo "OK: $MANIFEST contains no forbidden dependency declarations."
- cargo check -p tirbase-core
-
- - name: Check tirbase-drivers layer isolation
- run: |
- # tirbase-drivers MUST NOT declare tirbase-guard or tirbase-core as dependencies.
- MANIFEST="tirbase-drivers/Cargo.toml"
- if grep -E '^\s*(tirbase-guard|tirbase-core)\s*=' "$MANIFEST"; then
- echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-core)."
- echo " tirbase-drivers must not import tirbase-guard or tirbase-core (design.md §Dependency edges)."
- exit 1
- fi
- echo "OK: $MANIFEST contains no forbidden dependency declarations."
- cargo check -p tirbase-drivers
- cargo test -p tirbase-drivers
-
- public-api:
- name: cargo public-api (CLAIM-2.6)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust nightly
- uses: dtolnay/rust-toolchain@nightly
- with:
- components: rustdoc
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-public-api-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cargo-public-api
- # Install only if not already cached from a previous run.
- # Pinned to 0.52.0 to avoid unexpected breakage from tool updates.
- run: |
- if ! command -v cargo-public-api &>/dev/null; then
- cargo install cargo-public-api --version 0.52.0 --locked
- fi
-
- - name: Check public API manifests (CLAIM-2.6)
- # Fails if any crate has new pub items not present in its committed manifest.
- # To update a manifest after an intentional API addition:
- # cargo +nightly public-api -p <crate> > <crate>/public-api.txt
- # then commit the updated file.
- run: bash scripts/check-public-api.sh
-
- orphan-api:
- name: orphan pub-API gate (CLAIM-2.7)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust nightly (required for rustdoc --output-format json)
- uses: dtolnay/rust-toolchain@nightly
- with:
- components: rustdoc
-
- - name: Cache cargo registry and build artifacts
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-orphan-api-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Run orphan pub-API check (CLAIM-2.7)
- # Generates rustdoc JSON for each library crate using nightly, then
- # identifies `pub` items with no non-test callers outside their own crate.
- # Items in docs/orphan-api-allowlist.md are approved orphans (skipped).
- # Any item past its expiry version in the allowlist also fails CI.
- run: bash scripts/check-orphan-api.sh
-
- claims-check:
- name: CLAIMS.md registry check (CLAIM-3.1)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Validate CLAIMS.md — identifiers must exist and be cited (CLAIM-3.1)
- # scripts/check-claims.sh parses CLAIMS.md, finds every row whose Status
- # column is exactly "Proven", and fails CI naming each claim that has an
- # empty Test Identifier column or cites a test identifier that does not
- # resolve to a fn/mod/<name>.rs in the repo. See PV-2.2 and .
- run: bash scripts/check-claims.sh CLAIMS.md
-
- claim-markers:
- name: "[CLAIM-{id}] marker scan (CLAIM-3.2)"
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Scan docs for undeclared Planned claim references (CLAIM-3.2)
- # scripts/check-claim-markers.sh reads CLAIMS.md to identify all Planned
- # claims, then scans root-level *.md, docs/**/*.md, and .kiro/specs/**/*.md
- # for [CLAIM-{id}] markers. Any marker that references a Planned claim
- # without a planned qualifier on the same line fails CI. See PV-2.3.
- run: bash scripts/check-claim-markers.sh CLAIMS.md
-
- pv-reference-exists:
- name: PV requirement reference check (wave 0)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - name: Verify all PV references in tasks.md exist in requirements.md
- run: bash scripts/check-pv-references.sh
-
- security-event-catalog:
- name: Security event catalog check (CLAIM-3.9)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Check security event catalog completeness (CLAIM-3.9)
- # scripts/check-security-event-catalog.sh parses docs/security-event-catalog.md
- # to extract all known (SecurityEventCategory, ReasonCode) pairs, then scans
- # production Rust source under tirbase-core/src/, tirbase-guard/src/,
- # tirbase-gateway/src/, tirbase-drivers/src/, and tirbase-admin/src/ for any
- # SecurityEventCategory::Variant or ReasonCode::Variant references not listed
- # in the catalog. CI fails if any unlisted variant is found. See PV-7.11.
- run: bash scripts/check-security-event-catalog.sh
-
- state-inventory:
- name: State inventory struct scan (CLAIM-31.2, PV-9.1)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Check state inventory registration
- run: bash scripts/check-state-inventory.sh
-
- system-invariants:
- name: System invariants catalog check (CLAIM-17.1-17.8)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Check system invariants catalog and InvariantChecker wiring (PV-23.1/PV-23.2)
- # Fails if docs/system-invariants.md is missing any INV-1..INV-16 row or
- # if tirbase-sim/src/invariants.rs (InvariantChecker) is missing or does
- # not reference every INV. Removing any INV-N entry must fail CI (17.1-17.8).
- run: bash scripts/check-system-invariants.sh docs/system-invariants.md
-
- clippy-no-direct-clock:
- name: clippy — no direct clock calls (CLAIM-5.5, CLAIM-5.6)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable with clippy
- uses: dtolnay/rust-toolchain@stable
- with:
- components: clippy
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
-
- # clippy.toml bans `std::time::Instant::now`, `std::time::SystemTime::now`
- # and `tokio::time::Instant::now` workspace-wide (PV-3.12). Every clock
- # read must go through `TimeSource`; the only allowed uses are inside the
- # TimeSource implementation itself, annotated with
- # `#[allow(clippy::disallowed_methods)]`. Promoting the lint to an error
- # makes any regression a hard CI failure (CLAIM-5.6).
- - name: Clippy with disallowed-methods as error
- run: cargo clippy --workspace -- -D clippy::disallowed_methods
-
- clippy-no-hashmap:
- name: clippy — no HashMap in guard/sim (CLAIM-38.7, PV-12)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable with clippy
- uses: dtolnay/rust-toolchain@stable
- with:
- components: clippy
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-clippy-hashmap-${{ hashFiles('**/Cargo.lock') }}
-
- # clippy.toml declares `std::collections::HashMap` a disallowed type
- # . `tirbase-guard` and `tirbase-sim` enable the lint with
- # `#![deny(clippy::disallowed_types)]`, so any HashMap use in either
- # crate is a hard CI failure. `--all-targets` also covers tests.
- - name: Clippy — HashMap disallowed in guard and sim
- run: cargo clippy -p tirbase-guard -p tirbase-sim --all-targets
-
- check:
- name: cargo check (${{ matrix.target }})
- needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
- runs-on: ubuntu-latest
- strategy:
- fail-fast: false
- matrix:
- include:
- - target: x86_64-unknown-linux-gnu
- features: native
- no_default_features: ""
- packages: --workspace
- # Only `tirbase-core` (with `tirbase-types`) is compiled to WASM. Every
- # other workspace member links SQLite, libp2p, rustls/ring or tokio's
- # net stack, none of which build for wasm32-unknown-unknown, so the
- # wasm row must be package-scoped rather than workspace-wide.
- - target: wasm32-unknown-unknown
- features: wasm
- no_default_features: "--no-default-features"
- packages: -p tirbase-core
-
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
- with:
- targets: ${{ matrix.target }}
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
- - name: cargo check
- run: |
- cargo check ${{ matrix.packages }} ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
-
- - name: Check dead_code warnings (CLAIM-2.1)
- # Promote dead_code warnings to errors so CI fails if any private symbol
- # is unused. `pub` items are naturally exempt from the dead_code lint.
- # Only run on the native target — the WASM target shares the same source
- # and would produce duplicate diagnostics.
- if: matrix.target == 'x86_64-unknown-linux-gnu'
- run: RUSTFLAGS="-D dead_code" cargo check --workspace --features native
-
- cargo-mutants-pr:
- name: cargo-mutants (PR diff scope, CLAIM-2.8)
- # Only run on pull requests — the nightly job covers full-scope mutation
- # testing on the default branch (nightly-mutants.yml).
- if: github.event_name == 'pull_request'
- runs-on: ubuntu-latest
- # Run after the regular test suite so we know the baseline tests pass first.
- needs: [test]
- continue-on-error: false
-
- steps:
- - uses: actions/checkout@v4
- with:
- # Fetch the full history so `git diff` against the base branch works.
- fetch-depth: 0
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-mutants-pr-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cargo-mutants
- run: |
- if ! command -v cargo-mutants &>/dev/null; then
- cargo install cargo-mutants --locked
- fi
-
- # -----------------------------------------------------------------------
- # Produce a unified diff of every Rust source file changed in this PR
- # relative to the merge-base of the base branch, then pass it to
- # cargo-mutants via --in-diff. cargo-mutants will only generate and
- # test mutations that touch lines present in the diff, keeping CI fast
- # for small PRs while still catching surviving mutations in changed code
- # (PV-1.15 / CLAIM-2.8).
- #
- # Notes:
- # - `git diff origin/$BASE...HEAD` uses the three-dot form, which diffs
- # from the common merge-base rather than the current tip of the base
- # branch, matching what a PR review actually shows.
- # - We write the diff to a temp file because process substitution
- # (<(...)) is a bashism that may not be available in all runner shells.
- # - --timeout 120 mirrors the nightly job default.
- # - --jobs 2 avoids overwhelming the shared runner.
- # - --no-shuffle keeps the output deterministic so artifact diffs are
- # meaningful across re-runs.
- # -----------------------------------------------------------------------
- - name: Generate PR diff for mutation scoping (CLAIM-2.8)
- env:
- BASE_BRANCH: ${{ github.base_ref }}
- run: |
- git fetch origin "$BASE_BRANCH" --depth=50
- git diff "origin/${BASE_BRANCH}...HEAD" -- '*.rs' > /tmp/pr.diff
- DIFF_LINES=$(wc -l < /tmp/pr.diff)
- echo "PR diff contains ${DIFF_LINES} lines across changed Rust files."
- if [ "$DIFF_LINES" -eq 0 ]; then
- echo "No Rust source changes detected in this PR — skipping mutation run."
- echo "SKIP_MUTANTS=true" >> "$GITHUB_ENV"
- fi
-
- - name: Run cargo-mutants scoped to PR diff (CLAIM-2.8)
- if: env.SKIP_MUTANTS != 'true'
- run: |
- cargo mutants \
- --in-diff /tmp/pr.diff \
- --timeout 120 \
- --jobs 2 \
- --no-shuffle
-
- - name: Upload PR mutants artifact
- if: always && env.SKIP_MUTANTS != 'true'
- uses: actions/upload-artifact@v4
- with:
- name: mutants-pr-diff
- path: mutants.out/
- retention-days: 14
-
- test:
- name: cargo test (native) + WASM parity check + SDK tests
- needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install wasm-pack
- run: cargo install wasm-pack
-
- - name: Install wasm32 target
- run: rustup target add wasm32-unknown-unknown
-
- - name: cargo test (native) — includes parity + convergence tests
- run: cargo test --features native
-
- # ── Mandatory e2e wiring gates ───────────────────────────────────────────
- #
- # These run the real production paths, not mocks: two Swarm-backed
- # CoreHandles on loopback, a signed Delta travelling the real outbound
- # transport into the production inbound drain loop, and the SQL projection
- # read back through the public read() path. They are separate steps so a
- # regression names the broken surface in the CI summary.
- - name: Real-mesh e2e (two-Swarm loopback through production inbound path)
- run: >-
- cargo test -p tirbase-core --features native --lib api::real_mesh_tests
- -- --test-threads=1
-
- - name: CCE + Side-Car e2e (revocation taint, composite ICO, replay/recovery)
- run: >-
- cargo test -p tirbase-core --features native --lib api::contamination_mesh_tests
- -- --test-threads=1
-
- - name: Projection write-through (binary Automerge + JSON envelope)
- run: |
- set -euo pipefail
- cargo test -p tirbase-core --features native --lib \
- api::real_mesh_tests::write_gossip_receive_merge_round_trip_is_signature_verified_and_projected
- cargo test -p tirbase-core --features native --lib \
- api::real_mesh_tests::json_envelope_delta_over_real_mesh_projects_to_peer_store
-
- # WS6: fragmentation at mesh_mtu=256, 3-node multi-hop relay through the
- # production poll task, and Noise 0-RTT resumption / rotation / revocation
- # over real loopback TCP between two Swarm-backed handles. The BLE bridge
- # framing is covered by the transport tests (`transport::tests::ble_*`) over
- # an emulated link; only the radio test is hardware-gated (see below).
- - name: WS6 e2e (fragmentation, multi-hop relay, 0-RTT, rotation, revocation)
- run: >-
- cargo test -p tirbase-core --features native --lib api::network_wiring_mesh_tests
- -- --test-threads=1
-
- - name: WS6 transport (fragmentation bounds, relay loop/hop limits, BLE bridge)
- run: cargo test -p tirbase-core --features native --lib transport::
-
- # WS7: DRR byte floors over ten real-mesh epochs, spare-capacity flow,
- # the LOW 10-epoch bound, per-table compaction isolation, and the cloud
- # outbound queue bound/no-drop behaviour. Production scheduler and queue
- # paths only; the 100k full-scale queue test is gated with #[ignore].
- - name: WS7 e2e (DRR floors, spare capacity, LOW bound, compaction, queue)
- run: >-
- cargo test -p tirbase-core --features native --lib api::drr_compaction_queue_tests
- -- --test-threads=1
-
- - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
- run: cargo test -p tirbase-core --features native --lib tests::api_parity
-
-    - name: Cross-build parity (native vs real WASM state hash, Property 1)
-      run: ./scripts/cross-build-parity.sh
-
- # / CLAIM-39.1: the TOML catalog S1–S35 executes 1,120 seeded
- # scenarios per run (>= 1,000 required). A failing scenario prints its
- # seed before the runner exits.
- - name: Adversary scenario runner — ≥1,000 seeded scenarios 
- run: cargo test -p tirbase-sim --test scenario_runner -- --nocapture
-
- - name: cargo test (native, test hooks) — test-only setup hooks (CLAIM-31.3)
- run: cargo test -p tirbase-core --features native,test-hooks --test ico_persistence
-
- # `tirbase-core` is the only WASM-capable crate; the gateway, guard, sim,
- # drivers, admin and demo crates link native-only dependencies (SQLite,
- # libp2p, rustls/ring, tokio net), so the check is package-scoped.
- - name: cargo check (WASM target) — fails CI on WASM compile error
- run: cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown
-
- # The WASM build is type-checked above; these tests actually execute it in
- # a headless browser, which is the only place IndexedDB, the browser clock
- # and the `wasm_exports` entry points (`core_init`/`core_write`/
- # `core_receive_peer_message`) exist. `scripts/wasm-test.sh` explains the
- # tooling it needs and fails loudly if it is missing.
- - name: Install wasm-bindgen CLI matching Cargo.lock
- run: |
- set -euo pipefail
- version="$(awk '/^name = "wasm-bindgen"$/ { getline; print $3 }' Cargo.lock | tr -d '"' | head -n1)"
- have="$(wasm-bindgen --version 2>/dev/null | awk '{print $2}' || true)"
- if [ "${have}" != "${version}" ]; then
- cargo install "wasm-bindgen-cli@${version}" --locked
- fi
-
- - name: Install ChromeDriver
- uses: nanasess/setup-chromedriver@v2
-
- - name: cargo test (WASM, headless Chrome) — IndexedDB store + WASM inbound
- run: ./scripts/wasm-test.sh
-
- # The SDK suite includes a cross-component test that boots this binary and
- # mints a DISASTER_ALERT token through the real admin surface. `cargo test`
- # above builds it via CARGO_BIN_EXE, but build it explicitly so the test's
- # binary requirement is a named step instead of a side effect.
- - name: Build gateway binary for the SDK saturate e2e
- run: cargo build -p tirbase-gateway --bin tirbase-gateway
-
- - name: Build WASM for SDK tests
- working-directory: tirbase-sdk
- run: npm run build:wasm
-
- - name: Run SDK tests against real WASM
- working-directory: tirbase-sdk
- run: npm test
-
- # The `pretest` hook above builds both WASM targets: the browser ESM package
- # and a Node-target artefact under `wasm-test/` that Jest loads directly.
- # This step names the real-WASM manager-operation e2e suite separately so a
- # regression there is visible in the CI summary rather than buried in the
- # full Jest output.
- - name: Real-WASM manager-operation e2e (tirbase-sdk)
- working-directory: tirbase-sdk
- run: npm run test:wasm-e2e
-
- fuzz-smoke:
- name: cargo-fuzz smoke (CLAIM-40.1, PV-12.6)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - name: Install Rust nightly
- uses: dtolnay/rust-toolchain@nightly
- - name: Install cargo-fuzz
- run: cargo install cargo-fuzz --locked
- - name: Verify fuzz targets and committed seed corpora (CLAIM-40.1)
- run: bash scripts/check-fuzz-targets.sh
-
- # Root fuzz workspace (production caller: fuzz/fuzz_targets)
- - name: Build root fuzz targets
- working-directory: fuzz
- run: cargo +nightly fuzz build
- - name: Smoke test root automerge_delta_decode (<=60s)
- working-directory: fuzz
- run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
- - name: Smoke test root fragment_reassembly (<=60s)
- working-directory: fuzz
- run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
-
- # tirbase-core
- - name: Build tirbase-core fuzz targets
- working-directory: tirbase-core
- run: cargo +nightly fuzz build
- - name: Smoke test automerge_delta_decode (<=60s)
- working-directory: tirbase-core
- run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
- - name: Smoke test fragment_reassembly (<=60s)
- working-directory: tirbase-core
- run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
-
- # tirbase-drivers
- - name: Build tirbase-drivers fuzz targets
- working-directory: tirbase-drivers
- run: cargo +nightly fuzz build
- - name: Smoke test modbus_frame (<=60s)
- working-directory: tirbase-drivers
- run: cargo +nightly fuzz run modbus_frame -- -max_total_time=55 -runs=1000000
- - name: Smoke test mqtt_frame (<=60s)
- working-directory: tirbase-drivers
- run: cargo +nightly fuzz run mqtt_frame -- -max_total_time=55 -runs=1000000
- - name: Smoke test register_map_parse (<=60s)
- working-directory: tirbase-drivers
- run: cargo +nightly fuzz run register_map_parse -- -max_total_time=55 -runs=1000000
-
- # tirbase-guard (envelope/command parsers)
- - name: Build tirbase-guard fuzz targets
- working-directory: tirbase-guard
- run: cargo +nightly fuzz build
- - name: Smoke test envelope_profile_parse (<=60s)
- working-directory: tirbase-guard
- run: cargo +nightly fuzz run envelope_profile_parse -- -max_total_time=55 -runs=1000000
- - name: Smoke test command_message_parse (<=60s)
- working-directory: tirbase-guard
- run: cargo +nightly fuzz run command_message_parse -- -max_total_time=55 -runs=1000000
-
- fuzz-target-registry:
- name: fuzz target registry rule (CLAIM-40.1, PV-6.8, PV-12.6)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - name: Check untrusted parsers have fuzz targets and seed corpora
- run: bash scripts/check-fuzz-targets.sh
-
- cargo-mutants-gate:
- name: cargo-mutants kill-rate gate (CLAIM-40.2, PV-12.7)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-mutants-gate-${{ hashFiles('**/Cargo.lock') }}
- - name: Install cargo-mutants
- run: |
- if ! command -v cargo-mutants &>/dev/null; then
- cargo install cargo-mutants --locked
- fi
- - name: Enforce >=80% mutation kill rate on guard/ledger/replay/validation modules
- run: python3 scripts/check-mutants-threshold.sh --timeout 120
- - name: Upload mutants gate artifact
- if: always
- uses: actions/upload-artifact@v4
- with:
- name: mutants-gate-outcomes
- path: mutants.out/
- retention-days: 14
-
- iai-bench:
- name: iai-callgrind instruction-count gate (CLAIM-40.3, PV-15.3)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
- - name: Install system dependencies (valgrind for iai-callgrind)
- run: |
- sudo apt-get update
- sudo apt-get install -y valgrind
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cargo-iai-${{ hashFiles('**/Cargo.lock') }}
- - name: Install iai-callgrind runner
- run: |
- if ! command -v iai-callgrind-runner &>/dev/null; then
- cargo install iai-callgrind-runner --version 0.14.0 --locked
- fi
- - name: Check criterion/iai benches compile (tirbase-guard)
- run: cargo bench -p tirbase-guard --no-run
- - name: Check criterion/iai benches compile (tirbase-core)
- run: cargo bench -p tirbase-core --no-run
- - name: Instruction-count gate (tirbase-guard)
- run: bash scripts/check-iai-regression.sh tirbase-guard tirbase-guard/iai-baseline.txt
- - name: Instruction-count gate (tirbase-core)
- run: bash scripts/check-iai-regression.sh tirbase-core tirbase-core/iai-baseline.txt
-
- memory-budget-check:
- name: memory budget measurement gate (24.5)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
- - name: Load configured caches and assert peak RSS stays under the budget
- run: cargo test -p tirbase-core --test memory_budget_gate -- --ignored --nocapture
-
-
- # Both legs are native: cross-compiling to aarch64 and running the libtest
- # binary under qemu-user hangs on a trivial `assert_eq!(1, 1)` test (libtest's
- # worker threads deadlock under emulation), so emulation is not a usable
- # signal. The aarch64 leg runs on GitHub's arm64 hosted runner instead.
- cross-arch-migration-determinism-x86_64:
- name: migration determinism x86_64 (CLAIM-29.6)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Install native build dependencies
- run: |
- sudo apt-get update
- sudo apt-get install -y libdbus-1-dev pkg-config
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
-
- # Executes the committed conformance corpus and asserts the digest equals
- # the committed known-good digest; emits the digest for the compare job.
- - name: Migration conformance digest (x86_64, PV-8/CLAIM-29.6)
- env:
- TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
- run: |
- cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
-
- - name: Upload x86_64 digest artifact
- uses: actions/upload-artifact@v4
- with:
- name: migration-digest-x86_64
- path: ${{ runner.temp }}/migration-digest.txt
- if-no-files-found: error
- retention-days: 7
-
- cross-arch-migration-determinism-aarch64:
- name: migration determinism aarch64 (CLAIM-29.6)
- runs-on: ubuntu-24.04-arm
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Install native build dependencies
- run: |
- sudo apt-get update
- sudo apt-get install -y libdbus-1-dev pkg-config
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Migration conformance digest (aarch64, PV-8/CLAIM-29.6)
- env:
- TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
- run: |
- cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
-
- - name: Upload aarch64 digest artifact
- uses: actions/upload-artifact@v4
- with:
- name: migration-digest-aarch64
- path: ${{ runner.temp }}/migration-digest.txt
- if-no-files-found: error
- retention-days: 7
-
- cross-arch-migration-determinism:
- name: migration determinism compare (x86_64 vs aarch64, CLAIM-29.6)
- runs-on: ubuntu-latest
- needs: [cross-arch-migration-determinism-x86_64, cross-arch-migration-determinism-aarch64]
- steps:
- - name: Download x86_64 digest
- uses: actions/download-artifact@v4
- with:
- name: migration-digest-x86_64
- path: digests/x86_64
-
- - name: Download aarch64 digest
- uses: actions/download-artifact@v4
- with:
- name: migration-digest-aarch64
- path: digests/aarch64
-
- - name: Compare x86_64 and aarch64 migration output digests
- run: |
- set -euo pipefail
- host_digest=digests/x86_64/migration-digest.txt
- arm_digest=digests/aarch64/migration-digest.txt
- test -s "$host_digest" || { echo "missing x86_64 digest artifact"; exit 1; }
- test -s "$arm_digest" || { echo "missing aarch64 digest artifact"; exit 1; }
- echo "x86_64: $(cat "$host_digest")"
- echo "aarch64: $(cat "$arm_digest")"
- diff -u "$host_digest" "$arm_digest" || {
- echo "MISMATCH: migration output digests differ between x86_64 and aarch64";
- exit 1;
- }
- echo "OK: x86_64 and aarch64 produced the same migration output digest"
-
- # Bit-identical model determinism across architectures (CLAIM-38.4/38.5,
- # PV-12.3). Both legs run natively: the aarch64 leg uses GitHub's arm64
- # hosted runner because libtest deadlocks under qemu-user emulation.
- sim-determinism-x86_64:
- name: sim determinism x86_64 (CLAIM-38.4/38.5)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Sim determinism digest (x86_64, PV-12.3)
- env:
- TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
- run: |
- cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
-
- - name: Upload x86_64 sim digest artifact
- uses: actions/upload-artifact@v4
- with:
- name: sim-digest-x86_64
- path: ${{ runner.temp }}/sim-digest.txt
- if-no-files-found: error
- retention-days: 7
-
- sim-determinism-aarch64:
- name: sim determinism aarch64 (CLAIM-38.4/38.5)
- runs-on: ubuntu-24.04-arm
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Sim determinism digest (aarch64, PV-12.3)
- env:
- TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
- run: |
- cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
-
- - name: Upload aarch64 sim digest artifact
- uses: actions/upload-artifact@v4
- with:
- name: sim-digest-aarch64
- path: ${{ runner.temp }}/sim-digest.txt
- if-no-files-found: error
- retention-days: 7
-
- sim-determinism:
- name: sim determinism compare (x86_64 vs aarch64, CLAIM-38.4/38.5)
- runs-on: ubuntu-latest
- needs: [sim-determinism-x86_64, sim-determinism-aarch64]
- steps:
- - name: Download x86_64 sim digest
- uses: actions/download-artifact@v4
- with:
- name: sim-digest-x86_64
- path: digests/sim-x86_64
-
- - name: Download aarch64 sim digest
- uses: actions/download-artifact@v4
- with:
- name: sim-digest-aarch64
- path: digests/sim-aarch64
-
- - name: Compare x86_64 and aarch64 simulator digests
- run: |
- set -euo pipefail
- host_digest=digests/sim-x86_64/sim-digest.txt
- arm_digest=digests/sim-aarch64/sim-digest.txt
- test -s "$host_digest" || { echo "missing x86_64 sim digest artifact"; exit 1; }
- test -s "$arm_digest" || { echo "missing aarch64 sim digest artifact"; exit 1; }
- echo "x86_64: $(cat "$host_digest")"
- echo "aarch64: $(cat "$arm_digest")"
- diff -u "$host_digest" "$arm_digest" || {
- echo "MISMATCH: thermal/battery/scenario output differs between x86_64 and aarch64";
- exit 1;
- }
- echo "OK: x86_64 and aarch64 produced bit-identical simulator output"
-
- # ── Packaging and fleet inventory (PV-11.3/PV-11.4) ───────────────
- #
- # These jobs are the production callers for CLAIM-37.1 … CLAIM-37.4. They
- # build the gateway for the two ARM targets, produce a Debian 11 package and a
- # container image, and gate binary size / RSS against deploy/budgets.toml.
-
- cross-compile:
- name: cross-compile ${{ matrix.target }} (CLAIM-37.1)
- runs-on: ubuntu-latest
- needs: [test]
- strategy:
- fail-fast: false
- matrix:
- include:
- - target: aarch64-unknown-linux-gnu
- elf_machine: AArch64
- - target: armv7-unknown-linux-gnueabihf
- elf_machine: ARM
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-cross-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cross
- # Cross.toml supplies the per-target libdbus pre-build hook.
- run: |
- if ! command -v cross &>/dev/null; then
- cargo install cross --locked
- fi
-
- - name: Build tirbase-gateway for ${{ matrix.target }}
- run: cross build --release --locked -p tirbase-gateway --target ${{ matrix.target }}
-
- - name: Verify the produced binary is a ${{ matrix.target }} ELF
- run: |
- set -euo pipefail
- BIN="target/${{ matrix.target }}/release/tirbase-gateway"
- test -f "$BIN" || { echo "ERROR: missing cross-compiled binary $BIN"; exit 1; }
- test -x "$BIN" || { echo "ERROR: $BIN is not executable"; exit 1; }
- file "$BIN"
- MACHINE="$(readelf -h "$BIN" | awk -F: '/Machine:/{gsub(^[ \t]+/, "", $2); print $2}')"
- case "$MACHINE" in
- *"${{ matrix.elf_machine }}"*) ;;
- *) echo "ERROR: expected ELF machine '${{ matrix.elf_machine }}', got '$MACHINE'"; exit 1 ;;
- esac
- SIZE=$(wc -c < "$BIN")
- test "$SIZE" -gt 1000000 || { echo "ERROR: implausibly small binary ($SIZE bytes)"; exit 1; }
- echo "OK: $BIN is a $MACHINE executable ($SIZE bytes)"
-
- - name: Execute the cross-compiled binary (${{ matrix.target }})
- # `cross run` executes the binary under the target qemu-user inside the
- # cross image, proving the artifact actually starts on the target ABI.
- run: |
- set -euo pipefail
- OUT=$(cross run --release --locked -p tirbase-gateway --target ${{ matrix.target }} -- --version)
- echo "$OUT"
- case "$OUT" in
- *"tirbase-gateway"*) ;;
- *) echo "ERROR: cross-compiled binary did not report its version"; exit 1 ;;
- esac
-
- - name: Binary size budget gate (CLAIM-37.4)
- run: bash scripts/check-size-budget.sh binary-size "target/${{ matrix.target }}/release/tirbase-gateway" "${{ matrix.target }}"
-
- - name: Upload cross-compiled binary
- uses: actions/upload-artifact@v4
- with:
- name: gateway-${{ matrix.target }}
- path: target/${{ matrix.target }}/release/tirbase-gateway
- retention-days: 7
-
- package-deb:
- name: .deb package + Debian 11 install test (CLAIM-37.2)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-package-deb-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cross
- run: |
- if ! command -v cross &>/dev/null; then
- cargo install cross --locked
- fi
-
- - name: Build the glibc-2.31 x86_64 release binary
- # Debian 11 ships glibc 2.31; cross's x86_64 image links against it so
- # the package is installable on the oldest supported target.
- run: cross build --release --locked -p tirbase-gateway --target x86_64-unknown-linux-gnu
-
- - name: Install cargo-deb
- run: |
- if ! command -v cargo-deb &>/dev/null; then
- cargo install cargo-deb --locked
- fi
-
- - name: Build the .deb
- # Asset and maintainer-script paths in [package.metadata.deb] resolve
- # against the workspace root (cargo-deb 3.x does not chdir).
- run: cargo deb -p tirbase-gateway --target x86_64-unknown-linux-gnu --no-build --output target/debian/
-
- - name: Inspect the package payload
- run: |
- set -euo pipefail
- DEB="$(ls target/debian/tirbase-gateway_*.deb | head -1)"
- test -n "$DEB"
- dpkg-deb -I "$DEB"
- dpkg-deb -c "$DEB" | grep -q 'usr/bin/tirbase-gateway'
- dpkg-deb -c "$DEB" | grep -q 'lib/systemd/system/tirbase-gateway.service'
- dpkg-deb -c "$DEB" | grep -q 'etc/tirbase/gateway.toml'
- echo "package architecture: $(dpkg-deb -f "$DEB" Architecture)"
-
- - name: Install and start the gateway on Debian 11 (integration test)
- run: |
- set -euo pipefail
- docker run --rm -v "$PWD/target/debian:/pkg:ro" debian:11 bash -lc '
- set -euo pipefail
- apt-get update -qq
- apt-get install -y -qq --no-install-recommends curl >/dev/null
- apt-get install -y -qq /pkg/tirbase-gateway_*.deb >/dev/null
- dpkg -s tirbase-gateway | grep -E "^(Version|Architecture)"
- /usr/bin/tirbase-gateway --version
- install -d -m 0750 /var/lib/tirbase /run/tirbase
- /usr/bin/tirbase-gateway /etc/tirbase/gateway.toml >/tmp/gateway.log 2>&1 &
- PID=$!
- healthy=0
- for _ in $(seq 1 60); do
- if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
- healthy=1
- break
- fi
- sleep 1
- done
- kill "$PID" >/dev/null 2>&1 || true
- wait "$PID" 2>/dev/null || true
- if [ "$healthy" != 1 ]; then
- echo "ERROR: gateway did not pass /health after .deb install"
- cat /tmp/gateway.log
- exit 1
- fi
- echo "OK: .deb installed and gateway passed /health on Debian 11"
- '
-
- - name: Upload the .deb
- uses: actions/upload-artifact@v4
- with:
- name: tirbase-gateway-deb
- path: target/debian/tirbase-gateway_*.deb
- retention-days: 7
-
- package-oci:
- name: OCI image + health check (CLAIM-37.3)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and binaries
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- ~/.cargo/bin
- target
- key: ${{ runner.os }}-package-oci-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Install cross
- run: |
- if ! command -v cross &>/dev/null; then
- cargo install cross --locked
- fi
-
- - name: Build the glibc-2.31 x86_64 release binary
- run: cross build --release --locked -p tirbase-gateway --target x86_64-unknown-linux-gnu
-
- - name: Stage the Docker build context
- run: |
- mkdir -p dist
- cp target/x86_64-unknown-linux-gnu/release/tirbase-gateway dist/tirbase-gateway
-
- - name: Build the OCI image
- run: docker build -f deploy/Dockerfile -t tirbase-gateway:ci .
-
- - name: Inspect the built image
- run: |
- docker image inspect tirbase-gateway:ci \
- --format 'architecture={{.Architecture}} os={{.Os}}'
- ARCH="$(docker image inspect tirbase-gateway:ci --format '{{.Architecture}}')"
- test "$ARCH" = "amd64" || { echo "ERROR: unexpected image architecture $ARCH"; exit 1; }
- docker image inspect tirbase-gateway:ci --format '{{json .Config.Healthcheck}}' | grep -q 'curl' \
- || { echo "ERROR: image has no HEALTHCHECK"; exit 1; }
-
- - name: Run the image and wait for the health check (integration test)
- run: |
- set -euo pipefail
- docker run -d --name tirbase-gateway-ci tirbase-gateway:ci
- status=""
- for _ in $(seq 1 60); do
- status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' tirbase-gateway-ci)"
- if [ "$status" = "healthy" ] || [ "$status" = "unhealthy" ]; then break; fi
- sleep 2
- done
- echo "container health: $status"
- docker logs tirbase-gateway-ci || true
- docker rm -f tirbase-gateway-ci >/dev/null 2>&1 || true
- if [ "$status" != "healthy" ]; then
- echo "ERROR: OCI image did not pass its health check (status=$status)"
- exit 1
- fi
- echo "OK: OCI image started and passed the health check"
-
- size-budget:
- name: binary size + RSS budget gates (CLAIM-37.4)
- runs-on: ubuntu-latest
- needs: [cross-compile]
- steps:
- - uses: actions/checkout@v4
-
- - name: Download the x86_64 cross-compiled gateway
- uses: actions/download-artifact@v4
- with:
- name: gateway-x86_64-unknown-linux-gnu
- path: target/x86_64-unknown-linux-gnu/release
-
- - name: Prove the gate fails on an over-budget size or RSS measurement
- # Self-test uses synthetic budgets; it does not touch deploy/budgets.toml.
- run: bash scripts/check-size-budget.sh --self-test
-
- - name: Binary size budget gate
- run: |
- BIN=target/x86_64-unknown-linux-gnu/release/tirbase-gateway
- chmod +x "$BIN"
- bash scripts/check-size-budget.sh binary-size "$BIN" x86_64-unknown-linux-gnu
-
- - name: Boot the gateway and gate peak RSS
- run: |
- set -euo pipefail
- BIN=target/x86_64-unknown-linux-gnu/release/tirbase-gateway
- chmod +x "$BIN"
- sudo apt-get update -qq
- sudo apt-get install -y -qq --no-install-recommends libdbus-1-3 curl
- WORK="$RUNNER_TEMP/tirbase-rss"
- mkdir -p "$WORK"
- cat > "$WORK/gateway.toml" <<EOF
- key_path = "$WORK/device-key.json"
- counter_db_path = "$WORK/primary.db"
- derived_db_path = "$WORK/derived.db"
- admin_socket = "$WORK/admin.sock"
- health_addr = "127.0.0.1:18080"
- metrics_addr = "127.0.0.1:19090"
- admin_enabled = false
- checkpoint_interval_secs = 3600
- EOF
- "$BIN" "$WORK/gateway.toml" >"$WORK/gateway.log" 2>&1 &
- PID=$!
- healthy=0
- for _ in $(seq 1 60); do
- if curl -fsS http://127.0.0.1:18080/health >/dev/null 2>&1; then
- healthy=1
- break
- fi
- sleep 1
- done
- if [ "$healthy" != 1 ]; then
- echo "ERROR: gateway did not become healthy for the RSS measurement"
- cat "$WORK/gateway.log"
- kill "$PID" >/dev/null 2>&1 || true
- exit 1
- fi
- PEAK_KIB="$(awk '/^VmHWM:/ {print $2}' "/proc/$PID/status")"
- kill "$PID" >/dev/null 2>&1 || true
- wait "$PID" 2>/dev/null || true
- test -n "$PEAK_KIB" || { echo "ERROR: could not read VmHWM"; exit 1; }
- bash scripts/check-size-budget.sh rss "$PEAK_KIB"
-
- vertical-demo-packs:
- name: vertical demo packs (CLAIM-48.1..48.6)
- runs-on: ubuntu-latest
- needs: [test]
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry and build
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-demo-packs-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Run vertical demo pack integration tests (CLAIM-48.1..48.6)
- run: cargo test -p tirbase-demo --test vertical_demo_packs -- --nocapture --test-threads=1
-
- - name: Run demo pack entry scripts (observable defended output)
- run: |
- set -euo pipefail
- for pack in energy-edge water-pumping logistics-node buildings-bms remote-ops-mesh defense-logistics; do
- echo "--- running tirbase-demo/${pack}/run.sh ---"
- bash "tirbase-demo/${pack}/run.sh"
- done
-
- gateway-sdk-generated:
- name: gateway admin TypeScript SDK generated from OpenAPI (CLAIM-49.1, CLAIM-49.2)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Setup Node.js
- uses: actions/setup-node@v4
- with:
- node-version: '20'
-
- - name: Regenerate SDK and reject manual changes
- run: bash scripts/check-gateway-sdk-generated.sh
-
- gateway-admin-sdk-e2e:
- name: gateway admin TypeScript SDK e2e (real binary over mTLS)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Cache cargo registry
- uses: actions/cache@v4
- with:
- path: |
- ~/.cargo/registry
- ~/.cargo/git
- target
- key: ${{ runner.os }}-cargo-gateway-sdk-e2e-${{ hashFiles('**/Cargo.lock') }}
-
- - name: Build gateway binary
- run: cargo build -p tirbase-gateway --bin tirbase-gateway
-
- - name: Setup Node.js
- uses: actions/setup-node@v4
- with:
- node-version: '20'
-
- - name: Install SDK dependencies
- working-directory: sdk/typescript
- run: npm install --no-audit --no-fund
-
- # The test boots the real gateway with the mTLS remote admin listener
- # enabled, mints a token over the local admin socket, and drives every
- # ADMIN_PATHS/OPERATION_IDS entry through the generated client. The PKI,
- # trust root and signed simulate command come from
- # tirbase-gateway/examples/admin_e2e_setup.rs.
- - name: Run gateway admin SDK e2e
- working-directory: sdk/typescript
- env:
- TIRBASE_GATEWAY_BIN: ${{ github.workspace }}/target/debug/tirbase-gateway
- run: npm test
-
- wasm-public-api-diff:
- name: WASM exports diff against cargo public-api (CLAIM-49.3)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install Rust stable
- uses: dtolnay/rust-toolchain@stable
-
- - name: Install Rust nightly (cargo-public-api)
- uses: dtolnay/rust-toolchain@nightly
-
- - name: Install wasm32 target
- run: rustup target add wasm32-unknown-unknown
-
- - name: Install wasm-pack (best-effort export inventory)
- run: |
- if ! command -v wasm-pack &>/dev/null; then
- cargo install wasm-pack --locked
- fi
-
- - name: Install cargo-public-api
- run: |
- if ! cargo +nightly public-api --help &>/dev/null; then
- cargo +nightly install cargo-public-api --locked
- fi
-
- - name: Diff WASM/public API surface against baseline
- run: bash scripts/check-wasm-public-api.sh
-
- mdbook-site:
- name: mdBook documentation site (CLAIM-50.1)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Install mdBook
- run: |
- if ! command -v mdbook &>/dev/null; then
- cargo install mdbook --locked
- fi
-
- - name: Build mdBook site
- run: mdbook build docs
-
- readme-status:
- name: regenerate README Status from CLAIMS.md (CLAIM-50.2)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - name: Regenerate README Status section
- run: python3 scripts/generate-readme-status.py
-
- - name: Fail if README Status is out of date
- run: |
- if ! git diff --quiet -- README.md; then
- echo "ERROR: README Status section differs from CLAIMS.md-generated output."
- git --no-pager diff -- README.md
- exit 1
- fi
- echo "OK: README Status section matches CLAIMS.md."
-
- formal-models:
- name: TLA+ model check (CLAIM-51.1–51.4, PV-26.1)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - uses: actions/setup-java@v4
- with:
- distribution: temurin
- java-version: '17'
-
- - name: Download TLA+ tools
- run: |
- curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" \
- https://github.com/tlaplus/tlaplus/releases/download/v1.7.1/tla2tools.jar
-
- - name: Model-check every spec with TLC
- run: bash scripts/check-formal-models.sh "$RUNNER_TEMP/tla2tools.jar"
-
- concurrency-models:
- name: loom/shuttle concurrency models (CLAIM-51.5, PV-26.3)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - uses: dtolnay/rust-toolchain@stable
-
- - uses: Swatinem/rust-cache@v2
-
- - name: loom model check (real SingleWriterLease / AntiReplayWindow)
- run: cargo test -p tirbase-guard --features loom --test concurrency_loom
-
- - name: shuttle schedule check (real SingleWriterLease / AntiReplayWindow)
- run: cargo test -p tirbase-guard --features shuttle --test concurrency_shuttle
-
- kani-envelope-arith:
- name: Kani overflow proof (CLAIM-51.6, PV-26.4)
- runs-on: ubuntu-latest
- steps:
- - uses: actions/checkout@v4
-
- - uses: dtolnay/rust-toolchain@stable
-
- # Kani has no preinstalled runner here; install it explicitly and let a
- # failure to install fail the job (never a silent pass).
- - name: Install Kani
- run: |
- cargo install --locked kani-verifier
- cargo kani setup
-
- # Single-file Kani harness. It models the guard's i128 comparison; it does
- # not yet link `tirbase-types`, so CLAIM-51.6 stays Planned until the
- # harness is moved onto the real type and observed green.
- - name: Run the envelope-arithmetic proof harnesses
- run: kani formal/kani_envelope_arith.rs
+  license-hash-check:
+    name: LICENSE integrity check (CLAIM-3.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify LICENSE SHA-256 against known-good hash in CODEOWNERS (CLAIM-3.6)
+        # Reads the known-good SHA-256 from the `# LICENSE-SHA256: <hex>` comment
+        # line in .github/CODEOWNERS, recomputes the digest of LICENSE, and fails
+        # CI with a clear error message if they differ.  This blocks any pull
+        # request that modifies the LICENSE file without updating the hash.
+        run: |
+          KNOWN=$(grep -m1 'LICENSE-SHA256:' .github/CODEOWNERS | awk '{print $NF}')
+          if [ -z "$KNOWN" ]; then
+            echo "ERROR: Could not find a '# LICENSE-SHA256: <hash>' line in .github/CODEOWNERS."
+            exit 1
+          fi
+          ACTUAL=$(sha256sum LICENSE | awk '{print $1}')
+          if [ "$ACTUAL" != "$KNOWN" ]; then
+            echo "ERROR: LICENSE SHA-256 mismatch — the file may have been modified."
+            echo "  Expected (from CODEOWNERS): $KNOWN"
+            echo "  Computed (from LICENSE):    $ACTUAL"
+            echo ""
+            echo "If the LICENSE change is intentional and has been reviewed, update the"
+            echo "'# LICENSE-SHA256:' line in .github/CODEOWNERS to: $ACTUAL"
+            exit 1
+          fi
+          echo "OK: LICENSE SHA-256 matches the known-good hash in CODEOWNERS ($ACTUAL)."
+
+  cargo-deny:
+    name: cargo-deny (license / advisory / ban check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo-deny checks (CLAIM-2.2)
+        # EmbarkStudios/cargo-deny-action is faster than `cargo install cargo-deny`
+        # because it downloads a pre-built binary instead of compiling from source.
+        # `command: check` runs all four checks: licenses, bans, advisories, sources.
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  cargo-audit:
+    name: cargo-audit (vulnerability advisory check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo-audit (CLAIM-2.3)
+        # Uses the rustsec/audit-check action which downloads a pre-built binary
+        # and fails the job if any unignored vulnerability is found.
+        # Pre-existing advisories acknowledged at gate-wiring time are listed in
+        # audit.toml at the workspace root (mirroring deny.toml's ignore list).
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cargo-geiger:
+    name: cargo-geiger (unsafe block gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-geiger-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-geiger
+        # Install only if not already cached from a previous run.
+        # cargo-geiger needs the nightly-compatible syn feature; the stable
+        # toolchain is sufficient for the binary itself.
+        run: |
+          if ! command -v cargo-geiger &>/dev/null; then
+            cargo install cargo-geiger --locked
+          fi
+
+      - name: Run cargo geiger (CLAIM-2.4)
+        # Produce a JSON report for reliable machine parsing.
+        # `--quiet` suppresses progress bars that would pollute the artifact.
+        # `|| true` prevents the step from failing on non-zero exit codes that
+        # cargo-geiger can emit when it encounters crates it cannot fully
+        # instrument (those packages are still counted in the output).
+        run: |
+          cargo geiger --workspace --output-format Json --quiet 2>/dev/null \
+            > geiger-report.json || true
+          echo "Generated geiger-report.json ($(wc -c < geiger-report.json) bytes)"
+
+      - name: Download previous geiger baseline
+        # `continue-on-error: true` means the step is skipped silently on the
+        # very first run when no artifact named `geiger-baseline` exists yet.
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: geiger-baseline
+          path: geiger-baseline/
+
+      - name: Compare unsafe count against baseline (CLAIM-2.4)
+        # Scripts are committed to the repo so the comparison logic is
+        # auditable and does not rely on inline YAML heredocs.
+        run: |
+          bash scripts/check-geiger.sh \
+            geiger-report.json \
+            geiger-baseline/geiger-report.json
+
+      - name: Save new geiger baseline artifact
+        # Only runs if the comparison step passed (no net increase).
+        # This artifact is downloaded by the NEXT run to serve as the baseline.
+        uses: actions/upload-artifact@v4
+        with:
+          name: geiger-baseline
+          path: geiger-report.json
+          # Retain for 90 days — long enough to cover any reasonable PR cadence.
+          retention-days: 90
+
+  layer-isolation:
+    name: Dependency layer isolation checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-layer-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check tirbase-core layer isolation
+        run: |
+          # tirbase-core MUST NOT declare tirbase-guard or tirbase-drivers as dependencies.
+          # Grep the [dependencies] section only (stops at the next section header).
+          MANIFEST="tirbase-core/Cargo.toml"
+          if grep -E '^\s*(tirbase-guard|tirbase-drivers)\s*=' "$MANIFEST"; then
+            echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-drivers)."
+            echo "       tirbase-core must not import tirbase-guard or tirbase-drivers (design.md §Dependency edges)."
+            exit 1
+          fi
+          echo "OK: $MANIFEST contains no forbidden dependency declarations."
+          cargo check -p tirbase-core
+
+      - name: Check tirbase-drivers layer isolation
+        run: |
+          # tirbase-drivers MUST NOT declare tirbase-guard or tirbase-core as dependencies.
+          MANIFEST="tirbase-drivers/Cargo.toml"
+          if grep -E '^\s*(tirbase-guard|tirbase-core)\s*=' "$MANIFEST"; then
+            echo "ERROR: $MANIFEST lists a forbidden dependency (tirbase-guard or tirbase-core)."
+            echo "       tirbase-drivers must not import tirbase-guard or tirbase-core (design.md §Dependency edges)."
+            exit 1
+          fi
+          echo "OK: $MANIFEST contains no forbidden dependency declarations."
+          cargo check -p tirbase-drivers
+          cargo test -p tirbase-drivers
+
+  public-api:
+    name: cargo public-api (CLAIM-2.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustdoc
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-public-api-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-public-api
+        # Install only if not already cached from a previous run.
+        # Pinned to 0.52.0 to avoid unexpected breakage from tool updates.
+        run: |
+          if ! command -v cargo-public-api &>/dev/null; then
+            cargo install cargo-public-api --version 0.52.0 --locked
+          fi
+
+      - name: Check public API manifests (CLAIM-2.6)
+        # Fails if any crate has new pub items not present in its committed manifest.
+        # To update a manifest after an intentional API addition:
+        #   cargo +nightly public-api -p <crate> > <crate>/public-api.txt
+        # then commit the updated file.
+        run: bash scripts/check-public-api.sh
+
+  orphan-api:
+    name: orphan pub-API gate (CLAIM-2.7)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly (required for rustdoc --output-format json)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustdoc
+
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-orphan-api-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run orphan pub-API check (CLAIM-2.7)
+        # Generates rustdoc JSON for each library crate using nightly, then
+        # identifies `pub` items with no non-test callers outside their own crate.
+        # Items in docs/orphan-api-allowlist.md are approved orphans (skipped).
+        # Any item past its expiry version in the allowlist also fails CI.
+        run: bash scripts/check-orphan-api.sh
+
+  claims-check:
+    name: CLAIMS.md registry check (CLAIM-3.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate CLAIMS.md — identifiers must exist and be cited (CLAIM-3.1)
+        # scripts/check-claims.sh parses CLAIMS.md, finds every row whose Status
+        # column is exactly "Proven", and fails CI naming each claim that has an
+        # empty Test Identifier column or cites a test identifier that does not
+        # resolve to a fn/mod/<name>.rs in the repo.  See PV-2.2 and task 3.1.
+        run: bash scripts/check-claims.sh CLAIMS.md
+
+  claim-markers:
+    name: "[CLAIM-{id}] marker scan (CLAIM-3.2)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan docs for undeclared Planned claim references (CLAIM-3.2)
+        # scripts/check-claim-markers.sh reads CLAIMS.md to identify all Planned
+        # claims, then scans root-level *.md, docs/**/*.md, and .kiro/specs/**/*.md
+        # for [CLAIM-{id}] markers.  Any marker that references a Planned claim
+        # without a planned qualifier on the same line fails CI.  See PV-2.3.
+        run: bash scripts/check-claim-markers.sh CLAIMS.md
+
+  pv-reference-exists:
+    name: PV requirement reference check (wave 0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all PV references in tasks.md exist in requirements.md
+        run: bash scripts/check-pv-references.sh
+
+  security-event-catalog:
+    name: Security event catalog check (CLAIM-3.9)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check security event catalog completeness (CLAIM-3.9)
+        # scripts/check-security-event-catalog.sh parses docs/security-event-catalog.md
+        # to extract all known (SecurityEventCategory, ReasonCode) pairs, then scans
+        # production Rust source under tirbase-core/src/, tirbase-guard/src/,
+        # tirbase-gateway/src/, tirbase-drivers/src/, and tirbase-admin/src/ for any
+        # SecurityEventCategory::Variant or ReasonCode::Variant references not listed
+        # in the catalog.  CI fails if any unlisted variant is found.  See PV-7.11.
+        run: bash scripts/check-security-event-catalog.sh
+
+  state-inventory:
+    name: State inventory struct scan (CLAIM-31.2, PV-9.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check state inventory registration
+        run: bash scripts/check-state-inventory.sh
+
+  system-invariants:
+    name: System invariants catalog check (CLAIM-17.1-17.8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check system invariants catalog and InvariantChecker wiring (PV-23.1/PV-23.2)
+        # Fails if docs/system-invariants.md is missing any INV-1..INV-16 row or
+        # if tirbase-sim/src/invariants.rs (InvariantChecker) is missing or does
+        # not reference every INV. Removing any INV-N entry must fail CI (17.1-17.8).
+        run: bash scripts/check-system-invariants.sh docs/system-invariants.md
+
+  clippy-no-direct-clock:
+    name: clippy — no direct clock calls (CLAIM-5.5, CLAIM-5.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+
+      # clippy.toml bans `std::time::Instant::now`, `std::time::SystemTime::now`
+      # and `tokio::time::Instant::now` workspace-wide (PV-3.12).  Every clock
+      # read must go through `TimeSource`; the only allowed uses are inside the
+      # TimeSource implementation itself, annotated with
+      # `#[allow(clippy::disallowed_methods)]`.  Promoting the lint to an error
+      # makes any regression a hard CI failure (CLAIM-5.6).
+      - name: Clippy with disallowed-methods as error
+        run: cargo clippy --workspace -- -D clippy::disallowed_methods
+
+  clippy-no-hashmap:
+    name: clippy — no HashMap in guard/sim (CLAIM-38.7, PV-12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-hashmap-${{ hashFiles('**/Cargo.lock') }}
+
+      # clippy.toml declares `std::collections::HashMap` a disallowed type
+      # (task 38.7). `tirbase-guard` and `tirbase-sim` enable the lint with
+      # `#![deny(clippy::disallowed_types)]`, so any HashMap use in either
+      # crate is a hard CI failure. `--all-targets` also covers tests.
+      - name: Clippy — HashMap disallowed in guard and sim
+        run: cargo clippy -p tirbase-guard -p tirbase-sim --all-targets
+
+  check:
+    name: cargo check (${{ matrix.target }})
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            features: native
+            no_default_features: ""
+            packages: --workspace
+          # Only `tirbase-core` (with `tirbase-types`) is compiled to WASM. Every
+          # other workspace member links SQLite, libp2p, rustls/ring or tokio's
+          # net stack, none of which build for wasm32-unknown-unknown, so the
+          # wasm row must be package-scoped rather than workspace-wide.
+          - target: wasm32-unknown-unknown
+            features: wasm
+            no_default_features: "--no-default-features"
+            packages: -p tirbase-core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo check
+        run: |
+          cargo check ${{ matrix.packages }} ${{ matrix.no_default_features }} --features ${{ matrix.features }} --target ${{ matrix.target }}
+
+      - name: Check dead_code warnings (CLAIM-2.1)
+        # Promote dead_code warnings to errors so CI fails if any private symbol
+        # is unused. `pub` items are naturally exempt from the dead_code lint.
+        # Only run on the native target — the WASM target shares the same source
+        # and would produce duplicate diagnostics.
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: RUSTFLAGS="-D dead_code" cargo check --workspace --features native
+
+  cargo-mutants-pr:
+    name: cargo-mutants (PR diff scope, CLAIM-2.8)
+    # Only run on pull requests — the nightly job covers full-scope mutation
+    # testing on the default branch (task 2.5 / nightly-mutants.yml).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Run after the regular test suite so we know the baseline tests pass first.
+    needs: [test]
+    continue-on-error: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch the full history so `git diff` against the base branch works.
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-mutants-pr-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-mutants
+        run: |
+          if ! command -v cargo-mutants &>/dev/null; then
+            cargo install cargo-mutants --locked
+          fi
+
+      # -----------------------------------------------------------------------
+      # Produce a unified diff of every Rust source file changed in this PR
+      # relative to the merge-base of the base branch, then pass it to
+      # cargo-mutants via --in-diff.  cargo-mutants will only generate and
+      # test mutations that touch lines present in the diff, keeping CI fast
+      # for small PRs while still catching surviving mutations in changed code
+      # (PV-1.15 / CLAIM-2.8).
+      #
+      # Notes:
+      #   - `git diff origin/$BASE...HEAD` uses the three-dot form, which diffs
+      #     from the common merge-base rather than the current tip of the base
+      #     branch, matching what a PR review actually shows.
+      #   - We write the diff to a temp file because process substitution
+      #     (<(...)) is a bashism that may not be available in all runner shells.
+      #   - --timeout 120 mirrors the nightly job default.
+      #   - --jobs 2 avoids overwhelming the shared runner.
+      #   - --no-shuffle keeps the output deterministic so artifact diffs are
+      #     meaningful across re-runs.
+      # -----------------------------------------------------------------------
+      - name: Generate PR diff for mutation scoping (CLAIM-2.8)
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_BRANCH" --depth=50
+          git diff "origin/${BASE_BRANCH}...HEAD" -- '*.rs' > /tmp/pr.diff
+          DIFF_LINES=$(wc -l < /tmp/pr.diff)
+          echo "PR diff contains ${DIFF_LINES} lines across changed Rust files."
+          if [ "$DIFF_LINES" -eq 0 ]; then
+            echo "No Rust source changes detected in this PR — skipping mutation run."
+            echo "SKIP_MUTANTS=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run cargo-mutants scoped to PR diff (CLAIM-2.8)
+        if: env.SKIP_MUTANTS != 'true'
+        run: |
+          cargo mutants \
+            --in-diff /tmp/pr.diff \
+            --timeout 120 \
+            --jobs 2 \
+            --no-shuffle
+
+      - name: Upload PR mutants artifact
+        if: always() && env.SKIP_MUTANTS != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-pr-diff
+          path: mutants.out/
+          retention-days: 14
+
+  test:
+    name: cargo test (native) + WASM parity check + SDK tests
+    needs: [license-hash-check, cargo-deny, cargo-audit, cargo-geiger, layer-isolation, public-api, orphan-api, claims-check, claim-markers, pv-reference-exists, security-event-catalog, state-inventory, system-invariants]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: cargo test (native) — includes parity + convergence tests
+        run: cargo test --features native
+
+      # ── Mandatory e2e wiring gates ───────────────────────────────────────────
+      #
+      # These run the real production paths, not mocks: two Swarm-backed
+      # CoreHandles on loopback, a signed Delta travelling the real outbound
+      # transport into the production inbound drain loop, and the SQL projection
+      # read back through the public read() path. They are separate steps so a
+      # regression names the broken surface in the CI summary.
+      - name: Real-mesh e2e (two-Swarm loopback through production inbound path)
+        run: >-
+          cargo test -p tirbase-core --features native --lib api::real_mesh_tests
+          -- --test-threads=1
+
+      - name: CCE + Side-Car e2e (revocation taint, composite ICO, replay/recovery)
+        run: >-
+          cargo test -p tirbase-core --features native --lib api::contamination_mesh_tests
+          -- --test-threads=1
+
+      - name: Projection write-through (binary Automerge + JSON envelope)
+        run: |
+          set -euo pipefail
+          cargo test -p tirbase-core --features native --lib \
+            api::real_mesh_tests::write_gossip_receive_merge_round_trip_is_signature_verified_and_projected
+          cargo test -p tirbase-core --features native --lib \
+            api::real_mesh_tests::json_envelope_delta_over_real_mesh_projects_to_peer_store
+
+      # WS6: fragmentation at mesh_mtu=256, 3-node multi-hop relay through the
+      # production poll task, and Noise 0-RTT resumption / rotation / revocation
+      # over real loopback TCP between two Swarm-backed handles. The BLE bridge
+      # framing is covered by the transport tests (`transport::tests::ble_*`) over
+      # an emulated link; only the radio test is hardware-gated (see below).
+      - name: WS6 e2e (fragmentation, multi-hop relay, 0-RTT, rotation, revocation)
+        run: >-
+          cargo test -p tirbase-core --features native --lib api::network_wiring_mesh_tests
+          -- --test-threads=1
+
+      - name: WS6 transport (fragmentation bounds, relay loop/hop limits, BLE bridge)
+        run: >-
+          cargo test -p tirbase-core --features native --lib transport::
+
+      # WS7: DRR byte floors over ten real-mesh epochs, spare-capacity flow,
+      # the LOW 10-epoch bound, per-table compaction isolation, and the cloud
+      # outbound queue bound/no-drop behaviour. Production scheduler and queue
+      # paths only; the 100k full-scale queue test is gated with #[ignore].
+      - name: WS7 e2e (DRR floors, spare capacity, LOW bound, compaction, queue)
+        run: >-
+          cargo test -p tirbase-core --features native --lib api::drr_compaction_queue_tests
+          -- --test-threads=1
+
+      - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
+        run: cargo test -p tirbase-core --features native --lib tests::api_parity
+
+      - name: Cross-build parity (native vs real WASM state hash, Property 1)
+        run: ./scripts/cross-build-parity.sh
+
+      # Task 39.1 / CLAIM-39.1: the TOML catalog S1–S35 executes 1,120 seeded
+      # scenarios per run (>= 1,000 required).  A failing scenario prints its
+      # seed before the runner exits.
+      - name: Adversary scenario runner — ≥1,000 seeded scenarios (task 39.1)
+        run: cargo test -p tirbase-sim --test scenario_runner -- --nocapture
+
+      - name: cargo test (native, test hooks) — test-only setup hooks (CLAIM-31.3)
+        run: cargo test -p tirbase-core --features native,test-hooks --test ico_persistence
+
+      # `tirbase-core` is the only WASM-capable crate; the gateway, guard, sim,
+      # drivers, admin and demo crates link native-only dependencies (SQLite,
+      # libp2p, rustls/ring, tokio net), so the check is package-scoped.
+      - name: cargo check (WASM target) — fails CI on WASM compile error
+        run: cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown
+
+      # The WASM build is type-checked above; these tests actually execute it in
+      # a headless browser, which is the only place IndexedDB, the browser clock
+      # and the `wasm_exports` entry points (`core_init`/`core_write`/
+      # `core_receive_peer_message`) exist.  `scripts/wasm-test.sh` explains the
+      # tooling it needs and fails loudly if it is missing.
+      - name: Install wasm-bindgen CLI matching Cargo.lock
+        run: |
+          set -euo pipefail
+          version="$(awk '/^name = "wasm-bindgen"$/ { getline; print $3 }' Cargo.lock | tr -d '"' | head -n1)"
+          have="$(wasm-bindgen --version 2>/dev/null | awk '{print $2}' || true)"
+          if [ "${have}" != "${version}" ]; then
+            cargo install "wasm-bindgen-cli@${version}" --locked
+          fi
+
+      - name: Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: cargo test (WASM, headless Chrome) — IndexedDB store + WASM inbound
+        run: ./scripts/wasm-test.sh
+
+      # The SDK suite includes a cross-component test that boots this binary and
+      # mints a DISASTER_ALERT token through the real admin surface. `cargo test`
+      # above builds it via CARGO_BIN_EXE, but build it explicitly so the test's
+      # binary requirement is a named step instead of a side effect.
+      - name: Build gateway binary for the SDK saturate e2e
+        run: cargo build -p tirbase-gateway --bin tirbase-gateway
+
+      - name: Build WASM for SDK tests
+        working-directory: tirbase-sdk
+        run: npm run build:wasm
+
+      - name: Run SDK tests against real WASM
+        working-directory: tirbase-sdk
+        run: npm test
+
+      # The `pretest` hook above builds both WASM targets: the browser ESM package
+      # and a Node-target artefact under `wasm-test/` that Jest loads directly.
+      # This step names the real-WASM manager-operation e2e suite separately so a
+      # regression there is visible in the CI summary rather than buried in the
+      # full Jest output.
+      - name: Real-WASM manager-operation e2e (tirbase-sdk)
+        working-directory: tirbase-sdk
+        run: npm run test:wasm-e2e
+
+  fuzz-smoke:
+    name: cargo-fuzz smoke (CLAIM-40.1, PV-12.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Verify fuzz targets and committed seed corpora (CLAIM-40.1)
+        run: bash scripts/check-fuzz-targets.sh
+
+      # Root fuzz workspace (production caller: fuzz/fuzz_targets/)
+      - name: Build root fuzz targets
+        working-directory: fuzz
+        run: cargo +nightly fuzz build
+      - name: Smoke test root automerge_delta_decode (<=60s)
+        working-directory: fuzz
+        run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
+      - name: Smoke test root fragment_reassembly (<=60s)
+        working-directory: fuzz
+        run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
+
+      # tirbase-core
+      - name: Build tirbase-core fuzz targets
+        working-directory: tirbase-core
+        run: cargo +nightly fuzz build
+      - name: Smoke test automerge_delta_decode (<=60s)
+        working-directory: tirbase-core
+        run: cargo +nightly fuzz run automerge_delta_decode -- -max_total_time=55 -runs=1000000
+      - name: Smoke test fragment_reassembly (<=60s)
+        working-directory: tirbase-core
+        run: cargo +nightly fuzz run fragment_reassembly -- -max_total_time=55 -runs=1000000
+
+      # tirbase-drivers
+      - name: Build tirbase-drivers fuzz targets
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz build
+      - name: Smoke test modbus_frame (<=60s)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run modbus_frame -- -max_total_time=55 -runs=1000000
+      - name: Smoke test mqtt_frame (<=60s)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run mqtt_frame -- -max_total_time=55 -runs=1000000
+      - name: Smoke test register_map_parse (<=60s)
+        working-directory: tirbase-drivers
+        run: cargo +nightly fuzz run register_map_parse -- -max_total_time=55 -runs=1000000
+
+      # tirbase-guard (envelope/command parsers)
+      - name: Build tirbase-guard fuzz targets
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz build
+      - name: Smoke test envelope_profile_parse (<=60s)
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz run envelope_profile_parse -- -max_total_time=55 -runs=1000000
+      - name: Smoke test command_message_parse (<=60s)
+        working-directory: tirbase-guard
+        run: cargo +nightly fuzz run command_message_parse -- -max_total_time=55 -runs=1000000
+
+  fuzz-target-registry:
+    name: fuzz target registry rule (CLAIM-40.1, PV-6.8, PV-12.6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check untrusted parsers have fuzz targets and seed corpora
+        run: bash scripts/check-fuzz-targets.sh
+
+  cargo-mutants-gate:
+    name: cargo-mutants kill-rate gate (CLAIM-40.2, PV-12.7)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-mutants-gate-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cargo-mutants
+        run: |
+          if ! command -v cargo-mutants &>/dev/null; then
+            cargo install cargo-mutants --locked
+          fi
+      - name: Enforce >=80% mutation kill rate on guard/ledger/replay/validation modules
+        run: python3 scripts/check-mutants-threshold.sh --timeout 120
+      - name: Upload mutants gate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-gate-outcomes
+          path: mutants.out/
+          retention-days: 14
+
+  iai-bench:
+    name: iai-callgrind instruction-count gate (CLAIM-40.3, PV-15.3)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install system dependencies (valgrind for iai-callgrind)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-iai-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install iai-callgrind runner
+        run: |
+          if ! command -v iai-callgrind-runner &>/dev/null; then
+            cargo install iai-callgrind-runner --version 0.14.0 --locked
+          fi
+      - name: Check criterion/iai benches compile (tirbase-guard)
+        run: cargo bench -p tirbase-guard --no-run
+      - name: Check criterion/iai benches compile (tirbase-core)
+        run: cargo bench -p tirbase-core --no-run
+      - name: Instruction-count gate (tirbase-guard)
+        run: bash scripts/check-iai-regression.sh tirbase-guard tirbase-guard/iai-baseline.txt
+      - name: Instruction-count gate (tirbase-core)
+        run: bash scripts/check-iai-regression.sh tirbase-core tirbase-core/iai-baseline.txt
+
+  memory-budget-check:
+    name: memory budget measurement gate (24.5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Load configured caches and assert peak RSS stays under the budget
+        run: cargo test -p tirbase-core --test memory_budget_gate -- --ignored --nocapture
+
+
+  # Both legs are native: cross-compiling to aarch64 and running the libtest
+  # binary under qemu-user hangs on a trivial `assert_eq!(1, 1)` test (libtest's
+  # worker threads deadlock under emulation), so emulation is not a usable
+  # signal. The aarch64 leg runs on GitHub's arm64 hosted runner instead.
+  cross-arch-migration-determinism-x86_64:
+    name: migration determinism x86_64 (CLAIM-29.6)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
+
+      # Executes the committed conformance corpus and asserts the digest equals
+      # the committed known-good digest; emits the digest for the compare job.
+      - name: Migration conformance digest (x86_64, PV-8/CLAIM-29.6)
+        env:
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
+        run: |
+          cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+
+      - name: Upload x86_64 digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-digest-x86_64
+          path: ${{ runner.temp }}/migration-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  cross-arch-migration-determinism-aarch64:
+    name: migration determinism aarch64 (CLAIM-29.6)
+    runs-on: ubuntu-24.04-arm
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-migration-xarch-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Migration conformance digest (aarch64, PV-8/CLAIM-29.6)
+        env:
+          TIRBASE_MIGRATION_DIGEST_OUT: ${{ runner.temp }}/migration-digest.txt
+        run: |
+          cargo test -p tirbase-core --lib migration::wasm_sandbox::tests::deterministic_cross_arch_hash_vector -- --nocapture
+
+      - name: Upload aarch64 digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-digest-aarch64
+          path: ${{ runner.temp }}/migration-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  cross-arch-migration-determinism:
+    name: migration determinism compare (x86_64 vs aarch64, CLAIM-29.6)
+    runs-on: ubuntu-latest
+    needs: [cross-arch-migration-determinism-x86_64, cross-arch-migration-determinism-aarch64]
+    steps:
+      - name: Download x86_64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-digest-x86_64
+          path: digests/x86_64
+
+      - name: Download aarch64 digest
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-digest-aarch64
+          path: digests/aarch64
+
+      - name: Compare x86_64 and aarch64 migration output digests
+        run: |
+          set -euo pipefail
+          host_digest=digests/x86_64/migration-digest.txt
+          arm_digest=digests/aarch64/migration-digest.txt
+          test -s "$host_digest" || { echo "missing x86_64 digest artifact"; exit 1; }
+          test -s "$arm_digest" || { echo "missing aarch64 digest artifact"; exit 1; }
+          echo "x86_64:  $(cat "$host_digest")"
+          echo "aarch64: $(cat "$arm_digest")"
+          diff -u "$host_digest" "$arm_digest" || {
+            echo "MISMATCH: migration output digests differ between x86_64 and aarch64";
+            exit 1;
+          }
+          echo "OK: x86_64 and aarch64 produced the same migration output digest"
+
+  # Bit-identical model determinism across architectures (CLAIM-38.4/38.5,
+  # PV-12.3). Both legs run natively: the aarch64 leg uses GitHub's arm64
+  # hosted runner because libtest deadlocks under qemu-user emulation.
+  sim-determinism-x86_64:
+    name: sim determinism x86_64 (CLAIM-38.4/38.5)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Sim determinism digest (x86_64, PV-12.3)
+        env:
+          TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
+        run: |
+          cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
+
+      - name: Upload x86_64 sim digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-digest-x86_64
+          path: ${{ runner.temp }}/sim-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  sim-determinism-aarch64:
+    name: sim determinism aarch64 (CLAIM-38.4/38.5)
+    runs-on: ubuntu-24.04-arm
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-sim-determinism-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Sim determinism digest (aarch64, PV-12.3)
+        env:
+          TIRBASE_SIM_DIGEST_OUT: ${{ runner.temp }}/sim-digest.txt
+        run: |
+          cargo test -p tirbase-sim --test determinism emit_cross_arch_digest -- --nocapture
+
+      - name: Upload aarch64 sim digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-digest-aarch64
+          path: ${{ runner.temp }}/sim-digest.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  sim-determinism:
+    name: sim determinism compare (x86_64 vs aarch64, CLAIM-38.4/38.5)
+    runs-on: ubuntu-latest
+    needs: [sim-determinism-x86_64, sim-determinism-aarch64]
+    steps:
+      - name: Download x86_64 sim digest
+        uses: actions/download-artifact@v4
+        with:
+          name: sim-digest-x86_64
+          path: digests/sim-x86_64
+
+      - name: Download aarch64 sim digest
+        uses: actions/download-artifact@v4
+        with:
+          name: sim-digest-aarch64
+          path: digests/sim-aarch64
+
+      - name: Compare x86_64 and aarch64 simulator digests
+        run: |
+          set -euo pipefail
+          host_digest=digests/sim-x86_64/sim-digest.txt
+          arm_digest=digests/sim-aarch64/sim-digest.txt
+          test -s "$host_digest" || { echo "missing x86_64 sim digest artifact"; exit 1; }
+          test -s "$arm_digest" || { echo "missing aarch64 sim digest artifact"; exit 1; }
+          echo "x86_64:  $(cat "$host_digest")"
+          echo "aarch64: $(cat "$arm_digest")"
+          diff -u "$host_digest" "$arm_digest" || {
+            echo "MISMATCH: thermal/battery/scenario output differs between x86_64 and aarch64";
+            exit 1;
+          }
+          echo "OK: x86_64 and aarch64 produced bit-identical simulator output"
+
+  # ── Packaging and fleet inventory (task 37, PV-11.3/PV-11.4) ───────────────
+  #
+  # These jobs are the production callers for CLAIM-37.1 … CLAIM-37.4.  They
+  # build the gateway for the two ARM targets, produce a Debian 11 package and a
+  # container image, and gate binary size / RSS against deploy/budgets.toml.
+
+  cross-compile:
+    name: cross-compile ${{ matrix.target }} (CLAIM-37.1)
+    runs-on: ubuntu-latest
+    needs: [test]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            elf_machine: AArch64
+          - target: armv7-unknown-linux-gnueabihf
+            elf_machine: ARM
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cross-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cross
+        # Cross.toml supplies the per-target libdbus pre-build hook.
+        run: |
+          if ! command -v cross &>/dev/null; then
+            cargo install cross --locked
+          fi
+
+      - name: Build tirbase-gateway for ${{ matrix.target }}
+        run: cross build --release --locked -p tirbase-gateway --target ${{ matrix.target }}
+
+      - name: Verify the produced binary is a ${{ matrix.target }} ELF
+        run: |
+          set -euo pipefail
+          BIN="target/${{ matrix.target }}/release/tirbase-gateway"
+          test -f "$BIN" || { echo "ERROR: missing cross-compiled binary $BIN"; exit 1; }
+          test -x "$BIN" || { echo "ERROR: $BIN is not executable"; exit 1; }
+          file "$BIN"
+          MACHINE="$(readelf -h "$BIN" | awk -F: '/Machine:/{gsub(/^[ \t]+/, "", $2); print $2}')"
+          case "$MACHINE" in
+            *"${{ matrix.elf_machine }}"*) ;;
+            *) echo "ERROR: expected ELF machine '${{ matrix.elf_machine }}', got '$MACHINE'"; exit 1 ;;
+          esac
+          SIZE=$(wc -c < "$BIN")
+          test "$SIZE" -gt 1000000 || { echo "ERROR: implausibly small binary ($SIZE bytes)"; exit 1; }
+          echo "OK: $BIN is a $MACHINE executable ($SIZE bytes)"
+
+      - name: Execute the cross-compiled binary (${{ matrix.target }})
+        # `cross run` executes the binary under the target qemu-user inside the
+        # cross image, proving the artifact actually starts on the target ABI.
+        run: |
+          set -euo pipefail
+          OUT=$(cross run --release --locked -p tirbase-gateway --target ${{ matrix.target }} -- --version)
+          echo "$OUT"
+          case "$OUT" in
+            *"tirbase-gateway"*) ;;
+            *) echo "ERROR: cross-compiled binary did not report its version"; exit 1 ;;
+          esac
+
+      - name: Binary size budget gate (CLAIM-37.4)
+        run: bash scripts/check-size-budget.sh binary-size "target/${{ matrix.target }}/release/tirbase-gateway" "${{ matrix.target }}"
+
+      - name: Upload cross-compiled binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/tirbase-gateway
+          retention-days: 7
+
+  package-deb:
+    name: .deb package + Debian 11 install test (CLAIM-37.2)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-package-deb-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cross
+        run: |
+          if ! command -v cross &>/dev/null; then
+            cargo install cross --locked
+          fi
+
+      - name: Build the glibc-2.31 x86_64 release binary
+        # Debian 11 ships glibc 2.31; cross's x86_64 image links against it so
+        # the package is installable on the oldest supported target.
+        run: cross build --release --locked -p tirbase-gateway --target x86_64-unknown-linux-gnu
+
+      - name: Install cargo-deb
+        run: |
+          if ! command -v cargo-deb &>/dev/null; then
+            cargo install cargo-deb --locked
+          fi
+
+      - name: Build the .deb
+        # Asset and maintainer-script paths in [package.metadata.deb] resolve
+        # against the workspace root (cargo-deb 3.x does not chdir).
+        run: cargo deb -p tirbase-gateway --target x86_64-unknown-linux-gnu --no-build --output target/debian/
+
+      - name: Inspect the package payload
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2012 # the glob is single-package and controlled
+          DEB="$(ls target/debian/tirbase-gateway_*.deb | head -1)"
+          test -n "$DEB"
+          dpkg-deb -I "$DEB"
+          dpkg-deb -c "$DEB" | grep -q 'usr/bin/tirbase-gateway'
+          dpkg-deb -c "$DEB" | grep -q 'lib/systemd/system/tirbase-gateway.service'
+          dpkg-deb -c "$DEB" | grep -q 'etc/tirbase/gateway.toml'
+          echo "package architecture: $(dpkg-deb -f "$DEB" Architecture)"
+
+      - name: Install and start the gateway on Debian 11 (integration test)
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/target/debian:/pkg:ro" debian:11 bash -lc '
+            set -euo pipefail
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends curl >/dev/null
+            apt-get install -y -qq /pkg/tirbase-gateway_*.deb >/dev/null
+            dpkg -s tirbase-gateway | grep -E "^(Version|Architecture)"
+            /usr/bin/tirbase-gateway --version
+            install -d -m 0750 /var/lib/tirbase /run/tirbase
+            /usr/bin/tirbase-gateway /etc/tirbase/gateway.toml >/tmp/gateway.log 2>&1 &
+            PID=$!
+            healthy=0
+            for _ in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+                healthy=1
+                break
+              fi
+              sleep 1
+            done
+            kill "$PID" >/dev/null 2>&1 || true
+            wait "$PID" 2>/dev/null || true
+            if [ "$healthy" != 1 ]; then
+              echo "ERROR: gateway did not pass /health after .deb install"
+              cat /tmp/gateway.log
+              exit 1
+            fi
+            echo "OK: .deb installed and gateway passed /health on Debian 11"
+          '
+
+      - name: Upload the .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: tirbase-gateway-deb
+          path: target/debian/tirbase-gateway_*.deb
+          retention-days: 7
+
+  package-oci:
+    name: OCI image + health check (CLAIM-37.3)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-package-oci-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cross
+        run: |
+          if ! command -v cross &>/dev/null; then
+            cargo install cross --locked
+          fi
+
+      - name: Build the glibc-2.31 x86_64 release binary
+        run: cross build --release --locked -p tirbase-gateway --target x86_64-unknown-linux-gnu
+
+      - name: Stage the Docker build context
+        run: |
+          mkdir -p dist
+          cp target/x86_64-unknown-linux-gnu/release/tirbase-gateway dist/tirbase-gateway
+
+      - name: Build the OCI image
+        run: docker build -f deploy/Dockerfile -t tirbase-gateway:ci .
+
+      - name: Inspect the built image
+        run: |
+          docker image inspect tirbase-gateway:ci \
+            --format 'architecture={{.Architecture}} os={{.Os}}'
+          ARCH="$(docker image inspect tirbase-gateway:ci --format '{{.Architecture}}')"
+          test "$ARCH" = "amd64" || { echo "ERROR: unexpected image architecture $ARCH"; exit 1; }
+          docker image inspect tirbase-gateway:ci --format '{{json .Config.Healthcheck}}' | grep -q 'curl' \
+            || { echo "ERROR: image has no HEALTHCHECK"; exit 1; }
+
+      - name: Run the image and wait for the health check (integration test)
+        run: |
+          set -euo pipefail
+          docker run -d --name tirbase-gateway-ci tirbase-gateway:ci
+          status=""
+          for _ in $(seq 1 60); do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' tirbase-gateway-ci)"
+            if [ "$status" = "healthy" ] || [ "$status" = "unhealthy" ]; then break; fi
+            sleep 2
+          done
+          echo "container health: $status"
+          docker logs tirbase-gateway-ci || true
+          docker rm -f tirbase-gateway-ci >/dev/null 2>&1 || true
+          if [ "$status" != "healthy" ]; then
+            echo "ERROR: OCI image did not pass its health check (status=$status)"
+            exit 1
+          fi
+          echo "OK: OCI image started and passed the health check"
+
+  size-budget:
+    name: binary size + RSS budget gates (CLAIM-37.4)
+    runs-on: ubuntu-latest
+    needs: [cross-compile]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the x86_64 cross-compiled gateway
+        uses: actions/download-artifact@v4
+        with:
+          name: gateway-x86_64-unknown-linux-gnu
+          path: target/x86_64-unknown-linux-gnu/release
+
+      - name: Prove the gate fails on an over-budget size or RSS measurement
+        # Self-test uses synthetic budgets; it does not touch deploy/budgets.toml.
+        run: bash scripts/check-size-budget.sh --self-test
+
+      - name: Binary size budget gate
+        run: |
+          BIN=target/x86_64-unknown-linux-gnu/release/tirbase-gateway
+          chmod +x "$BIN"
+          bash scripts/check-size-budget.sh binary-size "$BIN" x86_64-unknown-linux-gnu
+
+      - name: Boot the gateway and gate peak RSS
+        run: |
+          set -euo pipefail
+          BIN=target/x86_64-unknown-linux-gnu/release/tirbase-gateway
+          chmod +x "$BIN"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libdbus-1-3 curl
+          WORK="$RUNNER_TEMP/tirbase-rss"
+          mkdir -p "$WORK"
+          cat > "$WORK/gateway.toml" <<EOF
+          key_path = "$WORK/device-key.json"
+          counter_db_path = "$WORK/primary.db"
+          derived_db_path = "$WORK/derived.db"
+          admin_socket = "$WORK/admin.sock"
+          health_addr = "127.0.0.1:18080"
+          metrics_addr = "127.0.0.1:19090"
+          admin_enabled = false
+          checkpoint_interval_secs = 3600
+          EOF
+          "$BIN" "$WORK/gateway.toml" >"$WORK/gateway.log" 2>&1 &
+          PID=$!
+          healthy=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/health >/dev/null 2>&1; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$healthy" != 1 ]; then
+            echo "ERROR: gateway did not become healthy for the RSS measurement"
+            cat "$WORK/gateway.log"
+            kill "$PID" >/dev/null 2>&1 || true
+            exit 1
+          fi
+          PEAK_KIB="$(awk '/^VmHWM:/ {print $2}' "/proc/$PID/status")"
+          kill "$PID" >/dev/null 2>&1 || true
+          wait "$PID" 2>/dev/null || true
+          test -n "$PEAK_KIB" || { echo "ERROR: could not read VmHWM"; exit 1; }
+          bash scripts/check-size-budget.sh rss "$PEAK_KIB"
+
+  vertical-demo-packs:
+    name: vertical demo packs (CLAIM-48.1..48.6)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-demo-packs-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run vertical demo pack integration tests (CLAIM-48.1..48.6)
+        run: cargo test -p tirbase-demo --test vertical_demo_packs -- --nocapture --test-threads=1
+
+      - name: Run demo pack entry scripts (observable defended output)
+        run: |
+          set -euo pipefail
+          for pack in energy-edge water-pumping logistics-node buildings-bms remote-ops-mesh defense-logistics; do
+            echo "--- running tirbase-demo/${pack}/run.sh ---"
+            bash "tirbase-demo/${pack}/run.sh"
+          done
+
+  gateway-sdk-generated:
+    name: gateway admin TypeScript SDK generated from OpenAPI (CLAIM-49.1, CLAIM-49.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Regenerate SDK and reject manual changes
+        run: bash scripts/check-gateway-sdk-generated.sh
+
+  gateway-admin-sdk-e2e:
+    name: gateway admin TypeScript SDK e2e (real binary over mTLS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-gateway-sdk-e2e-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build gateway binary
+        run: cargo build -p tirbase-gateway --bin tirbase-gateway
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SDK dependencies
+        working-directory: sdk/typescript
+        run: npm install --no-audit --no-fund
+
+      # The test boots the real gateway with the mTLS remote admin listener
+      # enabled, mints a token over the local admin socket, and drives every
+      # ADMIN_PATHS/OPERATION_IDS entry through the generated client. The PKI,
+      # trust root and signed simulate command come from
+      # tirbase-gateway/examples/admin_e2e_setup.rs.
+      - name: Run gateway admin SDK e2e
+        working-directory: sdk/typescript
+        env:
+          TIRBASE_GATEWAY_BIN: ${{ github.workspace }}/target/debug/tirbase-gateway
+        run: npm test
+
+  wasm-public-api-diff:
+    name: WASM exports diff against cargo public-api (CLAIM-49.3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust nightly (cargo-public-api)
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack (best-effort export inventory)
+        run: |
+          if ! command -v wasm-pack &>/dev/null; then
+            cargo install wasm-pack --locked
+          fi
+
+      - name: Install cargo-public-api
+        run: |
+          if ! cargo +nightly public-api --help &>/dev/null; then
+            cargo +nightly install cargo-public-api --locked
+          fi
+
+      - name: Diff WASM/public API surface against baseline
+        run: bash scripts/check-wasm-public-api.sh
+
+  mdbook-site:
+    name: mdBook documentation site (CLAIM-50.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdBook
+        run: |
+          if ! command -v mdbook &>/dev/null; then
+            cargo install mdbook --locked
+          fi
+
+      - name: Build mdBook site
+        run: mdbook build docs
+
+  readme-status:
+    name: regenerate README Status from CLAIMS.md (CLAIM-50.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate README Status section
+        run: python3 scripts/generate-readme-status.py
+
+      - name: Fail if README Status is out of date
+        run: |
+          if ! git diff --quiet -- README.md; then
+            echo "ERROR: README Status section differs from CLAIMS.md-generated output."
+            git --no-pager diff -- README.md
+            exit 1
+          fi
+          echo "OK: README Status section matches CLAIMS.md."
+
+  formal-models:
+    name: TLA+ model check (CLAIM-51.1–51.4, PV-26.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download TLA+ tools
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.1/tla2tools.jar
+
+      - name: Model-check every spec with TLC
+        run: bash scripts/check-formal-models.sh "$RUNNER_TEMP/tla2tools.jar"
+
+  concurrency-models:
+    name: loom/shuttle concurrency models (CLAIM-51.5, PV-26.3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: loom model check (real SingleWriterLease / AntiReplayWindow)
+        run: cargo test -p tirbase-guard --features loom --test concurrency_loom
+
+      - name: shuttle schedule check (real SingleWriterLease / AntiReplayWindow)
+        run: cargo test -p tirbase-guard --features shuttle --test concurrency_shuttle
+
+  kani-envelope-arith:
+    name: Kani overflow proof (CLAIM-51.6, PV-26.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Kani has no preinstalled runner here; install it explicitly and let a
+      # failure to install fail the job (never a silent pass).
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+
+      # Single-file Kani harness. It models the guard's i128 comparison; it does
+      # not yet link `tirbase-types`, so CLAIM-51.6 stays Planned until the
+      # harness is moved onto the real type and observed green.
+      - name: Run the envelope-arithmetic proof harnesses
+        run: kani formal/kani_envelope_arith.rs
