@@ -111,6 +111,34 @@ pub struct CompositeIncidentInstance {
     pub audit_log: Vec<AuditEntry>,
 }
 
+// ─── Incident lifecycle events ──────────────────────────────────────────────
+
+/// Which lifecycle transition an [`IncidentEvent`] reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IncidentEventKind {
+ /// A new ICO or CompositeIncidentInstance was created.
+    Created,
+ /// An open incident changed (e.g. one of several roots was resolved).
+    Updated,
+ /// Every root resolved (decontamination appended) or a manager closed it.
+    Closed,
+}
+
+/// An incident lifecycle event on the native event surface (Req 10, 11).
+///
+/// The WASM target delivers the same three transitions as
+/// `WasmEvent::IncidentCreated` / `IncidentUpdated` / `IncidentClosed`
+/// through `core_poll_events`; native hosts receive them through
+/// [`crate::api::CoreHandle::subscribe_incident_events`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IncidentEvent {
+    pub kind: IncidentEventKind,
+ /// The incident's ID. For a composite incident this is the composite ID.
+    pub incident_id: IncidentId,
+ /// The serialised `IncidentContextObject` or `CompositeIncidentInstance`.
+    pub ico: serde_json::Value,
+}
+
 // ─── composite_merge ─────────────────────────────────────────────────────────
 
 /// Merge two overlapping `IncidentContextObject`s into a

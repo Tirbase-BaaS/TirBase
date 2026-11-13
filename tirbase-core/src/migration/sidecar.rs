@@ -81,13 +81,32 @@ pub struct ReplaySummary {
 #[cfg(feature = "native")]
 pub struct SideCarLedger {
     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,
+ /// SQL projection the replayed rows are materialised into (Req 19.3).
+ /// `None` for standalone ledger use (tests, inspection): replay still
+ /// merges into the CRDT engine and records statuses, it just does not
+ /// write projection rows.
+    projection_store: Option<std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>>,
 }
 
 #[cfg(feature = "native")]
 impl SideCarLedger {
  /// Create a new SideCarLedger backed by the given SQLite connection.
     pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
-        Self { conn }
+        Self {
+            conn,
+            projection_store: None,
+        }
+    }
+
+ /// Install the SQL projection replayed rows are written through to.
+ ///
+ /// Production caller: `SchemaMigrationEngine::new`, which passes the same
+ /// `LocalStore` handle the device serves reads from.
+    pub fn set_projection_store(
+        &mut self,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    ) {
+        self.projection_store = Some(store);
     }
 
  /// Record a write operation in the Side-Car Ledger (Req 19.2).
@@ -154,12 +173,23 @@ impl SideCarLedger {
 
         let mut replayed = 0usize;
         let mut conflicts = 0usize;
+        let mut pending = 0usize;
  // Track the original Delta IDs of entries that were successfully replayed.
  // We use the embedded Delta.id (not the sidecar entry id) so we can
  // append DeltaTag::ReplayComplete to the matching dag_nodes row.
         let mut replayed_delta_ids: Vec<DeltaId> = Vec::new();
 
         for entry in &entries {
+ // Crash-recovery resume (Req 19.3): an entry whose status was already
+ // committed by an earlier, interrupted pass is not re-applied. Each
+ // status write is its own transaction, so a process killed mid-replay
+ // leaves exactly this state: replayed prefix + pending remainder.
+            if matches!(
+                entry.replay_status,
+                ReplayStatus::Replayed | ReplayStatus::Complete
+            ) {
+                continue;
+            }
  // 2a. Deserialise the stored delta bytes back into a Delta.
             let delta: Delta = match serde_json::from_slice(&entry.delta_bytes) {
                 Ok(d) => d,
@@ -189,10 +219,33 @@ impl SideCarLedger {
                 Ok(crate::crdt::merge::MergeOutcome::Merged { .. }) => {
                     replayed += 1;
                     replayed_delta_ids.push(delta_id);
+ // Req 19.3: the captured write must be visible through the ordinary
+ // read path, not only in the merged Automerge document. Projecting
+ // this Delta's own row (not the engine doc's last row) keeps every
+ // replayed row when a pass covers more than one.
+                    if let Some(store) = self.projection_store.as_ref() {
+                        if let Err(e) =
+                            crate::crdt::CrdtEngine::project_delta_bytes_to_store(
+                                &delta.automerge_bytes,
+                                store,
+                            )
+                        {
+                            emit_migration(
+                                Severity::High,
+                                ReasonCode::PostconditionFailed,
+                                None,
+                                format!(
+                                    "[sidecar] projection of replayed delta {:?} failed: {e}",
+                                    entry.id
+                                ),
+                            );
+                        }
+                    }
                     self.update_entry_status(&entry.id, "REPLAYED", None)?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Pending { reason }) => {
  // PV-6.1: migration replay path treats pending as a transient skip.
+                    pending += 1;
                     self.update_entry_status(&entry.id, "PENDING", Some(reason))?;
                 }
                 Ok(crate::crdt::merge::MergeOutcome::Quarantined { reason }) => {
@@ -240,7 +293,7 @@ impl SideCarLedger {
  // 3. Mark COMPLETE only when zero conflicts AND at least one entry was
  // processed (Req 19.6). An empty ledger is not "complete" — nothing
  // was replayed.
-        let complete = conflicts == 0 && total_entries > 0;
+        let complete = conflicts == 0 && total_entries > 0 && pending == 0;
         if complete && total_entries > 0 {
  // Update all entries for this migration to COMPLETE status in SQLite.
             self.mark_migration_complete(migration_id)?;
@@ -423,6 +476,159 @@ impl SideCarLedger {
             })?;
 
         Ok(count as usize)
+    }
+
+ /// Every entry in the ledger, across all migrations, ordered by
+ /// recorded timestamp. Used by `CoreHandle::sidecar_conflicts` to expose
+ /// conflicts awaiting manual resolution (Req 19.4).
+    pub fn load_all_entries(&self) -> Result<Vec<SideCarEntry>, TirBaseError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, migration_id, table_name, delta_bytes, recorded_ts, replay_status, conflict_info \
+                 FROM sidecar_ledger ORDER BY recorded_ts ASC",
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare load_all_entries failed: {e}"),
+            })?;
+        let entries: Vec<SideCarEntry> = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                ))
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query sidecar_ledger failed: {e}"),
+            })?
+            .filter_map(|r| r.ok())
+            .filter_map(
+                |(id_bytes, mig_bytes, table_name, delta_bytes, recorded_ts, status_str, info)| {
+                    let id: DeltaId = id_bytes.try_into().ok()?;
+                    let migration_id: MigrationId = mig_bytes.try_into().ok()?;
+                    let replay_status = match status_str.as_deref() {
+                        None | Some("PENDING") => ReplayStatus::Pending,
+                        Some("REPLAYED") => ReplayStatus::Replayed,
+                        Some("CONFLICT") => ReplayStatus::Conflict {
+                            conflict_info: info.unwrap_or_default(),
+                        },
+                        Some("COMPLETE") => ReplayStatus::Complete,
+                        _ => ReplayStatus::Pending,
+                    };
+                    Some(SideCarEntry {
+                        id,
+                        migration_id,
+                        table_name,
+                        delta_bytes,
+                        recorded_ts,
+                        replay_status,
+                    })
+                },
+            )
+            .collect();
+        Ok(entries)
+    }
+
+ // ─── Corruption-window persistence (Req 19.2/19.3 crash recovery) ────────
+
+ /// Persist an open corruption window: `schema_hash` is under corruption
+ /// because `migration_id` was revoked.
+ ///
+ /// Without this, a process restart loses the in-memory
+ /// `corrupted_schema_windows` map and captured Side-Car entries are never
+ /// replayed — the very data the ledger exists to preserve would be stranded.
+    pub fn record_corruption_window(
+        &self,
+        schema_hash: SchemaIdentifierHash,
+        migration_id: MigrationId,
+    ) -> Result<(), TirBaseError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
+        conn.execute(
+            "INSERT OR IGNORE INTO migration_corruption_windows (schema_hash, migration_id) \
+             VALUES (?1, ?2)",
+            rusqlite::params![&schema_hash[..], &migration_id[..]],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("INSERT migration_corruption_windows failed: {e}"),
+        })?;
+        Ok(())
+    }
+
+ /// Close the persisted corruption window for `schema_hash`.
+    pub fn clear_corruption_window(
+        &self,
+        schema_hash: &SchemaIdentifierHash,
+    ) -> Result<(), TirBaseError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
+        conn.execute(
+            "DELETE FROM migration_corruption_windows WHERE schema_hash = ?1",
+            rusqlite::params![&schema_hash[..]],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("DELETE migration_corruption_windows failed: {e}"),
+        })?;
+        Ok(())
+    }
+
+ /// Load every persisted corruption window (restart recovery).
+    pub fn load_corruption_windows(
+        &self,
+    ) -> Result<std::collections::BTreeMap<SchemaIdentifierHash, Vec<MigrationId>>, TirBaseError>
+    {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("SideCarLedger mutex poisoned: {e}"),
+            })?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT schema_hash, migration_id FROM migration_corruption_windows \
+                 ORDER BY schema_hash, migration_id",
+            )
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Prepare load_corruption_windows failed: {e}"),
+            })?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("Query migration_corruption_windows failed: {e}"),
+            })?;
+        let mut windows: std::collections::BTreeMap<SchemaIdentifierHash, Vec<MigrationId>> =
+            std::collections::BTreeMap::new();
+        for row in rows.flatten() {
+            let (schema_bytes, migration_bytes) = row;
+            let Ok(schema_hash) = schema_bytes.try_into() else {
+                continue;
+            };
+            let Ok(migration_id) = migration_bytes.try_into() else {
+                continue;
+            };
+            windows.entry(schema_hash).or_default().push(migration_id);
+        }
+        Ok(windows)
     }
 }
 

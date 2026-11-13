@@ -450,7 +450,7 @@ confirms no such tag appears when there are conflicts.
 
 ### Item 7 — Inbound Delta Pipeline End-to-End
 
-**Status:** PARTIAL
+**Status:** VERIFIED (projection write-through closed)
 
 `api::inbound_tests::end_to_end_inbound_pipeline_write_a_read_b` exercises:
 
@@ -462,18 +462,24 @@ confirms no such tag appears when there are conflicts.
 5. The CRDT merge logs `[inbound] delta … merged from …`, confirming
  `MergeOutcome::Merged`.
 
-**Deferred aspect — projection gap:** After `process_inbound_messages`,
-`handle_b.read("sensors", "reading-1")` returns `Err` (key not found).
-This is because `receive_inbound` merges the delta at the Automerge/CRDT
-level but does **not** write-through to the SQLite projection table
-(`proj_{table}`). The data lives in the Automerge document but is invisible
-to `LocalStore::read`, which reads from the SQL projection.
+**Projection gap: closed.** `CoreHandle::receive_inbound` now writes the
+merged Delta through to the SQL projection on every `MergeOutcome::Merged`
+(api/mod.rs): the JSON-envelope shape is projected from
+`_tirbase_table`/`_tirbase_key` metadata, and binary Automerge Deltas are
+projected from the merged engine document via
+`CrdtEngine::project_table_to_store`. `read()` therefore returns inbound
+rows immediately instead of `Err(key not found)`.
 
-Adding a projection step inside `receive_inbound` (calling `project_table`
-or `store.write` after a successful merge) would close this gap and make
-inbound deltas immediately readable. This is tracked as a post-v1
-follow-on task. It does not affect correctness of the CRDT state —
-the Automerge document is correct; only the SQL projection cache is stale.
+Proof (production transport, no `inject_inbound`):
+`api::real_mesh_tests::json_envelope_delta_over_real_mesh_projects_to_peer_store`
+(JSON envelope) and the binary-projection real-mesh tests; the same
+write-through is asserted for Side-Car replay rows in
+`api::contamination_mesh_tests::sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_rows`.
+
+**Residual limit:** a mixed batch in one Delta is projected only for the
+row its `_tirbase_table`/`_tirbase_key` metadata names (each Delta carries
+one row in this design); Side-Car replay projects each Delta's own row so a
+multi-row replay is not collapsed to the last row.
 
 ---
 

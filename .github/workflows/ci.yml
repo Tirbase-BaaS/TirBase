@@ -543,6 +543,11 @@ jobs:
  cargo test -p tirbase-core --features native --lib api::real_mesh_tests
  -- --test-threads=1
 
+ - name: CCE + Side-Car e2e (revocation taint, composite ICO, replay/recovery)
+ run: >-
+ cargo test -p tirbase-core --features native --lib api::contamination_mesh_tests
+ -- --test-threads=1
+
  - name: Projection write-through (binary Automerge + JSON envelope)
  run: |
  set -euo pipefail

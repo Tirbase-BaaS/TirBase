@@ -184,10 +184,26 @@ impl SchemaMigrationEngine {
  // The Side-Car Ledger shares the migration's dedicated connection
  // (native) or uses the IndexedDB-backed store (WASM).
         #[cfg(feature = "native")]
-        let sidecar_ledger = SideCarLedger::new(migration_conn);
+        let sidecar_ledger = {
+            let mut ledger = SideCarLedger::new(migration_conn);
+            // Replayed rows must be visible through `read()`/`query()`: the
+            // engine's projection path writes them into the same store.
+            ledger.set_projection_store(store.clone());
+            ledger
+        };
 
         #[cfg(not(feature = "native"))]
         let sidecar_ledger = SideCarLedger::new(db);
+
+ // Restart recovery (Req 19.2/19.3): corruption windows are persisted, so a
+ // process that died mid-replay still knows which schemas are corrupted and
+ // which Side-Car entries remain to be replayed. The engine replays them
+ // against the corrected schema when it starts up (see
+ // `CoreHandle::init` → `resume_pending_sidecar_replay`).
+        #[cfg(feature = "native")]
+        let corrupted_schema_windows = sidecar_ledger.load_corruption_windows().unwrap_or_default();
+        #[cfg(not(feature = "native"))]
+        let corrupted_schema_windows = BTreeMap::new();
 
         Self {
             ca_public_key,
@@ -203,7 +219,7 @@ impl SchemaMigrationEngine {
             quarantine_ledger,
             sidecar_ledger,
             migration_targets: BTreeMap::new(),
-            corrupted_schema_windows: BTreeMap::new(),
+            corrupted_schema_windows,
             schema_definitions,
         }
     }
@@ -985,6 +1001,18 @@ impl SchemaMigrationEngine {
                     .entry(target)
                     .or_default()
                     .push(revoked_id);
+                #[cfg(feature = "native")]
+                if let Err(e) = self.sidecar_ledger.record_corruption_window(target, revoked_id) {
+                    emit_migration(
+                        Severity::High,
+                        ReasonCode::PostconditionFailed,
+                        None,
+                        format!(
+                            "[migration] could not persist corruption window for {:?}: {e}",
+                            revoked_id
+                        ),
+                    );
+                }
                 emit_migration(
                     Severity::Medium,
                     ReasonCode::PostconditionFailed,
@@ -1271,10 +1299,14 @@ impl SchemaMigrationEngine {
         pre_migration_schema: &crate::schema::hash::SchemaIdentifierHash,
         corrected_schema_hash: crate::schema::hash::SchemaIdentifierHash,
         engine: &mut crate::crdt::CrdtEngine,
-    ) -> Result<(), TirBaseError> {
+    ) -> Result<Vec<String>, TirBaseError> {
         let Some(migration_ids) = self.corrupted_schema_windows.remove(pre_migration_schema) else {
-            return Ok(());
+            return Ok(Vec::new());
         };
+        // The window is closed in the durable store too: a later restart must
+        // not replay entries this pass already handled.
+        let _ = self.sidecar_ledger.clear_corruption_window(pre_migration_schema);
+        let mut replayed_tables: Vec<String> = Vec::new();
 
         for migration_id in &migration_ids {
             match self
@@ -1296,6 +1328,21 @@ impl SchemaMigrationEngine {
                             summary.complete,
                         ),
                     );
+ // Tables whose entries are now materialised in the corrected
+ // projection; the caller projects them into the SQL store so
+ // `read()`/`query()` return the replayed rows.
+                    if let Ok(entries) = self.sidecar_ledger.load_entries_ordered(*migration_id) {
+                        for entry in entries {
+                            if matches!(
+                                entry.replay_status,
+                                crate::migration::sidecar::ReplayStatus::Replayed
+                                    | crate::migration::sidecar::ReplayStatus::Complete
+                            ) && !replayed_tables.contains(&entry.table_name)
+                            {
+                                replayed_tables.push(entry.table_name);
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
  // Best-effort: the migration has already committed and the
@@ -1313,7 +1360,32 @@ impl SchemaMigrationEngine {
             }
         }
 
-        Ok(())
+        Ok(replayed_tables)
+    }
+
+ /// Replay any corruption window whose schema the device has already left,
+ /// e.g. after a restart that followed a corrected migration.
+ ///
+ /// Returns the tables whose replayed entries need projecting into the
+ /// current SQL store. Production caller:
+ /// [`crate::api::CoreHandle::init`] (native startup recovery).
+    #[cfg(feature = "native")]
+    pub(crate) fn resume_pending_sidecar_replays(
+        &mut self,
+        current_schema_hash: crate::schema::hash::SchemaIdentifierHash,
+        engine: &mut crate::crdt::CrdtEngine,
+    ) -> Result<Vec<String>, TirBaseError> {
+        let stale: Vec<crate::schema::hash::SchemaIdentifierHash> = self
+            .corrupted_schema_windows
+            .keys()
+            .copied()
+            .filter(|schema| *schema != current_schema_hash)
+            .collect();
+        let mut tables = Vec::new();
+        for schema in stale {
+            tables.extend(self.replay_corrupted_windows(&schema, current_schema_hash, engine)?);
+        }
+        Ok(tables)
     }
 
  /// WASM async version — awaits IndexedDB scans during replay (Req 19.3).
@@ -1323,10 +1395,11 @@ impl SchemaMigrationEngine {
         pre_migration_schema: &crate::schema::hash::SchemaIdentifierHash,
         corrected_schema_hash: crate::schema::hash::SchemaIdentifierHash,
         engine: &mut crate::crdt::CrdtEngine,
-    ) -> Result<(), TirBaseError> {
+    ) -> Result<Vec<String>, TirBaseError> {
         let Some(migration_ids) = self.corrupted_schema_windows.remove(pre_migration_schema) else {
-            return Ok(());
+            return Ok(Vec::new());
         };
+        let mut replayed_tables: Vec<String> = Vec::new();
 
         for migration_id in &migration_ids {
             match self
@@ -1349,6 +1422,20 @@ impl SchemaMigrationEngine {
                             summary.complete,
                         ),
                     );
+                    if let Ok(entries) =
+                        self.sidecar_ledger.load_entries_ordered(*migration_id).await
+                    {
+                        for entry in entries {
+                            if matches!(
+                                entry.replay_status,
+                                crate::migration::sidecar::ReplayStatus::Replayed
+                                    | crate::migration::sidecar::ReplayStatus::Complete
+                            ) && !replayed_tables.contains(&entry.table_name)
+                            {
+                                replayed_tables.push(entry.table_name);
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     emit_migration(
@@ -1364,7 +1451,7 @@ impl SchemaMigrationEngine {
             }
         }
 
-        Ok(())
+        Ok(replayed_tables)
     }
 
  /// All Side-Car entries scoped to `migration_id`, in recorded-timestamp
@@ -1376,6 +1463,15 @@ impl SchemaMigrationEngine {
         migration_id: &MigrationId,
     ) -> Result<Vec<SideCarEntry>, TirBaseError> {
         self.sidecar_ledger.load_entries_ordered(*migration_id)
+    }
+
+ /// Every Side-Car entry across all migrations (conflict inspection,
+ /// Req 19.4). Native-only.
+    #[cfg(feature = "native")]
+    pub(crate) fn all_sidecar_entries(
+        &self,
+    ) -> Result<Vec<SideCarEntry>, TirBaseError> {
+        self.sidecar_ledger.load_all_entries()
     }
 
  /// WASM async version — awaits IndexedDB scan.

@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 use crate::crdt::delta::{DeltaId, DeltaTag, Did, Ed25519Signature};
 use crate::errors::TirBaseError;
 use incident::{
-    AuditEntry, AuditOperation, CompositeIncidentInstance, IncidentContextObject, IncidentId,
-    IncidentState, TaintSource,
+    AuditEntry, AuditOperation, CompositeIncidentInstance, IncidentContextObject, IncidentEvent,
+    IncidentEventKind, IncidentId, IncidentState, TaintSource,
 };
 use resolution::now_micros;
 use resolution::DecompositionResult;
@@ -61,6 +61,9 @@ pub struct CausalContaminationEngine {
  /// resolved incident. This map is the fast path for `CoreHandle::write()`
  /// to check whether the current row is contaminated (Req 19.5).
     contaminated_rows: BTreeMap<(String, String), IncidentId>,
+ /// Native incident-lifecycle listener (Created / Updated / Closed).
+ /// Kept out of the persisted snapshot — it is process-local wiring.
+    incident_listener: Option<std::sync::Arc<dyn Fn(IncidentEvent) + Send + Sync>>,
 }
 
 #[cfg(not(feature = "native"))]
@@ -343,6 +346,33 @@ impl CausalContaminationEngine {
             incidents,
             composite_incidents,
             contaminated_rows,
+            incident_listener: None,
+        }
+    }
+
+ /// Register the native incident-lifecycle listener (Req 10, 11).
+ ///
+ /// Production caller: [`crate::api::CoreHandle::init`], which forwards
+ /// every `Created` / `Updated` / `Closed` transition onto the handle's
+ /// broadcast channel ([`crate::api::CoreHandle::subscribe_incident_events`]).
+ /// The WASM target keeps using `WasmEvent::Incident*` through
+ /// `core_poll_events` and does not call this.
+    pub fn set_incident_event_listener(
+        &mut self,
+        listener: std::sync::Arc<dyn Fn(IncidentEvent) + Send + Sync>,
+    ) {
+        self.incident_listener = Some(listener);
+    }
+
+ /// Emit one incident-lifecycle event to the registered listener, if any.
+    fn emit_incident_event(&self, kind: IncidentEventKind, incident_id: IncidentId, ico: &impl serde::Serialize) {
+        if let Some(listener) = &self.incident_listener {
+            let ico = serde_json::to_value(ico).unwrap_or(serde_json::Value::Null);
+            listener(IncidentEvent {
+                kind,
+                incident_id,
+                ico,
+            });
         }
     }
 
@@ -442,6 +472,59 @@ impl CausalContaminationEngine {
             audit_log: vec![],
         };
 
+ // Req 10.5: a chain that overlaps an already-formed composite extends
+ // that one composite (union of roots/deltas/rows) instead of opening a
+ // disjoint ICO — otherwise a third contamination chain could never join
+ // the graph-joined incident it is causally part of.
+        let overlapping_composite: Option<IncidentId> = self
+            .composite_incidents
+            .values()
+            .filter(|c| {
+                c.state == IncidentState::Open
+                    && c.contaminated_deltas
+                        .iter()
+                        .any(|d| new_ico.contaminated_deltas.contains(d))
+            })
+            .map(|c| c.id)
+            .next();
+        if let Some(comp_id) = overlapping_composite {
+            let mut ico = new_ico;
+            ico.state = IncidentState::SupersededBy(comp_id);
+            let ico_id_local = ico.id;
+            let mut rows_to_index: Vec<(String, String)> = Vec::new();
+            if let Some(comp) = self.composite_incidents.get_mut(&comp_id) {
+                for root in &ico.contamination_roots {
+                    if !comp.contamination_roots.contains(root) {
+                        comp.contamination_roots.push(*root);
+                    }
+                }
+                comp.contaminated_deltas
+                    .extend(ico.contaminated_deltas.iter().copied());
+                for row in &ico.affected_rows {
+                    if !comp
+                        .affected_rows
+                        .iter()
+                        .any(|r| r.table == row.table && r.row_key == row.row_key)
+                    {
+                        comp.affected_rows.push(row.clone());
+                    }
+                    rows_to_index.push((row.table.clone(), row.row_key.clone()));
+                }
+                comp.updated_at = now;
+            }
+            self.incidents.insert(ico_id_local, ico);
+            for (table, key) in rows_to_index {
+                self.contaminated_rows.insert((table, key), comp_id);
+            }
+            #[cfg(feature = "native")]
+            if let Some(comp) = self.composite_incidents.get(&comp_id).cloned() {
+                self.emit_incident_event(IncidentEventKind::Updated, comp_id, &comp);
+            }
+            #[cfg(feature = "native")]
+            self.persist_snapshot()?;
+            return Ok(comp_id);
+        }
+
  // Overlap detection: check against all existing OPEN incidents.
         let overlapping_id: Option<IncidentId> = self
             .incidents
@@ -481,6 +564,9 @@ impl CausalContaminationEngine {
                         .insert((row.table.clone(), row.row_key.clone()), composite_id);
                 }
             }
+            if let Some(comp) = self.composite_incidents.get(&composite_id).cloned() {
+                self.emit_incident_event(IncidentEventKind::Created, composite_id, &comp);
+            }
             self.persist_snapshot()?; // CLAIM-31.3
             return Ok(composite_id);
         }
@@ -494,6 +580,9 @@ impl CausalContaminationEngine {
                 self.contaminated_rows
                     .insert((row.table.clone(), row.row_key.clone()), ico_id);
             }
+        }
+        if let Some(ico) = self.incidents.get(&ico_id).cloned() {
+            self.emit_incident_event(IncidentEventKind::Created, ico_id, &ico);
         }
         self.persist_snapshot()?; // CLAIM-31.3
         Ok(ico_id)
@@ -596,6 +685,58 @@ impl CausalContaminationEngine {
             });
         }
 
+ // Incident lifecycle events (native): Updated for a partial resolution,
+ // Closed once every root of the incident carries a Resolved tag.
+        {
+            let affected: Vec<IncidentId> = self
+                .incidents
+                .values()
+                .filter(|i| i.contamination_roots.contains(&root_delta_id))
+                .map(|i| i.id)
+                .chain(
+                    self.composite_incidents
+                        .values()
+                        .filter(|c| c.contamination_roots.contains(&root_delta_id))
+                        .map(|c| c.id),
+                )
+                .collect();
+            for id in affected {
+                let all_resolved = {
+                    let Ok(conn_guard) = self.conn.lock() else {
+                        continue;
+                    };
+                    let roots: Vec<DeltaId> = self
+                        .incidents
+                        .get(&id)
+                        .map(|i| i.contamination_roots.clone())
+                        .or_else(|| {
+                            self.composite_incidents
+                                .get(&id)
+                                .map(|c| c.contamination_roots.clone())
+                        })
+                        .unwrap_or_default();
+                    !roots.is_empty()
+                        && roots.iter().all(|root| {
+                            crate::contamination::taint::read_tags_from_db(&conn_guard, root)
+                                .map(|tags| {
+                                    tags.iter().any(|t| matches!(t, DeltaTag::Resolved { .. }))
+                                })
+                                .unwrap_or(false)
+                        })
+                };
+                let kind = if all_resolved {
+                    IncidentEventKind::Closed
+                } else {
+                    IncidentEventKind::Updated
+                };
+                if let Some(ico) = self.incidents.get(&id).cloned() {
+                    self.emit_incident_event(kind, id, &ico);
+                } else if let Some(comp) = self.composite_incidents.get(&id).cloned() {
+                    self.emit_incident_event(kind, id, &comp);
+                }
+            }
+        }
+
         self.persist_snapshot()?; // CLAIM-31.3
         Ok(())
     }
@@ -619,6 +760,9 @@ impl CausalContaminationEngine {
             now_secs,
             &mut self.incidents,
         )?;
+        if let Some(ico) = self.incidents.get(&incident_id).cloned() {
+            self.emit_incident_event(IncidentEventKind::Closed, incident_id, &ico);
+        }
         self.persist_snapshot()?; // CLAIM-31.3
         Ok(())
     }
@@ -639,6 +783,22 @@ impl CausalContaminationEngine {
             .incidents
             .values()
             .filter(|ico| ico.state == IncidentState::Open)
+            .cloned()
+            .collect())
+    }
+
+ /// Return every composite incident still in `Open` state (Req 10.5).
+ ///
+ /// A composite is the single active incident for a graph-joined chain; once
+ /// one of its roots is resolved it transitions to `Decomposed` and is no
+ /// longer listed here (the surviving sub-chains reappear as open ICOs).
+    pub fn open_composite_incidents(
+        &self,
+    ) -> Result<Vec<CompositeIncidentInstance>, TirBaseError> {
+        Ok(self
+            .composite_incidents
+            .values()
+            .filter(|c| c.state == IncidentState::Open)
             .cloned()
             .collect())
     }
@@ -805,6 +965,59 @@ impl CausalContaminationEngine {
             updated_at: now,
             audit_log: vec![],
         };
+
+ // Req 10.5: a chain that overlaps an already-formed composite extends
+ // that one composite (union of roots/deltas/rows) instead of opening a
+ // disjoint ICO — otherwise a third contamination chain could never join
+ // the graph-joined incident it is causally part of.
+        let overlapping_composite: Option<IncidentId> = self
+            .composite_incidents
+            .values()
+            .filter(|c| {
+                c.state == IncidentState::Open
+                    && c.contaminated_deltas
+                        .iter()
+                        .any(|d| new_ico.contaminated_deltas.contains(d))
+            })
+            .map(|c| c.id)
+            .next();
+        if let Some(comp_id) = overlapping_composite {
+            let mut ico = new_ico;
+            ico.state = IncidentState::SupersededBy(comp_id);
+            let ico_id_local = ico.id;
+            let mut rows_to_index: Vec<(String, String)> = Vec::new();
+            if let Some(comp) = self.composite_incidents.get_mut(&comp_id) {
+                for root in &ico.contamination_roots {
+                    if !comp.contamination_roots.contains(root) {
+                        comp.contamination_roots.push(*root);
+                    }
+                }
+                comp.contaminated_deltas
+                    .extend(ico.contaminated_deltas.iter().copied());
+                for row in &ico.affected_rows {
+                    if !comp
+                        .affected_rows
+                        .iter()
+                        .any(|r| r.table == row.table && r.row_key == row.row_key)
+                    {
+                        comp.affected_rows.push(row.clone());
+                    }
+                    rows_to_index.push((row.table.clone(), row.row_key.clone()));
+                }
+                comp.updated_at = now;
+            }
+            self.incidents.insert(ico_id_local, ico);
+            for (table, key) in rows_to_index {
+                self.contaminated_rows.insert((table, key), comp_id);
+            }
+            #[cfg(feature = "native")]
+            if let Some(comp) = self.composite_incidents.get(&comp_id).cloned() {
+                self.emit_incident_event(IncidentEventKind::Updated, comp_id, &comp);
+            }
+            #[cfg(feature = "native")]
+            self.persist_snapshot()?;
+            return Ok(comp_id);
+        }
 
  // Overlap detection: check against all existing OPEN incidents.
         let overlapping_id: Option<IncidentId> = self
@@ -1033,6 +1246,22 @@ impl CausalContaminationEngine {
             .incidents
             .values()
             .filter(|ico| ico.state == IncidentState::Open)
+            .cloned()
+            .collect())
+    }
+
+ /// Return every composite incident still in `Open` state (Req 10.5).
+ ///
+ /// A composite is the single active incident for a graph-joined chain; once
+ /// one of its roots is resolved it transitions to `Decomposed` and is no
+ /// longer listed here (the surviving sub-chains reappear as open ICOs).
+    pub fn open_composite_incidents(
+        &self,
+    ) -> Result<Vec<CompositeIncidentInstance>, TirBaseError> {
+        Ok(self
+            .composite_incidents
+            .values()
+            .filter(|c| c.state == IncidentState::Open)
             .cloned()
             .collect())
     }

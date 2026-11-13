@@ -491,6 +491,8 @@ pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::t
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::process_inbound_messages(&self) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::publish_checkpoint_hash(&self, u64, [u8; 32], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::publish_migration_delta(&self, &tirbase_core::migration::migration_delta::MigrationDelta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::publish_migration_revocation_delta(&self, &tirbase_core::migration::migration_delta::MigrationRevocationDelta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::publish_security_event_sync(&self, tirbase_core::transport::security_event_sync::SecurityEventSyncBatch) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::query(&self, &str, core::option::Option<serde_json::value::Value>) -> core::result::Result<alloc::vec::Vec<tirbase_core::api::types::QueryResult>, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::read(&self, &str, &str) -> core::result::Result<tirbase_core::api::types::QueryResult, tirbase_core::errors::TirBaseError>
@@ -503,6 +505,8 @@ pub fn tirbase_core::api::CoreHandle::root_ca_public_key(&self) -> alloc::vec::V
 pub fn tirbase_core::api::CoreHandle::set_challenge_handler(&self, alloc::sync::Arc<dyn tirbase_core::transport::challenge::MeshChallengeHandler>)
 pub fn tirbase_core::api::CoreHandle::set_checkpoint_provider<F>(&self, F) where F: core::ops::function::Fn -> core::option::Option<(u64, [u8; 32])> + core::marker::Send + core::marker::Sync + 'static
 pub fn tirbase_core::api::CoreHandle::set_inbound_caps(&self, tirbase_core::crdt::inbound_caps::InboundCaps) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::sidecar_conflicts(&self) -> core::result::Result<alloc::vec::Vec<tirbase_core::migration::sidecar::SideCarEntry>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::api::CoreHandle::subscribe_incident_events(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::contamination::incident::IncidentEvent>
 pub fn tirbase_core::api::CoreHandle::set_local_spatial_tag(&self, core::option::Option<alloc::string::String>)
 pub fn tirbase_core::api::CoreHandle::subscribe_checkpoint_observations(&self) -> tokio::sync::broadcast::Receiver<(alloc::string::String, u64, [u8; 32], i64)>
 pub fn tirbase_core::api::CoreHandle::subscribe_diagnostics(&self) -> tokio::sync::broadcast::Receiver<tirbase_core::diagnostics::DiagnosticEntry>
@@ -1930,6 +1934,45 @@ impl<V, T> ppv_lite86::types::VZip<V> for tirbase_core::contamination::human_rea
 pub fn tirbase_core::contamination::human_reaction::WriteContext::vzip(self) -> V
 pub fn tirbase_core::contamination::human_reaction::on_write_commit(&mut tirbase_core::crdt::delta::Delta, &tirbase_core::contamination::human_reaction::WriteContext) -> core::result::Result<core::option::Option<(tirbase_core::crdt::delta::DeltaId, tirbase_core::contamination::incident::IncidentId)>, tirbase_core::errors::TirBaseError>
 pub mod tirbase_core::contamination::incident
+pub enum tirbase_core::contamination::incident::IncidentEventKind
+pub tirbase_core::contamination::incident::IncidentEventKind::Closed
+pub tirbase_core::contamination::incident::IncidentEventKind::Created
+pub tirbase_core::contamination::incident::IncidentEventKind::Updated
+impl core::clone::Clone for tirbase_core::contamination::incident::IncidentEventKind
+pub fn tirbase_core::contamination::incident::IncidentEventKind::clone(&self) -> tirbase_core::contamination::incident::IncidentEventKind
+impl core::cmp::Eq for tirbase_core::contamination::incident::IncidentEventKind
+impl core::cmp::PartialEq for tirbase_core::contamination::incident::IncidentEventKind
+pub fn tirbase_core::contamination::incident::IncidentEventKind::eq(&self, &tirbase_core::contamination::incident::IncidentEventKind) -> bool
+impl core::fmt::Debug for tirbase_core::contamination::incident::IncidentEventKind
+pub fn tirbase_core::contamination::incident::IncidentEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::StructuralPartialEq for tirbase_core::contamination::incident::IncidentEventKind
+impl serde_core::ser::Serialize for tirbase_core::contamination::incident::IncidentEventKind
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::Freeze for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::Send for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::Sync for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::Unpin for tirbase_core::contamination::incident::IncidentEventKind
+impl core::marker::UnsafeUnpin for tirbase_core::contamination::incident::IncidentEventKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::contamination::incident::IncidentEventKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::contamination::incident::IncidentEventKind
+pub struct tirbase_core::contamination::incident::IncidentEvent
+pub tirbase_core::contamination::incident::IncidentEvent::ico: serde_json::value::Value
+pub tirbase_core::contamination::incident::IncidentEvent::incident_id: tirbase_core::contamination::incident::IncidentId
+pub tirbase_core::contamination::incident::IncidentEvent::kind: tirbase_core::contamination::incident::IncidentEventKind
+impl core::clone::Clone for tirbase_core::contamination::incident::IncidentEvent
+pub fn tirbase_core::contamination::incident::IncidentEvent::clone(&self) -> tirbase_core::contamination::incident::IncidentEvent
+impl core::fmt::Debug for tirbase_core::contamination::incident::IncidentEvent
+pub fn tirbase_core::contamination::incident::IncidentEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for tirbase_core::contamination::incident::IncidentEvent
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_core::contamination::incident::IncidentEvent
+impl core::marker::Freeze for tirbase_core::contamination::incident::IncidentEvent
+impl core::marker::Send for tirbase_core::contamination::incident::IncidentEvent
+impl core::marker::Sync for tirbase_core::contamination::incident::IncidentEvent
+impl core::marker::Unpin for tirbase_core::contamination::incident::IncidentEvent
+impl core::marker::UnsafeUnpin for tirbase_core::contamination::incident::IncidentEvent
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_core::contamination::incident::IncidentEvent
+impl core::panic::unwind_safe::UnwindSafe for tirbase_core::contamination::incident::IncidentEvent
 pub enum tirbase_core::contamination::incident::AuditOperation
 pub tirbase_core::contamination::incident::AuditOperation::AdminClose
 pub tirbase_core::contamination::incident::AuditOperation::VerifyData
@@ -2516,6 +2559,8 @@ pub fn tirbase_core::contamination::CausalContaminationEngine::admin_close(&mut 
 pub fn tirbase_core::contamination::CausalContaminationEngine::get_incident(&self, tirbase_core::contamination::incident::IncidentId) -> core::result::Result<core::option::Option<tirbase_core::contamination::incident::IncidentContextObject>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::is_row_contaminated(&self, &str, &str) -> bool
 pub fn tirbase_core::contamination::CausalContaminationEngine::new(alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
+pub fn tirbase_core::contamination::CausalContaminationEngine::open_composite_incidents(&self) -> core::result::Result<alloc::vec::Vec<tirbase_core::contamination::incident::CompositeIncidentInstance>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::contamination::CausalContaminationEngine::set_incident_event_listener(&mut self, alloc::sync::Arc<(dyn core::ops::function::Fn(tirbase_core::contamination::incident::IncidentEvent) + core::marker::Send + core::marker::Sync)>)
 pub fn tirbase_core::contamination::CausalContaminationEngine::open_incidents(&self) -> core::result::Result<alloc::vec::Vec<tirbase_core::contamination::incident::IncidentContextObject>, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::tag_contamination_root(&mut self, tirbase_core::crdt::delta::DeltaId, tirbase_core::contamination::incident::TaintSource) -> core::result::Result<tirbase_core::contamination::incident::IncidentId, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::contamination::CausalContaminationEngine::verify_data(&mut self, tirbase_core::crdt::delta::DeltaId, tirbase_core::crdt::delta::Did, tirbase_core::crdt::delta::Ed25519Signature, i64, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
@@ -3618,6 +3663,7 @@ pub fn tirbase_core::crdt::CrdtEngine::produce_delta(&mut self, alloc::vec::Vec<
 pub fn tirbase_core::crdt::CrdtEngine::project_table_to_store(&self, &str, &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::crdt::CrdtEngine::read_scalar(&self, &str) -> core::option::Option<serde_json::value::Value>
 pub fn tirbase_core::crdt::CrdtEngine::write_scalar(&mut self, &str, &str, &serde_json::value::Value) -> core::result::Result<alloc::vec::Vec<u8>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::crdt::CrdtEngine::project_delta_bytes_to_store(&[u8], &alloc::sync::Arc<std::sync::poison::mutex::Mutex<tirbase_core::store::LocalStore>>) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 impl core::ops::drop::Drop for tirbase_core::crdt::CrdtEngine
 pub fn tirbase_core::crdt::CrdtEngine::drop(&mut self)
 impl zeroize::Zeroize for tirbase_core::crdt::CrdtEngine
@@ -7854,6 +7900,10 @@ pub fn tirbase_core::migration::sidecar::SideCarEntry::vzip(self) -> V
 pub struct tirbase_core::migration::sidecar::SideCarLedger
 impl tirbase_core::migration::sidecar::SideCarLedger
 pub fn tirbase_core::migration::sidecar::SideCarLedger::count_for_migration(&self, tirbase_core::migration::migration_delta::MigrationId) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::sidecar::SideCarLedger::clear_corruption_window(&self, &tirbase_core::schema::hash::SchemaIdentifierHash) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::sidecar::SideCarLedger::load_all_entries(&self) -> core::result::Result<alloc::vec::Vec<tirbase_core::migration::sidecar::SideCarEntry>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::sidecar::SideCarLedger::load_corruption_windows(&self) -> core::result::Result<alloc::collections::btree::map::BTreeMap<tirbase_core::schema::hash::SchemaIdentifierHash, alloc::vec::Vec<tirbase_core::migration::migration_delta::MigrationId>>, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::migration::sidecar::SideCarLedger::record_corruption_window(&self, tirbase_core::schema::hash::SchemaIdentifierHash, tirbase_core::migration::migration_delta::MigrationId) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::migration::sidecar::SideCarLedger::new(alloc::sync::Arc<std::sync::poison::mutex::Mutex<rusqlite::Connection>>) -> Self
 pub fn tirbase_core::migration::sidecar::SideCarLedger::record(&mut self, tirbase_core::migration::migration_delta::MigrationId, alloc::string::String, alloc::vec::Vec<u8>, i64) -> core::result::Result<tirbase_core::crdt::delta::DeltaId, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::migration::sidecar::SideCarLedger::replay_sidecar(&mut self, tirbase_core::migration::migration_delta::MigrationId, tirbase_core::schema::hash::SchemaIdentifierHash, &mut tirbase_core::crdt::CrdtEngine) -> core::result::Result<tirbase_core::migration::sidecar::ReplaySummary, tirbase_core::errors::TirBaseError>
@@ -11035,6 +11085,7 @@ pub fn tirbase_core::transport::MeshTransport::prepare_outbound(&self, &tirbase_
 pub fn tirbase_core::transport::MeshTransport::remove_peer(&mut self, &tirbase_core::crdt::delta::Did)
 pub fn tirbase_core::transport::MeshTransport::send_delta(&mut self, &tirbase_core::crdt::delta::Did, &tirbase_core::crdt::delta::Delta) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::send_receipt(&mut self, &tirbase_core::durability::receipt::DurabilityReceipt) -> core::result::Result<, tirbase_core::errors::TirBaseError>
+pub fn tirbase_core::transport::MeshTransport::send_message(&mut self, &tirbase_core::transport::message::GossipMessage) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::transport::MeshTransport::start(&mut self) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::take_swarm(&mut self, tokio::sync::mpsc::bounded::Sender<alloc::vec::Vec<u8>>) -> core::option::Option<libp2p_swarm::Swarm<tirbase_core::transport::TirBaseBehaviour>>
 pub fn tirbase_core::transport::MeshTransport::tick_timeouts(&mut self, i64)

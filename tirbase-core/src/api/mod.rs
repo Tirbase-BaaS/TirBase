@@ -454,6 +454,17 @@ pub struct CoreHandle {
     #[cfg(feature = "native")]
     durability_events_channel: tokio::sync::broadcast::Sender<DurabilityTierChanged>,
 
+ /// Broadcast channel for incident lifecycle events (Req 10, 11).
+ ///
+ /// [`CoreHandle::init`] registers a listener on the Causal Contamination
+ /// Engine that forwards every Created / Updated / Closed transition here,
+ /// consumable through [`CoreHandle::subscribe_incident_events`]. Native-
+ /// only: the WASM target delivers the same transitions as
+ /// `WasmEvent::Incident*` through `core_poll_events`.
+    #[cfg(feature = "native")]
+    incident_events_channel:
+        tokio::sync::broadcast::Sender<crate::contamination::incident::IncidentEvent>,
+
  /// Sender end of the inbound Gossipsub message channel.
  /// The spawned event loop writes here; `process_inbound_messages` drains via `inbound_rx`.
     inbound_tx: tokio::sync::mpsc::Sender<crate::transport::message::GossipMessage>,
@@ -500,6 +511,12 @@ impl CoreHandle {
  // ── CRDT rejection-record channel (Subphase 6.2 — Req 7.4/7.5) ───────
         let (rejection_records_tx, _rejection_records_rx) =
             tokio::sync::broadcast::channel::<crate::crdt::failure::DeltaRejectionRecord>(64);
+
+ // ── Incident lifecycle channel (Req 10, 11) ──────────────────────────
+        #[cfg(feature = "native")]
+        let (incident_tx, _incident_rx) = tokio::sync::broadcast::channel::<
+            crate::contamination::incident::IncidentEvent,
+        >(64);
 
  // ── Fleet-inventory collection (PV-11.3, CLAIM-37.5) ──────────────────
  //
@@ -591,7 +608,16 @@ impl CoreHandle {
             crdt.configure_hardening_derived_db(&hardening_db);
             let crdt = Arc::new(Mutex::new(crdt));
 
-            let cce = CausalContaminationEngine::new(conn.clone());
+            let mut cce = CausalContaminationEngine::new(conn.clone());
+ // Req 10/11: relay ICO lifecycle transitions onto the handle's
+ // broadcast channel (the native analogue of the SDK's incident
+ // events). The listener only sends on the non-blocking channel.
+            {
+                let tx = incident_tx.clone();
+                cce.set_incident_event_listener(std::sync::Arc::new(move |event| {
+                    let _ = tx.send(event);
+                }));
+            }
             let cce = Arc::new(Mutex::new(cce));
 
             (store, crdt, cce)
@@ -1332,12 +1358,47 @@ impl CoreHandle {
             rejection_records_channel: rejection_records_tx,
             #[cfg(feature = "native")]
             durability_events_channel,
+            #[cfg(feature = "native")]
+            incident_events_channel: incident_tx,
             inbound_tx,
             inbound_rx,
             #[cfg(feature = "native")]
             dial_tx,
             memory_budget: crate::crdt::memory_budget::MemoryBudgetCaches::new(),
         });
+
+ // ── Side-Car replay restart recovery (Req 19.3) ───────────────────────
+ //
+ // Corruption windows are persisted (migration_corruption_windows), so a
+ // process killed mid-replay can resume: entries already marked REPLAYED
+ // are skipped and the remaining ones are replayed against the corrected
+ // schema, then projected into the SQL store.
+        #[cfg(feature = "native")]
+        {
+            let mut mig = handle.migration.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("migration mutex poisoned at startup replay: {e}"),
+                }
+            })?;
+            let current = mig.current_schema_hash();
+            let mut crdt = handle.crdt.lock().map_err(|e| {
+                TirBaseError::LocalStoreWriteFailed {
+                    reason: format!("crdt mutex poisoned at startup replay: {e}"),
+                }
+            })?;
+            match mig.resume_pending_sidecar_replays(current, &mut crdt) {
+                Ok(tables) => {
+                    if !tables.is_empty() {
+                        eprintln!(
+                            "[init] resumed Side-Car replay for {} table(s): {:?}",
+                            tables.len(),
+                            tables
+                        );
+                    }
+                }
+                Err(e) => eprintln!("[init] Side-Car replay resume failed: {e}"),
+            }
+        }
 
  // ── Production inbound drain loop (Subphase 1.3) ──────────────────────
  //
@@ -3558,6 +3619,54 @@ impl CoreHandle {
         }
     }
 
+ /// Publish a `MigrationDelta` to the mesh (Req 18, 19.3).
+ ///
+ /// The migration travels in the production control-plane envelope
+ /// (`MIGRATION_GOSSIP_AUTHOR`), is scheduled at HIGH priority, and is
+ /// unwrapped by the peer's `receive_inbound` before the CRDT merge gate —
+ /// it is a signed schema transform, not an application Delta. Receivers
+ /// that are already on the migration's source schema execute it and, on
+ /// success, replay any Side-Car entries captured during a corruption
+ /// window against the corrected projection.
+    #[cfg(feature = "native")]
+    pub fn publish_migration_delta(
+        &self,
+        delta: &crate::migration::migration_delta::MigrationDelta,
+    ) -> Result<(), TirBaseError> {
+        let msg = crate::transport::message::GossipMessage::InboundMigrationDelta(Box::new(
+            delta.clone(),
+        ));
+        let mut transport = self.transport.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            }
+        })?;
+        transport.send_message(&msg)
+    }
+
+ /// Publish a `MigrationRevocationDelta` to the mesh (Req 18.5–18.7, 19.1).
+ ///
+ /// Managers distribute both a migration and its revocation; peers receive
+ /// this as the same first-class wire variant `receive_inbound` already
+ /// handles, so a revocation that flags an applied migration corrupted
+ /// reaches every device over the real mesh and opens its CCE incident /
+ /// Side-Car corruption window there.
+    #[cfg(feature = "native")]
+    pub fn publish_migration_revocation_delta(
+        &self,
+        delta: &crate::migration::migration_delta::MigrationRevocationDelta,
+    ) -> Result<(), TirBaseError> {
+        let msg = crate::transport::message::GossipMessage::InboundMigrationRevocationDelta(
+            delta.clone(),
+        );
+        let mut transport = self.transport.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("transport mutex poisoned: {e}"),
+            }
+        })?;
+        transport.send_message(&msg)
+    }
+
     #[cfg(feature = "native")]
     pub async fn receive_inbound(
         &self,
@@ -4429,7 +4538,18 @@ impl CoreHandle {
                     let new_current = { let mig = match migration.lock() { Ok(g)=>g, Err(_)=>return }; mig.current_schema_hash() };
                     let mut crdt = match crdt.lock() { Ok(g)=>g, Err(_)=>return };
                     crdt.set_current_schema(new_current);
-                    { let mut mig = match migration.lock() { Ok(g)=>g, Err(_)=>return }; let _ = mig.replay_corrupted_windows(&source_schema_hash, new_current, &mut crdt); }
+                    let replayed_tables = { let mut mig = match migration.lock() { Ok(g)=>g, Err(_)=>return }; mig.replay_corrupted_windows(&source_schema_hash, new_current, &mut crdt).unwrap_or_default() };
+ // Each replayed Delta's own row is projected into the SQL store by
+ // `replay_sidecar` itself (a merged engine doc only retains the last
+ // row's ROOT metadata), so `read()`/`query()` see every replayed row.
+                    if !replayed_tables.is_empty() {
+                        eprintln!(
+                            "[inbound] Side-Car replay projected {} table(s): {:?}",
+                            replayed_tables.len(),
+                            replayed_tables
+                        );
+                    }
+                    let _ = &store;
                     eprintln!("[inbound] MigrationDelta applied (shadow+postconditions+30.6); CRDT schema -> {}", hex::encode(new_current));
                 }
                 Ok(MigrationResult::Revoked { reason }) => eprintln!("[inbound] MigrationDelta {:?} interrupted by revocation — NOT applied: {reason}", migration_id),
@@ -5716,6 +5836,52 @@ impl CoreHandle {
         &self,
     ) -> tokio::sync::broadcast::Receiver<DurabilityTierChanged> {
         self.durability_events_channel.subscribe()
+    }
+
+ /// Subscribe to contamination-incident lifecycle events (Req 10, 11).
+ ///
+ /// Every `tag_contamination_root` (`Created`), partial `verify_data`
+ /// (`Updated`), full resolution or `admin_close_ico` (`Closed`) appends an
+ /// event here. This is the native surface for the transitions the SDK
+ /// receives as `WasmEvent::Incident*` from `core_poll_events`.
+ ///
+ /// Native-only: the WASM build has no tokio broadcast channels.
+    #[cfg(feature = "native")]
+    pub fn subscribe_incident_events(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<crate::contamination::incident::IncidentEvent> {
+        self.incident_events_channel.subscribe()
+    }
+
+ /// Side-Car entries whose replay produced a conflict and are awaiting
+ /// manual resolution (Req 19.4), newest-first ordering preserved by the
+ /// ledger's recorded-timestamp order.
+ ///
+ /// Conflicts never abort a replay pass: the remaining entries are still
+ /// replayed and the conflicting rows are flagged here instead of being
+ /// silently dropped. An empty result means every entry replayed.
+ ///
+ /// Native-only (the WASM ledger is IndexedDB-backed and async); the same
+ /// information is in `ReplaySummary::conflicts` on the WASM path.
+    #[cfg(feature = "native")]
+    pub fn sidecar_conflicts(
+        &self,
+    ) -> Result<Vec<crate::migration::sidecar::SideCarEntry>, TirBaseError> {
+        let mig = self.migration.lock().map_err(|e| {
+            TirBaseError::LocalStoreWriteFailed {
+                reason: format!("migration mutex poisoned: {e}"),
+            }
+        })?;
+        let mut conflicts = Vec::new();
+        for entry in mig.all_sidecar_entries()? {
+            if matches!(
+                entry.replay_status,
+                crate::migration::sidecar::ReplayStatus::Conflict { .. }
+            ) {
+                conflicts.push(entry);
+            }
+        }
+        Ok(conflicts)
     }
 
  /// Set the squad / tunnel_sector tag this device declares in the
@@ -17340,3 +17506,6 @@ mod inbound_cap_rejection_tests {
 
 #[cfg(all(test, feature = "native"))]
 mod revocation_saturate_mesh_tests;
+
+#[cfg(all(test, feature = "native"))]
+mod contamination_mesh_tests;

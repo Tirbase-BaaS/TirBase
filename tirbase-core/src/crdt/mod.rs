@@ -1014,6 +1014,24 @@ impl CrdtEngine {
                 author_did: delta.author_did.clone(),
             };
             self.dag.insert(node)?;
+
+ // Persist the Delta's signed tags into the append-only tag log. The DAG
+ // node itself starts with an empty tag array (the tags are part of the
+ // signed payload, not of the node schema), so without this the
+ // `ContaminatedByHumanReaction` tag a write carries (Req 19.5) would
+ // never be observable in `dag_nodes.tags_json`. Appending preserves the
+ // log's monotonic invariant.
+            if !delta.tags.is_empty() {
+                if let Ok(conn) = self.dag.conn().lock() {
+                    for tag in &delta.tags {
+                        let _ = crate::contamination::taint::append_tag_to_db(
+                            &conn,
+                            &delta.id,
+                            tag.clone(),
+                        );
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -1143,6 +1161,78 @@ impl CrdtEngine {
         }
 
         Ok(())
+    }
+
+ /// Project the single row carried by a Delta's Automerge bytes into the SQL
+ /// projection store.
+ ///
+ /// Unlike [`CrdtEngine::project_table_to_store`] — which walks the merged
+ /// engine document and therefore only sees the row of the most recently
+ /// merged Delta (every Delta overwrites the ROOT `_tirbase_table` /
+ /// `_tirbase_key` metadata) — this reads the row from the Delta's own
+ /// changeset. That is what Side-Car replay needs: each captured write is
+ /// applied and projected independently, so a multi-row replay does not lose
+ /// every row but the last one.
+ ///
+ /// Production caller: `SchemaMigrationEngine::replay_corrupted_windows`
+ /// (Req 19.3).
+    #[cfg(feature = "native")]
+    pub fn project_delta_bytes_to_store(
+        automerge_bytes: &[u8],
+        store: &std::sync::Arc<std::sync::Mutex<crate::store::LocalStore>>,
+    ) -> Result<(), TirBaseError> {
+        use automerge::{ReadDoc, ScalarValue, Value};
+
+        if automerge_bytes.is_empty() {
+            return Ok(());
+        }
+        let doc = match automerge::AutoCommit::load(automerge_bytes) {
+            Ok(doc) => doc,
+            // Not an Automerge changeset (e.g. the JSON envelope) — the
+            // caller's own projection path handles that shape.
+            Err(_) => return Ok(()),
+        };
+
+        let read_str = |prop: &str| -> Option<String> {
+            match doc.get(automerge::ROOT, prop).ok().flatten() {
+                Some((Value::Scalar(sv), _)) => match sv.as_ref() {
+                    ScalarValue::Str(s) => Some(s.to_string()),
+                    _ => None,
+                },
+                _ => None,
+            }
+        };
+
+        let Some(table) = read_str("_tirbase_table") else {
+            return Ok(());
+        };
+        let Some(key) = read_str("_tirbase_key") else {
+            return Ok(());
+        };
+
+        let value = match doc.get(automerge::ROOT, key.as_str()).ok().flatten() {
+            Some((Value::Scalar(sv), _)) => match sv.as_ref() {
+                ScalarValue::Str(s) => serde_json::from_str::<serde_json::Value>(s.as_str())
+                    .unwrap_or_else(|_| serde_json::Value::String(s.to_string())),
+                ScalarValue::Int(n) => serde_json::json!(n),
+                ScalarValue::Uint(n) => serde_json::json!(n),
+                ScalarValue::F64(f) => serde_json::json!(f),
+                ScalarValue::Boolean(b) => serde_json::Value::Bool(*b),
+                ScalarValue::Null => serde_json::Value::Null,
+                ScalarValue::Bytes(b) => serde_json::Value::String(hex::encode(b)),
+                ScalarValue::Counter(c) => serde_json::json!(c),
+                ScalarValue::Timestamp(t) => serde_json::json!(t),
+                ScalarValue::Unknown { .. } => return Ok(()),
+            },
+            _ => return Ok(()),
+        };
+
+        store
+            .lock()
+            .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+                reason: format!("store mutex poisoned projecting replayed delta: {e}"),
+            })?
+            .write(&table, &key, &value)
     }
 
  /// Apply a local scalar write to the engine's Automerge document and return

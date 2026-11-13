@@ -1309,6 +1309,37 @@ impl MeshTransport {
             })?;
         Ok(())
     }
+
+ /// Publish a pre-framed `GossipMessage` verbatim over the mesh.
+ ///
+ /// Control-plane messages that are not CRDT Deltas (Migration_Delta and
+ /// Migration_Revocation_Delta) carry their own variant tag, and
+ /// `process_wire_message` forwards every non-fragment variant unchanged —
+ /// so they must not be wrapped in a synthetic Delta envelope. Like
+ /// [`MeshTransport::send_receipt`], this bypasses the DRR scheduler: these
+ /// messages are small and latency-sensitive (a corrected migration is what
+ /// unblocks Side-Car replay, Req 19.3).
+ ///
+ /// Production callers: `CoreHandle::publish_migration_delta` and
+ /// `CoreHandle::publish_migration_revocation_delta`.
+    #[cfg(feature = "native")]
+    pub fn send_message(
+        &mut self,
+        msg: &crate::transport::message::GossipMessage,
+    ) -> Result<(), TirBaseError> {
+        let wire_payload = msg.to_bytes();
+        let tx = self
+            .outbound_tx
+            .as_ref()
+            .ok_or_else(|| TirBaseError::MeshUnavailable {
+                reason: "transport not started (no outbound channel installed)".to_string(),
+            })?;
+        tx.try_send(wire_payload)
+            .map_err(|e| TirBaseError::MeshUnavailable {
+                reason: format!("outbound publish channel unavailable: {e}"),
+            })?;
+        Ok(())
+    }
  ///
  /// Called by the production scheduler tick loop spawned from
  /// `CoreHandle::init`; the Swarm polling task (Subphase 1.1) receives the

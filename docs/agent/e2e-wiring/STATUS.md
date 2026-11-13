@@ -1,6 +1,6 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1–4 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination)
+**Workstream:** 1–5 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination; CCE + Side-Car replay/recovery)
 **Branch:** `main`
 **Baseline HEAD:** `5bea300` (WS4 started from `36ba045`)
 **Last updated:** 2026-11-12
@@ -75,9 +75,9 @@ Classifications per charter: `wired`, `under-proven`, `genuinely-unwired`, `stal
 | INV-12 | SDK surfaces real-time trust levels (L176) | `tirbase-sdk` `onTrustLevelChanged` ← `core_poll_events` | **`wired`** | `tirbase-manager-ops.wasm.test.ts`: `presentToken` moves a real WASM instance to `VERIFIED` and emits `trust-level-changed`; an invalid token leaves `UNVERIFIED` plus the unverified warning; a peer revocation no longer mutates the local level (`TrustLevelChanged` now carries `did`) | 7 | WS2 |
 | INV-13 | M-of-N revocation accumulates gossip across peers (L235) | `auth` revocation collector ← `receive_inbound` revocation deltas | **`wired`** | `api::revocation_saturate_mesh_tests::{partial_revocation_deltas_accumulate_across_offline_managers, below_threshold_never_revokes_and_threshold_signature_always_does, revocation_negative_cases_fail_closed}` (§3.7): three real Swarms produce partial deltas while partitioned and accumulate to M=2/3 over the wire | 4 | WS4 |
 | INV-14 | A node one gossip round from the mesh isolates a revoked device (L255) | `auth`/`api` revocation application | **`wired`** | `api::revocation_saturate_mesh_tests::partial_revocation_deltas_accumulate_across_offline_managers` asserts isolation reaches every peer within one production gossip round of the first observer (1 s scheduler epoch + 50 ms drain) and the revoked author's Deltas being rejected at `apply_incoming_delta` | 4 | WS4 |
-| INV-15 | Contamination forward trace identifies tainted devices (L260/262) | `contamination` → `verify_contamination` | `under-proven` | composite-incident + revocation mesh tests exist; no revoked-author → CCE tag e2e | 6 | — |
-| INV-16 | Sidecar replay after corrected migration, tagged on success (L279) | `migration::SideCarLedger::replay_sidecar` | `under-proven` | `sidecar.rs` unit tests + property 22; not exercised through a production migration run | 6 | — |
-| INV-17 | Replay conflicts flagged for manual resolution without abort (L286) | `migration/sidecar.rs` conflict counting | `under-proven` | `replay_with_conflicts_does_not_append_replay_complete_tag`; flag not surfaced through API | 6 | — |
+| INV-15 | Contamination forward trace identifies tainted devices (L260/262) | `contamination` → `verify_contamination` | **`wired`** | `api::contamination_mesh_tests::{revoked_author_over_real_mesh_taints_descendants_appends_tags_and_emits_events, composite_incident_over_real_mesh_merges_decomposes_and_decontaminates}` — real revocation over the mesh → append-only CONTAMINATED tags on every reachable descendant, ICO/Composite ICO, incident events (§3.8) | 6 | WS5 |
+| INV-16 | Sidecar replay after corrected migration, tagged on success (L279) | `migration::SideCarLedger::replay_sidecar` | **`wired`** | `api::contamination_mesh_tests::sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_rows` — bad migration + revocation + captured writes over the real mesh, corrected migration over the mesh, replay in recorded-timestamp order, rows readable through `read()` (§3.8) | 6 | WS5 |
+| INV-17 | Replay conflicts flagged for manual resolution without abort (L286) | `migration/sidecar.rs` conflict counting | **`wired`** | `api::contamination_mesh_tests::sidecar_replay_conflict_is_observable_and_does_not_stop_other_entries` — a conflicting entry is flagged `CONFLICT`, the rest replay, and `CoreHandle::sidecar_conflicts()` exposes it (§3.8) | 6 | WS5 |
 | INV-18 | Tier-1 durability from a live quorum of two devices (L298) | `durability` receipt exchange ← `receive_inbound` | `wired` | `api::real_mesh_tests::two_devices_reach_tier1_durability_via_genuine_receipt_exchange`; WS3 adds a 3-of-4 real-mesh quorum (`three_peers_reach_tier1_via_genuine_receipt_exchange`, §3.6) | 1/3 | WS3 |
 | INV-19 | Tier-1 compaction with refetch from Tier-2 on miss (L316/318) | `crdt::maybe_compact`, `store/compaction.rs` | `under-proven` | compaction applies; no test drives a Tier-1 refetch after compaction | 4 | — |
 | INV-20 | Outbound queue capacity 100,000 writes (L377) | `durability` outbound queue | `under-proven` | capacity constant asserted; no load test | 4 | — |
@@ -466,6 +466,102 @@ before the change because `request_saturate_termination`/`SaturateTerminationCoS
 Commit for this workstream: the commit that adds this section
 (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
 
+## 3.8 WS5 — CCE + Side-Car replay/recovery over real meshes (PROMPT 5 of 8)
+
+Scope: `tirbase-core/src/contamination/*`, `migration/sidecar.rs`, `migration/quarantine.rs`,
+`migration/shadow.rs`, the inbound/CCE/migration paths in `api/mod.rs`, and the observable
+native/WASM event surfaces. Rows INV-15/INV-16/INV-17 (and the Item 7 projection-gap annotation).
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | **No native incident event surface.** `IncidentCreated`/`Updated`/`Closed` were pushed only as `WasmEvent` under `#[cfg(feature = "wasm")]`; a native host could not observe any incident transition. | `CausalContaminationEngine::set_incident_event_listener` is registered by `CoreHandle::init` and forwards `IncidentEvent { kind, incident_id, ico }` onto a broadcast channel exposed by `CoreHandle::subscribe_incident_events` (the native analogue of `core_poll_events`). |
+| 2 | **A migration could not reach a peer over the mesh at all.** `InboundMigrationDelta`/`InboundMigrationRevocationDelta` had no production publish path, so “corrected migration arrives over the real mesh” was untestable without `inject_inbound`. | New `MeshTransport::send_message` publishes a pre-framed `GossipMessage` directly (the same framing `send_receipt` uses); `CoreHandle::publish_migration_delta` / `publish_migration_revocation_delta` are the manager-side production callers. The receiver's existing `receive_inbound` arms handle both. |
+| 3 | **Side-Car replay never wrote projection rows.** `replay_sidecar` merged only into the Automerge document; `read()`/`query()` stayed stale, and post-replay `project_table_to_store` could only project the *last* merged row because every Delta overwrites the ROOT `_tirbase_table`/`_tirbase_key` metadata. | `CrdtEngine::project_delta_bytes_to_store` reads the row from the replayed Delta's own changeset; `SideCarLedger` holds the projection store and projects each successfully replayed entry individually. |
+| 4 | **Replay was not resumable and the corruption window was not persisted.** A restart lost `corrupted_schema_windows`, stranding the captured writes forever; a resumed pass re-applied already-replayed entries. | Windows persist in `migration_corruption_windows` (loaded by `SchemaMigrationEngine::new`, written on open, cleared on replay). `replay_sidecar` skips entries already `REPLAYED`/`COMPLETE`, so a partially-completed pass resumes; `CoreHandle::init` resumes windows whose schema the device has left. |
+| 5 | **A chain overlapping an existing composite opened a disjoint ICO.** Overlap detection only looked at regular OPEN incidents, so a third contamination chain could never join the composite it was causally part of. | `tag_contamination_root` extends the matching OPEN composite (union of roots/deltas/affected rows), marks the new ICO `SupersededBy`, and emits `IncidentUpdated`. |
+| 6 | **Signed tags were absent from the append-only tag log.** `ChangesetDag::insert` always stores `tags_json = "[]"`, so a human-reaction write's `ContaminatedByHumanReaction` tag existed only inside the signed payload and was unobservable in `dag_nodes.tags_json`. | `CrdtEngine::insert_dag_node` appends the Delta's signed tags to the log after inserting the node (append-only; no entry modified). |
+| 7 | **A conflicting Side-Car entry was not observable from a public boundary.** | `CoreHandle::sidecar_conflicts()` returns every entry whose replay status is `Conflict { .. }`. |
+
+### Tests added (`api::contamination_mesh_tests`, real Swarms + production inbound path)
+
+| Test | Proves |
+|------|--------|
+| `revoked_author_over_real_mesh_taints_descendants_appends_tags_and_emits_events` | Author A and observer B are real Swarms; B projects A's Delta and authors a descendant. A root-CA `RevocationManager` revocation applied on B (production `initiate_revocation` → CCE trigger → `tag_contamination_root`) tags the root **and every reachable DAG descendant** CONTAMINATED, opens an ICO with the correct affected rows, and emits `IncidentCreated`. Resolving appends `Resolved`/`Decontaminated`: the pre-resolution tag list is an exact **prefix** of the post-resolution list (nothing modified or removed), rows clean, `IncidentClosed` observed. |
+| `composite_incident_over_real_mesh_merges_decomposes_and_decontaminates` | Two interleaved authors (`a1:x1 → a2:y1 → a1:x2`) are revoked over the mesh; exactly **one** `CompositeIncidentInstance` is formed with the union delta set and every root. Resolving one root decomposes it (`Decomposed`, surviving open ICO, rows still CONTAMINATED); resolving all roots appends `Decontaminated`, clears the rows and emits `IncidentClosed`. |
+| `human_reaction_write_on_contaminated_row_over_real_mesh_joins_open_ico` | A real `CoreHandle::write` against a row the revocation ICO marked CONTAMINATED carries `ContaminatedByHumanReaction` in its signed Delta (observable in the tag log) and is registered in the active OPEN ICO. |
+| `sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_rows` | Bad migration `s→t` published over the mesh is applied by B; manager revocation published over the mesh opens the CCE `BadMigration` ICO **and** the Side-Car window; three writes are captured byte-for-byte; the corrected `t→u` migration published over the mesh replays them in recorded-timestamp order, marks every entry `COMPLETE`, appends `ReplayComplete`, closes the (persisted) window, and **every replayed row is readable through `read()`**. |
+| `sidecar_replay_conflict_is_observable_and_does_not_stop_other_entries` | A Side-Car entry stamped with an unregistered schema hash is quarantined during replay and flagged `CONFLICT` with the reason, while the legitimate entry still replays and its row is projected; `CoreHandle::sidecar_conflicts()` exposes the conflict. |
+| `sidecar_replay_resume_is_idempotent_without_duplicate_or_lost_writes` | The durable state a kill mid-replay leaves (first entry committed `REPLAYED`, remainder pending) is resumed: the production corrected-migration trigger replayes only the remainder, every entry ends `COMPLETE`, each Delta appears exactly once in the DAG, every row is present with the captured value, and a second ledger pass re-applies **0** entries and stays `complete`. |
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cargo test -p tirbase-core --features native --lib` | **746 passed / 0 failed**, 0 ignored (was 740; +6) |
+| `cargo test -p tirbase-core --features native --lib -- --test-threads=1 api::contamination_mesh_tests` | **6/6 pass** (~1.5 s) |
+| `cargo test -p tirbase-core --features native` | every integration suite passes (`contamination_resolution`, `crash_recovery`, `fleet_inventory`, `security_event_sync`, `shadow_postconditions`, `time_source_injection`, …) |
+| `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean |
+| `cargo test -p tirbase-core --features native --lib tests::api_parity` | passes (three new `CoreHandle` methods documented as intentionally unexported) |
+
+CI: a named mandatory gate was added to the `test` job —
+`CCE + Side-Car e2e (revocation taint, composite ICO, replay/recovery)` runs
+`cargo test -p tirbase-core --features native --lib api::contamination_mesh_tests -- --test-threads=1`
+(no `#[ignore]`, no `continue-on-error`), and the job's full `cargo test --features native` step covers it too.
+**Caveat:** `.github/workflows/ci.yml` does not parse as YAML even at HEAD — its block scalars (`run: |`)
+are written at the same indentation as the `run:` key, so `ruby -ryaml`/`js-yaml` reject the file at line 25
+(a pre-existing condition from earlier CI edits, not introduced here). The new step follows the file's
+existing style; whether GitHub executes the workflow could not be verified locally.
+
+### Fails-before evidence
+
+All six tests are compiled against APIs added by this workstream (`subscribe_incident_events`,
+`publish_migration_delta`, `publish_migration_revocation_delta`, `sidecar_conflicts`,
+`open_composite_incidents`), so they cannot build on the starting HEAD. Individually disabling the wiring
+reproduces the specific defect: with `project_delta_bytes_to_store` removed, the three replay tests fail on
+the `read()` assertions (`key not found`); with the composite-extension block removed,
+`composite_incident_…` fails with “expected exactly one composite, got 0” for the third chain; with the
+signed-tag append removed, the human-reaction test times out on the tag assertion.
+
+### Honest limits (do not overclaim)
+
+1. **Same host, loopback TCP.** Real gossipsub publish/subscribe and the production drain loops, but no
+   cross-host/NAT behaviour (INV-43 stays open).
+2. **Crash recovery is proven from the durable ledger state, not a real SIGKILL.** The test commits the
+   state a killed pass leaves (per-entry status writes are their own transactions) and resumes through the
+   production corrected-migration trigger. The restart path in `CoreHandle::init` is wired
+   (persisted windows + skip-already-replayed) but its end-to-end resume is not exercised by a real process
+   kill, because the device's own schema hash is not persisted (a pre-existing durability gap that belongs
+   to WS4): after a restart the migration engine starts at the deployment's first version, not at the
+   committed corrected schema.
+3. **Quarantine-on-corrupted-schema is proven indirectly.** This workstream proves Side-Car capture and
+   replay ordering; the byte-for-byte quarantine ledger path is covered by
+   `api::tests::quarantine_ledger_wiring_two_core_handle_instances` and the conflict test's
+   `UnknownSchemaHash` quarantine, not by a second write-path quarantine test.
+4. **Events are proven on the native surface.** The WASM `WasmEvent::Incident*` queue already existed and was
+   not re-run here; the native broadcast channel is the new surface.
+5. **`IncidentUpdated` is emitted for partial resolution and composite extension**, but the tests assert the
+   `Created`/`Closed` transitions and the composed state directly; they do not enumerate every `Updated`.
+6. **`public-api.txt` was updated by hand for the new items, not regenerated.** `cargo +nightly public-api`
+   (0.52.0, current nightly) now emits `Result<(), …>` where the committed manifest holds `Result<, …>` and
+   enumerates extra blanket impls, i.e. the manifest already drifts from the toolchain on every pre-existing
+   entry (~498 differing lines, none of them from this workstream) — regenerating would have produced a
+   repo-wide unrelated diff. The substantive new lines (3 `CoreHandle` methods, `MeshTransport::send_message`,
+   `CrdtEngine::project_delta_bytes_to_store`, the Side-Car ledger accessors, the CCE listener/`open_composite_incidents`,
+   `IncidentEvent`/`IncidentEventKind`) are in the manifest; the `Result<()`-vs-`Result<` drift is pre-existing and
+   unfixed here.
+
+### Files
+
+- Core: `src/contamination/{mod,incident}.rs`, `src/migration/{mod,sidecar}.rs`, `src/crdt/mod.rs`,
+  `src/transport/mod.rs`, `src/api/mod.rs`, `src/api/contamination_mesh_tests.rs` (new),
+  `src/tests/api_parity.rs`, `src/store/sqlite.rs`.
+- Docs: `tirbase-core/tests/README.md` (Item 7 projection gap reconciled to the code).
+
+Commit for this workstream: the commit that adds this section
+(`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -489,6 +585,9 @@ Commit for this workstream: the commit that adds this section
   and §3.5 the gateway→WASM saturate e2e. The one remaining item is signed admin operations proven only to their auth gate, which stays with
   `tirbase-gateway/tests/admin_endpoints_binary.rs`.
 - WS4 (prompt 4 of 8) closed INV-13/INV-14 and added the mesh path for M-of-N Saturate termination; see §3.7.
+- WS5 (prompt 5 of 8) closed INV-15/INV-16/INV-17, added the native incident event surface, real-mesh
+  migration/revocation distribution, Side-Car replay projection + resume, composite extension, and reconciled
+  the `tests/README.md` Item 7 projection-gap text; see §3.8.
 - The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

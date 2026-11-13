@@ -218,6 +218,22 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
         "native-only tokio broadcast channel; WASM uses core_poll_events",
     ),
     (
+        "subscribe_incident_events",
+        "native-only tokio broadcast channel; WASM delivers Incident* via core_poll_events",
+    ),
+    (
+        "publish_migration_delta",
+        "native-only mesh control plane; migrations are distributed by managers, not the SDK",
+    ),
+    (
+        "publish_migration_revocation_delta",
+        "native-only mesh control plane; migration revocations are distributed by managers, not the SDK",
+    ),
+    (
+        "sidecar_conflicts",
+        "native-only Side-Car conflict inspection; WASM reports conflicts in ReplaySummary",
+    ),
+    (
         "test_cce",
         "test-only accessor for the contamination engine",
     ),

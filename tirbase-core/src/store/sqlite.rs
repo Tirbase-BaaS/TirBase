@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS sidecar_ledger (
     conflict_info TEXT
 );
 
+-- Req 19.2/19.3 crash recovery: the in-memory corruption windows are
+-- persisted so a restart can resume Side-Car replay instead of stranding
+-- the captured writes.
+CREATE TABLE IF NOT EXISTS migration_corruption_windows (
+    schema_hash  BLOB NOT NULL,
+    migration_id BLOB NOT NULL,
+    PRIMARY KEY (schema_hash, migration_id)
+);
+
 CREATE TABLE IF NOT EXISTS device_identity (
     id            INTEGER PRIMARY KEY CHECK (id = 1),
     did           TEXT NOT NULL,
