@@ -112,6 +112,18 @@ const IO_MANAGER_EXPORTS: &[(&str, &str, &str)] = &[
 /// guarantees no new public method can silently bypass this decision.
 const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
     (
+        "scheduler_stats",
+        "DRR observability over the native transport; not part of the WASM SDK surface",
+    ),
+    (
+        "reset_scheduler_stats",
+        "DRR observability over the native transport; not part of the WASM SDK surface",
+    ),
+    (
+        "set_scheduler_link_capacity",
+        "native link-speed control; the WASM host owns its own transport",
+    ),
+    (
         "subscribe_diagnostics",
         "native-only tokio broadcast channel; WASM uses core_poll_events",
     ),

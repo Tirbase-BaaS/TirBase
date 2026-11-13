@@ -488,6 +488,9 @@ pub fn tirbase_core::api::CoreHandle::local_did(&self) -> &str
 pub fn tirbase_core::api::CoreHandle::local_spatial_tag(&self) -> core::option::Option<alloc::string::String>
 pub fn tirbase_core::api::CoreHandle::memory_budget_metrics(&self) -> tirbase_core::crdt::memory_budget::MemoryBudgetCaches
 pub fn tirbase_core::api::CoreHandle::mesh_status(&self) -> tirbase_core::api::types::MeshStatus
+pub fn tirbase_core::api::CoreHandle::scheduler_stats(&self) -> tirbase_core::transport::scheduler::SchedulerStats
+pub fn tirbase_core::api::CoreHandle::reset_scheduler_stats(&self)
+pub fn tirbase_core::api::CoreHandle::set_scheduler_link_capacity(&self, u64)
 pub fn tirbase_core::api::CoreHandle::present_biscuit_token(&self, &str) -> core::result::Result<tirbase_core::api::types::TrustLevel, tirbase_core::errors::TirBaseError>
 pub async fn tirbase_core::api::CoreHandle::process_inbound_messages(&self) -> core::result::Result<usize, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::api::CoreHandle::publish_checkpoint_hash(&self, u64, [u8; 32], i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
@@ -11077,6 +11080,12 @@ pub fn tirbase_core::transport::MeshTransport::enqueue_outbound(&mut self, tirba
 pub fn tirbase_core::transport::MeshTransport::enqueue_retry(&mut self, tirbase_core::crdt::delta::Did, alloc::vec::Vec<u8>, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::has_backlog(&self) -> bool
 pub fn tirbase_core::transport::MeshTransport::high_queue_depth(&self) -> usize
+pub fn tirbase_core::transport::MeshTransport::medium_queue_depth(&self) -> usize
+pub fn tirbase_core::transport::MeshTransport::low_queue_depth(&self) -> usize
+pub fn tirbase_core::transport::MeshTransport::scheduler_stats(&self) -> tirbase_core::transport::scheduler::SchedulerStats
+pub fn tirbase_core::transport::MeshTransport::reset_scheduler_stats(&mut self)
+pub fn tirbase_core::transport::MeshTransport::set_scheduler_link_capacity(&mut self, u64)
+pub fn tirbase_core::transport::MeshTransport::scheduler_queued_bytes(&self, tirbase_core::crdt::delta::PriorityClass) -> u64
 pub async fn tirbase_core::transport::MeshTransport::initiate_session(&mut self, tirbase_core::crdt::delta::Did, tirbase_core::api::types::TrustLevel, &[u8], &[u8], core::option::Option<&mut dyn tirbase_core::transport::session::AsyncNoiseStream>, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>
 pub fn tirbase_core::transport::MeshTransport::new(tirbase_core::crdt::delta::Did, [u8; 32], tirbase_core::transport::TransportConfig) -> Self
 pub fn tirbase_core::transport::MeshTransport::on_peer_discovered(&mut self, tirbase_core::transport::discovery::DiscoveredPeer, i64) -> core::result::Result<, tirbase_core::errors::TirBaseError>

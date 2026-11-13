@@ -1,6 +1,6 @@
 # E2E Wiring — STATUS ledger
 
-**Workstream:** 1–6 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination; CCE + Side-Car replay/recovery; fragmentation + multi-hop relay + BLE bridge + Noise 0-RTT/rotation)
+**Workstream:** 1–7 of 8 (inventory + foundations; TypeScript manager ops + gateway admin SDK; live Tier-1 quorum + spatial diversity; revocation gossip accumulation + M-of-N Saturate termination; CCE + Side-Car replay/recovery; fragmentation + multi-hop relay + BLE bridge + Noise 0-RTT/rotation; DRR floors + per-table compaction + outbound-queue guarantees)
 **Branch:** `main`
 **Baseline HEAD:** `5bea300` (WS4 started from `36ba045`)
 **Last updated:** 2026-11-13
@@ -653,6 +653,108 @@ suites. Rows INV-07/INV-08/INV-09/INV-10/INV-11.
 Commit for this workstream: the commit that adds this section
 (`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
 
+
+## 3.10 WS7 — DRR floors, per-table compaction, outbound-queue guarantees (PROMPT 7 of 8)
+
+Scope: `src/transport/scheduler.rs`, `src/crdt/mod.rs` (compaction paths and the
+per-table document store), `src/store/compaction.rs`, `src/durability/cloud_queue.rs`,
+the `CoreHandle` observability surface and a new real-mesh suite. Rows INV-19/INV-20/
+INV-22/INV-23/INV-24/INV-25/INV-26.
+
+### What was actually unwired (found, not assumed)
+
+| # | Defect | Fix |
+|---|--------|-----|
+| 1 | **"Each table is a separate Automerge document" was false.** One `AutoCommit` served every table (`_tirbase_table` was just a ROOT key that each write overwrote), so compaction could not be scoped to a table and `CompactionPolicy::None` had no isolation to guarantee. | `CrdtEngine` now holds `docs: BTreeMap<String, AutoCommit>` plus `last_table`/`actor`. `write_scalar` routes to the table's own document; `apply` recovers the table from the incoming payload's `_tirbase_table` and merges only into that document; `project_table_to_store` reads that table's document. Legacy accessors (`doc`, `read_scalar`, `doc_map_range_root`, `convergent_state`) resolve through `last_table`, preserving their previous "state after the last write/merge" semantics. |
+| 2 | **Compaction marked every table's DAG nodes.** `compact_table` ran `UPDATE dag_nodes SET compacted = 1 WHERE compacted = 0`, so compacting one table rewrote the other tables' history markers. | `mark_table_nodes_compacted` scans uncompacted nodes, decompresses the zstd payload (payloads are compressed at insert time), reads `_tirbase_table` and marks only this table's ids. Unattributable payloads stay unmarked (guessing would cross the isolation boundary). |
+| 3 | **The scheduler had no observable counters**, so the 70/20/10 floors, spare flow and the LOW epoch bound could only be asserted at unit level. | `SchedulerStats` (epochs, bytes and Delta counts per class), plus `DrrScheduler::{stats, reset_stats, floor_quanta, deficits, queued_bytes}`, `MeshTransport::{scheduler_stats, reset_scheduler_stats, set_scheduler_link_capacity, scheduler_queued_bytes, low_queue_depth, medium_queue_depth}` and `CoreHandle::{scheduler_stats, reset_scheduler_stats, set_scheduler_link_capacity}`. |
+| 4 | **`update_link_capacity` kept stale deficit credit.** A capacity change left bytes of *old-link* floor credit in the deficit counters, so the next epoch could burst (or starve) against the new link — this was visible immediately when the scheduler was re-based for a 10 000 B/s link. | `update_link_capacity` clears the three deficit counters; credit is denominated in the current link's floor bytes. |
+| 5 | **The 100k queue bound was a constant with no reduced-bound path**, so overflow/no-drop behaviour could not be proven at a size CI can afford. | `CloudOutboundQueue::with_capacity(n)` / `capacity()`; `new()` keeps `MAX_QUEUE_DEPTH = 100_000`, and `enqueue` enforces `self.capacity`. `with_capacity` is a production constructor (same enqueue/acknowledge code). |
+
+### Tests added — all through production paths
+
+| Test | Proves |
+|------|--------|
+| `api::drr_compaction_queue_tests::drr_byte_floors_hold_over_ten_real_mesh_epochs` | Two real Swarms; 220 HIGH + 90 MEDIUM + 45 LOW real signed Deltas enqueued via `MeshTransport::enqueue_outbound`, ten epochs driven by the production `MeshTransport::tick_scheduler` (the exact function `CoreHandle::spawn_scheduler_tick_loop` calls) at a 10 000 B/s link. Measured: **10 epochs**, total **98 042 B** scheduled — HIGH **69 431 B (70.82 %)**, MEDIUM **19 084 B (19.47 %)**, LOW **9 527 B (9.72 %)**. Cumulative allocation (`served + residual deficit`) is **≥ 70 000 / 20 000 / 10 000 B**, i.e. the 70/20/10 floors exactly; observed transmission is within one whole Delta (1 365 B) of each floor because DRR sends whole Deltas. The peer reads a HIGH, a MEDIUM and a LOW row through the ordinary projection path. |
+| `…::spare_capacity_goes_to_high_first_and_low_clears_within_ten_epochs` | HIGH backlogged, MEDIUM empty, LOW backlog **9 514 B ≤ clearing capacity 10 000 B** (`DrrScheduler::low_clearing_capacity(10_000)`). Epoch 1: HIGH **8 208 B > 7 000 B floor** (it took the spare), MEDIUM **0 B**, LOW **0 B ≤ 1 000 B floor** — spare flows to the highest-priority backlog first. The LOW queue depth reaches **0 at epoch 10** (all 7 LOW Deltas in 9 514 B), and the peer reads the last LOW row. Over the window HIGH took 85 665 B. |
+| `…::compaction_is_per_table_and_none_policy_is_never_compacted` | One deployment, two tables: `agg` = `Aggressive { threshold: 3 }`, `keep` = `None`. Writes 0–2 of `agg` are uncompacted; the 4th write crosses the threshold and compacts exactly the three existing `agg` nodes; the next write compacts the Delta the crossing write produced. Six `keep` writes stay **uncompacted** while `agg` is compacted. `table_names()` shows separate `agg`/`keep` documents with different saved sizes; all five `agg` and six `keep` rows read back correctly and `refetch_delta_bytes` still returns the compacted Delta. |
+| `…::cloud_queue_bound_holds_and_never_drops_queued_entries` | `MAX_QUEUE_DEPTH == 100 000` and `CloudOutboundQueue::new().capacity() == 100 000`; at a reduced bound of 256 the 257th enqueue fails with `CloudQueueFull { depth: 256 }`, depth stays 256 (no eviction/drop), and the slot freed by `acknowledge` accepts the next entry. |
+| `…::offline_writes_accumulate_without_drop_and_drain_on_reconnect` | 64 writes through `CoreHandle::write` while no cloud sync runs: queue depth 64 and every row readable (nothing dropped). One production `run_cloud_sync_cycle`: `acknowledged = 64`, `deferred = 0`, `rejected = 0`, depth 0, every Delta committed in the Cloud Ledger and at `Tier2`. |
+| `…::full_scale_100k_offline_writes_fill_the_queue_without_loss` | **Gated full-scale** (`#[ignore]`, documented): 100 000 real writes fill the production queue to `MAX_QUEUE_DEPTH`, the next write is refused with `CloudQueueFull` and the depth is unchanged. Not run in CI (too slow); the constant, enforcement and no-drop behaviour are covered by the two tests above and by `durability::tests::cloud_queue_overflow_returns_queue_full`. |
+| `api::real_mesh_tests::tier1_then_compaction_refetch_and_cloud_sync_reach_tier2` (extended) | Tier-1 + compaction + re-fetch through the durability path: the writer's earlier Delta is marked `compacted` while the receipt holder's copy is **not**, and re-fetching the compacted Delta from the holder returns **byte-identical** payload to the writer's re-fetch (`refetch_delta_bytes`), on top of the existing Tier-2 ack assertions. |
+
+### Commands and results (this machine)
+
+| Command | Result |
+|---------|--------|
+| `cargo test -p tirbase-core --features native --lib api::drr_compaction_queue_tests -- --test-threads=1` | **5 passed / 0 failed / 1 ignored** (the gated full-scale test) |
+| `cargo test -p tirbase-core --features native` | **767 lib passed / 0 failed / 2 ignored** (BLE radio + full-scale), every integration suite green (`contamination_resolution` 8, `crash_recovery` 1, `fleet_inventory` 2, `security_event_sync` 2, `shadow_postconditions` 5, `time_source_injection` 1) |
+| `cargo test -p tirbase-core --features native --lib api::real_mesh_tests` | **21 passed / 0 failed** |
+| `cargo test -p tirbase-core --features native --lib crdt::` | **113 passed / 0 failed** |
+| `cargo test -p tirbase-core --features native --lib store::` / `durability::` | **22 passed** / **90 passed** |
+| `cargo check -p tirbase-core --no-default-features --features wasm --target wasm32-unknown-unknown` | clean (only the pre-existing `proc-macro-error2` future-incompat warning) |
+| `cargo test -p tirbase-core --features native --lib tests::api_parity` | **6 passed** (the three new observability methods are documented exclusions) |
+
+CI: a mandatory step — `WS7 e2e (DRR floors, spare capacity, LOW bound, compaction, queue)` running
+`cargo test -p tirbase-core --features native --lib api::drr_compaction_queue_tests -- --test-threads=1`
+— was added to the `test` job (no `continue-on-error`, no `|| true`, no `--ignored`). The job's full
+`cargo test --features native` step covers it as well. The pre-existing caveat that
+`.github/workflows/ci.yml` does not parse as YAML (block scalars at the same indentation as `run:`)
+still applies; the new step follows the file's existing style.
+
+### Fails-before evidence
+
+- Before this change the scheduler exposed no counters at all, so the three DRR tests cannot compile
+  on the starting tree (no `scheduler_stats`, no `deficits`, no `queued_bytes`).
+- Before the per-table split, `compact_table` marked **all** uncompacted nodes and the engine had one
+  document: `compaction_is_per_table_and_none_policy_is_never_compacted` fails on the per-table
+  assertions (the `keep` nodes come back `compacted`, and `table_names()` has a single entry).
+- Before `update_link_capacity` cleared the deficits, the floors measurement transmitted the whole
+  485 KB backlog in epoch 1 (`high=300 958 B`, i.e. 62 % of the window) instead of 70 %, and the
+  ten-epoch bound was unobservable.
+- Before `with_capacity`, the reduced-bound test cannot express a 256-entry bound without faking the
+  constant.
+
+### Honest limits (do not overclaim)
+
+1. **Same host, loopback.** Every DRR scenario uses two Swarms in one process over loopback TCP with
+   genuine gossipsub publish/subscribe and the production drain loops; it does not prove cross-host
+   behaviour (INV-43 stays open).
+2. **Whole-Delta quantization.** DRR transmits complete Deltas, so an observed fraction is at most one
+   Delta below its floor. The floors are proven exactly as **allocated** bytes (`served + deficit`)
+   and as observed bytes within `ONE_DELTA_SLACK = 2 048 B`; the measured run is 70.82 / 19.47 / 9.72 %.
+3. **Epochs are driven directly.** The tests call `MeshTransport::tick_scheduler` (the production
+   function, production per-epoch budget) ten times rather than sleeping through ten 1-second ticks;
+   `CoreHandle::spawn_scheduler_tick_loop` is separately covered by the pre-existing scheduler-loop
+   tests. No test-only scheduler branch exists.
+4. **Queue bound at reduced size.** The 100 000 constant and overflow behaviour are asserted directly
+   (`MAX_QUEUE_DEPTH`, `new().capacity()`, and the existing 100k-fill unit test), but the end-to-end
+   no-drop/reconnect path is exercised at 64 real writes; the full 100k end-to-end run is the gated
+   `#[ignore]` test and was **not** run here.
+5. **Compaction is proven on a single device** (schema + policies + DAG marking + reads + re-fetch).
+   The durability half reuses the WS3 Tier-1 test rather than re-testing quorum formation, as scoped.
+6. **`public-api.txt` was appended by hand** for the new items (the manifest already drifts from
+   `cargo +nightly public-api` on ~498 pre-existing lines; regenerating would produce an unrelated
+   repo-wide diff). `scripts/check-public-api.sh` continues to fail for that pre-existing reason.
+7. **`compaction_policy_for` falls back to `None`** when no schema definition is registered for the
+   current hash — unchanged behaviour, documented at the call site.
+
+### Files
+
+- `tirbase-core/src/transport/scheduler.rs` (SchedulerStats, deficits/queued_bytes, capacity-change reset)
+- `tirbase-core/src/transport/mod.rs` (scheduler observability + link-capacity control)
+- `tirbase-core/src/crdt/mod.rs` (per-table Automerge documents; table-routed apply/projection/compaction)
+- `tirbase-core/src/crdt/merge.rs` (hardening gate reads the Delta's own table document)
+- `tirbase-core/src/store/compaction.rs` (table-scoped DAG compaction marking)
+- `tirbase-core/src/durability/cloud_queue.rs` (configurable capacity bound)
+- `tirbase-core/src/api/mod.rs` (CoreHandle observability; extended Tier-1 compaction/re-fetch test; suite module)
+- `tirbase-core/src/api/drr_compaction_queue_tests.rs` (new suite)
+- `tirbase-core/src/tests/api_parity.rs` (documented exclusions for the observability methods)
+- `tirbase-core/public-api.txt`, `.github/workflows/ci.yml`
+
+Commit for this workstream: the commit that adds this section
+(`git log -1 --format=%h -- docs/agent/e2e-wiring/STATUS.md`).
+
 ## 4. Blockers / limits of this workstream
 
 - **No commit of the inventory yet** — this file and the charter are committed with the WS1
@@ -681,6 +783,9 @@ Commit for this workstream: the commit that adds this section
   the `tests/README.md` Item 7 projection-gap text; see §3.8.
 - WS6 (prompt 6 of 8) closed INV-08/INV-10/INV-11 and took INV-07 to `wired (emulated link)` with the
   radio hardware-gated; it also extended INV-09 to the documented `mesh_mtu = 256` path; see §3.9.
-- The next unclaimed rows are INV-06/INV-25/INV-26/INV-30/INV-31/INV-47.
+- WS7 (prompt 7 of 8) closed INV-19/INV-20/INV-22/INV-23/INV-24/INV-25/INV-26: per-table Automerge
+  documents, table-scoped compaction, production DRR counters with measured 70/20/10 floors, spare
+  flow, the LOW 10-epoch bound, the queue bound/no-drop path and a byte-identical Tier-1 re-fetch; see §3.10.
+- The next unclaimed rows are INV-06/INV-30/INV-31/INV-47 (INV-25/INV-26 are closed by §3.10).
 - WS8 must not mark INV-03, INV-04, INV-40, INV-41, INV-44…INV-46, INV-49, INV-50 as gaps — they
   are stale markers over now-executable proof.

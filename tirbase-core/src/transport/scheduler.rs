@@ -23,6 +23,61 @@ pub struct QueuedDelta {
     pub enqueued_at: i64,
 }
 
+/// Production-safe counters for the scheduler (Req 12.2–12.8).
+///
+/// These are cheap scalar accumulators updated on every `tick()`; they are
+/// the observable evidence that the byte-fraction floors and spare-capacity
+/// flow are enforced by the *production* scheduler rather than by a test
+/// harness. `epochs` counts completed scheduling epochs (one `tick`), which
+/// is also the unit of the LOW-queue 10-epoch bound request.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SchedulerStats {
+ /// Number of completed scheduling epochs (`tick` calls).
+    pub epochs: u64,
+ /// Bytes actually transmitted from the HIGH queue.
+    pub high_bytes: u64,
+ /// Bytes actually transmitted from the MEDIUM queue.
+    pub medium_bytes: u64,
+ /// Bytes actually transmitted from the LOW queue.
+    pub low_bytes: u64,
+ /// Deltas actually transmitted from each queue.
+    pub high_deltas: u64,
+    pub medium_deltas: u64,
+    pub low_deltas: u64,
+}
+
+impl SchedulerStats {
+ /// Total bytes transmitted across all three classes.
+    pub fn total_bytes(&self) -> u64 {
+        self.high_bytes + self.medium_bytes + self.low_bytes
+    }
+
+ /// Total Deltas transmitted across all three classes.
+    pub fn total_deltas(&self) -> u64 {
+        self.high_deltas + self.medium_deltas + self.low_deltas
+    }
+
+ /// Bytes transmitted for `class`.
+    pub fn bytes_for(&self, class: PriorityClass) -> u64 {
+        match class {
+            PriorityClass::High => self.high_bytes,
+            PriorityClass::Medium => self.medium_bytes,
+            PriorityClass::Low => self.low_bytes,
+        }
+    }
+
+ /// Fraction of transmitted bytes that went to `class` (0.0 when nothing was
+ /// transmitted yet).
+    pub fn fraction_for(&self, class: PriorityClass) -> f64 {
+        let total = self.total_bytes();
+        if total == 0 {
+            0.0
+        } else {
+            self.bytes_for(class) as f64 / total as f64
+        }
+    }
+}
+
 /// The Deficit Round Robin scheduler (design §DRR Scheduler Implementation).
 pub struct DrrScheduler {
     high_queue: VecDeque<QueuedDelta>,
@@ -40,8 +95,11 @@ pub struct DrrScheduler {
     medium_quantum: u64, // 20% of epoch capacity
     low_quantum: u64,    // 10% of epoch capacity
 
- /// True when Saturate_Mode is active (Req 13.2).
+     /// True when Saturate_Mode is active (Req 13.2).
     saturate_mode: bool,
+
+    /// Production-safe transmission counters (see [`SchedulerStats`]).
+    stats: SchedulerStats,
 }
 
 impl DrrScheduler {
@@ -61,16 +119,23 @@ impl DrrScheduler {
             medium_quantum,
             low_quantum,
             saturate_mode: false,
+            stats: SchedulerStats::default(),
         }
     }
 
  /// Update the link capacity and recompute quantum allotments.
  ///
- /// Call this when the active transport reports a link speed change.
+ /// Call this when the active transport reports a link speed change. The
+ /// deficit counters are denominated in bytes of the *previous* link's floor
+ /// allotment, so they are cleared: carrying them across a capacity change
+ /// would let the new link burst (or starve) on stale credit.
     pub fn update_link_capacity(&mut self, link_capacity_bytes_per_sec: u64) {
         self.high_quantum = (link_capacity_bytes_per_sec * 70) / 100;
         self.medium_quantum = (link_capacity_bytes_per_sec * 20) / 100;
         self.low_quantum = (link_capacity_bytes_per_sec * 10) / 100;
+        self.high_deficit = 0;
+        self.medium_deficit = 0;
+        self.low_deficit = 0;
     }
 
  /// Enqueue a Delta for transmission in the appropriate priority queue (Req 12.1).
@@ -92,11 +157,14 @@ impl DrrScheduler {
     pub fn tick(&mut self, link_capacity_bytes: u64) -> Vec<QueuedDelta> {
         if self.saturate_mode {
  // All bandwidth to HIGH; MEDIUM and LOW are queued but not served.
-            return drain_queue(
+            let sent = drain_queue(
                 &mut self.high_queue,
                 link_capacity_bytes as i64,
                 &mut self.high_deficit,
             );
+            self.record(&sent);
+            self.stats.epochs += 1;
+            return sent;
         }
 
  // --- Phase 1: Add guaranteed floor quanta to deficit counters ---
@@ -145,7 +213,56 @@ impl DrrScheduler {
         let mut result = sent_high;
         result.extend(sent_medium);
         result.extend(sent_low);
+
+        self.record(&result);
+        self.stats.epochs += 1;
         result
+    }
+
+ /// Accumulate one epoch's transmission counters.
+    fn record(&mut self, sent: &[QueuedDelta]) {
+        for queued in sent {
+            match queued.delta.priority {
+                PriorityClass::High => {
+                    self.stats.high_bytes += queued.serialized_len;
+                    self.stats.high_deltas += 1;
+                }
+                PriorityClass::Medium => {
+                    self.stats.medium_bytes += queued.serialized_len;
+                    self.stats.medium_deltas += 1;
+                }
+                PriorityClass::Low => {
+                    self.stats.low_bytes += queued.serialized_len;
+                    self.stats.low_deltas += 1;
+                }
+            }
+        }
+    }
+
+ /// Snapshot of the cumulative transmission counters.
+    pub fn stats(&self) -> SchedulerStats {
+        self.stats
+    }
+
+ /// Reset the cumulative transmission counters (does not touch queues or
+ /// deficits). Used by hosts that want to measure a fresh observation window.
+    pub fn reset_stats(&mut self) {
+        self.stats = SchedulerStats::default();
+    }
+
+ /// The per-epoch guaranteed floor quanta in bytes: (HIGH, MEDIUM, LOW).
+    pub fn floor_quanta(&self) -> (u64, u64, u64) {
+        (self.high_quantum, self.medium_quantum, self.low_quantum)
+    }
+
+ /// Current deficit counters in bytes (HIGH, MEDIUM, LOW).
+ ///
+ /// A positive value is guaranteed floor allocation the queue has not spent
+ /// yet: `served + deficit` is the cumulative floor honoured for that class.
+ /// Negative values are capacity borrowed against future floors (only ever
+ /// produced by the spare-capacity redistribution path).
+    pub fn deficits(&self) -> (i64, i64, i64) {
+        (self.high_deficit, self.medium_deficit, self.low_deficit)
     }
 
  /// Activate / deactivate the scheduler's Saturate_Mode flag (Req 13.2).
@@ -193,6 +310,16 @@ impl DrrScheduler {
  /// Returns the current depth of the MEDIUM priority queue.
     pub fn medium_queue_depth(&self) -> usize {
         self.medium_queue.len()
+    }
+
+ /// Total serialised bytes currently queued for `class`.
+    pub fn queued_bytes(&self, class: PriorityClass) -> u64 {
+        let queue = match class {
+            PriorityClass::High => &self.high_queue,
+            PriorityClass::Medium => &self.medium_queue,
+            PriorityClass::Low => &self.low_queue,
+        };
+        queue.iter().map(|q| q.serialized_len).sum()
     }
 
  /// Compute the clearing capacity for the LOW queue (Req 12.8):

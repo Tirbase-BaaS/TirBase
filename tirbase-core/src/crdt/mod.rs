@@ -137,9 +137,24 @@ pub fn derive_did_from_public_key(public_key: &[u8; 32]) -> Did {
 /// The CRDT Engine wraps `automerge::AutoCommit` and adds TirBase-specific
 /// routing, signing, and DAG management.
 pub struct CrdtEngine {
- /// One Automerge doc per engine instance (the CRDT engine is table-scoped at the
- /// `CoreHandle` level; each table gets its own `CrdtEngine`).
-    doc: automerge::AutoCommit,
+    /// One Automerge document per table (design §Per-Table Layout, Req 3.4).
+    ///
+    /// Keyed by table name. The empty key `""` holds payloads that carry no
+    /// `_tirbase_table` routing metadata (bare Automerge test vectors and the
+    /// JSON-envelope fallback), so every engine always has at least one doc.
+    /// Compaction is per document, which is what makes a
+    /// `CompactionPolicy::None` table immune to compaction of its neighbours.
+    docs: BTreeMap<String, automerge::AutoCommit>,
+
+    /// Table whose document the most recent local write or inbound merge
+    /// touched. The legacy single-document accessors (`doc`, `read_scalar`,
+    /// `doc_map_range_root`, …) resolve through it, preserving their
+    /// pre-per-table semantics ("state after the last write/merge").
+    last_table: String,
+
+    /// Automerge actor id — the device's Ed25519 public key bytes — shared by
+    /// every per-table document so LWW/RGA tiebreaks stay DID-derived.
+    actor: automerge::ActorId,
 
  /// Monotonically increasing Lamport clock.
     lamport: u64,
@@ -265,7 +280,12 @@ impl CrdtEngine {
         let actor_id = automerge::ActorId::from(&public_key[..]);
 
         CrdtEngine {
-            doc: automerge::AutoCommit::new().with_actor(actor_id),
+            docs: BTreeMap::from([(
+                String::new(),
+                automerge::AutoCommit::new().with_actor(actor_id.clone()),
+            )]),
+            last_table: String::new(),
+            actor: actor_id,
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
@@ -297,7 +317,12 @@ impl CrdtEngine {
         let actor_id = automerge::ActorId::from(&public_key[..]);
 
         CrdtEngine {
-            doc: automerge::AutoCommit::new().with_actor(actor_id),
+            docs: BTreeMap::from([(
+                String::new(),
+                automerge::AutoCommit::new().with_actor(actor_id.clone()),
+            )]),
+            last_table: String::new(),
+            actor: actor_id,
             lamport: 0,
             known_schema_hash: schema_hash,
             known_schemas,
@@ -311,7 +336,53 @@ impl CrdtEngine {
         }
     }
 
- /// Register an additional known schema hash (called during additive migration).
+     /// Borrow (creating on demand) the Automerge document for `table`.
+    pub(crate) fn ensure_doc(&mut self, table: &str) -> &mut automerge::AutoCommit {
+        let actor = self.actor.clone();
+        self.docs
+            .entry(table.to_string())
+            .or_insert_with(|| automerge::AutoCommit::new().with_actor(actor))
+    }
+
+    /// Read the `_tirbase_table` routing key from a document, if present.
+    fn table_of_doc(doc: &automerge::AutoCommit) -> String {
+        use automerge::{ReadDoc, Value};
+        match doc.get(automerge::ROOT, "_tirbase_table").ok().flatten() {
+            Some((Value::Scalar(sv), _)) => match sv.as_ref() {
+                automerge::ScalarValue::Str(s) => s.to_string(),
+                _ => String::new(),
+            },
+            _ => String::new(),
+        }
+    }
+
+    /// Table a Delta's Automerge bytes belong to (empty when the payload is not
+    /// Automerge or carries no routing metadata).
+    pub(crate) fn table_of_payload(automerge_bytes: &[u8]) -> String {
+        match automerge::AutoCommit::load(automerge_bytes) {
+            Ok(doc) => Self::table_of_doc(&doc),
+            Err(_) => String::new(),
+        }
+    }
+
+    /// The document that a Delta's merge must target, created on demand.
+    pub(crate) fn doc_mut_for_delta(&mut self, delta: &Delta) -> &mut automerge::AutoCommit {
+        let table = Self::table_of_payload(&delta.automerge_bytes);
+        self.last_table = table.clone();
+        self.ensure_doc(&table)
+    }
+
+    /// Mutable access to a specific table's document, if it exists.
+    pub(crate) fn doc_for_table_mut(&mut self, table: &str) -> Option<&mut automerge::AutoCommit> {
+        self.docs.get_mut(table)
+    }
+
+    /// Names of the tables that have an Automerge document on this engine.
+    pub(crate) fn table_names(&self) -> Vec<String> {
+        self.docs.keys().cloned().collect()
+    }
+
+    /// Register an additional known schema hash (called during additive migration).
     pub fn add_known_schema(&mut self, hash: SchemaIdentifierHash) {
         self.known_schemas.insert(hash);
     }
@@ -569,7 +640,7 @@ impl CrdtEngine {
             self.rejection_records.iter().cloned().collect();
 
         ConvergentState {
-            automerge_bytes: self.doc.save(),
+            automerge_bytes: self.doc_mut().save(),
             lamport: self.lamport,
             known_schema_hash: self.known_schema_hash,
             known_schemas,
@@ -622,12 +693,20 @@ impl CrdtEngine {
     }
 
     pub(crate) fn doc_mut(&mut self) -> &mut automerge::AutoCommit {
-        &mut self.doc
+        let table = self.last_table.clone();
+        self.ensure_doc(&table)
     }
 
  /// Shared access to the underlying Automerge document (introspection/tests).
+ ///
+ /// Resolves to the document of the table the last write/merge touched; the
+ /// per-table documents themselves are reachable through
+ /// [`Self::doc_for_table`].
     pub(crate) fn doc(&self) -> &automerge::AutoCommit {
-        &self.doc
+        self.docs
+            .get(&self.last_table)
+            .or_else(|| self.docs.values().next())
+            .expect("a CrdtEngine always holds at least one Automerge document")
     }
 
  /// Retrieve the full serialised Delta bytes for `delta_id` from the DAG,
@@ -874,63 +953,76 @@ impl CrdtEngine {
  // to the rule winner. Non-Automerge payloads (the TirBase JSON
  // envelope) skip the merge and verification entirely.
         if let Some(mut their_doc) = self.load_incoming_doc(&delta.automerge_bytes)? {
-            let snapshot = verify::capture_conflicts(&self.doc, &their_doc);
-            self.doc
-                .merge(&mut their_doc)
-                .map_err(|e| TirBaseError::DeltaMalformed {
-                    reason: format!("automerge merge failed: {e}"),
-                })?;
+            // Merge into the document that owns the Delta's table: two tables
+            // never share an Automerge document, so a peer's write to table A
+            // cannot touch table B's history (Req 3.4 / per-table isolation).
+            let table = Self::table_of_doc(&their_doc);
+            self.last_table = table.clone();
+            let local_lamport = self.lamport;
+            let local_actor: Vec<u8> = self.actor.to_bytes().to_vec();
+            #[cfg(test)]
+            let mut conflict_keys: Vec<String> = Vec::new();
+            {
+                let doc = self.ensure_doc(&table);
+                let snapshot = verify::capture_conflicts(doc, &their_doc);
+                doc.merge(&mut their_doc)
+                    .map_err(|e| TirBaseError::DeltaMalformed {
+                        reason: format!("automerge merge failed: {e}"),
+                    })?;
 
-            if !snapshot.lww.is_empty() || !snapshot.rga.is_empty() {
-                let local_actor: Vec<u8> = self.doc.get_actor().to_bytes().to_vec();
-                let report = verify::verify_and_override(
-                    &mut self.doc,
-                    &snapshot,
-                    delta.lamport,
-                    &public_key,  // verified incoming DID public-key bytes
-                    self.lamport, // pre-advance (step 5)
-                    &local_actor,
-                );
+                if !snapshot.lww.is_empty() || !snapshot.rga.is_empty() {
+                    let report = verify::verify_and_override(
+                        doc,
+                        &snapshot,
+                        delta.lamport,
+                        &public_key, // verified incoming DID public-key bytes
+                        local_lamport, // pre-advance (step 5)
+                        &local_actor,
+                    );
+
+                    #[cfg(test)]
+                    {
+                        conflict_keys = snapshot.lww.iter().map(|c| c.key.clone()).collect();
+                    }
+
+                    emit_crdt(
+                        if report.divergences == 0 && report.overrides_failed == 0 {
+                            Severity::Low
+                        } else {
+                            Severity::Medium
+                        },
+                        ReasonCode::MergeVerified,
+                        Some(hex::encode(delta.id)),
+                        format!(
+                            "post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
+                             {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
+                            report.lww_checked,
+                            report.rga_checked,
+                            report.divergences,
+                            report.overrides_applied,
+                            report.overrides_failed,
+                            report.indeterminate,
+                        ),
+                    );
+                }
+            }
 
  // Subphase 8.1: post-merge read-back of the actual winning value
- // for each conflicting LWW key (Req 4.5). This is a defensive
- // log-only check: `verify_and_override` already performed the
- // override in the definitive zone; here we read back the final
- // state after any overrides and log it for observability.
-                #[cfg(test)]
-                for conflict in &snapshot.lww {
-                    if let Some(final_value) = self.read_merged_value("", &conflict.key) {
-                        emit_crdt(
-                            Severity::Low,
-                            ReasonCode::MergeVerified,
-                            Some(conflict.key.clone()),
-                            format!(
-                                "post-merge read-back key='{}': actual winner value={:?}",
-                                conflict.key, final_value,
-                            ),
-                        );
-                    }
+ // for each conflicting LWW key (Req 4.5). Log-only and test-only: this
+ // runs after the document borrow ends so the engine can be read.
+            #[cfg(test)]
+            for key in conflict_keys {
+                if let Some(final_value) = self.read_merged_value(&table, &key) {
+                    emit_crdt(
+                        Severity::Low,
+                        ReasonCode::MergeVerified,
+                        Some(key.clone()),
+                        format!(
+                            "post-merge read-back key='{}': actual winner value={:?}",
+                            key, final_value,
+                        ),
+                    );
                 }
-
-                emit_crdt(
-                    if report.divergences == 0 && report.overrides_failed == 0 {
-                        Severity::Low
-                    } else {
-                        Severity::Medium
-                    },
-                    ReasonCode::MergeVerified,
-                    Some(hex::encode(delta.id)),
-                    format!(
-                        "post-merge LWW/RGA verification — {} LWW conflict(s), {} RGA conflict(s); \
-                         {} divergence(s), {} override(s) applied, {} failed, {} indeterminate",
-                        report.lww_checked,
-                        report.rga_checked,
-                        report.divergences,
-                        report.overrides_applied,
-                        report.overrides_failed,
-                        report.indeterminate,
-                    ),
-                );
             }
         }
 
@@ -997,7 +1089,7 @@ impl CrdtEngine {
         #[cfg(feature = "native")]
         {
  // Obtain the Automerge actor ID as bytes for the DagNode.
-            let actor_id = self.doc.get_actor().to_bytes().to_vec();
+            let actor_id = self.actor.to_bytes().to_vec();
 
  // Serialise the full Delta for re-fetch after compaction (Req 14.8).
             let delta_bytes = serde_json::to_vec(delta).ok();
@@ -1079,7 +1171,7 @@ impl CrdtEngine {
     pub fn doc_map_range_root(&self) -> Vec<(String, serde_json::Value)> {
         use automerge::{ReadDoc, ScalarValueRef, ValueRef};
 
-        self.doc
+        self.doc()
             .map_range(automerge::ROOT, ..)
             .filter_map(|item| {
                 let json_val = match item.value {
@@ -1129,8 +1221,11 @@ impl CrdtEngine {
                 reason: format!("store mutex poisoned in project_table_to_store: {e}"),
             })?;
 
- // Walk ROOT-level keys in the Automerge doc.
-        let items: Vec<(String, serde_json::Value)> = self.doc
+ // Walk ROOT-level keys in this table's Automerge doc.
+        let Some(table_doc) = self.docs.get(table) else {
+            return Ok(());
+        };
+        let items: Vec<(String, serde_json::Value)> = table_doc
             .map_range(automerge::ROOT, ..)
             .map(|item| {
                 let json_val = match item.value {
@@ -1261,14 +1356,20 @@ impl CrdtEngine {
  // NOTE: Lamport clock is incremented by produce_delta_with_tags (the
  // caller), not here — incrementing here would double-count.
 
+ // Route this write to the table's own document. The per-table split is
+ // what makes compaction policy per table (Req 3.4): compacting one table
+ // never rewrites another table's history.
+        self.last_table = table.to_string();
+        let doc = self.ensure_doc(table);
+
  // Embed routing metadata so the inbound projection path can recover
  // the table/row from the merged doc.
-        self.doc
+        doc
             .put(automerge::ROOT, "_tirbase_table", table)
             .map_err(|e| TirBaseError::DeltaMalformed {
                 reason: format!("automerge put _tirbase_table failed: {e}"),
             })?;
-        self.doc
+        doc
             .put(automerge::ROOT, "_tirbase_key", key)
             .map_err(|e| TirBaseError::DeltaMalformed {
                 reason: format!("automerge put _tirbase_key failed: {e}"),
@@ -1279,7 +1380,7 @@ impl CrdtEngine {
  // key produce a real LWW conflict on that ROOT key.
         match value {
             serde_json::Value::String(s) => {
-                self.doc
+                doc
                     .put(automerge::ROOT, key, s.as_str())
                     .map_err(|e| TirBaseError::DeltaMalformed {
                         reason: format!("automerge put {key} (string) failed: {e}"),
@@ -1287,19 +1388,19 @@ impl CrdtEngine {
             }
             serde_json::Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
-                    self.doc.put(automerge::ROOT, key, i).map_err(|e| {
+                    doc.put(automerge::ROOT, key, i).map_err(|e| {
                         TirBaseError::DeltaMalformed {
                             reason: format!("automerge put {key} (int) failed: {e}"),
                         }
                     })?;
                 } else if let Some(f) = n.as_f64() {
-                    self.doc.put(automerge::ROOT, key, f).map_err(|e| {
+                    doc.put(automerge::ROOT, key, f).map_err(|e| {
                         TirBaseError::DeltaMalformed {
                             reason: format!("automerge put {key} (f64) failed: {e}"),
                         }
                     })?;
                 } else if let Some(u) = n.as_u64() {
-                    self.doc.put(automerge::ROOT, key, u).map_err(|e| {
+                    doc.put(automerge::ROOT, key, u).map_err(|e| {
                         TirBaseError::DeltaMalformed {
                             reason: format!("automerge put {key} (uint) failed: {e}"),
                         }
@@ -1307,14 +1408,14 @@ impl CrdtEngine {
                 }
             }
             serde_json::Value::Bool(b) => {
-                self.doc.put(automerge::ROOT, key, *b).map_err(|e| {
+                doc.put(automerge::ROOT, key, *b).map_err(|e| {
                     TirBaseError::DeltaMalformed {
                         reason: format!("automerge put {key} (bool) failed: {e}"),
                     }
                 })?;
             }
             serde_json::Value::Null => {
-                self.doc.put(automerge::ROOT, key, ()).map_err(|e| {
+                doc.put(automerge::ROOT, key, ()).map_err(|e| {
                     TirBaseError::DeltaMalformed {
                         reason: format!("automerge put {key} (null) failed: {e}"),
                     }
@@ -1325,7 +1426,7 @@ impl CrdtEngine {
                     serde_json::to_string(value).map_err(|e| TirBaseError::DeltaMalformed {
                         reason: format!("serialise composite value failed: {e}"),
                     })?;
-                self.doc
+                doc
                     .put(automerge::ROOT, key, json_str.as_str())
                     .map_err(|e| TirBaseError::DeltaMalformed {
                         reason: format!("automerge put {key} (json-str) failed: {e}"),
@@ -1333,9 +1434,9 @@ impl CrdtEngine {
             }
         }
 
- // Save the doc state — the saved bytes ARE the Automerge changeset.
+ // Save the table's doc state — the saved bytes ARE the Automerge changeset.
  // (AutoCommit::save() returns Vec<u8> directly, infallible.)
-        Ok(self.doc.save())
+        Ok(doc.save())
     }
 
  /// Check the compaction threshold for this engine's Automerge doc and, if
@@ -1356,7 +1457,10 @@ impl CrdtEngine {
     ) -> Result<bool, TirBaseError> {
         use crate::store::compaction::{compact_table, should_compact};
 
-        let change_count = self.doc.get_changes(&[]).len() as u64;
+        let Some(doc) = self.docs.get_mut(table) else {
+            return Ok(false);
+        };
+        let change_count = doc.get_changes(&[]).len() as u64;
         if should_compact(policy, change_count) {
             let conn = self
                 .dag
@@ -1365,7 +1469,7 @@ impl CrdtEngine {
                 .map_err(|e| TirBaseError::LocalStoreWriteFailed {
                     reason: format!("DAG mutex poisoned during compaction: {e}"),
                 })?;
-            let _ = compact_table(&conn, table, &mut self.doc);
+            let _ = compact_table(&conn, table, doc);
             Ok(true)
         } else {
             Ok(false)
@@ -1391,9 +1495,12 @@ impl CrdtEngine {
         use crate::store::compaction::{compact_table_idb, should_compact_idb};
         use automerge::ReadDoc;
 
-        let change_count = self.doc.get_changes(&[]).len() as u64;
+        let Some(doc) = self.docs.get_mut(table) else {
+            return Ok(false);
+        };
+        let change_count = doc.get_changes(&[]).len() as u64;
         if should_compact_idb(policy, change_count) {
-            let _ = compact_table_idb(db, table, &mut self.doc).await;
+            let _ = compact_table_idb(db, table, doc).await;
             Ok(true)
         } else {
             Ok(false)
@@ -1408,7 +1515,7 @@ impl CrdtEngine {
     pub fn read_scalar(&self, key: &str) -> Option<serde_json::Value> {
         use automerge::{ReadDoc, Value};
 
-        self.doc
+        self.doc()
             .get(automerge::ROOT, key)
             .ok()
             .flatten()
@@ -1452,7 +1559,7 @@ impl CrdtEngine {
         key: &str,
     ) -> Option<automerge::ScalarValue> {
         use automerge::{ReadDoc, Value};
-        self.doc
+        self.doc()
             .get(automerge::ROOT, key)
             .ok()
             .flatten()
@@ -1468,9 +1575,9 @@ impl CrdtEngine {
     #[cfg(test)]
     pub(crate) fn read_list(&self, key: &str) -> Option<Vec<String>> {
         use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef};
-        match self.doc.get(automerge::ROOT, key).ok().flatten() {
+        match self.doc().get(automerge::ROOT, key).ok().flatten() {
             Some((automerge::Value::Object(_), list_id)) => Some(
-                self.doc
+                self.doc()
                     .list_range(&list_id, ..)
                     .filter_map(|item| match item.value {
                         ValueRef::Scalar(ScalarValueRef::Str(s)) => Some(s.to_string()),
@@ -2677,7 +2784,7 @@ mod tests {
         let engine = make_engine(secret, public, did, schema);
 
  // The Automerge actor ID must equal the 32-byte Ed25519 public key.
-        let actor_bytes: Vec<u8> = engine.doc.get_actor().to_bytes().to_vec();
+        let actor_bytes: Vec<u8> = engine.doc().get_actor().to_bytes().to_vec();
         assert_eq!(
             actor_bytes,
             public.to_vec(),
@@ -2734,8 +2841,8 @@ mod tests {
         let engine2 = make_engine(secret, public, did, schema);
 
         assert_eq!(
-            engine1.doc.get_actor().to_bytes(),
-            engine2.doc.get_actor().to_bytes(),
+            engine1.doc().get_actor().to_bytes(),
+            engine2.doc().get_actor().to_bytes(),
             "two engines with the same public key must have identical Automerge actor IDs"
         );
     }
@@ -2753,8 +2860,8 @@ mod tests {
         let engine_b = make_engine(secret_b, public_b, did_b, schema);
 
         assert_ne!(
-            engine_a.doc.get_actor().to_bytes(),
-            engine_b.doc.get_actor().to_bytes(),
+            engine_a.doc().get_actor().to_bytes(),
+            engine_b.doc().get_actor().to_bytes(),
             "engines with different public keys must have different Automerge actor IDs"
         );
     }
@@ -2793,9 +2900,9 @@ mod tests {
  /// access to the private `doc`).
     fn engine_root_list(engine: &CrdtEngine, key: &str) -> Vec<String> {
         use automerge::{ObjType, ReadDoc, ScalarValueRef, ValueRef, ROOT};
-        match engine.doc.get(ROOT, key).unwrap() {
+        match engine.doc().get(ROOT, key).unwrap() {
             Some((automerge::Value::Object(ObjType::List), list_id)) => engine
-                .doc
+                .doc()
                 .list_range(&list_id, ..)
                 .filter_map(|item| match item.value {
                     ValueRef::Scalar(ScalarValueRef::Str(s)) => Some(s.to_string()),

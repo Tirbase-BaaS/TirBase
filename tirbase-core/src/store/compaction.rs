@@ -72,17 +72,83 @@ pub fn compact_table(
         return Ok(());
     }
 
- // Mark dag_nodes as compacted for nodes authored under this table's schema_hash.
- // Best-effort: mark all uncompacted nodes (table-level association is approximate;
- // a per-table schema_hash index was not added in T5 — this is a known limitation).
-    let mark_result = conn.execute(
-        "UPDATE dag_nodes SET compacted = 1 WHERE compacted = 0;",
-        [],
-    );
+ // Mark dag_nodes as compacted **only for this table**. Each Delta payload
+ // carries its table in the `_tirbase_table` ROOT key (written by
+ // `CrdtEngine::write_scalar`), so the association is exact rather than
+ // approximate: compacting table A must never mark table B's history as
+ // compacted (Req 3.4 per-table isolation).
+    let mark_result = mark_table_nodes_compacted(conn, table_name);
 
     if let Err(e) = mark_result {
         let ts = crate::traits::wall_hint_secs().unwrap_or(0);
         eprintln!("[COMPACTION FAIL] table={table_name} ts={ts} error=mark_dag_nodes: {e}");
+    }
+
+    Ok(())
+}
+
+
+/// Mark every uncompacted DAG node whose payload belongs to `table_name` as
+/// `compacted = 1`, leaving other tables' nodes untouched.
+///
+/// A node whose payload is not an Automerge changeset, or carries no
+/// `_tirbase_table` routing key, is left unmarked: it cannot be attributed to
+/// this table, and guessing would let compaction of one table rewrite
+/// another table's state.
+#[cfg(feature = "native")]
+fn mark_table_nodes_compacted(
+    conn: &rusqlite::Connection,
+    table_name: &str,
+) -> Result<(), TirBaseError> {
+    use automerge::ReadDoc;
+
+    let mut stmt = conn
+        .prepare("SELECT id, payload FROM dag_nodes WHERE compacted = 0;")
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("prepare compaction node scan failed: {e}"),
+        })?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Option<Vec<u8>>>(1)?))
+        })
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("scan compaction nodes failed: {e}"),
+        })?;
+
+    let mut ids: Vec<Vec<u8>> = Vec::new();
+    for row in rows {
+        let (id, payload) = row.map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("read compaction node failed: {e}"),
+        })?;
+        let Some(payload) = payload else { continue };
+        // DAG payloads are zstd-compressed at insert time; fall back to the raw
+        // bytes for any payload written uncompressed (WASM writer, legacy row).
+        let raw = crate::crdt::dag::decompress_payload(&payload).unwrap_or(payload);
+        let Ok(doc) = automerge::AutoCommit::load(&raw) else {
+            continue;
+        };
+        let belongs = match doc.get(automerge::ROOT, "_tirbase_table").ok().flatten() {
+            Some((automerge::Value::Scalar(sv), _)) => match sv.as_ref() {
+                automerge::ScalarValue::Str(s) => s.as_str() == table_name,
+                _ => false,
+            },
+            _ => false,
+        };
+        if belongs {
+            ids.push(id);
+        }
+    }
+    drop(stmt);
+
+    for id in ids {
+        conn.execute(
+            "UPDATE dag_nodes SET compacted = 1 WHERE id = ?1;",
+            rusqlite::params![id],
+        )
+        .map_err(|e| TirBaseError::LocalStoreWriteFailed {
+            reason: format!("mark compacted failed: {e}"),
+        })?;
     }
 
     Ok(())

@@ -85,24 +85,44 @@ pub struct CloudOutboundQueue {
  /// Rebuilt on demand since `VecDeque` doesn't support stable indices — we use
  /// a `retain`-based acknowledge which is O(n) but safe for the 100k cap.
     _index_placeholder: (),
+ /// Maximum number of Deltas this queue accepts. Production default is
+ /// [`MAX_QUEUE_DEPTH`]; a reduced bound keeps the no-drop/overflow
+ /// behaviour testable in CI without enqueueing 100k real Deltas.
+    capacity: usize,
 }
 
 impl CloudOutboundQueue {
- /// Create an empty queue.
+ /// Create an empty queue with the production capacity (Req 16.6).
     pub fn new() -> Self {
+        Self::with_capacity(MAX_QUEUE_DEPTH)
+    }
+
+ /// Create an empty queue with an explicit capacity bound.
+ ///
+ /// The overflow check, ordering and acknowledge behaviour are identical to
+ /// [`Self::new`]; only the bound differs.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             queue: VecDeque::new(),
             _index_placeholder: (),
+            capacity,
         }
+    }
+
+ /// The configured maximum queue depth.
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 
  /// Enqueue a Delta for cloud sync (Req 16.3).
  ///
  /// The caller is responsible for topological ordering before enqueueing.
  ///
- /// Returns `CloudQueueFull` if the queue is at or beyond `MAX_QUEUE_DEPTH` (Req 16.7).
+ /// Returns `CloudQueueFull` if the queue is at or beyond its capacity
+ /// (the production bound is [`MAX_QUEUE_DEPTH`]) (Req 16.7). A rejected
+ /// enqueue leaves every already-queued entry in place — nothing is dropped.
     pub fn enqueue(&mut self, entry: QueueEntry) -> Result<(), TirBaseError> {
-        if self.queue.len() >= MAX_QUEUE_DEPTH {
+        if self.queue.len() >= self.capacity {
             let depth = self.queue.len();
             log_queue_overflow(depth);
             return Err(TirBaseError::CloudQueueFull { depth });

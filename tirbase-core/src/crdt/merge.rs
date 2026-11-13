@@ -145,7 +145,7 @@ pub(crate) fn apply_incoming_delta_no_pending_retry(
     delta: &Delta,
 ) -> Result<MergeOutcome, TirBaseError> {
     {
-        let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
+        let known = crate::crdt::hardening::known_change_index(engine.doc_mut_for_delta(delta));
         match crate::crdt::hardening::validate_start_op(delta, &known) {
             crate::crdt::hardening::StartOpValidation::Ok
             | crate::crdt::hardening::StartOpValidation::NotAutomerge => {}
@@ -180,7 +180,7 @@ pub fn apply_incoming_delta(
  // quarantined as `ClockJump`. Missing dependencies are deferred (
  // pending queue); `NotAutomerge`/empty payloads keep legacy behavior.
     {
-        let known = crate::crdt::hardening::known_change_index(engine.doc_mut());
+        let known = crate::crdt::hardening::known_change_index(engine.doc_mut_for_delta(delta));
         match crate::crdt::hardening::validate_start_op(delta, &known) {
             crate::crdt::hardening::StartOpValidation::Ok
             | crate::crdt::hardening::StartOpValidation::NotAutomerge => {

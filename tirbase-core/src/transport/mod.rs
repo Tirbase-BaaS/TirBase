@@ -889,9 +889,41 @@ impl MeshTransport {
         self.scheduler.has_backlog()
     }
 
- /// Returns the current depth of the HIGH priority queue.
+     /// Returns the current depth of the HIGH priority queue.
     pub fn high_queue_depth(&self) -> usize {
         self.scheduler.high_queue_depth()
+    }
+
+    /// Returns the current depth of the MEDIUM priority queue.
+    pub fn medium_queue_depth(&self) -> usize {
+        self.scheduler.medium_queue_depth()
+    }
+
+    /// Returns the current depth of the LOW priority queue.
+    pub fn low_queue_depth(&self) -> usize {
+        self.scheduler.low_queue_depth()
+    }
+
+    /// Bytes currently queued in a priority class (backlog observability).
+    pub fn scheduler_queued_bytes(&self, class: PriorityClass) -> u64 {
+        self.scheduler.queued_bytes(class)
+    }
+
+    /// Cumulative DRR transmission counters (bytes/deltas per priority class
+    /// and completed epochs). Observability over the production scheduler.
+    pub fn scheduler_stats(&self) -> crate::transport::scheduler::SchedulerStats {
+        self.scheduler.stats()
+    }
+
+    /// Reset the cumulative DRR counters without disturbing queues/deficits.
+    pub fn reset_scheduler_stats(&mut self) {
+        self.scheduler.reset_stats();
+    }
+
+    /// Recompute the scheduler's guaranteed floor quanta for a new link
+    /// capacity (bytes/sec). Mirrors what a transport link-speed change does.
+    pub fn set_scheduler_link_capacity(&mut self, link_capacity_bytes_per_sec: u64) {
+        self.scheduler.update_link_capacity(link_capacity_bytes_per_sec);
     }
 
  /// Enqueue a Delta for outbound transmission via the DRR scheduler.

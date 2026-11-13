@@ -5884,6 +5884,38 @@ impl CoreHandle {
         })
     }
 
+ /// Cumulative DRR scheduler counters over the production transport.
+ ///
+ /// Observable evidence for the per-priority byte floors, spare-capacity
+ /// flow and the LOW-queue epoch bound (Req 12.2–12.8): `epochs` counts
+ /// completed scheduling epochs, and the per-class byte/delta totals are
+ /// exactly what `MeshTransport::tick_scheduler` forwarded to the Swarm.
+ /// Returns zeroed counters when the transport mutex is poisoned.
+    pub fn scheduler_stats(&self) -> crate::transport::scheduler::SchedulerStats {
+        self.transport
+            .lock()
+            .map(|t| t.scheduler_stats())
+            .unwrap_or_default()
+    }
+
+ /// Reset the DRR counters (observation window control; queues and deficit
+ /// counters are untouched).
+    pub fn reset_scheduler_stats(&self) {
+        if let Ok(mut transport) = self.transport.lock() {
+            transport.reset_scheduler_stats();
+        }
+    }
+
+ /// Recompute the DRR guaranteed floors for a new link capacity (bytes/sec).
+ ///
+ /// Production callers report link-speed changes this way; a test (or a
+ /// constrained link) can set a small capacity so one epoch is measurable.
+    pub fn set_scheduler_link_capacity(&self, link_capacity_bytes_per_sec: u64) {
+        if let Ok(mut transport) = self.transport.lock() {
+            transport.set_scheduler_link_capacity(link_capacity_bytes_per_sec);
+        }
+    }
+
  /// Current cloud outbound queue depth (Subphase 4.1 observability).
  ///
  /// Mirrors [`DurabilitySubsystem::cloud_queue_depth`] for the
@@ -12505,6 +12537,50 @@ mod real_mesh_tests {
             .expect("receipt holder read");
         assert_eq!(held.data, json!({ "value": 1 }));
 
+ // WS7: the writer's node is compacted while the holder's copy is not, and
+        // re-fetching the compacted Delta from the receipt holder yields the
+        // exact same bytes the writer re-fetched during cloud sync.
+        assert!(
+            handle_a
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&first.delta_id)
+                .expect("writer DAG lookup")
+                .expect("writer node")
+                .compacted,
+            "the writer's earlier Delta must be marked compacted"
+        );
+        assert!(
+            !handle_b
+                .crdt
+                .lock()
+                .unwrap()
+                .dag_node(&first.delta_id)
+                .expect("holder DAG lookup")
+                .expect("holder node")
+                .compacted,
+            "the receipt holder must retain the uncompacted Delta"
+        );
+        let writer_bytes = handle_a
+            .crdt
+            .lock()
+            .unwrap()
+            .refetch_delta_bytes(&first.delta_id)
+            .expect("writer re-fetch")
+            .expect("writer re-fetch bytes");
+        let holder_bytes = handle_b
+            .crdt
+            .lock()
+            .unwrap()
+            .refetch_delta_bytes(&first.delta_id)
+            .expect("holder re-fetch")
+            .expect("holder re-fetch bytes");
+        assert_eq!(
+            writer_bytes, holder_bytes,
+            "re-fetching a compacted Delta from the receipt holder must yield identical bytes"
+        );
+
         for suffix in ["ws3_cmp_A", "ws3_cmp_B", "ws3_cmp_C"] {
             cleanup(&tmp_path(suffix));
         }
@@ -17643,6 +17719,9 @@ mod inbound_cap_rejection_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "native"))]
+mod drr_compaction_queue_tests;
 
 #[cfg(all(test, feature = "native"))]
 mod network_wiring_mesh_tests;

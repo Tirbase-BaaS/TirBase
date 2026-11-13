@@ -569,6 +569,15 @@ jobs:
  - name: WS6 transport (fragmentation bounds, relay loop/hop limits, BLE bridge)
  run: cargo test -p tirbase-core --features native --lib transport::
 
+ # WS7: DRR byte floors over ten real-mesh epochs, spare-capacity flow,
+ # the LOW 10-epoch bound, per-table compaction isolation, and the cloud
+ # outbound queue bound/no-drop behaviour. Production scheduler and queue
+ # paths only; the 100k full-scale queue test is gated with #[ignore].
+ - name: WS7 e2e (DRR floors, spare capacity, LOW bound, compaction, queue)
+ run: >-
+ cargo test -p tirbase-core --features native --lib api::drr_compaction_queue_tests
+ -- --test-threads=1
+
  - name: API parity (CoreHandle ↔ lib.rs exports ↔ SDK WasmCore)
  run: cargo test -p tirbase-core --features native --lib tests::api_parity
 
