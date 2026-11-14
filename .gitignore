@@ -43,3 +43,6 @@ tirbase-sdk/wasm/*
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Local planning documents (not published)
+docs/vertical-expansion-plan.local.md

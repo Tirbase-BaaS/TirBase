@@ -5,7 +5,8 @@
 #
 # 1. Every row whose Status column is exactly "Proven" must have a non-empty
 # Test Identifier.
-# 2. Every test identifier cited by a Proven row must resolve to something
+# 2. Every test identifier cited by a gated row (Proven, Implemented and wired
+# (unproven), Implemented but not wired) must resolve to something
 # that actually exists in the repository: a `fn <name>` declaration, a
 # `mod <name>` declaration, or a `<name>.rs` file. This is what stops a
 # claim from citing a test that was never written (or was renamed).
@@ -31,6 +32,10 @@
 # Planned (or carry a separate CI job that actually executes it). This
 # closes the "Proven on an ignored HIL test" hole (CLAIM-52.2/52.3).
 #
+# The schema half (five columns, closed status vocabulary, and production-caller
+# reachability) is validated by scripts/check-claims-schema.py, which this script
+# runs first.
+#
 # Usage: bash scripts/check-claims.sh [path/to/CLAIMS.md]
 #
 # Exit codes:
@@ -48,6 +53,9 @@ if [[ ! -f "$CLAIMS_FILE" ]]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "$CLAIMS_FILE")" && pwd)"
+
+# Schema, status vocabulary, and production-caller evidence.
+python3 "$REPO_ROOT/scripts/check-claims-schema.py" "$CLAIMS_FILE" || exit 1
 
 # ---------------------------------------------------------------------------
 # Build an index of every symbol a citation could legitimately resolve to.
@@ -221,33 +229,16 @@ extract_candidates() {
 ' <<<"$1"
 }
 
-while IFS= read -r line; do
- # Skip blank lines, HTML comments, and lines that are not table rows.
-  [[ -z "$line" ]] && continue
-  [[ "$line" == *'<!--'* ]] && continue
-  [[ "$line" == *'|'* ]] || continue
+# Rows are exported by the pipe-aware Python parser: a naive `IFS='|'` split
+# truncates any row whose claim text contains a pipe inside a code span, which
+# silently skipped those rows instead of gating them.
+while IFS=$'\t' read -r claim_id status test_id; do
 
- # Skip the header row and separator rows (cells contain only dashes/spaces).
-  [[ "$line" =~ ^\|[[:space:]]*Claim[[:space:]]+ID ]] && continue
-  [[ "$line" =~ ^\|[-|[:space:]]+\|$ ]] && continue
-  stripped="${line//|/}"
-  stripped="${stripped//[[:space:]]/}"
-  stripped="${stripped//-/}"
-  [[ -z "$stripped" ]] && continue
-
-  IFS='|' read -ra cols <<< "$line"
-
- # We need at least 5 elements (indices 0-4) for a valid data row.
-  if [[ "${#cols[@]}" -lt 5 ]]; then
-    continue
-  fi
-
-  claim_id="$(trim "${cols[1]}")"
-  status="$(trim "${cols[3]}")"
-  test_id="$(trim "${cols[4]}")"
-
- # Only Proven rows are gated (case-sensitive).
-  [[ "$status" == "Proven" ]] || continue
+ # Only rows that claim executable evidence are gated.
+  case "$status" in
+    Proven|"Implemented and wired (unproven)"|"Implemented but not wired") ;;
+    *) continue ;;
+  esac
   [[ -n "$claim_id" ]] || continue
   proven_count=$((proven_count + 1))
 
@@ -263,10 +254,10 @@ while IFS= read -r line; do
  # `tests` and `mod` name modules, not test functions.
     [[ "$candidate" == "tests" || "$candidate" == "mod" ]] && continue
     checked_citations=$((checked_citations + 1))
-    printf '%s\t%s\n' "$claim_id" "$candidate" >> "$citations_file"
+    printf '%s\t%s\t%s\n' "$claim_id" "$candidate" "$status" >> "$citations_file"
   done < <(extract_candidates "$test_id" | awk 'NF' | sort -u)
 
-done < "$CLAIMS_FILE"
+done < <(python3 "$REPO_ROOT/scripts/check-claims-schema.py" --emit-rows "$CLAIMS_FILE")
 
 # Resolve every collected citation against the symbol index in a single awk
 # pass, preserving claim order in the diagnostics.
@@ -279,8 +270,11 @@ done < <(awk -F'\t' -v syms="$symbols_file" -v igns="$ignored_file" '
   FILENAME == syms { sym[$0] = 1; next }
   FILENAME == igns { ign[$0] = 1; next }
   {
-    if (!($2 in sym))      print $1 "\t" $2 "\tmissing"
-    else if ($2 in ign)    print $1 "\t" $2 "\tignored"
+    if (!($2 in sym))                 print $1 "\t" $2 "\tmissing"
+    # "Implemented and wired (unproven)" exists precisely for evidence written
+    # but not executed in CI (hardware-gated tests), so an ignored test is only
+    # fatal for a Proven row.
+    else if (($2 in ign) && $3 == "Proven") print $1 "\t" $2 "\tignored"
   }
 ' "$symbols_file" "$ignored_file" "$citations_file")
 
@@ -321,7 +315,7 @@ if [[ "${#ignored_ids[@]}" -gt 0 ]]; then
 fi
 
 if [[ "$status" -eq 0 ]]; then
-  echo "OK: All ${proven_count} Proven claim(s) in ${CLAIMS_FILE} have a test identifier,"
+  echo "OK: All ${proven_count} gated claim(s) in ${CLAIMS_FILE} have a test identifier,"
   echo "    and all ${checked_citations} cited identifier reference(s) resolve to real code."
   exit 0
 fi

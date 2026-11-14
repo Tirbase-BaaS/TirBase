@@ -248,12 +248,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate CLAIMS.md — identifiers must exist and be cited (CLAIM-3.1)
-        # scripts/check-claims.sh parses CLAIMS.md, finds every row whose Status
-        # column is exactly "Proven", and fails CI naming each claim that has an
-        # empty Test Identifier column or cites a test identifier that does not
-        # resolve to a fn/mod/<name>.rs in the repo.  See PV-2.2 and task 3.1.
+      - name: Validate CLAIMS.md — shape, status, callers, and cited evidence (CLAIM-3.1)
+        # scripts/check-claims.sh first runs scripts/check-claims-schema.py:
+        # five columns, closed status vocabulary, and every production-caller path
+        # reachable from a crate root through production `mod` declarations. It
+        # then resolves every test identifier cited by a gated row.
+        # See PV-2.2 and task 3.1.
         run: bash scripts/check-claims.sh CLAIMS.md
+
+      - name: Verify documentation-only claim evidence (CLAIM-3.4, 3.8, 3.9, 3.10, 3.12)
+        # These claims have no runtime caller. Their evidence is the committed
+        # document itself: the gate fails if a promised section, invariant, unit,
+        # or freshness scenario disappears.
+        run: bash scripts/check-docs-claims.sh
 
   claim-markers:
     name: "[CLAIM-{id}] marker scan (CLAIM-3.2)"

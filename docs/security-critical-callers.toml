@@ -1,0 +1,64 @@
+# Remove-the-caller negative proofs (CLAIM-3.1, F-02 evidence).
+#
+# Each entry names one security-critical claim, the production line that wires
+# the feature, the minimal mutation that removes that wiring, and the test that
+# must fail when the wiring is gone. `scripts/reverse-proof.py` runs the three
+# steps against the working tree:
+#
+#   1. the cited test passes on the unmodified tree;
+#   2. `find` is replaced by `replace` (exactly one occurrence) and the cited
+#      test now FAILS;
+#   3. the file is restored and the test passes again.
+#
+# A proof that does not fail in step 2 is a vacuous test: the claim is then not
+# proven by removal and this file must be corrected (or the claim downgraded).
+#
+# Mutations are deliberately tiny production-only edits: no test is changed.
+
+[[proof]]
+claim = "CLAIM-14.2"
+summary = "Stage 0 pre-auth token bucket is consulted before any cryptographic work."
+file = "tirbase-guard/src/admit.rs"
+find = """    if !pipeline
+        .rate_limiters
+        .check_pre_auth(ctx.source_key, !simulate, pre_rps)
+    {"""
+replace = """    if false {"""
+test = "cargo test -p tirbase-guard --test admit_pipeline claim_14_2 -- --nocapture"
+
+[[proof]]
+claim = "CLAIM-20.1"
+summary = "Sequences outside the anti-replay window are rejected."
+file = "tirbase-guard/src/anti_replay.rs"
+find = """    if seq < lower || seq > upper {
+        return AntiReplayDecision::OutsideWindow;
+    }"""
+replace = """    if false {
+        return AntiReplayDecision::OutsideWindow;
+    }"""
+test = "cargo test -p tirbase-guard --test anti_replay_proptest -- --nocapture"
+
+[[proof]]
+claim = "CLAIM-G1.9"
+summary = "A revocation that lands mid-migration is applied and halts the run, so the schema hash does not advance."
+file = "tirbase-core/src/migration/mod.rs"
+find = """        let halted = self
+            .revocation_registry
+            .apply_revocation(delta, self.revocation_threshold_m)?;"""
+replace = """        let halted = {
+            let _ = delta;
+            false
+        };"""
+test = "cargo test -p tirbase-core --features native --lib migration_mid_flight_revocation_two_core_handle_instances"
+
+[[proof]]
+claim = "CLAIM-G1.11"
+summary = "Partial revocations accumulate and a below-threshold set never revokes."
+file = "tirbase-core/src/auth/revocation.rs"
+find = """        entry.signatures.push(sig);
+
+        if entry.signatures.len() >= threshold_m {"""
+replace = """        entry.signatures.push(sig);
+
+        if true {"""
+test = "cargo test -p tirbase-core --features native --lib api::revocation_saturate_mesh_tests::below_threshold_never_revokes_and_threshold_signature_always_does"

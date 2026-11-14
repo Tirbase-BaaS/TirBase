@@ -1,0 +1,43 @@
+name: Remove-the-caller reverse proofs (CLAIM-3.1, F-02)
+
+# Security-critical claims are backed by tests that must FAIL when the production
+# caller is removed. This is a nightly (and manually dispatchable) proof because
+# each entry builds and runs parts of the workspace three times.
+#
+# Sources of truth:
+#   docs/security-critical-callers.toml — claim, production snippet, mutation, test
+#   scripts/reverse-proof.py           — baseline pass -> mutate -> expect fail -> restore
+#
+# A proof that still passes with the caller removed fails this workflow: that
+# means the claim is not evidenced by the caller and either the proof or the
+# claim must be corrected.
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reverse-proof:
+    name: Remove-the-caller proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: List proofs
+        run: python3 scripts/reverse-proof.py --list
+
+      - name: Run every reverse proof
+        run: python3 scripts/reverse-proof.py

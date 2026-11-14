@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0).
 ## [Unreleased]
 
 ### Added
+- **Claim evidence gates (F-02):** `CLAIMS.md` now records a `Production Caller` column and a closed status vocabulary (`Proven`, `Implemented and wired (unproven)`, `Implemented but not wired`, `Planned`). `scripts/check-claims-schema.py` fails CI when a caller path is not reachable from a crate root; `scripts/check-docs-claims.sh` turns the documentation claims (threat model, invariant catalogue, security-event catalogue, unit registry, freshness policy) into executable section checks; `docs/security-critical-callers.toml` plus `scripts/reverse-proof.py` provide remove-the-caller negative proofs (CLAIM-14.2, CLAIM-20.1, CLAIM-G1.9, CLAIM-G1.11) and run nightly in `.github/workflows/reverse-proof.yml`. Release summary: `docs/releases/v0.1.0.md`.
+- **Mesh command ingress (CLAIM-35.7):** `GossipMessage::InboundCommand` plus `CoreHandle::publish_mesh_command` / `subscribe_mesh_commands`, and the production receiver `command_ingress/mesh.rs::run_mesh_command_receiver`, started from `main.rs` when `mesh_command_ingress = true` and a signed profile is installed. Mesh-delivered commands run the same Stage 0–19 guard pipeline with `IngressSource::Mesh`; delivery never bypasses admission. Covered by `inbound_mesh_command_is_delivered_to_subscriber` and `mesh_command_receiver_runs_every_command_through_admission`.
+
+### Added (previous)
 - **Cross-build parity proof (Property 1):** `scripts/cross-build-parity.sh`, parity-probe feature/export (`tirbase-core/src/parity_probe.rs`, `core_cross_build_parity_hash`), and CI `test` job step `Cross-build parity (native vs real WASM state hash, Property 1)` proving byte-identical deterministic state hashes for native vs real WASM over an identical canonical sequence including signed Migration Deltas and list/RGA writes.
 - **Real-mesh proofs:** concurrent list insertion preservation over real Swarm-backed mesh (`api::real_mesh_tests::two_devices_concurrent_list_insertions_preserved_over_real_mesh`), and CI-proven coverage cited for M-of-N revocation accumulation/threshold (CLAIM-G1.11, Property 7), saturate renewal/termination, contamination/ICO/sidecar, and live quorum/durability paths.
 - **Property 20 sequence coverage:** `tests::properties::prop_20_sequence_covers_renewal_and_termination_events` (activation, renewal, M-of-N termination, expiry).
@@ -22,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0).
 - **Closeout audit:** `docs/audits/e2e-wiring-ws8-closeout.md` (workstream → production caller → test → CI job → residual risk).
 
 ### Changed
+- `CLAIMS.md` table schema is now five columns (claim, text, status, production caller, test/gate); the old `Implemented` and `Wired` statuses were replaced, and the CLI/threat-model/traceability documents were reconciled with the registry. The generated README status now lists any claim that is implemented but not wired as explicitly not done.
 - Reconciled `README.md`, `CLAIMS.md` (CLAIM-G1.11 plus CLAIM-59.1–59.7 for cross-build parity, schema determinism, DRR/compaction/queue, real-mesh transport wiring, contamination/Side-Car replay, LWW/RGA merge, and the TypeScript SDK surface), `docs/traceability-matrix.md` (rows added for Req 1.4/Property 1, Property 7/Req 9.1 and 9.3, Property 15/Req 17.1 and 20.5, DRR/compaction/queue, CCE/Side-Car, and mesh transport), and `tirbase-core/tests/README.md` (stale WASM compile-error note replaced; Cross-Device Mesh Sync moved from PARTIAL to VERIFIED) to match CI-proven status; residual hardware/environment/scale blockers (real BLE radio, cross-host RF, and the full 100,000-delta queue run) are explicit and evidence-backed.
 
 ### Removed

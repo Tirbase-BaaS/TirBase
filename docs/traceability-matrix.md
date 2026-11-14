@@ -14,7 +14,7 @@ This matrix maps each PV requirement to its design section(s), test type, and te
 |---|---|---|---|
 | PV-1.4 | §4.5 (guard pipeline), §Testing Strategy | integration test (two CoreHandle instances) | tirbase-guard/tests/integration.rs |
 | PV-1.11 | §Error Handling (failure modes), §4.6 (NodeMode) | integration test (crash → restart, crash-loop → LOCKDOWN) | tirbase-gateway/tests/crash_recovery.rs |
-| PV-2.2 | §4.18 (CI pipeline), CLAIMS.md | CI gate (claim without test ID fails) | `.github/workflows/traceability.yml` |
+| PV-2.2 | §4.18 (CI pipeline), CLAIMS.md | CI gate (claim shape, status, production caller, and cited evidence) | `.github/workflows/ci.yml` (`claims-check` job), `scripts/check-claims.sh`, `scripts/check-claims-schema.py` |
 | PV-2.4 | §4.18 (CI pipeline) | CI gate (cargo-deny, cargo-audit, cargo-geiger, cargo-mutants) | .github/workflows/deny.yml, .github/workflows/geiger.yml, .github/workflows/mutants.yml |
 | PV-3.1 | §4.3 (KeyProvider), §4.12 (auth matrix) | unit test (role separation) | `tirbase-guard/tests/auth_matrix.rs` |
 | PV-3.3 | §4.12 (token schema, auth matrix tests) | unit tests (auto-generated from AUTHORIZATION_MATRIX, P19) | `tirbase-guard/tests/auth_matrix.rs` |
@@ -149,6 +149,25 @@ This matrix maps each PV requirement to its design section(s), test type, and te
 | Req 5, 6 — no PV ID; mapped to the core-protocol requirements | §Requirement 5 (Peer-to-Peer Mesh Networking), §Requirement 6 (Session Cryptography) | integration test (real-mesh fragmentation, multi-hop relay, 0-RTT resumption and key rotation) | `tirbase-core/src/api/network_wiring_mesh_tests.rs` |
 | S1–S35 | §Adversary Scenario Catalog | adversary scenario suite | `tirbase-sim/scenarios/` |
 | INV-1..16 | §System Invariants Catalog | simulation tick checks | `tirbase-sim/src/invariants.rs` |
+
+## Claim → production caller → evidence (F-02)
+
+`CLAIMS.md` is the authority for what is Proven, implemented-but-unwired, or Planned. This
+section maps the CI machinery that keeps it honest. Every path here is checked by
+`scripts/check-traceability-matrix.sh`.
+
+| Claim | Production caller | Evidence (test / CI gate) | Remove-the-caller negative proof |
+|---|---|---|---|
+| CLAIM-3.1 | n/a — docs/CI deliverable | `scripts/check-claims.sh`, `scripts/check-claims-schema.py`, `.github/workflows/ci.yml` (`claims-check`) | n/a (gate) |
+| CLAIM-3.4, 3.8, 3.9, 3.10, 3.12 | n/a — docs/CI deliverable | `scripts/check-docs-claims.sh`, `docs/THREAT_MODEL.md`, `docs/system-invariants.md`, `docs/security-event-catalog.md`, `docs/unit-registry.md`, `docs/freshness-policy.md` | n/a (docs gate) |
+| CLAIM-35.7 | `tirbase-gateway/src/main.rs`, `tirbase-gateway/src/command_ingress/mesh.rs`, `tirbase-gateway/src/cloud.rs`, `tirbase-core/src/api/mod.rs` | `tirbase-gateway/tests/mesh_command_ingress.rs`, `tirbase-gateway/tests/command_ingress.rs` | n/a (delivery only; admission is the guard pipeline) |
+| CLAIM-14.2 | `tirbase-guard/src/admit.rs` | `tirbase-guard/tests/admit_pipeline.rs` (`claim_14_2_stage0_pre_auth_rate_limit`) | `docs/security-critical-callers.toml` (`CLAIM-14.2`) |
+| CLAIM-20.1 | `tirbase-guard/src/anti_replay.rs` | `tirbase-guard/tests/anti_replay_proptest.rs` | `docs/security-critical-callers.toml` (`CLAIM-20.1`) |
+| CLAIM-G1.9 | `tirbase-core/src/migration/mod.rs` | `tirbase-core/src/api/mod.rs` (`migration_mid_flight_revocation_two_core_handle_instances`) | `docs/security-critical-callers.toml` (`CLAIM-G1.9`) |
+| CLAIM-G1.11 | `tirbase-core/src/auth/revocation.rs` | `tirbase-core/src/api/revocation_saturate_mesh_tests.rs` | `docs/security-critical-callers.toml` (`CLAIM-G1.11`) |
+| all Proven rows | see the `Production Caller` column in `CLAIMS.md` | see the `Test or CI Gate` column in `CLAIMS.md` | `scripts/reverse-proof.py` (nightly, `.github/workflows/reverse-proof.yml`) |
+
+Release-level status and known limitations are recorded in `docs/releases/v0.1.0.md`.
 
 ## Notes
 

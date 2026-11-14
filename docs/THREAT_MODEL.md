@@ -1,7 +1,8 @@
 # TirBase Threat Model
 
-> **[CLAIM-3.4]** — Status: **Planned** (backing integration test not yet written; per PV-2.3 this
-> document references a Planned claim and states it explicitly as planned).
+> **[CLAIM-3.4]** — Status: **Proven** (`docs/THREAT_MODEL.md` is the evidence; the
+> `scripts/check-docs-claims.sh` gate fails if any promised section disappears, and the
+> `claims-check` CI job runs it).
 
 ---
 
@@ -332,6 +333,23 @@ and policy updates from reaching the node.*
 
 ## 6. Out-of-Scope Exclusions
 
+### Non-Goals
+
+TirBase is not trying to be, and must not be described as, any of the following:
+
+1. **A safety-instrumented system.** No SIL/ASIL claims; certified safety functions must live in a
+ separately certified layer beneath TirBase (see the safety disclaimer in Section 1).
+2. **A general-purpose IT security product.** TirBase hardens edge control command paths; it is not
+ an endpoint protection platform, a network firewall, or a SIEM replacement.
+3. **A cloud control plane.** TirBase is edge-first; the cloud is an optional sync and evidence
+ destination, never the authority for whether an edge node may actuate.
+4. **A hardware security module.** Software key providers and the TPM2/PKCS#11 stubs provide the
+ interface; hardware-backed assurance is a deployment property, not a product guarantee.
+5. **A protocol gateway or protocol certification vehicle.** Protocol conformance is scoped to the
+ reference drivers listed in Section 9; vendor certification remains the vendor's responsibility.
+6. **A compliance certificate.** The documents in `docs/compliance/` are evidence for an operator's
+ own assessment and explicitly cannot be used to claim CRA or IEC 62443 certification.
+
 Required by PV-20.2. Each item below is a **named discrete exclusion** from TirBase's threat model.
 TirBase provides no mitigation for these threats; operators must address them through complementary
 controls.
@@ -549,17 +567,17 @@ violation.
 
 | Document | Status | Notes |
 |---|---|---|
-| `CLAIMS.md` | Present | Machine-readable claim registry; `CLAIM-3.4` in this document is Planned |
+| `CLAIMS.md` | Present | Machine-readable claim registry; `CLAIM-3.4` is Proven against this document, gated by `scripts/check-docs-claims.sh` |
 | `docs/RFC-workspace.md` | Present | Workspace crate layout RFC — prerequisite for workspace restructuring |
-| `docs/adversary-scenarios.md` | To be created | S1–S35 attack scenarios with attack vector, expected system response, PV reference, and test ID (CLAIM-3.7) |
-| `docs/system-invariants.md` | To be created | INV-1..INV-16 invariant catalog with simulation check description, `debug_assert!` location, and test ID (CLAIM-3.8) |
-| `docs/security-event-catalog.md` | To be created | Every `SecurityEvent` category and reason code; CI fails if any emitted event is absent from the catalog (CLAIM-3.9) |
-| `docs/unit-registry.md` | To be created | Unit ID registry (degC, Pa, rpm, bar, kW, percent, boolean, kPa, m3h, V, A, Hz) (CLAIM-3.10) |
-| `docs/EFFECT_SEMANTICS.md` | To be created | At-least-once delivery with idempotent declarative effects; what is and is not guaranteed |
-| `SECURITY.md` | To be created | Coordinated disclosure policy; 5-day ack SLA; 90-day disclosure window; RFC 9116 `security.txt` (CLAIM-3.5) |
-| `docs/RFC-tuf.md` | To be created — **BLOCKED** | TUF adoption evaluation; PV-11.6 blocked until this RFC is committed (RD-6) |
-| `docs/RFC-verifier.md` | To be created | No-`std` verifier crate RFC; Phase 11 capability format finalization (RD-5) |
-| `docs/compliance/` | To be created | CRA Annex I and IEC 62443-4-1 evidence (evidence only; no certification claims without legal review) |
+| `docs/adversary-scenarios.md` | Present | S1–S35 attack scenarios with attack vector, expected system response, PV reference, and test ID (CLAIM-3.7) |
+| `docs/system-invariants.md` | Present | INV-1..INV-16 invariant catalog with simulation check description, `debug_assert!` location, and test ID (CLAIM-3.8) |
+| `docs/security-event-catalog.md` | Present | Every `SecurityEvent` category and reason code; CI fails if any emitted event is absent from the catalog (CLAIM-3.9) |
+| `docs/unit-registry.md` | Present | Unit ID registry (degC, Pa, rpm, bar, kW, percent, boolean, kPa, m3h, V, A, Hz) (CLAIM-3.10) |
+| `docs/EFFECT_SEMANTICS.md` | Present | At-least-once delivery with idempotent declarative effects; what is and is not guaranteed |
+| `SECURITY.md` | Present | Coordinated disclosure policy; 5-day ack SLA; 90-day disclosure window; RFC 9116 `security.txt` (CLAIM-3.5) |
+| `docs/RFC-tuf.md` | Present — **BLOCKED on RD-6** | TUF adoption evaluation; PV-11.6 blocked until this RFC is committed (RD-6) |
+| `docs/RFC-verifier.md` | Present | No-`std` verifier crate RFC; Phase 11 capability format finalization (RD-5) |
+| `docs/compliance/` | Present | CRA Annex I and IEC 62443-4-1 evidence (evidence only; no certification claims without legal review) |
 | `docs/audits/gate-g1.md` | Present | Phase 0 gate audit with VERIFIED-BY-TRACE rows for CLAIM-G1.1..G1.10 |
 
 ---
