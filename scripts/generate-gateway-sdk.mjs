@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Generates the TirBase Gateway Admin TypeScript SDK from docs/api/gateway-admin-openapi.yaml
-// (CLAIM-49.1, CLAIM-49.2, PV-17.1). The SDK is derived from the OpenAPI definition;
-// manual edits to generated files are rejected by CI (the generator must reproduce them).
+// Generates the Apache-2.0 TirBase Gateway Admin SDKs (TypeScript and Python)
+// from docs/api/gateway-admin-openapi.yaml. Manual edits to generated files are
+// rejected by CI: the generator must be able to reproduce them byte-for-byte.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +15,7 @@ const root = path.resolve(__dirname, '..');
 const specPath = path.join(root, 'docs', 'api', 'gateway-admin-openapi.yaml');
 const outDir = path.join(root, 'sdk', 'typescript', 'src');
 const manifestPath = path.join(root, 'sdk', 'typescript', 'generation-manifest.json');
+const pythonPath = path.join(root, 'sdk', 'python', 'tirbase_gateway_client.py');
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -24,32 +25,135 @@ function readSpec() {
   return fs.readFileSync(specPath, 'utf8');
 }
 
-function extractOperationIds(yaml) {
-  const ids = [];
-  const re = /^\s*operationId:\s*([A-Za-z0-9_]+)/gm;
-  let m;
-  while ((m = re.exec(yaml)) !== null) ids.push(m[1]);
-  return [...new Set(ids)].sort();
+function snakeCase(value) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/-/g, '_')
+    .toLowerCase();
 }
 
-function extractPaths(yaml) {
-  const paths = [];
-  // Path keys are indented under `paths:`; accept the one- and two-space
-  // forms the spec uses so a leading path is not silently dropped.
-  const re = /^ {1,2}(\/admin\/[A-Za-z0-9_\-\/{}]+):\s*$/gm;
-  let m;
-  while ((m = re.exec(yaml)) !== null) paths.push(m[1]);
-  return [...new Set(paths)].sort();
+function paramName(raw) {
+  return raw.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+/** Extract path keys, methods and operation ids from the 2-space YAML subset. */
+function extractOperations(yaml) {
+  const operations = [];
+  let currentPath = null;
+  let currentMethod = null;
+  let currentOp = null;
+  for (const line of yaml.split('\n')) {
+    const pathMatch = /^ {2}(\/admin\/[A-Za-z0-9_\-/{}]+):\s*$/.exec(line);
+    if (pathMatch) {
+      currentPath = pathMatch[1];
+      currentMethod = null;
+      continue;
+    }
+    const methodMatch = /^ {4}(get|post|patch|delete|put):\s*$/.exec(line);
+    if (methodMatch && currentPath) {
+      currentMethod = methodMatch[1];
+      currentOp = null;
+      continue;
+    }
+    if (/^ {6}requestBody:\s*$/.test(line) && currentOp) currentOp.hasBody = true;
+    const idMatch = /^ {6}operationId:\s*([A-Za-z0-9_]+)/.exec(line);
+    if (idMatch && currentPath && currentMethod) {
+      currentOp = {
+        path: currentPath,
+        method: currentMethod,
+        operationId: idMatch[1],
+        hasBody: false,
+        params: [...currentPath.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]),
+      };
+      operations.push(currentOp);
+    }
+  }
+  return operations.sort((a, b) => a.operationId.localeCompare(b.operationId));
+}
+
+// Legacy method names kept stable for existing SDK consumers.
+const LEGACY_METHOD_NAMES = {
+  challengeNonce: 'challenge',
+  clearUnknown: 'unknownClear',
+  enrollDevice: 'enroll',
+  exitLockdown: 'lockdownExit',
+  getMode: 'mode',
+  issuerStatus: 'status',
+  listEvents: 'events',
+  mintToken: 'mint',
+  pushPolicy: 'policy',
+  restoreDevice: 'restore',
+  rolloutStatus: 'rolloutStatus',
+  rotateKey: 'rotate',
+  simulateCommand: 'simulate',
+};
+
+function methodName(operationId) {
+  return LEGACY_METHOD_NAMES[operationId] ?? operationId;
+}
+
+function isVertical(p) {
+  return (
+    p.startsWith('/admin/cold-chain') ||
+    p.startsWith('/admin/pos/') ||
+    p.startsWith('/admin/venues')
+  );
+}
+
+function tsPathExpression(op) {
+  if (op.params.length === 0) return JSON.stringify(op.path);
+  let expr = op.path.split(/\{([^}]+)\}/);
+  let out = '`';
+  for (let i = 0; i < expr.length; i += 1) {
+    if (i % 2 === 0) out += expr[i];
+    else out += `\${encodeURIComponent(${paramName(expr[i])})}`;
+  }
+  out += '`';
+  return out;
+}
+
+function tsMethod(op) {
+  const name = methodName(op.operationId);
+  const args = op.params.map((p) => `${paramName(p)}: string`);
+  const hasBody = op.hasBody;
+  if (hasBody) args.push('body: Json');
+  args.push('query?: Query');
+  const target = tsPathExpression(op);
+  const call = hasBody
+    ? `this.request('${op.method.toUpperCase()}', this.withQuery(${target}, query), body)`
+    : `this.request('${op.method.toUpperCase()}', this.withQuery(${target}, query))`;
+  return `  ${name}(${args.join(', ')}) { return ${call}; }`;
+}
+
+function pythonMethod(op) {
+  const name = snakeCase(methodName(op.operationId));
+  const hasBody = op.hasBody;
+  const args = ['self', ...op.params.map((p) => snakeCase(p))];
+  if (hasBody) args.push('body');
+  args.push('query=None');
+  let target;
+  if (op.params.length === 0) {
+    target = `"${op.path}"`;
+  } else {
+    target = `f"${op.path.replace(/\{([^}]+)\}/g, '{_q($1)}')}"`;
+  }
+  const callArgs = [target];
+  if (hasBody) callArgs.push('body=body');
+  callArgs.push('query=query');
+  return `    def ${name}(${args.join(', ')}):\n        return self._request("${op.method.toUpperCase()}", ${callArgs.join(', ')})`;
 }
 
 function generate(specText) {
-  const opIds = extractOperationIds(specText);
-  const paths = extractPaths(specText);
+  const operations = extractOperations(specText);
+  const paths = [...new Set(operations.map((o) => o.path))].sort();
+  const opIds = operations.map((o) => o.operationId).sort();
+  const vertical = operations.filter((o) => isVertical(o.path));
   const header = `// SPDX-License-Identifier: Apache-2.0
 
 // AUTO-GENERATED by scripts/generate-gateway-sdk.mjs from docs/api/gateway-admin-openapi.yaml
-// DO NOT EDIT MANUALLY. Regenerate with: node scripts/generate-gateway-sdk.mjs (CLAIM-49.2)
+// DO NOT EDIT MANUALLY. Regenerate with: node scripts/generate-gateway-sdk.mjs
 `;
+
   const types = `${header}
 export interface AdminError {
   status: number;
@@ -72,12 +176,12 @@ export interface ClientOptions {
   /**
    * Extra request-init fields merged into every request (browsers:
    * credentials; Node/undici: a dispatcher for a pre-configured TLS agent).
-   * Transport-level options the client itself does not model go here.
    */
   fetchInit?: Record<string, unknown>;
 }
 
 export type Json = Record<string, unknown>;
+export type Query = Record<string, string | number | boolean | undefined>;
 
 export const ADMIN_PATHS = ${JSON.stringify(paths, null, 2)} as const;
 export type AdminPath = typeof ADMIN_PATHS[number];
@@ -87,7 +191,7 @@ export type OperationId = typeof OPERATION_IDS[number];
 `;
 
   const client = `${header}
-import type { AdminResult, ClientOptions, Json } from './types.js';
+import type { AdminResult, ClientOptions, Json, Query } from './types.js';
 
 export class GatewayAdminClient {
   readonly baseUrl: string;
@@ -98,14 +202,24 @@ export class GatewayAdminClient {
   constructor(opts: ClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\\/$/, '');
     this.token = opts.token;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? fetch.bind(globalThis);
     this.fetchInit = opts.fetchInit ?? {};
+  }
+
+  private withQuery(path: string, query?: Query): string {
+    if (!query) return path;
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined) params.set(key, String(value));
+    }
+    const qs = params.toString();
+    return qs ? path + '?' + qs : path;
   }
 
   private async request<T = unknown>(method: string, path: string, body?: Json): Promise<AdminResult<T>> {
     const headers: Record<string, string> = { 'content-type': 'application/json' };
-    if (this.token) headers['authorization'] = \`Bearer \${this.token}\`;
-    const res = await this.fetchImpl(\`\${this.baseUrl}\${path}\`, {
+    if (this.token) headers['authorization'] = 'Bearer ' + this.token;
+    const res = await this.fetchImpl(this.baseUrl + path, {
       ...this.fetchInit,
       method,
       headers,
@@ -118,34 +232,81 @@ export class GatewayAdminClient {
   }
 
   post<T = unknown>(path: string, body?: Json) { return this.request<T>('POST', path, body); }
-  get<T = unknown>(path: string) { return this.request<T>('GET', path); }
+  get<T = unknown>(path: string, query?: Query) { return this.request<T>('GET', this.withQuery(path, query)); }
 
-  enroll(body: Json) { return this.post('/admin/enroll', body); }
-  mint(body: Json) { return this.post('/admin/mint', body); }
-  rotate(body: Json) { return this.post('/admin/rotate', body); }
-  policy(body: Json) { return this.post('/admin/policy', body); }
-  events() { return this.get('/admin/events'); }
-  simulate(body: Json) { return this.post('/admin/simulate', body); }
-  challenge(body: Json) { return this.post('/admin/challenge', body); }
-  mode() { return this.get('/admin/mode'); }
-  lockdownExit(body: Json) { return this.post('/admin/lockdown-exit', body); }
-  chainRecovery(body: Json) { return this.post('/admin/chain-recovery', body); }
-  status(issuerDid: string) { return this.get(\`/admin/status/\${encodeURIComponent(issuerDid)}\`); }
-  sequenceReset(body: Json) { return this.post('/admin/sequence-reset', body); }
-  leasePreempt(body: Json) { return this.post('/admin/lease-preempt', body); }
-  quarantineReplay(body: Json) { return this.post('/admin/quarantine-replay', body); }
-  timeReset(body: Json) { return this.post('/admin/time-reset', body); }
-  unknownClear(body: Json) { return this.post('/admin/unknown-clear', body); }
-  restore(body: Json) { return this.post('/admin/restore', body); }
-  epochBump(body: Json) { return this.post('/admin/epoch-bump', body); }
-  rolloutStatus() { return this.get('/admin/rollout-status'); }
+${operations.map(tsMethod).join('\n')}
 }
 `;
 
   const index = `${header}
 export { GatewayAdminClient } from './client.js';
-export type { AdminError, AdminResult, ClientOptions, Json, AdminPath, OperationId } from './types.js';
+export type { AdminError, AdminResult, ClientOptions, Json, Query, AdminPath, OperationId } from './types.js';
 export { ADMIN_PATHS, OPERATION_IDS } from './types.js';
+`;
+
+  const python = `# SPDX-License-Identifier: Apache-2.0
+# AUTO-GENERATED by scripts/generate-gateway-sdk.mjs from docs/api/gateway-admin-openapi.yaml
+# DO NOT EDIT MANUALLY. Regenerate with: node scripts/generate-gateway-sdk.mjs
+"""TirBase Gateway Admin Python client (generated)."""
+
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any, Optional
+
+CLIENT_PATHS = ${JSON.stringify(paths, null, 2).replace(/true/g, 'True').replace(/false/g, 'False')}
+OPERATION_IDS = ${JSON.stringify(opIds, null, 2)}
+
+
+class AdminError(Exception):
+    def __init__(self, status: int, payload: Any):
+        super().__init__(f"admin API returned {status}: {payload}")
+        self.status = status
+        self.payload = payload
+
+
+def _q(value: Any) -> str:
+    return urllib.parse.quote(str(value), safe="")
+
+
+class GatewayAdminClient:
+    def __init__(self, base_url: str, token: Optional[str] = None, timeout: float = 30.0):
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.timeout = timeout
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        body: Optional[dict[str, Any]] = None,
+        query: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        if query:
+            clean = {k: v for k, v in query.items() if v is not None}
+            if clean:
+                path = f"{path}?{urllib.parse.urlencode(clean)}"
+        data = None if body is None else json.dumps(body).encode("utf-8")
+        headers = {"content-type": "application/json"}
+        if self.token:
+            headers["authorization"] = f"Bearer {self.token}"
+        request = urllib.request.Request(self.base_url + path, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                raw = response.read()
+                return json.loads(raw) if raw else None
+        except urllib.error.HTTPError as error:
+            raw = error.read()
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                payload = {"status": error.code, "error": raw.decode("utf-8", "replace")}
+            raise AdminError(error.code, payload) from error
+
+${operations.map(pythonMethod).join('\n\n')}
 `;
 
   const manifest = {
@@ -154,22 +315,34 @@ export { ADMIN_PATHS, OPERATION_IDS } from './types.js';
     generated: [
       'sdk/typescript/src/client.ts',
       'sdk/typescript/src/index.ts',
-      'sdk/typescript/src/types.ts'
+      'sdk/typescript/src/types.ts',
+      'sdk/python/tirbase_gateway_client.py',
     ],
     operation_ids: opIds,
-    paths
+    paths,
   };
 
-  return { types, client, index, manifest };
+  return { types, client, index, python, manifest, operations };
 }
 
 const specText = readSpec();
-const { types, client, index, manifest } = generate(specText);
+const { types, client, index, python, manifest, operations } = generate(specText);
+const duplicate = operations.filter(
+  (op, i) => operations.findIndex((other) => other.operationId === op.operationId) !== i,
+);
+if (duplicate.length > 0) {
+  throw new Error(`duplicate operationId(s): ${duplicate.map((o) => o.operationId).join(', ')}`);
+}
 ensureDir(outDir);
+ensureDir(path.dirname(pythonPath));
 fs.writeFileSync(path.join(outDir, 'types.ts'), types);
 fs.writeFileSync(path.join(outDir, 'client.ts'), client);
 fs.writeFileSync(path.join(outDir, 'index.ts'), index);
+fs.writeFileSync(pythonPath, python);
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-// keep SDK-local copy in sync with spec
+// keep the SDK-local copy in sync with the canonical spec
 fs.writeFileSync(path.join(root, 'sdk', 'typescript', 'openapi.yaml'), specText);
-console.log(`generated gateway admin SDK (${manifest.operation_ids.length} operations, ${manifest.paths.length} paths)`);
+console.log(
+  `generated gateway admin SDKs (${manifest.operation_ids.length} operations, ` +
+    `${manifest.paths.length} paths, ${manifest.paths.filter((p) => p.includes('/admin/cold-chain') || p.includes('/admin/pos/') || p.startsWith('/admin/venues')).length} vertical paths)`,
+);

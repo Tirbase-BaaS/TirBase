@@ -1,0 +1,103 @@
+{
+  "version": "1.1.0",
+  "algorithm": "sha256",
+  "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "paths": {
+    "/admin/enroll": {
+      "post": "enrollDevice"
+    },
+    "/admin/mint": {
+      "post": "mintToken"
+    },
+    "/admin/rotate": {
+      "post": "rotateKey"
+    },
+    "/admin/policy": {
+      "post": "pushPolicy"
+    },
+    "/admin/events": {
+      "get": "listEvents"
+    },
+    "/admin/simulate": {
+      "post": "simulateCommand"
+    },
+    "/admin/challenge": {
+      "post": "challengeNonce"
+    },
+    "/admin/mode": {
+      "get": "getMode"
+    },
+    "/admin/lockdown-exit": {
+      "post": "exitLockdown"
+    },
+    "/admin/chain-recovery": {
+      "post": "chainRecovery"
+    },
+    "/admin/status/{issuer_did}": {
+      "get": "issuerStatus"
+    },
+    "/admin/sequence-reset": {
+      "post": "sequenceReset"
+    },
+    "/admin/lease-preempt": {
+      "post": "leasePreempt"
+    },
+    "/admin/quarantine-replay": {
+      "post": "quarantineReplay"
+    },
+    "/admin/time-reset": {
+      "post": "timeReset"
+    },
+    "/admin/unknown-clear": {
+      "post": "clearUnknown"
+    },
+    "/admin/restore": {
+      "post": "restoreDevice"
+    },
+    "/admin/epoch-bump": {
+      "post": "epochBump"
+    },
+    "/admin/rollout-status": {
+      "get": "rolloutStatus"
+    },
+    "/admin/cold-chain/sites": {
+      "get": "listColdChainSites",
+      "post": "createColdChainSite"
+    },
+    "/admin/cold-chain/sites/{id}": {
+      "get": "getColdChainSite",
+      "patch": "patchColdChainSite",
+      "delete": "deleteColdChainSite"
+    },
+    "/admin/cold-chain/sites/{id}/readings": {
+      "get": "listColdChainReadings",
+      "post": "createColdChainReading"
+    },
+    "/admin/pos/orders": {
+      "get": "listPosOrders",
+      "post": "createPosOrder"
+    },
+    "/admin/pos/orders/{id}": {
+      "get": "getPosOrder",
+      "patch": "patchPosOrder",
+      "delete": "deletePosOrder"
+    },
+    "/admin/pos/orders/{id}/lines": {
+      "get": "listPosLines",
+      "post": "createPosLine"
+    },
+    "/admin/venues": {
+      "get": "listVenues",
+      "post": "createVenue"
+    },
+    "/admin/venues/{id}": {
+      "get": "getVenue",
+      "patch": "patchVenue",
+      "delete": "deleteVenue"
+    },
+    "/admin/venues/{id}/gates": {
+      "get": "listVenueGates",
+      "post": "createVenueGate"
+    }
+  }
+}

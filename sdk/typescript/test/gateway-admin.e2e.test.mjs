@@ -44,6 +44,27 @@ const GATEWAY_BIN =
 const OP_TO_METHOD = {
   chainRecovery: 'chainRecovery',
   challengeNonce: 'challenge',
+  createColdChainReading: 'createColdChainReading',
+  createColdChainSite: 'createColdChainSite',
+  createPosLine: 'createPosLine',
+  createPosOrder: 'createPosOrder',
+  createVenue: 'createVenue',
+  createVenueGate: 'createVenueGate',
+  deleteColdChainSite: 'deleteColdChainSite',
+  deletePosOrder: 'deletePosOrder',
+  deleteVenue: 'deleteVenue',
+  getColdChainSite: 'getColdChainSite',
+  getPosOrder: 'getPosOrder',
+  getVenue: 'getVenue',
+  listColdChainReadings: 'listColdChainReadings',
+  listColdChainSites: 'listColdChainSites',
+  listPosLines: 'listPosLines',
+  listPosOrders: 'listPosOrders',
+  listVenueGates: 'listVenueGates',
+  listVenues: 'listVenues',
+  patchColdChainSite: 'patchColdChainSite',
+  patchPosOrder: 'patchPosOrder',
+  patchVenue: 'patchVenue',
   clearUnknown: 'unknownClear',
   enrollDevice: 'enroll',
   epochBump: 'epochBump',
@@ -210,8 +231,8 @@ after(() => {
 });
 
 test('the generated surface covers every documented path and operation', () => {
-  assert.equal(ADMIN_PATHS.length, 19);
-  assert.equal(OPERATION_IDS.length, 19);
+  assert.equal(ADMIN_PATHS.length, 28);
+  assert.equal(OPERATION_IDS.length, 40);
   for (const operationId of OPERATION_IDS) {
     const method = OP_TO_METHOD[operationId];
     assert.ok(method, `operation ${operationId} has no client method mapping`);
@@ -221,6 +242,85 @@ test('the generated surface covers every documented path and operation', () => {
       `generated client is missing ${method} for ${operationId}`,
     );
   }
+});
+
+test('generated client completes a full cold-chain, POS and venue journey', async () => {
+  const tenant = 'sdk-e2e';
+  const site = await client.createColdChainSite({
+    tenant,
+    name: 'Cold Room 1',
+    idempotency_key: 'sdk-e2e-site',
+  });
+  assert.equal(site.ok, true, JSON.stringify(site));
+  assert.equal(site.status, 201);
+  const siteId = site.data.object.id;
+
+  const replay = await client.createColdChainSite({
+    tenant,
+    name: 'Cold Room 2',
+    idempotency_key: 'sdk-e2e-site',
+  });
+  assert.equal(replay.ok, true, JSON.stringify(replay));
+  assert.equal(replay.status, 200);
+  assert.equal(replay.data.idempotent_replay, true);
+  assert.equal(replay.data.object.id, siteId);
+
+  const reading = await client.createColdChainReading(siteId, {
+    tenant,
+    celsius_milli: -18500,
+  });
+  assert.equal(reading.ok, true, JSON.stringify(reading));
+  assert.equal(reading.status, 201);
+  const readings = expectTypedSuccess(
+    await client.listColdChainReadings(siteId, { tenant, limit: 10 }),
+    'listColdChainReadings',
+  );
+  assert.equal(readings.total, 1);
+  assert.equal(readings.items[0].data.celsius_milli, -18500);
+
+  const patched = expectTypedSuccess(
+    await client.patchColdChainSite(siteId, { name: 'Cold Room A' }, { tenant }),
+    'patchColdChainSite',
+  );
+  assert.equal(patched.object.revision, 2);
+  assert.equal(patched.object.data.name, 'Cold Room A');
+
+  const order = await client.createPosOrder({
+    tenant,
+    currency: 'EUR',
+    total_minor: 1250,
+  });
+  assert.equal(order.ok, true, JSON.stringify(order));
+  assert.equal(order.status, 201);
+  const orderId = order.data.object.id;
+  const line = await client.createPosLine(orderId, {
+    tenant,
+    sku: 'SKU-1',
+    quantity: 2,
+    unit_price_minor: 625,
+  });
+  assert.equal(line.ok, true, JSON.stringify(line));
+
+  const venue = await client.createVenue({ tenant, name: 'North Stand' });
+  assert.equal(venue.ok, true, JSON.stringify(venue));
+  assert.equal(venue.status, 201);
+  const venueId = venue.data.object.id;
+  const gate = await client.createVenueGate(venueId, { tenant, name: 'Gate A' });
+  assert.equal(gate.ok, true, JSON.stringify(gate));
+  const gates = expectTypedSuccess(
+    await client.listVenueGates(venueId, { tenant }),
+    'listVenueGates',
+  );
+  assert.equal(gates.total, 1);
+
+  const removed = expectTypedSuccess(
+    await client.deleteVenue(venueId, { tenant }),
+    'deleteVenue',
+  );
+  assert.equal(removed.deleted, true);
+  const missing = await client.getVenue(venueId, { tenant });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.status, 404);
 });
 
 test('remote admin requires a client certificate', async () => {
