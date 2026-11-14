@@ -1,0 +1,44 @@
+name: Fuzz (nightly)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz-nightly:
+    name: Cargo fuzz (extended smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Run root fuzz targets (extended)
+        working-directory: fuzz
+        run: |
+          cargo fuzz run automerge_delta_decode -- -max_total_time=300 -runs=0
+          cargo fuzz run fragment_reassembly -- -max_total_time=300 -runs=0
+      - name: Run tirbase-core fuzz targets (extended)
+        working-directory: tirbase-core/fuzz
+        run: |
+          cargo fuzz run automerge_delta_decode -- -max_total_time=300 -runs=0
+          cargo fuzz run fragment_reassembly -- -max_total_time=300 -runs=0
+      - name: Run tirbase-drivers fuzz targets (extended)
+        working-directory: tirbase-drivers/fuzz
+        run: |
+          cargo fuzz run modbus_frame -- -max_total_time=120 -runs=0
+          cargo fuzz run mqtt_frame -- -max_total_time=120 -runs=0
+          cargo fuzz run register_map_parse -- -max_total_time=120 -runs=0
+      - name: Run tirbase-guard fuzz targets (extended)
+        working-directory: tirbase-guard/fuzz
+        run: |
+          cargo fuzz run envelope_profile_parse -- -max_total_time=120 -runs=0
+          cargo fuzz run command_message_parse -- -max_total_time=120 -runs=0

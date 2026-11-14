@@ -585,3 +585,13 @@ violation.
 *Document version: 1.0 — created as part of Phase 0 (Truth, Traceability, and Hygiene).*
 *This document must be updated whenever a new actor, asset, trust boundary, failure mode,
 out-of-scope exclusion, residual risk, or owner decision is added to the system.*
+
+---
+
+## 8. Vertical Threat Models (F-12)
+
+Per-vertical threat summaries (cold chain, POS, stadium, shared platform), STRIDE/LINDDUN-style component analysis, fuzz coverage inventory, secure update/SBOM/CVE/advisory processes, pentest/remediation linkage, and secrets/supply-chain controls are maintained in:
+
+- **[`SECURITY_PROGRAM.md`](SECURITY_PROGRAM.md)** (authoritative for F-12 programme details)
+
+**Every trust boundary listed in §4** has corresponding controls documented there and in this file (§4, §§5–7). New boundaries introduced by features (e.g. OTA ingest as B8 in SECURITY_PROGRAM.md) MUST be added to this section and to SECURITY_PROGRAM.md in the same change.

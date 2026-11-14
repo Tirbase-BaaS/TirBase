@@ -1,0 +1,39 @@
+name: Soak (nightly virtual)
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  virtual-soak:
+    name: Virtual 72h soak (sim)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-soak-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run virtual 72h soak test
+        run: cargo test -p tirbase-sim --test soak virtual_time_soak_runs_72h_with_fault_injection_within_budget -- --nocapture
+      - name: Upload report placeholder
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-nightly-${{ github.run_id }}
+          path: |
+            docs/soak-test-procedure.md
+          if-no-files-found: warn

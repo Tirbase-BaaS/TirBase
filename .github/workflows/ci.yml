@@ -1355,8 +1355,87 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Regenerate SDK and reject manual changes
+      - name: Reject unversioned breaking OpenAPI changes
+        run: node scripts/check-openapi-compat.mjs
+
+      - name: Regenerate SDKs and reject manual changes
         run: bash scripts/check-gateway-sdk-generated.sh
+
+      - name: Validate OpenAPI 3.1 document
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import yaml
+          doc = yaml.safe_load(open('docs/api/gateway-admin-openapi.yaml'))
+          assert doc['openapi'].startswith('3.1.'), doc['openapi']
+          assert len(doc['paths']) >= 28, len(doc['paths'])
+          assert 'verticalChange' in doc['webhooks']
+          print(f"valid OpenAPI {doc['openapi']} with {len(doc['paths'])} paths")
+          PY
+
+  operator-console:
+    name: operator console (licence boundary, build, Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build generated Apache SDK
+        working-directory: sdk/typescript
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Install console dependencies
+        working-directory: console
+        run: npm ci --no-audit --no-fund
+
+      - name: Build and enforce licence boundary
+        working-directory: console
+        run: |
+          npm run build
+          npm run check:licence
+
+      - name: Install Playwright Chromium
+        working-directory: console
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright shell and vertical journeys
+        working-directory: console
+        run: npm run test:e2e
+
+  observability:
+    name: observability (SLO/runbook mapping, redaction, canary)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-observability-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Telemetry redaction and SLO metric tests
+        run: |
+          cargo test -p tirbase-gateway --lib telemetry::tests
+          cargo test -p tirbase-gateway --lib metrics::tests
+
+      - name: Observability contract (SLO alert + runbook coverage)
+        run: node scripts/check-observability.mjs
+
+      - name: Synthetic canary contract test
+        run: node --test ops/canary/vertical-canary.test.mjs
 
   gateway-admin-sdk-e2e:
     name: gateway admin TypeScript SDK e2e (real binary over mTLS)

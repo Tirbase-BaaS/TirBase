@@ -1,0 +1,23 @@
+name: Dependency review (PR)
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dependency-review:
+    name: Dependency review (licence + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          # Align with deny.toml/license policy; deny GPL/AGPL surprises not already allowed is handled by cargo-deny/licence CI,
+          # but flag common problematic licenses here too.
+          deny-licenses: GPL-1.0-or-later, GPL-2.0-or-later, GPL-3.0-or-later, LGPL-2.0-or-later, LGPL-2.1-or-later, LGPL-3.0-or-later

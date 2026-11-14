@@ -138,3 +138,6 @@ We ask reporters to:
 ---
 
 *This policy follows the [coordinated vulnerability disclosure](https://vuls.cert.org/confluence/display/CVD/Executive+Summary) model recommended by CERT/CC.*
+- `docs/SECURITY_PROGRAM.md` — F-12 security programme (vertical threat models, STRIDE/LINDDUN analysis, fuzz coverage, secure update/SBOM/CVE/advisory process, secrets/supply-chain review).
+- `docs/pentest-scope.md` — penetration test scope (failure modes 1/2/5) and expectations.
+- `docs/security-findings.md` — remediation tracker (external crypto review / pentest findings).
