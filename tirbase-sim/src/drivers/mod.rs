@@ -4,6 +4,8 @@
 
 pub mod cold_room;
 pub mod modbus_server;
+pub mod simulators;
 
 pub use cold_room::ColdRoomThermalSim;
 pub use modbus_server::{ModbusServerHandle, ModbusSimServer};
+pub use simulators::{GateState, Sim4To20MaAdc, SimGateController, SimulatorDescriptor, SimulatorKind};

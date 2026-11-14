@@ -44,6 +44,13 @@ pub use envelope::{
 pub mod policy;
 pub use policy::{PolicyBundle, PolicyBundleBody, PolicyBundleKind, PolicyCoSignature};
 
+// ── OTA module (F-11: signed bundles, channels, skew/compatibility) ─────────
+pub mod ota;
+pub use ota::{
+    check_version_skew, compare_versions, parse_version, OtaBundleBody, OtaCompatibility,
+    OtaComponent, ReleaseChannel, SignedOtaBundle, VersionSkewError,
+};
+
 // ── command module (CLAIM-11.1, PV-4.1, PV-4.2) ────────────────────────────
 pub mod command;
 pub use command::{CoSignature, CommandMessage, CommandMessageBody, CONTEXT_COMMAND_MESSAGE};
