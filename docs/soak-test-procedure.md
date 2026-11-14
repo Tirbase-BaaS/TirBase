@@ -84,3 +84,12 @@ Produce a short report containing:
 Archive the report with the release audit artifacts. A failure blocks the release
 until investigated and resolved (or the threshold is re-baselined via the
 measure-first process with justification).
+
+## Extended campaigns (7 / 30 days) — F-14
+
+Use the same method as the 72h run, extended duration, with these additions:
+
+- **Cadence:** sample RSS/heap and open FD/handle counts at least every 15 minutes (more frequently for the first 24h after warmup).
+- **Flash/write tracking:** record daily durable write volume via `flash-wear-estimate` (or block-layer accounting) and compare against configured budget (`flash_wear_daily_budget_bytes`, default 100 MB/day). Flag any day exceeding budget without an approved exception.
+- **Memory/FD growth bounds (targets):** ≤ 5 MiB RSS/heap net growth over the campaign window **and** ≤ 50 net handle/FD growth, measured from a steady-state baseline after warmup (document baseline timestamp). If exceeded, treat as a release/process blocker until root-caused.
+- **Reporting:** include a time-series summary (min/max/mean/end), fault injection log, and pass/fail against the thresholds above. Store under `docs/evidence/soak/<YYYY-MM-DD>-<id>/` and link from `CLAIMS.md` when applicable.

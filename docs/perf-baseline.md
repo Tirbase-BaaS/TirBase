@@ -83,3 +83,17 @@ When instruction counts are recorded, CI enforces regressions > threshold (defau
 
 ---
 *Committed measure-first baseline record for PV-15.2/CLAIM-44.2. Replace provisional entries with reference-hardware measurements.*
+
+## F-14 latency/throughput budgets (provisional)
+
+These are design targets until replaced by profile (a) measurements (120% rule). See [`docs/capacity-planning.md`](capacity-planning.md).
+
+| Path | Metric | Provisional target (p95, ref class) | Evidence / benchmark hook |
+|------|--------|--------------------------------------|---------------------------|
+| Command admission (guard) | Decision latency (in-envelope, local) | ≤ 50 ms | `tirbase-guard` benches (`guard_decision_*`, `ed25519_signature_verify`) |
+| Ledger append | Append + durable write (small record) | ≤ 200 ms (sync=FULL typical) | `effects_ledger_write_sync_full` / group-commit benches |
+| Alarm delivery | Event → notification delivered | ≤ 5 s (best effort) | Integration/E2E; environment-dependent |
+| Gate decision | Decision → actuator command issued | ≤ 100 ms (soft) | Vertical/HIL validation |
+| Payment intent | Intent accepted → PSP confirmed | External SLA (out of on-device bound) | Track with PSP metrics |
+
+**Regression policy (CI):** iai instruction-count regressions are gated by `iai-bench` + `scripts/check-iai-regression.sh` (threshold configurable via `IAI_REGRESSION_THRESHOLD_PCT`). Wall-clock Criterion runs are informational unless a job is added to compare against committed medians; when added, failures MUST reference this document’s budgets.

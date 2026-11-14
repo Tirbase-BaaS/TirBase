@@ -70,3 +70,14 @@ For each run verify:
 ## Execution trigger
 
 Run only via the maintainer-triggered GitHub Actions workflow `.github/workflows/hil.yml` (`workflow_dispatch`) on provisioned, labeled lab hardware. Do **not** enable for public pull requests.
+
+## Related documents (F-13)
+
+- Repeatable checklist and evidence capture: [`docs/hil-lab-checklist.md`](hil-lab-checklist.md)
+- Long-run soak and fault injection: [`docs/soak-test-procedure.md`](soak-test-procedure.md)
+- Reference hardware profiles: [`docs/reference-hardware.md`](reference-hardware.md)
+
+## Full vertical journey and power-loss coverage (F-13)
+
+- **Full vertical journey:** execute the end-to-end flow in `docs/hil-lab-checklist.md` §2 for the vertical under test (enroll/profile → ingest → guarded command → rejection → export/UI as applicable) and attach evidence.
+- **Power loss at every stage:** execute the stage matrix in `docs/hil-lab-checklist.md` §3 (idle through post-commit/export boundaries) with controlled power cuts; each must yield a recoverable state per PV-5.3/PV-7 reconciliation rules.
