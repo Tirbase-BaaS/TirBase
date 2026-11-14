@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! TirBase vertical demo packs.
 //!
 //! Bundles: cold-chain (flagship), energy-edge, water, logistics, buildings,

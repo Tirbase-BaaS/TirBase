@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLI integration tests (CLAIM-27.2, 27.3, 27.4).
 
 use std::path::{Path, PathBuf};

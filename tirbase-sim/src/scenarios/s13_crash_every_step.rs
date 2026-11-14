@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S13 — crash at every write boundary in the effects ledger.
 //!
 //! A crash after the durable `Actuating` write but before the terminal update

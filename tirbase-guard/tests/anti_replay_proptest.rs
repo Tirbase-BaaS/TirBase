@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Property tests for anti-replay window (CLAIM-20.6, PV-5.5).
 //! P7: sequence numbers outside the window are always rejected.
 //! P8: accepted sequence numbers are never re-accepted within the same enrollment epoch.

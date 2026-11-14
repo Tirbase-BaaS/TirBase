@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! MTU fragmentation and reassembly for low-bandwidth transports (Req 5.7–5.8).
 //!
 //! When the active transport MTU is below 256 bytes, Deltas are split into

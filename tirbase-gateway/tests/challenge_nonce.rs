@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! — Challenge nonce infrastructure (CLAIM-16.1–16.4, PV-22.3, INV-9, S32).
 //! Production callers: `tirbase-gateway/src/db/challenge_nonces.rs` (16.2),
 //! `tirbase-gateway/src/admin.rs` challenge dispatch (16.3/16.4), and

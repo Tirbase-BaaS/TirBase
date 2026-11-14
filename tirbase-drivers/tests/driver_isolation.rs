@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-33.5/33.6/33.7 (PV-4.21, PV-10.4, S24, S35): socketpair isolation plan,
 //! fail-closed sandbox policy, and lifecycle restart/backoff/escalation.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Signed postcondition evaluation for migration shadow output (PV-8.4).
 //!
 //! Postconditions are evaluated against the shadow run's store state (real

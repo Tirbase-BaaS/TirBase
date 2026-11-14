@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Property test: the TimeRatchet value is monotonically non-decreasing across
 //! any sequence of beacon applications, time advances, and simulated reboots
 //! (CLAIM-7.7, PV-22, S23).

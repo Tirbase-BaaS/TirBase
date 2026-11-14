@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! S35 / CLAIM-34.8: guard-owned DeviceTransport passes device fd to child via SCM_RIGHTS.
 //! Production caller: tirbase-guard/src/driver_proxy.rs + DeviceTransport wiring.
 //! Wiring mutation check: not passing fd via SCM_RIGHTS must fail this test.

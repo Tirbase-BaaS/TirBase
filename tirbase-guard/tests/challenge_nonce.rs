@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! compatibility test IDs (CLAIM-16.4/S32, PV-22.3).
 //! Production behavior is exercised via `tirbase-guard` pipeline issuance/rate
 //! limiting and `tirbase-gateway`/`tirbase-sim` integration tests.

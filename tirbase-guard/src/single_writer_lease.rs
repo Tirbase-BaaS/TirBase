@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Single-writer lease (PV-5.8/5.8a, CLAIM-21.1–21.5).
 //!
 //! At most one issuer may hold a lease for a target at a time. Lease timing

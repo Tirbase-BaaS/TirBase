@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TirBaseError — typed error enum for all tirbase-core public API boundaries.
 //!
 //! All errors propagate through `Result<T, TirBaseError>` and use `thiserror`

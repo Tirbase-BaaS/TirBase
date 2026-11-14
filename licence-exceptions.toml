@@ -1,0 +1,26 @@
+# Licence exception register (F-01)
+#
+# Every exception to the licence policy in LICENSING.md must appear here with a
+# named owner, a reason, a scope, and an expiry date. The CI gate
+# `scripts/check-licence-exceptions.py` (job: licence-exceptions) fails on a
+# missing field, an expired entry, or drift between this register and the
+# `[[licenses.exceptions]]` table in deny.toml.
+#
+# Process documentation: docs/licensing-exceptions.md
+
+[[exception]]
+id = "r-efi-lgpl-2.1"
+owner = "@tirbase-maintainers"
+reason = """
+r-efi carries a small UEFI compatibility shim under LGPL-2.1-or-later. It
+enters the graph only through getrandom's UEFI target support, which is pulled
+in by libp2p/hickory-proto (getrandom 0.3) and rusqlite (getrandom 0.4). No
+first-party crate depends on r-efi directly, and no shipped gateway, SDK or
+reference pack links it.
+"""
+scope = """
+Transitive, target-specific dependency (x86_64-unknown-uefi) of getrandom
+0.3.4 and 0.4.3; build graph only, never distributed in release artifacts.
+"""
+crates = ["r-efi"]
+expires = "2027-06-30"

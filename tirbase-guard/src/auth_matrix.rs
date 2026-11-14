@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Table-driven authorization matrix (PV-3.3, CLAIM-56.1).
 //!
 //! `AUTHORIZATION_MATRIX` enumerates each operation and, per `CommandRole`,

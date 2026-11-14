@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Security event log DB helpers (PV-7.2–PV-7.4, /25.5).
 //!
 //! Production callers:

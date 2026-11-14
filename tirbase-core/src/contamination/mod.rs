@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Causal Contamination Engine (CCE) — taint propagation through the
 //! Changeset DAG and Incident Context Object management (Req 10, 11).
 //!

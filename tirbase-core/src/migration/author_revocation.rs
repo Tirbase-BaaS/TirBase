@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Post-execution author revocation check hook (PV-8.7).
 
 #![allow(dead_code)]

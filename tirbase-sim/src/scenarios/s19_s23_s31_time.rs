@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S19, S23 and S31 — delayed delivery, time-anchor poisoning and
 //! clock rollback across reboot (PV-22.1, PV-22.4, PV-22.5).
 //!

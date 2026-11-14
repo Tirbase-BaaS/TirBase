@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Minimal Modbus TCP server for integration tests and conformance (CLAIM-34.1, PV-10.7).
 //! Supports FC 03, 04, 06, 16 against an in-memory register bank.
 

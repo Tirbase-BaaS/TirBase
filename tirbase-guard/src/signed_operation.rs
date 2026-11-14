@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `SignedOperation<T>` — domain-separated multi-party signed wrapper
 //! (CLAIM-6.7, PV-3.6).
 //!

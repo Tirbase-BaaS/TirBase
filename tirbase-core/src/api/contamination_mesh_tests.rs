@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Workstream 5 (e2e wiring): contamination (CCE), composite incidents,
 //! human-reaction tagging, and Side-Car replay/recovery over REAL mesh peers.
 //!

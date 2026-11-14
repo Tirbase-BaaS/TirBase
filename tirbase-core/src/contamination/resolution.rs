@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Contamination resolution — verify_data(), admin_close(), audit log (Req 11).
 
 #![allow(dead_code, unused_variables, unused_imports)]

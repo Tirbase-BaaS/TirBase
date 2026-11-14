@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Two-instance mesh wiring test for the security log (CLAIM-26.3, 26.4, 26.7,
 //! 28.3, PV-7.9, PV-7.10, INV-4).
 //!

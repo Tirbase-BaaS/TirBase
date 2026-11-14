@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! (PV-11.2): remote admin listener requires mutual TLS.
 //!
 //! Spawns the real gateway binary with `admin_remote_*` configured, then:

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Instruction-count benchmarks for CI gating (CLAIM-40.3, PV-15.3).
 //! Run with iai-callgrind-runner under valgrind in CI; regressions fail the job.
 

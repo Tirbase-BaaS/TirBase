@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! EnvelopeProfile TOML loading and schema validation (CLAIM-34.5, PV-10.6).
 //!
 //! Production caller: profile install path in `tirbase-gateway` (admin/config).

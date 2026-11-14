@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! WASM sandbox gate — executes migration transforms in wasmi (PV-8.1).
 //!
 //! wasmi is the sole migration WASM engine on all targets (native gateway and

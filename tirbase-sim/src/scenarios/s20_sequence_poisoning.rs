@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S20 — Sequence-number poisoning (CLAIM-20.8, PV-5.5, INV-10).
 //!
 //! A compromised/rejected issuer attempt with a sequence number far beyond the

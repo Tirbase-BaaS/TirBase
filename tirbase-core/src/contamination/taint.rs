@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Taint propagation — BFS walk helpers and tag-append logic (Req 10.2).
 
 #![allow(dead_code, unused_variables, unused_imports)]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! One-off helper to generate signed fixture for profiles/cold_room.toml (CLAIM-34.5).
 //! Run with: cargo test -p tirbase-gateway --test sign_cold_room_profile_fixture -- --ignored --nocapture
 

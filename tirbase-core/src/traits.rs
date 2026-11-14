@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Core abstraction traits shared by every TirBase subsystem.
 //!
 //! These traits are the seams through which the gateway injects platform

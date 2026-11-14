@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Shared `CommandGuard` admit-pipeline fixture for scenarios that drive full
 //! command admission (S16, S17).
 //!

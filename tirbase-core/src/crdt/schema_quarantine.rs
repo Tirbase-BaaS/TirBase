@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Schema_Quarantine_Ledger — replayable structural-anomaly quarantine in a
 //! SQLite table (PV-6.7, CLAIM-23.3, CLAIM-23.5).
 //!

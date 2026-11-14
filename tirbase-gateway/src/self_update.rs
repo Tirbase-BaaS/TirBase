@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway self-update and config rollback (PV-11.6).
 //!
 //! The *mechanics* are implemented here: an `UpdateSigner`-signed firmware

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Bounded pending queue for inbound deltas with unresolved causal dependencies
 //! (PV-6.1, CLAIM-23.1, CLAIM-23.2, S33).
 //!

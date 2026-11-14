@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TimeRatchet behaviour tests (7.5 — CLAIM-7.2…7.5, PV-22).
 //!
 //! These tests drive the real [`TimeRatchet`] with a controllable

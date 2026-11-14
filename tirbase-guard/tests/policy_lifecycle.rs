@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Policy lifecycle integration tests (12.7, 12.10 — CLAIM-12.1–7,10,
 //! PV-4.8–4.12, INV-3, INV-8).
 

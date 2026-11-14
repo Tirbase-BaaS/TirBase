@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-verify-log` CLI (CLAIM-27.4, PV-7.5, INV-4).
 //! Exit 0 on intact chain, non-zero with gap/mismatch report per broken sequence range.
 use anyhow::Result;

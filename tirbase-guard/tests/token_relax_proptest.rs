@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-15.8 / PV-4.6 / INV-7: token-cannot-relax property test.
 //! For any token minted by any key, a command with a value outside the
 //! EnvelopeProfile is always rejected regardless of token attenuations.

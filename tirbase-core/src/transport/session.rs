@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! NoiseSession — Noise_IK_25519_AESGCM_SHA256 handshake, key rotation,
 //! and 0-RTT resumption cache (Req 6).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S12 — partition and rejoin convergence.
 //!
 //! Two nodes write independently while the virtual network is partitioned.

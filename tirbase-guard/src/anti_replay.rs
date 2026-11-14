@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Anti-replay sliding window (20.2/20.3, CLAIM-20.1–20.3, PV-5.5, INV-10).
 //!
 //! Per `(issuer_did, target_id, enrollment_epoch)`, a sliding bitmap of width

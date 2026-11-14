@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Health endpoint and watchdog keepalive (CLAIM-4.9.3,
 //! CLAIM-13.7, PV-4.15).
 //!

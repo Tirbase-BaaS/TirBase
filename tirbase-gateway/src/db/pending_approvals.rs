@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `pending_approvals` SQLite store (CLAIM-12.8, PV-4.10).
 //!
 //! Stores partial multi-signature operations (policy loosening, lockdown-exit,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! P2P mesh command ingress (14 production callers).
 //!
 //! Commands delivered from the mesh (Paxos-confirmed) pass through the local

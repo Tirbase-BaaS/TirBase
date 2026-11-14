@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CapabilityManager — Biscuit token verification, TrustLevel state machine (Req 8).
 //!
 //! Also re-exports the `RevocationSubsystem` (Req 9) for use by the API layer.

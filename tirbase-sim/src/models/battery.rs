@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Deterministic battery/inverter model for the energy-edge demo (//! CLAIM-38.5, PV-12.3).
 //!
 //! The pack is modelled as an energy reservoir with a state of charge (SoC), an

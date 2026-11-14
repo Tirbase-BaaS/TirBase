@@ -1,0 +1,108 @@
+name: Licence boundary (F-01)
+
+# Blocking licence gate. Every job here must pass before a change can land:
+#   * first-party sources carry the SPDX identifier of their crate's licence;
+#   * every Cargo manifest agrees with the LICENSING.md component matrix;
+#   * no Apache-licensed crate can reach an AGPL dependency;
+#   * cargo-deny agrees with the allow-list and exception register;
+#   * reference packs contain data only;
+#   * the exception register is complete and unexpired;
+#   * the gates themselves are proven by negative fixtures.
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  spdx-headers:
+    name: SPDX headers (first-party sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check SPDX identifiers match each crate's declared licence
+        run: python3 scripts/check-spdx-headers.py
+
+  licence-matrix:
+    name: Cargo.toml licence matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check every Cargo manifest against LICENSING.md
+        run: python3 scripts/check-licence-matrix.py
+
+  licence-exceptions:
+    name: Licence exception register
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check owner, reason, scope, expiry, and deny.toml parity
+        run: python3 scripts/check-licence-exceptions.py
+
+  agpl-free:
+    name: Apache crates are AGPL-free
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-licence-${{ hashFiles('**/Cargo.lock') }}
+      - name: Reject AGPL dependencies reachable from Apache crates
+        run: python3 scripts/check-agpl-free.py
+
+  cargo-deny:
+    name: cargo-deny licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run cargo-deny licence check
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses
+
+  pack-purity:
+    name: Reference packs are data-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Reject executable code and symlinks in packs
+        run: python3 scripts/check-pack-purity.py
+
+  negative-fixtures:
+    name: Negative fixtures (gates must fail)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prove each gate rejects its violating fixture
+        run: bash scripts/check-licence-fixtures.sh

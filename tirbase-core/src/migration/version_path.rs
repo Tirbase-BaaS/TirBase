@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SchemaVersionPath registry — ordered list of schema hashes for the
 //! deployment's registered schema-version update path (Req 18.3a).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Canonical cold-room thermal model for simulation/conformance (CLAIM-34.3).
 //!
 //! `tirbase-sim` re-exports the canonical first-order thermal model from

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! / CLAIM-6.7b: real TPM2 NV counter behaviour against swtpm.
 //!
 //! Starts a software TPM (`swtpm`) with a TCP TCTI, provisions the counter

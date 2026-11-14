@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Typed security events and the process-wide emission sink (PV-7.1).
 //!
 //! Every security-relevant decision in the core (CRDT rejection, revocation,

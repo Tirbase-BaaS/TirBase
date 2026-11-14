@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S35 — driver fd leakage (PV-4.21, PV-10.4).
 //!
 //! The driver child must be unable to pass file descriptors (including the

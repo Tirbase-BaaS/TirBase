@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! : EnvelopeProfile TOML documents validated by gateway install-time path.
 //! Production caller: tirbase-gateway profile install path.
 //! Wiring/negative: invalid profile is rejected with field-level error.

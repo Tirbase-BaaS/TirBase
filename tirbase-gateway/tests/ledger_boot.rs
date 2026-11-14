@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-31.4/31.5 gateway integration tests (PV-9.2, PV-9.3).
 //!
 //! - 31.4: quick_check runs at boot on all ledgers; running integrity_check at

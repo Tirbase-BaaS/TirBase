@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! PriorityClassifier — maps Delta content to HIGH/MEDIUM/LOW (Req 12.5–12.7).
 //!
 //! Classification rules:

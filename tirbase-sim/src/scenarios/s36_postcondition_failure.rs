@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! S36 — Migration signed postcondition failure (PV-8.4, /30.11).
 //!
 //! A migration whose signed postconditions do not hold against shadow output

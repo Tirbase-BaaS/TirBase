@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Demo pack framework checks (CLAIM-46.1, CLAIM-47.3, PV-16).
 
 use std::path::PathBuf;

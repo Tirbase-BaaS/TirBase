@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `single_writer_leases` SQLite store (PV-5.8, CLAIM-15.1/21.1-21.5, INV-13).
 //! Lease duration uses monotonic time (`CLOCK_BOOTTIME` domain), not `now_est`.
 

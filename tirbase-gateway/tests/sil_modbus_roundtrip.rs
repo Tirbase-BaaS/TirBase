@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Software-in-the-loop Modbus rig (CLAIM-52.2 support).
 //!
 //! The physical HIL tests in `hil_modbus_roundtrip.rs` need a real RS-485 bus

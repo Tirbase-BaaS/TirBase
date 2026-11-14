@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `enrollment_nonces` SQLite store (CLAIM-8.5, PV-3.13).
 //!
 //! The bootstrap nonce is recorded for a bounded retention window (default

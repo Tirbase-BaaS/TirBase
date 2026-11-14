@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Deterministic physical models for the simulator (38.5 —
 //! CLAIM-38.4/CLAIM-38.5, PV-12.3).
 //!

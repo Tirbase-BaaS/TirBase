@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Table-driven authorization-matrix tests (PV-3.3, CLAIM-56.1, P19).
 //!
 //! Auto-generates a negative test for every `—` cell in

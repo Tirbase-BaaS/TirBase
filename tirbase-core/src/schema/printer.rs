@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Schema pretty-printer — formats a `Schema` object into a conforming
 //! schema definition document (Req 20.3).
 //!

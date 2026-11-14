@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Deterministic first-order thermal device model (CLAIM-38.4,
 //! PV-12.3).
 //!

@@ -1,0 +1,35 @@
+{
+  "packages": [
+    {
+      "id": "path+file:///fixture/apache-crate#0.1.0",
+      "name": "apache-crate",
+      "version": "0.1.0",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "registry+https://github.com/rust-lang/crates.io-index#agpl-dep@1.0.0",
+      "name": "agpl-dep",
+      "version": "1.0.0",
+      "license": "AGPL-3.0-only"
+    }
+  ],
+  "workspace_members": ["path+file:///fixture/apache-crate#0.1.0"],
+  "resolve": {
+    "nodes": [
+      {
+        "id": "path+file:///fixture/apache-crate#0.1.0",
+        "deps": [
+          {
+            "name": "agpl-dep",
+            "pkg": "registry+https://github.com/rust-lang/crates.io-index#agpl-dep@1.0.0",
+            "dep_kinds": [{ "kind": null, "target": null }]
+          }
+        ]
+      },
+      {
+        "id": "registry+https://github.com/rust-lang/crates.io-index#agpl-dep@1.0.0",
+        "deps": []
+      }
+    ]
+  }
+}

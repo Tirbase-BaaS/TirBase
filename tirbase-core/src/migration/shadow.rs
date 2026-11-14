@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Shadow-copy migration execution over projection tables (PV-8.4, /30.2/30.5).
 
 #![allow(dead_code)]

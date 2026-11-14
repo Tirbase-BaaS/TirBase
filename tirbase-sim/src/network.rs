@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Simulated network with deterministic fault injection (CLAIM-38.3,
 //! PV-12.1).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Post-merge LWW/RGA read-back verification (Subphase 6.1 — T50).
 //!
 //! After [`CrdtEngine::apply`](super::CrdtEngine::apply) merges an incoming

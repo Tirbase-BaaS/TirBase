@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! WAL PASSIVE checkpoint cadence (CLAIM-32.4, PV-9). Runs `PRAGMA
 //! wal_checkpoint(PASSIVE)` every 60 seconds and configures `PRAGMA
 //! wal_autocheckpoint=1000` so SQLite auto-checkpoints around 1000 WAL frames.

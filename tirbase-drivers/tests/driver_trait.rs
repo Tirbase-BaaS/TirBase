@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-33.2/33.3/33.4 (PV-10.1, PV-10.2, PV-4.21, INV-6): DriverTrait codec,
 //! DeviceModel validation, and ActuationPermitRef encode/decode integration.
 

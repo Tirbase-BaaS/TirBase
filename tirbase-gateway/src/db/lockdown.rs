@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! LOCKDOWN persistence for the gateway (CLAIM-13.2, PV-4.13).
 //!
 //! Persists to `primary.db` `monotonic_counters(lockdown_state)` (durable) and

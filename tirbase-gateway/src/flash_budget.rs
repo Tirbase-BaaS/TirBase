@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Flash-write budget tracking and flash-wear throttling (PV-15.4, CLAIM-44.5/44.6).
 //!
 //! - Tracks durable writes at the **Linux block layer** for the block device backing

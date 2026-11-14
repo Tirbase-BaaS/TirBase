@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! MQTT 3.1.1 bridge driver and TLS-only transport (CLAIM-34.2, PV-10.7).
 //!
 //! Public API enforces TLS: [`connect_mqtts`] performs a real `rustls` handshake

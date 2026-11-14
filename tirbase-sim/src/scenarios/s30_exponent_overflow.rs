@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S30 — exponent-overflow value (PV-21, INV-1).
 //!
 //! A command carrying `mantissa = i64::MAX` and an extreme exponent must be

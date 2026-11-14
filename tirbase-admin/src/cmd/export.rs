@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin export-log` / `export-evidence-bundle` production callers
 //! (CLAIM-27.2, CLAIM-27.3, PV-7.7, PV-7.8, PV-7.10).
 

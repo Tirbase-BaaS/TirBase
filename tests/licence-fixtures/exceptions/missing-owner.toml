@@ -1,0 +1,7 @@
+[[exception]]
+id = "missing-owner-fixture"
+owner = ""
+reason = "Fixture exception with no named owner that must fail the gate."
+scope = "Build-time fixture crate only; never distributed."
+crates = ["fixture-crate"]
+expires = "2099-01-01"

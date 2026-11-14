@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway TOML configuration and signed config-bundle validation
 //! (CLAIM-35.2, PV-11.1).
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TirBase device driver framework (CLAIM-33.x, PV-10, PV-4.21, INV-6).
 //!
 //! Provides the pure codec [`DriverTrait`], [`DeviceModel`], actuation frame

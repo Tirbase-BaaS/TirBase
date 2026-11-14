@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! v1 Diagnostic Entries — structured startup diagnostics and warnings (Req 21).
 //!
 //! All diagnostic entries are emitted via a structured log channel at init time.

@@ -1,0 +1,7 @@
+[[exception]]
+id = "fixture-exception"
+owner = "@tirbase-maintainers"
+reason = "Fixture-only exception used to prove the register accepts a complete entry."
+scope = "Build-time fixture crate only; never distributed."
+crates = ["fixture-crate"]
+expires = "2099-01-01"

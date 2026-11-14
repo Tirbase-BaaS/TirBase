@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Envelope profile installation, validation, and target-to-profile hot-swap
 //! (10.6 — CLAIM-10.4…CLAIM-10.6, PV-4.5, INV-1).
 //!

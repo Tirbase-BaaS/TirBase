@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin enroll` — first-boot identity generation, replay-safe
 //! bootstrap, and scoped token issuance (CLAIM-9.2, PV-3.10).
 //!

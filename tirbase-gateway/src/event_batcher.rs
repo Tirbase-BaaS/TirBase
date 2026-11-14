@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Group-commit batcher for security events and effects-ledger writes
 //! (19.4, PV-15.4).
 //!

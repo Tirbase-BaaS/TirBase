@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! WS7 — DRR floors, compaction isolation and outbound-queue guarantees.
 //!
 //! Every assertion here runs through production code:

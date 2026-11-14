@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 use std::time::Duration;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Integration tests for Phase 14.1 — Report 5 closing the field-scenario gaps.
 //!
 //! Covers six scenarios:

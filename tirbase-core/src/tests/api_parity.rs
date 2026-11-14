@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Build-time API surface parity test (Req 1.2, 1.5).
 //!
 //! Asserts that the three public surfaces cannot drift apart:

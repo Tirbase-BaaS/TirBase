@@ -1,0 +1,5 @@
+[package]
+name = "spdx-valid-fixture"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"

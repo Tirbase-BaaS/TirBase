@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `target_state` SQLite store (PV-4.5, CLAIM-21.12).
 //!
 //! Persists the last committed desired state `(target_id, param) -> FixedPointValue`

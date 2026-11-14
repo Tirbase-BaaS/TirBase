@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration test: first-boot identity generation, replay-safe
 //! bootstrap, and scoped token issuance verified by two real `CoreHandle`
 //! instances (CLAIM-8.5, CLAIM-8.6, PV-3.11, PV-3.13).

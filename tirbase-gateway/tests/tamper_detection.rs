@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway-binary and integration tests for (CLAIM-26.1–26.7,
 //! PV-7.4, PV-7.10, INV-4, S14).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! : Applied Effects Ledger — 19.1-19.6 integration tests.
 //!
 //! Covers PV-5.1/PV-5.3/PV-5.4/PV-5.12/PV-15.4, INV-11/INV-12,

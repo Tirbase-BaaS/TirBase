@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `DriverProxy` — the *only* path from an [`ActuationPermit`] to a driver
 //! (PV-4.4, CLAIM-11.3).
 //!

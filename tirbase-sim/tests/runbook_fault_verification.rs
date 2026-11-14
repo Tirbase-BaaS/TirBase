@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! (CLAIM-55.7, PV-30.3): verify each operator runbook procedure by
 //! running it against `tirbase-sim` with a simulated fault before the runbook
 //! is committed.

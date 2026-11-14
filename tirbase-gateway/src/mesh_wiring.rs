@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Production wiring between the gateway security log and the core mesh.
 //!
 //! Closes the loop on the mesh-facing security-log surfaces:

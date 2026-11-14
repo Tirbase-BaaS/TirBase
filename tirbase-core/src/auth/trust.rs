@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TrustLevel state machine and UNVERIFIED warnings (Req 8.2–8.4).
 
 #![allow(dead_code, unused_variables)]

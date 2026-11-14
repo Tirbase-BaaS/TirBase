@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SpatialDiversityTracker — enforces distinct squad/tunnel_sector tags in Quorum (Req 14.3, 14.5).
 //!
 //! The tracker records the spatial tags of receipts already counted toward Quorum,

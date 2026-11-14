@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cross-build parity probe (Property 1, Req 1.4).
 //!
 //! The native binary and the real WASM module each run the *same* canonical

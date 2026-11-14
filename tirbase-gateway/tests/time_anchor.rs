@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway-level tests for TimeAnchorService (CLAIM-53.1, CLAIM-53.2, PV-28).
 
 use std::sync::{Arc, Mutex};

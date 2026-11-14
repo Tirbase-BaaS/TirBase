@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S4 (CRDT clock/start_op poisoning, PV-6.1, PV-6.2, CLAIM-22.1–22.4).
 //!
 //! A malicious peer sends an Automerge delta whose `start_op` is inflated far

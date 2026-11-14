@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `applied_effects_ledger` SQLite store (PV-5.1, CLAIM-15.1/19.1, INV-12).
 //! The first durable state is `Actuating` (no `Intent`).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! production CLI/runtime paths (CLAIM-34.1/2/3/5).
 //!
 //! These subcommands are exercised by gateway binary integration tests spawning

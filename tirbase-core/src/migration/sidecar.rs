@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SideCarLedger — preserves writes made against a corrupted schema for replay (Req 19.1–19.6).
 //!
 //! SQLite schema:

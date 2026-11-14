@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SQLCipher build-variant helpers (CLAIM-32.5, PV-9.6).
 //!
 //! When feature `sqlcipher` is enabled, gateway DB opens must obtain key

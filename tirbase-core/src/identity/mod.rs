@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! IdentityManager — device identity backed by a [`KeyProvider`] (Req 7.1, PV-3.6).
 //!
 //! The manager no longer holds a raw `ed25519_dalek::SigningKey`: all signing

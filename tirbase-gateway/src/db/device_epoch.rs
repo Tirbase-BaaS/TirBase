@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `device_epoch` SQLite store (CLAIM-8.7, PV-5.5, PV-9.8).
 //!
 //! The table lives in `primary.db` and mirrors design.md §4.13:

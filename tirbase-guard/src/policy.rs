@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Policy lifecycle (12.10 — CLAIM-12.1…12.10, PV-4.8–4.12,
 //! INV-3, INV-8, RD-9).
 //!

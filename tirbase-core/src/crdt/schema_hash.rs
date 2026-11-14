@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SchemaIdentifierHash — deterministic hash computation for schema versions.
 //!
 //! This module re-exports the canonical hash implementation from `schema/hash.rs`

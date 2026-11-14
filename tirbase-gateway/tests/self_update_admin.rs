@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! / RD-6: the `/admin/self-update` endpoint is a real production
 //! caller of `SelfUpdateController` — UpdateSigner-signed apply, PolicyAuthority
 //! signed rollback, and an honest 503 when the deployment has not configured it.

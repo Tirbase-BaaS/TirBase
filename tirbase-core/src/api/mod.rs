@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Public API layer — CoreHandle, init(), read(), write(), query()
 //!
 //! This is the primary entry point for both the TypeScript SDK (WASM build)

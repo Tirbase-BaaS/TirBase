@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Command ingress paths (mesh, cloud API, local admin) — wiring.
 //!
 //! All three paths converge on [`tirbase_guard::CommandGuard::admit()`] before

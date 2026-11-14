@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Rate_Quarantine — in-memory per-sender counters with periodic summary rows
 //! to `derived.db` (PV-6.7, CLAIM-23.4, CLAIM-23.5).
 //!

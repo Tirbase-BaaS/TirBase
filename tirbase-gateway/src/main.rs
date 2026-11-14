@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TirBase gateway binary entry point (CLAIM-35.1, 35.2, 35.4, 35.5, 35.6,
 //! PV-11.1, PV-7.1).
 

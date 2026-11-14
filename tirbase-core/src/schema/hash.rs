@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Canonical SchemaIdentifierHash computation (Req 17.1, 20.5).
 //!
 //! `SchemaIdentifierHash = SHA-256(sorted(table_name || sorted(field_name || field_type)

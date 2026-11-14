@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S5 and S15 — delta flood / rate exhaustion and reassembly bomb.
 //!
 //! Both scenarios call the production `InboundHardening::cheap_checks_first`

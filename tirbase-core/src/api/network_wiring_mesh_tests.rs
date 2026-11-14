@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! WS6 — fragmentation, multi-hop relay, and Noise session resumption /
 //! rotation over the real mesh (native only).
 //!

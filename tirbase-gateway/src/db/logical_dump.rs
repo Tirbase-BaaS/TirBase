@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Logical-dump equivalence helper for primary.db recovery tests (CLAIM-32.2,
 //! PV-9.5). Dumps queryable state in a deterministic, schema-aware form so WAL
 //! page layout differences do not affect equivalence.

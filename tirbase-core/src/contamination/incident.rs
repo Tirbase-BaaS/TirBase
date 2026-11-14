@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! IncidentContextObject and CompositeIncidentInstance data models (Req 10).
 
 #![allow(dead_code)]

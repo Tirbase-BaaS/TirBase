@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `idempotency_keys` SQLite store (PV-5.6, CLAIM-15.1/20.5, INV-2).
 //! Scoped to `(issuer_did, target_id, idempotency_key)`.
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S25 (Quarantine flush attack, PV-6.7, CLAIM-23.5).
 //!
 //! An attacker floods structurally anomalous deltas. The Schema_Quarantine_Ledger

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cloud outbound queue — 100k Delta cap, topological sync loop, re-fetch protocol
 //! (Req 16.3–16.8).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Biscuit token creation, offline verification, and caveat checking (Req 8.1).
 //!
 //! The `biscuit-auth` crate is pure Rust and compiles on both `native` and

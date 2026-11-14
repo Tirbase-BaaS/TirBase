@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SQLite connection pool and schema creation (Req 3.1).
 //!
 //! The LocalStore SQLite schema:

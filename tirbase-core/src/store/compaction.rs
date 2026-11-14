@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CompactionPolicy — aggressive Delta count threshold vs. none (Req 3.4–3.5).
 
 #![allow(dead_code, unused_variables)]

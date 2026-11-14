@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Human-reaction auto-tagging (Req 19.5).
 //!
 //! Whenever a device commits a write while its local projection is in

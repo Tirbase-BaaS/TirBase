@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! restore command test (CLAIM-32.3, PV-9.5, RD-2, S22).
 use ed25519_dalek::SigningKey;
 use rusqlite::{params, Connection};

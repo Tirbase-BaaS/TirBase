@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `CommandGuard` — unified admission pipeline entry point (PV-4.2, PV-4.3,
 //! PV-4.4, CLAIM-11.1, CLAIM-11.2, CLAIM-11.3, CLAIM-13.1, CLAIM-14.1–14.17).
 //!

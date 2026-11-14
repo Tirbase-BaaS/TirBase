@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration test — TOML scenario catalog + ≥1,000 seeded runs.
 //!
 //! CI executes every declared seed of the S1–S35 catalog. The runner prints a

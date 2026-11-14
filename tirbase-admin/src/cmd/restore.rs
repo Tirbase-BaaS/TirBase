@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin restore` (PV-9.5, RD-2, CLAIM-32.3).
 //!
 //! Backup/restore workflow:

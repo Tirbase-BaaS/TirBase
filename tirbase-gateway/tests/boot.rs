@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway-binary integration tests for (CLAIM-8.1, CLAIM-8.2,
 //! CLAIM-8.3, CLAIM-8.7, CLAIM-8.8).
 //!

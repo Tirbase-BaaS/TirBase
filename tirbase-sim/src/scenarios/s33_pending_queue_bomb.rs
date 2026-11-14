@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S33 (Pending-queue memory bomb, PV-6.1, CLAIM-23.1, CLAIM-23.2).
 //!
 //! An attacker injects deltas with missing causal dependencies to inflate memory.

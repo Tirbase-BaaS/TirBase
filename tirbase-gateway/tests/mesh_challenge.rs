@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! (PV-22.3, INV-9): challenge nonce issuance over the mesh channel.
 //!
 //! Two real [`CoreHandle`] instances are started. Guard B registers a

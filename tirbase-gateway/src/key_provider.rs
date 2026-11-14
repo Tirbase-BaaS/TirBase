@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Device key providers for the gateway binary (PV-3.6, PV-3.7).
 //!
 //! * [`FileKeyProvider`] — file-backed development/provider path. It wraps the

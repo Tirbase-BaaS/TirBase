@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Delta — the atomic unit of change in TirBase.
 //!
 //! A Delta wraps an Automerge 3.0 changeset with TirBase-specific metadata:

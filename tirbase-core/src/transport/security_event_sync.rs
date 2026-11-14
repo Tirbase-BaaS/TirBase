@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Security event mesh sync (PV-7.9, PV-7.12, CLAIM-28.3).
 //!
 //! Production caller: sync handler in `tirbase-core/src/transport/`.

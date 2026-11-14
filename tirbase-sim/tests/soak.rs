@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Virtual-time soak integration test (CLAIM-45.1, PV-15.5).
 //!
 //! Runs 72h of simulated operation via the tirbase-sim accelerated clock with

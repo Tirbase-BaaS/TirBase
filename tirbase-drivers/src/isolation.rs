@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Out-of-process driver isolation primitives (CLAIM-33.5, CLAIM-33.6, PV-4.21,
 //! PV-10.4, INV-6, S35).
 //!

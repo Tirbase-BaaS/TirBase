@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Shuttle concurrency tests for `SingleWriterLease` and `AntiReplayWindow`
 //! (CLAIM-51.5, PV-26.3).
 //!

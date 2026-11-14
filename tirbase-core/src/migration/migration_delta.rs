@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! MigrationDelta and MigrationRevocationDelta structs; CA sig + SHA-256 gate.
 
 #![allow(dead_code)]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `DeviceTransport` — parent/guard-owned connection to the physical device
 //! (CLAIM-34.8, PV-10.4, PV-10.7, S35).
 //!

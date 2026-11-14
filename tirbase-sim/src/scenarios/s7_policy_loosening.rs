@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S7 — policy loosening without M-of-N (PV-12.5, CLAIM-12.11).
 //!
 //! A single PolicyAuthority submits a loosening bundle. The guard MUST NOT

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway/production integration test: all three command ingress paths
 //! converge on `CommandGuard::admit()` before `DriverProxy` dispatch (//! CLAIM-11.3, PV-4.4, INV-6).
 //!

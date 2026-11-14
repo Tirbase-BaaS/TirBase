@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-34.3: canonical cold-room thermal model is bit-identical across crates.
 
 use tirbase_drivers::cold_room_sim::FirstOrderThermalModel;

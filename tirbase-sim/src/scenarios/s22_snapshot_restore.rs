@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S22 — snapshot restore attack (PV-9.8).
 //!
 //! Restoring an old database silently rolls back the software counter and

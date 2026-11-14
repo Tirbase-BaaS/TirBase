@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! /44.6: flash-write budget tracking and throttling (PV-15.4, CLAIM-44.5/44.6).
 
 use std::sync::Arc;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! epoch integration tests (CLAIM-8.7, CLAIM-8.8 — S22, INV-10).
 //!
 //! The same `EpochRegistry` / `CommandGuard` pair is wired by the gateway: the

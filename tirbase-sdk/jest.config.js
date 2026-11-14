@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 /** @type {import('jest').Config} */
 module.exports = {
  preset: 'ts-jest',

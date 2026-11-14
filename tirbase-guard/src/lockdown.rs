@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! LOCKDOWN entry/exit, persistence, crash-loop escalation, and safe-default
 //! arming (CLAIM-13.2/3/5/6, PV-1.11, PV-4.13,
 //! PV-4.15, INV-5, S24).

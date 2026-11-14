@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway-adjacent integration test for EnvelopeProfile install (//! 10.6 — CLAIM-10.4, CLAIM-10.6, PV-4.5).
 //!
 //! Exercises the production install path (`tirbase_guard::envelope::install_profile`)

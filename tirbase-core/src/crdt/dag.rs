@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! ChangesetDag — SQLite-backed DAG node storage and causal traversal.
 //!
 //! The DAG records causal ordering across all known Deltas. Each node stores

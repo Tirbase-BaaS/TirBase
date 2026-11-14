@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! HIL power-cut failpoint tests (CLAIM-52.3, PV-27.2).
 //!
 //! Ignored by default; requires provisioned gateway hardware, real device/bus,

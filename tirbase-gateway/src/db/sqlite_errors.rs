@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SQLite error → `NodeMode` / `SecurityEvent` mapping (//! CLAIM-18.3, CLAIM-18.4, PV-9).
 
 use rusqlite::{ffi, Connection, Error as RusqliteError};

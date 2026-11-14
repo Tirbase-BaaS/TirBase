@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! : Stage 16–19 atomic commit/dispatch, Stage 17 redaction,
 //! simulate (15.7), and token-cannot-relax proptest wiring (15.8).
 

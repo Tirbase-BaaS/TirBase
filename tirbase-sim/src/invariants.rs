@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Per-tick system invariant checks for `tirbase-sim` (17.8, 38.6;
 //! CLAIM-17.1..CLAIM-17.8, CLAIM-38.6, PV-12.1, PV-23.2).
 //!

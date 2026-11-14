@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! In-browser WASM tests — run them with `scripts/wasm-test.sh`
 //! (`cargo test -p tirbase-core --no-default-features --features wasm
 //! --target wasm32-unknown-unknown --lib` plus the ChromeDriver and

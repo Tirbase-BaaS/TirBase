@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin mint` — scoped Biscuit token minting (CLAIM-9.3,
 //! PV-3.10).
 //!

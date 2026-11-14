@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! — Power loss, restore, WAL cadence, SQLCipher build, WASM persistence evidence hooks.
 //! CLAIM-32.2..32.6 / PV-9.3..PV-9.8 / RD-2.
 

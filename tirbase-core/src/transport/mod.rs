@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! MeshTransport — rust-libp2p Swarm setup and peer lifecycle management (Req 5).
 //!
 //! The `MeshTransport` struct and `TransportConfig` are defined unconditionally

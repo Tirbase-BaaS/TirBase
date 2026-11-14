@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Proptest offline soundness proof for classify_bundle (//! CLAIM-12.9, PV-4.11, INV-3).
 
 use std::collections::BTreeMap;

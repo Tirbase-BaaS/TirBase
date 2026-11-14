@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S11 and S18 — single-manager quorum warning and the compile-time
 //! guard-bypass barrier.
 //!

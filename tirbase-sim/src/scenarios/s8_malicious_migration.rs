@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! S8 — Malicious migration (float/SIMD) rejected/quarantined (PV-8.2).
 //!
 //! A migration WASM module containing forbidden float instructions must be

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! runtime/admin wiring integration tests (CLAIM-21.1–21.3,21.5,21.9–21.13).
 //! Verifies: AEF Unknown-target sync blocks/unblocks via pipeline, operator clear
 //! admin path (signed PolicyAuthority), lease-preempt admin path (joint M-of-N),

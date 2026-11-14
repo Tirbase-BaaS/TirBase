@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Remote admin listener with mandatory mutual TLS (PV-11.2).
 //!
 //! The local admin API is authenticated by kernel peer credentials on a Unix

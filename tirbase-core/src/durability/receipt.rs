@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! DurabilityReceipt — peer-signed state-hash receipt for Tier-1 durability (Req 14.6).
 //!
 //! Provides the data model and signature-verification logic for `DurabilityReceipt`.

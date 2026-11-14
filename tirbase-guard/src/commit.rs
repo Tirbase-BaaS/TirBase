@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Stage 16–19 atomic commit and dispatch (CLAIM-15.1–15.5, PV-5.1, PV-5.5,
 //! PV-4.21, INV-2, INV-10, INV-11, INV-12).
 //!

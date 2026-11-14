@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests (native): shadow/postconditions/fleet/author revocation hooks.
 
 #![cfg(feature = "native")]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Signed `TimeBeacon` ingress (CLAIM-7.4, PV-22.5, PV-28).
 //!
 //! This is the gateway's production entry point for authenticated time: a

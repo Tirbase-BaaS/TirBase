@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration test: two real CoreHandle instances sync security events
 //! (PV-7.9, PV-7.12, CLAIM-28.3).
 use std::time::Duration;

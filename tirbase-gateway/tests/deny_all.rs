@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! (PV-11.5): deny-all until a signed EnvelopeProfile is installed.
 //!
 //! A gateway configured with a command endpoint but no signed profile must not

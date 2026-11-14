@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SaturateMode state machine and Lease tracking (Req 13).
 //!
 //! State transitions:

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! / PV-8 gateway-binary integration tests.
 //!
 //! Exercises the migration sandbox (wasmi, deterministic profile, execution

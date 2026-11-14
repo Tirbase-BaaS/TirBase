@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin rollout` — staged rollout primitives (PV-8.9, RD-1).
 //!
 //! Operator procedure (not automated halt): canary ring assignment, per-device

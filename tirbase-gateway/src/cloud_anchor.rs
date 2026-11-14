@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cloud-anchor checkpoint ingress (26.7a, PV-7.10).
 //!
 //! The single-gateway witness fallback (26.7) degrades tail-truncation

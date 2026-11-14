@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Schema Migration Engine — zero-trust gate, WASM sandbox, Side-Car replay (Req 17–19).
 
 #![allow(dead_code, unused_variables, unused_imports)]

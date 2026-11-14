@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Guard latency and effects-ledger throughput benchmarks (CLAIM-40.3, PV-15.3).
 //! Criterion provides portable benchmark definitions; iai-callgrind provides
 //! instruction-count gating on CI (not wall-clock).

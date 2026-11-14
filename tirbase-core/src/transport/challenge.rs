@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Mesh-channel challenge nonce issuance (PV-22.3, INV-9).
 //!
 //! A peer may need a single-use challenge nonce for a critical-parameter

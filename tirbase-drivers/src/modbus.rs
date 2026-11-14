@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Modbus TCP/RTU client codec and frame parsing (CLAIM-34.1, PV-10.7).
 //!
 //! Pure codec: builds request frames and decodes response frames for FC 03

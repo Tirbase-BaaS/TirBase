@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests: root CA registry, trust-root rollback protection,
 //! and the role registry (CLAIM-8.1, CLAIM-8.2, CLAIM-8.3, CLAIM-8.3a).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Outbound-initiated cloud command channel (36.8f).
 //!
 //! # No inbound cloud listener

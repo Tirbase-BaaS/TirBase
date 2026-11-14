@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `peer_checkpoint_witnesses` table helpers (CLAIM-26.5, PV-7.10).
 //! Production caller: `tirbase-gateway/src/security_log.rs` checkpoint/tail-truncation.
 

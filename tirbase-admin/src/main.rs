@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin` CLI entry point ().
 
 #![warn(dead_code)]

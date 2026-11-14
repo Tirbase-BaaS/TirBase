@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! QuarantineLedger — byte-for-byte raw Delta store for schema-incompatible Deltas (Req 17.4–17.6).
 //!
 //! SQLite schema:

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! HIL Modbus round-trips and envelope rejection (CLAIM-52.2, PV-27.2).
 //!
 //! This integration test is **ignored by default** and must only run on

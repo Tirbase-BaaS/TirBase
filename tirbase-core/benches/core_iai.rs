@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Instruction-count benchmarks for CI gating (CLAIM-40.3, PV-15.3).
 
 use automerge::transaction::Transactable;

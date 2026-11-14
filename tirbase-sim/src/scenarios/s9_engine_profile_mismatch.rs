@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! S9 — Migration execution profile / fuel-cost hash mismatch (PV-8.2a).
 //!
 //! A migration carrying an ExecutionProfileVersion whose `fuel_cost_table_hash`

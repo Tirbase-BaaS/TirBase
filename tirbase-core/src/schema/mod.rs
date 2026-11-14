@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Schema object and supporting types (Req 17, 20).
 
 #![allow(dead_code)]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! tirbase-core — the single Rust library implementing all sync, CRDT,
 //! cryptographic, and mesh logic for TirBase (Req 1.1).
 //!

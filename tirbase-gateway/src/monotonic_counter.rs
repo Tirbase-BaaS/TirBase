@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Monotonic counters for the gateway binary (PV-9.8, RD-2).
 //!
 //! * [`SoftwareMonotonicCounter`] — assurance **Level 1**. Durable SQLite WAL

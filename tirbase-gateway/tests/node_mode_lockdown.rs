@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests — NodeMode, LOCKDOWN persistence/exit, crash-loop,
 //! safe defaults, watchdog loop (CLAIM-13.1–13.3, 13.5–13.7, PV-4.13, PV-1.11,
 //! PV-4.15, INV-5, S24).

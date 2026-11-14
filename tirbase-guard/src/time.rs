@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `TimeRatchet`, authenticated-time estimate, and freshness state
 //! (7.5 — CLAIM-7.2…7.5, PV-22).
 //!

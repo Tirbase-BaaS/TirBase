@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Local admin command ingress (14 production callers).
 //!
 //! Routes command submission through the same `CommandGuard` convergence point

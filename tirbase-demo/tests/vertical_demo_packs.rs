@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Vertical demo pack integration tests (CLAIM-48.1–48.6, PV-16.2).
 //!
 //! Exercises the required scenarios for each pack via production `tirbase-sim`

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TOML adversary-scenario loader and seeded scenario runner (//! CLAIM-39.1, PV-12.1, PV-12.2).
 //!
 //! Each scenario in `tirbase-sim/scenarios/S*.toml` declares its catalog ID,

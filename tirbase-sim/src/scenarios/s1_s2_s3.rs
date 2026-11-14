@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! /15 scenario hooks for S1 (envelope violation), S2 (slow-ramp/drift),
 //! S3 (replay/idempotency cache) using the CommandGuard admit pipeline.
 

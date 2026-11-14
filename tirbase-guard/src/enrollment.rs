@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Device enrollment flow (CLAIM-8.6, PV-3.11).
 //!
 //! The enrollment flow covers three things:

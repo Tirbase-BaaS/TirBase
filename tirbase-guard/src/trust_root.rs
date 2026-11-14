@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Trust root record and role registry (8.3a — CLAIM-8.3, CLAIM-8.3a,
 //! PV-3.2, PV-3.3, PV-3.4).
 //!

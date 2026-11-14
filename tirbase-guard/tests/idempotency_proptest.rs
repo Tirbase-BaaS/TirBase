@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Property test for idempotency semantics (CLAIM-20.7, PV-5.6).
 //! P10: any command with a known idempotency key within the retention window
 //! returns the stored outcome without a second actuation.

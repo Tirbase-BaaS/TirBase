@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! S35 / CLAIM-34.8: real child-process driver isolation test.
 //!
 //! Production caller: guard-owned DeviceTransport + tirbase-drivers SCM_RIGHTS,

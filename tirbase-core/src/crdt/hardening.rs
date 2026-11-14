@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CRDT inbound hardening (PV-6.1, PV-6.2, PV-6.4 groundwork).
 //!
 //! Validates Automerge change metadata before merge so a peer cannot inject

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Simulates bypassing admit() by calling the crate-private permit constructor.
 // `ActuationPermit::new` is pub(crate) — not callable from an integration test
 // (which is an external crate).

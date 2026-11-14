@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cloud API command ingress (14 production callers).
 
 use tirbase_guard::admit::AdmitContext;

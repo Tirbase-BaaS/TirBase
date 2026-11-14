@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests (CLAIM-9.1..9.5, PV-3.10).
 //!
 //! 9.1 is satisfied by `cargo check -p tirbase-admin` and the clap-based CLI

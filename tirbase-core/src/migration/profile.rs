@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! DeterministicWasmProfile validation (PV-8.2), ExecutionProfileVersion
 //! (PV-8.2a), and pinned wasmi fuel/StoreLimits configuration (PV-8.1, PV-8.4).
 //!

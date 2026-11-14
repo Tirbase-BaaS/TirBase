@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S10 — revoked-author delta propagation.
 //!
 //! A peer whose DID has been revoked keeps signing structurally valid deltas.

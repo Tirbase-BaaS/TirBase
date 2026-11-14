@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway integration tests for policy lifecycle (12.8, 12.10,
 //! CLAIM-12.1–12.8, 12.10, PV-4.8–4.12, INV-3, INV-8).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! — `CommandMessage` signing/verification (CLAIM-11.1, PV-4.1,
 //! PV-4.2, INV-6).
 //!

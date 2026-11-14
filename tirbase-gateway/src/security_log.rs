@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Hash-chained security event log (PV-7.1–PV-7.6, INV-4).
 //!
 //! Production callers:

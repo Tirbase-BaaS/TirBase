@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Device key rotation (PV-11.2).
 //!
 //! The gateway loads a static device [`KeyProvider`](tirbase_core::traits::KeyProvider)

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cold-chain flagship demo pack profile/install integration (CLAIM-47.1, PV-16.1).
 //!
 //! Loads the cold-chain `EnvelopeProfile` TOML and Modbus register map from the

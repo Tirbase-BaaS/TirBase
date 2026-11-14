@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Binary-level admin endpoint tests.
 //!
 //! Each test spawns the real `tirbase-gateway` binary, waits for it to finish

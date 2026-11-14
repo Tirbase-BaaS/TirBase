@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Subphase 7.3 — crash-writer helper binary.
 //!
 //! This binary is spawned by the integration test in

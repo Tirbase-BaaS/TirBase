@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! AnchorAttestedLocation — beacon-signed location tokens for verifiable
 //! Spatial_Diversity in high-stakes deployments (Req 15).
 //!

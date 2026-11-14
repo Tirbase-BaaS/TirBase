@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Fleet precondition verification hook for Contract migrations (PV-8.5a).
 //!
 //! Full fleet inventory depends on . This module provides the hook so

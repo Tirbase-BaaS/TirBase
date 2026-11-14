@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration/wiring tests: Modbus FC 03/04/06/16 round-trip against the
 //! tirbase-sim Modbus server, MQTT TLS-only enforcement, cold-room model determinism,
 //! and register-map parsing (CLAIM-34.1..34.4/34.8, PV-10.5..10.7).

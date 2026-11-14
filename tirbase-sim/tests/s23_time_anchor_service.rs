@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Integration test: S23 wired to pass with TimeAnchorService active
 //! (CLAIM-53.3, PV-28.4).
 

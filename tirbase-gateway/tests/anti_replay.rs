@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway integration tests for anti-replay and idempotency (//! CLAIM-20.1–20.5, PV-5.5, PV-5.6, INV-2, INV-10).
 
 use std::io::Cursor;

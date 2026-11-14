@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-31.3 (PV-9.1): ICO and CCE index persistence across simulated crash.
 //!
 //! Uses two real `CoreHandle` instances against the same storage path.

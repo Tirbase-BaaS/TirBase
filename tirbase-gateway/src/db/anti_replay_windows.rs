@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `anti_replay_windows` SQLite store (PV-5.5, CLAIM-15.1/20.x, INV-10).
 //!
 //! Sliding bitmap per `(issuer_did, target_id, enrollment_epoch)`.

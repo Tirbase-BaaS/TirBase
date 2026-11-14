@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-34.1: real Modbus TCP client over generic Read+Write transport against
 //! tirbase_sim::ModbusSimServer. Exercises FC03/04/06/16, tx-id/unit-id matching,
 //! exception propagation, and 5s timeout behavior.

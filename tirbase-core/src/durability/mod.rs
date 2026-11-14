@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Durability Subsystem — two-tier durability, quorum formation, spatial diversity (Req 14–16).
 //!
 //! # Tier-1 Durability (Req 14.1–14.3)

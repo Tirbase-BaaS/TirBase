@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! gateway binary integration tests (CLAIM-35.1-35.6).
 
 use std::collections::BTreeMap;

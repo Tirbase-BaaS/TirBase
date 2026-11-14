@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! InboundCaps configuration and enforcement (PV-6.3).
 //!
 //! Enforces caps on inbound deltas: per-DID rate limits (100 ops/s, burst 500),

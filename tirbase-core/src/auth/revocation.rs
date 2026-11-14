@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! RevocationDelta, M-of-N threshold accumulation, and RevocationSubsystem (Req 9).
 //!
 //! ## Architecture

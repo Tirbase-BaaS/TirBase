@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Schema definition parser — parses TirBase schema definition documents into
 //! `Schema` objects with structured error reporting (Req 20.1–20.2).
 //!

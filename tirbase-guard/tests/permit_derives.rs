@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Compile-fail tests for `ActuationPermit` negative traits and bypass-proof
 //! construction (CLAIM-11.2, CLAIM-11.3, PV-4.3, PV-4.4).
 //!

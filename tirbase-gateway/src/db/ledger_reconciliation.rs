@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Boot crash reconciliation for `applied_effects_ledger` (19.2/19.3,
 //! PV-5.3, INV-11, INV-12).
 //!

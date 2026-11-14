@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Migration revocation — halt in-progress transforms, block future execution (Req 18.5–18.7).
 //!
 //! Req 18.7 known-hash gate: a `MigrationRevocationDelta` is only accepted

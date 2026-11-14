@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S32 — Challenge-nonce flooding (CLAIM-16.4, PV-22.3, INV-9).
 //!
 //! Attack: flood challenge nonce issuance for a critical parameter while

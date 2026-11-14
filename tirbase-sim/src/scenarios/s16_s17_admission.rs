@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S16 and S17 — fleet fan-out blast radius and cross-role attempts.
 //!
 //! S16 drives the per-issuer rate limiter in the production admission pipeline:

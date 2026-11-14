@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SQLite schema migrations for gateway `primary.db` and `derived.db`
 //! (18.3, 32.1 — CLAIM-18.1, CLAIM-18.2, CLAIM-18.3, CLAIM-32.1,
 //! PV-9.3, PV-9.4).

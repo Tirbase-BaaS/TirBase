@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cross-build convergence and `#[cfg]` divergence tests (Req 1.4, Item 1).
 //!
 //! ## Convergence test strategy

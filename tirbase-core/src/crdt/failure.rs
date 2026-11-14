@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Structured Delta rejection failure records — Req 7.4 / 7.5.
 //!
 //! When the CRDT merge gate discards an inbound Delta (revoked author,

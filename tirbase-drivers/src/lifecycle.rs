@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Driver process lifecycle and crash accounting (CLAIM-33.7, PV-10, S24).
 //!
 //! The guard/gateway owns the persistent driver child and feeds crash decisions

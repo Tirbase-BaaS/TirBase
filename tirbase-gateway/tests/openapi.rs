@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! : the admin OpenAPI document must describe every admin endpoint.
 //!
 //! Kept as a repository test (no YAML dependency) so a renamed or dropped

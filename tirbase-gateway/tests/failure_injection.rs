@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! : failure-injection tests and mappings (PV-9.5, CLAIM-44.7).
 
 use std::io::Read;

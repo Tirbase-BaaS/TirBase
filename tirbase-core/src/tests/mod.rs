@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Test suites.
 //!
 //! The suites are split by compilation target rather than by feature:

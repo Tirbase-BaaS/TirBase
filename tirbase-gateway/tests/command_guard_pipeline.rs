@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway integration test for CommandGuard admit pipeline
 //! (CLAIM-14.1–14.17). Exercises the guard via gateway crate as a production
 //! integration boundary.

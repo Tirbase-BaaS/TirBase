@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! supply-chain release pipeline validation tests.
 //!
 //! These tests are intentionally repository-level checks: they assert that the

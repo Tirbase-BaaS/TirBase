@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S21 — Lease starvation (CLAIM-21.14, PV-5.8a, INV-13).
 
 /// S21 — the consecutive-renewal cap triggers cooldown, another issuer can

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! /36.8a–36.8f: outbound-only cloud channel over real TLS.
 //!
 //! The gateway is spawnpointed as the real binary; a mock cloud endpoint

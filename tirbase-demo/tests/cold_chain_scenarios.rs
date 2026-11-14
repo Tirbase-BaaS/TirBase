@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //! Cold-chain flagship demo pack — S1/S2/S3 wiring and run.sh (CLAIM-47.2, 47.4).
 //!
 //! Each adversary scenario is exercised via the production `tirbase-sim`

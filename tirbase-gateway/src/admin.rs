@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Admin Unix-socket listener with SO_PEERCRED authentication (CLAIM-4.9.2).
 //! wires `mode` (13.1/36.3h) and `lockdown-exit` (13.3/36.3i).
 

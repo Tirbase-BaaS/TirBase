@@ -69,6 +69,15 @@ jobs:
           cp "$SBOM_PATH" "release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
           echo "SBOM written to release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json"
 
+      - name: Generate NOTICE from the locked dependency graph (F-01)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release/generate-notice.py \
+            --output "release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.NOTICE" \
+            --version "${{ steps.tag.outputs.tag }}"
+          echo "NOTICE written to release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.NOTICE"
+
       - name: Attach or create VEX statements (CLAIM-42.1, CLAIM-42.4)
         shell: bash
         run: |
@@ -113,6 +122,7 @@ jobs:
           files: |
             release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.cdx.json
             release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.vex.cdx.json
+            release-artifacts/tirbase-${{ steps.tag.outputs.tag }}.NOTICE
             release-artifacts/deny.release.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

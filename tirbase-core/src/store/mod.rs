@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! LocalStore — SQLite-backed local replica (Req 3).
 //!
 //! All writes land synchronously in SQLite before the Rust Core returns success.

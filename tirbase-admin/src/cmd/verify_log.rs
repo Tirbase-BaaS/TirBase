@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin verify-log` / `tirbase-verify-log` production caller (CLAIM-27.4,
 //! PV-7.5, INV-4). Exits 0 on intact chain, non-zero with gap/mismatch report per
 //! broken sequence range.

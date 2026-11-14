@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Memory budgets with eviction metrics (PV-6.5).
 //!
 //! DAG node cache 32 MiB, ICO index 8 MiB, reassembly buffers 16 MiB.

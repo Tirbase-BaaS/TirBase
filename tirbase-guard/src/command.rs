@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `CommandMessage` signing and verification (PV-4.1, PV-4.2, CLAIM-11.1).
 //!
 //! The data type lives in [`tirbase_types::command`]. This module provides the

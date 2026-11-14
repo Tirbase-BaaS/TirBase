@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Field-level schema diffing — additive vs breaking classification (Req 17.3, 17.4).
 //!
 //! A received Delta carries only a [`SchemaIdentifierHash`]; to decide whether

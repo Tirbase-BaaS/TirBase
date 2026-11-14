@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cold-room simulator driver backed by a first-order thermal model (CLAIM-34.3,
 //! PV-10.7). The deterministic model lives in `tirbase-sim`; this module provides
 //! a reusable pure model and a `DriverTrait` codec wrapper.

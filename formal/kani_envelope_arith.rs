@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Kani proof harness (CLAIM-51.6, PV-26.4).
 //!
 //! This harness `include!`s `tirbase-types/src/fixed_point_core.rs` — the exact

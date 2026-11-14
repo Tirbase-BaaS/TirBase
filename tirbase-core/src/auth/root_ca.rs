@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Root CA public key registry (8.2 — CLAIM-8.1, CLAIM-8.2,
 //! PV-3.4).
 //!

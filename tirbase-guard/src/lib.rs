@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TirBase Command Guard crate.
 //! Provides the CommandGuard, EnvelopeProfile, PolicyLifecycle,
 //! AppliedEffectsLedger, AntiReplayWindow, SingleWriterLease,

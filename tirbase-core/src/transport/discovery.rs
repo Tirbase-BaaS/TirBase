@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Peer discovery — mDNS on local IP networks and BLE routing bridges (Req 5.2–5.3).
 //!
 //! mDNS integration uses `libp2p::mdns::tokio::Behaviour` (native-only).

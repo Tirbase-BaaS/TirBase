@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Node operational mode and the mode × operation matrix (//! CLAIM-13.1, PV-4.13, INV-5).
 //!
 //! Stage 1 of [`crate::guard::CommandGuard::admit`] reads the active mode and

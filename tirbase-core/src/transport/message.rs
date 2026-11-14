@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! GossipMessage — deserialized inbound message variants received from the Gossipsub Swarm.
 //!
 //! All messages flowing into the TirBase mesh are tagged with a variant so the

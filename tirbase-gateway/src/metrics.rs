@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Prometheus metrics endpoint (CLAIM-35.5, PV-11.1).
 
 use std::collections::BTreeMap;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-admin rotate` — local device identity key rotation (//! CLAIM-9.4, PV-3.10).
 //!
 //! Rotation generates a fresh Ed25519 device identity, backs up the existing

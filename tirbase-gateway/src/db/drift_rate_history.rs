@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `drift_rate_history` SQLite store (PV-4.7, CLAIM-14.15/21.7/21.10/21.13).
 //!
 //! Supports two compatible access patterns:

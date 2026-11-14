@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Workstream 4 (e2e wiring): multi-peer revocation gossip accumulation and
 //! M-of-N Saturate_Mode termination over REAL mesh peers.
 //!

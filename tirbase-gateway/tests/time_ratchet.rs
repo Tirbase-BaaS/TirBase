@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway-binary integration tests for (CLAIM-7.1…7.6, PV-22).
 //!
 //! Each test spawns the real `tirbase-gateway` binary with a temporary

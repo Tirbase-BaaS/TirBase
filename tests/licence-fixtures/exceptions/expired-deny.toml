@@ -1,0 +1,5 @@
+[licenses]
+
+[[licenses.exceptions]]
+crate = "fixture-crate"
+allow = ["MIT"]

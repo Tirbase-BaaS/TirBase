@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Simulation framework integration tests (38.3 — CLAIM-38.2,
 //! CLAIM-38.3, PV-12.1).
 //!

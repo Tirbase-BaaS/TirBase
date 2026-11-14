@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Integration tests for Cloud Ledger sync (Req 16.1–16.8).
 //!
 //! These tests exercise the full sync pipeline:

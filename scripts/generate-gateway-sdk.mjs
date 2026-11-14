@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Generates the TirBase Gateway Admin TypeScript SDK from docs/api/gateway-admin-openapi.yaml
 // (CLAIM-49.1, CLAIM-49.2, PV-17.1). The SDK is derived from the OpenAPI definition;
 // manual edits to generated files are rejected by CI (the generator must reproduce them).

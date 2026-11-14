@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 use crate::security_log::{
     event_hash, gdpr_salted_commitment, read_personal_fields_for_seq, PersonalFieldCommitment,
     SecurityEvent,

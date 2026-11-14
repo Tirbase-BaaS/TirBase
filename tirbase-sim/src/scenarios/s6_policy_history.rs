@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S6, S27 and S28 — policy rollback, governance-weakening
 //! "tightening", and `tightening_floor` injection (PV-4.8, PV-4.11).
 //!

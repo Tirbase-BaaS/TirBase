@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CRDT Engine — wrapper around automerge::AutoCommit (Req 4.1).
 //!
 //! The CrdtEngine converts writes into Automerge 3.0 changesets (Deltas) and

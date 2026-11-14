@@ -1,0 +1,35 @@
+{
+  "packages": [
+    {
+      "id": "path+file:///fixture/apache-crate#0.1.0",
+      "name": "apache-crate",
+      "version": "0.1.0",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "path+file:///fixture/agpl-test-helper#0.1.0",
+      "name": "agpl-test-helper",
+      "version": "0.1.0",
+      "license": "AGPL-3.0-only"
+    }
+  ],
+  "workspace_members": ["path+file:///fixture/apache-crate#0.1.0"],
+  "resolve": {
+    "nodes": [
+      {
+        "id": "path+file:///fixture/apache-crate#0.1.0",
+        "deps": [
+          {
+            "name": "agpl-test-helper",
+            "pkg": "path+file:///fixture/agpl-test-helper#0.1.0",
+            "dep_kinds": [{ "kind": "dev", "target": null }]
+          }
+        ]
+      },
+      {
+        "id": "path+file:///fixture/agpl-test-helper#0.1.0",
+        "deps": []
+      }
+    ]
+  }
+}

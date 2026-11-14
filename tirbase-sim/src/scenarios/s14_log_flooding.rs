@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S14 (security log flooding / sync controls, PV-7.6/PV-7.12, /28).
 //!
 //! Proves:

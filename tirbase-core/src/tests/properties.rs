@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Property-Based Test Suite — all 22 correctness properties ().
 //!
 //! Uses `proptest` with `ProptestConfig::with_cases(200)` on every test block.

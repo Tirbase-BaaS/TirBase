@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! IndexedDB persistence layer for the WASM LocalStore (Req 3.1, Subphase 6.3).
 //!
 //! The WASM build has no SQLite, so the LocalStore's durable story is a

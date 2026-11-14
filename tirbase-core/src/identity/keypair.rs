@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Ed25519 keypair generation and signing (Req 7.2).
 
 #![allow(dead_code, unused_variables)]

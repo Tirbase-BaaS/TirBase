@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CLAIM-34.2 integration: real MQTT 3.1.1 over rustls. TLS handshake must succeed
 //! against a TLS broker and fail against a plaintext TCP server. No public plaintext
 //! connect path exists.

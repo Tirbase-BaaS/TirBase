@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `tirbase-gateway` library surface.
 //!
 //! The production entry point is the `tirbase-gateway` binary (`main.rs`). This

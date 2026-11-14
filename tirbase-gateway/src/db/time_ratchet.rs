@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `time_ratchet` table and its SQLite-backed store (7.6 —
 //! CLAIM-7.2, CLAIM-7.6, PV-22.2).
 //!

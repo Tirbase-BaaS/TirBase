@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `challenge_nonces` SQLite store (PV-22.3, CLAIM-14.10/16.1/16.2).
 //!
 //! /16.2: stores `ChallengeNonce` rows with `device_id, param,

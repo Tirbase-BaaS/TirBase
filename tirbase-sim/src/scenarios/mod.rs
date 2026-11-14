@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Adversarial scenario implementations (39.4, PV-12.4, PV-12.8).
 //!
 //! Every scenario in `docs/adversary-scenarios.md` (S1–S35) is registered here

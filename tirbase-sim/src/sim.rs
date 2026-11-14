@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Simulation runtime: virtual clock, nodes, and seeded scenario harness
 //! (CLAIM-38.2, PV-12.1).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SQLite schema and stores for gateway state.
 //!
 //! (CLAIM-18.1–18.4, PV-9.3, PV-9) splits the durable state into:

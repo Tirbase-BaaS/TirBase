@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Hardware-counter DB-generation binding (CLAIM-6.7a, PV-9.8, RD-2).
 //!
 //! A Level 1 software counter lives in `primary.db` (WAL +

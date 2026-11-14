@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Test/production helper: driver child that receives a device fd via SCM_RIGHTS,
 //! applies sandbox (Linux: no_new_privs+seccomp+landlock best-effort), and verifies
 //! it cannot pass fds via SCM_RIGHTS after sandboxing (S35/CLAIM-34.8).

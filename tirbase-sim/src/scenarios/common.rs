@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Shared helpers for the S1–S35 adversary scenarios.
 //!
 //! Every helper is deterministic: scenario functions receive a seed from

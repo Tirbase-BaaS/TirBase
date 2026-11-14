@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! File-backed and in-memory [`KeyProvider`] implementations (PV-3.6).
 //!
 //! [`FileKeyProvider`] loads (or creates) a device Ed25519 key in the same JSON

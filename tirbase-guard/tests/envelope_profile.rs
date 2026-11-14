@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! EnvelopeProfile data model & install-path tests (10.6 —
 //! CLAIM-10.1…CLAIM-10.6, PV-4.5, INV-1).
 //!

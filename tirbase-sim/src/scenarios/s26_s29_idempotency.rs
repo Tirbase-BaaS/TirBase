@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenarios S26 and S29 — idempotency-key squatting and retry semantics.
 //!
 //! Both drive the production gateway `SqliteStage16Store` through

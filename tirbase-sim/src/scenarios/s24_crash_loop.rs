@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S24 — Crash-loop escalation (CLAIM-13.6, PV-1.11).
 //!
 //! Supervisor restart semantics: a crash reconciles to Normal; N crashes within

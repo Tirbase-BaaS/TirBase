@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cloud Ledger — the server-side append-only merge ledger (Req 16.1–16.4).
 //!
 //! The Cloud Ledger runs the **same** `CrdtEngine` used on client devices

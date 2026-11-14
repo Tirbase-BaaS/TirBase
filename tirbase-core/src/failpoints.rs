@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Failpoint injection helpers for kill-at-every-step tests (PV-5.4, CLAIM-19.6).
 //!
 //! Production code uses [`ledger_fail_point!`] at durable write boundaries.

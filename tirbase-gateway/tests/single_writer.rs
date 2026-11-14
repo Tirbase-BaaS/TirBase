@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests (21.10/21.11): Stage 10 Enum/Bool VALUE_INVALID,
 //! Stage 13 dwell/min-off interlocks.
 

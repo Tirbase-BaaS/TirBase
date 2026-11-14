@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Core throughput/latency benchmarks (CLAIM-40.3, PV-15.3).
 //! Delta apply throughput is benchmarked via Automerge apply path; iai-callgrind
 //! provides instruction-count gating on CI.

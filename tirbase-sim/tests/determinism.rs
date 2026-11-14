@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Determinism and seeded-scenario integration tests (38.4/38.5 —
 //! CLAIM-38.1, CLAIM-38.4, CLAIM-38.5, PV-12.1, PV-12.3).
 //!

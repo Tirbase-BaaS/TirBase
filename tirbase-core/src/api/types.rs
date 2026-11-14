@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Shared API types — WriteResult, QueryResult, DurabilityTier, TrustLevel, MeshStatus
 //!
 //! These types are part of the public API surface that must be identical on

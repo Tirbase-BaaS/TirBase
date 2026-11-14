@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Subphase 7.3 — Process-crash-mid-write recovery test.
 //!
 //! Acceptance criteria:

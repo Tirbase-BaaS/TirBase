@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Isolated process-wide `TimeSource` injection test (CLAIM-5.1).
 //!
 //! This lives in its own integration-test binary because it replaces the

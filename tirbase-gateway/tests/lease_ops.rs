@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! lease tests (CLAIM-21.1–21.6, PV-5.8/5.8a, INV-13, S21 logic).
 //! Production callers: `tirbase-gateway/src/db/single_writer_leases.rs`,
 //! Stage 16 store, and admin lease-preempt/revoke paths.

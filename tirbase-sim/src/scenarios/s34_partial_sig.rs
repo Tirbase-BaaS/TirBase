@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Scenario S34 — partial-signature replay across commands (PV-4.16).
 //!
 //! Co-signatures are bound to `SHA-256(canonical_cbor(payload))`. A signature

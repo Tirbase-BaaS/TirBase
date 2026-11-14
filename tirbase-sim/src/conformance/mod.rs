@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Simulator-based profile conformance tests (CLAIM-34.6, PV-10.6).
 //!
 //! Loads every `profiles/*.toml` envelope profile, runs at least one nominal and

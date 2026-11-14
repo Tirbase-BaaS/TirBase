@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! gateway binary integration tests (CLAIM-34.1/2/3/5).
 //! Spawns the real `CARGO_BIN_EXE_tirbase-gateway` binary.
 

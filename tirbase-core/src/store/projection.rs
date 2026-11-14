@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Projection — Automerge state → SQLite row materialisation.
 //!
 //! After each Delta is applied to an Automerge document, the changed keys

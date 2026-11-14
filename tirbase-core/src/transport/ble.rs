@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! BLE transport bridge — cross-platform Bluetooth Low Energy transport for
 //! TirBase mesh Deltas (native-only, gated behind `#[cfg(feature = "native")]`).
 //!

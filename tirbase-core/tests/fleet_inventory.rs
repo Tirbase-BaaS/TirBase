@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! (PV-11.3, CLAIM-37.5): fleet inventory as a CRDT collection.
 //!
 //! Two real [`CoreHandle`] instances are started. Device A provisions a fleet

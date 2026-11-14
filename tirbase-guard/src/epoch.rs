@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Per-device enrollment epoch, enrollment nonce store, and the Stage 8 epoch
 //! check (8.8 — CLAIM-8.5…CLAIM-8.8, PV-3.11, PV-3.13, PV-5.5,
 //! PV-9.8, PV-9.8/RD-2).

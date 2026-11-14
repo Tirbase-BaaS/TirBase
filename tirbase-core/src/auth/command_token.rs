@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Command-token verification and scope binding for the guard admit path
 //! (CLAIM-14.5, CLAIM-14.6, PV-3.2, PV-4.6).
 //!

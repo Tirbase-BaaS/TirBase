@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `decided_outcomes` SQLite store (PV-5, CLAIM-14.11 / design schema support).
 
 use rusqlite::{params, Connection, OptionalExtension};

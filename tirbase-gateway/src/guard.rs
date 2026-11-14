@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway Stage 16–19 executor wiring (CLAIM-15.1–15.7, PV-4.20, PV-4.21).
 //!
 //! `SqliteStage16Store` implements `tirbase_guard::Stage16Store` with one atomic

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! `ActuationPermit` — unforgeable actuation capability (PV-4.3, CLAIM-11.2).
 //!
 //! Only constructible inside `tirbase-guard` via the crate-visible

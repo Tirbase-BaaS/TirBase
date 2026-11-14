@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! DID generation, persistence, and resolution.
 //!
 //! Each TirBase device has a DID of the form `did:key:z6Mk…` derived from

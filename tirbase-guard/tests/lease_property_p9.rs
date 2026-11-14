@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SingleWriterLease property test P9 (CLAIM-21.6, PV-5.8, INV-13).
 //! Models the lease exclusivity/renewal/cooldown state machine: at most one
 //! issuer holds an active (non-expired, non-cooldown-blocked for others) lease

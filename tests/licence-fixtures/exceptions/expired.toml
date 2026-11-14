@@ -1,0 +1,7 @@
+[[exception]]
+id = "expired-fixture"
+owner = "@tirbase-maintainers"
+reason = "Fixture exception with an expiry in the past that must fail the gate."
+scope = "Build-time fixture crate only; never distributed."
+crates = ["fixture-crate"]
+expires = "2020-01-01"

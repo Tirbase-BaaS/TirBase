@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Ledger corruption recovery (CLAIM-31.5, PV-9.3).
 //!
 //! - Derived ledgers (CRDT state, contamination index, sidecar/quarantine

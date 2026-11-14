@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! SingleWriterLease state-machine / exclusivity tests (21.6 logic,
 //! CLAIM-21.1/21.4/21.6, PV-5.8/5.8a, INV-13). Uses the guard-side
 //! `SingleWriterLease` type and models the lease invariants.

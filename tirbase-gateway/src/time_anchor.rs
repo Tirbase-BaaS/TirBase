@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TimeAnchorService (CLAIM-53.1, CLAIM-53.2, PV-28).
 //!
 //! Periodically produces signed `COSE_Sign1` time beacons and broadcasts them to

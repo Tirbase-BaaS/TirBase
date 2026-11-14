@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Cloud-anchor checkpoint ingress integration test (CLAIM-26.7a, PV-7.10).
 //!
 //! A mock cloud anchor speaks the production JSON-line protocol

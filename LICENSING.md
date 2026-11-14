@@ -68,3 +68,9 @@ Dependencies remain under their own licences. The `cargo-deny` allowlist in
 [`deny.toml`](deny.toml) has been updated to permit the workspace's own
 `AGPL-3.0-only` crates. This file is not legal advice; have counsel review the
 distribution boundaries before signing OEM contracts.
+
+Any departure from this matrix or the deny allowlist requires an entry in the
+machine-checked [`licence-exceptions.toml`](licence-exceptions.toml) with a
+named owner, reason, scope, and expiry. The process is documented in
+[`docs/licensing-exceptions.md`](docs/licensing-exceptions.md); the blocking
+`Licence boundary (F-01)` workflow fails on an expired or incomplete entry.

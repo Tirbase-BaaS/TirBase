@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Simulates a local admin ingress handler attempting to forge an ActuationPermit.
 use tirbase_guard::ActuationPermit;
 use tirbase_types::{FixedPointValue, TargetId, UNIT_PERCENT};

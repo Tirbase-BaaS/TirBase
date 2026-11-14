@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! DrrScheduler — Deficit Round Robin scheduler with three priority queues (Req 12).
 //!
 //! Bandwidth allocation per 1-second scheduling epoch:

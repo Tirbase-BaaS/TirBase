@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CRDT merge paths — LWW/RGA routing entry point and helper predicates.
 //!
 //! ## Routing architecture (design.md §CRDT Merge Logic)

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! integration tests (CLAIM-28.1–28.2 gateway-side, PV-7.6/PV-7.13).
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;

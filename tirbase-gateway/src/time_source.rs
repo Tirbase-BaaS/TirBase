@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! System time source backed by `CLOCK_BOOTTIME`, `CLOCK_REALTIME`, and the
 //! kernel boot id (CLAIM-7.1, PV-3.8).
 //!

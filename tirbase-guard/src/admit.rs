@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! CommandGuard admit pipeline — Stages 0–15 (CLAIM-14.1–14.17).
 //!
 //! This module implements the fast synchronous `admit()` path: it performs

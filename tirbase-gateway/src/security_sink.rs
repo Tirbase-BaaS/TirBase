@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Gateway security event sink (PV-7.1, 19.4, INV-4, compatibility).
 //!
 //! replaces the skeleton log with [`crate::security_log::SecurityEventLog`].

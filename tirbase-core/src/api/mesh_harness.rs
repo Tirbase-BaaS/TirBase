@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Reusable two-device real-mesh test harness (native tests only).
 //!
 //! These helpers were extracted verbatim from `api::real_mesh_tests` so later

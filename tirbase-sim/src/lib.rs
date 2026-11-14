@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! TirBase seeded deterministic simulator (PV-12.1).
 //!
 //! # Determinism

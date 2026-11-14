@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Real memory-budget gate for (PV-6.5).
 //!
 //! The CI job `memory-budget-check` runs this ignored test. Unlike a static

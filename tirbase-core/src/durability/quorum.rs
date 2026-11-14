@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Tier-1 quorum formation — K-of-N receipts with spatial diversity (Req 14.2–14.3).
 //!
 //! A Delta set is Tier-1 durable when K valid `DurabilityReceipt`s have been
