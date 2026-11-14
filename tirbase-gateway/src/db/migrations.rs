@@ -29,6 +29,11 @@ pub struct Migration {
  /// (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, additive
  /// `ALTER TABLE ... ADD COLUMN` guards, etc.).
     pub sql: &'static str,
+ /// SQL batch that reverses this migration, executed by
+ /// [`rollback_migrations`]. Destructive by nature; operators select an
+ /// explicit target version and the gateway refuses to roll back below a
+ /// schema whose data cannot be represented.
+    pub down_sql: &'static str,
 }
 
 /// Result of applying migrations to one database.
@@ -126,6 +131,73 @@ pub fn apply_migrations(
     })
 }
 
+/// Roll the schema back to `target_version`, applying each migration's
+/// `down_sql` in descending version order. Every step is its own transaction:
+/// a failure leaves the schema at the last successfully rolled-back version
+/// (never half-migrated), and the original migration row is only removed after
+/// its down SQL commits.
+pub fn rollback_migrations(
+    conn: &Connection,
+    kind: DbKind,
+    migrations: &[Migration],
+    target_version: i64,
+) -> Result<MigrationReport, SqliteErrorAction> {
+    let from_version = schema_version(conn, kind)?;
+    if target_version >= from_version {
+        return Ok(MigrationReport {
+            db_kind: kind,
+            from_version,
+            to_version: from_version,
+            applied: Vec::new(),
+        });
+    }
+
+    let mut by_version: Vec<&Migration> = migrations.iter().collect();
+    by_version.sort_by_key(|m| std::cmp::Reverse(m.version));
+    let mut rolled_back = Vec::new();
+
+    for migration in by_version {
+        if migration.version <= target_version || migration.version > from_version {
+            continue;
+        }
+        let exists: i64 = conn
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {MIGRATIONS_TABLE} WHERE version = ?1"),
+                [migration.version],
+                |row| row.get(0),
+            )
+            .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "check migration version"))?;
+        if exists == 0 {
+            continue;
+        }
+        let tx = conn.unchecked_transaction().map_err(|e| {
+            SqliteErrorAction::from_rusqlite(kind, &e, "begin rollback transaction")
+        })?;
+        tx.execute_batch(migration.down_sql).map_err(|e| {
+            SqliteErrorAction::from_rusqlite(
+                kind,
+                &e,
+                &format!("roll back migration {} ({})", migration.version, migration.name),
+            )
+        })?;
+        tx.execute(
+            &format!("DELETE FROM {MIGRATIONS_TABLE} WHERE version = ?1"),
+            [migration.version],
+        )
+        .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "remove migration row"))?;
+        tx.commit()
+            .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "commit rollback"))?;
+        rolled_back.push(migration.version);
+    }
+
+    Ok(MigrationReport {
+        db_kind: kind,
+        from_version,
+        to_version: schema_version(conn, kind)?,
+        applied: rolled_back,
+    })
+}
+
 /// 25.3/25.4: ensure `security_events.checkpoint_hash` exists for DBs created
 /// before migration v3 or with older v1 DDL. Idempotent.
 fn ensure_security_events_checkpoint_hash_column(
@@ -155,6 +227,22 @@ fn ensure_security_events_checkpoint_hash_column(
     if has_col == 0 {
         conn.execute_batch("ALTER TABLE security_events ADD COLUMN checkpoint_hash BLOB;")
             .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "add checkpoint_hash"))?;
+    }
+ // F-06: signed time-confidence evidence sidecar.
+    let has_evidence_col: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='time_evidence_json'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| {
+            SqliteErrorAction::from_rusqlite(kind, &e, "check time_evidence_json column")
+        })?;
+    if has_evidence_col == 0 {
+        conn.execute_batch("ALTER TABLE security_events ADD COLUMN time_evidence_json TEXT;")
+            .map_err(|e| {
+                SqliteErrorAction::from_rusqlite(kind, &e, "add time_evidence_json")
+            })?;
     }
     Ok(())
 }
@@ -370,10 +458,30 @@ pub fn derived_migrations() -> &'static [Migration] {
     &DERIVED_MIGRATIONS
 }
 
-const PRIMARY_MIGRATIONS: [Migration; 4] = [
+const PRIMARY_MIGRATIONS: [Migration; 5] = [
     Migration {
         version: 1,
         name: "initial_primary_ledger_tables",
+        down_sql: r#"
+DROP TABLE IF EXISTS security_event_personal_fields;
+DROP TABLE IF EXISTS security_event_segments;
+DROP TABLE IF EXISTS security_events;
+DROP TABLE IF EXISTS peer_checkpoint_witnesses;
+DROP TABLE IF EXISTS challenge_nonces;
+DROP TABLE IF EXISTS enrollment_nonces;
+DROP TABLE IF EXISTS drift_rate_history;
+DROP TABLE IF EXISTS device_epoch;
+DROP TABLE IF EXISTS time_ratchet;
+DROP TABLE IF EXISTS monotonic_counters;
+DROP TABLE IF EXISTS pending_approval_signatures;
+DROP TABLE IF EXISTS pending_approvals;
+DROP TABLE IF EXISTS policy_bundles;
+DROP TABLE IF EXISTS single_writer_leases;
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS decided_outcomes;
+DROP TABLE IF EXISTS anti_replay_windows;
+DROP TABLE IF EXISTS applied_effects_ledger;
+"#,
         sql: r#"
 -- Applied_Effects_Ledger (PrimaryLedger) (PV-5.1)
 CREATE TABLE IF NOT EXISTS applied_effects_ledger (
@@ -590,6 +698,10 @@ CREATE INDEX IF NOT EXISTS idx_drift_lookup
     Migration {
         version: 2,
         name: "single_writer_target_state_drift",
+        down_sql: r#"
+DROP TABLE IF EXISTS drift_rate_summary;
+DROP TABLE IF EXISTS target_state;
+"#,
         sql: r#"
 CREATE TABLE IF NOT EXISTS single_writer_leases (
     target_id              TEXT PRIMARY KEY,
@@ -625,6 +737,7 @@ CREATE TABLE IF NOT EXISTS drift_rate_summary (
     Migration {
         version: 3,
         name: "security_events_checkpoint_hash_column",
+        down_sql: "SELECT 1;",
         sql: r#"
 -- 25.3/25.4: checkpoint_hash column for signed checkpoint records (PV-7.3).
 -- v1 now creates the column for fresh DBs; this migration is a compatibility
@@ -635,6 +748,7 @@ SELECT 1;
     Migration {
         version: 4,
         name: "provisioning_registry",
+        down_sql: "DROP TABLE IF EXISTS provisioning_registry;",
         sql: r#"
 -- F-04: durable device provisioning/lifecycle registry snapshot.
 CREATE TABLE IF NOT EXISTS provisioning_registry (
@@ -645,11 +759,77 @@ CREATE TABLE IF NOT EXISTS provisioning_registry (
 );
 "#,
     },
+    Migration {
+        version: 5,
+        name: "f07_retention_legal_hold_budgets",
+        down_sql: r#"
+DROP TABLE IF EXISTS vertical_schema_versions;
+DROP TABLE IF EXISTS retention_runs;
+DROP TABLE IF EXISTS legal_holds;
+DROP TABLE IF EXISTS storage_budget_samples;
+"#,
+        sql: r#"
+-- F-07: legal holds are the hard stop for every retention purge. A row holds
+-- an entire record class (or one subject) until released_at_est is set.
+CREATE TABLE IF NOT EXISTS legal_holds (
+    hold_id         TEXT PRIMARY KEY,
+    record_class    TEXT NOT NULL,
+    subject         TEXT,
+    reason          TEXT NOT NULL,
+    created_at_est  INTEGER NOT NULL,
+    released_at_est INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_active
+    ON legal_holds(record_class, released_at_est);
+
+-- Auditable retention runs: what was eligible, what was purged, what a legal
+-- hold blocked. The hash-chained security log also receives one LogRotated
+-- record per run.
+CREATE TABLE IF NOT EXISTS retention_runs (
+    run_id          TEXT PRIMARY KEY,
+    started_at_est  INTEGER NOT NULL,
+    record_class    TEXT NOT NULL,
+    purged_rows     INTEGER NOT NULL,
+    blocked_by_hold INTEGER NOT NULL DEFAULT 0,
+    detail_json     TEXT NOT NULL
+);
+
+-- Long-lived ledger/flash storage budget samples (F-07).
+CREATE TABLE IF NOT EXISTS storage_budget_samples (
+    sampled_at_est    INTEGER NOT NULL,
+    primary_db_bytes  INTEGER NOT NULL,
+    derived_db_bytes  INTEGER NOT NULL,
+    archive_bytes     INTEGER NOT NULL,
+    budget_bytes      INTEGER NOT NULL,
+    within_budget     INTEGER NOT NULL,
+    PRIMARY KEY (sampled_at_est)
+);
+
+-- Per-vertical schema versions (cold-chain, POS, venue, ...) advance
+-- independently of the core PrimaryLedger schema and can be rolled back.
+CREATE TABLE IF NOT EXISTS vertical_schema_versions (
+    vertical       TEXT NOT NULL,
+    version        INTEGER NOT NULL,
+    name           TEXT NOT NULL,
+    applied_at_est INTEGER NOT NULL,
+    PRIMARY KEY (vertical, version)
+);
+"#,
+    },
 ];
 
 const DERIVED_MIGRATIONS: [Migration; 1] = [Migration {
     version: 1,
     name: "initial_derived_ledger_tables",
+    down_sql: r#"
+DROP TABLE IF EXISTS device_identity;
+DROP TABLE IF EXISTS sidecar_ledger;
+DROP TABLE IF EXISTS rate_quarantine_summary;
+DROP TABLE IF EXISTS schema_quarantine;
+DROP TABLE IF EXISTS dag_edges;
+DROP TABLE IF EXISTS dag_nodes;
+DROP TABLE IF EXISTS automerge_docs;
+"#,
     sql: r#"
 -- Automerge documents (DerivedLedger)
 CREATE TABLE IF NOT EXISTS automerge_docs (
