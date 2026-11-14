@@ -52,6 +52,7 @@ pub mod events;
 pub mod fleet;
 pub mod identity;
 pub mod migration;
+pub mod operator_auth;
 pub mod schema;
 pub mod store;
 pub mod traits;

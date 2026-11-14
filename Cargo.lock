@@ -5010,6 +5010,7 @@ dependencies = [
  "arc-swap",
  "async-trait",
  "axum",
+ "biscuit-auth",
  "ciborium",
  "clap",
  "ed25519-dalek 3.0.0",

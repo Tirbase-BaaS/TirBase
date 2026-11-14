@@ -29,6 +29,7 @@ pub mod key_rotation;
 pub mod mesh_wiring;
 pub mod metrics;
 pub mod monotonic_counter;
+pub mod operator_identity;
 pub mod profiles;
 pub mod security_log;
 pub mod security_log_export;

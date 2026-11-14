@@ -127,6 +127,8 @@ pub enum SecurityEventCategory {
     Startup,
  /// Non-security informational diagnostics.
     Diagnostic,
+    /// Operator/principal authentication and authorization decisions (F-03).
+    OperatorAuth,
 }
 
 impl SecurityEventCategory {
@@ -150,6 +152,7 @@ impl SecurityEventCategory {
             SecurityEventCategory::CloudSync => "CloudSync",
             SecurityEventCategory::Startup => "Startup",
             SecurityEventCategory::Diagnostic => "Diagnostic",
+            SecurityEventCategory::OperatorAuth => "OperatorAuth",
         }
     }
 }
@@ -421,6 +424,25 @@ pub enum ReasonCode {
     LockdownExitApplied,
  /// A lockdown-exit command was rejected (signature/quorum/profile).
     LockdownExitRejected,
+
+ // OperatorAuth (F-03)
+    OperatorAuthSucceeded,
+    OperatorAuthFailed,
+    OperatorSessionCreated,
+    OperatorSessionExpired,
+    OperatorSessionRevoked,
+    OperatorAccountLocked,
+    OperatorMfaRequired,
+    OperatorMfaSatisfied,
+    OperatorMfaFailed,
+    OperatorAuthorizationAllowed,
+    OperatorAuthorizationDenied,
+    OperatorCapabilityIssued,
+    OperatorCapabilityAttenuated,
+    OperatorCapabilityDelegated,
+    OperatorCapabilityRevoked,
+    OperatorPrincipalRevoked,
+    CrossTenantAccessDenied,
  // CommandDecision (Stage 1 mode gate, CLAIM-13.1)
 }
 
@@ -543,6 +565,23 @@ impl ReasonCode {
             ReasonCode::CrashLoopEscalation => "CrashLoopEscalation",
             ReasonCode::LockdownExitApplied => "LockdownExitApplied",
             ReasonCode::LockdownExitRejected => "LockdownExitRejected",
+            ReasonCode::OperatorAuthSucceeded => "OperatorAuthSucceeded",
+            ReasonCode::OperatorAuthFailed => "OperatorAuthFailed",
+            ReasonCode::OperatorSessionCreated => "OperatorSessionCreated",
+            ReasonCode::OperatorSessionExpired => "OperatorSessionExpired",
+            ReasonCode::OperatorSessionRevoked => "OperatorSessionRevoked",
+            ReasonCode::OperatorAccountLocked => "OperatorAccountLocked",
+            ReasonCode::OperatorMfaRequired => "OperatorMfaRequired",
+            ReasonCode::OperatorMfaSatisfied => "OperatorMfaSatisfied",
+            ReasonCode::OperatorMfaFailed => "OperatorMfaFailed",
+            ReasonCode::OperatorAuthorizationAllowed => "OperatorAuthorizationAllowed",
+            ReasonCode::OperatorAuthorizationDenied => "OperatorAuthorizationDenied",
+            ReasonCode::OperatorCapabilityIssued => "OperatorCapabilityIssued",
+            ReasonCode::OperatorCapabilityAttenuated => "OperatorCapabilityAttenuated",
+            ReasonCode::OperatorCapabilityDelegated => "OperatorCapabilityDelegated",
+            ReasonCode::OperatorCapabilityRevoked => "OperatorCapabilityRevoked",
+            ReasonCode::OperatorPrincipalRevoked => "OperatorPrincipalRevoked",
+            ReasonCode::CrossTenantAccessDenied => "CrossTenantAccessDenied",
             ReasonCode::ModeLockdown => "ModeLockdown",
         }
     }
@@ -734,6 +773,25 @@ pub(crate) fn emit_transport(
         severity,
         reason_code,
         None,
+        target,
+        detail,
+    );
+}
+
+
+/// Convenience: emit an `OperatorAuth` event (F-03).
+pub(crate) fn emit_operator_auth(
+    severity: Severity,
+    reason_code: ReasonCode,
+    actor_did: Option<&str>,
+    target: Option<String>,
+    detail: impl Into<String>,
+) {
+    emit_security(
+        SecurityEventCategory::OperatorAuth,
+        severity,
+        reason_code,
+        actor_did,
         target,
         detail,
     );

@@ -48,6 +48,16 @@ pub use policy::{PolicyBundle, PolicyBundleBody, PolicyBundleKind, PolicyCoSigna
 pub mod command;
 pub use command::{CoSignature, CommandMessage, CommandMessageBody, CONTEXT_COMMAND_MESSAGE};
 
+// ── identity module (F-03: principals, tenancy, roles, capabilities) ────────
+pub mod identity;
+pub use identity::{
+    AuthDecision, AuthMethod, CapabilityScope, DelegationConstraints, MfaRequirement,
+    OperatorCapability, OperatorPermission, OperatorRole, ParseOperatorPermissionError,
+    ParseOperatorRoleError, ParsePrincipalKindError, ParseTenantLevelError, ParseVerticalError,
+    PrincipalId, PrincipalKind, RevocationId, SessionClaims, TenantLevel, TenantPath,
+    TenantSegment, Vertical,
+};
+
 // ── Role ───────────────────────────────────────────────────────────────────────
 
 /// Role attached to a Biscuit credential.
