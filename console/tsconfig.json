@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@tirbase/console-design-system": ["packages/design-system/src/index.tsx"],
+      "@tirbase/gateway-admin-sdk": ["../sdk/typescript/src/index.ts"]
+    }
+  },
+  "include": ["src", "packages/design-system/src", "e2e", "vite.config.ts", "playwright.config.ts"]
+}

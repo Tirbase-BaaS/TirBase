@@ -29,6 +29,9 @@ package-lock.json
 **/package-lock.json
 tirbase-sdk/wasm-test/
 sdk/typescript/dist/
+console/dist/
+console/test-results/
+console/playwright-report/
 
 # tirbase-sdk/wasm/ — generated WASM artefact (produced by wasm-pack).
 # The build output is ignored, but the @tirbase/core-wasm manifest and its
