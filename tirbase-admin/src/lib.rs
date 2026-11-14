@@ -4,7 +4,7 @@
 
 pub mod cmd;
 
-pub use crate::cmd::{enroll, export, inspect_identities, mint, rotate, verify_log};
+pub use crate::cmd::{enroll, export, inspect_identities, mint, provisioning, rotate, verify_log};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandSpec {
@@ -24,6 +24,7 @@ pub const REQUIRED_SUBCOMMANDS: &[&str] = &[
     "rollout",
     "restore",
     "flash-wear-estimate",
+    "provisioning",
 ];
 
 pub fn cli_commands() -> Vec<CommandSpec> {
@@ -38,5 +39,6 @@ pub fn cli_commands() -> Vec<CommandSpec> {
         CommandSpec { name: "rollout", about: "Staged rollout status and signed rollback (CLAIM-30.8, PV-8.9)" },
         CommandSpec { name: "restore", about: "Restore primary DB from backup, replay delta log, signed epoch bump, enter LOCKDOWN (CLAIM-32.3, S22)" },
         CommandSpec { name: "flash-wear-estimate", about: "Report 7-day rolling average/projected durable writes at Linux block layer (CLAIM-44.6, PV-15.4)" },
+        CommandSpec { name: "provisioning", about: "Device provisioning/lifecycle: claim|payload|enroll|offline|rotate|revoke|replace|decommission|reissue|transfer|report|drift|query|audit (F-04)" },
     ]
 }

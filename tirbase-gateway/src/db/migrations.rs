@@ -370,7 +370,7 @@ pub fn derived_migrations() -> &'static [Migration] {
     &DERIVED_MIGRATIONS
 }
 
-const PRIMARY_MIGRATIONS: [Migration; 3] = [
+const PRIMARY_MIGRATIONS: [Migration; 4] = [
     Migration {
         version: 1,
         name: "initial_primary_ledger_tables",
@@ -630,6 +630,19 @@ CREATE TABLE IF NOT EXISTS drift_rate_summary (
 -- v1 now creates the column for fresh DBs; this migration is a compatibility
 -- marker for the framework. The runtime also ensures the column exists.
 SELECT 1;
+"#,
+    },
+    Migration {
+        version: 4,
+        name: "provisioning_registry",
+        sql: r#"
+-- F-04: durable device provisioning/lifecycle registry snapshot.
+CREATE TABLE IF NOT EXISTS provisioning_registry (
+    registry_id    TEXT PRIMARY KEY,
+    schema_version INTEGER NOT NULL,
+    updated_at_est INTEGER NOT NULL,
+    snapshot_json  TEXT NOT NULL
+);
 "#,
     },
 ];

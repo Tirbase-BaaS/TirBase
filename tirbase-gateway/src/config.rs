@@ -209,6 +209,22 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub epoch_bump_path: Option<PathBuf>,
 
+ /// F-04: file holding the hex Ed25519 seed used to mint signed provisioning
+ /// payloads. When absent the gateway verifies payloads but does not mint them.
+    #[serde(default)]
+    pub provisioning_authority_seed_path: Option<PathBuf>,
+
+ /// F-04: hex Ed25519 public key accepted for signed provisioning payloads.
+ /// When absent the gateway derives it from `provisioning_authority_seed_path`
+ /// if configured; otherwise provisioning endpoints answer 503.
+    #[serde(default)]
+    pub provisioning_authority_public_key_hex: Option<String>,
+
+ /// F-04: whether the provisioning lifecycle endpoints are enabled (default
+ /// true when an authority key is configured).
+    #[serde(default = "default_provisioning_enabled")]
+    pub provisioning_enabled: bool,
+
  /// Whether to start the local admin listener (Linux only).
     #[serde(default = "default_admin_enabled")]
     pub admin_enabled: bool,
@@ -754,4 +770,8 @@ fn default_security_event_retention_bytes() -> i64 {
 }
 fn default_security_event_rotation_interval_secs() -> u64 {
     300
+}
+
+fn default_provisioning_enabled() -> bool {
+    true
 }

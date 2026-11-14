@@ -803,6 +803,64 @@ async fn main() -> Result<()> {
         }
         _ => None,
     };
+ // F-04: provisioning authority. The public key verifies signed
+ // provisioning payloads; the seed (when configured) also mints them. Both are
+ // optional: without them the provisioning endpoints answer 503 rather than
+ // silently accepting unverified payloads.
+    let (provisioning, provisioning_authority_public_key) = if config.provisioning_enabled {
+        let seed = match config.provisioning_authority_seed_path.as_ref() {
+            Some(path) => match std::fs::read_to_string(path) {
+                Ok(body) => match tirbase_gateway::provisioning::parse_signing_key_hex(body.trim())
+                {
+                    Ok(key) => Some(key),
+                    Err(error) => {
+                        tracing::warn!(%error, "provisioning signing key rejected");
+                        None
+                    }
+                },
+                Err(error) => {
+                    tracing::warn!(path = %path.display(), %error, "provisioning signing key unreadable");
+                    None
+                }
+            },
+            None => None,
+        };
+        let public = match config.provisioning_authority_public_key_hex.as_ref() {
+            Some(hex_key) => match tirbase_gateway::provisioning::parse_public_key_hex(hex_key) {
+                Ok(key) => Some(key),
+                Err(error) => {
+                    tracing::warn!(%error, "provisioning authority public key rejected");
+                    None
+                }
+            },
+            None => seed.as_ref().map(|key| key.verifying_key().to_bytes()),
+        };
+        match public {
+            Some(public) => {
+                if let Some(signer) = &seed {
+                    if signer.verifying_key().to_bytes() != public {
+                        tracing::warn!(
+                            "provisioning authority seed does not match configured public key; provisioning disabled"
+                        );
+                    }
+                }
+                match tirbase_gateway::provisioning::ProvisioningService::open(
+                    primary_db_path.clone(),
+                    public,
+                    seed,
+                ) {
+                    Ok(service) => (Some(Arc::new(service)), Some(public)),
+                    Err(error) => {
+                        tracing::warn!(%error, "provisioning registry unavailable");
+                        (None, Some(public))
+                    }
+                }
+            }
+            None => (None, None),
+        }
+    } else {
+        (None, None)
+    };
     let admin_state = admin::AdminState {
         primary_db_path: Some(primary_db_path.clone()),
         security_log: Some(security_log.clone()),
@@ -826,6 +884,8 @@ async fn main() -> Result<()> {
         events_view_window_days: config.admin_events_view_days,
         events_page_size: config.admin_events_page_size,
         self_update,
+        provisioning,
+        provisioning_authority_public_key,
         ..Default::default()
     };
     let admin_state = Some(Arc::new(admin_state));

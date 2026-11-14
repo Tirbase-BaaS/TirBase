@@ -31,6 +31,7 @@ pub mod metrics;
 pub mod monotonic_counter;
 pub mod operator_identity;
 pub mod profiles;
+pub mod provisioning;
 pub mod security_log;
 pub mod security_log_export;
 pub mod security_sink;

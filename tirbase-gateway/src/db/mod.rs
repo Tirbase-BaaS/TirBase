@@ -29,6 +29,7 @@ pub mod logical_dump;
 pub mod migrations;
 pub mod peer_checkpoint_witnesses;
 pub mod pending_approvals;
+pub mod provisioning;
 pub mod security_events;
 pub mod single_writer_leases;
 pub mod sqlite_errors;

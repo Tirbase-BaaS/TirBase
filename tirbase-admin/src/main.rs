@@ -154,6 +154,35 @@ fn main() -> Result<()> {
             })?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
+        "provisioning" => {
+            let action = rest.first().cloned().unwrap_or_default();
+            if action.is_empty() {
+                bail!("provisioning requires an action: claim|payload|enroll|offline|rotate|revoke|replace|decommission|reissue|transfer|report|drift|query|audit");
+            }
+            let subflags = parse_flags(&rest.iter().skip(1).cloned().collect::<Vec<_>>());
+            let args = cmd::provisioning::ProvisioningArgs {
+                action,
+                db_path: one(&subflags, "db-path").map(Into::into),
+                signer_seed_hex: one(&subflags, "signer-seed-hex"),
+                authority_public_key_hex: one(&subflags, "authority-public-key-hex"),
+                tenant: one(&subflags, "tenant"),
+                site: one(&subflags, "site"),
+                device_type: one(&subflags, "device-type"),
+                device_id: one(&subflags, "device-id"),
+                device_public_key_hex: one(&subflags, "device-public-key-hex"),
+                claim_code: one(&subflags, "claim-code"),
+                credential_id: one(&subflags, "credential-id"),
+                payload_file: one(&subflags, "payload-file").map(Into::into),
+                firmware_version: one(&subflags, "firmware-version"),
+                config_version: one(&subflags, "config-version"),
+                ttl_secs: one(&subflags, "ttl-secs").and_then(|s| s.parse().ok()),
+                issued_by: one(&subflags, "issued-by"),
+                actor: one(&subflags, "actor"),
+                state: one(&subflags, "state"),
+            };
+            let result = cmd::provisioning::run(&args)?;
+            cmd::provisioning::print_result(&result)?;
+        }
         "flash-wear-estimate" => {
             let data_path = one(&flags, "data-path")
                 .map(std::path::PathBuf::from)

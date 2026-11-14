@@ -6,6 +6,7 @@ pub mod enroll;
 pub mod export;
 pub mod inspect_identities;
 pub mod mint;
+pub mod provisioning;
 pub mod restore;
 pub mod rollout;
 pub mod rotate;

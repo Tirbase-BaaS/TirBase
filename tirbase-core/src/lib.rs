@@ -51,10 +51,12 @@ pub mod errors;
 pub mod events;
 pub mod fleet;
 pub mod identity;
+pub mod keys;
 pub mod migration;
 pub mod operator_auth;
 pub mod schema;
 pub mod store;
+pub mod timesync;
 pub mod traits;
 pub mod transport;
 
@@ -62,6 +64,8 @@ pub mod transport;
 // probe build; never part of release artifacts.
 #[cfg(feature = "parity-probe")]
 pub mod parity_probe;
+
+pub mod provisioning;
 
 // ─── Test suites ─────────────────────────────────────────────────────────────
 // `src/tests/mod.rs` gates its own submodules by target: the property and

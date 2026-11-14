@@ -23,7 +23,12 @@ use tirbase_guard::signed_operation::SignedOperation;
 use tirbase_guard::time::TimeRatchet;
 use tirbase_guard::trust_root::TrustRootRecord;
 use tirbase_guard::PolicyBundle;
+use tirbase_core::provisioning::{DeviceQuery, ProvisioningPayload, ReportedVersions};
 use tirbase_types::envelope::EnvelopeProfile;
+
+use crate::provisioning::{
+    parse_device_state, parse_public_key_hex, ProvisioningService, ProvisioningServiceError,
+};
 
 use crate::self_update::{
     SelfUpdateController, SignedConfigRollback, SignedFirmwareManifest,
@@ -79,6 +84,10 @@ pub struct AdminState {
  /// live config path; the endpoint then answers 503 rather than pretending
  /// the capability exists.
     pub self_update: Option<Arc<std::sync::Mutex<SelfUpdateController>>>,
+ /// F-04: durable device provisioning/lifecycle service.
+    pub provisioning: Option<Arc<ProvisioningService>>,
+ /// F-04: authority public key accepted for signed provisioning payloads.
+    pub provisioning_authority_public_key: Option<[u8; 32]>,
 }
 
 impl fmt::Debug for AdminState {
@@ -96,6 +105,7 @@ impl fmt::Debug for AdminState {
             .field("has_mint_seed", &self.mint_root_ca_seed.is_some())
             .field("has_key_rotator", &self.key_rotator.is_some())
             .field("has_self_update", &self.self_update.is_some())
+            .field("has_provisioning", &self.provisioning.is_some())
             .finish()
     }
 }
@@ -126,6 +136,8 @@ impl Default for AdminState {
             events_view_window_days: 7,
             events_page_size: 100,
             self_update: None,
+            provisioning: None,
+            provisioning_authority_public_key: None,
         }
     }
 }
@@ -160,6 +172,8 @@ impl AdminState {
             events_view_window_days: 7,
             events_page_size: 100,
             self_update: None,
+            provisioning: None,
+            provisioning_authority_public_key: None,
         }
     }
 }
@@ -233,6 +247,9 @@ pub fn dispatch_admin_command_with_caller(
         Some("rollout-status") => dispatch_rollout_status(state),
         Some("self-update") => dispatch_self_update(command, state),
         Some("revoke-issuer") => dispatch_revoke_issuer(command, state, now_est),
+        Some(cmd) if cmd.starts_with("provisioning-") => {
+            dispatch_provisioning_cmd(cmd, command, state, now_est)
+        }
         _ => r#"{"status":400,"error":"unknown command"}"#.to_string(),
     };
     format!("{body}\n")
@@ -251,7 +268,9 @@ pub fn dispatch_http_request(
     now_est: i64,
     caller: &AdminCaller,
 ) -> (u16, String) {
-    let (cmd, payload, path_status) = match (method.to_ascii_uppercase().as_str(), path) {
+    let (path_only, query) = path.split_once('?').unwrap_or((path, ""));
+    let query_payload = parse_query_payload(query);
+    let (cmd, payload, path_status) = match (method.to_ascii_uppercase().as_str(), path_only) {
         ("POST", "/admin/enroll") => ("enroll", None, None),
         ("POST", "/admin/mint") => ("mint", None, None),
         ("POST", "/admin/rotate") => ("rotate", None, None),
@@ -280,6 +299,25 @@ pub fn dispatch_http_request(
             )
         }
         ("GET", "/admin/status") => ("status", None, None),
+        ("POST", "/admin/provisioning/claim") => ("provisioning-claim", None, None),
+        ("POST", "/admin/provisioning/payload") => ("provisioning-payload", None, None),
+        ("POST", "/admin/provisioning/enroll") => ("provisioning-enroll", None, None),
+        ("POST", "/admin/provisioning/offline") => ("provisioning-offline", None, None),
+        ("POST", "/admin/provisioning/rotate") => ("provisioning-rotate", None, None),
+        ("POST", "/admin/provisioning/revoke") => ("provisioning-revoke", None, None),
+        ("POST", "/admin/provisioning/replace") => ("provisioning-replace", None, None),
+        ("POST", "/admin/provisioning/decommission") => {
+            ("provisioning-decommission", None, None)
+        }
+        ("POST", "/admin/provisioning/reissue") => ("provisioning-reissue", None, None),
+        ("POST", "/admin/provisioning/transfer") => ("provisioning-transfer", None, None),
+        ("POST", "/admin/provisioning/report") => ("provisioning-report", None, None),
+        ("GET", "/admin/provisioning/devices") => ("provisioning-query", None, None),
+        ("GET", "/admin/provisioning/audit") => ("provisioning-audit", None, None),
+        ("GET", p) if p.starts_with("/admin/provisioning/drift/") => {
+            let device = p.trim_start_matches("/admin/provisioning/drift/").to_string();
+            ("provisioning-drift", Some(serde_json::json!({"device_id": device})), None)
+        }
         _ => ("", None, Some(404u16)),
     };
     if let Some(code) = path_status {
@@ -296,6 +334,7 @@ pub fn dispatch_http_request(
         .filter(|b| !b.is_empty())
         .and_then(|b| serde_json::from_str::<serde_json::Value>(b).ok());
     let mut payload = payload
+        .or_else(|| query_payload.clone())
         .or(parsed_body.clone())
         .unwrap_or_else(|| serde_json::json!({}));
     if let (Some(serde_json::Value::Object(extra_obj)), serde_json::Value::Object(payload_obj)) =
@@ -1483,6 +1522,287 @@ fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
         },
     })
     .to_string()
+}
+
+
+// ─── F-04 provisioning / device lifecycle ───────────────────────────────────
+
+fn provisioning_error(error: ProvisioningServiceError) -> String {
+    error.to_json().to_string()
+}
+
+/// Parse an `a=b&c=d` query string into a JSON object. Repeated keys keep the
+/// last value; percent-encoding is limited to `%20`-style spaces and `+`.
+fn parse_query_payload(query: &str) -> Option<serde_json::Value> {
+    if query.is_empty() {
+        return None;
+    }
+    let decode = |raw: &str| {
+        raw.replace('+', " ").replace("%2F", "/").replace("%3A", ":").replace("%20", " ")
+    };
+    let mut map = serde_json::Map::new();
+    for pair in query.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            continue;
+        };
+        map.insert(decode(key), serde_json::json!(decode(value)));
+    }
+    Some(serde_json::Value::Object(map))
+}
+
+fn tenant_value(value: Option<&serde_json::Value>) -> Result<Option<tirbase_types::identity::TenantPath>, String> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if let Some(text) = value.as_str() {
+        return crate::provisioning::parse_tenant_path_string(text)
+            .map(Some)
+            .map_err(|error| error.message);
+    }
+    crate::operator_identity::parse_tenant_path(value).map(Some)
+}
+
+fn provisioning_payload_value(value: &serde_json::Value) -> Result<ProvisioningPayload, String> {
+    serde_json::from_value(value.clone()).map_err(|error| format!("invalid provisioning payload: {error}"))
+}
+
+fn dispatch_provisioning_cmd(
+    cmd: &str,
+    command: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+) -> String {
+    let Some(service) = state.and_then(|state| state.provisioning.as_ref()) else {
+        return not_configured(
+            cmd,
+            "provisioning_registry (primary.db) and provisioning authority key",
+        );
+    };
+    let payload = payload_value(command).unwrap_or_else(|| serde_json::json!({}));
+    let actor = payload
+        .get("actor")
+        .and_then(|v| v.as_str())
+        .unwrap_or("admin")
+        .to_string();
+
+    let result = match cmd {
+        "provisioning-claim" => {
+            let tenant = match tenant_value(payload.get("tenant")) {
+                Ok(Some(tenant)) => tenant,
+                Ok(None) => return bad_request("provisioning-claim requires tenant"),
+                Err(error) => return bad_request(&error),
+            };
+            let ttl = payload
+                .get("ttl_secs")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(3600);
+            let nonce = payload
+                .get("nonce_hex")
+                .and_then(|v| v.as_str())
+                .and_then(|hex_nonce| hex::decode(hex_nonce).ok())
+                .unwrap_or_else(|| {
+                    format!(
+                        "{}:{}:{}",
+                        actor,
+                        now_est,
+                        tirbase_core::traits::monotonic_now()
+                    )
+                    .into_bytes()
+                });
+            let issued_by = payload
+                .get("issued_by")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&actor)
+                .to_string();
+            service.issue_claim_code(
+                tenant,
+                payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                payload
+                    .get("device_type")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                issued_by,
+                ttl,
+                &nonce,
+                now_est,
+            )
+        }
+        "provisioning-payload" => {
+            let tenant = match tenant_value(payload.get("tenant")) {
+                Ok(Some(tenant)) => tenant,
+                Ok(None) => return bad_request("provisioning-payload requires tenant"),
+                Err(error) => return bad_request(&error),
+            };
+            let (Some(device_id), Some(public_hex), Some(device_type)) = (
+                payload.get("device_id").and_then(|v| v.as_str()),
+                payload.get("device_public_key_hex").and_then(|v| v.as_str()),
+                payload.get("device_type").and_then(|v| v.as_str()),
+            ) else {
+                return bad_request(
+                    "provisioning-payload requires device_id, device_public_key_hex and device_type",
+                );
+            };
+            let device_public_key = match parse_public_key_hex(public_hex) {
+                Ok(key) => key,
+                Err(error) => return provisioning_error(error),
+            };
+            let versions = tirbase_core::provisioning::VersionSet {
+                firmware_version: payload
+                    .get("firmware_version")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                config_version: payload
+                    .get("config_version")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+            };
+            let ttl = payload
+                .get("ttl_secs")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(3600);
+            let payload_id = payload
+                .get("payload_id")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    format!("payload-{device_id}-{now_est}")
+                });
+            service
+                .build_payload(
+                    payload_id,
+                    device_id.to_string(),
+                    device_public_key,
+                    tenant,
+                    payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                    device_type.to_string(),
+                    payload
+                        .get("claim_code")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
+                    versions,
+                    now_est,
+                    Some(now_est.saturating_add(ttl.max(1))),
+                    payload
+                        .get("issued_by")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&actor)
+                        .to_string(),
+                )
+                .map(|signed| serde_json::json!({"status": 200, "payload": signed}))
+        }
+        "provisioning-enroll" => {
+            let Some(raw) = payload.get("payload") else {
+                return bad_request("provisioning-enroll requires a signed payload");
+            };
+            let signed = match provisioning_payload_value(raw) {
+                Ok(signed) => signed,
+                Err(error) => return bad_request(&error),
+            };
+            service.enrol(&signed, actor, now_est)
+        }
+        "provisioning-offline" => {
+            let Some(raw) = payload.get("payload") else {
+                return bad_request("provisioning-offline requires a signed payload");
+            };
+            let signed = match provisioning_payload_value(raw) {
+                Ok(signed) => signed,
+                Err(error) => return bad_request(&error),
+            };
+            service.apply_offline(&signed, actor, now_est)
+        }
+        "provisioning-rotate" | "provisioning-replace" | "provisioning-decommission"
+        | "provisioning-reissue" => {
+            let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
+                return bad_request(&format!("{cmd} requires device_id"));
+            };
+            match cmd {
+                "provisioning-rotate" => service.rotate(device_id, actor, now_est),
+                "provisioning-replace" => service.replace(device_id, actor, now_est),
+                "provisioning-decommission" => service.decommission(device_id, actor, now_est),
+                _ => service.authorise_reissue(device_id, actor, now_est),
+            }
+        }
+        "provisioning-revoke" => {
+            let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
+                return bad_request("provisioning-revoke requires device_id");
+            };
+            service.revoke(
+                device_id,
+                payload.get("credential_id").and_then(|v| v.as_str()),
+                actor,
+                now_est,
+            )
+        }
+        "provisioning-transfer" => {
+            let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
+                return bad_request("provisioning-transfer requires device_id");
+            };
+            let tenant = match tenant_value(payload.get("tenant")) {
+                Ok(Some(tenant)) => tenant,
+                Ok(None) => return bad_request("provisioning-transfer requires new tenant"),
+                Err(error) => return bad_request(&error),
+            };
+            service.transfer(
+                device_id,
+                tenant,
+                payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                actor,
+                now_est,
+            )
+        }
+        "provisioning-report" => {
+            let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
+                return bad_request("provisioning-report requires device_id");
+            };
+            let reported = ReportedVersions {
+                firmware_version: payload
+                    .get("firmware_version")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                config_version: payload
+                    .get("config_version")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                reported_at_est: Some(now_est),
+            };
+            service.report_versions(device_id, reported, actor, now_est)
+        }
+        "provisioning-drift" => {
+            let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
+                return bad_request("provisioning-drift requires device_id");
+            };
+            service.drift(device_id)
+        }
+        "provisioning-query" => {
+            let tenant = match tenant_value(payload.get("tenant")) {
+                Ok(tenant) => tenant,
+                Err(error) => return bad_request(&error),
+            };
+            let state = match payload.get("state").and_then(|v| v.as_str()) {
+                Some(state) => match parse_device_state(state) {
+                    Some(state) => Some(state),
+                    None => return bad_request(&format!("unknown device state {state:?}")),
+                },
+                None => None,
+            };
+            service.query(&DeviceQuery {
+                tenant,
+                site: payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                device_type: payload
+                    .get("device_type")
+                    .or_else(|| payload.get("type"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                state,
+            })
+        }
+        "provisioning-audit" => service.audit(payload.get("device_id").and_then(|v| v.as_str())),
+        _ => return bad_request(&format!("unknown provisioning command {cmd}")),
+    };
+    match result {
+        Ok(value) => value.to_string(),
+        Err(error) => provisioning_error(error),
+    }
 }
 
 fn payload_value(command: &str) -> Option<serde_json::Value> {
