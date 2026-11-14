@@ -10,7 +10,10 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::Path;
 use tirbase_core::events::{ReasonCode, SecurityEventCategory, Severity, TimeSourceFlag};
-use tirbase_core::traits::KeyProvider;
+use tirbase_core::timesync::{
+    DriftBound, SignedTimeEvidence, TimeConfidence, TimeEvidence, UnverifiedReason,
+};
+use tirbase_core::traits::{time_source, KeyProvider};
 use tirbase_types::DeviceSignature;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +29,8 @@ pub struct ExportedLog {
     pub events: Vec<ExportedEvent>,
     pub checkpoints: Vec<ExportedCheckpoint>,
     pub chain_report: VerifyReport,
+ /// Signed time-confidence evidence for the export operation itself (F-06).
+    pub time_evidence: SignedTimeEvidence,
     pub signature_hex: String,
 }
 
@@ -43,6 +48,10 @@ pub struct ExportedEvent {
     pub prev_hash_hex: String,
     pub hash_hex: String,
     pub personal_commitments: Vec<ExportedPersonalCommitment>,
+ /// Signed time-confidence marker captured when the audit record was
+ /// appended (F-06); `None` for records written without an evidence source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_evidence: Option<SignedTimeEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pseudonymized_personal_fields: Option<Vec<ExportedPseudonymizedField>>,
 }
@@ -154,7 +163,7 @@ fn read_chain_records(conn: &Connection) -> Result<Vec<SecurityEvent>, String> {
         .prepare(
             "SELECT seq, segment_id, category, severity, actor_did, target, reason_code,
                 best_effort_wall_ts, time_source_flag, prev_hash, is_checkpoint,
-                checkpoint_signature, checkpoint_hash
+                checkpoint_signature, checkpoint_hash, time_evidence_json
          FROM security_events ORDER BY seq ASC",
         )
         .map_err(|e| e.to_string())?;
@@ -168,6 +177,7 @@ fn read_chain_records(conn: &Connection) -> Result<Vec<SecurityEvent>, String> {
             }
             let sig_blob: Option<Vec<u8>> = r.get(11)?;
             let ch_blob: Option<Vec<u8>> = r.get(12)?;
+            let evidence_json: Option<String> = r.get(13)?;
             let checkpoint_hash = ch_blob.and_then(|b| {
                 if b.len() == 32 {
                     let mut a = [0u8; 32];
@@ -191,6 +201,8 @@ fn read_chain_records(conn: &Connection) -> Result<Vec<SecurityEvent>, String> {
                 checkpoint_signature: sig_blob.and_then(sig_from_db),
                 checkpoint_hash,
                 personal_commitments: Vec::new(),
+                time_evidence: evidence_json
+                    .and_then(|json| serde_json::from_str::<SignedTimeEvidence>(&json).ok()),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -213,6 +225,7 @@ fn read_chain_records(conn: &Connection) -> Result<Vec<SecurityEvent>, String> {
 pub fn verify_log_at_path(db_path: &Path) -> Result<VerifyReport, String> {
     let conn = Connection::open(db_path).map_err(|e| format!("open {db_path:?}: {e}"))?;
     ensure_personal_fields_table(&conn)?;
+    crate::security_log::ensure_security_log_schema(&conn).map_err(|e| e.to_string())?;
     let events = read_chain_records(&conn)?;
     let mut broken = Vec::new();
     let mut expected_prev = [0u8; 32];
@@ -258,6 +271,86 @@ pub fn verify_log_at_path(db_path: &Path) -> Result<VerifyReport, String> {
     })
 }
 
+/// Build the signed time-confidence marker for an export (F-06).
+///
+/// The marker is projected from the most recent audit record's evidence when
+/// that evidence is from the current boot, so a long offline period keeps
+/// widening the drift bound instead of silently claiming a fresh clock. With
+/// no usable evidence the export is explicitly `unverified`.
+pub fn build_export_time_evidence(
+    conn: &Connection,
+    key: &dyn KeyProvider,
+) -> Result<SignedTimeEvidence, String> {
+    crate::security_log::ensure_security_log_schema(conn).map_err(|e| e.to_string())?;
+    let latest: Option<String> = conn
+        .query_row(
+            "SELECT time_evidence_json FROM security_events \
+             WHERE time_evidence_json IS NOT NULL ORDER BY seq DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    let latest = latest.and_then(|json| serde_json::from_str::<SignedTimeEvidence>(&json).ok());
+
+    let ts = time_source();
+    let mono_secs = ts.monotonic_now() / 1_000_000;
+    let boot_id = ts.boot_id();
+    let wall_hint = ts.wall_hint().map(|us| us / 1_000_000).unwrap_or(0);
+    let drift = DriftBound::default();
+
+    let evidence = match latest {
+        Some(previous) if previous.evidence.boot_id == boot_id => {
+            let extra = mono_secs.saturating_sub(previous.evidence.mono_secs) as i64;
+            let wall_time_secs = previous.evidence.wall_time_secs.saturating_add(extra);
+            let floor = previous.evidence.ratchet_floor_secs;
+            match &previous.evidence.confidence {
+                TimeConfidence::Verified { source, .. } => TimeEvidence::verified(
+                    wall_time_secs,
+                    mono_secs,
+                    boot_id,
+                    floor,
+                    *source,
+                    drift.uncertainty_after(extra),
+                ),
+                TimeConfidence::Offline {
+                    elapsed_since_anchor_secs,
+                    ..
+                } => TimeEvidence::offline(
+                    wall_time_secs,
+                    mono_secs,
+                    boot_id,
+                    floor,
+                    elapsed_since_anchor_secs.saturating_add(extra),
+                    drift,
+                ),
+                TimeConfidence::Unverified { reason } => TimeEvidence::unverified(
+                    wall_time_secs,
+                    mono_secs,
+                    boot_id,
+                    floor,
+                    *reason,
+                ),
+            }
+        }
+        Some(previous) => TimeEvidence::unverified(
+            previous.evidence.wall_time_secs,
+            mono_secs,
+            boot_id,
+            previous.evidence.ratchet_floor_secs,
+            UnverifiedReason::Rebooted,
+        ),
+        None => TimeEvidence::unverified(
+            wall_hint,
+            mono_secs,
+            boot_id,
+            0,
+            UnverifiedReason::NoAuthenticatedSource,
+        ),
+    };
+
+    evidence.sign(key).map_err(|e| e.to_string())
+}
+
 pub fn export_log(
     db_path: &Path,
     key: &dyn KeyProvider,
@@ -267,6 +360,7 @@ pub fn export_log(
 ) -> Result<Vec<u8>, String> {
     let conn = Connection::open(db_path).map_err(|e| format!("open {db_path:?}: {e}"))?;
     ensure_personal_fields_table(&conn)?;
+    crate::security_log::ensure_security_log_schema(&conn).map_err(|e| e.to_string())?;
     let events = read_chain_records(&conn)?;
     let report = verify_log_at_path(db_path)?;
     let mut exported_events = Vec::with_capacity(events.len());
@@ -293,6 +387,7 @@ pub fn export_log(
                     commitment_hex: hex::encode(c.commitment),
                 })
                 .collect(),
+            time_evidence: ev.time_evidence.clone(),
             pseudonymized_personal_fields: None,
         };
         if pseudonymize_fields {
@@ -325,6 +420,7 @@ pub fn export_log(
     } else {
         None
     };
+    let export_time_evidence = build_export_time_evidence(&conn, key)?;
     let mut export = ExportedLog {
         format_version: 1,
         export_timestamp_unix: tirbase_core::traits::wall_hint_secs().unwrap_or(0),
@@ -335,6 +431,7 @@ pub fn export_log(
         events: exported_events,
         checkpoints,
         chain_report: report,
+        time_evidence: export_time_evidence,
         signature_hex: String::new(),
     };
     let signable = canonical_cbor_bytes(&export)?;
@@ -356,6 +453,9 @@ pub fn export_evidence_bundle(
     let device_did = key.did().to_string();
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
     ensure_personal_fields_table(&conn)?;
+    let export_time_evidence = build_export_time_evidence(&conn, key)?;
+    let export_time_evidence_bytes =
+        serde_json::to_vec_pretty(&export_time_evidence).map_err(|e| e.to_string())?;
     let events = read_chain_records(&conn)?;
     let checkpoints: Vec<ExportedCheckpoint> = events
         .iter()
@@ -376,7 +476,7 @@ pub fn export_evidence_bundle(
         "format_version": 1,
         "export_timestamp_unix": tirbase_core::traits::wall_hint_secs().unwrap_or(0),
         "device_did": device_did, "device_public_key_hex": device_pk,
-        "contents": ["log.json","checkpoints.json","device_public_key.txt","verify_report.json","manifest.json","signature.hex"],
+        "contents": ["log.json","checkpoints.json","device_public_key.txt","verify_report.json","time_evidence.json","manifest.json","signature.hex"],
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     let checkpoints_bytes = serde_json::to_vec_pretty(&checkpoints).map_err(|e| e.to_string())?;
@@ -388,6 +488,7 @@ pub fn export_evidence_bundle(
         ("checkpoints.json", checkpoints_bytes.as_slice()),
         ("device_public_key.txt", device_pk.as_bytes()),
         ("verify_report.json", report_bytes.as_slice()),
+        ("time_evidence.json", export_time_evidence_bytes.as_slice()),
     ] {
         bundle.extend_from_slice(&(name.len() as u32).to_le_bytes());
         bundle.extend_from_slice(name.as_bytes());

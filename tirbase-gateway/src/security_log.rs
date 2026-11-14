@@ -34,6 +34,7 @@ use tirbase_core::events::{
     ReasonCode, SecurityEvent as SecurityEventPayload, SecurityEventCategory, Severity,
     TimeSourceFlag,
 };
+use tirbase_core::timesync::{SignedTimeEvidence, TimeEvidence};
 use tirbase_core::traits::{KeyProvider, SecurityEventSink};
 use tirbase_core::transport::security_event_sync::{
     SecurityEventSyncBatch, SecurityEventSyncRecord,
@@ -71,6 +72,25 @@ pub struct SecurityEvent {
  /// Empty for events without personal fields.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub personal_commitments: Vec<PersonalFieldCommitment>,
+ /// Signed time-confidence evidence captured at append time (F-06).
+ ///
+ /// This is a sidecar attestation: it is independently signed by the log's
+ /// device key, so it is not part of `ChainHashBody` and historical chain
+ /// hashes remain valid. `None` when no evidence source or key is installed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_evidence: Option<SignedTimeEvidence>,
+}
+
+/// Supplies the current time-confidence evidence for audit records (F-06).
+///
+/// The production implementation wraps the gateway's live `TimeRatchet`
+/// (`crate::audit_time::RatchetAuditTimeSource`), so evidence is derived from
+/// the same authenticated-time authority that gates command expiry. The log
+/// signs the evidence with its device key; the source only describes the
+/// clock, never signs.
+pub trait AuditTimeEvidenceSource: Send + Sync + std::fmt::Debug {
+ /// Evidence for a record being appended now.
+    fn evidence(&self) -> TimeEvidence;
 }
 
 /// GDPR personal-field commitment entering the hash chain (CLAIM-27.1).
@@ -470,7 +490,8 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
             prev_hash            BLOB NOT NULL,
             is_checkpoint        INTEGER NOT NULL DEFAULT 0,
             checkpoint_signature BLOB,
-            checkpoint_hash      BLOB
+            checkpoint_hash      BLOB,
+            time_evidence_json   TEXT
         );
         CREATE TABLE IF NOT EXISTS security_event_personal_fields (
             seq        INTEGER NOT NULL,
@@ -518,6 +539,14 @@ pub fn ensure_security_log_schema(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     if has_col == 0 {
         conn.execute_batch("ALTER TABLE security_events ADD COLUMN checkpoint_hash BLOB;")?;
+    }
+    let has_evidence_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='time_evidence_json'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_evidence_col == 0 {
+        conn.execute_batch("ALTER TABLE security_events ADD COLUMN time_evidence_json TEXT;")?;
     }
     Ok(())
 }
@@ -577,6 +606,8 @@ pub struct SecurityEventLog {
     state: Mutex<LogState>,
     primary_db: Option<PathBuf>,
     key_provider: RwLock<Option<Arc<dyn KeyProvider>>>,
+ /// F-06: ratchet-derived evidence source for per-record confidence markers.
+    time_evidence_source: RwLock<Option<Arc<dyn AuditTimeEvidenceSource>>>,
     checkpoint: CheckpointConfig,
     batcher: Option<Arc<GroupCommitBatcher>>,
     checkpoint_stop: AtomicBool,
@@ -586,6 +617,8 @@ pub struct SecurityEventLog {
     node_mode: RwLock<Option<Arc<NodeModeState>>>,
     rate_limit_enabled: AtomicBool,
     retention: RwLock<Option<SecurityLogRetentionConfig>>,
+ /// F-07: avoids emitting a blocked-by-legal-hold event every rotation tick.
+    retention_hold_notified: AtomicBool,
     rotation_stop: AtomicBool,
  /// 26.7: real mesh-peer witness source (`true` when a mesh peer is connected).
     witness_source: RwLock<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
@@ -695,6 +728,7 @@ impl SecurityEventLog {
             }),
             primary_db,
             key_provider: RwLock::new(key_provider),
+            time_evidence_source: RwLock::new(None),
             checkpoint,
             batcher,
             checkpoint_stop: AtomicBool::new(false),
@@ -703,6 +737,7 @@ impl SecurityEventLog {
             node_mode: RwLock::new(None),
             rate_limit_enabled: AtomicBool::new(rate_limit_enabled),
             retention: RwLock::new(None),
+            retention_hold_notified: AtomicBool::new(false),
             rotation_stop: AtomicBool::new(false),
             witness_source: RwLock::new(None),
             cloud_anchor_seen: AtomicBool::new(false),
@@ -723,6 +758,32 @@ impl SecurityEventLog {
 
     pub fn set_key_provider(&self, kp: Arc<dyn KeyProvider>) {
         *self.key_provider.write().unwrap_or_else(|p| p.into_inner()) = Some(kp);
+    }
+
+ /// Install the time-confidence evidence source used for every new record
+ /// (F-06). Without one, records carry no evidence marker.
+    pub fn set_time_evidence_source(&self, source: Arc<dyn AuditTimeEvidenceSource>) {
+        *self
+            .time_evidence_source
+            .write()
+            .unwrap_or_else(|p| p.into_inner()) = Some(source);
+    }
+
+ /// Build and sign the current evidence, if both a source and a key exist.
+    fn signed_time_evidence(&self) -> Option<SignedTimeEvidence> {
+        let source = self
+            .time_evidence_source
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()?;
+        let key = self.key_provider()?;
+        match source.evidence().sign(key.as_ref()) {
+            Ok(evidence) => Some(evidence),
+            Err(error) => {
+                tracing::warn!(%error, "audit time evidence could not be signed");
+                None
+            }
+        }
     }
 
     pub fn set_node_mode(&self, mode: Arc<NodeModeState>) {
@@ -1057,8 +1118,8 @@ impl SecurityEventLog {
             "INSERT INTO security_events(
                 seq, segment_id, category, severity, actor_did, target, reason_code,
                 best_effort_wall_ts, time_source_flag, prev_hash, is_checkpoint,
-                checkpoint_signature, checkpoint_hash
-             ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                checkpoint_signature, checkpoint_hash, time_evidence_json
+             ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
             params![
                 rec.seq as i64,
                 rec.segment_id as i64,
@@ -1073,6 +1134,9 @@ impl SecurityEventLog {
                 if is_checkpoint { 1i64 } else { 0i64 },
                 rec.checkpoint_signature.as_ref().and_then(sig_to_bytes),
                 rec.checkpoint_hash.as_ref().map(|h| h.as_slice()),
+                rec.time_evidence
+                    .as_ref()
+                    .and_then(|e| serde_json::to_string(e).ok()),
             ],
         )?;
         Ok(())
@@ -1168,9 +1232,11 @@ impl SecurityEventLog {
                 checkpoint_signature: None,
                 checkpoint_hash: None,
                 personal_commitments: Vec::new(),
+                time_evidence: None,
             };
         }
 
+        let time_evidence = self.signed_time_evidence();
         let (rec, should_checkpoint, personal_rows) = {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             let seq = st.next_seq;
@@ -1204,6 +1270,7 @@ impl SecurityEventLog {
                 checkpoint_signature: None,
                 checkpoint_hash: None,
                 personal_commitments,
+                time_evidence,
             };
             let h = event_hash(&rec, false);
             st.prev_hash = h;
@@ -1244,6 +1311,7 @@ impl SecurityEventLog {
             Some(k) => k,
             None => return Ok(None),
         };
+        let time_evidence = self.signed_time_evidence();
         let (mut checkpoint_rec, conn_opt) = {
             let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
             let seq = st.next_seq;
@@ -1262,6 +1330,7 @@ impl SecurityEventLog {
                 checkpoint_signature: None,
                 checkpoint_hash: None,
                 personal_commitments: Vec::new(),
+                time_evidence,
             };
             let chash = event_hash(&rec, true);
             rec.checkpoint_hash = Some(chash);
@@ -1368,7 +1437,7 @@ impl SecurityEventLog {
             .prepare(
                 "SELECT seq, segment_id, category, severity, actor_did, target, reason_code,
                         best_effort_wall_ts, time_source_flag, prev_hash, is_checkpoint,
-                        checkpoint_signature, checkpoint_hash
+                        checkpoint_signature, checkpoint_hash, time_evidence_json
                  FROM security_events WHERE segment_id=?1 ORDER BY seq ASC",
             )
             .map_err(|e| format!("archive query: {e}"))?;
@@ -1391,6 +1460,8 @@ impl SecurityEventLog {
                     "is_checkpoint": r.get::<_, i64>(10)? != 0,
                     "checkpoint_signature_hex": sig.map(hex::encode),
                     "checkpoint_hash_hex": ch.map(hex::encode),
+                    "time_evidence": r.get::<_, Option<String>>(13)?
+                        .and_then(|json| serde_json::from_str::<SignedTimeEvidence>(&json).ok()),
                 }))
             })
             .map_err(|e| format!("archive rows: {e}"))?;
@@ -1450,6 +1521,26 @@ impl SecurityEventLog {
         let Some(conn) = self.open_db()? else {
             return Ok(0);
         };
+ // F-07: a legal hold freezes audit retention before anything is archived or
+ // deleted. The hold check fails closed if the hold table is unreadable.
+        if self.audit_legal_hold_active(&conn) {
+            if !self.retention_hold_notified.swap(true, Ordering::Relaxed) {
+                self.append_payload(
+                    SecurityEventPayload::new(
+                        SecurityEventCategory::SecurityLog,
+                        Severity::Medium,
+                        ReasonCode::LogRotated,
+                    )
+                    .with_target("audit")
+                    .with_detail(
+                        "audit retention paused: active legal hold (F-07); nothing archived or deleted",
+                    ),
+                );
+                tracing::warn!("audit retention paused by active legal hold");
+            }
+            return Ok(0);
+        }
+        self.retention_hold_notified.store(false, Ordering::Relaxed);
         let total_bytes: i64 = conn
             .query_row(
                 "SELECT COALESCE(SUM(LENGTH(COALESCE(category,''))+LENGTH(COALESCE(severity,''))+LENGTH(COALESCE(actor_did,''))+LENGTH(COALESCE(target,''))+LENGTH(COALESCE(reason_code,''))+64),0) FROM security_events",
@@ -1551,6 +1642,29 @@ impl SecurityEventLog {
             }
         }
         Ok(rotated)
+    }
+
+ /// True when an unreleased legal hold covers the audit class. Missing table
+ /// or a query error is treated as held (fail closed).
+    fn audit_legal_hold_active(&self, conn: &Connection) -> bool {
+        let has_table: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='legal_holds'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if has_table == 0 {
+            return false;
+        }
+        conn.query_row(
+            "SELECT COUNT(*) FROM legal_holds
+             WHERE record_class='audit' AND released_at_est IS NULL",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map(|n| n > 0)
+        .unwrap_or(true)
     }
 
     pub fn len(&self) -> usize {
@@ -2026,6 +2140,7 @@ mod tests {
                 },
                 checkpoint_hash: None,
                 personal_commitments: Vec::new(),
+                time_evidence: None,
             };
             ring.push(e);
         }
@@ -2101,6 +2216,7 @@ mod tests {
                         checkpoint_signature: None,
                         checkpoint_hash: None,
                         personal_commitments: Vec::new(),
+                        time_evidence: None,
                     };
                     let h = event_hash(&rec, false);
                     prev = h;
@@ -2144,6 +2260,7 @@ mod tests {
                     checkpoint_signature: None,
                     checkpoint_hash: None,
                     personal_commitments: Vec::new(),
+                    time_evidence: None,
                 };
                 prev = event_hash(&rec, false);
                 records.push(rec);

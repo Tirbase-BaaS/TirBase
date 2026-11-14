@@ -124,6 +124,23 @@ export/audit key. A verifier checks the signature and that the signer DID
 derives from the supplied public key. Tampering with any field, including the
 confidence marker, breaks verification.
 
+### Where the marker is attached
+
+- **Audit records:** the gateway's hash-chained `SecurityEventLog` attaches a
+  signed `TimeEvidence` to every appended record and checkpoint when a
+  ratchet-backed evidence source is installed (`main.rs` wires
+  `RatchetAuditTimeSource` over the live `TimeRatchet`). The evidence is stored
+  in `security_events.time_evidence_json`. It is a sidecar attestation and is
+  deliberately not part of the chain hash body, so existing chain hashes and
+  verification remain unchanged; the evidence has its own signature.
+- **Exports:** `tirbase-admin export-log` and `export-evidence-bundle` include
+  each record's evidence plus a signed export-level marker projected from the
+  newest record (drift keeps widening when the device has been offline). The
+  bundle also contains `time_evidence.json` as a standalone artefact.
+
+Expiry remains governed solely by `TimeRatchet`; evidence only *describes* the
+clock and never advances or replaces it.
+
 `TimeConfidence` values:
 
 | Marker | Meaning |
