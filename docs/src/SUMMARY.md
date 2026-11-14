@@ -16,3 +16,4 @@
 - [Public API Reference](api/public-api.md)
 - [Configuration Reference](config/reference.md)
 - [Operational Procedures](procedures/index.md)
+- [Observability and SLOs](../observability.md)

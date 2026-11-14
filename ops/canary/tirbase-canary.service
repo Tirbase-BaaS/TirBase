@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=TirBase synthetic vertical canaries
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tirbase
+Group=tirbase
+EnvironmentFile=/etc/tirbase/canary.env
+WorkingDirectory=/opt/tirbase
+ExecStart=/usr/bin/node /opt/tirbase/ops/canary/vertical-canary.mjs --serve --port 9101
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tirbase-canary /run/secrets
+
+[Install]
+WantedBy=multi-user.target

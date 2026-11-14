@@ -1,0 +1,129 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource containing the tirbase-gateway and tirbase-canary scrape jobs.",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "text", "name": "Text", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "text",
+      "title": "TirBase verticals",
+      "description": "One dashboard for the operator console and F-08 vertical API. SLOs are documented in docs/observability.md.",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "mode": "markdown", "content": "### Cold chain · POS · Venues\n\nMetrics are bounded by `vertical` and `kind`; no tenant, object id, PAN or location is ever a label. Logs are redacted before they reach stderr, and traces are exported when `TIRBASE_TRACE_EXPORT_PATH` is set." }
+    },
+    {
+      "type": "stat",
+      "title": "Request rate",
+      "description": "All vertical API requests across the selected range.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "id": 2,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum(rate(tirbase_vertical_request_seconds_count[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "type": "stat",
+      "title": "Ledger appends",
+      "description": "Cold-chain readings, POS lines and venue gate events.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+      "id": 3,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum(rate(tirbase_vertical_appends_total[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "type": "stat",
+      "title": "Canary success",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "id": 4,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "max by (vertical) (tirbase_canary_success)", "legendFormat": "{{vertical}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "stat",
+      "title": "Driver / adapter operations",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "id": 5,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum(rate(tirbase_driver_operations_total[5m])) + sum(rate(tirbase_adapter_operations_total[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Vertical request latency (p95)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 6,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (vertical, le) (rate(tirbase_vertical_request_seconds_bucket[5m])))", "legendFormat": "{{vertical}} p95", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate by vertical and kind",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 7,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum by (vertical) (rate(tirbase_vertical_request_seconds_count[5m]))", "legendFormat": "{{vertical}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Alarm delivery by vertical",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 8,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum by (vertical, outcome) (rate(tirbase_alarm_deliveries_total[5m]))", "legendFormat": "{{vertical}} {{outcome}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Driver/adapter outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 9,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "sum by (driver, outcome) (rate(tirbase_driver_operations_total[5m]))", "legendFormat": "{{driver}} {{outcome}}", "refId": "A" },
+        { "expr": "sum by (adapter, outcome) (rate(tirbase_adapter_operations_total[5m]))", "legendFormat": "{{adapter}} {{outcome}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tirbase", "verticals", "apache-2.0"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TirBase — Verticals and adapters",
+  "uid": "tirbase-verticals",
+  "version": 1,
+  "weekStart": "",
+  "_license": "SPDX-License-Identifier: Apache-2.0"
+}

@@ -1,0 +1,272 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# F-10 recording and alerting rules. Every SLO below has:
+#   * a recording rule used by the Grafana dashboards,
+#   * at least one alert in this file,
+#   * a runbook under docs/runbooks/slo-*.md.
+#
+# Evaluate at 15s (see prometheus.yml). Canary staleness uses a 45s threshold
+# plus the 15s evaluation interval, so a failure is visible within one minute.
+groups:
+  - name: tirbase-slo-recording
+    interval: 15s
+    rules:
+      # Availability: the scrape target being up is the gateway's liveness SLO.
+      - record: tirbase:slo_availability:ratio_5m
+        expr: avg_over_time(up{job="tirbase-gateway"}[5m])
+      - record: tirbase:slo_availability:ratio_1h
+        expr: avg_over_time(up{job="tirbase-gateway"}[1h])
+      - record: tirbase:slo_availability:ratio_6h
+        expr: avg_over_time(up{job="tirbase-gateway"}[6h])
+      - record: tirbase:slo_availability:ratio_30d
+        expr: avg_over_time(up{job="tirbase-gateway"}[30d])
+
+      # Effects-ledger append: p99 and the fraction under 100 ms.
+      - record: tirbase:slo_ledger_append:p99_5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(tirbase_ledger_append_seconds_bucket[5m])))
+      - record: tirbase:slo_ledger_append:ratio_under_100ms_5m
+        expr: |
+          sum(rate(tirbase_ledger_append_seconds_bucket{le="0.1"}[5m]))
+          /
+          sum(rate(tirbase_ledger_append_seconds_count[5m]))
+      - record: tirbase:slo_ledger_append:ratio_under_100ms_30d
+        expr: |
+          sum(rate(tirbase_ledger_append_seconds_bucket{le="0.1"}[30d]))
+          /
+          sum(rate(tirbase_ledger_append_seconds_count[30d]))
+
+      # Alarm delivery: end-to-end webhook delivery p95 and success ratio.
+      - record: tirbase:slo_alarm_delivery:p95_5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(tirbase_alarm_delivery_seconds_bucket[5m])))
+      - record: tirbase:slo_alarm_delivery:success_ratio_5m
+        expr: |
+          sum(rate(tirbase_alarm_deliveries_total{outcome="delivered"}[5m]))
+          /
+          sum(rate(tirbase_alarm_deliveries_total{outcome=~"delivered|failed"}[5m]))
+      - record: tirbase:slo_alarm_delivery:success_ratio_30d
+        expr: |
+          sum(rate(tirbase_alarm_deliveries_total{outcome="delivered"}[30d]))
+          /
+          sum(rate(tirbase_alarm_deliveries_total{outcome=~"delivered|failed"}[30d]))
+
+      # Venue gate decision: p99 and success ratio.
+      - record: tirbase:slo_gate_decision:p99_5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(tirbase_gate_decision_seconds_bucket[5m])))
+      - record: tirbase:slo_gate_decision:success_ratio_5m
+        expr: |
+          sum(rate(tirbase_gate_decisions_total{outcome="accepted"}[5m]))
+          /
+          sum(rate(tirbase_gate_decisions_total[5m]))
+
+      # Payment intent completion: p95 and terminal success ratio.
+      - record: tirbase:slo_payment_completion:p95_5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(tirbase_payment_intent_completion_seconds_bucket[5m])))
+      - record: tirbase:slo_payment_completion:success_ratio_5m
+        expr: |
+          sum(rate(tirbase_payment_intents_total{outcome="completed"}[5m]))
+          /
+          sum(rate(tirbase_payment_intents_total{outcome=~"completed|failed"}[5m]))
+      - record: tirbase:slo_payment_completion:success_ratio_30d
+        expr: |
+          sum(rate(tirbase_payment_intents_total{outcome="completed"}[30d]))
+          /
+          sum(rate(tirbase_payment_intents_total{outcome=~"completed|failed"}[30d]))
+
+      # Canary success is exposed by ops/canary/vertical-canary.mjs.
+      - record: tirbase:slo_canary:success
+        expr: max by (vertical) (tirbase_canary_success)
+      - record: tirbase:slo_canary:age_seconds
+        expr: time() - max by (vertical) (tirbase_canary_last_success_timestamp_seconds)
+
+  - name: tirbase-slo-alerts
+    interval: 15s
+    rules:
+      - alert: TirBaseAvailabilityFastBurn
+        expr: |
+          tirbase:slo_availability:ratio_5m < 0.986
+          and
+          tirbase:slo_availability:ratio_1h < 0.986
+        for: 2m
+        labels:
+          severity: critical
+          service: tirbase-gateway
+          slo: availability
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-availability.md
+        annotations:
+          summary: "Gateway availability is burning the 99.9% error budget quickly"
+          description: "5m and 1h availability are below 98.6% (14.4x burn rate). Check scrape targets, health endpoint, crash loop and node resources."
+          runbook: docs/runbooks/slo-availability.md
+
+      - alert: TirBaseAvailabilitySlowBurn
+        expr: |
+          tirbase:slo_availability:ratio_6h < 0.997
+          and
+          tirbase:slo_availability:ratio_1h < 0.999
+        for: 15m
+        labels:
+          severity: warning
+          service: tirbase-gateway
+          slo: availability
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-availability.md
+        annotations:
+          summary: "Gateway availability is slowly burning the 99.9% error budget"
+          description: "6h availability is below 99.7%. Triage flapping scrapes, restarts and host saturation before the monthly budget is exhausted."
+          runbook: docs/runbooks/slo-availability.md
+
+      - alert: TirBaseLedgerAppendLatencyHigh
+        expr: tirbase:slo_ledger_append:p99_5m > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          service: tirbase-gateway
+          slo: ledger_append_latency
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-ledger-append.md
+        annotations:
+          summary: "Effects-ledger append p99 is above 150 ms"
+          description: "The 99%/100 ms ledger append SLO is at risk. Check fsync latency, disk health, WAL growth and SQLite lock contention."
+          runbook: docs/runbooks/slo-ledger-append.md
+
+      - alert: TirBaseLedgerAppendSLOBreach
+        expr: tirbase:slo_ledger_append:ratio_under_100ms_5m < 0.99
+        for: 5m
+        labels:
+          severity: critical
+          service: tirbase-gateway
+          slo: ledger_append_latency
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-ledger-append.md
+        annotations:
+          summary: "Fewer than 99% of ledger appends complete within 100 ms"
+          description: "The ledger append SLO is breached. Confirm the database is not in Restricted mode and that the disk is not saturated."
+          runbook: docs/runbooks/slo-ledger-append.md
+
+      - alert: TirBaseAlarmDeliveryLatencyHigh
+        expr: tirbase:slo_alarm_delivery:p95_5m > 60
+        for: 10m
+        labels:
+          severity: warning
+          service: tirbase-gateway
+          slo: alarm_delivery
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-alarm-delivery.md
+        annotations:
+          summary: "Alarm delivery p95 is above 60 seconds"
+          description: "Webhook/alarm deliveries are missing the 99%/60 s SLO. Check the webhook drain timer, endpoint latency and retry backlog."
+          runbook: docs/runbooks/slo-alarm-delivery.md
+
+      - alert: TirBaseAlarmDeliveryFailureBudgetBurn
+        expr: |
+          tirbase:slo_alarm_delivery:success_ratio_5m < 0.99
+          and
+          tirbase:slo_alarm_delivery:success_ratio_5m >= 0
+        for: 10m
+        labels:
+          severity: critical
+          service: tirbase-gateway
+          slo: alarm_delivery
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-alarm-delivery.md
+        annotations:
+          summary: "Alarm delivery success is below 99%"
+          description: "Alarm deliveries are failing or exhausting retries. Inspect dead deliveries and endpoint health."
+          runbook: docs/runbooks/slo-alarm-delivery.md
+
+      - alert: TirBaseGateDecisionLatencyHigh
+        expr: tirbase:slo_gate_decision:p99_5m > 0.25
+        for: 5m
+        labels:
+          severity: warning
+          service: tirbase-gateway
+          slo: gate_decision_latency
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-gate-latency.md
+        annotations:
+          summary: "Venue gate decision p99 is above 250 ms"
+          description: "Gate decisions are approaching the SLO. Check venue API latency, SQLite contention and gateway CPU."
+          runbook: docs/runbooks/slo-gate-latency.md
+
+      - alert: TirBaseGateDecisionSLOBreach
+        expr: |
+          tirbase:slo_gate_decision:p99_5m > 0.5
+          or
+          tirbase:slo_gate_decision:success_ratio_5m < 0.995
+        for: 5m
+        labels:
+          severity: critical
+          service: tirbase-gateway
+          slo: gate_decision_latency
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-gate-latency.md
+        annotations:
+          summary: "Venue gate decisions are breaching the latency/availability SLO"
+          description: "Gate decisions exceed 500 ms p99 or fall below 99.5% success. Follow the gate latency runbook."
+          runbook: docs/runbooks/slo-gate-latency.md
+
+      - alert: TirBasePaymentIntentCompletionLatencyHigh
+        expr: tirbase:slo_payment_completion:p95_5m > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: tirbase-gateway
+          slo: payment_intent_completion
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-payment-completion.md
+        annotations:
+          summary: "POS payment intent completion p95 is above 5 minutes"
+          description: "Payment completion is approaching the 99%/5 min SLO. Check POS order transitions and downstream payment integration."
+          runbook: docs/runbooks/slo-payment-completion.md
+
+      - alert: TirBasePaymentIntentFailureBudgetBurn
+        expr: |
+          tirbase:slo_payment_completion:success_ratio_5m < 0.99
+          and
+          tirbase:slo_payment_completion:success_ratio_5m >= 0
+        for: 10m
+        labels:
+          severity: critical
+          service: tirbase-gateway
+          slo: payment_intent_completion
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/slo-payment-completion.md
+        annotations:
+          summary: "POS payment intent completion is below 99%"
+          description: "Payment intents are failing or timing out. Inspect the POS gateway path and provider status."
+          runbook: docs/runbooks/slo-payment-completion.md
+
+      # Canary failure must be visible within one minute. 45s staleness plus a
+      # 15s evaluation interval bounds detection at 60s; success==0 fires on the
+      # first failing scrape.
+      - alert: TirBaseCanaryStale
+        expr: time() - max by (vertical) (tirbase_canary_last_success_timestamp_seconds) > 45
+        for: 0m
+        labels:
+          severity: critical
+          service: tirbase-canary
+          slo: synthetic_canary
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/canary-failure.md
+        annotations:
+          summary: "Synthetic canary for {{ $labels.vertical }} has not succeeded in 45 seconds"
+          description: "The {{ $labels.vertical }} journey is failing or the canary is not reporting. Check the canary logs and run the journey manually."
+          runbook: docs/runbooks/canary-failure.md
+
+      - alert: TirBaseCanaryFailing
+        expr: max by (vertical) (tirbase_canary_success) == 0
+        for: 0m
+        labels:
+          severity: critical
+          service: tirbase-canary
+          slo: synthetic_canary
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/canary-failure.md
+        annotations:
+          summary: "Synthetic canary for {{ $labels.vertical }} is failing"
+          description: "The most recent {{ $labels.vertical }} journey failed. This is an early indicator of a vertical regression."
+          runbook: docs/runbooks/canary-failure.md
+
+      - alert: TirBaseCanaryMissing
+        expr: |
+          absent(tirbase_canary_last_success_timestamp_seconds{vertical="cold-chain"})
+          or absent(tirbase_canary_last_success_timestamp_seconds{vertical="pos"})
+          or absent(tirbase_canary_last_success_timestamp_seconds{vertical="venues"})
+        for: 1m
+        labels:
+          severity: critical
+          service: tirbase-canary
+          slo: synthetic_canary
+          runbook_url: https://github.com/tirbase/tirbase/blob/main/docs/runbooks/canary-failure.md
+        annotations:
+          summary: "No synthetic canary metrics are being scraped"
+          description: "The canary target is down, unconfigured or not scraped. A failing canary cannot be detected without its metrics."
+          runbook: docs/runbooks/canary-failure.md

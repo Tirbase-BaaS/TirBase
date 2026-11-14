@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# F-10 alert routing.
+#
+# critical -> pager/on-call rotation, immediately; warning -> team chat/ticket.
+# Replace the example URLs (or use alertmanager --config.expand-env with
+# *_WEBHOOK_URL secrets) before deploying. No credential belongs in this file.
+route:
+  receiver: oncall-chat
+  group_by: [alertname, service, slo]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: oncall-pager
+      group_wait: 0s
+      repeat_interval: 30m
+      continue: false
+    - matchers:
+        - severity="warning"
+      receiver: oncall-chat
+
+receivers:
+  - name: oncall-pager
+    webhook_configs:
+      - url: "https://pager.example.invalid/tirbase"
+        send_resolved: true
+        max_alerts: 0
+  - name: oncall-chat
+    webhook_configs:
+      - url: "https://chat.example.invalid/tirbase-alerts"
+        send_resolved: true
+
+inhibit_rules:
+  # A critical alert for the same SLO suppresses its warning duplicate.
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: [alertname, service, slo]
+  # If the whole gateway is down, suppress downstream latency warnings that are
+  # consequences of the same outage.
+  - source_matchers:
+      - alertname="TirBaseAvailabilityFastBurn"
+    target_matchers:
+      - severity="warning"
+    equal: [service]

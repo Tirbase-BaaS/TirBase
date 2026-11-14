@@ -30,6 +30,13 @@ follow it as the authoritative step-by-step source.
 - Fleet inventory/revocation propagation
 - Staged rollout status and signed rollback operations
 
+## Observability and on-call
+
+- SLOs, alerts and routing: [`docs/observability.md`](../../observability.md)
+- Availability, ledger append, alarm delivery, gate latency and payment
+  completion runbooks: [`docs/runbooks/`](../../runbooks/)
+- Synthetic vertical canaries: `ops/canary/`
+
 ## Verification and export
 
 - Security event inspection/export and evidence bundle generation

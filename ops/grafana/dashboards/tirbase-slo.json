@@ -1,0 +1,249 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource containing the tirbase-gateway and tirbase-canary scrape jobs.",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Availability — 99.9% of scrapes up (30d)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Availability (30d)",
+      "description": "SLO 99.9%. Alert: TirBaseAvailabilityFastBurn / TirBaseAvailabilitySlowBurn. Runbook: docs/runbooks/slo-availability.md",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "id": 2,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_availability:ratio_30d", "legendFormat": "30d availability", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0.99, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Availability burn",
+      "description": "5m/1h/6h availability. Fast burn is critical at 2m; slow burn warns at 15m.",
+      "gridPos": { "h": 5, "w": 18, "x": 6, "y": 1 },
+      "id": 3,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_availability:ratio_5m", "legendFormat": "5m", "refId": "A" },
+        { "expr": "tirbase:slo_availability:ratio_1h", "legendFormat": "1h", "refId": "B" },
+        { "expr": "tirbase:slo_availability:ratio_6h", "legendFormat": "6h", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0.95, "max": 1 }, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Ledger append — 99% ≤ 100 ms (30d)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 4,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Ledger append p99 (5m)",
+      "description": "SLO: 99% of effects-ledger appends ≤ 100 ms. Runbook: docs/runbooks/slo-ledger-append.md",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 7 },
+      "id": 5,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "tirbase:slo_ledger_append:p99_5m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.15 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ledger append latency quantiles",
+      "gridPos": { "h": 5, "w": 12, "x": 6, "y": 7 },
+      "id": 6,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum by (le) (rate(tirbase_ledger_append_seconds_bucket[5m])))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(tirbase_ledger_append_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "tirbase:slo_ledger_append:p99_5m", "legendFormat": "p99", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "title": "Appends under 100 ms",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 7 },
+      "id": 7,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "tirbase:slo_ledger_append:ratio_under_100ms_5m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0.9, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.99 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "row",
+      "title": "Alarm delivery — 99% ≤ 60 s (30d)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
+      "id": 8,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Alarm delivery p95 (5m)",
+      "description": "SLO: 99% of alarm deliveries ≤ 60 s. Runbook: docs/runbooks/slo-alarm-delivery.md",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 13 },
+      "id": 9,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "tirbase:slo_alarm_delivery:p95_5m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 120 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Alarm delivery success ratio",
+      "gridPos": { "h": 5, "w": 12, "x": 6, "y": 13 },
+      "id": 10,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_alarm_delivery:success_ratio_5m", "legendFormat": "5m", "refId": "A" },
+        { "expr": "tirbase:slo_alarm_delivery:success_ratio_30d", "legendFormat": "30d", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0.95, "max": 1 }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Alarm delivery totals by outcome",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 13 },
+      "id": 11,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "sum by (vertical, outcome) (rate(tirbase_alarm_deliveries_total[5m]))", "legendFormat": "{{vertical}} {{outcome}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Venue gate decision — 99% ≤ 250 ms, 99.5% success",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 12,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Gate decision p99 (5m)",
+      "description": "Runbook: docs/runbooks/slo-gate-latency.md",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 19 },
+      "id": 13,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "tirbase:slo_gate_decision:p99_5m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.25 }, { "color": "red", "value": 0.5 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Gate decisions and success",
+      "gridPos": { "h": 5, "w": 16, "x": 8, "y": 19 },
+      "id": 14,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_gate_decision:success_ratio_5m", "legendFormat": "success ratio", "refId": "A" },
+        { "expr": "sum by (outcome) (rate(tirbase_gate_decisions_total[5m]))", "legendFormat": "{{outcome}}/s", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Payment intent completion — 99% ≤ 5 min",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 15,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Payment completion p95 (5m)",
+      "description": "Runbook: docs/runbooks/slo-payment-completion.md",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 25 },
+      "id": 16,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "tirbase:slo_payment_completion:p95_5m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 300 }, { "color": "red", "value": 600 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Payment completion success and totals",
+      "gridPos": { "h": 5, "w": 16, "x": 8, "y": 25 },
+      "id": 17,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_payment_completion:success_ratio_5m", "legendFormat": "success ratio", "refId": "A" },
+        { "expr": "sum by (outcome) (rate(tirbase_payment_intents_total[5m]))", "legendFormat": "{{outcome}}/s", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Synthetic canaries — one journey per vertical",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "id": 18,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Canary success",
+      "description": "Alert: TirBaseCanaryFailing / TirBaseCanaryStale. Runbook: docs/runbooks/canary-failure.md",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 31 },
+      "id": 19,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [{ "expr": "max by (vertical) (tirbase_canary_success)", "legendFormat": "{{vertical}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Canary age and duration",
+      "gridPos": { "h": 5, "w": 16, "x": 8, "y": 31 },
+      "id": 20,
+      "datasource": { "type": "prometheus", "uid": "tirbase-prometheus" },
+      "targets": [
+        { "expr": "tirbase:slo_canary:age_seconds", "legendFormat": "{{vertical}} age", "refId": "A" },
+        { "expr": "tirbase_canary_duration_seconds", "legendFormat": "{{vertical}} duration", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tirbase", "slo", "apache-2.0"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TirBase — SLOs and error budgets",
+  "uid": "tirbase-slo",
+  "version": 1,
+  "weekStart": "",
+  "_license": "SPDX-License-Identifier: Apache-2.0"
+}
