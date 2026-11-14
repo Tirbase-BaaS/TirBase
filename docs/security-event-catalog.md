@@ -322,3 +322,30 @@ Non-security informational events and startup warnings (PV-4.15, PV-3.4).
 | FlashBudgetThrottlingActivated | Non-critical write throttling activated: projected daily block-layer writes exceed configured budget | Medium | Implemented | PV-15.4 |
 | FlashBudgetThrottlingDeactivated | Flash-wear throttling deactivated: projected writes within budget | Low | Implemented | PV-15.4 |
 | WatchdogKeepalive | Dedicated health-loop task sent sd_notify WATCHDOG=1 | Low | Planned | PV-4.15 |
+
+---
+
+## Category: OperatorAuth
+
+Events emitted for operator/principal authentication and authorization decisions (F-03).
+
+| Reason Code | Description | Severity | Status | PV Reference |
+|---|---|---|---|---|
+| OperatorAuthSucceeded | Principal authentication succeeded (local or OIDC) | Low | Implemented | F-03 |
+| OperatorAuthFailed | Principal authentication failed (bad credential, unknown principal, or OIDC verification failure) | Medium | Implemented | F-03 |
+| OperatorSessionCreated | An authenticated session was created | Low | Implemented | F-03 |
+| OperatorSessionExpired | A session was rejected because it expired | Medium | Implemented | F-03 |
+| OperatorSessionRevoked | A session was revoked or invalidated | Medium | Implemented | F-03 |
+| OperatorAccountLocked | A principal was locked out after repeated failed authentication attempts | High | Implemented | F-03 |
+| OperatorMfaRequired | Authentication requires an MFA step that was not satisfied | Medium | Implemented | F-03 |
+| OperatorMfaSatisfied | An MFA hook/step was satisfied | Low | Implemented | F-03 |
+| OperatorMfaFailed | An MFA hook/step failed | High | Implemented | F-03 |
+| OperatorAuthorizationAllowed | An authorization/capability check allowed the requested operation | Low | Implemented | F-03 |
+| OperatorAuthorizationDenied | An authorization/capability check denied the requested operation | Medium | Implemented | F-03 |
+| OperatorCapabilityIssued | A capability token was issued | Low | Implemented | F-03 |
+| OperatorCapabilityAttenuated | A capability token was attenuated to a narrower scope | Low | Implemented | F-03 |
+| OperatorCapabilityDelegated | A capability token was delegated to another principal within scope | Low | Implemented | F-03 |
+| OperatorCapabilityRevoked | A capability or capability binding was revoked | High | Implemented | F-03 |
+| OperatorPrincipalRevoked | A principal was revoked; subsequent requests must be denied | High | Implemented | F-03 |
+| CrossTenantAccessDenied | A read/write was denied because it crossed tenant boundaries | High | Implemented | F-03 |
+

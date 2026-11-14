@@ -166,6 +166,7 @@ section maps the CI machinery that keeps it honest. Every path here is checked b
 | CLAIM-G1.9 | `tirbase-core/src/migration/mod.rs` | `tirbase-core/src/api/mod.rs` (`migration_mid_flight_revocation_two_core_handle_instances`) | `docs/security-critical-callers.toml` (`CLAIM-G1.9`) |
 | CLAIM-G1.11 | `tirbase-core/src/auth/revocation.rs` | `tirbase-core/src/api/revocation_saturate_mesh_tests.rs` | `docs/security-critical-callers.toml` (`CLAIM-G1.11`) |
 | all Proven rows | see the `Production Caller` column in `CLAIMS.md` | see the `Test or CI Gate` column in `CLAIMS.md` | `scripts/reverse-proof.py` (nightly, `.github/workflows/reverse-proof.yml`) |
+| CLAIM-60.1 | `tirbase-core/src/operator_auth/service.rs`, `tirbase-core/src/operator_auth/capability.rs`, `tirbase-gateway/src/operator_identity.rs` | `tirbase-core/tests/f03_operator_auth.rs`, `tirbase-gateway/src/operator_identity.rs` | n/a (F-03 capability/tenancy enforcement; denial covered by tests) |
 
 Release-level status and known limitations are recorded in `docs/releases/v0.1.0.md`.
 

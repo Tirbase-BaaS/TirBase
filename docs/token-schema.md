@@ -225,3 +225,7 @@ should treat it as an opaque identifier and not attempt to re-derive it.
 | Unit IDs referenced in `FixedPointValue` | `docs/unit-registry.md` |
 | `RevocationSubsystem` implementation | `tirbase-core/src/auth/revocation.rs` |
 | Authorization matrix and role-pair rejection tests | `tirbase-guard/tests/auth_matrix.rs` |
+
+## F-03 operator capability tokens
+
+F-03 introduces Biscuit operator capability tokens issued, attenuated, delegated, and verified by `tirbase_core::operator_auth::capability` (`operator_capability` fact carrying `tirbase_types::identity::OperatorCapability`). Verification enforces signature, expiry, revocation of capability/principal ids on the next request, and delegation/attenuation non-widening of tenant, permissions, vertical, role, expiry, and delegation constraints. Tokens are authority-signed (Ed25519 via `biscuit-auth`) and distinct capability ids identify revocable grants.
