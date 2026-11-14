@@ -854,9 +854,9 @@ async fn main() -> Result<()> {
         );
     }
 
- // Local-admin command transport: the only ingress transport implemented in
- // this gateway binary. Mesh/cloud receivers are deliberately absent (see
- // the " Blocker Note" in CLAIMS.md).
+ // Local-admin command transport. Cloud commands arrive on the
+ // outbound-initiated channel started above; mesh commands are received by
+ // the core mesh receiver started below when `mesh_command_ingress` is set.
     if let Some(command_addr) = config.local_admin_command_addr {
         if !profile_installed {
             tracing::warn!(
@@ -881,6 +881,38 @@ async fn main() -> Result<()> {
         } else {
             tracing::warn!(
                 "local_admin_command_addr set but no target/envelope profile is configured; receiver not started"
+            );
+        }
+    }
+
+ // CLAIM-35.7: mesh command receiver. The core transport delivers signed
+ // commands; this receiver runs each one through the same Stage 0–19 guard
+ // pipeline as the other ingress paths (`IngressSource::Mesh`). Opt-in, and
+ // never started while no signed EnvelopeProfile is installed (deny-all).
+    if config.mesh_command_ingress {
+        if !profile_installed {
+            tracing::warn!(
+                "mesh_command_ingress set but no signed EnvelopeProfile is installed; mesh command receiver deliberately not started (deny-all, PV-11.5)"
+            );
+        } else if let (Some(guard), Some(stage16)) = (
+            command_runtime.guard.clone(),
+            command_runtime.stage16.clone(),
+        ) {
+            let core = Arc::clone(&core_handle);
+            tokio::spawn(async move {
+                if let Err(error) =
+                    tirbase_gateway::command_ingress::mesh::run_mesh_command_receiver(
+                        core, guard, stage16,
+                    )
+                    .await
+                {
+                    tracing::warn!(%error, "mesh command receiver unavailable");
+                }
+            });
+            tracing::info!("mesh command ingress started (CLAIM-35.7)");
+        } else {
+            tracing::warn!(
+                "mesh_command_ingress set but no target/envelope profile is configured; receiver not started"
             );
         }
     }

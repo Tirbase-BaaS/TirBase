@@ -12,6 +12,7 @@ use crate::durability::receipt::DurabilityReceipt;
 use crate::migration::migration_delta::{MigrationDelta, MigrationRevocationDelta};
 use crate::transport::fragment::DeltaFragment;
 use serde::{Deserialize, Serialize};
+use tirbase_types::command::CommandMessage;
 
 /// A typed inbound message received over the Gossipsub mesh.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +92,12 @@ pub enum GossipMessage {
     ChallengeResponse(crate::transport::challenge::MeshChallengeResponse),
  /// Fleet-inventory CRDT update from a peer (PV-11.3).
     FleetInventoryUpdate(crate::fleet::FleetInventoryDelta),
+ /// A signed command delivered over the mesh (CLAIM-35.7).
+ ///
+ /// The mesh is only a delivery channel: a receiver feeds the command through
+ /// the local guard pipeline (`IngressSource::Mesh`), so mesh consensus never
+ /// substitutes for signature, role, envelope, anti-replay, or quorum checks.
+    InboundCommand(CommandMessage),
 }
 
 impl GossipMessage {

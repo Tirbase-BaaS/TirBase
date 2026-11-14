@@ -194,6 +194,14 @@ const UNEXPORTED_COREHANDLE_METHODS: &[(&str, &str)] = &[
         "native-only mesh control plane; no SDK call site",
     ),
     (
+        "subscribe_mesh_commands",
+        "native-only tokio broadcast channel; the gateway mesh receiver owns it",
+    ),
+    (
+        "publish_mesh_command",
+        "native-only mesh command ingress; no SDK call site",
+    ),
+    (
         "set_checkpoint_provider",
         "native-only callback registration (not serialisable over WASM)",
     ),

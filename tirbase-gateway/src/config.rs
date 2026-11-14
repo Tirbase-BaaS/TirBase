@@ -300,6 +300,16 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub local_admin_command_addr: Option<std::net::SocketAddr>,
 
+ /// CLAIM-35.7: start the mesh command receiver.
+ ///
+ /// When true, the gateway subscribes to the core mesh command channel and
+ /// runs every delivered command through the local guard pipeline with
+ /// `IngressSource::Mesh` (signature, role, envelope, anti-replay and quorum
+ /// are still enforced locally). Defaults to false: a deployment must opt in
+ /// before its gateway accepts commands delivered over the mesh.
+    #[serde(default)]
+    pub mesh_command_ingress: bool,
+
  /// PV-15.4 (CLAIM-44.5/44.6): daily flash-write budget measured at the Linux
  /// block layer for the device backing durable gateway data. Default 100 MB/day.
  /// `HIGH` and `CRITICAL` SecurityEvents always bypass budget/throttling.

@@ -332,6 +332,10 @@ pub struct CoreHandle {
     pub(crate) security_event_sync_tx: tokio::sync::broadcast::Sender<
         crate::transport::security_event_sync::SecurityEventSyncRecord,
     >,
+ /// CLAIM-35.7: signed commands received over the mesh command channel.
+    pub(crate) mesh_command_tx: tokio::sync::broadcast::Sender<
+        tirbase_types::command::CommandMessage,
+    >,
  /// 28.3 (PV-7.9/PV-7.12): per-peer rate limit + append-only dedupe.
     pub(crate) security_event_sync_handler:
         std::sync::Mutex<crate::transport::security_event_sync::SecurityEventSyncHandler>,
@@ -1377,6 +1381,7 @@ impl CoreHandle {
             transport,
             checkpoint_obs_tx: tokio::sync::broadcast::channel(256).0,
             security_event_sync_tx: tokio::sync::broadcast::channel(4096).0,
+            mesh_command_tx: tokio::sync::broadcast::channel(256).0,
             security_event_sync_handler: std::sync::Mutex::new(
                 crate::transport::security_event_sync::SecurityEventSyncHandler::new(),
             ),
@@ -3526,6 +3531,64 @@ impl CoreHandle {
         Ok(())
     }
 
+ /// CLAIM-35.7: subscribe to signed commands delivered over the mesh.
+ ///
+ /// The gateway mesh-command receiver consumes this stream and runs each
+ /// command through the local guard pipeline with `IngressSource::Mesh`.
+    pub fn subscribe_mesh_commands(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<tirbase_types::command::CommandMessage> {
+        self.mesh_command_tx.subscribe()
+    }
+
+ /// CLAIM-35.7: publish a signed command to the mesh.
+ ///
+ /// This is transport only. It does not admit the command locally and does not
+ /// imply that the receiving node will accept it; every receiver re-runs the
+ /// full guard pipeline. Fails when the mesh transport is unavailable so the
+ /// caller does not believe an undelivered command was sent.
+    pub fn publish_mesh_command(
+        &self,
+        command: tirbase_types::command::CommandMessage,
+    ) -> Result<(), TirBaseError> {
+        #[cfg(feature = "native")]
+        {
+            let msg = crate::transport::message::GossipMessage::InboundCommand(command);
+            let bytes = msg.to_bytes();
+            if bytes.is_empty() {
+                return Err(TirBaseError::MeshUnavailable {
+                    reason: "mesh command serialised to an empty payload".to_string(),
+                });
+            }
+            let transport = self
+                .transport
+                .lock()
+                .map_err(|e| TirBaseError::MeshUnavailable {
+                    reason: format!("transport lock poisoned: {e}"),
+                })?;
+            let sent = transport
+                .outbound_tx
+                .as_ref()
+                .map(|tx| tx.try_send(bytes).is_ok())
+                .unwrap_or(false);
+            drop(transport);
+            if !sent {
+                return Err(TirBaseError::MeshUnavailable {
+                    reason: "mesh command outbound queue unavailable or full".to_string(),
+                });
+            }
+            Ok(())
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            // WASM hosts deliver commands through their own transport.
+            let _ = command;
+            Err(TirBaseError::MeshUnavailable {
+                reason: "mesh command publish is native-only".to_string(),
+            })
+        }
+    }
+
  /// 26.3 (PV-7.10): set provider for latest local checkpoint hash gossiped on sync.
     pub fn set_checkpoint_provider<F>(&self, provider: F)
     where
@@ -4318,6 +4381,12 @@ impl CoreHandle {
                 let _ =
                     self.checkpoint_obs_tx
                         .send((reporter_did, seq, checkpoint_hash, observed_at));
+            }
+            GossipMessage::InboundCommand(command) => {
+                // CLAIM-35.7: hand the command to the gateway mesh receiver.
+                // The transport does not admit it — the receiver runs the full
+                // guard pipeline with `IngressSource::Mesh`.
+                let _ = self.mesh_command_tx.send(command);
             }
             GossipMessage::SecurityEventSync(batch) => {
  // 28.3 (PV-7.9, PV-7.12): transport sync handler — append-only
@@ -5274,6 +5343,10 @@ impl CoreHandle {
                 let _ =
                     self.checkpoint_obs_tx
                         .send((reporter_did, seq, checkpoint_hash, observed_at));
+                Ok(())
+            }
+            GossipMessage::InboundCommand(command) => {
+                let _ = self.mesh_command_tx.send(command);
                 Ok(())
             }
             GossipMessage::SecurityEventSync(batch) => {
@@ -8002,6 +8075,58 @@ mod tests {
  /// Runtime registration: a handle initialised with no keys starts in the
  /// explicit unconfigured state (verification fails), and becomes able to
  /// verify tokens only after `register_root_ca_key` is called.
+ /// CLAIM-35.7: a command delivered over the mesh is routed to the mesh
+ /// command subscriber, and delivery alone does not admit or mask it. The
+ /// receiver (gateway) is responsible for the guard pipeline.
+    #[cfg(feature = "native")]
+    #[tokio::test]
+    async fn inbound_mesh_command_is_delivered_to_subscriber() {
+        use tirbase_types::command::CommandMessage;
+        use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId, UNIT_PERCENT};
+
+        let path = tmp_path("p35_mesh_command");
+        cleanup(&path);
+        let handle = CoreHandle::init(make_config(&path))
+            .await
+            .expect("init for mesh command delivery");
+        let mut commands = handle.subscribe_mesh_commands();
+
+        let command = CommandMessage {
+            issuer_did: Did::new("did:key:z6MkMeshIssuer"),
+            role: CommandRole::CommandIssuer,
+            target_id: TargetId::new("pump-1"),
+            param: "speed".into(),
+            desired_state: FixedPointValue::new(500, -1, UNIT_PERCENT),
+            sequence_number: 7,
+            idempotency_key: [7u8; 16],
+            expiry_est: 9_999_999_999,
+            policy_version: 1,
+            enrollment_epoch: 0,
+            challenge_nonce: None,
+            co_signatures: Vec::new(),
+            signature: DeviceSignature::Ed25519([0u8; 64]),
+        };
+
+        handle
+            .receive_inbound(GossipMessage::InboundCommand(command.clone()))
+            .await
+            .expect("inbound mesh command must route to the command channel");
+
+        let received = tokio::time::timeout(std::time::Duration::from_secs(2), commands.recv())
+            .await
+            .expect("mesh command subscriber must receive the command")
+            .expect("mesh command channel must stay open");
+        assert_eq!(received.issuer_did, command.issuer_did);
+        assert_eq!(received.target_id, command.target_id);
+        assert_eq!(received.sequence_number, 7);
+        assert!(
+            received.signature.as_bytes().iter().all(|b| *b == 0),
+            "the transport must not mutate or launder the signature; admission is the guard's job"
+        );
+
+        cleanup(&path);
+    }
+
     #[tokio::test]
     async fn runtime_register_root_ca_key_enables_biscuit_verification() {
         let path = tmp_path("p21_runtime_key");
