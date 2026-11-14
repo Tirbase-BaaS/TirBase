@@ -181,9 +181,11 @@ async fn main() -> Result<()> {
         .ok()
         .or_else(|| config.log_level.clone())
         .unwrap_or_else(|| "info".to_string());
+    tirbase_gateway::telemetry::init_trace_exporter_from_env();
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(tracing_subscriber::EnvFilter::new(filter))
+        .with_writer(tirbase_gateway::telemetry::redacting_stdout())
         .init();
 
  // ── Driver runtime posture ────────────────────────────────────────────────
@@ -345,7 +347,7 @@ async fn main() -> Result<()> {
                 config.counter_db_path.display()
             )
         })?;
-    let mut ratchet = TimeRatchet::open(
+    let ratchet = TimeRatchet::open(
         Arc::new(ratchet_store),
         TimeRatchetConfig {
             max_forward_jump_secs: config.time_max_forward_jump_secs,
@@ -354,14 +356,23 @@ async fn main() -> Result<()> {
         },
     )
     .context("failed to load the TimeRatchet from primary.db")?;
+ // F-06: share the single TimeRatchet from the start so the audit log can
+ // derive time evidence from it; it remains the sole expiry authority.
+    let ratchet = Arc::new(Mutex::new(ratchet));
 
-    let freshness_before_beacon = ratchet.freshness(time_source.as_ref());
-    let now_est_at_load = ratchet.now_est(time_source.as_ref());
+    let (freshness_before_beacon, now_est_at_load, floor_at_load) = {
+        let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+        (
+            r.freshness(time_source.as_ref()),
+            r.now_est(time_source.as_ref()),
+            r.persisted_floor(),
+        )
+    };
     tracing::info!(
-        persisted_floor = ratchet.persisted_floor(),
+        persisted_floor = floor_at_load,
         freshness = freshness_before_beacon.as_str(),
         "TimeRatchet loaded (persisted_floor={}, now_est={}, freshness={})",
-        ratchet.persisted_floor(),
+        floor_at_load,
         now_est_at_load,
         freshness_before_beacon.as_str()
     );
@@ -386,7 +397,7 @@ async fn main() -> Result<()> {
         match time_beacon::ingest_time_beacon_file(
             beacon_path,
             &anchors,
-            &mut ratchet,
+            &mut ratchet.lock().unwrap_or_else(|p| p.into_inner()),
             time_source.as_ref(),
         ) {
             Ok(advance) => tracing::info!(
@@ -437,11 +448,18 @@ async fn main() -> Result<()> {
         None
     };
 
-    let now_est = ratchet.now_est(time_source.as_ref());
-    let expires_est = ratchet
-        .persisted_floor()
-        .saturating_add(config.boot_attestation_ttl_secs);
-    if ratchet.is_expired(expires_est, time_source.as_ref()) {
+    let (now_est, expires_est, boot_expired) = {
+        let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+        let expires_est = r
+            .persisted_floor()
+            .saturating_add(config.boot_attestation_ttl_secs);
+        (
+            r.now_est(time_source.as_ref()),
+            expires_est,
+            r.is_expired(expires_est, time_source.as_ref()),
+        )
+    };
+    if boot_expired {
         bail!("boot attestation expired: now_est {now_est} > expires_est {expires_est}");
     }
 
@@ -481,7 +499,10 @@ async fn main() -> Result<()> {
         );
     }
 
-    let created_est = ratchet.now_est(time_source.as_ref());
+    let created_est = {
+        let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+        r.now_est(time_source.as_ref())
+    };
     let boot_record = GatewayBootRecord {
         boot_id: time_source.boot_id(),
         counter: boot_counter,
@@ -514,6 +535,7 @@ async fn main() -> Result<()> {
     security_log.set_retention(
         tirbase_gateway::security_log::SecurityLogRetentionConfig::from_gateway_config(&config),
     );
+
  // CLAIM-26.1: verify the persisted hash chain at startup. The log itself
  // emits TamperDetection and enters Restricted on a broken link; the boot
  // diagnostic makes the outcome observable to operators.
@@ -536,6 +558,68 @@ async fn main() -> Result<()> {
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     let _retention_handle = security_log.spawn_retention_rotation_loop();
 
+ // F-07: apply the per-class retention matrix once at boot (operational
+ // expiry purges plus the audit legal-hold gate), then report long-lived
+ // ledger/archive occupancy against the configured budgets.
+    match tirbase_gateway::db::migrations::open_primary_with_key(
+        &primary_db_path,
+        Some(key_provider.as_ref()),
+    ) {
+        Ok(conn) => {
+            if let Err(error) = tirbase_gateway::retention::ensure_schema(&conn) {
+                tracing::warn!(%error, "retention schema unavailable at boot");
+            } else {
+                match tirbase_gateway::retention::apply_retention(
+                    &conn,
+                    &security_log,
+                    &tirbase_gateway::retention::RetentionConfig::default(),
+                    now_est,
+                    time_source.monotonic_now() / 1_000_000,
+                ) {
+                    Ok(report) => tracing::info!(
+                        purged = ?report.purged,
+                        blocked = ?report.blocked_by_legal_hold,
+                        "F-07 retention sweep completed (audited)"
+                    ),
+                    Err(error) => tracing::warn!(%error, "retention sweep failed at boot"),
+                }
+            }
+            let archive_dir = config
+                .security_event_archive_dir
+                .clone()
+                .unwrap_or_else(|| {
+                    primary_db_path
+                        .parent()
+                        .unwrap_or_else(|| std::path::Path::new("."))
+                        .join("security-event-archive")
+                });
+            let usage = tirbase_gateway::storage_budget::evaluate(
+                &primary_db_path,
+                &config.effective_derived_db_path(),
+                &archive_dir,
+                tirbase_gateway::storage_budget::StorageBudget {
+                    ledgers_bytes: config.ledger_storage_budget_bytes,
+                    archive_bytes: config.archive_storage_budget_bytes,
+                },
+            );
+            if usage.within_budget {
+                tracing::info!(
+                    ledger_bytes = usage.ledger_bytes,
+                    archive_bytes = usage.archive_bytes,
+                    "F-07 storage budget within limits"
+                );
+            } else {
+                tracing::warn!(
+                    ledger_bytes = usage.ledger_bytes,
+                    archive_bytes = usage.archive_bytes,
+                    reclaimable = ?usage.reclaimable_classes,
+                    "F-07 storage budget exceeded; retention can reclaim space"
+                );
+            }
+        }
+        Err(error) => tracing::warn!(%error, "F-07 storage budget check could not open primary.db"),
+    }
+
  // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
  // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
  // throttling and are written immediately.
@@ -557,12 +641,33 @@ async fn main() -> Result<()> {
         "flash-write budget tracker started (CLAIM-44.5/44.6)"
     );
 
-    let trust_root = install_trust_root(&config, &mut ratchet, time_source.as_ref())?;
+    let trust_root = install_trust_root(
+        &config,
+        &mut ratchet.lock().unwrap_or_else(|p| p.into_inner()),
+        time_source.as_ref(),
+    )?;
+ // F-06: audit records carry signed time-confidence evidence derived from the
+ // same TimeRatchet (not a parallel clock). Installed after trust-root setup,
+ // which holds the ratchet mutably, so evidence capture never waits on it.
+    security_log.set_time_evidence_source(Arc::new(
+        tirbase_gateway::audit_time::RatchetAuditTimeSource::new(
+            ratchet.clone(),
+            time_source.clone(),
+            tirbase_core::timesync::DriftBound::default(),
+        ),
+    ));
+    tracing::info!(
+        "security log time-evidence source installed from the live TimeRatchet (F-06)"
+    );
     let root_ca_registry = build_root_ca_registry(trust_root.as_deref())?;
     if let (Some(registry), Some(token_path)) =
         (&root_ca_registry, &config.root_ca_self_test_token_path)
     {
-        run_root_ca_self_test(token_path, registry, ratchet.now_est(time_source.as_ref()))?;
+        let now_est = {
+            let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+            r.now_est(time_source.as_ref())
+        };
+        run_root_ca_self_test(token_path, registry, now_est)?;
     }
 
     let epoch_store = SqliteDeviceEpochStore::open(&config.counter_db_path)
@@ -575,12 +680,11 @@ async fn main() -> Result<()> {
             .context("epoch_bump_path requires trust_root_path")?;
         let file = std::fs::read_to_string(path)?;
         let request: EpochBumpFile = serde_json::from_str(&file)?;
-        let bumped = epochs.apply_bump(
-            &request.operation,
-            &request.payload,
-            record,
-            ratchet.now_est(time_source.as_ref()),
-        )?;
+        let now_est = {
+            let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+            r.now_est(time_source.as_ref())
+        };
+        let bumped = epochs.apply_bump(&request.operation, &request.payload, record, now_est)?;
         tracing::info!(
             device_id = %bumped.device_id,
             "signed epoch bump applied (epoch={})",
@@ -588,11 +692,15 @@ async fn main() -> Result<()> {
         );
     }
 
+    let enrollment_now_est = {
+        let r = ratchet.lock().unwrap_or_else(|p| p.into_inner());
+        r.now_est(time_source.as_ref())
+    };
     let enrollment_service = build_enrollment_service(
         &config,
         trust_root.as_ref(),
         epochs.clone(),
-        ratchet.now_est(time_source.as_ref()),
+        enrollment_now_est,
     )?;
 
  // Core runtime handle installed for the process lifetime (). It is
@@ -669,7 +777,6 @@ async fn main() -> Result<()> {
     }
 
  // CommandGuard / Stage 16 runtime for the configured local target ().
-    let ratchet = Arc::new(Mutex::new(ratchet));
     let pipeline_time_source: Arc<dyn TimeSource> = time_source.clone();
     let command_runtime = build_command_runtime(
         CommandRuntimeSetup {
@@ -861,7 +968,64 @@ async fn main() -> Result<()> {
     } else {
         (None, None)
     };
+    let vertical_api = match tirbase_gateway::vertical_api::VerticalApi::open(&primary_db_path)
+        .and_then(|api| {
+            let dispatcher = std::sync::Arc::new(
+                tirbase_gateway::webhooks::WebhookDispatcher::open(&primary_db_path)?,
+            );
+            Ok(api.with_webhooks(dispatcher))
+        }) {
+        Ok(api) => Some(std::sync::Arc::new(api)),
+        Err(error) => {
+            tracing::warn!(%error, "vertical resource API unavailable at boot");
+            None
+        }
+    };
+    // F-11 OTA: A/B slots, release channels, staged rollout, offline path.
+    let ota_slots: Option<Arc<crate::ota::AbSlotManager>> = config.ota_state_dir.as_ref().map(|dir| {
+        let slots = crate::ota::AbSlotManager::new(dir.join("boot.json"), dir.join("slots"));
+        match slots.reconcile_on_boot() {
+            Ok(boot) => {
+                tracing::info!(
+                    current = ?boot.current_slot,
+                    known_good = ?boot.known_good_slot,
+                    pending = ?boot.pending_slot,
+                    committed_version = boot.committed_bundle_version,
+                    "OTA boot reconciliation complete (interrupted updates revert to known-good)"
+                );
+                if let Some(reason) = &boot.last_rollback_reason {
+                    tracing::warn!(%reason, "OTA automatic rollback applied at boot");
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "OTA boot reconciliation failed; using default boot state");
+            }
+        }
+        Arc::new(slots)
+    });
+    let ota_signer_public_key: Option<[u8; 32]> = config
+        .ota_signer_public_key_hex
+        .as_deref()
+        .or(config.update_signer_public_key_hex.as_deref())
+        .and_then(|hex_key| {
+            let bytes = hex::decode(hex_key.trim()).ok()?;
+            <[u8; 32]>::try_from(bytes.as_slice()).ok()
+        });
+    let ota_channel_policy = Some(crate::ota::ChannelPolicy {
+        allowed_channels: config.ota_allowed_channels.clone(),
+        tenant_id: config.ota_tenant_id.clone(),
+    });
+    let ota_rollout_state_path = config
+        .ota_rollout_state_path
+        .clone()
+        .or_else(|| config.ota_state_dir.as_ref().map(|d| d.join("rollout.json")));
+
     let admin_state = admin::AdminState {
+        vertical_api,
+        ota_slots: ota_slots.clone(),
+        ota_signer_public_key,
+        ota_channel_policy: ota_channel_policy.clone(),
+        ota_rollout_state_path: ota_rollout_state_path.clone(),
         primary_db_path: Some(primary_db_path.clone()),
         security_log: Some(security_log.clone()),
         key_provider: Some(key_provider.clone()),
@@ -1190,6 +1354,8 @@ struct GatewayDriverCrashSupervisor;
 impl tirbase_drivers::lifecycle::DriverCrashSupervisor for GatewayDriverCrashSupervisor {
     fn on_driver_restart(&self, attempt: u32, backoff: std::time::Duration) {
         tracing::warn!(
+            audit = true,
+            action = "driver.restart",
             attempt,
             backoff_secs = backoff.as_secs(),
             "driver child crash fed into supervisor accounting; scheduling restart"
@@ -1198,6 +1364,8 @@ impl tirbase_drivers::lifecycle::DriverCrashSupervisor for GatewayDriverCrashSup
 
     fn on_driver_escalate_lockdown(&self, attempts: u32) {
         tracing::error!(
+            audit = true,
+            action = "driver.escalate_lockdown",
             attempts,
             "driver child crash loop exceeded the retry budget; supervisor LOCKDOWN escalation required"
         );
@@ -1216,6 +1384,8 @@ fn driver_supervision_loop(mut driver: tirbase_guard::driver_proxy::SupervisedDr
             Ok(Some(status)) => {
                 stable_ticks = 0;
                 tracing::warn!(
+                    audit = true,
+                    action = "driver.exit",
                     ?status,
                     pid = driver.child_pid(),
                     "driver child exited; applying restart decision"

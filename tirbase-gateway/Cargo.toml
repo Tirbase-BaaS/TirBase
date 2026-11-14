@@ -97,10 +97,14 @@ axum = "0.7"
 serde_json = "1"
 wat = "1"
 # `default-features = false` so `sqlcipher` can replace `bundled` (PV-9.6).
-rusqlite = { version = "0.40", default-features = false, features = [] }
+rusqlite = { version = "0.40", default-features = false, features = ["backup"] }
 
 # Hash-chained security event log (PV-7.2/7.3, task 25).
 sha2 = "0.11.0"
+# F-07: authenticated encryption for exported ledger records.
+chacha20poly1305 = "0.10"
+# F-08: outbound webhook transport (delivery runs off the admin request path).
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 ciborium = "0.2"
 
 # Secret-typed private material (PKCS#11 PIN, key seeds) and zeroize-on-drop

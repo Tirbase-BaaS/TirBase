@@ -202,6 +202,17 @@ async fn serve_remote_admin(
             Some(guard.now_est(time_source.as_ref()))
         })
         .unwrap_or_else(|| tirbase_core::traits::wall_hint_secs().unwrap_or_default());
+    let traceparent = header_text.split("\r\n").find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("traceparent")
+            .then(|| value.trim().to_string())
+    });
+    let mut span = crate::telemetry::Span::from_traceparent(
+        "admin.remote.request",
+        traceparent.as_deref(),
+    );
+    span.set_attr("http.method", method.clone());
+    span.set_attr("http.route", path.clone());
     let caller = AdminCaller::Remote {
         biscuit_token_hex: token,
     };
@@ -213,6 +224,10 @@ async fn serve_remote_admin(
         now_est,
         &caller,
     );
+    let status_class = format!("{}xx", status / 100);
+    crate::metrics::global_metrics().inc_gateway_request("admin_remote", &method, &status_class);
+    span.set_attr("http.status", status.to_string());
+    span.finish(if status >= 500 { "error" } else { "ok" });
     let response = http_response(status, reason_phrase(status), &response_body);
     stream.write_all(response.as_bytes()).await?;
     stream.flush().await?;

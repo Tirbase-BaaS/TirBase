@@ -114,6 +114,7 @@ pub fn run_modbus_smoke(addr: &str, op: &str, register: u16, values: &[u16]) -> 
         }
         _ => bail!("unsupported modbus op: {op}"),
     }
+    crate::metrics::global_metrics().inc_adapter_operation("modbus", op, "ok");
     Ok(())
 }
 
@@ -136,9 +137,11 @@ pub fn run_mqtt_smoke(
     client
         .publish_qos0(topic, payload.as_bytes())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
+    crate::metrics::global_metrics().inc_adapter_operation("mqtt", "publish_qos0", "ok");
     let pid = client
         .publish_qos1(topic, payload.as_bytes(), Duration::from_secs(5))
         .map_err(|e| anyhow::anyhow!("{e}"))?;
+    crate::metrics::global_metrics().inc_adapter_operation("mqtt", "publish_qos1", "ok");
     println!("MQTT_OK:qos0=1 qos1_pid={pid}");
     Ok(())
 }

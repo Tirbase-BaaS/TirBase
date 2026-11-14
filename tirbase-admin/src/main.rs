@@ -154,6 +154,107 @@ fn main() -> Result<()> {
             })?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
+        "backup" => {
+            let report = cmd::storage::backup(&cmd::storage::BackupArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                out_dir: req(&flags, "out-dir")?.into(),
+                key_path: req(&flags, "key-path")?.into(),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "restore-backup" => {
+            let report = cmd::storage::restore(&cmd::storage::RestoreArgs {
+                backup_dir: req(&flags, "backup-dir")?.into(),
+                target_db: req(&flags, "target-db")?.into(),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "pitr" => {
+            let report = cmd::storage::pitr(&cmd::storage::PitrArgs {
+                backup_dir: req(&flags, "backup-dir")?.into(),
+                delta_log: req(&flags, "delta-log")?.into(),
+                target_db: req(&flags, "target-db")?.into(),
+                expected_root: one(&flags, "expected-root"),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "dr-drill" => {
+            let report = cmd::storage::dr_drill(&cmd::storage::DrDrillArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                work_dir: req(&flags, "work-dir")?.into(),
+                key_path: req(&flags, "key-path")?.into(),
+                delta_log: one(&flags, "delta-log").map(Into::into),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "retention" => {
+            let report = cmd::storage::retention(&cmd::storage::RetentionArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                key_path: req(&flags, "key-path")?.into(),
+                operational_days: one(&flags, "operational-days").and_then(|s| s.parse().ok()),
+                hold_class: one(&flags, "hold-class"),
+                hold_subject: one(&flags, "hold-subject"),
+                hold_reason: one(&flags, "hold-reason"),
+                release_hold: one(&flags, "release-hold"),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "storage-budget" => {
+            let usage = cmd::storage::storage_budget(&cmd::storage::StorageBudgetArgs {
+                data_dir: req(&flags, "data-dir")?.into(),
+                ledger_bytes: one(&flags, "ledger-bytes").and_then(|s| s.parse().ok()),
+                archive_bytes: one(&flags, "archive-bytes").and_then(|s| s.parse().ok()),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&usage)?);
+        }
+        "encrypt-export" => {
+            let sealed = cmd::storage::encrypt_export(&cmd::storage::EncryptExportArgs {
+                key_path: req(&flags, "key-path")?.into(),
+                input: req(&flags, "input")?.into(),
+                output: req(&flags, "output")?.into(),
+                aad: one(&flags, "aad").unwrap_or_default(),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&sealed)?);
+        }
+        "decrypt-export" => {
+            let plaintext = cmd::storage::decrypt_export(&cmd::storage::DecryptExportArgs {
+                key_path: req(&flags, "key-path")?.into(),
+                input: req(&flags, "input")?.into(),
+                output: req(&flags, "output")?.into(),
+                aad: one(&flags, "aad").unwrap_or_default(),
+            })?;
+            println!("decrypted {} bytes", plaintext.len());
+        }
+        "webhook" => {
+            let body = cmd::webhook::run(&cmd::webhook::WebhookArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                action: one(&flags, "action").unwrap_or_else(|| "list".to_string()),
+                endpoint_id: one(&flags, "endpoint-id"),
+                url: one(&flags, "url"),
+                secret_file: one(&flags, "secret-file").map(Into::into),
+                now_est: one(&flags, "now-est")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or_else(|| {
+                        tirbase_core::traits::wall_hint_secs().unwrap_or(0)
+                    }),
+            })?;
+            println!("{body}");
+        }
+        "vertical" => {
+            let result = cmd::vertical::run(&cmd::vertical::VerticalArgs {
+                db_path: req(&flags, "db-path")?.into(),
+                action: one(&flags, "action").unwrap_or_else(|| "list".to_string()),
+                vertical: req(&flags, "vertical")?,
+                kind: req(&flags, "kind")?,
+                id: one(&flags, "id"),
+                parent_id: one(&flags, "parent-id"),
+                tenant: one(&flags, "tenant"),
+                data_json: one(&flags, "data-json"),
+                limit: one(&flags, "limit").and_then(|s| s.parse().ok()),
+                cursor: one(&flags, "cursor").and_then(|s| s.parse().ok()),
+            })?;
+            println!("{}", result.body);
+        }
         "provisioning" => {
             let action = rest.first().cloned().unwrap_or_default();
             if action.is_empty() {

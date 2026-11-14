@@ -574,6 +574,15 @@ impl<T: std::io::Read + std::io::Write> ModbusTcpClient<T> {
     }
 
     fn request(&mut self, pdu: &[u8]) -> DriverResult<ModbusTcpAdu> {
+        let _span = tracing::info_span!(
+            "adapter.modbus.request",
+            audit = true,
+            adapter = "modbus",
+            transport = "tcp",
+            unit_id = self.unit_id,
+            pdu_len = pdu.len()
+        )
+        .entered();
         let tid = self.alloc_tid();
         let len = (1 + pdu.len()) as u16;
         let mut out = Vec::with_capacity(7 + pdu.len());
@@ -939,6 +948,16 @@ impl<T: std::io::Read + std::io::Write> ModbusRtuClient<T> {
     }
 
     fn request(&mut self, pdu: &[u8], expected_fc: u8, resp_len: usize) -> DriverResult<Vec<u8>> {
+        let _span = tracing::info_span!(
+            "adapter.modbus.request",
+            audit = true,
+            adapter = "modbus",
+            transport = "rtu",
+            unit_id = self.unit_id,
+            function_code = expected_fc,
+            response_len = resp_len
+        )
+        .entered();
         let frame = build_rtu_frame(self.unit_id, pdu);
         self.transport
             .write_all(&frame)

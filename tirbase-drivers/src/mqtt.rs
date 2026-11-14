@@ -207,6 +207,13 @@ impl MqttTlsClient {
         tls_config: Arc<ClientConfig>,
         io_timeout: Duration,
     ) -> Result<Self, MqttError> {
+        let _span = tracing::info_span!(
+            "adapter.mqtt.connect",
+            audit = true,
+            adapter = "mqtt",
+            client_id
+        )
+        .entered();
         let (host, port) = parse_mqtts_uri(uri)?;
         let addr = (host.as_str(), port)
             .to_socket_addrs()?
@@ -235,6 +242,15 @@ impl MqttTlsClient {
     }
 
     pub fn publish_qos0(&mut self, topic: &str, payload: &[u8]) -> Result<(), MqttError> {
+        let _span = tracing::info_span!(
+            "adapter.mqtt.publish",
+            audit = true,
+            adapter = "mqtt",
+            qos = 0,
+            topic,
+            payload_len = payload.len()
+        )
+        .entered();
         let pkt = self
             .codec
             .encode_publish(topic, payload, MqttQoS::AtMostOnce, None)
@@ -250,6 +266,15 @@ impl MqttTlsClient {
         payload: &[u8],
         timeout: Duration,
     ) -> Result<u16, MqttError> {
+        let _span = tracing::info_span!(
+            "adapter.mqtt.publish",
+            audit = true,
+            adapter = "mqtt",
+            qos = 1,
+            topic,
+            payload_len = payload.len()
+        )
+        .entered();
         let pid = self.alloc_packet_id();
         let pkt = self
             .codec

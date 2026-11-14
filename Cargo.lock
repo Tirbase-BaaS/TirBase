@@ -4026,7 +4026,9 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
+ "futures-util",
  "http",
  "http-body",
  "http-body-util",
@@ -4999,6 +5001,7 @@ dependencies = [
  "tirbase-driver-api",
  "tirbase-sim",
  "tirbase-types",
+ "tracing",
  "webpki-roots 0.26.11",
 ]
 
@@ -5011,6 +5014,7 @@ dependencies = [
  "async-trait",
  "axum",
  "biscuit-auth",
+ "chacha20poly1305",
  "ciborium",
  "clap",
  "ed25519-dalek 3.0.0",
@@ -5065,6 +5069,7 @@ dependencies = [
  "tirbase-drivers",
  "tirbase-types",
  "tokio",
+ "tracing",
  "trybuild",
  "zeroize",
 ]

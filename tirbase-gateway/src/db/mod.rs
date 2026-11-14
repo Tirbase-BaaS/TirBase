@@ -35,6 +35,7 @@ pub mod single_writer_leases;
 pub mod sqlite_errors;
 pub mod target_state;
 pub mod time_ratchet;
+pub mod verticals;
 pub mod wal_checkpoint;
 
 pub use migrations::{

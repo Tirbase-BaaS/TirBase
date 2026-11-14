@@ -44,6 +44,29 @@ fn free_port() -> u16 {
         .port()
 }
 
+/// Wait until the gateway's auxiliary listener is accepting connections.
+/// Boot logs appear before the health/metrics tasks bind, so a fixed sleep is
+/// racy under a parallel test run.
+fn wait_for_listener(port: u16) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        if TcpStream::connect_timeout(
+            &format!("127.0.0.1:{port}")
+                .parse()
+                .expect("loopback addr"),
+            Duration::from_millis(100),
+        )
+        .is_ok()
+        {
+            return;
+        }
+        if std::time::Instant::now() >= deadline {
+            panic!("listener 127.0.0.1:{port} did not bind within 10s");
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
 fn write_config(dir: &Path, health_port: u16, metrics_port: u16) -> PathBuf {
     let config_path = dir.join("gateway.toml");
     let body = format!(
@@ -298,7 +321,7 @@ fn claim_35_4_health_endpoint_responds_within_500ms() {
     let metrics = free_port();
     let config = write_config(&dir, health, metrics);
     let (_lines, mut child) = run_until_marker(&config, "SignedOperation boot record verified");
-    std::thread::sleep(Duration::from_millis(100));
+    wait_for_listener(health);
     let start = tirbase_core::traits::monotonic_now();
     let rt = tokio::runtime::Runtime::new().unwrap();
     let resp = rt
@@ -321,7 +344,7 @@ fn claim_35_5_prometheus_metrics_exposed() {
     let metrics = free_port();
     let config = write_config(&dir, health, metrics);
     let (_lines, mut child) = run_until_marker(&config, "SignedOperation boot record verified");
-    std::thread::sleep(Duration::from_millis(150));
+    wait_for_listener(metrics);
     let rt = tokio::runtime::Runtime::new().unwrap();
     let body = rt.block_on(async {
         reqwest::get(format!("http://127.0.0.1:{metrics}/metrics"))
@@ -338,6 +361,12 @@ fn claim_35_5_prometheus_metrics_exposed() {
         "security_events_total",
         "replay_rejections_total",
         "quarantine_entries_total",
+        "tirbase_guard_decision_seconds",
+        "tirbase_ledger_append_seconds",
+        "tirbase_alarm_delivery_seconds",
+        "tirbase_gate_decision_seconds",
+        "tirbase_payment_intent_completion_seconds",
+        "tirbase_build_info",
     ] {
         assert!(body.contains(needle), "metrics missing {needle}: {body}");
     }

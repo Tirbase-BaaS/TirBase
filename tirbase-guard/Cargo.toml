@@ -15,6 +15,8 @@ ciborium = "0.2"
 # Lock-free config hot-swap for the target-to-profile map (CLAIM-10.5, PV-4.5).
 arc-swap = "1"
 zeroize = { version = "1.9", features = ["derive"] }
+# F-10: driver dispatch audit/trace spans (logging only).
+tracing = "0.1"
 
 [features]
 loom = ["dep:loom"]

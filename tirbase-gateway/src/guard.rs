@@ -405,6 +405,7 @@ where
         now_mono_secs,
     } = io;
     let metrics = crate::metrics::global_metrics();
+    let decision_started = std::time::Instant::now();
     if simulate {
         let sim_ctx = tirbase_guard::admit::AdmitContext {
             ingress,
@@ -422,6 +423,7 @@ where
             }
         );
         metrics.inc_guard_decision();
+        metrics.observe_guard_decision(decision_started.elapsed());
         if !simulated_accept {
             if let tirbase_guard::AdmitDecision::Simulated {
                 rejection: Some((tirbase_guard::AdmitRejection::CommitConflict, _, _)),
@@ -478,6 +480,7 @@ where
         Ok(d) => d,
         Err(e) => {
             metrics.inc_guard_decision();
+            metrics.observe_guard_decision(decision_started.elapsed());
             return tirbase_guard::stage17_rejection(
                 &cmd,
                 tirbase_guard::AdmitRejection::Unsupported,
@@ -492,13 +495,16 @@ where
             ..
         } => {
             metrics.inc_guard_decision();
+            metrics.observe_guard_decision(decision_started.elapsed());
             serde_json::json!({"status":"accepted","idempotency_cache_hit":true})
         }
         tirbase_guard::AdmitDecision::Accepted { .. } => {
             metrics.inc_guard_decision();
+            metrics.observe_guard_decision(decision_started.elapsed());
             let entry_id = make_entry_id(&cmd);
             let store2 = store.clone();
             let cmd3 = cmd.clone();
+            let ledger_started = std::time::Instant::now();
             let outcome = tokio::task::spawn_blocking(move || {
                 tirbase_guard::commit_dispatch_finalize(
                     &*store2,
@@ -524,12 +530,17 @@ where
                     false,
                 )
             });
+            metrics.observe_ledger_append(ledger_started.elapsed());
  // The Actuating ledger write happens inside Stage 16. Only a
  // committed row counts; a Stage 16 anti-replay rejection does not.
             if outcome.get("status").and_then(|v| v.as_str()) != Some("rejected") {
                 metrics.inc_effects_ledger_write();
+                metrics.inc_driver_operation("device", "dispatch", "ok");
             } else if outcome.get("code").and_then(|v| v.as_str()) == Some("ANTI_REPLAY") {
                 metrics.inc_replay_rejection();
+                metrics.inc_driver_operation("device", "dispatch", "rejected");
+            } else {
+                metrics.inc_driver_operation("device", "dispatch", "rejected");
             }
             outcome
         }
@@ -539,6 +550,7 @@ where
             retry_after_secs,
         } => {
             metrics.inc_guard_decision();
+            metrics.observe_guard_decision(decision_started.elapsed());
             if matches!(category, tirbase_guard::AdmitRejection::CommitConflict) {
                 metrics.inc_replay_rejection();
             }
@@ -550,6 +562,7 @@ where
         }
         other => {
             metrics.inc_guard_decision();
+            metrics.observe_guard_decision(decision_started.elapsed());
             serde_json::json!({"status":"unexpected","decision":format!("{other:?}")})
         }
     }

@@ -14,6 +14,7 @@ pub static EVENT_SINK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(()
 
 pub mod admin;
 pub mod admin_remote;
+pub mod backup;
 pub mod cloud;
 pub mod cloud_anchor;
 pub mod command_ingress;
@@ -32,11 +33,18 @@ pub mod monotonic_counter;
 pub mod operator_identity;
 pub mod profiles;
 pub mod provisioning;
+pub mod retention;
 pub mod security_log;
+pub mod audit_time;
 pub mod security_log_export;
 pub mod security_sink;
+pub mod ota;
 pub mod self_update;
 pub mod reference_cli;
+pub mod storage_budget;
+pub mod telemetry;
 pub mod time_anchor;
 pub mod time_beacon;
 pub mod time_source;
+pub mod vertical_api;
+pub mod webhooks;

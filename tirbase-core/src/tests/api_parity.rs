@@ -697,8 +697,12 @@ fn openapi_admin_paths(source: &str) -> BTreeSet<String> {
         if !line.starts_with(' ') && !line.is_empty() {
             break;
         }
-        // Path item keys are indented by one space under `paths:`.
-        if let Some(rest) = line.strip_prefix(" /") {
+        // Path item keys are indented under `paths:`; accept the one- and
+        // two-space forms the repository has used.
+        if let Some(rest) = line
+            .strip_prefix(" /")
+            .or_else(|| line.strip_prefix("  /"))
+        {
             if let Some(path) = rest.strip_suffix(':') {
                 paths.insert(format!("/{path}"));
             }

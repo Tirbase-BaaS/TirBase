@@ -78,6 +78,13 @@ impl<W: Write + Send> DriverProxy<W> {
         permit: ActuationPermit,
         frame: &[u8],
     ) -> io::Result<ActuationPermitRef> {
+        let _span = tracing::info_span!(
+            "driver.dispatch",
+            audit = true,
+            action = "driver.dispatch",
+            frame_bytes = frame.len()
+        )
+        .entered();
         let permit_ref = permit.into_ref();
         self.device.write_all(frame)?;
         self.device.flush()?;
@@ -353,6 +360,13 @@ impl SupervisedDriver {
         permit: ActuationPermit,
         frame: &[u8],
     ) -> io::Result<ActuationPermitRef> {
+        let _span = tracing::info_span!(
+            "driver.dispatch",
+            audit = true,
+            action = "driver.child.dispatch",
+            frame_bytes = frame.len()
+        )
+        .entered();
         if self.child.try_wait()?.is_some() {
             return Err(io::Error::new(
                 io::ErrorKind::BrokenPipe,

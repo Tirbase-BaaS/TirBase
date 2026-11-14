@@ -87,7 +87,16 @@ pub struct AdminState {
  /// F-04: durable device provisioning/lifecycle service.
     pub provisioning: Option<Arc<ProvisioningService>>,
  /// F-04: authority public key accepted for signed provisioning payloads.
-    pub provisioning_authority_public_key: Option<[u8; 32]>,
+    pub provisioning_authority_public_key: Option<[u8; 32]>,    /// F-08: tenant-scoped cold-chain, POS and venue resource API.
+    pub vertical_api: Option<Arc<crate::vertical_api::VerticalApi>>,
+    /// F-11: OTA A/B slot manager (signed bundles, rollback, offline path).
+    pub ota_slots: Option<Arc<crate::ota::AbSlotManager>>,
+    /// F-11: OTA signer public key (hex-decoded) for bundle verification.
+    pub ota_signer_public_key: Option<[u8; 32]>,
+    /// F-11: release-channel policy for this device/tenant.
+    pub ota_channel_policy: Option<crate::ota::ChannelPolicy>,
+    /// F-11: persisted staged-rollout controller state path.
+    pub ota_rollout_state_path: Option<std::path::PathBuf>,
 }
 
 impl fmt::Debug for AdminState {
@@ -106,6 +115,8 @@ impl fmt::Debug for AdminState {
             .field("has_key_rotator", &self.key_rotator.is_some())
             .field("has_self_update", &self.self_update.is_some())
             .field("has_provisioning", &self.provisioning.is_some())
+            .field("has_vertical_api", &self.vertical_api.is_some())
+            .field("has_ota", &self.ota_slots.is_some())
             .finish()
     }
 }
@@ -138,6 +149,11 @@ impl Default for AdminState {
             self_update: None,
             provisioning: None,
             provisioning_authority_public_key: None,
+            vertical_api: None,
+            ota_slots: None,
+            ota_signer_public_key: None,
+            ota_channel_policy: None,
+            ota_rollout_state_path: None,
         }
     }
 }
@@ -174,6 +190,11 @@ impl AdminState {
             self_update: None,
             provisioning: None,
             provisioning_authority_public_key: None,
+            vertical_api: None,
+            ota_slots: None,
+            ota_signer_public_key: None,
+            ota_channel_policy: None,
+            ota_rollout_state_path: None,
         }
     }
 }
@@ -246,6 +267,7 @@ pub fn dispatch_admin_command_with_caller(
         Some("restore") => dispatch_restore(command, state, now_est),
         Some("rollout-status") => dispatch_rollout_status(state),
         Some("self-update") => dispatch_self_update(command, state),
+        Some("ota") => dispatch_ota(command, state),
         Some("revoke-issuer") => dispatch_revoke_issuer(command, state, now_est),
         Some(cmd) if cmd.starts_with("provisioning-") => {
             dispatch_provisioning_cmd(cmd, command, state, now_est)
@@ -269,6 +291,46 @@ pub fn dispatch_http_request(
     caller: &AdminCaller,
 ) -> (u16, String) {
     let (path_only, query) = path.split_once('?').unwrap_or((path, ""));
+ // F-08 vertical resources share the same auth model but have their own
+ // tenant-scoped store. Remote reads still require a valid credential;
+ // mutations additionally require Auditor/PolicyAuthority.
+    if path_only == "/admin/venues"
+        || ["/admin/cold-chain/", "/admin/pos/", "/admin/venues/"]
+            .iter()
+            .any(|prefix| path_only.starts_with(prefix))
+    {
+        let Some(api) = state.and_then(|s| s.vertical_api.as_ref()) else {
+            return (
+                503,
+                serde_json::json!({
+                    "status": 503,
+                    "code": "ADMIN_STATE_UNCONFIGURED",
+                    "error": "vertical resource store is not configured in this process"
+                })
+                .to_string(),
+            );
+        };
+        if let Err(error) = caller_claims(state, "{}", caller, now_est) {
+            return (
+                401,
+                deny(401, "ADMIN_CREDENTIAL_REQUIRED", &error, "vertical"),
+            );
+        }
+        if !method.eq_ignore_ascii_case("GET") {
+            if let Err(response) =
+                require_privileged(state, "{}", caller, now_est, "vertical")
+            {
+                let status = serde_json::from_str::<serde_json::Value>(&response)
+                    .ok()
+                    .and_then(|v| v.get("status").and_then(|s| s.as_u64()))
+                    .unwrap_or(403) as u16;
+                return (status, response);
+            }
+        }
+        // Keep the query string: tenant, pagination and replay scoping are
+        // query parameters on GETs.
+        return api.dispatch(method, path, body, now_est);
+    }
     let query_payload = parse_query_payload(query);
     let (cmd, payload, path_status) = match (method.to_ascii_uppercase().as_str(), path_only) {
         ("POST", "/admin/enroll") => ("enroll", None, None),
@@ -290,6 +352,8 @@ pub fn dispatch_http_request(
         ("POST", "/admin/epoch-bump") => ("epoch-bump", None, None),
         ("GET", "/admin/rollout-status") => ("rollout-status", None, None),
         ("POST", "/admin/self-update") => ("self-update", None, None),
+        ("GET", "/admin/ota") => ("ota", Some(serde_json::json!({"action":"status"})), None),
+        ("POST", "/admin/ota") => ("ota", None, None),
         ("GET", p) if p.starts_with("/admin/status/") => {
             let issuer = p.trim_start_matches("/admin/status/").to_string();
             (
@@ -1522,6 +1586,224 @@ fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
         },
     })
     .to_string()
+}
+
+
+// ── OTA / release channels / rollback (F-11) ────────────────────────────────
+
+fn ota_not_configured() -> String {
+    not_configured("ota", "ota_state_dir and ota_signer_public_key_hex (or update_signer_public_key_hex)")
+}
+
+fn ota_status_value(state: Option<&AdminState>) -> serde_json::Value {
+    let Some(slots) = state.and_then(|s| s.ota_slots.as_ref()) else {
+        return serde_json::json!({"configured": false});
+    };
+    let boot = slots.reconcile_on_boot().unwrap_or_else(|_| crate::ota::BootState::default());
+    let rollout = load_ota_rollout(state);
+    serde_json::json!({
+        "configured": true,
+        "boot": boot,
+        "rollout": rollout,
+        "channels": state.and_then(|s| s.ota_channel_policy.as_ref()).map(|p| p.allowed_channels.clone()),
+        "tenant_id": state.and_then(|s| s.ota_channel_policy.as_ref()).and_then(|p| p.tenant_id.clone()),
+    })
+}
+
+fn load_ota_rollout(state: Option<&AdminState>) -> Option<crate::ota::RolloutState> {
+    let path = state.and_then(|s| s.ota_rollout_state_path.as_ref())?;
+    let body = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&body).ok()
+}
+
+fn save_ota_rollout(state: Option<&AdminState>, rollout: &crate::ota::RolloutState) -> Result<(), String> {
+    let path = state
+        .and_then(|s| s.ota_rollout_state_path.as_ref())
+        .ok_or_else(|| "ota_rollout_state_path not configured".to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let bytes = serde_json::to_vec_pretty(rollout).map_err(|e| e.to_string())?;
+    crate::ota::atomic_write(path, &bytes).map_err(|e| e.to_string())
+}
+
+fn parse_ota_bundle_payload(payload: &serde_json::Value) -> Result<(tirbase_types::ota::SignedOtaBundle, Vec<u8>), String> {
+    // Online form: { bundle: <SignedOtaBundle>, artifact_base64: "..." }
+    // Offline form: { offline_path: "/path/to/dir" } containing manifest.json+artifact.bin
+    if let Some(path) = payload.get("offline_path").and_then(|v| v.as_str()) {
+        return crate::ota::load_offline_bundle(std::path::Path::new(path)).map_err(|e| e.to_string());
+    }
+    let bundle_val = payload.get("bundle").cloned().ok_or_else(|| "ota requires `bundle` or `offline_path`".to_string())?;
+    let bundle: tirbase_types::ota::SignedOtaBundle = serde_json::from_value(bundle_val).map_err(|e| format!("invalid bundle: {e}"))?;
+    let artifact = if let Some(hex_art) = payload.get("artifact_hex").and_then(|v| v.as_str()) {
+        hex::decode(hex_art).map_err(|e| format!("invalid artifact_hex: {e}"))?
+    } else if let Some(path) = payload.get("artifact_path").and_then(|v| v.as_str()) {
+        std::fs::read(path).map_err(|e| format!("read artifact_path: {e}"))?
+    } else {
+        Vec::new()
+    };
+    Ok((bundle, artifact))
+}
+
+fn dispatch_ota(command: &str, state: Option<&AdminState>) -> String {
+    let Some(state) = state else { return ota_not_configured(); };
+    let (Some(slots), Some(signer_key)) = (state.ota_slots.as_ref(), state.ota_signer_public_key.as_ref()) else {
+        return ota_not_configured();
+    };
+    let policy = state.ota_channel_policy.clone().unwrap_or_default();
+    let payload = payload_value(command).unwrap_or_else(|| serde_json::json!({}));
+    let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("status");
+
+    match action {
+        "status" => {
+            let boot = match slots.reconcile_on_boot() {
+                Ok(b) => b,
+                Err(e) => return serde_json::json!({"status":500,"error":e.to_string(),"endpoint":"ota"}).to_string(),
+            };
+            serde_json::json!({
+                "status": 200,
+                "endpoint": "ota",
+                "action": "status",
+                "boot": boot,
+                "rollout": load_ota_rollout(Some(state)),
+                "channel_policy": policy,
+            }).to_string()
+        }
+        "verify" | "stage" | "install" => {
+            let (bundle, artifact) = match parse_ota_bundle_payload(&payload) {
+                Ok(v) => v,
+                Err(e) => return bad_request(&e),
+            };
+            let committed = slots.load_state().map(|s| s.committed_bundle_version).unwrap_or(0);
+            if let Err(e) = crate::ota::verify_bundle(&bundle, &artifact, signer_key, committed, &policy) {
+                let code = match &e {
+                    crate::ota::OtaError::DowngradeRejected { .. } => "OTA_DOWNGRADE_REJECTED",
+                    crate::ota::OtaError::SignatureInvalid { .. } => "OTA_SIGNATURE_INVALID",
+                    crate::ota::OtaError::ArtifactHashMismatch { .. } | crate::ota::OtaError::ArtifactSizeMismatch { .. } => "OTA_ARTIFACT_INVALID",
+                    crate::ota::OtaError::ChannelRejected { .. } => "OTA_CHANNEL_REJECTED",
+                    _ => "OTA_REJECTED",
+                };
+                return deny(422, code, &e.to_string(), "ota");
+            }
+            if action == "verify" {
+                return serde_json::json!({
+                    "status": 200, "endpoint": "ota", "action": "verify", "verified": true,
+                    "bundle_version": bundle.body.bundle_version, "channel": bundle.body.channel,
+                    "compatibility": bundle.body.compatibility,
+                }).to_string();
+            }
+            // stage/install: A/B + power-loss-safe pointer; not committed healthy yet.
+            match slots.stage_bundle(&bundle, &artifact) {
+                Ok((boot, target)) => serde_json::json!({
+                    "status": 200, "endpoint": "ota", "action": action,
+                    "staged_slot": target.as_str(), "boot": boot,
+                    "bundle_version": bundle.body.bundle_version,
+                    "release_version": bundle.body.release_version,
+                    "channel": bundle.body.channel,
+                    "health_gate_pending": true,
+                }).to_string(),
+                Err(e) => deny(500, "OTA_STAGE_FAILED", &e.to_string(), "ota"),
+            }
+        }
+        "commit" => match slots.commit_pending() {
+            Ok(boot) => serde_json::json!({"status":200,"endpoint":"ota","action":"commit","boot":boot,"outcome":"known_good_promoted"}).to_string(),
+            Err(e) => deny(409, "OTA_COMMIT_FAILED", &e.to_string(), "ota"),
+        },
+        "rollback" => {
+            let reason = payload.get("reason").and_then(|v| v.as_str()).unwrap_or("operator rollback");
+            match slots.rollback(reason) {
+                Ok(boot) => serde_json::json!({"status":200,"endpoint":"ota","action":"rollback","boot":boot}).to_string(),
+                Err(e) => deny(500, "OTA_ROLLBACK_FAILED", &e.to_string(), "ota"),
+            }
+        }
+        "check_skew" => {
+            let peer: std::collections::BTreeMap<tirbase_types::ota::OtaComponent, String> =
+                serde_json::from_value(payload.get("peer_versions").cloned().unwrap_or_default()).unwrap_or_default();
+            let compat: tirbase_types::ota::OtaCompatibility =
+                serde_json::from_value(payload.get("compatibility").cloned().unwrap_or_default()).unwrap_or_default();
+            let body = tirbase_types::ota::OtaBundleBody {
+                bundle_version: 0,
+                release_version: String::new(),
+                channel: tirbase_types::ota::ReleaseChannel::Production,
+                artifact_hash_sha256_hex: "00".repeat(32),
+                artifact_size: 0,
+                compatibility: compat,
+                metadata: std::collections::BTreeMap::new(),
+            };
+            match crate::ota::enforce_version_skew(&peer, &body) {
+                Ok(()) => serde_json::json!({"status":200,"endpoint":"ota","action":"check_skew","compatible":true}).to_string(),
+                Err(crate::ota::OtaError::VersionSkew { error }) => serde_json::json!({
+                    "status": 409,
+                    "endpoint": "ota",
+                    "action": "check_skew",
+                    "compatible": false,
+                    "error": "VERSION_SKEW",
+                    "skew": error,
+                }).to_string(),
+                Err(e) => deny(400, "OTA_SKEW_CHECK_FAILED", &e.to_string(), "ota"),
+            }
+        }
+        "rollout_start" => {
+            let rollout_id = payload.get("rollout_id").and_then(|v| v.as_str()).unwrap_or("rollout").to_string();
+            let bundle_version = payload.get("bundle_version").and_then(|v| v.as_u64()).unwrap_or(0);
+            let target_count = payload.get("target_count").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let gates = payload.get("health_gates").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let health_gates: Vec<crate::ota::HealthGate> = gates.into_iter().filter_map(|g| {
+                Some(crate::ota::HealthGate {
+                    name: g.get("name")?.as_str()?.to_string(),
+                    required: g.get("required").and_then(|r| r.as_bool()).unwrap_or(true),
+                })
+            }).collect();
+            let mut ctrl = crate::ota::RolloutController { state: load_ota_rollout(Some(state)) };
+            ctrl.start(rollout_id, bundle_version, target_count, if health_gates.is_empty() {
+                vec![crate::ota::HealthGate { name: "boot".into(), required: true }, crate::ota::HealthGate { name: "health".into(), required: true }]
+            } else { health_gates });
+            let st = ctrl.state.clone().unwrap();
+            if let Err(e) = save_ota_rollout(Some(state), &st) { return deny(500, "OTA_STATE_WRITE_FAILED", &e, "ota"); }
+            serde_json::json!({"status":200,"endpoint":"ota","action":"rollout_start","rollout":st}).to_string()
+        }
+        "rollout_health" => {
+            let healthy = payload.get("healthy").and_then(|v| v.as_bool()).unwrap_or(false);
+            let mut ctrl = crate::ota::RolloutController { state: load_ota_rollout(Some(state)) };
+            let result = ctrl.record_health(healthy);
+            if let Some(st) = ctrl.state.clone() { let _ = save_ota_rollout(Some(state), &st); }
+            match result {
+                Ok(()) => serde_json::json!({"status":200,"endpoint":"ota","action":"rollout_health","rollout":ctrl.state}).to_string(),
+                Err(e) => {
+                    // automatic pause on health gate failure
+                    serde_json::json!({"status":409,"endpoint":"ota","action":"rollout_health","error":"ROLLOUT_AUTO_PAUSED","detail":e.to_string(),"rollout":ctrl.state}).to_string()
+                }
+            }
+        }
+        "rollout_gate" => {
+            let gate = payload.get("gate").and_then(|v| v.as_str()).unwrap_or("");
+            let mut ctrl = crate::ota::RolloutController { state: load_ota_rollout(Some(state)) };
+            if let Err(e) = ctrl.satisfy_gate(gate) { return deny(409, "OTA_ROLLOUT_ERROR", &e.to_string(), "ota"); }
+            if let Some(st) = ctrl.state.clone() { let _ = save_ota_rollout(Some(state), &st); }
+            serde_json::json!({"status":200,"endpoint":"ota","action":"rollout_gate","rollout":ctrl.state}).to_string()
+        }
+        "rollout_advance" => {
+            let mut ctrl = crate::ota::RolloutController { state: load_ota_rollout(Some(state)) };
+            match ctrl.advance() {
+                Ok(exposure) => {
+                    if let Some(st) = ctrl.state.clone() { let _ = save_ota_rollout(Some(state), &st); }
+                    serde_json::json!({"status":200,"endpoint":"ota","action":"rollout_advance","exposure_percent":exposure,"rollout":ctrl.state}).to_string()
+                }
+                Err(e) => {
+                    if let Some(st) = ctrl.state.clone() { let _ = save_ota_rollout(Some(state), &st); }
+                    serde_json::json!({"status":409,"endpoint":"ota","action":"rollout_advance","error":"ROLLOUT_PAUSED","detail":e.to_string(),"rollout":ctrl.state}).to_string()
+                }
+            }
+        }
+        "rollout_pause" => {
+            let reason = payload.get("reason").and_then(|v| v.as_str()).unwrap_or("paused");
+            let mut ctrl = crate::ota::RolloutController { state: load_ota_rollout(Some(state)) };
+            let _ = ctrl.pause(reason);
+            if let Some(st) = ctrl.state.clone() { let _ = save_ota_rollout(Some(state), &st); }
+            serde_json::json!({"status":200,"endpoint":"ota","action":"rollout_pause","rollout":ctrl.state}).to_string()
+        }
+        _ => bad_request("unknown ota action (status|verify|stage|install|commit|rollback|check_skew|rollout_start|rollout_health|rollout_gate|rollout_advance|rollout_pause)"),
+    }
 }
 
 

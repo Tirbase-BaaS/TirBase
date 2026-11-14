@@ -337,6 +337,36 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub flash_budget_data_path: Option<PathBuf>,
 
+ /// F-07: occupancy budget for primary.db + derived.db (default 8 GiB).
+    #[serde(default = "default_ledger_storage_budget_bytes")]
+    pub ledger_storage_budget_bytes: u64,    /// F-07: occupancy budget for the signed archive directory (default 32 GiB).
+    #[serde(default = "default_archive_storage_budget_bytes")]
+    pub archive_storage_budget_bytes: u64,
+
+    // ── OTA / release channels / staged rollout (F-11) ───────────────────────
+    /// Directory holding OTA state: `boot.json` (A/B pointer, power-loss-safe)
+    /// and staged slot contents. When unset, OTA endpoints report unconfigured.
+    #[serde(default)]
+    pub ota_state_dir: Option<PathBuf>,
+
+    /// Hex Ed25519 public key used to verify signed OTA bundles (F-11).
+    /// Falls back to `update_signer_public_key_hex` when unset.
+    #[serde(default)]
+    pub ota_signer_public_key_hex: Option<String>,
+
+    /// Allowed release channels for this device (dev, staging, pilot, production).
+    /// `tenant_pinned` is allowed only when it matches `ota_tenant_id`.
+    #[serde(default = "default_ota_channels")]
+    pub ota_allowed_channels: Vec<String>,
+
+    /// Tenant id for tenant-pinned release channels.
+    #[serde(default)]
+    pub ota_tenant_id: Option<String>,
+
+    /// Persisted rollout state file (staged rollout / health gates / auto-pause).
+    #[serde(default)]
+    pub ota_rollout_state_path: Option<PathBuf>,
+
  /// Cloud-anchor endpoint that receives checkpoint-hash reports and returns
  /// signed acknowledgements (26.7a, PV-7.10). `None` disables cloud
  /// anchoring. Must be set together with `cloud_anchor_did` and
@@ -479,6 +509,12 @@ impl GatewayConfig {
         }
         if self.flash_budget_bytes_per_day == 0 {
             bail!("gateway config schema validation failed: flash_budget_bytes_per_day must be >= 1");
+        }
+        if self.ledger_storage_budget_bytes == 0 {
+            bail!("gateway config schema validation failed: ledger_storage_budget_bytes must be >= 1");
+        }
+        if self.archive_storage_budget_bytes == 0 {
+            bail!("gateway config schema validation failed: archive_storage_budget_bytes must be >= 1");
         }
         let cloud_anchor_settings = [
             self.cloud_anchor_endpoint.is_some(),
@@ -727,12 +763,30 @@ fn default_enrollment_token_ttl_secs() -> u64 {
 fn default_enrollment_nonce_retention_secs() -> i64 {
     72 * 60 * 60
 }
+
+fn default_ota_channels() -> Vec<String> {
+    vec![
+        "dev".into(),
+        "staging".into(),
+        "pilot".into(),
+        "production".into(),
+    ]
+}
+
 fn default_cloud_anchor_interval_secs() -> u64 {
     60
 }
 
 fn default_flash_budget_bytes_per_day() -> u64 {
     100 * 1024 * 1024
+}
+
+fn default_ledger_storage_budget_bytes() -> u64 {
+    8 * 1024 * 1024 * 1024
+}
+
+fn default_archive_storage_budget_bytes() -> u64 {
+    32 * 1024 * 1024 * 1024
 }
 
 fn default_enrollment_nonce_capacity() -> usize {
