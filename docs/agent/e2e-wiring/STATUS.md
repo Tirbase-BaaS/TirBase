@@ -771,7 +771,7 @@ Commit for this workstream: the commit that adds this section
 ## 5. Handoff
 
 - Charter: `docs/agent/e2e-wiring/00-charter.md`.
-- WS1 foundation commit: `08a2156` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions.
+- WS1 foundation commit: `6934151` (`test(core,sdk,ci): wire e2e foundations and inventory wiring gaps`), 14 files, 1181 insertions / 438 deletions. (`08a2156` is the pre-rewrite object for the same change and is not an ancestor of HEAD.)
 - Post-commit verification: `cargo test -p tirbase-core --features native` → 718 lib passed, 0 failed; `cargo test -p tirbase-gateway` → all suites pass; `npx jest` → 90/90; `cargo check --target wasm32-unknown-unknown --features wasm` → clean.
 - WS2 (prompt 2 of 8) closed INV-12/INV-27/INV-28; see §3.1 for its evidence and CI jobs. §3.2 records the follow-up
   that authenticated `initiate_revocation`, §3.3 the DISASTER_ALERT issuance path, §3.4 the gateway SDK transports

@@ -83,7 +83,7 @@ path is proven by
 in-memory SQLite store, confirming data is readable before acknowledgment.
 Live K-of-N Tier-1 durability with genuine device-signed receipt exchange over
 real loopback Swarm is proven by
-`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}`
+`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_via_genuine_receipt_exchange}`
 (CI real-mesh suite).
 
 ---
@@ -118,7 +118,7 @@ proven by
 `prop_08_contamination_propagates_to_all_descendants` passes 200 cases (in-process DAG/tag proof).
 Production real-mesh e2e proof: revoked-author taint propagation, descendant
 tags/events and human-reaction join are exercised in
-`api::contamination_mesh_tests::{revoked_author_taint_propagates_and_events_emitted,receiver_deltas_become_tainted_descendants,human_reaction_joins_independently_tainted_chain}`
+`api::contamination_mesh_tests::{revoked_author_over_real_mesh_taints_descendants_appends_tags_and_emits_events,human_reaction_write_on_contaminated_row_over_real_mesh_joins_open_ico}`
 (CI real-mesh suite).
 
 ---
@@ -129,7 +129,7 @@ tags/events and human-reaction join are exercised in
 
 `prop_09_contaminated_tag_persists_until_all_roots_resolved` (in-process).
 Real-mesh composite decompose/decontaminate and append-only tag behavior are
-exercised in `api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`
+exercised in `api::contamination_mesh_tests::composite_incident_over_real_mesh_merges_decomposes_and_decontaminates`
 (CI real-mesh suite).
 
 `prop_09_contaminated_tag_persists_until_all_roots_resolved` passes 200 cases
@@ -156,7 +156,7 @@ log length is non-decreasing and no entry is modified or removed.
 
 `prop_11_composite_incident_formation_on_dag_overlap` (in-process). Composite
 ICO formation/merge/decompose over real mesh is proven by
-`api::contamination_mesh_tests::composite_ico_merge_decompose_and_decontaminate_over_mesh`
+`api::contamination_mesh_tests::composite_incident_over_real_mesh_merges_decomposes_and_decontaminates`
 (CI real-mesh suite).
 
 `prop_11_composite_incident_formation_on_dag_overlap` passes 200 cases,
@@ -191,7 +191,7 @@ within 10 epochs.
 `prop_14_tier1_quorum_detection` passes 200 cases with real Ed25519-signed
 receipts. Live K-of-N quorum with genuine device-signed receipt exchange over
 real loopback Swarm is proven by
-`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_durability_via_genuine_receipt_exchange}`
+`api::real_mesh_tests::{two_devices_reach_tier1_durability_via_genuine_receipt_exchange,three_peers_reach_tier1_via_genuine_receipt_exchange}`
 and related receipt/quorum cases (CI: `Real-mesh e2e (two-Swarm loopback through production inbound path)` with `--test-threads=1`).
 
 ---
@@ -267,7 +267,7 @@ and M-of-N termination events is provided by
 **Production/mesh e2e wiring (CI):** activation, bounded renewal, and M-of-N
 termination (threshold met and below-threshold preserved) are proven over real
 Swarm-backed `CoreHandle` instances in
-`api::revocation_saturate_mesh_tests::{saturate_mode_activation_propagates_via_saturate_delta,saturate_renewal_is_bounded_and_requires_valid_tokens,saturate_termination_m_of_n_collected_over_real_mesh,saturate_termination_below_threshold_preserves_mode_over_mesh}`
+`api::revocation_saturate_mesh_tests::{saturate_activation_routes_high_only_and_holds_medium_low,saturate_renewal_is_bounded_and_requires_valid_tokens,saturate_termination_m_of_n_collected_over_real_mesh,saturate_termination_below_threshold_preserves_mode_over_mesh}`
 (CI: `Real-mesh e2e (two-Swarm loopback through production inbound path)` with `--test-threads=1`). Transport/CoreHandle lifecycle wiring is also covered by
 `transport::tests::renew_saturate_*`, `transport::tests::terminate_saturate_mode_*`,
 and `api::tests::saturate_mode_lifecycle_routes_through_state_machine_and_scheduler`,
