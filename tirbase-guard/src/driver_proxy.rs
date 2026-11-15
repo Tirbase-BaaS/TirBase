@@ -59,7 +59,7 @@ use tirbase_drivers::{
 /// admitted, permit-bearing frame to the device fd.
 #[derive(Debug)]
 pub struct DriverProxy<W: Write + Send> {
- /// Guard-owned write end (fd0 / socketpair) to the device/driver boundary.
+    /// Guard-owned write end (fd0 / socketpair) to the device/driver boundary.
     device: W,
 }
 
@@ -68,11 +68,11 @@ impl<W: Write + Send> DriverProxy<W> {
         DriverProxy { device }
     }
 
- /// Consume `permit` and write `frame` to the device fd.
- ///
- /// The permit is consumed here so it cannot be reused (single-use). The
- /// caller (guard pipeline Stage 18) is responsible for encoding the frame;
- /// drivers perform encode/decode only on plain types from `tirbase-types`.
+    /// Consume `permit` and write `frame` to the device fd.
+    ///
+    /// The permit is consumed here so it cannot be reused (single-use). The
+    /// caller (guard pipeline Stage 18) is responsible for encoding the frame;
+    /// drivers perform encode/decode only on plain types from `tirbase-types`.
     pub fn dispatch(
         &mut self,
         permit: ActuationPermit,
@@ -91,7 +91,7 @@ impl<W: Write + Send> DriverProxy<W> {
         Ok(permit_ref)
     }
 
- /// Access the underlying device writer (crate-internal tests/diagnostics).
+    /// Access the underlying device writer (crate-internal tests/diagnostics).
     #[allow(dead_code)]
     pub(crate) fn device_mut(&mut self) -> &mut W {
         &mut self.device
@@ -104,20 +104,20 @@ impl<W: Write + Send> DriverProxy<W> {
 #[cfg(unix)]
 #[derive(Debug, Clone)]
 pub struct ChildDriverConfig {
- /// Driver child executable (the sandboxed codec process).
+    /// Driver child executable (the sandboxed codec process).
     pub program: PathBuf,
- /// Extra child arguments; the socket fd argument is appended by the proxy.
+    /// Extra child arguments; the socket fd argument is appended by the proxy.
     pub args: Vec<String>,
- /// Guard-owned device fd handed to the child via `SCM_RIGHTS` after the
- /// peer credentials have been verified. `None` starts a child with no
- /// device handoff (no `SCM_RIGHTS` message is sent).
+    /// Guard-owned device fd handed to the child via `SCM_RIGHTS` after the
+    /// peer credentials have been verified. `None` starts a child with no
+    /// device handoff (no `SCM_RIGHTS` message is sent).
     pub device_fd: Option<RawFd>,
- /// Signed config decision permitting a degraded (no landlock) sandbox.
+    /// Signed config decision permitting a degraded (no landlock) sandbox.
     pub degraded_isolation_opt_in: bool,
- /// Expected peer uid; `None` means the guard's effective uid.
+    /// Expected peer uid; `None` means the guard's effective uid.
     pub expected_peer_uid: Option<u32>,
- /// Pipe the child's stdout/stderr instead of inheriting them (tests and
- /// diagnostics only; production inherits so child logs reach the journal).
+    /// Pipe the child's stdout/stderr instead of inheriting them (tests and
+    /// diagnostics only; production inherits so child logs reach the journal).
     pub capture_output: bool,
 }
 
@@ -125,9 +125,9 @@ pub struct ChildDriverConfig {
 #[cfg(unix)]
 #[derive(Debug)]
 pub enum DriverSupervisionError {
- /// socketpair / SCM_RIGHTS / peercred failure from `tirbase-drivers`.
+    /// socketpair / SCM_RIGHTS / peercred failure from `tirbase-drivers`.
     Isolation(IsolationError),
- /// The child process could not be started.
+    /// The child process could not be started.
     Spawn(io::Error),
 }
 
@@ -185,18 +185,18 @@ impl Read for DriverChildSocket {
 
 #[cfg(unix)]
 impl DriverProxy<DriverChildSocket> {
- /// Spawns the persistent driver child and returns its supervisor.
- ///
- /// Steps (CLAIM-33.5/33.6/33.7), in order:
- /// 1. `socketpair(AF_UNIX, SOCK_SEQPACKET)` — the guard keeps `parent_fd`.
- /// 2. Spawn the child with the inherited `child_fd` fd number; the child
- /// closes the guard end before `execve`.
- /// 3. Verify `SO_PEERCRED` on the guard end (Linux) before any write; a
- /// mismatch aborts the spawn and kills the child.
- /// 4. Pass the guard-owned device fd via `SCM_RIGHTS` when configured.
- ///
- /// The child applies its own seccomp/landlock sandbox before parsing the
- /// first frame (CLAIM-33.6).
+    /// Spawns the persistent driver child and returns its supervisor.
+    ///
+    /// Steps (CLAIM-33.5/33.6/33.7), in order:
+    /// 1. `socketpair(AF_UNIX, SOCK_SEQPACKET)` — the guard keeps `parent_fd`.
+    /// 2. Spawn the child with the inherited `child_fd` fd number; the child
+    /// closes the guard end before `execve`.
+    /// 3. Verify `SO_PEERCRED` on the guard end (Linux) before any write; a
+    /// mismatch aborts the spawn and kills the child.
+    /// 4. Pass the guard-owned device fd via `SCM_RIGHTS` when configured.
+    ///
+    /// The child applies its own seccomp/landlock sandbox before parsing the
+    /// first frame (CLAIM-33.6).
     pub fn spawn_child(
         config: &ChildDriverConfig,
         lifecycle: DriverLifecycle,
@@ -218,21 +218,19 @@ type ChildParts = (DriverProxy<DriverChildSocket>, Child, Option<(u32, i32)>);
 
 /// Builds the socketpair, child, peer credential check and fd handoff.
 #[cfg(unix)]
-fn spawn_child_parts(
-    config: &ChildDriverConfig,
-) -> Result<ChildParts, DriverSupervisionError> {
+fn spawn_child_parts(config: &ChildDriverConfig) -> Result<ChildParts, DriverSupervisionError> {
     let pair = create_driver_socketpair()?;
- // SAFETY: both fds were just returned by socketpair and are owned here.
+    // SAFETY: both fds were just returned by socketpair and are owned here.
     let parent_end = unsafe { OwnedFd::from_raw_fd(pair.parent_fd) };
- // SAFETY: as above.
+    // SAFETY: as above.
     let child_end = unsafe { OwnedFd::from_raw_fd(pair.child_fd) };
     let parent_fd = parent_end.as_raw_fd();
     let child_fd = child_end.as_raw_fd();
 
     let mut command = Command::new(&config.program);
     command
- // Child mode/args come first so the fd flag is never mistaken for the
- // child's mode selector.
+        // Child mode/args come first so the fd flag is never mistaken for the
+        // child's mode selector.
         .args(&config.args)
         .arg(tirbase_drivers::DRIVER_SOCKET_FD_ARG)
         .arg(child_fd.to_string())
@@ -251,8 +249,8 @@ fn spawn_child_parts(
     {
         use std::os::unix::process::CommandExt;
         let guard_end_fd = parent_end.as_raw_fd();
- // SAFETY: `close` is async-signal-safe and the child has no other
- // threads or shared locks here. The child must not keep the guard end.
+        // SAFETY: `close` is async-signal-safe and the child has no other
+        // threads or shared locks here. The child must not keep the guard end.
         unsafe {
             command.pre_exec(move || {
                 if libc::close(guard_end_fd) != 0 {
@@ -266,7 +264,7 @@ fn spawn_child_parts(
         Ok(child) => child,
         Err(e) => return Err(DriverSupervisionError::Spawn(e)),
     };
- // The guard must not keep the child end open, or the child never sees EOF.
+    // The guard must not keep the child end open, or the child never sees EOF.
     drop(child_end);
 
     let expected_uid = config
@@ -280,8 +278,8 @@ fn spawn_child_parts(
                 IsolationError::PeerCredential(format!("invalid peer pid {}", cred.1)),
             ));
         }
- // Non-Linux targets have no SO_PEERCRED; the platform limitation is
- // reported by verify_peercred and recorded here as an absent check.
+        // Non-Linux targets have no SO_PEERCRED; the platform limitation is
+        // reported by verify_peercred and recorded here as an absent check.
         Err(IsolationError::SandboxUnavailable { .. }) if !cfg!(target_os = "linux") => None,
         Err(e) => {
             terminate_child(&mut child);
@@ -289,8 +287,8 @@ fn spawn_child_parts(
         }
     };
 
- // Peer identity verified: only now may the guard write to the socket, and
- // the first write is the device fd handed over via SCM_RIGHTS.
+    // Peer identity verified: only now may the guard write to the socket, and
+    // the first write is the device fd handed over via SCM_RIGHTS.
     if let Some(device_fd) = config.device_fd {
         if let Err(e) = send_fd_via_scm_rights(parent_fd, device_fd) {
             terminate_child(&mut child);
@@ -301,7 +299,7 @@ fn spawn_child_parts(
     Ok((
         DriverProxy {
             device: DriverChildSocket {
- // The guard end is owned by the proxy from here on.
+                // The guard end is owned by the proxy from here on.
                 file: parent_end.into(),
             },
         },
@@ -329,14 +327,14 @@ pub struct SupervisedDriver {
 
 #[cfg(unix)]
 impl SupervisedDriver {
- /// Spawns the driver child with the default restart policy (1s initial,
- /// 60s max, 5 retries).
+    /// Spawns the driver child with the default restart policy (1s initial,
+    /// 60s max, 5 retries).
     pub fn start(config: ChildDriverConfig) -> Result<Self, DriverSupervisionError> {
         DriverProxy::spawn_child(&config, DriverLifecycle::default())
     }
 
- /// Spawns the driver child with an explicit restart policy (tests and
- /// deployments that need a tighter backoff window).
+    /// Spawns the driver child with an explicit restart policy (tests and
+    /// deployments that need a tighter backoff window).
     pub fn start_with_lifecycle(
         config: ChildDriverConfig,
         lifecycle: DriverLifecycle,
@@ -348,13 +346,13 @@ impl SupervisedDriver {
         self.child.id()
     }
 
- /// `SO_PEERCRED` (uid, pid) captured before the first write. `None` on
- /// platforms without `SO_PEERCRED` (non-Linux).
+    /// `SO_PEERCRED` (uid, pid) captured before the first write. `None` on
+    /// platforms without `SO_PEERCRED` (non-Linux).
     pub fn peer_credentials(&self) -> Option<(u32, i32)> {
         self.peer
     }
 
- /// Consume `permit` and write `frame` to the driver child socket.
+    /// Consume `permit` and write `frame` to the driver child socket.
     pub fn dispatch(
         &mut self,
         permit: ActuationPermit,
@@ -376,14 +374,14 @@ impl SupervisedDriver {
         self.proxy.dispatch(permit, frame)
     }
 
- /// The guard-owned proxy for this child, so admitted frames reach it
- /// through the normal `CommandGuard::admit()` path.
+    /// The guard-owned proxy for this child, so admitted frames reach it
+    /// through the normal `CommandGuard::admit()` path.
     pub fn proxy_mut(&mut self) -> &mut DriverProxy<DriverChildSocket> {
         &mut self.proxy
     }
 
- /// Read a driver response frame (read-back from the codec child), bounded
- /// by `timeout` so a wedged child cannot block the guard pipeline.
+    /// Read a driver response frame (read-back from the codec child), bounded
+    /// by `timeout` so a wedged child cannot block the guard pipeline.
     pub fn receive_with_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> io::Result<usize> {
         let fd = self.proxy.device.raw_fd();
         let mut pfd = libc::pollfd {
@@ -392,7 +390,7 @@ impl SupervisedDriver {
             revents: 0,
         };
         let millis = timeout.as_millis().min(i32::MAX as u128) as i32;
- // SAFETY: `pfd` is a valid pollfd for one descriptor.
+        // SAFETY: `pfd` is a valid pollfd for one descriptor.
         let rc = unsafe { libc::poll(&mut pfd, 1, millis) };
         if rc < 0 {
             return Err(io::Error::last_os_error());
@@ -406,17 +404,17 @@ impl SupervisedDriver {
         self.proxy.device.read(buf)
     }
 
- /// Non-blocking child exit probe used by the supervision loop.
+    /// Non-blocking child exit probe used by the supervision loop.
     pub fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
         self.child.try_wait()
     }
 
- /// Take the child's piped stdout (only when `capture_output` was set).
+    /// Take the child's piped stdout (only when `capture_output` was set).
     pub fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.child.stdout.take()
     }
 
- /// Resets crash accounting after a stable child period.
+    /// Resets crash accounting after a stable child period.
     pub fn note_stable(&mut self) {
         self.lifecycle.record_stable();
     }
@@ -425,11 +423,11 @@ impl SupervisedDriver {
         self.lifecycle.consecutive_crashes()
     }
 
- /// Records a child crash, reports the decision to `supervisor`, and respawns
- /// the child after the computed backoff when the decision is `Restart`.
- ///
- /// On `EscalateLockdown` the child is left terminated so the caller can
- /// apply LOCKDOWN; the decision is also reported to the supervisor.
+    /// Records a child crash, reports the decision to `supervisor`, and respawns
+    /// the child after the computed backoff when the decision is `Restart`.
+    ///
+    /// On `EscalateLockdown` the child is left terminated so the caller can
+    /// apply LOCKDOWN; the decision is also reported to the supervisor.
     pub fn restart_after_crash<S: DriverCrashSupervisor + ?Sized>(
         &mut self,
         supervisor: &S,
@@ -447,7 +445,7 @@ impl SupervisedDriver {
         Ok(decision)
     }
 
- /// Terminates the child (shutdown / after LOCKDOWN escalation).
+    /// Terminates the child (shutdown / after LOCKDOWN escalation).
     pub fn terminate(&mut self) {
         terminate_child(&mut self.child);
     }

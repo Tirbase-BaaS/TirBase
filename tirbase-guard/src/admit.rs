@@ -50,11 +50,11 @@ pub struct ChallengeNonce {
     pub device_id: String,
     pub param: String,
     pub nonce: [u8; 32],
- /// Monotonic issuance time in seconds.
+    /// Monotonic issuance time in seconds.
     pub issued_at_mono: i64,
- /// Monotonic expiry time in seconds.
+    /// Monotonic expiry time in seconds.
     pub expires_at_mono: i64,
- /// Binding fields carried for durable storage and Stage 9 consumption.
+    /// Binding fields carried for durable storage and Stage 9 consumption.
     pub issuer_did: String,
     pub target_id: String,
 }
@@ -88,7 +88,7 @@ pub trait DriftHistoryStore: Send + Sync + std::fmt::Debug {
         param: &str,
         since_mono_secs: i64,
     ) -> Result<Vec<DriftRecord>, String>;
- /// Best-effort dwell/min-off timing lookup (default: no DB timing info).
+    /// Best-effort dwell/min-off timing lookup (default: no DB timing info).
     fn timing_summary(
         &self,
         _target_id: &str,
@@ -116,9 +116,9 @@ pub trait DecidedOutcomeStore: Send + Sync + std::fmt::Debug {
 }
 pub trait ChallengeNonceStore: Send + Sync + std::fmt::Debug {
     fn insert(&self, nonce: &ChallengeNonce) -> Result<(), String>;
- /// Consume a nonce once. Returns `Ok(true)` only when the nonce exists, is
- /// unconsumed, not expired, and matches the command binding. When `consume`
- /// is false, the check must not mutate durable state (`simulate()` path).
+    /// Consume a nonce once. Returns `Ok(true)` only when the nonce exists, is
+    /// unconsumed, not expired, and matches the command binding. When `consume`
+    /// is false, the check must not mutate durable state (`simulate()` path).
     fn consume_if_valid(
         &self,
         nonce: &[u8; 32],
@@ -230,7 +230,7 @@ pub struct AdmitContext<'a> {
 #[derive(Debug)]
 struct TokenBucket {
     tokens: f64,
- /// Last refill in the injected monotonic domain, microseconds (PV-3.12).
+    /// Last refill in the injected monotonic domain, microseconds (PV-3.12).
     last_micros: u64,
     capacity: f64,
     refill_per_sec: f64,
@@ -300,9 +300,9 @@ impl RateLimiters {
         b.try_take()
     }
 
- /// Non-consuming snapshot of an issuer's token bucket for the Guard status
- /// API (PV-24.3, /36.7). Returns `None` when no bucket exists
- /// yet (the issuer has not sent a command in this process).
+    /// Non-consuming snapshot of an issuer's token bucket for the Guard status
+    /// API (PV-24.3, /36.7). Returns `None` when no bucket exists
+    /// yet (the issuer has not sent a command in this process).
     pub fn issuer_tokens(&self, issuer_did: &str) -> Option<(f64, f64)> {
         let map = match self.per_issuer.lock() {
             Ok(g) => g,
@@ -402,13 +402,13 @@ impl AdmitPipelineState {
         self.max_ttl_secs
             .store(secs.max(0) as u64, Ordering::Relaxed);
     }
- /// PV-24.3 (36.7): snapshot the per-issuer token bucket for the
- /// Guard status API without consuming a token.
+    /// PV-24.3 (36.7): snapshot the per-issuer token bucket for the
+    /// Guard status API without consuming a token.
     pub fn issuer_rate_limit_snapshot(&self, issuer_did: &str) -> Option<(f64, f64)> {
         self.rate_limiters.issuer_tokens(issuer_did)
     }
 
- /// Configured per-issuer rate (commands/second).
+    /// Configured per-issuer rate (commands/second).
     pub fn issuer_rate_limit_per_sec(&self) -> u32 {
         self.issuer_rps.load(Ordering::Relaxed) as u32
     }
@@ -458,8 +458,8 @@ impl AdmitPipelineState {
             g.insert((target_id.to_string(), param.to_string()), value);
         }
     }
- /// Backward-compatible issuance path. Prefer `issue_challenge_nonce_for_device`
- /// so the durable `ChallengeNonce` carries `device_id` (CLAIM-16.1).
+    /// Backward-compatible issuance path. Prefer `issue_challenge_nonce_for_device`
+    /// so the durable `ChallengeNonce` carries `device_id` (CLAIM-16.1).
     pub fn issue_challenge_nonce(
         &self,
         issuer_did: &str,
@@ -471,10 +471,10 @@ impl AdmitPipelineState {
             .unwrap_or([0u8; 32])
     }
 
- /// Issue a single-use challenge nonce (CLAIM-16.1/16.3/16.4, PV-22.3).
- /// The nonce is persisted through `challenge_store` when configured and
- /// mirrored in-memory for local tests; consumption is enforced once in Stage 9.
- /// Enforces per-device issuance rate limiting (S32/16.4) before issuance.
+    /// Issue a single-use challenge nonce (CLAIM-16.1/16.3/16.4, PV-22.3).
+    /// The nonce is persisted through `challenge_store` when configured and
+    /// mirrored in-memory for local tests; consumption is enforced once in Stage 9.
+    /// Enforces per-device issuance rate limiting (S32/16.4) before issuance.
     pub fn issue_challenge_nonce_for_device(
         &self,
         device_id: &str,
@@ -554,8 +554,8 @@ impl AdmitPipelineState {
         }
     }
 
- /// Per-device challenge issuance rate limit (S32/CLAIM-16.4). The key is
- /// `(device_id, target_id, param)`; default max 5 requests/minute.
+    /// Per-device challenge issuance rate limit (S32/CLAIM-16.4). The key is
+    /// `(device_id, target_id, param)`; default max 5 requests/minute.
     pub fn check_challenge_issue_rate_limit(
         &self,
         device_id: &str,
@@ -599,7 +599,7 @@ impl AdmitPipelineState {
         &self.time_source
     }
 
- /// Freshness evaluation for admin/challenge issuance (PV-22.3).
+    /// Freshness evaluation for admin/challenge issuance (PV-22.3).
     pub fn freshness_state(&self) -> FreshnessState {
         match self.ratchet.lock() {
             Ok(r) => r.freshness(self.time_source.as_ref()),
@@ -653,7 +653,7 @@ pub fn admit_stages_0_to_15(
     device_id_for_epoch: Option<&str>,
 ) -> AdmitDecision {
     let simulate = ctx.simulate;
- // Stage 0: pre-auth per-source rate limit (before any cryptographic operation)
+    // Stage 0: pre-auth per-source rate limit (before any cryptographic operation)
     let pre_rps = pipeline.pre_auth_rps.load(Ordering::Relaxed) as u32;
     if !pipeline
         .rate_limiters
@@ -668,7 +668,7 @@ pub fn admit_stages_0_to_15(
         );
     }
 
- // Stage 1: OperationalMode check
+    // Stage 1: OperationalMode check
     let mode = node_mode.get();
     if !mode.allows_commands() {
         return reject(
@@ -679,7 +679,7 @@ pub fn admit_stages_0_to_15(
         );
     }
 
- // Stage 2: command signature
+    // Stage 2: command signature
     if let Err(e) = verify_command_signature(cmd) {
         return reject(
             AdmitRejection::InvalidSignature,
@@ -689,7 +689,7 @@ pub fn admit_stages_0_to_15(
         );
     }
 
- // Stage 3 + 4: Biscuit token verification and binding
+    // Stage 3 + 4: Biscuit token verification and binding
     let (now_est, freshness) = {
         let ratchet = match pipeline.ratchet.lock() {
             Ok(g) => g,
@@ -749,7 +749,7 @@ pub fn admit_stages_0_to_15(
             }
         }
     };
- // Stage 4: derive role from token (never cmd.role), bind scope/DID
+    // Stage 4: derive role from token (never cmd.role), bind scope/DID
     if claims.did != cmd.issuer_did.as_str() {
         return reject(
             AdmitRejection::ScopeViolation,
@@ -762,10 +762,10 @@ pub fn admit_stages_0_to_15(
             &cmd.target_id,
         );
     }
- // CLAIM-56.1 / : command admission is authorized by the table-driven
- // `AUTHORIZATION_MATRIX` (the single source of truth), not by an ad-hoc role
- // comparison. Every `—` cell therefore denies with a typed matrix error that
- // is surfaced here as `ScopeViolation`.
+    // CLAIM-56.1 / : command admission is authorized by the table-driven
+    // `AUTHORIZATION_MATRIX` (the single source of truth), not by an ad-hoc role
+    // comparison. Every `—` cell therefore denies with a typed matrix error that
+    // is surfaced here as `ScopeViolation`.
     if let Err(authorization_error) = crate::auth_matrix::check_role_authorization(
         crate::auth_matrix::AuthOperation::SubmitCommand,
         claims.role,
@@ -786,7 +786,7 @@ pub fn admit_stages_0_to_15(
         );
     }
 
- // Stage 5: issuer DID revocation
+    // Stage 5: issuer DID revocation
     if let Ok(rev) = pipeline.revoked_dids.read() {
         if rev.contains(cmd.issuer_did.as_str()) {
             return reject(
@@ -798,7 +798,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 6: device enrollment epoch check
+    // Stage 6: device enrollment epoch check
     if let Some(dev) = device_id_for_epoch {
         if let Err(e) = epochs.check_command_epoch(dev, cmd.enrollment_epoch) {
             let detail = e.to_string();
@@ -811,7 +811,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 6.5: TargetBusy pre-check
+    // Stage 6.5: TargetBusy pre-check
     if let Ok(unk) = pipeline.unknown_targets.read() {
         if unk.contains(cmd.target_id.as_str()) {
             return reject(
@@ -823,7 +823,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 7: decided-outcome cache (memory + optional DB)
+    // Stage 7: decided-outcome cache (memory + optional DB)
     let cache_key = (
         cmd.issuer_did.as_str().to_string(),
         cmd.target_id.as_str().to_string(),
@@ -860,7 +860,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 8: expiry using now_est
+    // Stage 8: expiry using now_est
     let max_ttl = pipeline.max_ttl_secs.load(Ordering::Relaxed) as i64;
     if max_ttl > 0 && cmd.expiry_est.saturating_sub(now_est) > max_ttl {
         return reject(
@@ -882,7 +882,7 @@ pub fn admit_stages_0_to_15(
         );
     }
 
- // Resolve profile/spec for remaining checks
+    // Resolve profile/spec for remaining checks
     let profile = match pipeline.profiles.get(&cmd.target_id).map(|c| c.load_full()) {
         Some(p) => p,
         None => {
@@ -906,7 +906,7 @@ pub fn admit_stages_0_to_15(
         }
     };
 
- // Stage 9: challenge nonce for Unverified + critical
+    // Stage 9: challenge nonce for Unverified + critical
     if freshness == FreshnessState::Unverified && spec.critical {
         let nonce = match cmd.challenge_nonce {
             Some(n) => n,
@@ -947,8 +947,8 @@ pub fn admit_stages_0_to_15(
                         && mono_now >= challenge.issued_at_mono
                         && mono_now <= challenge.expires_at_mono;
                     if valid && !simulate {
- // One-time use (CLAIM-16.1, PV-22.3): remove after first
- // non-simulated consumption. simulate() leaves the nonce.
+                        // One-time use (CLAIM-16.1, PV-22.3): remove after first
+                        // non-simulated consumption. simulate() leaves the nonce.
                         store.remove(&nonce);
                     }
                     valid
@@ -969,7 +969,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 10: FixedPointValue canonical exponent / ParameterKind enforcement (21.11).
+    // Stage 10: FixedPointValue canonical exponent / ParameterKind enforcement (21.11).
     if cmd.desired_state.unit_id != spec.unit_id {
         return reject(
             AdmitRejection::ValueInvalid,
@@ -1022,7 +1022,7 @@ pub fn admit_stages_0_to_15(
         ParameterKind::Range { .. } => {}
     }
 
- // Stage 11: envelope bounds (i128 intermediates)
+    // Stage 11: envelope bounds (i128 intermediates)
     if let ParameterKind::Range { min, max } = &spec.kind {
         match canonical.compare_with_bounds(min, max) {
             Ok(tirbase_types::fixed_point::BoundsCheck::WithinBounds) => {}
@@ -1045,7 +1045,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 12: cross-parameter linear constraints over pending+committed desired-state values.
+    // Stage 12: cross-parameter linear constraints over pending+committed desired-state values.
     let desired = if let Ok(g) = pipeline.desired_state.read() {
         g.clone()
     } else {
@@ -1088,7 +1088,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 13: dwell/min-off interlocks (21.10) + rate-of-change/cumulative drift.
+    // Stage 13: dwell/min-off interlocks (21.10) + rate-of-change/cumulative drift.
     let mono_secs = (pipeline.time_source.monotonic_now() / 1_000_000) as i64;
     let timing_summary = if let Ok(g) = pipeline.drift_store.read() {
         if let Some(store) = g.as_ref() {
@@ -1118,8 +1118,8 @@ pub fn admit_stages_0_to_15(
                 }
             }
         }
- // Min-off (PV-4.7): Bool reactivation (0->1) must wait min_off_secs since
- // last deactivation; last_deactivation_mono is tracked by Stage 16/summary.
+        // Min-off (PV-4.7): Bool reactivation (0->1) must wait min_off_secs since
+        // last deactivation; last_deactivation_mono is tracked by Stage 16/summary.
         if spec.min_off_secs > 0
             && matches!(spec.kind, ParameterKind::Bool)
             && canonical.mantissa == 1
@@ -1151,7 +1151,7 @@ pub fn admit_stages_0_to_15(
     if spec.drift_window_secs > 0 || spec.max_rate_per_sec.mantissa != 0 {
         if let Ok(mut hist) = pipeline.drift_history.lock() {
             let q = hist.entry(drift_key.clone()).or_insert_with(VecDeque::new);
- // prune
+            // prune
             let window = spec.drift_window_secs as i64;
             while let Some(front) = q.front() {
                 if window > 0 && mono_secs - front.mono_secs > window {
@@ -1164,7 +1164,7 @@ pub fn admit_stages_0_to_15(
                 let dt = (mono_secs - last.mono_secs).max(1) as i128;
                 let last_v = FixedPointValue::new(last.value_mantissa, last.exponent, last.unit_id);
                 let delta = abs_scaled_diff(&canonical, &last_v);
- // rate check: delta/dt <= max_rate_per_sec (scaled conservatively)
+                // rate check: delta/dt <= max_rate_per_sec (scaled conservatively)
                 if spec.max_rate_per_sec.mantissa > 0 {
                     let max_rate = abs_scaled_value(
                         &spec.max_rate_per_sec,
@@ -1181,7 +1181,7 @@ pub fn admit_stages_0_to_15(
                         );
                     }
                 }
- // cumulative drift
+                // cumulative drift
                 if window > 0 {
                     let mut cum: i128 = 0;
                     let mut prev = last_v;
@@ -1232,7 +1232,7 @@ pub fn admit_stages_0_to_15(
         }
     }
 
- // Stage 14: per-issuer rate limit (skip token consumption in simulate)
+    // Stage 14: per-issuer rate limit (skip token consumption in simulate)
     let issuer_rps = pipeline.issuer_rps.load(Ordering::Relaxed) as u32;
     if !simulate
         && !pipeline
@@ -1243,7 +1243,7 @@ pub fn admit_stages_0_to_15(
         return reject(AdmitRejection::RateLimit, format!("per-issuer rate limit exceeded ({issuer_rps} cmd/s); retry_after_secs={retry_after_secs}"), &cmd.issuer_did, &cmd.target_id);
     }
 
- // Stage 15: quorum for critical parameters (co-signatures and/or pending_approvals provider)
+    // Stage 15: quorum for critical parameters (co-signatures and/or pending_approvals provider)
     if spec.critical {
         let m = profile.policy_loosen_m.max(2) as usize; // conservative default for critical commands
         let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -1279,7 +1279,7 @@ pub fn admit_stages_0_to_15(
                         verified = true;
                     }
                 } else {
- // no trust root configured: accept structurally valid DID-bound signatures by resolving did:key
+                    // no trust root configured: accept structurally valid DID-bound signatures by resolving did:key
                     if let Ok(pk) = tirbase_core::identity::did::resolve_did(&co.signer_did) {
                         if tirbase_core::identity::keypair::verify(
                             &pk,
@@ -1372,7 +1372,7 @@ fn value_at_common(v: &FixedPointValue, common_exp: i8) -> i128 {
 }
 #[allow(dead_code)]
 fn linear_term(v: &FixedPointValue, coeff: &FixedPointValue) -> i128 {
- // compute (v * coeff) approximately in common exponent space: (m1*m2) * 10^(e1+e2-common)
+    // compute (v * coeff) approximately in common exponent space: (m1*m2) * 10^(e1+e2-common)
     let common = v.exponent.min(coeff.exponent);
     let a = scale_to(v.mantissa, v.exponent, common);
     let b = scale_to(coeff.mantissa, coeff.exponent, common);

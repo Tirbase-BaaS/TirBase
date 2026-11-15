@@ -32,13 +32,13 @@ pub struct ActuationPermit {
     pub(crate) param: String,
     pub(crate) value: FixedPointValue,
     pub(crate) entry_id: [u8; 16],
- /// Private field: prevents construction outside this crate, even though the
- /// struct is `pub`.
+    /// Private field: prevents construction outside this crate, even though the
+    /// struct is `pub`.
     _sealed: (),
 }
 
 impl ActuationPermit {
- /// Create a permit. `pub(crate)` — only the guard pipeline may mint one.
+    /// Create a permit. `pub(crate)` — only the guard pipeline may mint one.
     pub(crate) fn new(
         target_id: TargetId,
         param: String,
@@ -70,7 +70,7 @@ impl ActuationPermit {
         &self.entry_id
     }
 
- /// Consume the permit and return the plain data view sent to drivers.
+    /// Consume the permit and return the plain data view sent to drivers.
     pub fn into_ref(self) -> ActuationPermitRef {
         ActuationPermitRef {
             target_id: self.target_id,

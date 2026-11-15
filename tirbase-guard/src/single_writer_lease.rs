@@ -14,11 +14,11 @@ use tirbase_types::Did;
 pub struct SingleWriterLease {
     pub issuer_did: Did,
     pub target_id: String,
- /// Monotonic expiry (`CLOCK_BOOTTIME` domain seconds in gateway persistence).
+    /// Monotonic expiry (`CLOCK_BOOTTIME` domain seconds in gateway persistence).
     pub expires_mono_secs: i64,
     pub consecutive_renewals: u32,
- /// Monotonic cooldown deadline; while `Some(t)` and `now_mono < t` the same
- /// issuer cannot re-acquire (S21 / CLAIM-21.4).
+    /// Monotonic cooldown deadline; while `Some(t)` and `now_mono < t` the same
+    /// issuer cannot re-acquire (S21 / CLAIM-21.4).
     pub cooldown_until_mono_secs: Option<i64>,
 }
 

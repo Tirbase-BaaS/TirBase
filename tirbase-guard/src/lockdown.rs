@@ -377,8 +377,8 @@ pub fn apply_chain_recovery(
         return Err(e.into());
     }
 
- // 26.2: require at least one valid, authorized signature (threshold verified by SignedOperation+trust root resolver).
- // Multi-party/high-trust policy is enforced by the TrustRootRecord role thresholds on the authorized signers.
+    // 26.2: require at least one valid, authorized signature (threshold verified by SignedOperation+trust root resolver).
+    // Multi-party/high-trust policy is enforced by the TrustRootRecord role thresholds on the authorized signers.
     let mut distinct_roles: Vec<CommandRole> = Vec::new();
     let mut distinct_signers = std::collections::HashSet::new();
     for entry in &operation.signatures {

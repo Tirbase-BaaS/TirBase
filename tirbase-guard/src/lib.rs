@@ -68,6 +68,21 @@ pub mod permit;
 pub mod device_transport;
 pub mod driver_proxy;
 
+/// Bounded Linux w1 sysfs transport and guard-facing DS18B20 health (CC-02).
+#[cfg(unix)]
+pub mod onewire;
+
+/// Guard-owned BACnet/IP read endpoint and bounded polling (CC-04).
+#[cfg(unix)]
+pub mod bacnet;
+
+/// Guard-owned BLE scan/connect/read probe with reconnect backoff (CC-06).
+#[cfg(unix)]
+pub mod ble;
+
+/// Guard-owned 4–20 mA calibration persistence and drift detection (CC-05).
+pub mod current_loop;
+
 /// Unified command admission: the only `ActuationPermit` issuer (13).
 pub mod admit;
 pub mod commit;
@@ -94,22 +109,39 @@ pub use admit::{
     ChallengeNonce, ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS,
     DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
 };
+pub use auth_matrix::{
+    check_role_authorization, denied_cells, role_index, AuthOperation, MatrixAuthorizationError,
+    MatrixCell, MatrixRow, AUTHORIZATION_MATRIX, MATRIX_ROLES,
+};
+#[cfg(unix)]
+pub use bacnet::{
+    BacnetError, BacnetIpConfig, BacnetPoint, BacnetPollError, BacnetPollOutcome, BacnetPoller,
+    BacnetSample, BacnetValue, DiscoveredDevice, GuardBacnetReader, MonotonicMillisFn,
+    ObjectIdentifier, ObjectType, MAX_BACNET_POINTS, MAX_BACNET_POINT_EXPONENT,
+    MAX_BACNET_POLL_INTERVAL_MS, MIN_BACNET_POINT_EXPONENT, MIN_BACNET_POLL_INTERVAL_MS,
+};
+#[cfg(unix)]
+pub use ble::{
+    BlePairingSecret, BleProbeConfig, BleProbeError, BleProbeHealth, BleProbeReading,
+    BleProbeState, GuardBleProbe,
+};
 pub use command::{command_signing_bytes, sign_command, verify_command_signature, CommandError};
 pub use commit::{
     coarse_for_rejection, commit_dispatch_finalize, dispatch_and_await, stage17_acceptance,
     stage17_rejection, CoarseRejection, EffectTerminalState, Stage16Error, Stage16Request,
     Stage16Store,
 };
+pub use current_loop::{
+    CalibrationStoreError, CurrentLoopCalibrationStore, CALIBRATION_FILE_VERSION,
+};
 pub use device_transport::{DeviceTransport, GuardDeviceTransport};
 pub use driver_proxy::{DriverProxy, IngressSource};
 pub use guard::{
     single_target_guard, AdmitError, AdmittedCommand, CommandGuard, GuardConfig, TargetAdmission,
 };
+#[cfg(unix)]
+pub use onewire::{GuardOneWireSensor, W1SysfsBus, MAX_W1_SLAVE_BYTES};
 pub use permit::{ActuationPermit, ActuationPermitRef};
-pub use auth_matrix::{
-    check_role_authorization, denied_cells, role_index, AuthOperation, MatrixAuthorizationError,
-    MatrixCell, MatrixRow, AUTHORIZATION_MATRIX, MATRIX_ROLES,
-};
 pub use tirbase_types::command::CONTEXT_COMMAND_MESSAGE;
 
 pub use lockdown::{

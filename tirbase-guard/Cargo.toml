@@ -8,6 +8,8 @@ license = "AGPL-3.0-only"
 [dependencies]
 tirbase-types = { workspace = true }
 tirbase-core  = { workspace = true }
+# CC-05: pure 4–20 mA conversion, fault, and drift types.
+tirbase-driver-api = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
@@ -21,6 +23,8 @@ tracing = "0.1"
 [features]
 loom = ["dep:loom"]
 shuttle = ["dep:shuttle"]
+# CC-06: compile the native btleplug BLE central adapter.
+ble-radio = ["tirbase-drivers/ble-radio"]
 
 [dependencies.loom]
 version = "0.7"
@@ -41,11 +45,13 @@ hex = "0.4"
 # Compile-fail tests for ActuationPermit bypass-proof and negative derives
 # (tasks 11.2/11.3, CLAIM-11.2/11.3, PV-4.3/PV-4.4).
 trybuild = "1"
+# CC-04: loopback BACnet/IP simulator for guard polling tests.
+tirbase-sim = { workspace = true }
 
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
-tirbase-drivers = { workspace = true }
+tirbase-drivers = { workspace = true, features = ["bacnet-ip"] }
 
 [dev-dependencies.tirbase-drivers]
 path = "../tirbase-drivers"

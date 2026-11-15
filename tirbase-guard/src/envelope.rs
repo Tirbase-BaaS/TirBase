@@ -24,26 +24,26 @@ use crate::trust_root::{TrustRootError, TrustRootRecord};
 /// Errors from profile installation / validation (CLAIM-10.4, CLAIM-10.6).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProfileInstallError {
- /// The profile signature did not verify against an authorised
- /// `PolicyAuthority` key in the active trust root (CLAIM-10.4).
+    /// The profile signature did not verify against an authorised
+    /// `PolicyAuthority` key in the active trust root (CLAIM-10.4).
     SignatureNotAuthorized {
         signer_did: Option<String>,
         detail: String,
     },
- /// Trust-root / role-registry error while checking the signer.
+    /// Trust-root / role-registry error while checking the signer.
     TrustRoot(TrustRootError),
- /// Field-level validation failure against the device model (CLAIM-10.6).
+    /// Field-level validation failure against the device model (CLAIM-10.6).
     Validation(Vec<FieldError>),
- /// Profile/device class mismatch.
+    /// Profile/device class mismatch.
     DeviceClassMismatch { profile: String, device: String },
 }
 
 /// A single field-level validation error (CLAIM-10.6).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldError {
- /// Parameter name, or `"profile"` for profile-level issues.
+    /// Parameter name, or `"profile"` for profile-level issues.
     pub field: String,
- /// Human-readable reason.
+    /// Human-readable reason.
     pub message: String,
 }
 
@@ -96,7 +96,7 @@ pub fn verify_profile_signature(
     )?;
     let message = profile_signing_bytes(profile);
     for signer in &policy.authorized_signers {
- // Registry gate + signature verification (PV-3.2/PV-3.3).
+        // Registry gate + signature verification (PV-3.2/PV-3.3).
         if trust_root
             .verify_role_cosignature(
                 CommandRole::PolicyAuthority,
@@ -196,7 +196,7 @@ pub fn validate_profile(
             let dm_max = &dm.range[1];
             match (compare_fpv(min, dm_min), compare_fpv(max, dm_max)) {
                 (Some(min_cmp), Some(max_cmp)) => {
- // profile [min,max] must be ⊆ device [dm_min,dm_max]
+                    // profile [min,max] must be ⊆ device [dm_min,dm_max]
                     if min_cmp == std::cmp::Ordering::Less {
                         errors.push(FieldError::new(
                             &param.name,
@@ -240,12 +240,12 @@ pub struct ProfileMap {
 }
 
 impl ProfileMap {
- /// An empty profile map.
+    /// An empty profile map.
     pub fn new() -> Self {
         Self::default()
     }
 
- /// Build a map from an initial set of target/profile pairs.
+    /// Build a map from an initial set of target/profile pairs.
     pub fn from_profiles(entries: impl IntoIterator<Item = (TargetId, EnvelopeProfile)>) -> Self {
         let mut map = BTreeMap::new();
         for (target, profile) in entries {
@@ -256,13 +256,13 @@ impl ProfileMap {
         }
     }
 
- /// Load the current profile for `target`, if installed.
+    /// Load the current profile for `target`, if installed.
     pub fn load(&self, target: &TargetId) -> Option<Arc<EnvelopeProfile>> {
         self.inner.get(target).map(|cell| cell.load_full())
     }
 
- /// Hot-swap the profile for `target`. Returns `false` if the target is not
- /// present in the map (use [`Self::with_profile`] to add targets).
+    /// Hot-swap the profile for `target`. Returns `false` if the target is not
+    /// present in the map (use [`Self::with_profile`] to add targets).
     pub fn swap(&self, target: &TargetId, profile: EnvelopeProfile) -> bool {
         if let Some(cell) = self.inner.get(target) {
             cell.store(Arc::new(profile));
@@ -272,8 +272,8 @@ impl ProfileMap {
         }
     }
 
- /// Return a new map with `target` installed or replaced. (The map itself is
- /// rebuilt; hot-swap of an *existing* target uses [`Self::swap`].)
+    /// Return a new map with `target` installed or replaced. (The map itself is
+    /// rebuilt; hot-swap of an *existing* target uses [`Self::swap`].)
     pub fn with_profile(&self, target: TargetId, profile: EnvelopeProfile) -> Self {
         let mut map = (*self.inner).clone();
         map.insert(target, Arc::new(ArcSwap::from_pointee(profile)));
@@ -295,9 +295,9 @@ pub fn install_profile(
     device_model: &DeviceModel,
     trust_root: &TrustRootRecord,
 ) -> Result<String, ProfileInstallError> {
- // 1. Signature / role gate (CLAIM-10.4) — reject non-PolicyAuthority.
+    // 1. Signature / role gate (CLAIM-10.4) — reject non-PolicyAuthority.
     let signer = verify_profile_signature(profile, trust_root)?;
- // 2. Field-level validation against device model (CLAIM-10.6).
+    // 2. Field-level validation against device model (CLAIM-10.6).
     validate_profile(profile, device_model)?;
     Ok(signer)
 }

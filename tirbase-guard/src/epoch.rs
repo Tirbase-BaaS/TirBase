@@ -52,54 +52,54 @@ pub const DEFAULT_ENROLLMENT_NONCE_CAPACITY: usize = 100_000;
 /// Enrollment, epoch, and nonce-store failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EpochError {
- /// The device has no epoch row yet.
+    /// The device has no epoch row yet.
     UnknownDevice(String),
- /// The command was produced under an older epoch (S22).
+    /// The command was produced under an older epoch (S22).
     StaleEpoch {
- /// Command epoch.
+        /// Command epoch.
         command_epoch: u64,
- /// Device's current epoch.
+        /// Device's current epoch.
         current_epoch: u64,
     },
- /// The command claims an epoch the device has not reached yet.
+    /// The command claims an epoch the device has not reached yet.
     FutureEpoch {
- /// Command epoch.
+        /// Command epoch.
         command_epoch: u64,
- /// Device's current epoch.
+        /// Device's current epoch.
         current_epoch: u64,
     },
- /// A peer/issuer observed a lower epoch than previously witnessed.
+    /// A peer/issuer observed a lower epoch than previously witnessed.
     EpochRegression {
- /// Device whose epoch regressed.
+        /// Device whose epoch regressed.
         device_id: String,
- /// Highest epoch previously witnessed.
+        /// Highest epoch previously witnessed.
         witnessed: u64,
- /// Lower epoch in the new report.
+        /// Lower epoch in the new report.
         reported: u64,
     },
- /// The bootstrap nonce was already recorded.
+    /// The bootstrap nonce was already recorded.
     NonceReused,
- /// The enrolling device's DID/public key/signature is invalid.
+    /// The enrolling device's DID/public key/signature is invalid.
     InvalidIdentity(String),
- /// The scoped token could not be minted.
+    /// The scoped token could not be minted.
     TokenIssuance(String),
- /// The signer is not a RevocationManager.
+    /// The signer is not a RevocationManager.
     RevocationManagerRequired {
- /// Role presented by the caller.
+        /// Role presented by the caller.
         role: CommandRole,
     },
- /// A signed epoch bump does not match the current device state.
+    /// A signed epoch bump does not match the current device state.
     EpochSequenceMismatch {
- /// Epoch in the signed operation.
+        /// Epoch in the signed operation.
         expected: u64,
- /// Current device epoch.
+        /// Current device epoch.
         current: u64,
     },
- /// The `SignedOperation` envelope failed verification.
+    /// The `SignedOperation` envelope failed verification.
     SignedOperation(SignedOperationError),
- /// Trust-root role/threshold verification failed.
+    /// Trust-root role/threshold verification failed.
     TrustRoot(TrustRootError),
- /// Durable store failure.
+    /// Durable store failure.
     Store(String),
 }
 
@@ -176,23 +176,23 @@ impl From<TrustRootError> for EpochError {
 /// first enrollment (design §4.13).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceEpoch {
- /// Device the epoch belongs to.
+    /// Device the epoch belongs to.
     pub device_id: String,
- /// Current epoch (starts at 0).
+    /// Current epoch (starts at 0).
     pub epoch: u64,
- /// Authenticated-time timestamp of the last bump.
+    /// Authenticated-time timestamp of the last bump.
     pub bumped_at_est: i64,
- /// PolicyAuthority co-signature over the bump (None at epoch 0).
+    /// PolicyAuthority co-signature over the bump (None at epoch 0).
     pub co_sig_pa: Option<DeviceSignature>,
- /// RevocationManager co-signature over the bump (None at epoch 0).
+    /// RevocationManager co-signature over the bump (None at epoch 0).
     pub co_sig_rm: Option<DeviceSignature>,
 }
 
 /// Durable store for [`DeviceEpoch`] rows.
 pub trait DeviceEpochStore: Send + Sync + fmt::Debug {
- /// Load the epoch row for `device_id`.
+    /// Load the epoch row for `device_id`.
     fn load(&self, device_id: &str) -> Result<Option<DeviceEpoch>, EpochError>;
- /// Insert or update the epoch row.
+    /// Insert or update the epoch row.
     fn save(&self, record: &DeviceEpoch) -> Result<(), EpochError>;
 }
 
@@ -226,13 +226,13 @@ impl DeviceEpochStore for InMemoryEpochStore {
 /// Signed enrollment-epoch bump payload ().
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EpochBump {
- /// Device whose epoch is bumped.
+    /// Device whose epoch is bumped.
     pub device_id: String,
- /// Epoch the bump expects to replace (must equal the current epoch).
+    /// Epoch the bump expects to replace (must equal the current epoch).
     pub previous_epoch: u64,
- /// New epoch (must be `previous_epoch + 1`).
+    /// New epoch (must be `previous_epoch + 1`).
     pub new_epoch: u64,
- /// Human-readable reason (e.g. "snapshot restore").
+    /// Human-readable reason (e.g. "snapshot restore").
     pub reason: String,
 }
 
@@ -246,12 +246,12 @@ impl SignedOperationPayload for EpochBump {
 #[derive(Debug)]
 pub struct EpochRegistry {
     store: Arc<dyn DeviceEpochStore>,
- /// Highest epoch witnessed per device (peers and issuers).
+    /// Highest epoch witnessed per device (peers and issuers).
     witnessed: Mutex<BTreeMap<String, u64>>,
 }
 
 impl EpochRegistry {
- /// Construct a registry over `store`.
+    /// Construct a registry over `store`.
     pub fn new(store: Arc<dyn DeviceEpochStore>) -> Self {
         EpochRegistry {
             store,
@@ -259,8 +259,8 @@ impl EpochRegistry {
         }
     }
 
- /// Create the epoch-0 row for a newly enrolled device, or return the
- /// existing row unchanged (first enrollment starts at 0).
+    /// Create the epoch-0 row for a newly enrolled device, or return the
+    /// existing row unchanged (first enrollment starts at 0).
     pub fn ensure_enrolled(
         &self,
         device_id: &str,
@@ -280,7 +280,7 @@ impl EpochRegistry {
         Ok(record)
     }
 
- /// Current epoch for `device_id`.
+    /// Current epoch for `device_id`.
     pub fn current_epoch(&self, device_id: &str) -> Result<u64, EpochError> {
         self.store
             .load(device_id)?
@@ -288,17 +288,17 @@ impl EpochRegistry {
             .ok_or_else(|| EpochError::UnknownDevice(device_id.to_string()))
     }
 
- /// Full epoch row for `device_id`.
+    /// Full epoch row for `device_id`.
     pub fn current_record(&self, device_id: &str) -> Result<Option<DeviceEpoch>, EpochError> {
         self.store.load(device_id)
     }
 
- /// Stage 8 epoch check: a command is admitted only when its
- /// `enrollment_epoch` equals the device's current epoch.
- ///
- /// Older epochs are rejected with [`EpochError::StaleEpoch`] (S22); epochs
- /// the device has not reached are rejected with [`EpochError::FutureEpoch`].
- /// This is called from [`CommandGuard::admit`].
+    /// Stage 8 epoch check: a command is admitted only when its
+    /// `enrollment_epoch` equals the device's current epoch.
+    ///
+    /// Older epochs are rejected with [`EpochError::StaleEpoch`] (S22); epochs
+    /// the device has not reached are rejected with [`EpochError::FutureEpoch`].
+    /// This is called from [`CommandGuard::admit`].
     pub fn check_command_epoch(
         &self,
         device_id: &str,
@@ -320,13 +320,13 @@ impl EpochRegistry {
         Ok(())
     }
 
- /// Atomically advance the device epoch as part of an operator restore
- /// ( `POST /admin/restore`).
- ///
- /// The admin layer verifies the joint PolicyAuthority + RevocationManager
- /// restore operation before calling this; the epoch increment itself is a
- /// durability step (RD-2: restoring from backup increments the enrollment
- /// epoch so prior-epoch commands can never be replayed).
+    /// Atomically advance the device epoch as part of an operator restore
+    /// ( `POST /admin/restore`).
+    ///
+    /// The admin layer verifies the joint PolicyAuthority + RevocationManager
+    /// restore operation before calling this; the epoch increment itself is a
+    /// durability step (RD-2: restoring from backup increments the enrollment
+    /// epoch so prior-epoch commands can never be replayed).
     pub fn restore_bump(
         &self,
         device_id: &str,
@@ -362,15 +362,15 @@ impl EpochRegistry {
         Ok(record)
     }
 
- /// Apply a signed epoch bump ().
- ///
- /// Verification order:
- /// 1. bind the operation to the payload and context,
- /// 2. check the policy-authority co-signature against the role registry and
- /// threshold (role-registry lookup happens before signature checks),
- /// 3. check the revocation-manager co-signature the same way,
- /// 4. require `previous_epoch == current` and `new_epoch == current + 1`,
- /// 5. durably commit the new row, then update the witnessed epoch.
+    /// Apply a signed epoch bump ().
+    ///
+    /// Verification order:
+    /// 1. bind the operation to the payload and context,
+    /// 2. check the policy-authority co-signature against the role registry and
+    /// threshold (role-registry lookup happens before signature checks),
+    /// 3. check the revocation-manager co-signature the same way,
+    /// 4. require `previous_epoch == current` and `new_epoch == current + 1`,
+    /// 5. durably commit the new row, then update the witnessed epoch.
     pub fn apply_bump(
         &self,
         operation: &SignedOperation<EpochBump>,
@@ -425,7 +425,7 @@ impl EpochRegistry {
             });
         }
 
- // The epoch may not move backwards even if the payload claims it does.
+        // The epoch may not move backwards even if the payload claims it does.
         self.observe_epoch(&payload.device_id, payload.new_epoch)?;
 
         let co_sig_pa = policy_authority
@@ -459,11 +459,11 @@ impl EpochRegistry {
         Ok(record)
     }
 
- /// Observe a device's reported epoch (peer/issuer path).
- ///
- /// A report lower than the highest previously witnessed value emits an
- /// [`ReasonCode::EpochRegression`] event and is rejected; a higher value
- /// advances the witnessed watermark.
+    /// Observe a device's reported epoch (peer/issuer path).
+    ///
+    /// A report lower than the highest previously witnessed value emits an
+    /// [`ReasonCode::EpochRegression`] event and is rejected; a higher value
+    /// advances the witnessed watermark.
     pub fn observe_epoch(&self, device_id: &str, reported: u64) -> Result<(), EpochError> {
         let mut witnessed = match self.witnessed.lock() {
             Ok(guard) => guard,
@@ -495,7 +495,7 @@ impl EpochRegistry {
         Ok(())
     }
 
- /// Highest epoch this process has witnessed for `device_id`.
+    /// Highest epoch this process has witnessed for `device_id`.
     pub fn witnessed_epoch(&self, device_id: &str) -> Option<u64> {
         match self.witnessed.lock() {
             Ok(guard) => guard.get(device_id).copied(),
@@ -509,11 +509,11 @@ impl EpochRegistry {
 /// Minimal command envelope consumed by the Stage 8 epoch check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandEnvelope {
- /// Device the command targets (the local device identity).
+    /// Device the command targets (the local device identity).
     pub device_id: String,
- /// Issuer DID.
+    /// Issuer DID.
     pub issuer_did: String,
- /// Enrollment epoch stamped at command creation.
+    /// Enrollment epoch stamped at command creation.
     pub enrollment_epoch: u64,
 }
 
@@ -530,25 +530,25 @@ pub struct EpochCommandGuard {
 }
 
 impl EpochCommandGuard {
- /// Construct a guard over `epochs`.
+    /// Construct a guard over `epochs`.
     pub fn new(epochs: Arc<EpochRegistry>) -> Self {
         EpochCommandGuard { epochs }
     }
 
- /// Admit `command`, applying Stage 8 (PV-5.5, PV-9.8).
- ///
- /// A prior-epoch command is rejected with [`EpochError::StaleEpoch`] after
- /// a signed epoch bump (scenario S22). Removing this check would let a
- /// restored snapshot's commands through; `prior_epoch_command_is_rejected_
- /// after_bump` is the wiring-mutation test.
+    /// Admit `command`, applying Stage 8 (PV-5.5, PV-9.8).
+    ///
+    /// A prior-epoch command is rejected with [`EpochError::StaleEpoch`] after
+    /// a signed epoch bump (scenario S22). Removing this check would let a
+    /// restored snapshot's commands through; `prior_epoch_command_is_rejected_
+    /// after_bump` is the wiring-mutation test.
     pub fn admit(&self, command: &CommandEnvelope) -> Result<(), EpochError> {
- // ── Stage 8: enrollment epoch (PV-5.5, PV-9.8) ─────────────────────
+        // ── Stage 8: enrollment epoch (PV-5.5, PV-9.8) ─────────────────────
         self.epochs
             .check_command_epoch(&command.device_id, command.enrollment_epoch)?;
         Ok(())
     }
 
- /// Borrow the epoch registry (used by the admin epoch-bump endpoint).
+    /// Borrow the epoch registry (used by the admin epoch-bump endpoint).
     pub fn epochs(&self) -> &Arc<EpochRegistry> {
         &self.epochs
     }
@@ -558,16 +558,16 @@ impl EpochCommandGuard {
 
 /// Durable/in-memory one-time nonce store for bootstrap replay protection.
 pub trait EnrollmentNonceStore: Send + Sync + fmt::Debug {
- /// Record `nonce` and return `true` when it was fresh, `false` when it was
- /// already present inside the retention window.
+    /// Record `nonce` and return `true` when it was fresh, `false` when it was
+    /// already present inside the retention window.
     fn record(&self, nonce: [u8; 32], now_est: i64) -> Result<bool, EpochError>;
- /// Delete expired nonces, returning the number removed.
+    /// Delete expired nonces, returning the number removed.
     fn purge_expired(&self, now_est: i64) -> Result<usize, EpochError>;
- /// Whether `nonce` is currently recorded.
+    /// Whether `nonce` is currently recorded.
     fn contains(&self, nonce: &[u8; 32]) -> Result<bool, EpochError>;
- /// Number of currently retained nonces.
+    /// Number of currently retained nonces.
     fn len(&self) -> Result<usize, EpochError>;
- /// Whether no nonces are currently retained.
+    /// Whether no nonces are currently retained.
     fn is_empty(&self) -> Result<bool, EpochError> {
         Ok(self.len()? == 0)
     }
@@ -578,17 +578,17 @@ pub trait EnrollmentNonceStore: Send + Sync + fmt::Debug {
 pub struct InMemoryNonceStore {
     retention_secs: i64,
     capacity: usize,
- /// nonce → expires_at_est
+    /// nonce → expires_at_est
     inner: Mutex<BTreeMap<[u8; 32], i64>>,
 }
 
 impl InMemoryNonceStore {
- /// Construct with the default 72-hour retention.
+    /// Construct with the default 72-hour retention.
     pub fn new() -> Self {
         Self::with_retention(DEFAULT_ENROLLMENT_NONCE_RETENTION_SECS)
     }
 
- /// Construct with a custom retention window.
+    /// Construct with a custom retention window.
     pub fn with_retention(retention_secs: i64) -> Self {
         InMemoryNonceStore {
             retention_secs: retention_secs.max(0),
@@ -597,7 +597,7 @@ impl InMemoryNonceStore {
         }
     }
 
- /// Configure the maximum number of retained nonces.
+    /// Configure the maximum number of retained nonces.
     pub fn with_capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity.max(1);
         self
@@ -625,7 +625,7 @@ impl EnrollmentNonceStore for InMemoryNonceStore {
             return Ok(false);
         }
         if inner.len() >= self.capacity {
- // Evict the nonce closest to expiry (deterministic).
+            // Evict the nonce closest to expiry (deterministic).
             if let Some(key) = inner
                 .iter()
                 .min_by_key(|(_, expires)| **expires)
@@ -659,11 +659,11 @@ impl EnrollmentNonceStore for InMemoryNonceStore {
 /// Credential required to decommission a device (PV-3.13).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecommissionCredential {
- /// Credential holder's DID.
+    /// Credential holder's DID.
     pub signer_did: String,
- /// Role claimed by the holder.
+    /// Role claimed by the holder.
     pub role: CommandRole,
- /// Signature over the decommission statement.
+    /// Signature over the decommission statement.
     pub signature: DeviceSignature,
 }
 
@@ -685,9 +685,9 @@ pub fn verify_decommission_credential(
     device_id: &str,
     credential: &DecommissionCredential,
 ) -> Result<(), EpochError> {
- // : decommission authorization is decided by the capability
- // matrix, not by an ad-hoc role comparison. Any role the matrix denies for
- // `DecommissionDevice` is rejected identically.
+    // : decommission authorization is decided by the capability
+    // matrix, not by an ad-hoc role comparison. Any role the matrix denies for
+    // `DecommissionDevice` is rejected identically.
     if crate::auth_matrix::check_role_authorization(
         crate::auth_matrix::AuthOperation::DecommissionDevice,
         credential.role,
@@ -731,14 +731,14 @@ pub(crate) mod tests_support {
     use tirbase_core::errors::TirBaseError;
     use tirbase_core::traits::{AssuranceLevel, MonotonicCounterTrait};
 
- /// In-memory monotonic counter for unit tests.
+    /// In-memory monotonic counter for unit tests.
     #[derive(Debug)]
     pub struct MemoryCounter {
         value: AtomicU64,
     }
 
     impl MemoryCounter {
- /// Construct at `initial`.
+        /// Construct at `initial`.
         pub fn new(initial: u64) -> Self {
             MemoryCounter {
                 value: AtomicU64::new(initial),
@@ -876,7 +876,7 @@ mod tests {
         assert_eq!(record.epoch, 0);
         assert!(record.co_sig_pa.is_none());
         assert!(record.co_sig_rm.is_none());
- // Re-enrolling is idempotent and does not reset the epoch.
+        // Re-enrolling is idempotent and does not reset the epoch.
         registry.observe_epoch("did:key:zDevice", 0).unwrap();
         assert_eq!(
             registry
@@ -1009,10 +1009,10 @@ mod tests {
         assert!(store.record([1u8; 32], 1_000).unwrap());
         assert!(store.record([2u8; 32], 1_050).unwrap());
         assert_eq!(store.len().unwrap(), 2);
- // expiry is `recorded_at + retention`: at 1_151 both are expired.
+        // expiry is `recorded_at + retention`: at 1_151 both are expired.
         assert_eq!(store.purge_expired(1_151).unwrap(), 2);
         assert_eq!(store.len().unwrap(), 0);
- // After expiry the nonce can be recorded again (outside retention).
+        // After expiry the nonce can be recorded again (outside retention).
         assert!(store.record([1u8; 32], 1_200).unwrap());
     }
 
@@ -1046,7 +1046,7 @@ mod tests {
 
     #[test]
     fn memory_counter_is_used_by_trust_root_tests() {
- // Keeps the shared test counter exercised from this module too.
+        // Keeps the shared test counter exercised from this module too.
         use tirbase_core::traits::MonotonicCounterTrait;
         let counter = MemoryCounter::new(3);
         assert_eq!(counter.read().unwrap(), 3);

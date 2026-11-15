@@ -42,7 +42,7 @@ pub enum AuthOperation {
 }
 
 impl AuthOperation {
- /// Stable operation name used in diagnostics/tests.
+    /// Stable operation name used in diagnostics/tests.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::SubmitCommand => "Submit command",
@@ -67,7 +67,7 @@ impl AuthOperation {
         }
     }
 
- /// All matrix operations in declaration order.
+    /// All matrix operations in declaration order.
     pub const ALL: [AuthOperation; 19] = [
         Self::SubmitCommand,
         Self::ReadStateAudit,
@@ -94,11 +94,11 @@ impl AuthOperation {
 /// Per-cell authorization in the matrix.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatrixCell {
- /// `✓` — role is authorized for the operation (possibly with qualifiers
- /// documented in requirements; qualifiers are enforced by the specific
- /// operation path, not by this cell).
+    /// `✓` — role is authorized for the operation (possibly with qualifiers
+    /// documented in requirements; qualifiers are enforced by the specific
+    /// operation path, not by this cell).
     Allowed,
- /// `—` — role credential is rejected for the operation.
+    /// `—` — role credential is rejected for the operation.
     Denied,
 }
 
@@ -106,7 +106,7 @@ pub enum MatrixCell {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MatrixRow {
     pub operation: AuthOperation,
- /// [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
+    /// [CommandIssuer, PolicyAuthority, UpdateSigner, RevocationManager, Auditor, TimeAnchor]
     pub cells: [MatrixCell; 6],
 }
 
@@ -377,7 +377,7 @@ pub fn cell_for(operation: AuthOperation, role: CommandRole) -> MatrixCell {
             return row.cells[role_index(role)];
         }
     }
- // Exhaustive over AuthOperation; unreachable in practice.
+    // Exhaustive over AuthOperation; unreachable in practice.
     MatrixCell::Denied
 }
 

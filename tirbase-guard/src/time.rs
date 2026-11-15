@@ -82,11 +82,11 @@ pub const DEFAULT_STALENESS_WINDOW_SECS: i64 = 3_600;
 /// deployments override them from `gateway.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimeRatchetConfig {
- /// Largest forward jump a single beacon may make on its own (PV-22.5).
+    /// Largest forward jump a single beacon may make on its own (PV-22.5).
     pub max_forward_jump_secs: i64,
- /// How many distinct `TimeAnchor` signatures a larger jump requires.
+    /// How many distinct `TimeAnchor` signatures a larger jump requires.
     pub required_anchor_signatures: usize,
- /// Elapsed monotonic time after which freshness is `Unverified`.
+    /// Elapsed monotonic time after which freshness is `Unverified`.
     pub staleness_window_secs: i64,
 }
 
@@ -101,8 +101,8 @@ impl Default for TimeRatchetConfig {
 }
 
 impl TimeRatchetConfig {
- /// Clamp the configuration into a sane shape: a non-negative jump limit,
- /// at least one required signature, and a non-negative staleness window.
+    /// Clamp the configuration into a sane shape: a non-negative jump limit,
+    /// at least one required signature, and a non-negative staleness window.
     pub fn sanitised(mut self) -> Self {
         self.max_forward_jump_secs = self.max_forward_jump_secs.max(0);
         self.required_anchor_signatures = self.required_anchor_signatures.max(1);
@@ -123,13 +123,13 @@ impl TimeRatchetConfig {
 /// can never be replayed as a command or policy signature (CLAIM-6.7).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeBeacon {
- /// Wall-clock time claimed by the anchor, seconds since the Unix epoch.
+    /// Wall-clock time claimed by the anchor, seconds since the Unix epoch.
     pub wall_time_secs: i64,
- /// DID of the anchor that originated the beacon.
+    /// DID of the anchor that originated the beacon.
     pub issuer_did: String,
- /// Monotonically increasing per-anchor sequence number.
+    /// Monotonically increasing per-anchor sequence number.
     pub mono_seq: u64,
- /// How long the anchor considers the beacon valid, in seconds.
+    /// How long the anchor considers the beacon valid, in seconds.
     pub valid_for_secs: u32,
 }
 
@@ -145,11 +145,11 @@ impl SignedOperationPayload for TimeBeacon {
 /// monotonic.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeResetPayload {
- /// Authoritative wall-clock value to install as the new ratchet floor.
+    /// Authoritative wall-clock value to install as the new ratchet floor.
     pub new_floor_secs: i64,
- /// Operator-visible reason for the reset.
+    /// Operator-visible reason for the reset.
     pub reason: String,
- /// Unique reset identifier for audit correlation.
+    /// Unique reset identifier for audit correlation.
     pub reset_id: [u8; 16],
 }
 
@@ -168,15 +168,15 @@ impl SignedOperationPayload for TimeResetPayload {
 /// table (including the `beacon_boot_id` column).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TimeRatchetRecord {
- /// Wall-clock time of the most recently accepted beacon.
+    /// Wall-clock time of the most recently accepted beacon.
     pub last_beacon_time: i64,
- /// Monotonic value at the moment that beacon was accepted.
+    /// Monotonic value at the moment that beacon was accepted.
     pub mono_at_beacon: u64,
- /// Highest beacon wall time ever committed; only moves forward.
+    /// Highest beacon wall time ever committed; only moves forward.
     pub persisted_floor: i64,
- /// `boot_id` at which the last beacon was accepted (`0` = never).
+    /// `boot_id` at which the last beacon was accepted (`0` = never).
     pub beacon_boot_id: u64,
- /// Monotonic timestamp of the last ratchet update.
+    /// Monotonic timestamp of the last ratchet update.
     pub updated_at_mono: u64,
 }
 
@@ -188,10 +188,10 @@ pub struct TimeRatchetRecord {
 /// surfaced, never swallowed: an advance that cannot be persisted must not take
 /// effect.
 pub trait TimeRatchetStore: Send + Sync + fmt::Debug {
- /// Load the persisted record, or `None` before the first beacon.
+    /// Load the persisted record, or `None` before the first beacon.
     fn load(&self) -> Result<Option<TimeRatchetRecord>, TimeRatchetError>;
 
- /// Persist the record. Must be durable before returning `Ok`.
+    /// Persist the record. Must be durable before returning `Ok`.
     fn save(&self, record: &TimeRatchetRecord) -> Result<(), TimeRatchetError>;
 }
 
@@ -202,16 +202,16 @@ pub trait TimeRatchetStore: Send + Sync + fmt::Debug {
 /// Freshness of the authenticated-time estimate (PV-22.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FreshnessState {
- /// A beacon was accepted in this boot and is within the staleness window.
+    /// A beacon was accepted in this boot and is within the staleness window.
     Verified,
- /// No beacon yet (including after a reboot), or the last beacon is older
- /// than the staleness window. Critical parameters require a challenge
- /// nonce in this state.
+    /// No beacon yet (including after a reboot), or the last beacon is older
+    /// than the staleness window. Critical parameters require a challenge
+    /// nonce in this state.
     Unverified,
 }
 
 impl FreshnessState {
- /// Canonical name used in boot diagnostics and event details.
+    /// Canonical name used in boot diagnostics and event details.
     pub fn as_str(&self) -> &'static str {
         match self {
             FreshnessState::Verified => "Verified",
@@ -219,14 +219,14 @@ impl FreshnessState {
         }
     }
 
- /// True only for [`FreshnessState::Verified`].
+    /// True only for [`FreshnessState::Verified`].
     pub fn is_verified(&self) -> bool {
         matches!(self, FreshnessState::Verified)
     }
 
- /// Stage 10 decision: a `critical: true` parameter may only be actuated
- /// below `Unverified` freshness after a single-use challenge nonce signed by
- /// the issuer (PV-22.3).
+    /// Stage 10 decision: a `critical: true` parameter may only be actuated
+    /// below `Unverified` freshness after a single-use challenge nonce signed by
+    /// the issuer (PV-22.3).
     pub fn requires_challenge(&self, critical_parameter: bool) -> bool {
         critical_parameter && !self.is_verified()
     }
@@ -239,55 +239,55 @@ impl FreshnessState {
 /// Failure modes of the ratchet and beacon admission (all fail closed).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TimeRatchetError {
- /// The durable store rejected the operation.
+    /// The durable store rejected the operation.
     Store(String),
- /// The wrapper's context string is not the time-beacon domain.
+    /// The wrapper's context string is not the time-beacon domain.
     WrongDomain {
- /// Domain expected for a `TimeBeacon`.
+        /// Domain expected for a `TimeBeacon`.
         expected: &'static str,
- /// Context string embedded in the wrapper.
+        /// Context string embedded in the wrapper.
         actual: String,
     },
- /// The wrapper does not bind the supplied beacon payload.
+    /// The wrapper does not bind the supplied beacon payload.
     PayloadMismatch,
- /// The beacon carried no signature at all.
+    /// The beacon carried no signature at all.
     EmptySignatures,
- /// A signature did not verify over the beacon's signing bytes.
+    /// A signature did not verify over the beacon's signing bytes.
     SignatureInvalid {
- /// DID of the entry that failed.
+        /// DID of the entry that failed.
         signer_did: String,
     },
- /// A signer could not be resolved to a public key.
+    /// A signer could not be resolved to a public key.
     UnknownSigner {
- /// DID of the entry that could not be resolved.
+        /// DID of the entry that could not be resolved.
         signer_did: String,
     },
- /// A signature was presented under a role other than `TimeAnchor`.
+    /// A signature was presented under a role other than `TimeAnchor`.
     NonAnchorSignature {
- /// DID of the offending signer.
+        /// DID of the offending signer.
         signer_did: String,
- /// Role the signer claimed.
+        /// Role the signer claimed.
         role: CommandRole,
     },
- /// The beacon is older than the persisted floor (replay) and would move the
- /// ratchet backwards.
+    /// The beacon is older than the persisted floor (replay) and would move the
+    /// ratchet backwards.
     BeaconNotAdvancing {
- /// Wall time claimed by the beacon.
+        /// Wall time claimed by the beacon.
         wall_time: i64,
- /// Current persisted floor.
+        /// Current persisted floor.
         persisted_floor: i64,
     },
- /// A jump larger than `max_forward_jump_secs` arrived without enough
- /// distinct `TimeAnchor` signatures (S23).
+    /// A jump larger than `max_forward_jump_secs` arrived without enough
+    /// distinct `TimeAnchor` signatures (S23).
     InsufficientAnchorQuorum {
- /// Distinct verified `TimeAnchor` signatures presented.
+        /// Distinct verified `TimeAnchor` signatures presented.
         verified: usize,
- /// M required by configuration.
+        /// M required by configuration.
         required: usize,
- /// Size of the rejected jump, in seconds.
+        /// Size of the rejected jump, in seconds.
         jump_secs: i64,
     },
- /// A signature wrapper error that is not covered above.
+    /// A signature wrapper error that is not covered above.
     MalformedBeacon(String),
 }
 
@@ -358,13 +358,13 @@ fn map_signed_operation_error(error: SignedOperationError) -> TimeRatchetError {
 /// Result of applying an accepted beacon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RatchetAdvance {
- /// Floor before the beacon was applied.
+    /// Floor before the beacon was applied.
     pub previous_floor: i64,
- /// Floor after the beacon was applied (`>= previous_floor`).
+    /// Floor after the beacon was applied (`>= previous_floor`).
     pub new_floor: i64,
- /// Forward jump the beacon requested, in seconds.
+    /// Forward jump the beacon requested, in seconds.
     pub jump_secs: i64,
- /// Distinct verified `TimeAnchor` signatures on the beacon.
+    /// Distinct verified `TimeAnchor` signatures on the beacon.
     pub anchor_signatures: usize,
 }
 
@@ -392,8 +392,8 @@ pub struct TimeRatchet {
 }
 
 impl TimeRatchet {
- /// Open the ratchet from `store`: this is the production boot path, which is
- /// how the gateway recovers `persisted_floor` across restarts (CLAIM-7.2).
+    /// Open the ratchet from `store`: this is the production boot path, which is
+    /// how the gateway recovers `persisted_floor` across restarts (CLAIM-7.2).
     pub fn open(
         store: Arc<dyn TimeRatchetStore>,
         config: TimeRatchetConfig,
@@ -413,7 +413,7 @@ impl TimeRatchet {
         })
     }
 
- /// The record as it is persisted in `time_ratchet`.
+    /// The record as it is persisted in `time_ratchet`.
     pub fn record(&self) -> TimeRatchetRecord {
         TimeRatchetRecord {
             last_beacon_time: self.last_beacon_time,
@@ -424,53 +424,53 @@ impl TimeRatchet {
         }
     }
 
- /// Wall-clock time of the most recently accepted beacon.
+    /// Wall-clock time of the most recently accepted beacon.
     pub fn last_beacon_time(&self) -> i64 {
         self.last_beacon_time
     }
 
- /// Monotonic value at which the last beacon was accepted.
+    /// Monotonic value at which the last beacon was accepted.
     pub fn mono_at_beacon(&self) -> u64 {
         self.mono_at_beacon
     }
 
- /// Highest beacon wall time ever committed (the ratchet value).
+    /// Highest beacon wall time ever committed (the ratchet value).
     pub fn persisted_floor(&self) -> i64 {
         self.persisted_floor
     }
 
- /// `boot_id` at which the last beacon was accepted (`0` = never).
+    /// `boot_id` at which the last beacon was accepted (`0` = never).
     pub fn beacon_boot_id(&self) -> u64 {
         self.beacon_boot_id
     }
 
- /// Monotonic timestamp of the last ratchet update.
+    /// Monotonic timestamp of the last ratchet update.
     pub fn updated_at_mono(&self) -> u64 {
         self.updated_at_mono
     }
 
- /// Max forward jump a single beacon may make without a quorum.
+    /// Max forward jump a single beacon may make without a quorum.
     pub fn max_forward_jump_secs(&self) -> i64 {
         self.max_forward_jump_secs
     }
 
- /// M in the M-of-N `TimeAnchor` quorum for large jumps.
+    /// M in the M-of-N `TimeAnchor` quorum for large jumps.
     pub fn required_anchor_signatures(&self) -> usize {
         self.required_anchor_signatures
     }
 
- /// Staleness window after which freshness becomes `Unverified`.
+    /// Staleness window after which freshness becomes `Unverified`.
     pub fn staleness_window_secs(&self) -> i64 {
         self.staleness_window_secs
     }
 
- /// Authenticated-time estimate (PV-22.1, PV-22.4).
- ///
- /// Returns `persisted_floor` when the device rebooted since the last beacon
- /// (the monotonic subtraction would be meaningless). Otherwise evaluates
- /// `last_beacon_time + (mono_now − mono_at_beacon)` in whole seconds and
- /// floors the result at `persisted_floor`, so the estimate never runs behind
- /// the ratchet.
+    /// Authenticated-time estimate (PV-22.1, PV-22.4).
+    ///
+    /// Returns `persisted_floor` when the device rebooted since the last beacon
+    /// (the monotonic subtraction would be meaningless). Otherwise evaluates
+    /// `last_beacon_time + (mono_now − mono_at_beacon)` in whole seconds and
+    /// floors the result at `persisted_floor`, so the estimate never runs behind
+    /// the ratchet.
     pub fn now_est(&self, ts: &dyn TimeSource) -> i64 {
         if ts.boot_id() != self.beacon_boot_id {
             return self.persisted_floor;
@@ -482,11 +482,11 @@ impl TimeRatchet {
         saturating_i64(estimate).max(self.persisted_floor)
     }
 
- /// Freshness of the authenticated-time estimate (PV-22.3).
- ///
- /// `Unverified` when no beacon has ever been accepted, when the device has
- /// rebooted since the last beacon, or when more than
- /// `staleness_window_secs` of monotonic time has elapsed since it.
+    /// Freshness of the authenticated-time estimate (PV-22.3).
+    ///
+    /// `Unverified` when no beacon has ever been accepted, when the device has
+    /// rebooted since the last beacon, or when more than
+    /// `staleness_window_secs` of monotonic time has elapsed since it.
     pub fn freshness(&self, ts: &dyn TimeSource) -> FreshnessState {
         if self.beacon_boot_id == 0 || ts.boot_id() != self.beacon_boot_id {
             return FreshnessState::Unverified;
@@ -501,20 +501,20 @@ impl TimeRatchet {
         }
     }
 
- /// Stage 9 expiry check: an artefact is expired when
- /// `now_est > expiry_est` (PV-22.1). Deliberately takes the authenticated
- /// estimate, not the wall clock — replacing this with a wall-clock
- /// comparison reintroduces the S19/S04 failure modes.
+    /// Stage 9 expiry check: an artefact is expired when
+    /// `now_est > expiry_est` (PV-22.1). Deliberately takes the authenticated
+    /// estimate, not the wall clock — replacing this with a wall-clock
+    /// comparison reintroduces the S19/S04 failure modes.
     pub fn is_expired(&self, expiry_est: i64, ts: &dyn TimeSource) -> bool {
         self.now_est(ts) > expiry_est
     }
 
- /// Apply an M-of-N `TimeAnchor`-signed operator time reset ().
- ///
- /// Unlike [`TimeRatchet::advance`], a reset may move the floor backwards; it
- /// is the explicit recovery path for a corrupted clock and is accepted only
- /// when at least `required_m` distinct trusted `TimeAnchor` signatures are
- /// presented. The new record is durably persisted before it is applied.
+    /// Apply an M-of-N `TimeAnchor`-signed operator time reset ().
+    ///
+    /// Unlike [`TimeRatchet::advance`], a reset may move the floor backwards; it
+    /// is the explicit recovery path for a corrupted clock and is accepted only
+    /// when at least `required_m` distinct trusted `TimeAnchor` signatures are
+    /// presented. The new record is durably persisted before it is applied.
     pub fn force_reset(
         &mut self,
         operation: &SignedOperation<TimeResetPayload>,
@@ -529,8 +529,8 @@ impl TimeRatchet {
         let required_m = required_m.max(1);
         let mut verified: BTreeSet<String> = BTreeSet::new();
         for entry in &operation.signatures {
- // : a time reset is an M-of-N TimeAnchor operation; the
- // capability matrix is the authority on which roles may sign it.
+            // : a time reset is an M-of-N TimeAnchor operation; the
+            // capability matrix is the authority on which roles may sign it.
             if crate::auth_matrix::check_role_authorization(
                 crate::auth_matrix::AuthOperation::TimeRatchetResetLargeJump,
                 entry.role,
@@ -589,21 +589,21 @@ impl TimeRatchet {
         Ok(record)
     }
 
- /// Apply a signed beacon (PV-22.5, S23).
- ///
- /// Admission order matters:
- ///
- /// 1. the wrapper must bind this exact payload and use the time-beacon
- /// domain (domain separation);
- /// 2. every signature must be presented by a `TimeAnchor` and verify;
- /// 3. at least one anchor must have signed;
- /// 4. a beacon older than `persisted_floor` is rejected as a replay — the
- /// ratchet never moves backwards;
- /// 5. a jump larger than `max_forward_jump_secs` requires the configured
- /// M-of-N quorum of distinct `TimeAnchor` signers;
- /// 6. the new record is persisted *before* it is applied in memory.
- ///
- /// `resolve` maps a signer DID to its Ed25519 public key.
+    /// Apply a signed beacon (PV-22.5, S23).
+    ///
+    /// Admission order matters:
+    ///
+    /// 1. the wrapper must bind this exact payload and use the time-beacon
+    /// domain (domain separation);
+    /// 2. every signature must be presented by a `TimeAnchor` and verify;
+    /// 3. at least one anchor must have signed;
+    /// 4. a beacon older than `persisted_floor` is rejected as a replay — the
+    /// ratchet never moves backwards;
+    /// 5. a jump larger than `max_forward_jump_secs` requires the configured
+    /// M-of-N quorum of distinct `TimeAnchor` signers;
+    /// 6. the new record is persisted *before* it is applied in memory.
+    ///
+    /// `resolve` maps a signer DID to its Ed25519 public key.
     pub fn advance(
         &mut self,
         operation: &SignedOperation<TimeBeacon>,
@@ -617,8 +617,8 @@ impl TimeRatchet {
 
         let mut verified: BTreeSet<String> = BTreeSet::new();
         for entry in &operation.signatures {
- // : beacon acceptance is a TimeAnchor operation; the
- // capability matrix decides which roles may sign it.
+            // : beacon acceptance is a TimeAnchor operation; the
+            // capability matrix decides which roles may sign it.
             let role_allowed = crate::auth_matrix::check_role_authorization(
                 crate::auth_matrix::AuthOperation::SubmitTimeBeacon,
                 entry.role,
@@ -727,8 +727,8 @@ impl TimeRatchet {
             updated_at_mono: now_mono,
         };
 
- // Durable before accepted: a ratchet that cannot be persisted is not
- // advanced (the wiring mutation for CLAIM-7.2 removes this save).
+        // Durable before accepted: a ratchet that cannot be persisted is not
+        // advanced (the wiring mutation for CLAIM-7.2 removes this save).
         self.store.save(&record)?;
         self.last_beacon_time = record.last_beacon_time;
         self.mono_at_beacon = record.mono_at_beacon;
