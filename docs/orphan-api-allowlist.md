@@ -49,6 +49,7 @@ To add an entry:
 | `tirbase_types::ProfileId` | @tirbase-core-team | Type alias [u8;16]; wired in Phase 2 EnvelopeProfile | v0.3.0 |
 | `tirbase_guard::tirbase_types` | @tirbase-guard-team | Re-export of tirbase_types; guard body wired in –16 | v0.3.0 |
 | `tirbase_drivers::tirbase_types` | @tirbase-drivers-team | Re-export of tirbase_types; driver body wired in + | v0.3.0 |
+| `tirbase_drivers::thermostat` | @tirbase-drivers-team | No source reference from any other workspace crate; Modbus thermostat runtime is exercised by driver tests pending a gateway/runtime consumer | v0.3.0 |
 | `tirbase_sim::tirbase_types` | @tirbase-sim-team | Re-export of tirbase_types; simulator body wired in + | v0.3.0 |
 | `tirbase_demo::tirbase_types` | @tirbase-demo-team | Re-export of tirbase_types; demo packs wired in + | v0.3.0 |
 | `tirbase_core::api` | @tirbase-core-team | CoreHandle API module; tirbase-gateway wires this in Phase 9 (+) | v0.3.0 |
@@ -481,6 +482,10 @@ To add an entry:
 | `tirbase_guard::command` | @tirbase-guard-team | No source reference from any other workspace crate; guard-internal signed-command surface pending a library consumer | v0.3.0 |
 | `tirbase_guard::commit` | @tirbase-guard-team | No source reference from any other workspace crate; commit/effects outcome surface pending a library consumer | v0.3.0 |
 | `tirbase_guard::device_transport` | @tirbase-guard-team | No source reference from any other workspace crate; device-transport surface pending a library consumer | v0.3.0 |
+| `tirbase_guard::onewire` | @tirbase-guard-team | No source reference from any other workspace crate; DS18B20 sysfs transport is exercised by guard integration tests pending a runtime consumer | v0.3.0 |
+| `tirbase_guard::bacnet` | @tirbase-guard-team | Guard-owned BACnet/IP read endpoint and bounded poller; exercised by guard integration tests pending a runtime consumer | v0.3.0 |
+| `tirbase_guard::current_loop` | @tirbase-guard-team | Guard-owned 4–20 mA calibration persistence and drift store; exercised by guard integration tests pending a runtime consumer | v0.3.0 |
+| `tirbase_guard::ble` | @tirbase-guard-team | Guard-owned BLE probe and reconnect scheduler; exercised by simulator-backed guard integration tests pending a runtime consumer | v0.3.0 |
 | `tirbase_guard::guard` | @tirbase-guard-team | No source reference from any other workspace crate; CommandGuard surface is exercised through `tirbase_guard::admit` instead | v0.3.0 |
 | `tirbase_guard::permit` | @tirbase-guard-team | No source reference from any other workspace crate; sealed ActuationPermit is intentionally guard-internal (PV-4.3, CLAIM-11.2) | v0.3.0 |
 | `tirbase_guard::policy` | @tirbase-guard-team | No source reference from any other workspace crate; policy lifecycle surface pending a library consumer | v0.3.0 |

@@ -25,7 +25,7 @@ Use `tirbase-sim` / fixture tooling where available; for physical rigs, document
 |---------------------------|---------------------------|-------|
 | Modbus RTU/TCP | `tirbase-sim` Modbus server/model, `tirbase-drivers` Modbus client, `tests/hil/modbus_roundtrip.rs` (gateway) | Real bus + device or certified simulator |
 | BACnet | Documented in HIL procedure; simulator planned/scaffolded in `tirbase-sim` | Record object list and profile |
-| 1-Wire | `tirbase-sim` scaffolding / lab fixture | Record device IDs |
+| 1-Wire | `tirbase_sim::SimOneWireBus` fault injection + `tirbase_guard::onewire` sysfs transport; real DS18B20 on a `w1_therm` bus | Record device IDs and `w1_slave` frames |
 | 4–20 mA ADC | Calibrated current source or simulator | Record calibration certificate ID |
 | BLE GATT | BLE peripheral simulator or reference device | Record GATT profile hash |
 | ESC/POS (receipt) | Printer or simulator | Record firmware/model |

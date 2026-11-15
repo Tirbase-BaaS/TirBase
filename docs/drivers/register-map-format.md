@@ -1,7 +1,9 @@
 # Modbus Register Map Format (CLAIM-34.8, PV-10.4, PV-10.7)
 
 This document defines the Modbus register-map format used by TirBase reference
-driver packs and parsed by `tirbase_drivers::ModbusRegisterMap` (`tirbase-drivers/src/register_map.rs`).
+driver packs and parsed by `tirbase_driver_api::ModbusRegisterMap`
+(`tirbase-driver-api/src/register_map.rs`, Apache-2.0). The old
+`tirbase_drivers::ModbusRegisterMap` path is a deprecated re-export.
 
 ## Address notation
 
@@ -41,7 +43,7 @@ Decoded engineering value (integer fixed-point units at `scale_exponent`):
 scaled = raw * scale_mantissa * 10^scale_exponent + offset_mantissa * 10^offset_exponent
 ```
 
-Parser helpers in `tirbase_drivers::ModbusRegisterMap`:
+Parser helpers in `tirbase_driver_api::ModbusRegisterMap`:
 - `RegisterDef::decode_raw_i128` — decode raw register words to typed integer.
 - `RegisterDef::decode_to_scaled_i64` — apply scale/offset.
 - `RegisterDef::encode_raw_i128` / `encode_scaled_i64` — inverse path for writes.

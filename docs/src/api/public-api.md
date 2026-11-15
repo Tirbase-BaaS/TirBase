@@ -9,7 +9,8 @@ This page indexes the public API surfaces and their authoritative sources.
 | `tirbase-types` | `tirbase-types/public-api.txt` | Shared types/newtypes, units, `FixedPointValue`, roles |
 | `tirbase-core` | `tirbase-core/public-api.txt`, `tirbase-core/wasm-public-api.txt` | CRDT, identity/auth, store, transport, migration traits/APIs |
 | `tirbase-guard` | `tirbase-guard/public-api.txt` | Command guard, envelope/policy, effects/replay/time/permit APIs |
-| `tirbase-drivers` | `tirbase-drivers/public-api.txt` | Driver trait and device/driver interfaces |
+| `tirbase-driver-api` | `tirbase-driver-api/public-api.txt` | Apache-2.0 driver trait, device models, register maps, packet codecs, conformance harness |
+| `tirbase-drivers` | `tirbase-drivers/public-api.txt` | AGPL driver transports, reference drivers, isolation, and deprecated API re-exports |
 | `tirbase-sim` | `tirbase-sim/public-api.txt` | Simulator, models, scenarios, runner, invariant APIs |
 | `tirbase-demo` | `tirbase-demo/public-api.txt` | Demo pack format helpers/constants |
 
