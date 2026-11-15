@@ -38,18 +38,16 @@ pub fn run_s16(seed: u64) -> Result<(), String> {
     let mut accepted = 0usize;
     let mut rate_limited = 0usize;
     for index in 0..burst {
- // Distinct targets are not modelled by this single-target fixture, so
- // the burst represents a compromised cloud endpoint fanning commands
- // out through one issuer identity. The quota is per issuer.
+        // Distinct targets are not modelled by this single-target fixture, so
+        // the burst represents a compromised cloud endpoint fanning commands
+        // out through one issuer identity. The quota is per issuer.
         let command = fixture.command(10 + index as i64, index as u8, index as u64 + 1)?;
         match fixture.admit(&command) {
             Ok(()) => accepted += 1,
             Err(AdmitError::Pipeline {
                 category: AdmitRejection::RateLimit,
                 ..
-            }) => {
-                rate_limited += 1
-            }
+            }) => rate_limited += 1,
             Err(other) => {
                 return Err(format!("S16 FAIL: unexpected rejection: {other:?}"));
             }

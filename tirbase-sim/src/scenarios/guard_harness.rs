@@ -145,7 +145,7 @@ impl AdversaryFixture {
         })
     }
 
- /// Build (and sign) a command for this fixture's target/parameter.
+    /// Build (and sign) a command for this fixture's target/parameter.
     pub fn command(
         &self,
         value: i64,
@@ -171,12 +171,12 @@ impl AdversaryFixture {
         Ok(command)
     }
 
- /// Admit a command through the full production pipeline.
+    /// Admit a command through the full production pipeline.
     pub fn admit(&self, command: &CommandMessage) -> Result<(), AdmitError> {
         self.admit_with_token(command, &self.token)
     }
 
- /// Admit a command carrying a specific Biscuit token.
+    /// Admit a command carrying a specific Biscuit token.
     pub fn admit_with_token(
         &self,
         command: &CommandMessage,

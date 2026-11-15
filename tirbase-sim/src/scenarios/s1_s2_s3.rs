@@ -474,7 +474,7 @@ pub fn scenario_s3_replay_duplicate_idempotency_no_second_actuation() {
     assert_eq!(v1["status"], "accepted");
     assert!(!wire1.is_empty(), "first command must actuate");
 
- // Replay same (issuer,target,idempotency_key): must return original result, no dispatch.
+    // Replay same (issuer,target,idempotency_key): must return original result, no dispatch.
     let mut wire2 = Vec::new();
     let mut proxy2 = DriverProxy::new(IoCursor::new(&mut wire2));
     let mut drv2 = IoCursor::new(b"OK".to_vec());

@@ -60,15 +60,19 @@ pub mod network;
 pub mod runner;
 /// Adversary scenarios S1–S35 (39.4, CLAIM-39.2/39.3/39.4).
 pub mod scenarios;
-/// Virtual-time soak harness (72h simulated, fault injection — CLAIM-45.1).
-pub mod soak;
 /// Simulation runtime: `SimClock`, `SimNode`, scenario harness (CLAIM-38.2).
 pub mod sim;
+/// Virtual-time soak harness (72h simulated, fault injection — CLAIM-45.1).
+pub mod soak;
 
 #[cfg(test)]
 pub mod conformance;
 
-pub use drivers::{ColdRoomThermalSim, ModbusServerHandle, ModbusSimServer};
+pub use drivers::{
+    BacnetSimDevice, BacnetSimServer, BacnetSimServerHandle, BacnetSimServerOptions,
+    ColdRoomThermalSim, ModbusServerHandle, ModbusSimServer, Sim4To20MaAdc, SimBleGattPeripheral,
+    SimOneWireBus,
+};
 pub use invariants::{
     assert_invariants_hold, InvariantChecker, InvariantId, InvariantViolation, SimState,
 };
@@ -125,12 +129,12 @@ impl std::fmt::Debug for TirBaseSim {
 }
 
 impl TirBaseSim {
- /// Create a three-node simulation at virtual time zero.
+    /// Create a three-node simulation at virtual time zero.
     pub fn new(seed: u64) -> Self {
         Self::with_nodes(seed, DEFAULT_SCENARIO_NODES)
     }
 
- /// Create a simulation with `node_count` nodes (at least one).
+    /// Create a simulation with `node_count` nodes (at least one).
     pub fn with_nodes(seed: u64, node_count: usize) -> Self {
         let node_count = node_count.max(1);
         let nodes = (0..node_count)
@@ -154,69 +158,69 @@ impl TirBaseSim {
         }
     }
 
- /// Scenario seed (the value to print and reuse on failure).
+    /// Scenario seed (the value to print and reuse on failure).
     pub fn seed(&self) -> u64 {
         self.seed
     }
 
- /// Scenario RNG, seeded from [`TirBaseSim::seed`].
+    /// Scenario RNG, seeded from [`TirBaseSim::seed`].
     pub fn rng(&mut self) -> &mut ChaCha8Rng {
         &mut self.rng
     }
 
- /// Virtual clock.
+    /// Virtual clock.
     pub fn clock(&self) -> &SimClock {
         &self.clock
     }
 
- /// Mutable virtual clock (advance/reboot in scenario scripts).
+    /// Mutable virtual clock (advance/reboot in scenario scripts).
     pub fn clock_mut(&mut self) -> &mut SimClock {
         &mut self.clock
     }
 
- /// Virtual network.
+    /// Virtual network.
     pub fn network(&self) -> &SimNetwork {
         &self.network
     }
 
- /// Mutable virtual network (install/heal faults in scenario scripts).
+    /// Mutable virtual network (install/heal faults in scenario scripts).
     pub fn network_mut(&mut self) -> &mut SimNetwork {
         &mut self.network
     }
 
- /// Simulated nodes.
+    /// Simulated nodes.
     pub fn nodes(&self) -> &[SimNode] {
         &self.nodes
     }
 
- /// Mutable simulated nodes.
+    /// Mutable simulated nodes.
     pub fn nodes_mut(&mut self) -> &mut [SimNode] {
         &mut self.nodes
     }
 
- /// Invariant state observed so far. Scenarios may push observations before
- /// a tick; [`TirBaseSim::tick`] then checks INV-1..INV-16.
+    /// Invariant state observed so far. Scenarios may push observations before
+    /// a tick; [`TirBaseSim::tick`] then checks INV-1..INV-16.
     pub fn state(&self) -> &SimState {
         &self.state
     }
 
- /// Mutable invariant state for scenario observations.
+    /// Mutable invariant state for scenario observations.
     pub fn state_mut(&mut self) -> &mut SimState {
         &mut self.state
     }
 
- /// The invariant that halted this scenario, if any.
+    /// The invariant that halted this scenario, if any.
     pub fn halted(&self) -> Option<&InvariantViolation> {
         self.halted.as_ref()
     }
 
- /// Install a network fault (validating PV-12.1 bounds).
+    /// Install a network fault (validating PV-12.1 bounds).
     pub fn inject_fault(&mut self, fault: NetworkFault) -> Result<(), NetworkError> {
         self.network.add_fault(fault)
     }
 
- /// Broadcast `payload` from `src` to every other node at the current
- /// virtual time. Returns the number of messages accepted onto the wire.
+    /// Broadcast `payload` from `src` to every other node at the current
+    /// virtual time. Returns the number of messages accepted onto the wire.
     pub fn broadcast(&mut self, src: NodeId, payload: impl Into<Vec<u8>>) -> usize {
         let now = self.clock.now_ms();
         let payload: Vec<u8> = payload.into();
@@ -233,11 +237,11 @@ impl TirBaseSim {
         accepted
     }
 
- /// Advance one virtual tick: deliver due messages, step every node's plant
- /// models, and run the per-tick invariant checks (PV-23.2).
- ///
- /// A failing check halts the scenario immediately and returns
- /// [`SimError::Invariant`], which carries the seed.
+    /// Advance one virtual tick: deliver due messages, step every node's plant
+    /// models, and run the per-tick invariant checks (PV-23.2).
+    ///
+    /// A failing check halts the scenario immediately and returns
+    /// [`SimError::Invariant`], which carries the seed.
     pub fn tick(&mut self) -> Result<(), SimError> {
         if let Some(violation) = &self.halted {
             return Err(SimError::Invariant {
@@ -272,7 +276,7 @@ impl TirBaseSim {
         }
     }
 
- /// Run `ticks` virtual ticks, halting at the first invariant violation.
+    /// Run `ticks` virtual ticks, halting at the first invariant violation.
     pub fn run(&mut self, ticks: u64) -> Result<(), SimError> {
         for _ in 0..ticks {
             self.tick()?;
@@ -280,7 +284,7 @@ impl TirBaseSim {
         Ok(())
     }
 
- /// Order-sensitive digest of everything observable about this run.
+    /// Order-sensitive digest of everything observable about this run.
     pub fn digest(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         let mut mix = |value: u64| {
@@ -300,7 +304,7 @@ impl TirBaseSim {
         hash
     }
 
- /// Snapshot report for reproducibility assertions.
+    /// Snapshot report for reproducibility assertions.
     pub fn report(&self) -> ScenarioReport {
         ScenarioReport {
             seed: self.seed,
@@ -312,20 +316,20 @@ impl TirBaseSim {
         }
     }
 
- /// Run one complete randomised scenario for `seed`.
- ///
- /// Every run installs faults chosen from the scenario RNG (always at least
- /// one), broadcasts messages on a seeded schedule, and ends with the
- /// per-tick invariant checks. On failure the seed is printed to stdout
- /// before the error is returned (PV-12.2).
+    /// Run one complete randomised scenario for `seed`.
+    ///
+    /// Every run installs faults chosen from the scenario RNG (always at least
+    /// one), broadcasts messages on a seeded schedule, and ends with the
+    /// per-tick invariant checks. On failure the seed is printed to stdout
+    /// before the error is returned (PV-12.2).
     pub fn run_seeded_scenario(seed: u64, ticks: u64) -> Result<ScenarioReport, SimError> {
         let mut out = std::io::stdout().lock();
         Self::run_seeded_scenario_to(seed, ticks, &mut out)
     }
 
- /// Like [`TirBaseSim::run_seeded_scenario`], but writes the failure report
- /// (including the reproducibility seed) to `out` instead of stdout. Tests
- /// use this to assert the seed is printed before the scenario exits.
+    /// Like [`TirBaseSim::run_seeded_scenario`], but writes the failure report
+    /// (including the reproducibility seed) to `out` instead of stdout. Tests
+    /// use this to assert the seed is printed before the scenario exits.
     pub fn run_seeded_scenario_to(
         seed: u64,
         ticks: u64,
@@ -350,13 +354,13 @@ impl TirBaseSim {
         Ok(sim.report())
     }
 
- /// Install one fault drawn from the scenario RNG.
+    /// Install one fault drawn from the scenario RNG.
     fn install_randomised_faults(&mut self) {
         let ids: Vec<NodeId> = self.nodes().iter().map(SimNode::id).collect();
         let src = ids[0];
         let dst = ids[1 % ids.len()];
- // Always exercise one fault so the scenario is meaningful; the exact
- // fault varies by seed.
+        // Always exercise one fault so the scenario is meaningful; the exact
+        // fault varies by seed.
         let fault = match self.rng.gen_range(0u8..5) {
             0 => NetworkFault::Partition { src, dst },
             1 => NetworkFault::Delay {
@@ -376,7 +380,7 @@ impl TirBaseSim {
                 copies: self.rng.gen_range(1..=MAX_DUPLICATE_COPIES),
             },
         };
- // The values above are in range by construction.
+        // The values above are in range by construction.
         let _ = self.network.add_fault(fault);
     }
 }
@@ -401,8 +405,8 @@ mod tests {
 
     #[test]
     fn unseeded_rng_would_break_reproducibility() {
- // Sanity check for the wiring-mutation requirement: two independently
- // constructed runs share the seed and therefore the same transcript.
+        // Sanity check for the wiring-mutation requirement: two independently
+        // constructed runs share the seed and therefore the same transcript.
         let mut a = TirBaseSim::new(11);
         let mut b = TirBaseSim::new(11);
         a.run(8).unwrap();
@@ -417,7 +421,7 @@ mod tests {
         let err = sim.tick().expect_err("broken chain must halt");
         assert_eq!(err.seed(), 0xDEAD);
         assert!(sim.halted().is_some());
- // Subsequent ticks return the stored halt instead of continuing.
+        // Subsequent ticks return the stored halt instead of continuing.
         assert!(sim.tick().is_err());
         assert_eq!(sim.state().tick, 1);
     }

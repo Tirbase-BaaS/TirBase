@@ -80,8 +80,8 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
     )
     .map_err(|error| format!("S22 open binding: {error}"))?;
 
- // Simulate a restored backup: the database says the last hardware write
- // happened at a much lower software value than the hardware counter.
+    // Simulate a restored backup: the database says the last hardware write
+    // happened at a much lower software value than the hardware counter.
     let connection =
         rusqlite::Connection::open(db_path).map_err(|error| format!("S22 open db: {error}"))?;
     set_key(
@@ -124,7 +124,7 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         return Err("S22 FAIL: LOCKDOWN was not persisted after regression".to_string());
     }
 
- // Enrollment epoch bump invalidates every command produced before restore.
+    // Enrollment epoch bump invalidates every command produced before restore.
     let epochs = EpochRegistry::new(Arc::new(InMemoryEpochStore::default()));
     epochs
         .ensure_enrolled("dev1", 1_000)
@@ -147,7 +147,7 @@ fn run_s22_inner(seed: u64, db_path: &std::path::Path) -> Result<(), String> {
         }
     }
 
- // A peer that witnessed the pre-restore epoch detects the regression.
+    // A peer that witnessed the pre-restore epoch detects the regression.
     epochs
         .observe_epoch("dev1", 5)
         .map_err(|error| format!("S22 observe high epoch: {error:?}"))?;

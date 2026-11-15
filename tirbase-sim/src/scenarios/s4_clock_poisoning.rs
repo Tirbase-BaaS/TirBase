@@ -110,11 +110,11 @@ pub fn run_s4(seed: u64) -> Result<(), String> {
     let did_b = derive_did_from_public_key(&pb);
     let sch = schema();
 
- // Node A (honest victim) and Node B (attacker) — two real CRDT engines.
+    // Node A (honest victim) and Node B (attacker) — two real CRDT engines.
     let mut node_a = make_engine(sa, pa, did_a.clone(), sch);
     let _node_b = make_engine(sb, pb, did_b.clone(), sch);
 
- // Honest baseline on A.
+    // Honest baseline on A.
     let honest = sign_delta(&sa, did_a, sch, 1, honest_payload(&pa, "setpoint", "safe"));
     match apply_incoming_delta(&mut node_a, &honest) {
         Ok(MergeOutcome::Merged { .. }) => {}
@@ -122,12 +122,12 @@ pub fn run_s4(seed: u64) -> Result<(), String> {
     }
     let before = root_string(&node_a, "setpoint");
 
- // Attacker B forges an inflated-start_op delta targeting the same key.
+    // Attacker B forges an inflated-start_op delta targeting the same key.
     let offset = 1_000_000u64 + (seed % 10_000);
     let attack_bytes = inflate_start_op(&honest_payload(&pb, "setpoint", "pwned"), offset);
     let attack = sign_delta(&sb, did_b, sch, 2, attack_bytes);
 
- // Production inbound path must quarantine as ClockJump (PV-6.1, S4).
+    // Production inbound path must quarantine as ClockJump (PV-6.1, S4).
     match apply_incoming_delta(&mut node_a, &attack) {
         Ok(MergeOutcome::Quarantined {
             reason: QuarantineReason::ClockJump,
@@ -153,8 +153,8 @@ pub fn run_s4(seed: u64) -> Result<(), String> {
 mod tests {
     use super::*;
 
- /// S4 (clock/start_op poisoning) — deterministic seed, must pass before CRDT
- /// hardening is considered complete.
+    /// S4 (clock/start_op poisoning) — deterministic seed, must pass before CRDT
+    /// hardening is considered complete.
     #[test]
     fn s4_clock_poisoning_inflated_start_op_quarantined() {
         if let Err(e) = run_s4(S4_SEED) {
@@ -162,7 +162,7 @@ mod tests {
         }
     }
 
- /// A small seeded sweep to guard against seed-fragility (PV-12.1 spirit).
+    /// A small seeded sweep to guard against seed-fragility (PV-12.1 spirit).
     #[test]
     fn s4_clock_poisoning_seeded_sweep() {
         for seed in 0u64..16 {

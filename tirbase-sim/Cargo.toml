@@ -10,6 +10,9 @@ tirbase-types   = { workspace = true }
 tirbase-core    = { workspace = true }
 tirbase-guard   = { workspace = true }
 tirbase-drivers = { workspace = true }
+# CC-04: the BACnet/IP simulator speaks the pure Apache-2.0 codec directly, so
+# the feature-gated UDP transport is not required by the simulator.
+tirbase-driver-api = { workspace = true }
 automerge       = { version = "0.11.0", default-features = false }
 rusqlite        = { version = "0.40", features = ["bundled"] }
 serde           = { version = "1", features = ["derive"] }

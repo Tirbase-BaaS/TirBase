@@ -133,7 +133,7 @@ fn load_profile(path: &Path) -> Result<(EnvelopeProfile, String), String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
     if !t.cross_constraints.is_empty() {
- // Cross-constraint TOML parsing not implemented in this harness; fail closed for unknowns.
+        // Cross-constraint TOML parsing not implemented in this harness; fail closed for unknowns.
     }
     Ok((
         EnvelopeProfile {
@@ -178,9 +178,9 @@ fn trust_root_for_fixture(pa_did: &str, pa_pk_hex: &str) -> Result<TrustRootReco
 }
 
 fn device_model_for(device_class: &str, profile: &EnvelopeProfile) -> DeviceModel {
- // Conservative device models per profile: writable range params get a device
- // range that fully contains the envelope range (so nominal installs pass but
- // runtime bounds still exist) and tightening floors remain valid.
+    // Conservative device models per profile: writable range params get a device
+    // range that fully contains the envelope range (so nominal installs pass but
+    // runtime bounds still exist) and tightening floors remain valid.
     let parameters = profile
         .parameters
         .iter()
@@ -252,7 +252,8 @@ fn load_cold_room_fixture_trust() -> Result<TrustRootRecord, String> {
         did: String,
         public_key_hex: String,
     }
-    let path = workspace_root().join("tirbase-gateway/testdata/reference_profiles/cold_room_pa.json");
+    let path =
+        workspace_root().join("tirbase-gateway/testdata/reference_profiles/cold_room_pa.json");
     let p: Pa = serde_json::from_str(
         &std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?,
     )
@@ -277,8 +278,8 @@ pub fn run_profile_conformance(profile_path: &Path) -> Result<Vec<ScenarioResult
     let model = device_model_for(&device_class, &profile);
     let mut results = Vec::new();
 
- // Nominal runtime scenario: signed profile installs and canonical sim/model
- // accepts nominal behavior.
+    // Nominal runtime scenario: signed profile installs and canonical sim/model
+    // accepts nominal behavior.
     let install = install_profile(&profile, &model, &trust);
     let nominal_ok = install.is_ok()
         && profile.parameters.iter().all(|p| {
@@ -289,7 +290,7 @@ pub fn run_profile_conformance(profile_path: &Path) -> Result<Vec<ScenarioResult
             }
         });
     if nominal_ok && device_class == "cold_room" {
- // Runtime behavior: canonical model evolves deterministically.
+        // Runtime behavior: canonical model evolves deterministically.
         let mut sim = crate::drivers::cold_room::ColdRoomSimDriver::new(34, "cold-room-conf");
         let t0 = sim.model.temp_mdeg_c;
         for _ in 0..32 {
@@ -321,8 +322,8 @@ pub fn run_profile_conformance(profile_path: &Path) -> Result<Vec<ScenarioResult
         },
     });
 
- // Boundary runtime scenario: mutate a range to exceed device model bounds and
- // require rejection (fail closed).
+    // Boundary runtime scenario: mutate a range to exceed device model bounds and
+    // require rejection (fail closed).
     let mut boundary = profile.clone();
     if let Some(p) = boundary.parameters.first_mut() {
         if let ParameterKind::Range { ref mut max, .. } = p.kind {
@@ -355,7 +356,7 @@ pub fn run_all_profile_conformance() -> Result<BTreeMap<String, Vec<ScenarioResu
         if path.extension().and_then(|s| s.to_str()) != Some("toml") {
             continue;
         }
- // Only envelope profiles (have profile_id/signature fields), not register maps.
+        // Only envelope profiles (have profile_id/signature fields), not register maps.
         let src = std::fs::read_to_string(&path).unwrap_or_default();
         if !src.contains("profile_id") || !src.contains("policy_loosen_m") {
             continue;

@@ -11,7 +11,9 @@ use tirbase_core::migration::migration_delta::{
     MigrationKind, PostconditionCheck, SignedPostconditions,
 };
 use tirbase_core::migration::postcondition::field_checksum_hex;
-use tirbase_core::migration::shadow::{run_shadow_migration_native, ShadowInputs, ShadowRunOutcome};
+use tirbase_core::migration::shadow::{
+    run_shadow_migration_native, ShadowInputs, ShadowRunOutcome,
+};
 use tirbase_core::migration::wasm_sandbox::{MigrationExecutionRegistry, MigrationResult};
 
 fn test_store() -> Arc<Mutex<tirbase_core::store::LocalStore>> {

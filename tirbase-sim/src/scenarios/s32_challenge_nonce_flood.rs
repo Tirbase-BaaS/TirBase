@@ -158,8 +158,8 @@ pub fn s32_challenge_nonce_flood_is_rate_limited() {
     );
     assert!(limited >= 1, "S32: excess nonce requests must be rejected");
 
- // Wiring-mutation guard: disabling/removing the limit would allow all 20.
- // (This scenario fails if the rate limit is removed.)
+    // Wiring-mutation guard: disabling/removing the limit would allow all 20.
+    // (This scenario fails if the rate limit is removed.)
 }
 
 #[cfg(test)]

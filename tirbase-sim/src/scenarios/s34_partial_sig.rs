@@ -52,8 +52,8 @@ pub fn run_s34(seed: u64) -> Result<(), String> {
         .verify(&payload_a, resolver(&anchors))
         .map_err(|e| format!("S34 FAIL: genuine quorum for A did not verify: {e}"))?;
 
- // Attacker assembles the partial signatures collected for A onto a wrapper
- // for B. The payload hash binding must reject every entry.
+    // Attacker assembles the partial signatures collected for A onto a wrapper
+    // for B. The payload hash binding must reject every entry.
     let mut forged = SignedOperation::<TimeBeacon>::new(&payload_b, payload_b.wall_time_secs, None)
         .map_err(|e| format!("S34 wrap B: {e}"))?;
     forged.signatures = operation_a.signatures.clone();
@@ -66,7 +66,7 @@ pub fn run_s34(seed: u64) -> Result<(), String> {
         }
     }
 
- // A signature from a third payload also cannot be spliced into a valid set.
+    // A signature from a third payload also cannot be spliced into a valid set.
     let mut single_a =
         SignedOperation::<TimeBeacon>::new(&payload_a, payload_a.wall_time_secs, None)
             .map_err(|e| format!("S34 wrap single: {e}"))?;
@@ -83,7 +83,7 @@ pub fn run_s34(seed: u64) -> Result<(), String> {
         return Err("S34 FAIL: mixed-payload quorum was accepted".to_string());
     }
 
- // Control: a genuine quorum over B still verifies.
+    // Control: a genuine quorum over B still verifies.
     let mut genuine =
         SignedOperation::<TimeBeacon>::new(&payload_b, payload_b.wall_time_secs, None)
             .map_err(|e| format!("S34 wrap genuine: {e}"))?;

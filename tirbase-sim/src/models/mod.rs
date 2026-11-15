@@ -17,9 +17,9 @@ pub use thermal::ThermalModel;
 
 #[cfg(test)]
 mod tests {
- /// Patterns that indicate a platform libm call (`std`'s `f64` methods)
- /// instead of the deterministic `libm` crate (PV-12.3 wiring mutation check:
- /// swapping `libm::exp` for `f64::exp` must fail this test).
+    /// Patterns that indicate a platform libm call (`std`'s `f64` methods)
+    /// instead of the deterministic `libm` crate (PV-12.3 wiring mutation check:
+    /// swapping `libm::exp` for `f64::exp` must fail this test).
     const STD_FLOAT_PATTERNS: &[&str] = &[
         "f64::exp",
         "f64::sqrt",

@@ -149,8 +149,8 @@ pub fn run_s7() {
     let mut lc = PolicyLifecycle::new(target, b0, counter.clone(), map, tr).unwrap();
 
     let prev = lc.active().body_hash;
- // Loosening: widen range. Attacker also lies about kind and tries to set
- // M=1/timelock=0 in the envelope — guard must ignore both.
+    // Loosening: widen range. Attacker also lies about kind and tries to set
+    // M=1/timelock=0 in the envelope — guard must ignore both.
     let mut env = profile(2, -200, 1200, 1, 1, 0);
     env.policy_loosen_m = 1;
     env.policy_loosen_n = 1;
@@ -177,12 +177,12 @@ pub fn run_s7() {
         lc.pending().is_some(),
         "S7: co-signature collection started"
     );
- // Even with a cosig present, timelock blocks application.
+    // Even with a cosig present, timelock blocks application.
     assert!(matches!(
         lc.apply_pending_loosening(10_599),
         Err(PolicyError::TimelockActive { .. })
     ));
- // Classifier itself rejects the attack vector.
+    // Classifier itself rejects the attack vector.
     let tr2 = trust_root(&pa);
     let loosening = profile(2, -200, 1200, 2, 3, 600);
     assert_eq!(

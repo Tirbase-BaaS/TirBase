@@ -79,7 +79,7 @@ pub fn run_s5(seed: u64) -> Result<(), String> {
         return Err("S5 FAIL: rate quarantine did not record the attacker".to_string());
     }
 
- // An honest sender with an in-budget delta must still pass the same gate.
+    // An honest sender with an in-budget delta must still pass the same gate.
     let honest = delta(victim.clone(), 64);
     hardening
         .cheap_checks_first(
@@ -124,8 +124,7 @@ pub fn run_s15(seed: u64) -> Result<(), String> {
         },
         5_000,
         1_700_000_000,
-    )
-    {
+    ) {
         Err(rejection)
             if rejection.stage == CheapCheckStage::Size
                 && rejection.reason == ReasonCode::Oversize => {}
@@ -145,7 +144,7 @@ pub fn run_s15(seed: u64) -> Result<(), String> {
         return Err("S15 FAIL: oversize rejection was not quarantined".to_string());
     }
 
- // A within-cap delta from the same sender is still accepted.
+    // A within-cap delta from the same sender is still accepted.
     let small = delta(attacker, 128);
     hardening
         .cheap_checks_first(
