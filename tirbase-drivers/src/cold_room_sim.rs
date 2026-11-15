@@ -6,7 +6,7 @@
 
 use tirbase_types::{FixedPointValue, TargetId, UNIT_DEG_C};
 
-use crate::driver_trait::{
+use tirbase_driver_api::driver_trait::{
     ActuationPermitRef, DeviceModel, DriverError, DriverHealth, DriverResult, DriverTrait, Frame,
     ParameterDescriptor,
 };

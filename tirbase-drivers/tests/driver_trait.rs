@@ -2,6 +2,10 @@
 
 //! CLAIM-33.2/33.3/33.4 (PV-10.1, PV-10.2, PV-4.21, INV-6): DriverTrait codec,
 //! DeviceModel validation, and ActuationPermitRef encode/decode integration.
+//!
+//! Imports the flat compatibility re-exports on purpose: this file proves the
+//! deprecated `tirbase_drivers` surface still compiles and behaves.
+#![allow(deprecated)]
 
 use tirbase_drivers::{
     ActuationPermitRef, DeviceModel, DriverError, DriverHealth, DriverResult, DriverTrait, Frame,

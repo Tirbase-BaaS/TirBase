@@ -1,0 +1,26 @@
+# Recorded BACnet/IP PDUs (CC-04).
+#
+# Capture method: loopback UDP capture of the CC-04 simulator/client exchange,
+# with addresses stripped; frames are byte-for-byte wire data. Keep this file
+# stable: a change here is a wire-format change and must be reviewed.
+
+# Global-broadcast Who-Is, no instance limits (DNET 0xFFFF, hop count 0xFF).
+who_is_global = 81 0b 00 08 01 20 ff ff 00 ff 10 08
+
+# I-Am for device 1001, max APDU 480, no segmentation, vendor 0x0021.
+i_am_device_1001 = 81 0a 00 10 01 00 10 00 c4 02 00 03 e9 22 01 e0 91 00 21 21
+
+# ReadProperty request: invoke 1, analog-input 0, Present-Value.
+read_property_ai0_pv = 81 0a 00 0c 01 04 00 01 0c 0c 00 00 00 00 19 55
+
+# ReadProperty-ACK: invoke 1, Real 21.5 (0x41ac0000).
+read_property_ack_ai0_21_5 = 81 0a 00 0c 01 00 30 01 0c 3e 44 41 ac 00 00 3f
+
+# ReadProperty-ACK: invoke 2, binary-input 3, Enumerated 1 (active).
+read_property_ack_bi3_active = 81 0a 00 09 01 00 30 02 0c 3e 91 01 3f
+
+# Error PDU: invoke 3, ReadProperty, class 2 (property), code 32 (unknown-property).
+error_unknown_property = 81 0a 00 09 01 00 50 03 0c 91 02 91 20
+
+# Reject PDU: invoke 4, reason 9.
+reject_invoke4 = 81 0a 00 05 01 00 60 04 09

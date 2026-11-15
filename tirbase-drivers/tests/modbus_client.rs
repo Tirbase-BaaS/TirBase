@@ -3,12 +3,16 @@
 //! CLAIM-34.1: real Modbus TCP client over generic Read+Write transport against
 //! tirbase_sim::ModbusSimServer. Exercises FC03/04/06/16, tx-id/unit-id matching,
 //! exception propagation, and 5s timeout behavior.
+//!
+//! Uses the deprecated flat re-exports deliberately to cover the compatibility
+//! surface (`tirbase_drivers::parse_rtu_frame`, `build_rtu_frame`).
+#![allow(deprecated)]
 
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use tirbase_drivers::{DriverError, ModbusRtuClient, ModbusTcpClient};
 
@@ -46,7 +50,7 @@ fn claim_34_1_modbus_tcp_client_fc03_fc04_fc06_fc16() {
         Duration::from_secs(5),
         zero_clock(),
     )
-        .expect("connect modbus tcp client");
+    .expect("connect modbus tcp client");
 
     let regs = client.read_holding_registers(10, 2).expect("FC03");
     assert_eq!(regs, vec![1234, 5678]);
@@ -78,7 +82,7 @@ fn claim_34_1_modbus_tcp_client_times_out_within_5s() {
         Duration::from_millis(200),
         expiring_clock(),
     )
-        .expect("connect");
+    .expect("connect");
     let err = client.read_holding_registers(0, 1).unwrap_err();
     assert!(
         matches!(

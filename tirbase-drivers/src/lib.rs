@@ -2,13 +2,21 @@
 
 //! TirBase device driver framework (CLAIM-33.x, PV-10, PV-4.21, INV-6).
 //!
-//! Provides the pure codec [`DriverTrait`], [`DeviceModel`], actuation frame
-//! helpers, and out-of-process driver isolation/lifecycle primitives.
+//! The pure codec API — [`DriverTrait`], device models, register maps, and the
+//! Modbus frame codec — now lives in the **Apache-2.0**
+//! [`tirbase_driver_api`] crate. This crate contains the AGPL runtime pieces:
+//! the transport clients, the MQTT bridge, the cold-room reference driver, and
+//! the out-of-process driver isolation/lifecycle primitives.
+//!
+//! The old module paths (`tirbase_drivers::driver_trait`,
+//! `tirbase_drivers::register_map`, `tirbase_drivers::modbus_codec`) and the
+//! flat re-exported names are kept for compatibility and are **deprecated**;
+//! use `tirbase_driver_api` directly in new code.
 //!
 //! # Layering (CLAIM-33.1, CLAIM-33.8, PV-10.3)
-//! `tirbase-drivers` depends **only** on `tirbase-types`. It must not import
-//! `tirbase-guard` or `tirbase-core`. CI enforces this via manifest/layering
-//! checks.
+//! `tirbase-drivers` depends **only** on `tirbase-types` and the Apache-2.0
+//! `tirbase-driver-api`. It must not import `tirbase-guard` or `tirbase-core`.
+//! CI enforces this via manifest/layering checks.
 //!
 //! <!-- STATE-INVENTORY: RECONSTRUCTIBLE driver runtime -->
 
@@ -17,21 +25,77 @@
 // (the Rust dead_code lint does not fire on reachable public items).
 #![warn(dead_code)]
 
+#[cfg(feature = "bacnet-ip")]
+pub mod bacnet;
+
+/// BLE probe transport boundary and native radio adapter (CC-06).
+pub mod ble;
+
 pub mod cold_room_sim;
 pub mod isolation;
 pub mod lifecycle;
 pub mod modbus;
 pub mod mqtt;
+pub mod onewire;
+pub mod thermostat;
 
-// Re-export the Apache-2.0 driver API under the historical module paths.
-pub use tirbase_driver_api::{driver_trait, register_map};
+/// Deprecated compatibility path for the Apache-2.0 driver trait API.
+#[deprecated(
+    since = "0.1.1",
+    note = "use `tirbase_driver_api::driver_trait` (Apache-2.0) instead; this AGPL re-export is removed at the next major version"
+)]
+pub mod driver_trait {
+    pub use tirbase_driver_api::driver_trait::*;
+}
+
+/// Deprecated compatibility path for the Apache-2.0 register-map API.
+#[deprecated(
+    since = "0.1.1",
+    note = "use `tirbase_driver_api::register_map` (Apache-2.0) instead; this AGPL re-export is removed at the next major version"
+)]
+pub mod register_map {
+    pub use tirbase_driver_api::register_map::*;
+}
+
+/// Deprecated compatibility path for the Apache-2.0 Modbus frame codec.
+#[deprecated(
+    since = "0.1.1",
+    note = "use `tirbase_driver_api::modbus_codec` (Apache-2.0) instead; this AGPL re-export is removed at the next major version"
+)]
+pub mod modbus_codec {
+    pub use tirbase_driver_api::modbus_codec::*;
+}
+
+/// Deprecated compatibility path for the Apache-2.0 MQTT packet codec.
+#[deprecated(
+    since = "0.1.1",
+    note = "use `tirbase_driver_api::mqtt_codec` (Apache-2.0) instead; this AGPL re-export is removed at the next major version"
+)]
+pub mod mqtt_codec {
+    pub use tirbase_driver_api::mqtt_codec::*;
+}
+
+// Flat compatibility re-exports of the codec API. These names remain available
+// for existing callers but are deprecated in favour of `tirbase_driver_api`.
+#[allow(deprecated)]
+pub use driver_trait::*;
+#[allow(deprecated)]
+pub use modbus_codec::*;
+#[allow(deprecated)]
+pub use mqtt_codec::*;
+#[allow(deprecated)]
+pub use register_map::*;
+
+#[cfg(feature = "bacnet-ip")]
+pub use bacnet::{BacnetIpClient, BacnetIpConfig, DiscoveredDevice};
+#[cfg(feature = "ble-radio")]
+pub use ble::BtleplugCentral;
+pub use ble::{
+    BleAdvertisement, BleCentral, BleClimateReading, BleDevice, BleDeviceId, BleError,
+    BleGattError, BleGattUuidMap, BleScanFilter, BleUuid,
+};
 
 pub use cold_room_sim::{ColdRoomSimDriver, FirstOrderThermalModel};
-pub use driver_trait::{
-    run_with_timeout, ActuationPermitRef, DeviceModel, DriverError, DriverHealth, DriverResult,
-    DriverTrait, EmptyDeviceModelError, Frame, ParameterDescriptor, TimeoutError,
-    DRIVER_OPERATION_TIMEOUT,
-};
 pub use isolation::{
     apply_child_sandbox, create_driver_socketpair, recv_fd_via_scm_rights,
     scm_rights_device_fd_plan, send_fd_via_scm_rights, verify_peercred, DriverSocketPair,
@@ -43,22 +107,25 @@ pub use lifecycle::{
     LifecycleConfigError, DRIVER_RESTART_INITIAL, DRIVER_RESTART_MAX, DRIVER_RESTART_MAX_RETRIES,
 };
 pub use modbus::{
-    build_rtu_frame, crc16_rtu, decode_read_registers_response, decode_write_multiple_response,
-    decode_write_single_response, open_modbus_rtu, parse_exception, parse_rtu_frame, parse_tcp_adu,
-    read_tcp_adu_with_timeout, FunctionCode, ModbusRtuClient, ModbusRtuParity,
-    ModbusRtuSerialConfig, ModbusTcpAdu, ModbusTcpClient, ModbusTcpCodec, WireMode,
+    open_modbus_rtu, read_tcp_adu_with_timeout, ModbusRtuClient, ModbusRtuParity,
+    ModbusRtuSerialConfig, ModbusTcpClient,
 };
 
 pub use mqtt::{
     client_config_with_roots, connect_tls_only, install_crypto_provider, parse_mqtts_uri,
-    MqttBridgeCodec, MqttConnectConfig, MqttError, MqttQoS, MqttSecurityError, MqttTlsClient,
-    TlsTcpStream, TlsValidatedEndpoint,
+    MqttConnectConfig, MqttError, MqttSecurityError, MqttTlsClient, TlsTcpStream,
+    TlsValidatedEndpoint,
 };
 
-pub use register_map::{ModbusRegisterMap, RegisterDef, RegisterMapError, RegisterWordOrder};
+pub use onewire::{
+    Ds18b20Bus, Ds18b20Codec, Ds18b20Fault, Ds18b20Health, Ds18b20Sensor, OneWireError,
+};
+pub use thermostat::{ModbusClient, ThermostatDevice};
+
 pub use tirbase_types;
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use tirbase_types::{FixedPointValue, TargetId, UNIT_DEG_C};

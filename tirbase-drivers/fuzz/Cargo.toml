@@ -14,6 +14,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 tirbase-drivers = { path = ".." }
+tirbase-driver-api = { path = "../../tirbase-driver-api" }
 
 [[bin]]
 name = "modbus_frame"
@@ -32,6 +33,13 @@ bench = false
 [[bin]]
 name = "register_map_parse"
 path = "fuzz_targets/register_map_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bacnet_ip"
+path = "fuzz_targets/bacnet_ip.rs"
 test = false
 doc = false
 bench = false

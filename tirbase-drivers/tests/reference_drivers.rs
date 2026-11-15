@@ -3,6 +3,10 @@
 //! integration/wiring tests: Modbus FC 03/04/06/16 round-trip against the
 //! tirbase-sim Modbus server, MQTT TLS-only enforcement, cold-room model determinism,
 //! and register-map parsing (CLAIM-34.1..34.4/34.8, PV-10.5..10.7).
+//!
+//! Uses the deprecated flat re-exports deliberately: this file covers the
+//! compatibility surface of the AGPL crate, not the Apache-2.0 crate directly.
+#![allow(deprecated)]
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -32,7 +36,7 @@ fn read_adu(stream: &mut TcpStream) -> Vec<u8> {
 
 #[test]
 fn claim_34_1_modbus_fc03_fc04_fc06_fc16_round_trip_against_sim_server() {
- // Production caller path for codec: tirbase-drivers/src/modbus.rs via ModbusTcpCodec.
+    // Production caller path for codec: tirbase-drivers/src/modbus.rs via ModbusTcpCodec.
     let server = tirbase_sim::ModbusSimServer::spawn().expect("spawn modbus sim");
     {
         let bank = server.bank();
@@ -43,7 +47,7 @@ fn claim_34_1_modbus_fc03_fc04_fc06_fc16_round_trip_against_sim_server() {
     let mut stream = TcpStream::connect(server.addr).expect("connect sim");
     let mut codec = ModbusTcpCodec::new(1, UNIT_DEG_C).with_registers(10, 20);
 
- // FC03 read holding
+    // FC03 read holding
     let req = codec.build_fc03(10, 1);
     stream.write_all(&req).unwrap();
     let resp = read_adu(&mut stream);
@@ -51,7 +55,7 @@ fn claim_34_1_modbus_fc03_fc04_fc06_fc16_round_trip_against_sim_server() {
     let regs = decode_read_registers_response(&adu.pdu, 0x03).unwrap();
     assert_eq!(regs, vec![1234], "FC03 must round-trip");
 
- // FC04 read input
+    // FC04 read input
     let req = codec.build_fc04(20, 1);
     stream.write_all(&req).unwrap();
     let resp = read_adu(&mut stream);
@@ -59,7 +63,7 @@ fn claim_34_1_modbus_fc03_fc04_fc06_fc16_round_trip_against_sim_server() {
     let regs = decode_read_registers_response(&adu.pdu, 0x04).unwrap();
     assert_eq!(regs[0] as i16, -100, "FC04 must round-trip");
 
- // FC06 write single
+    // FC06 write single
     let req = codec.build_fc06(10, 4321);
     stream.write_all(&req).unwrap();
     let resp = read_adu(&mut stream);
@@ -67,7 +71,7 @@ fn claim_34_1_modbus_fc03_fc04_fc06_fc16_round_trip_against_sim_server() {
     decode_write_single_response(&adu.pdu, 10, 4321).expect("FC06 echo");
     assert_eq!(server.bank().lock().unwrap().get_holding(10), 4321);
 
- // FC16 write multiple
+    // FC16 write multiple
     let req = codec.build_fc16(10, &[7, 8, 9]);
     stream.write_all(&req).unwrap();
     let resp = read_adu(&mut stream);
@@ -116,7 +120,7 @@ fn claim_34_2_mqtt_tls_required_plain_text_rejected_qos0_qos1() {
         client_id: "t".into(),
         tls_configured: false,
     };
- // Wiring mutation check (34.2): accepting plain-text must fail this test.
+    // Wiring mutation check (34.2): accepting plain-text must fail this test.
     assert!(
         connect_tls_only(&plain).is_err(),
         "plain-text MQTT must be rejected"
