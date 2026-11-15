@@ -15,8 +15,9 @@ Apache-2.0 text.
 | Core engine | `tirbase-core` | `AGPL-3.0-only` | The local-first/CRDT/mesh runtime. Copyleft keeps hosted derivatives open. |
 | Command guard | `tirbase-guard` | `AGPL-3.0-only` | Safety and policy enforcement. This is the defensible runtime layer. |
 | Gateway | `tirbase-gateway` | `AGPL-3.0-only` | The edge node server binary. |
-| Driver API | `tirbase-driver-api` | `Apache-2.0` | Pure codec traits, device models, and register maps for third-party driver authors. |
-| Drivers | `tirbase-drivers` | `AGPL-3.0-only` | Runtime device drivers (Modbus, MQTT, cold-room simulation) and isolation machinery. |
+| Driver API | `tirbase-driver-api` | `Apache-2.0` | Pure codec traits, device models, register maps, Modbus/MQTT packet codecs, and the vendor conformance harness. |
+| Drivers | `tirbase-drivers` | `AGPL-3.0-only` | Runtime device drivers (Modbus, MQTT, cold-room simulation), transport clients, and isolation machinery. |
+| Vendor driver example | `examples/vendor-driver` | `Apache-2.0` | Worked vendor submission: driver, register map, golden frames, and conformance test built only against `tirbase-driver-api`. |
 | Operator CLI | `tirbase-admin` | `AGPL-3.0-only` | Operates the runtime; shipped with the server. |
 | Simulator | `tirbase-sim` | `AGPL-3.0-only` | Verification harness for the runtime. |
 | Fuzz harnesses | `fuzz/`, `tirbase-*/fuzz/` | `AGPL-3.0-only` | Derived from the runtime crates. |
