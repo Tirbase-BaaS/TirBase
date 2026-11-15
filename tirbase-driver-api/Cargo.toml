@@ -3,7 +3,7 @@ name = "tirbase-driver-api"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
-description = "TirBase device driver API: pure codec traits, device models, and register maps (Apache-2.0 integration surface)"
+description = "TirBase device driver API: pure codec traits, device models, register maps, Modbus/MQTT packet codecs, and conformance harness (Apache-2.0 integration surface)"
 license = "Apache-2.0"
 
 [dependencies]

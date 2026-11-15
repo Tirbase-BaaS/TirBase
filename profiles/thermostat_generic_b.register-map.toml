@@ -1,0 +1,88 @@
+# CC-03 generic thermostat profile B (original layout).
+# Inputs 100–102: current temperature, alarm, fault.
+# Holding registers 200–202: setpoint (FC 16), mode, fan. Unit 2.
+device_class = "generic_thermostat_b"
+
+[[register]]
+name = "current_temperature"
+register = 100
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = false
+quantity = 1
+
+[[register]]
+name = "alarm"
+register = 101
+function = 4
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = false
+quantity = 1
+
+[[register]]
+name = "fault"
+register = 102
+function = 4
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = false
+quantity = 1
+
+[[register]]
+name = "setpoint"
+register = 200
+function = 16
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = true
+quantity = 1
+
+[[register]]
+name = "mode"
+register = 201
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = true
+quantity = 1
+
+[[register]]
+name = "fan"
+register = 202
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 2
+writable = true
+quantity = 1

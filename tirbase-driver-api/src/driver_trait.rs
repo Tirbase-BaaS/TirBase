@@ -64,6 +64,11 @@ pub enum DriverError {
     UnsupportedParam(String),
     Codec(String),
     Capability(String),
+    /// Device/protocol exception response (for example a Modbus exception PDU).
+    Exception {
+        function_code: u8,
+        exception_code: u8,
+    },
 }
 
 impl fmt::Display for DriverError {
@@ -74,6 +79,13 @@ impl fmt::Display for DriverError {
             DriverError::UnsupportedParam(p) => write!(f, "unsupported parameter: {p}"),
             DriverError::Codec(m) => write!(f, "codec error: {m}"),
             DriverError::Capability(m) => write!(f, "capability error: {m}"),
+            DriverError::Exception {
+                function_code,
+                exception_code,
+            } => write!(
+                f,
+                "device exception: function 0x{function_code:02x}, code 0x{exception_code:02x}"
+            ),
         }
     }
 }

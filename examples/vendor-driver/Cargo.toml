@@ -1,0 +1,14 @@
+[package]
+name = "tirbase-example-vendor-driver"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Vendor example: an Apache-2.0 TirBase driver built only against tirbase-driver-api"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# STRICT: this example proves a vendor can build a driver with only the
+# Apache-2.0 API crate. Do not add tirbase-drivers, tirbase-core, or
+# tirbase-guard here; tests/conformance.rs asserts this manifest stays clean.
+tirbase-driver-api = { path = "../../tirbase-driver-api" }
