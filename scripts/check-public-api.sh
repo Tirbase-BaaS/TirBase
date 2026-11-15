@@ -15,6 +15,7 @@ CRATES=(
   tirbase-types
   tirbase-core
   tirbase-guard
+  tirbase-driver-api
   tirbase-drivers
   tirbase-sim
   tirbase-demo

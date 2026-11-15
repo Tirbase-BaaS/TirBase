@@ -178,6 +178,21 @@ jobs:
           echo "OK: $MANIFEST contains no forbidden dependency declarations."
           cargo check -p tirbase-drivers
           cargo test -p tirbase-drivers
+          # CC-04: the BACnet/IP transport is feature-gated; exercise it explicitly.
+          cargo test -p tirbase-drivers --features bacnet-ip
+
+      - name: Check Apache driver API and vendor conformance kit
+        run: |
+          # The integration surface and the vendor example must build and pass
+          # with only the Apache-2.0 crate.
+          cargo test -p tirbase-driver-api
+          cargo test -p tirbase-example-vendor-driver
+
+      - name: Check BLE probe
+        run: |
+          # CC-06: simulated GATT behavior plus the native btleplug adapter.
+          cargo test -p tirbase-guard --test ble_probe
+          cargo check -p tirbase-guard --features ble-radio
 
   public-api:
     name: cargo public-api (CLAIM-2.6)
@@ -698,6 +713,10 @@ jobs:
       - name: Smoke test register_map_parse (<=60s)
         working-directory: tirbase-drivers
         run: cargo +nightly fuzz run register_map_parse -- -max_total_time=55 -runs=1000000
+
+      - name: Run tirbase-drivers bacnet_ip fuzz target
+        working-directory: tirbase-drivers/fuzz
+        run: cargo +nightly fuzz run bacnet_ip -- -max_total_time=55 -runs=1000000
 
       # tirbase-guard (envelope/command parsers)
       - name: Build tirbase-guard fuzz targets

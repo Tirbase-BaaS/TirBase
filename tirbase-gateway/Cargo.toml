@@ -51,10 +51,11 @@ assets = [
 ]
 
 [dependencies]
-tirbase-types   = { workspace = true }
-tirbase-core    = { workspace = true }
-tirbase-guard   = { workspace = true }
-tirbase-drivers = { workspace = true }
+tirbase-types      = { workspace = true }
+tirbase-core       = { workspace = true }
+tirbase-guard      = { workspace = true }
+tirbase-drivers    = { workspace = true }
+tirbase-driver-api = { workspace = true }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

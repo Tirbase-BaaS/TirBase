@@ -4993,6 +4993,7 @@ dependencies = [
 name = "tirbase-drivers"
 version = "0.1.0"
 dependencies = [
+ "btleplug",
  "libc",
  "nix 0.29.0",
  "rcgen",
@@ -5001,8 +5002,16 @@ dependencies = [
  "tirbase-driver-api",
  "tirbase-sim",
  "tirbase-types",
+ "tokio",
  "tracing",
  "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "tirbase-example-vendor-driver"
+version = "0.1.0"
+dependencies = [
+ "tirbase-driver-api",
 ]
 
 [[package]]
@@ -5034,6 +5043,7 @@ dependencies = [
  "sha2 0.11.0",
  "tempfile",
  "tirbase-core",
+ "tirbase-driver-api",
  "tirbase-drivers",
  "tirbase-guard",
  "tirbase-sim",
@@ -5066,7 +5076,9 @@ dependencies = [
  "sha2 0.11.0",
  "shuttle",
  "tirbase-core",
+ "tirbase-driver-api",
  "tirbase-drivers",
+ "tirbase-sim",
  "tirbase-types",
  "tokio",
  "tracing",
@@ -5089,6 +5101,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tirbase-core",
+ "tirbase-driver-api",
  "tirbase-drivers",
  "tirbase-gateway",
  "tirbase-guard",

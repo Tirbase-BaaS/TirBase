@@ -9,6 +9,7 @@ members = [
     "tirbase-admin",
     "tirbase-sim",
     "tirbase-demo",
+    "examples/vendor-driver",
 ]
 resolver = "2"
 

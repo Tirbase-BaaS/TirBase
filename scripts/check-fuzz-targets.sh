@@ -14,6 +14,7 @@ REQUIRED=(
   "tirbase-drivers:modbus_frame"
   "tirbase-drivers:mqtt_frame"
   "tirbase-drivers:register_map_parse"
+  "tirbase-drivers:bacnet_ip"
   "tirbase-guard:envelope_profile_parse"
   "tirbase-guard:command_message_parse"
 )
