@@ -25,6 +25,8 @@ Apache-2.0 text.
 | Data SDK | `@tirbase/sdk` | `Apache-2.0` | Thin wrapper that depends on `@tirbase/core-wasm`; it does not bundle the core. |
 | Shared types | `tirbase-types` | `Apache-2.0` | Leaf crate for SDKs, drivers, and integrators. |
 | Reference packs | `tirbase-demo` | `Apache-2.0` | Vertical demo packs are templates customers can copy. |
+| Alert connectors | `tirbase-notify` | `Apache-2.0` | Connector interface, alert message model, secrets-by-reference, retry/on-call arithmetic and the generic email, webhook and console connectors, so closed vendor plugins can deliver without linking the AGPL runtime. |
+| EPCIS adapter | `tirbase-epcis` | `Apache-2.0` | Maps signed ledger bundles to GS1 EPCIS 2.0 JSON/XML for integrators; reads the bundle as JSON and never links the AGPL runtime. |
 | Admin SDK | `@tirbase/gateway-admin-sdk` | `Apache-2.0` | Pure HTTP client generated from the admin OpenAPI spec. |
 
 ## SDK packaging
