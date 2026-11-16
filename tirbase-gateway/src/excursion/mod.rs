@@ -49,9 +49,12 @@
 //! See [`mkt`] for the Arrhenius calculation, its documented numeric behaviour,
 //! and the published reference vectors.
 
+pub mod config;
 pub mod mkt;
 pub mod notifier;
 pub mod store;
+
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -59,6 +62,10 @@ use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_types::{CommandRole, DeviceSignature, FixedPointValue};
 
 use crate::excursion::mkt::{MktError, MktParameters};
+use crate::lineage_ledger::sink::LedgerSink;
+use crate::lineage_ledger::{
+    AppendRequest, EVENT_EXCURSION_DISPOSITIONED, EVENT_EXCURSION_RESOLVED,
+};
 use crate::excursion::notifier::{
     ExcursionNotification, NotificationEvent, NotifierDispatcher, NotifyError,
 };
@@ -906,6 +913,9 @@ pub enum ExcursionError {
     InvalidRequest(String),
     /// The MKT calculation was refused.
     Mkt(MktError),
+    /// The lineage ledger append failed (CC-14). The record was already updated;
+    /// replaying the same disposition or resolution repairs the missing entry.
+    Ledger(String),
 }
 
 impl std::fmt::Display for ExcursionError {
@@ -918,11 +928,28 @@ impl std::fmt::Display for ExcursionError {
             ExcursionError::Signature(detail) => write!(f, "signature: {detail}"),
             ExcursionError::InvalidRequest(detail) => write!(f, "invalid request: {detail}"),
             ExcursionError::Mkt(error) => write!(f, "MKT: {error}"),
+            ExcursionError::Ledger(detail) => write!(f, "lineage ledger: {detail}"),
         }
     }
 }
 
 impl std::error::Error for ExcursionError {}
+
+fn ledger_error(error: crate::lineage_ledger::LedgerError) -> ExcursionError {
+    ExcursionError::Ledger(error.to_string())
+}
+
+/// Whether `stored` is the same disposition `request` is asking to record.
+fn same_disposition(stored: &DispositionRecord, request: &DispositionRequest) -> bool {
+    stored.disposition == request.disposition
+        && stored.reason == request.reason
+        && stored.operator_did == request.operator_did
+        && stored.operator_role == request.operator_role
+        && stored.note == request.note
+        && stored.decided_est == request.decided_est
+        && stored.signature == request.signature
+        && stored.evidence == request.evidence
+}
 
 impl From<TransitionError> for ExcursionError {
     fn from(error: TransitionError) -> Self {
@@ -941,6 +968,7 @@ impl From<TransitionError> for ExcursionError {
 #[derive(Debug)]
 pub struct ExcursionWorkflow {
     store: ExcursionStore,
+    ledger: Option<Arc<LedgerSink>>,
 }
 
 impl ExcursionWorkflow {
@@ -948,6 +976,7 @@ impl ExcursionWorkflow {
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, ExcursionError> {
         Ok(Self {
             store: ExcursionStore::open(path)?,
+            ledger: None,
         })
     }
 
@@ -955,7 +984,23 @@ impl ExcursionWorkflow {
     pub fn open_in_memory() -> Result<Self, ExcursionError> {
         Ok(Self {
             store: ExcursionStore::open_in_memory()?,
+            ledger: None,
         })
+    }
+
+    /// Append dispositions and signed resolutions to `ledger` (CC-14).
+    ///
+    /// Share one [`LedgerSink`] with the lot registry so both write a single
+    /// chain. Entry ids are derived from the record, so a retried disposition or
+    /// resolution is a duplicate rather than a second row.
+    pub fn with_ledger(mut self, ledger: Arc<LedgerSink>) -> Self {
+        self.ledger = Some(ledger);
+        self
+    }
+
+    /// The attached lineage ledger sink, when there is one.
+    pub fn ledger(&self) -> Option<&LedgerSink> {
+        self.ledger.as_deref()
     }
 
     /// Persist a detection run as a `Detected` record.
@@ -1175,6 +1220,17 @@ impl ExcursionWorkflow {
         now_est: i64,
     ) -> Result<ExcursionRecord, ExcursionError> {
         let mut record = self.load(record_id)?;
+        // A retry of an already-recorded disposition is a no-op that still
+        // re-attempts the ledger append, so a crash between the store write and
+        // the ledger write is repaired by the retry instead of lost.
+        if record
+            .disposition
+            .as_ref()
+            .is_some_and(|stored| same_disposition(stored, &request))
+        {
+            self.record_disposition_entry(&record)?;
+            return Ok(record);
+        }
         let next = advance_state(record.state, ExcursionState::Dispositioned)?;
 
         let known_reasons: Vec<&str> = record
@@ -1245,6 +1301,7 @@ impl ExcursionWorkflow {
                 "evidence_digest": payload.evidence_digest,
             }),
         )?;
+        self.record_disposition_entry(&record)?;
         Ok(record)
     }
 
@@ -1275,6 +1332,16 @@ impl ExcursionWorkflow {
         now_est: i64,
     ) -> Result<ExcursionRecord, ExcursionError> {
         let mut record = self.load(record_id)?;
+        // Retrying an already-stored resolution re-attempts the ledger append and
+        // returns the record unchanged.
+        if record
+            .resolution
+            .as_ref()
+            .is_some_and(|stored| stored == signed)
+        {
+            self.record_resolution_entry(&record)?;
+            return Ok(record);
+        }
         let next = advance_state(record.state, ExcursionState::Resolved)?;
         let expected = self.resolution_payload(record_id)?;
         signed
@@ -1306,7 +1373,97 @@ impl ExcursionWorkflow {
                 "payload_hash": signed.payload_hash.iter().map(|b| format!("{b:02x}")).collect::<String>(),
             }),
         )?;
+        self.record_resolution_entry(&record)?;
         Ok(record)
+    }
+
+    // -----------------------------------------------------------------------
+    // Ledger (CC-14)
+    // -----------------------------------------------------------------------
+
+    /// Append the operator disposition to the attached ledger.
+    ///
+    /// The entry id is derived from the record, and the payload from the stored
+    /// disposition only, so replaying the call yields the same payload and is a
+    /// duplicate rather than a conflict.
+    fn record_disposition_entry(&self, record: &ExcursionRecord) -> Result<(), ExcursionError> {
+        let Some(sink) = self.ledger.as_ref() else {
+            return Ok(());
+        };
+        let Some(disposition) = record.disposition.as_ref() else {
+            return Ok(());
+        };
+        let mut request = AppendRequest::new(
+            format!("excursion-disposition:{}", record.record_id),
+            disposition.operator_did.clone(),
+            EVENT_EXCURSION_DISPOSITIONED,
+            serde_json::json!({
+                "record_id": record.record_id,
+                "disposition": disposition.disposition.as_str(),
+                "reason": disposition.reason,
+                "operator_did": disposition.operator_did,
+                "operator_role": disposition.operator_role,
+                "evidence_digest": disposition.evidence_digest,
+                "note": disposition.note,
+                "decided_est": disposition.decided_est,
+                "site_id": record.site_id,
+                "lot_id": record.lot_id,
+            }),
+            disposition.decided_est,
+        )
+        .with_device(record.device_id.clone());
+        if let Some(lot_id) = record.lot_id.as_ref() {
+            request = request.with_lot(lot_id.clone());
+        }
+        sink.append(request).map_err(ledger_error)?;
+        Ok(())
+    }
+
+    /// Append the signed resolution to the attached ledger.
+    fn record_resolution_entry(&self, record: &ExcursionRecord) -> Result<(), ExcursionError> {
+        let Some(sink) = self.ledger.as_ref() else {
+            return Ok(());
+        };
+        let Some(resolution) = record.resolution.as_ref() else {
+            return Ok(());
+        };
+        let disposition = record.disposition.as_ref();
+        let actor_did = disposition
+            .map(|stored| stored.operator_did.clone())
+            .unwrap_or_else(|| sink.actor_did().to_string());
+        let mut request = AppendRequest::new(
+            format!("excursion-resolution:{}", record.record_id),
+            actor_did,
+            EVENT_EXCURSION_RESOLVED,
+            serde_json::json!({
+                "record_id": record.record_id,
+                "disposition": disposition.map(|stored| stored.disposition.as_str()),
+                "reason": disposition.map(|stored| stored.reason.clone()),
+                "operator_did": disposition.map(|stored| stored.operator_did.clone()),
+                "evidence_digest": disposition.map(|stored| stored.evidence_digest.clone()),
+                "decided_est": disposition.map(|stored| stored.decided_est),
+                "site_id": record.site_id,
+                "lot_id": record.lot_id,
+                "resolution_payload_hash": resolution
+                    .payload_hash
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+                "resolution_created_est": resolution.created_est,
+                "signers": resolution
+                    .signatures
+                    .iter()
+                    .map(|entry| entry.signer_did.clone())
+                    .collect::<Vec<_>>(),
+            }),
+            resolution.created_est,
+        )
+        .with_device(record.device_id.clone());
+        if let Some(lot_id) = record.lot_id.as_ref() {
+            request = request.with_lot(lot_id.clone());
+        }
+        sink.append(request).map_err(ledger_error)?;
+        Ok(())
     }
 
     /// Close a resolved record.
