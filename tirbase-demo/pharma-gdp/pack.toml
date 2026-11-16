@@ -34,6 +34,7 @@ run = "run.sh"
 gdp = "gdp.toml"
 calibration = "calibration.toml"
 qualification = "qualification.toml"
+workflow = "workflow.toml"
 
 docs = ["docs/README.md", "docs/register-maps.md"]
 

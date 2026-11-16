@@ -1,0 +1,79 @@
+# Pharma GDP excursion workflow configuration (schema version 1, CC-13).
+#
+# Data only: editing a value here changes the workflow after a restart, without
+# rebuilding the gateway. The band is the 2–8 °C storage class of
+# profiles/gdp_2_8c.toml and gdp.toml, expressed in 0.1 °C (unit_id 1). The
+# disposition codes are the GDP release vocabulary; a secret never belongs in
+# this file and the gateway refuses configs that name one.
+schema_version = 1
+id = "pharma-gdp-workflow"
+pack = "pharma-gdp"
+title = "Pharma GDP excursion workflow"
+tirbase_min_version = "0.1.0"
+
+[thresholds]
+band_min_c = { mantissa = 20, exponent = -1, unit_id = 1 }             # 2.0 °C
+band_max_c = { mantissa = 80, exponent = -1, unit_id = 1 }             # 8.0 °C
+max_rate_c_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }      # 0.5 °C/s
+drift_budget_c = { mantissa = 50, exponent = -1, unit_id = 1 }         # 5.0 °C / hour
+max_door_open_secs = 120
+max_defrost_secs = 900
+compressor_max_runtime_secs = 21600
+max_telemetry_gap_secs = 300
+mkt_limit_c = { mantissa = 80, exponent = -1, unit_id = 1 }            # 8.0 °C
+
+[windows]
+assessment_secs = 7200          # QA assessment before the hold escalates
+max_quarantine_secs = 172800    # two days is the hard cap for a GDP hold
+reporting_interval_secs = 3600
+sampling_interval_secs = 300
+
+[debounce]
+min_findings = 1
+window_secs = 900
+cooldown_secs = 3600
+
+[mkt]
+activation_energy_j_per_mol = 83144
+gas_constant_milli_j_per_mol_k = 8314
+max_samples = 20000
+
+[[notification.routes]]
+channel = "pager"
+event = "quarantine_opened"
+enabled = true
+
+[[notification.routes]]
+channel = "email"
+event = "quarantine_opened"
+enabled = true
+
+[[notification.routes]]
+channel = "sms"
+event = "resolution_signed"
+enabled = true
+
+[[dispositions.codes]]
+code = "GDP-REL-001"
+kind = "release"
+label = "Lot released"
+
+[[dispositions.codes]]
+code = "GDP-BLK-002"
+kind = "hold"
+label = "Lot blocked pending assessment"
+
+[[dispositions.codes]]
+code = "GDP-REJ-006"
+kind = "reject"
+label = "Lot rejected"
+
+[[dispositions.codes]]
+code = "GDP-DES-008"
+kind = "destroy"
+label = "Lot destroyed"
+
+[lot]
+lot_kind = "lot"
+uom = "kg"
+label_prefix = "GDP"

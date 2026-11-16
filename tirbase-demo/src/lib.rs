@@ -49,6 +49,10 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use tirbase_types::FixedPointValue;
 
+pub mod workflow;
+
+pub use workflow::{load_workflow_config, WorkflowConfig, WorkflowConfigError};
+
 /// Relative paths that define a complete legacy demo pack (CLAIM-46.1).
 pub const DEMO_PACK_FORMAT: &[&str] = &[
     "profiles",
@@ -141,6 +145,9 @@ pub struct PackManifest {
     /// Qualification-checklist document, relative to the pack root (optional).
     #[serde(default)]
     pub qualification: Option<String>,
+    /// Workflow-config document, relative to the pack root (optional, CC-13).
+    #[serde(default)]
+    pub workflow: Option<String>,
 }
 
 /// Adversary class the scenario belongs to (docs/adversary-scenarios.md).
@@ -778,6 +785,8 @@ pub struct Pack {
     pub calibration: Option<CalibrationDocument>,
     /// Parsed qualification checklist, for pharma packs.
     pub qualification: Option<QualificationDocument>,
+    /// Parsed workflow configuration, for packs that ship one (CC-13).
+    pub workflow: Option<WorkflowConfig>,
 }
 
 impl Pack {
@@ -1271,6 +1280,22 @@ pub fn load_pack(root: impl AsRef<Path>) -> Result<Pack, PackError> {
         None => None,
     };
 
+    let workflow = match manifest.workflow.as_deref() {
+        Some(relative) => {
+            let text = read_document(root, relative)?;
+            let config = WorkflowConfig::parse(&text, relative)
+                .map_err(|error| validation(error.to_string()))?;
+            if config.pack != manifest.id {
+                return Err(validation(format!(
+                    "workflow '{relative}' configures pack '{}' but the manifest id is '{}'",
+                    config.pack, manifest.id
+                )));
+            }
+            Some(config)
+        }
+        None => None,
+    };
+
     let expected_text = read_document(root, &manifest.expected)?;
     let expected: PackExpectedOutputs = parse_toml(&manifest.expected, &expected_text)?;
     validate_expected(&expected, &scenarios, trip.as_ref())?;
@@ -1295,6 +1320,7 @@ pub fn load_pack(root: impl AsRef<Path>) -> Result<Pack, PackError> {
         gdp,
         calibration,
         qualification,
+        workflow,
     };
     validate_expected_releases(&pack)?;
     Ok(pack)

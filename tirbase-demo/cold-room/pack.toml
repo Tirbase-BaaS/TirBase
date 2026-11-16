@@ -23,6 +23,7 @@ register_maps = [
 
 sim = "sim/config.toml"
 run = "run.sh"
+workflow = "workflow.toml"
 
 docs = ["docs/README.md", "docs/register-maps.md"]
 

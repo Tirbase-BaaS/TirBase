@@ -1,5 +1,557 @@
 pub mod tirbase_demo
 pub use tirbase_demo::tirbase_types
+pub mod tirbase_demo::workflow
+pub enum tirbase_demo::workflow::WorkflowConfigError
+pub tirbase_demo::workflow::WorkflowConfigError::Field
+pub tirbase_demo::workflow::WorkflowConfigError::Field::field: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfigError::Field::message: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfigError::Io
+pub tirbase_demo::workflow::WorkflowConfigError::Io::error: core::io::error::Error
+pub tirbase_demo::workflow::WorkflowConfigError::Io::path: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfigError::Toml
+pub tirbase_demo::workflow::WorkflowConfigError::Toml::error: toml::de::Error
+pub tirbase_demo::workflow::WorkflowConfigError::Toml::path: alloc::string::String
+impl tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::field(&self) -> core::option::Option<alloc::string::String>
+impl core::error::Error for tirbase_demo::workflow::WorkflowConfigError
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Send for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowConfigError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowConfigError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowConfigError
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowConfigError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowConfigError::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowConfigError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowConfigError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowConfigError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_demo::workflow::WorkflowConfigError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowConfigError where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowConfigError where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowConfigError where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::from(T) -> T
+pub struct tirbase_demo::workflow::DispositionCode
+pub tirbase_demo::workflow::DispositionCode::code: alloc::string::String
+pub tirbase_demo::workflow::DispositionCode::kind: alloc::string::String
+pub tirbase_demo::workflow::DispositionCode::label: alloc::string::String
+impl core::clone::Clone for tirbase_demo::workflow::DispositionCode
+pub fn tirbase_demo::workflow::DispositionCode::clone(&self) -> tirbase_demo::workflow::DispositionCode
+impl core::cmp::Eq for tirbase_demo::workflow::DispositionCode
+impl core::cmp::PartialEq for tirbase_demo::workflow::DispositionCode
+pub fn tirbase_demo::workflow::DispositionCode::eq(&self, &tirbase_demo::workflow::DispositionCode) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::DispositionCode
+pub fn tirbase_demo::workflow::DispositionCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::DispositionCode
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::DispositionCode
+pub fn tirbase_demo::workflow::DispositionCode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::DispositionCode
+impl core::marker::Send for tirbase_demo::workflow::DispositionCode
+impl core::marker::Sync for tirbase_demo::workflow::DispositionCode
+impl core::marker::Unpin for tirbase_demo::workflow::DispositionCode
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::DispositionCode
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::DispositionCode
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::DispositionCode
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::DispositionCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::DispositionCode::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::DispositionCode where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::DispositionCode::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::DispositionCode where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::DispositionCode::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::DispositionCode where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::DispositionCode::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::DispositionCode::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::DispositionCode where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::DispositionCode::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::DispositionCode::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::DispositionCode where T: core::clone::Clone
+pub type tirbase_demo::workflow::DispositionCode::Owned = T
+pub fn tirbase_demo::workflow::DispositionCode::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::DispositionCode::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::DispositionCode where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::DispositionCode::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::DispositionCode where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::DispositionCode::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::DispositionCode where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::DispositionCode::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::DispositionCode where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::DispositionCode::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::DispositionCode
+pub fn tirbase_demo::workflow::DispositionCode::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::DispositionCode where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::NotificationRoute
+pub tirbase_demo::workflow::NotificationRoute::channel: alloc::string::String
+pub tirbase_demo::workflow::NotificationRoute::enabled: bool
+pub tirbase_demo::workflow::NotificationRoute::event: alloc::string::String
+impl core::clone::Clone for tirbase_demo::workflow::NotificationRoute
+pub fn tirbase_demo::workflow::NotificationRoute::clone(&self) -> tirbase_demo::workflow::NotificationRoute
+impl core::cmp::Eq for tirbase_demo::workflow::NotificationRoute
+impl core::cmp::PartialEq for tirbase_demo::workflow::NotificationRoute
+pub fn tirbase_demo::workflow::NotificationRoute::eq(&self, &tirbase_demo::workflow::NotificationRoute) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::NotificationRoute
+pub fn tirbase_demo::workflow::NotificationRoute::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::NotificationRoute
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::NotificationRoute
+pub fn tirbase_demo::workflow::NotificationRoute::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::NotificationRoute
+impl core::marker::Send for tirbase_demo::workflow::NotificationRoute
+impl core::marker::Sync for tirbase_demo::workflow::NotificationRoute
+impl core::marker::Unpin for tirbase_demo::workflow::NotificationRoute
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::NotificationRoute
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::NotificationRoute
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::NotificationRoute
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::NotificationRoute where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::NotificationRoute::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::NotificationRoute where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::NotificationRoute::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::NotificationRoute where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::NotificationRoute::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::NotificationRoute where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::NotificationRoute::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::NotificationRoute::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::NotificationRoute where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::NotificationRoute::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::NotificationRoute::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::NotificationRoute where T: core::clone::Clone
+pub type tirbase_demo::workflow::NotificationRoute::Owned = T
+pub fn tirbase_demo::workflow::NotificationRoute::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::NotificationRoute::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::NotificationRoute where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::NotificationRoute::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::NotificationRoute where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::NotificationRoute::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::NotificationRoute where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::NotificationRoute::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::NotificationRoute where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::NotificationRoute::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::NotificationRoute
+pub fn tirbase_demo::workflow::NotificationRoute::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::NotificationRoute where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowConfig
+pub tirbase_demo::workflow::WorkflowConfig::debounce: tirbase_demo::workflow::WorkflowDebounce
+pub tirbase_demo::workflow::WorkflowConfig::dispositions: tirbase_demo::workflow::WorkflowDispositions
+pub tirbase_demo::workflow::WorkflowConfig::id: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfig::lot: tirbase_demo::workflow::WorkflowLotMetadata
+pub tirbase_demo::workflow::WorkflowConfig::mkt: tirbase_demo::workflow::WorkflowMkt
+pub tirbase_demo::workflow::WorkflowConfig::notification: tirbase_demo::workflow::WorkflowNotification
+pub tirbase_demo::workflow::WorkflowConfig::pack: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfig::schema_version: u32
+pub tirbase_demo::workflow::WorkflowConfig::thresholds: tirbase_demo::workflow::WorkflowThresholds
+pub tirbase_demo::workflow::WorkflowConfig::tirbase_min_version: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfig::title: alloc::string::String
+pub tirbase_demo::workflow::WorkflowConfig::windows: tirbase_demo::workflow::WorkflowWindows
+impl tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::disposition_code_for(&self, &str) -> core::option::Option<&str>
+pub fn tirbase_demo::workflow::WorkflowConfig::enabled_routes(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tirbase_demo::workflow::NotificationRoute>
+pub fn tirbase_demo::workflow::WorkflowConfig::load(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_demo::workflow::WorkflowConfigError>
+pub fn tirbase_demo::workflow::WorkflowConfig::parse(&str, &str) -> core::result::Result<Self, tirbase_demo::workflow::WorkflowConfigError>
+pub fn tirbase_demo::workflow::WorkflowConfig::validate(&self) -> core::result::Result<(), tirbase_demo::workflow::WorkflowConfigError>
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::clone(&self) -> tirbase_demo::workflow::WorkflowConfig
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowConfig
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::eq(&self, &tirbase_demo::workflow::WorkflowConfig) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowConfig
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Send for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowConfig
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowConfig::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowConfig where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowConfig::Owned = T
+pub fn tirbase_demo::workflow::WorkflowConfig::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowConfig where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowConfig where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowConfig where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowConfig where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowDebounce
+pub tirbase_demo::workflow::WorkflowDebounce::cooldown_secs: u32
+pub tirbase_demo::workflow::WorkflowDebounce::min_findings: u32
+pub tirbase_demo::workflow::WorkflowDebounce::window_secs: u32
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowDebounce
+pub fn tirbase_demo::workflow::WorkflowDebounce::clone(&self) -> tirbase_demo::workflow::WorkflowDebounce
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowDebounce
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowDebounce
+pub fn tirbase_demo::workflow::WorkflowDebounce::eq(&self, &tirbase_demo::workflow::WorkflowDebounce) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowDebounce
+pub fn tirbase_demo::workflow::WorkflowDebounce::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::workflow::WorkflowDebounce
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowDebounce
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowDebounce
+pub fn tirbase_demo::workflow::WorkflowDebounce::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowDebounce
+impl core::marker::Send for tirbase_demo::workflow::WorkflowDebounce
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowDebounce
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowDebounce
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowDebounce
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowDebounce
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowDebounce
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowDebounce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDebounce::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowDebounce where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDebounce::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowDebounce where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowDebounce::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowDebounce where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowDebounce::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowDebounce::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowDebounce where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowDebounce::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowDebounce::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowDebounce where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowDebounce::Owned = T
+pub fn tirbase_demo::workflow::WorkflowDebounce::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowDebounce::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowDebounce where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDebounce::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowDebounce where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDebounce::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowDebounce where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDebounce::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowDebounce where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowDebounce::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowDebounce
+pub fn tirbase_demo::workflow::WorkflowDebounce::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowDebounce where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowDispositions
+pub tirbase_demo::workflow::WorkflowDispositions::codes: alloc::vec::Vec<tirbase_demo::workflow::DispositionCode>
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowDispositions
+pub fn tirbase_demo::workflow::WorkflowDispositions::clone(&self) -> tirbase_demo::workflow::WorkflowDispositions
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowDispositions
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowDispositions
+pub fn tirbase_demo::workflow::WorkflowDispositions::eq(&self, &tirbase_demo::workflow::WorkflowDispositions) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowDispositions
+pub fn tirbase_demo::workflow::WorkflowDispositions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowDispositions
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowDispositions
+pub fn tirbase_demo::workflow::WorkflowDispositions::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowDispositions
+impl core::marker::Send for tirbase_demo::workflow::WorkflowDispositions
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowDispositions
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowDispositions
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowDispositions
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowDispositions
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowDispositions
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowDispositions where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDispositions::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowDispositions where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDispositions::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowDispositions where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowDispositions::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowDispositions where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowDispositions::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowDispositions::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowDispositions where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowDispositions::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowDispositions::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowDispositions where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowDispositions::Owned = T
+pub fn tirbase_demo::workflow::WorkflowDispositions::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowDispositions::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowDispositions where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDispositions::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowDispositions where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDispositions::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowDispositions where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowDispositions::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowDispositions where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowDispositions::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowDispositions
+pub fn tirbase_demo::workflow::WorkflowDispositions::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowDispositions where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowLotMetadata
+pub tirbase_demo::workflow::WorkflowLotMetadata::label_prefix: alloc::string::String
+pub tirbase_demo::workflow::WorkflowLotMetadata::lot_kind: alloc::string::String
+pub tirbase_demo::workflow::WorkflowLotMetadata::uom: alloc::string::String
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowLotMetadata
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::clone(&self) -> tirbase_demo::workflow::WorkflowLotMetadata
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowLotMetadata
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::eq(&self, &tirbase_demo::workflow::WorkflowLotMetadata) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowLotMetadata
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowLotMetadata
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowLotMetadata
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::marker::Send for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowLotMetadata
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowLotMetadata
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowLotMetadata where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowLotMetadata where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowLotMetadata where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowLotMetadata where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowLotMetadata::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowLotMetadata where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowLotMetadata::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowLotMetadata where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowLotMetadata::Owned = T
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowLotMetadata where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowLotMetadata where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowLotMetadata where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowLotMetadata where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowLotMetadata::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowLotMetadata
+pub fn tirbase_demo::workflow::WorkflowLotMetadata::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowLotMetadata where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowMkt
+pub tirbase_demo::workflow::WorkflowMkt::activation_energy_j_per_mol: u32
+pub tirbase_demo::workflow::WorkflowMkt::gas_constant_milli_j_per_mol_k: u32
+pub tirbase_demo::workflow::WorkflowMkt::max_samples: usize
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowMkt
+pub fn tirbase_demo::workflow::WorkflowMkt::clone(&self) -> tirbase_demo::workflow::WorkflowMkt
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowMkt
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowMkt
+pub fn tirbase_demo::workflow::WorkflowMkt::eq(&self, &tirbase_demo::workflow::WorkflowMkt) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowMkt
+pub fn tirbase_demo::workflow::WorkflowMkt::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::workflow::WorkflowMkt
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowMkt
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowMkt
+pub fn tirbase_demo::workflow::WorkflowMkt::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowMkt
+impl core::marker::Send for tirbase_demo::workflow::WorkflowMkt
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowMkt
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowMkt
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowMkt
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowMkt
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowMkt
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowMkt where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowMkt::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowMkt where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowMkt::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowMkt where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowMkt::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowMkt where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowMkt::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowMkt::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowMkt where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowMkt::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowMkt::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowMkt where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowMkt::Owned = T
+pub fn tirbase_demo::workflow::WorkflowMkt::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowMkt::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowMkt where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowMkt::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowMkt where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowMkt::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowMkt where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowMkt::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowMkt where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowMkt::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowMkt
+pub fn tirbase_demo::workflow::WorkflowMkt::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowMkt where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowNotification
+pub tirbase_demo::workflow::WorkflowNotification::routes: alloc::vec::Vec<tirbase_demo::workflow::NotificationRoute>
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowNotification
+pub fn tirbase_demo::workflow::WorkflowNotification::clone(&self) -> tirbase_demo::workflow::WorkflowNotification
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowNotification
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowNotification
+pub fn tirbase_demo::workflow::WorkflowNotification::eq(&self, &tirbase_demo::workflow::WorkflowNotification) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowNotification
+pub fn tirbase_demo::workflow::WorkflowNotification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowNotification
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowNotification
+pub fn tirbase_demo::workflow::WorkflowNotification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowNotification
+impl core::marker::Send for tirbase_demo::workflow::WorkflowNotification
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowNotification
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowNotification
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowNotification
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowNotification
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowNotification
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowNotification where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowNotification::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowNotification where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowNotification::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowNotification where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowNotification::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowNotification where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowNotification::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowNotification::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowNotification where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowNotification::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowNotification::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowNotification where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowNotification::Owned = T
+pub fn tirbase_demo::workflow::WorkflowNotification::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowNotification::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowNotification where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowNotification::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowNotification where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowNotification::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowNotification where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowNotification::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowNotification where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowNotification::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowNotification
+pub fn tirbase_demo::workflow::WorkflowNotification::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowNotification where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowThresholds
+pub tirbase_demo::workflow::WorkflowThresholds::band_max_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::workflow::WorkflowThresholds::band_min_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::workflow::WorkflowThresholds::compressor_max_runtime_secs: u32
+pub tirbase_demo::workflow::WorkflowThresholds::drift_budget_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::workflow::WorkflowThresholds::max_defrost_secs: u32
+pub tirbase_demo::workflow::WorkflowThresholds::max_door_open_secs: u32
+pub tirbase_demo::workflow::WorkflowThresholds::max_rate_c_per_sec: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::workflow::WorkflowThresholds::max_telemetry_gap_secs: u32
+pub tirbase_demo::workflow::WorkflowThresholds::mkt_limit_c: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowThresholds
+pub fn tirbase_demo::workflow::WorkflowThresholds::clone(&self) -> tirbase_demo::workflow::WorkflowThresholds
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowThresholds
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowThresholds
+pub fn tirbase_demo::workflow::WorkflowThresholds::eq(&self, &tirbase_demo::workflow::WorkflowThresholds) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowThresholds
+pub fn tirbase_demo::workflow::WorkflowThresholds::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowThresholds
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowThresholds
+pub fn tirbase_demo::workflow::WorkflowThresholds::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowThresholds
+impl core::marker::Send for tirbase_demo::workflow::WorkflowThresholds
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowThresholds
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowThresholds
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowThresholds
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowThresholds
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowThresholds
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowThresholds where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowThresholds::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowThresholds where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowThresholds::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowThresholds where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowThresholds::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowThresholds where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowThresholds::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowThresholds::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowThresholds where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowThresholds::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowThresholds::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowThresholds where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowThresholds::Owned = T
+pub fn tirbase_demo::workflow::WorkflowThresholds::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowThresholds::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowThresholds where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowThresholds::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowThresholds where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowThresholds::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowThresholds where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowThresholds::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowThresholds where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowThresholds::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowThresholds
+pub fn tirbase_demo::workflow::WorkflowThresholds::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowThresholds where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::workflow::WorkflowWindows
+pub tirbase_demo::workflow::WorkflowWindows::assessment_secs: u32
+pub tirbase_demo::workflow::WorkflowWindows::max_quarantine_secs: u32
+pub tirbase_demo::workflow::WorkflowWindows::reporting_interval_secs: u32
+pub tirbase_demo::workflow::WorkflowWindows::sampling_interval_secs: u32
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowWindows
+pub fn tirbase_demo::workflow::WorkflowWindows::clone(&self) -> tirbase_demo::workflow::WorkflowWindows
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowWindows
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowWindows
+pub fn tirbase_demo::workflow::WorkflowWindows::eq(&self, &tirbase_demo::workflow::WorkflowWindows) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowWindows
+pub fn tirbase_demo::workflow::WorkflowWindows::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::workflow::WorkflowWindows
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowWindows
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowWindows
+pub fn tirbase_demo::workflow::WorkflowWindows::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowWindows
+impl core::marker::Send for tirbase_demo::workflow::WorkflowWindows
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowWindows
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowWindows
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowWindows
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowWindows
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowWindows
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowWindows where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowWindows::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowWindows where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowWindows::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowWindows where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowWindows::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowWindows where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowWindows::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowWindows::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowWindows where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowWindows::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowWindows::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowWindows where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowWindows::Owned = T
+pub fn tirbase_demo::workflow::WorkflowWindows::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowWindows::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowWindows where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowWindows::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowWindows where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowWindows::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowWindows where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowWindows::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowWindows where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowWindows::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowWindows
+pub fn tirbase_demo::workflow::WorkflowWindows::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowWindows where T: for<'de> serde_core::de::Deserialize<'de>
+pub const tirbase_demo::workflow::WORKFLOW_CONFIG_FILE: &str
+pub const tirbase_demo::workflow::WORKFLOW_DISPOSITION_KINDS: &[&str]
+pub const tirbase_demo::workflow::WORKFLOW_LOT_KINDS: &[&str]
+pub const tirbase_demo::workflow::WORKFLOW_MAX_MIN_FINDINGS: u32
+pub const tirbase_demo::workflow::WORKFLOW_MAX_MKT_SAMPLES: usize
+pub const tirbase_demo::workflow::WORKFLOW_NOTIFICATION_EVENTS: &[&str]
+pub const tirbase_demo::workflow::WORKFLOW_SCHEMA_VERSION: u32
+pub fn tirbase_demo::workflow::load_workflow_config(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::workflow::WorkflowConfig, tirbase_demo::workflow::WorkflowConfigError>
 pub enum tirbase_demo::AdversaryClass
 pub tirbase_demo::AdversaryClass::S1
 pub tirbase_demo::AdversaryClass::S2
@@ -419,6 +971,48 @@ pub unsafe fn tirbase_demo::TripDisposition::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_demo::TripDisposition
 pub fn tirbase_demo::TripDisposition::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_demo::TripDisposition where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::WorkflowConfigError
+pub tirbase_demo::WorkflowConfigError::Field
+pub tirbase_demo::WorkflowConfigError::Field::field: alloc::string::String
+pub tirbase_demo::WorkflowConfigError::Field::message: alloc::string::String
+pub tirbase_demo::WorkflowConfigError::Io
+pub tirbase_demo::WorkflowConfigError::Io::error: core::io::error::Error
+pub tirbase_demo::WorkflowConfigError::Io::path: alloc::string::String
+pub tirbase_demo::WorkflowConfigError::Toml
+pub tirbase_demo::WorkflowConfigError::Toml::error: toml::de::Error
+pub tirbase_demo::WorkflowConfigError::Toml::path: alloc::string::String
+impl tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::field(&self) -> core::option::Option<alloc::string::String>
+impl core::error::Error for tirbase_demo::workflow::WorkflowConfigError
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Send for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowConfigError
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowConfigError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowConfigError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowConfigError
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowConfigError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowConfigError::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowConfigError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowConfigError where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowConfigError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowConfigError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_demo::workflow::WorkflowConfigError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowConfigError where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowConfigError where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowConfigError where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfigError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowConfigError
+pub fn tirbase_demo::workflow::WorkflowConfigError::from(T) -> T
 pub struct tirbase_demo::CalibrationDocument
 pub tirbase_demo::CalibrationDocument::schema_version: u32
 pub tirbase_demo::CalibrationDocument::sensor: alloc::vec::Vec<tirbase_demo::CalibrationRecord>
@@ -934,6 +1528,7 @@ pub tirbase_demo::Pack::qualification: core::option::Option<tirbase_demo::Qualif
 pub tirbase_demo::Pack::root: std::path::PathBuf
 pub tirbase_demo::Pack::scenarios: alloc::vec::Vec<tirbase_demo::PackScenario>
 pub tirbase_demo::Pack::trip: core::option::Option<tirbase_demo::TripDocument>
+pub tirbase_demo::Pack::workflow: core::option::Option<tirbase_demo::workflow::WorkflowConfig>
 impl tirbase_demo::Pack
 pub fn tirbase_demo::Pack::covered_classes(&self) -> alloc::collections::btree::set::BTreeSet<tirbase_demo::AdversaryClass>
 pub fn tirbase_demo::Pack::derived_trip_disposition(&self, &str) -> core::option::Option<tirbase_demo::TripDisposition>
@@ -1038,6 +1633,7 @@ pub tirbase_demo::PackManifest::tirbase_min_version: alloc::string::String
 pub tirbase_demo::PackManifest::title: alloc::string::String
 pub tirbase_demo::PackManifest::trip: core::option::Option<alloc::string::String>
 pub tirbase_demo::PackManifest::version: alloc::string::String
+pub tirbase_demo::PackManifest::workflow: core::option::Option<alloc::string::String>
 impl core::clone::Clone for tirbase_demo::PackManifest
 pub fn tirbase_demo::PackManifest::clone(&self) -> tirbase_demo::PackManifest
 impl core::fmt::Debug for tirbase_demo::PackManifest
@@ -1510,6 +2106,69 @@ pub unsafe fn tirbase_demo::TripLocation::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_demo::TripLocation
 pub fn tirbase_demo::TripLocation::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_demo::TripLocation where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::WorkflowConfig
+pub tirbase_demo::WorkflowConfig::debounce: tirbase_demo::workflow::WorkflowDebounce
+pub tirbase_demo::WorkflowConfig::dispositions: tirbase_demo::workflow::WorkflowDispositions
+pub tirbase_demo::WorkflowConfig::id: alloc::string::String
+pub tirbase_demo::WorkflowConfig::lot: tirbase_demo::workflow::WorkflowLotMetadata
+pub tirbase_demo::WorkflowConfig::mkt: tirbase_demo::workflow::WorkflowMkt
+pub tirbase_demo::WorkflowConfig::notification: tirbase_demo::workflow::WorkflowNotification
+pub tirbase_demo::WorkflowConfig::pack: alloc::string::String
+pub tirbase_demo::WorkflowConfig::schema_version: u32
+pub tirbase_demo::WorkflowConfig::thresholds: tirbase_demo::workflow::WorkflowThresholds
+pub tirbase_demo::WorkflowConfig::tirbase_min_version: alloc::string::String
+pub tirbase_demo::WorkflowConfig::title: alloc::string::String
+pub tirbase_demo::WorkflowConfig::windows: tirbase_demo::workflow::WorkflowWindows
+impl tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::disposition_code_for(&self, &str) -> core::option::Option<&str>
+pub fn tirbase_demo::workflow::WorkflowConfig::enabled_routes(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tirbase_demo::workflow::NotificationRoute>
+pub fn tirbase_demo::workflow::WorkflowConfig::load(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<Self, tirbase_demo::workflow::WorkflowConfigError>
+pub fn tirbase_demo::workflow::WorkflowConfig::parse(&str, &str) -> core::result::Result<Self, tirbase_demo::workflow::WorkflowConfigError>
+pub fn tirbase_demo::workflow::WorkflowConfig::validate(&self) -> core::result::Result<(), tirbase_demo::workflow::WorkflowConfigError>
+impl core::clone::Clone for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::clone(&self) -> tirbase_demo::workflow::WorkflowConfig
+impl core::cmp::Eq for tirbase_demo::workflow::WorkflowConfig
+impl core::cmp::PartialEq for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::eq(&self, &tirbase_demo::workflow::WorkflowConfig) -> bool
+impl core::fmt::Debug for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::workflow::WorkflowConfig
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Send for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Sync for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::Unpin for tirbase_demo::workflow::WorkflowConfig
+impl core::marker::UnsafeUnpin for tirbase_demo::workflow::WorkflowConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::workflow::WorkflowConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::workflow::WorkflowConfig
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::workflow::WorkflowConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::workflow::WorkflowConfig where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::From<T>
+pub fn tirbase_demo::workflow::WorkflowConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::Into<T>
+pub type tirbase_demo::workflow::WorkflowConfig::Error = core::convert::Infallible
+pub fn tirbase_demo::workflow::WorkflowConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::workflow::WorkflowConfig where U: core::convert::TryFrom<T>
+pub type tirbase_demo::workflow::WorkflowConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::workflow::WorkflowConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::workflow::WorkflowConfig where T: core::clone::Clone
+pub type tirbase_demo::workflow::WorkflowConfig::Owned = T
+pub fn tirbase_demo::workflow::WorkflowConfig::clone_into(&self, &mut T)
+pub fn tirbase_demo::workflow::WorkflowConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::workflow::WorkflowConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::workflow::WorkflowConfig where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::workflow::WorkflowConfig where T: ?core::marker::Sized
+pub fn tirbase_demo::workflow::WorkflowConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::workflow::WorkflowConfig where T: core::clone::Clone
+pub unsafe fn tirbase_demo::workflow::WorkflowConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::workflow::WorkflowConfig
+pub fn tirbase_demo::workflow::WorkflowConfig::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::workflow::WorkflowConfig where T: for<'de> serde_core::de::Deserialize<'de>
 pub const tirbase_demo::COLD_CHAIN_PACK_DIR: &str
 pub const tirbase_demo::COLD_CHAIN_PACK_FORMAT: &[&str]
 pub const tirbase_demo::DEMO_PACK_FORMAT: &[&str]
@@ -1526,6 +2185,7 @@ pub const tirbase_demo::RELEASE_CODE_SENSOR_FAILURE: &str
 pub const tirbase_demo::RELEASE_CODE_TRANSIENT_EXCURSION: &str
 pub fn tirbase_demo::classify_excursion(&tirbase_demo::PackScenario, &tirbase_demo::GdpStorage) -> tirbase_demo::ExcursionSummary
 pub fn tirbase_demo::load_pack(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::Pack, tirbase_demo::PackError>
+pub fn tirbase_demo::load_workflow_config(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::workflow::WorkflowConfig, tirbase_demo::workflow::WorkflowConfigError>
 pub fn tirbase_demo::longest_door_open_secs(&tirbase_demo::PackScenario, &str) -> core::option::Option<i64>
 pub fn tirbase_demo::pack_has_required_layout(&std::path::Path, &[&str]) -> bool
 pub fn tirbase_demo::safe_pack_path(&std::path::Path, &str) -> core::result::Result<std::path::PathBuf, tirbase_demo::PackError>

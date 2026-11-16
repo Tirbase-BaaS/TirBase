@@ -1,0 +1,79 @@
+# Reefer/container excursion workflow configuration (schema version 1, CC-13).
+#
+# Data only: editing a value here changes the workflow after a restart, without
+# rebuilding the gateway. The band is the frozen cargo band of
+# profiles/reefer.toml expressed in 0.1 °C (unit_id 1, exponent -1). Secrets
+# never belong in this file — the gateway refuses configs that name a password,
+# token, or key.
+schema_version = 1
+id = "reefer-workflow"
+pack = "reefer"
+title = "Reefer trip excursion workflow"
+tirbase_min_version = "0.1.0"
+
+[thresholds]
+band_min_c = { mantissa = -250, exponent = -1, unit_id = 1 }           # -25.0 °C
+band_max_c = { mantissa = -180, exponent = -1, unit_id = 1 }           # -18.0 °C
+max_rate_c_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }      # 0.5 °C/s
+drift_budget_c = { mantissa = 20, exponent = -1, unit_id = 1 }         # 2.0 °C / window
+max_door_open_secs = 300
+max_defrost_secs = 1200
+compressor_max_runtime_secs = 21600
+max_telemetry_gap_secs = 600
+mkt_limit_c = { mantissa = -180, exponent = -1, unit_id = 1 }          # -18.0 °C
+
+[windows]
+assessment_secs = 1800          # a driver must answer within the leg
+max_quarantine_secs = 43200     # a container hold is cleared within 12 h
+reporting_interval_secs = 1800
+sampling_interval_secs = 300
+
+[debounce]
+min_findings = 1                # a single out-of-band sample on a trip is enough
+window_secs = 600
+cooldown_secs = 900
+
+[mkt]
+activation_energy_j_per_mol = 83144
+gas_constant_milli_j_per_mol_k = 8314
+max_samples = 10000
+
+[[notification.routes]]
+channel = "pager"
+event = "quarantine_opened"
+enabled = true
+
+[[notification.routes]]
+channel = "sms"
+event = "quarantine_opened"
+enabled = true
+
+[[notification.routes]]
+channel = "email"
+event = "resolution_signed"
+enabled = false
+
+[[dispositions.codes]]
+code = "TRIP-REL-001"
+kind = "release"
+label = "Cargo released for the next leg"
+
+[[dispositions.codes]]
+code = "TRIP-HOLD-002"
+kind = "hold"
+label = "Container held at the dock"
+
+[[dispositions.codes]]
+code = "TRIP-REJ-003"
+kind = "reject"
+label = "Cargo rejected at destination"
+
+[[dispositions.codes]]
+code = "TRIP-DES-004"
+kind = "destroy"
+label = "Cargo destroyed under supervision"
+
+[lot]
+lot_kind = "batch"
+uom = "case"
+label_prefix = "TRIP"

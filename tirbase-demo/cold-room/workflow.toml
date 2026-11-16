@@ -1,0 +1,73 @@
+# Cold-room excursion workflow configuration (schema version 1, CC-13).
+#
+# Data only: editing a value here changes the workflow after a restart, without
+# rebuilding the gateway. Units follow docs/unit-registry.md (1 = degC); every
+# temperature is expressed in 0.1 °C (exponent -1). Secrets never belong in this
+# file — the gateway refuses configs that name a password, token, or key.
+schema_version = 1
+id = "cold-room-workflow"
+pack = "cold-room"
+title = "Cold-room excursion workflow"
+tirbase_min_version = "0.1.0"
+
+[thresholds]
+band_min_c = { mantissa = 0, exponent = -1, unit_id = 1 }              # 0.0 °C
+band_max_c = { mantissa = 80, exponent = -1, unit_id = 1 }             # 8.0 °C
+max_rate_c_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }      # 0.5 °C/s
+drift_budget_c = { mantissa = 20, exponent = -1, unit_id = 1 }         # 2.0 °C / window
+max_door_open_secs = 120
+max_defrost_secs = 900
+compressor_max_runtime_secs = 21600
+max_telemetry_gap_secs = 300
+mkt_limit_c = { mantissa = 80, exponent = -1, unit_id = 1 }            # 8.0 °C
+
+[windows]
+assessment_secs = 3600          # operator has one hour to disposition
+max_quarantine_secs = 86400     # a hold never outlives a day
+reporting_interval_secs = 3600
+sampling_interval_secs = 300
+
+[debounce]
+min_findings = 2                # a single sample does not open a quarantine
+window_secs = 900
+cooldown_secs = 1800
+
+[mkt]
+activation_energy_j_per_mol = 83144
+gas_constant_milli_j_per_mol_k = 8314
+max_samples = 10000
+
+[[notification.routes]]
+channel = "pager"
+event = "quarantine_opened"
+enabled = true
+
+[[notification.routes]]
+channel = "email"
+event = "disposition_recorded"
+enabled = false
+
+[[dispositions.codes]]
+code = "CR-REL-001"
+kind = "release"
+label = "Cold-room lot released"
+
+[[dispositions.codes]]
+code = "CR-HOLD-002"
+kind = "hold"
+label = "Cold-room lot held pending assessment"
+
+[[dispositions.codes]]
+code = "CR-REJ-003"
+kind = "reject"
+label = "Cold-room lot rejected"
+
+[[dispositions.codes]]
+code = "CR-DES-004"
+kind = "destroy"
+label = "Cold-room lot destroyed"
+
+[lot]
+lot_kind = "lot"
+uom = "kg"
+label_prefix = "CR"
