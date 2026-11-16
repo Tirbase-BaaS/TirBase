@@ -1,0 +1,16 @@
+[package]
+name = "tirbase-notify"
+version = "0.1.0"
+edition = "2021"
+description = "TirBase alert delivery connectors (email, webhook, console) and transport interface"
+license = "Apache-2.0"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11.0"
+hex = "0.4"
+zeroize = { version = "1.9", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
