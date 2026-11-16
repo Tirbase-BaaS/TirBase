@@ -4,7 +4,9 @@
 
 pub mod cmd;
 
-pub use crate::cmd::{enroll, export, inspect_identities, mint, provisioning, rotate, verify_log};
+pub use crate::cmd::{
+    enroll, export, inspect_identities, ledger, mint, provisioning, rotate, verify_log,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandSpec {
@@ -21,6 +23,7 @@ pub const REQUIRED_SUBCOMMANDS: &[&str] = &[
     "export-log",
     "export-evidence-bundle",
     "verify-log",
+    "ledger",
     "rollout",
     "restore",
     "backup",
@@ -46,6 +49,7 @@ pub fn cli_commands() -> Vec<CommandSpec> {
         CommandSpec { name: "export-log", about: "Export security event log (JSON/CBOR), signed by device key (CLAIM-27.2)" },
         CommandSpec { name: "export-evidence-bundle", about: "Export signed evidence bundle archive (CLAIM-27.3)" },
         CommandSpec { name: "verify-log", about: "Verify hash-chained security log; exit 0 intact, non-zero with broken ranges (CLAIM-27.4)" },
+        CommandSpec { name: "ledger", about: "Offline signed-bundle verification for the lineage ledger: verify --bundle FILE --signature FILE --trusted-key DID=HEX (CC-14)" },
         CommandSpec { name: "rollout", about: "Staged rollout status and signed rollback (CLAIM-30.8, PV-8.9)" },
         CommandSpec { name: "restore", about: "Restore primary DB from backup, replay delta log, signed epoch bump, enter LOCKDOWN (CLAIM-32.3, S22)" },
         CommandSpec { name: "backup", about: "Create a consistent signed snapshot with a ledger root hash (F-07)" },

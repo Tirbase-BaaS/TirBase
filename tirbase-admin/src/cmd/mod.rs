@@ -5,6 +5,7 @@
 pub mod enroll;
 pub mod export;
 pub mod inspect_identities;
+pub mod ledger;
 pub mod mint;
 pub mod provisioning;
 pub mod restore;

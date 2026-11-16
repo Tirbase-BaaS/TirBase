@@ -115,6 +115,28 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
         }
+        "ledger" => {
+            let sub = rest.first().cloned().unwrap_or_default();
+            let subflags = parse_flags(&rest.iter().skip(1).cloned().collect::<Vec<_>>());
+            match sub.as_str() {
+                "verify" => {
+                    let args = cmd::ledger::LedgerVerifyArgs {
+                        bundle: req(&subflags, "bundle")?.into(),
+                        signature: req(&subflags, "signature")?.into(),
+                        trusted_keys: subflags.get("trusted-key").cloned().unwrap_or_default(),
+                        attachments_dir: one(&subflags, "attachments").map(Into::into),
+                        json: subflags.contains_key("json")
+                            || one(&subflags, "json").as_deref() == Some("true"),
+                    };
+                    let report = cmd::ledger::run(&args)?;
+                    let ok = cmd::ledger::print_report(&report, args.json)?;
+                    if !ok {
+                        std::process::exit(1);
+                    }
+                }
+                _ => bail!("ledger requires subcommand: verify"),
+            }
+        }
         "rollout" => {
             let sub = rest.first().cloned().unwrap_or_default();
             let subflags = parse_flags(&rest.iter().skip(1).cloned().collect::<Vec<_>>());
