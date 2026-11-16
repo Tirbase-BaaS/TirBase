@@ -20,6 +20,7 @@
 - [BACnet/IP Read Bridge](../drivers/bacnet_ip.md)
 - [4–20 mA Transducer Driver](../drivers/current_loop_4_20ma.md)
 - [BLE Probes](../drivers/ble_probes.md)
+- [MQTT Sensor Bridge](../drivers/mqtt_sensor_bridge.md)
 - [Configuration Reference](config/reference.md)
 - [Operational Procedures](procedures/index.md)
 - [Observability and SLOs](../observability.md)
