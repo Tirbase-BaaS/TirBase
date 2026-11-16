@@ -1183,15 +1183,22 @@ pub fn admit_stages_0_to_15(
                 }
                 // cumulative drift
                 if window > 0 {
+                    // Sum consecutive deltas across the window, then the step
+                    // from the newest sample to the pending value. Starting
+                    // from the oldest sample (not the newest) avoids adding a
+                    // phantom `|oldest - newest|` term.
                     let mut cum: i128 = 0;
-                    let mut prev = last_v;
-                    let iter = q.iter();
-                    for r in iter {
+                    let mut prev: Option<FixedPointValue> = None;
+                    for r in q.iter() {
                         let v = FixedPointValue::new(r.value_mantissa, r.exponent, r.unit_id);
-                        cum = cum.saturating_add(abs_scaled_diff(&v, &prev));
-                        prev = v;
+                        if let Some(previous) = prev {
+                            cum = cum.saturating_add(abs_scaled_diff(&v, &previous));
+                        }
+                        prev = Some(v);
                     }
-                    cum = cum.saturating_add(abs_scaled_diff(&canonical, &prev));
+                    if let Some(previous) = prev {
+                        cum = cum.saturating_add(abs_scaled_diff(&canonical, &previous));
+                    }
                     let max_delta = abs_scaled_value(
                         &spec.max_delta_in_window,
                         canonical.exponent.min(spec.max_delta_in_window.exponent),
