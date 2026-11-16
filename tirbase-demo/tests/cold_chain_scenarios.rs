@@ -43,6 +43,13 @@ fn cold_chain_run_sh_produces_observable_output_within_120s() {
     let output = Command::new("bash")
         .arg(&script)
         .env("TIRBASE_DEMO_INNER", "0")
+        // Hand the launcher this already-built test binary: a nested `cargo`
+        // call from inside `cargo test` waits on the parent's build lock and
+        // can stall the check well past its budget.
+        .env(
+            "TIRBASE_DEMO_TEST_BIN",
+            std::env::current_exe().expect("test binary path"),
+        )
         .output()
         .expect("run cold-chain run.sh");
     let elapsed =
@@ -66,5 +73,15 @@ fn cold_chain_run_sh_produces_observable_output_within_120s() {
     assert!(
         stdout.contains("defended"),
         "output must demonstrate defended attack scenario:\n{stdout}"
+    );
+    // A launcher that silently ran no checks would still print its summary, so
+    // the leftover `test result: ok` line proves the checks actually executed.
+    assert!(
+        stdout.contains("test result: ok"),
+        "run.sh reported success without running its checks:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("0 passed"),
+        "run.sh matched no checks:\n{stdout}"
     );
 }

@@ -10,12 +10,27 @@ fi
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+# Run one demo check. When the caller supplies a prebuilt test binary
+# (`TIRBASE_DEMO_TEST_BIN`, set by the pack tests and CI), run it directly:
+# invoking cargo from inside `cargo test` makes the child contend with the
+# parent's build lock and can stall the check for minutes. The fallback keeps
+# the launcher self-contained for anyone who copies the pack out of this repo.
+run_check() {
+  local test_name="$1"
+  if [[ -n "${TIRBASE_DEMO_TEST_BIN:-}" ]]; then
+    "$TIRBASE_DEMO_TEST_BIN" "$test_name" --nocapture
+  else
+    TIRBASE_DEMO_INNER=1 cargo test -p tirbase-demo --test vertical_demo_packs \
+      "$test_name" -- --nocapture
+  fi
+}
+
 echo "== TirBase defense-logistics demo pack =="
 echo "pack: tirbase-demo/defense-logistics"
 echo "scenarios: S3 (replay) — M-of-N movement orders simulation"
 echo
 
-TIRBASE_DEMO_INNER=1 cargo test -p tirbase-demo --test vertical_demo_packs defense_logistics_s3_replay_defended -- --nocapture
+run_check defense_logistics_s3_replay_defended
 
 echo
 echo "defense-logistics demo: defended attack scenarios demonstrated (S3)"

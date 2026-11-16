@@ -1,6 +1,1531 @@
 pub mod tirbase_demo
 pub use tirbase_demo::tirbase_types
+pub enum tirbase_demo::AdversaryClass
+pub tirbase_demo::AdversaryClass::S1
+pub tirbase_demo::AdversaryClass::S2
+pub tirbase_demo::AdversaryClass::S3
+impl tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::clone(&self) -> tirbase_demo::AdversaryClass
+impl core::cmp::Eq for tirbase_demo::AdversaryClass
+impl core::cmp::Ord for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::cmp(&self, &tirbase_demo::AdversaryClass) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::eq(&self, &tirbase_demo::AdversaryClass) -> bool
+impl core::cmp::PartialOrd for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::partial_cmp(&self, &tirbase_demo::AdversaryClass) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::AdversaryClass
+impl core::marker::StructuralPartialEq for tirbase_demo::AdversaryClass
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl core::marker::Freeze for tirbase_demo::AdversaryClass
+impl core::marker::Send for tirbase_demo::AdversaryClass
+impl core::marker::Sync for tirbase_demo::AdversaryClass
+impl core::marker::Unpin for tirbase_demo::AdversaryClass
+impl core::marker::UnsafeUnpin for tirbase_demo::AdversaryClass
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::AdversaryClass
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::AdversaryClass
+impl<Q, K> equivalent::Comparable<K> for tirbase_demo::AdversaryClass where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::AdversaryClass where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::AdversaryClass where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::AdversaryClass where U: core::convert::From<T>
+pub fn tirbase_demo::AdversaryClass::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::AdversaryClass where U: core::convert::Into<T>
+pub type tirbase_demo::AdversaryClass::Error = core::convert::Infallible
+pub fn tirbase_demo::AdversaryClass::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::AdversaryClass where U: core::convert::TryFrom<T>
+pub type tirbase_demo::AdversaryClass::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::AdversaryClass::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::AdversaryClass where T: core::clone::Clone
+pub type tirbase_demo::AdversaryClass::Owned = T
+pub fn tirbase_demo::AdversaryClass::clone_into(&self, &mut T)
+pub fn tirbase_demo::AdversaryClass::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_demo::AdversaryClass where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::AdversaryClass where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::AdversaryClass where T: ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::AdversaryClass where T: ?core::marker::Sized
+pub fn tirbase_demo::AdversaryClass::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::AdversaryClass where T: core::clone::Clone
+pub unsafe fn tirbase_demo::AdversaryClass::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::AdversaryClass
+pub fn tirbase_demo::AdversaryClass::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::AdversaryClass where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::ExcursionClass
+pub tirbase_demo::ExcursionClass::Cumulative
+pub tirbase_demo::ExcursionClass::InBand
+pub tirbase_demo::ExcursionClass::Transient
+impl tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::clone(&self) -> tirbase_demo::ExcursionClass
+impl core::cmp::Eq for tirbase_demo::ExcursionClass
+impl core::cmp::PartialEq for tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::eq(&self, &tirbase_demo::ExcursionClass) -> bool
+impl core::fmt::Debug for tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::ExcursionClass
+impl core::marker::StructuralPartialEq for tirbase_demo::ExcursionClass
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl core::marker::Freeze for tirbase_demo::ExcursionClass
+impl core::marker::Send for tirbase_demo::ExcursionClass
+impl core::marker::Sync for tirbase_demo::ExcursionClass
+impl core::marker::Unpin for tirbase_demo::ExcursionClass
+impl core::marker::UnsafeUnpin for tirbase_demo::ExcursionClass
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ExcursionClass
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ExcursionClass
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::ExcursionClass where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionClass::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::ExcursionClass where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionClass::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::ExcursionClass where U: core::convert::From<T>
+pub fn tirbase_demo::ExcursionClass::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ExcursionClass where U: core::convert::Into<T>
+pub type tirbase_demo::ExcursionClass::Error = core::convert::Infallible
+pub fn tirbase_demo::ExcursionClass::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ExcursionClass where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ExcursionClass::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ExcursionClass::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ExcursionClass where T: core::clone::Clone
+pub type tirbase_demo::ExcursionClass::Owned = T
+pub fn tirbase_demo::ExcursionClass::clone_into(&self, &mut T)
+pub fn tirbase_demo::ExcursionClass::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ExcursionClass where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionClass::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ExcursionClass where T: ?core::marker::Sized
+pub fn tirbase_demo::ExcursionClass::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ExcursionClass where T: ?core::marker::Sized
+pub fn tirbase_demo::ExcursionClass::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ExcursionClass where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ExcursionClass::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ExcursionClass
+pub fn tirbase_demo::ExcursionClass::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ExcursionClass where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::PackError
+pub tirbase_demo::PackError::Io
+pub tirbase_demo::PackError::Io::error: core::io::error::Error
+pub tirbase_demo::PackError::Io::path: alloc::string::String
+pub tirbase_demo::PackError::Toml
+pub tirbase_demo::PackError::Toml::error: toml::de::Error
+pub tirbase_demo::PackError::Toml::path: alloc::string::String
+pub tirbase_demo::PackError::Validation(alloc::string::String)
+impl core::error::Error for tirbase_demo::PackError
+impl core::fmt::Debug for tirbase_demo::PackError
+pub fn tirbase_demo::PackError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::PackError
+pub fn tirbase_demo::PackError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::PackError
+impl core::marker::Send for tirbase_demo::PackError
+impl core::marker::Sync for tirbase_demo::PackError
+impl core::marker::Unpin for tirbase_demo::PackError
+impl core::marker::UnsafeUnpin for tirbase_demo::PackError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackError
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackError where U: core::convert::From<T>
+pub fn tirbase_demo::PackError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackError where U: core::convert::Into<T>
+pub type tirbase_demo::PackError::Error = core::convert::Infallible
+pub fn tirbase_demo::PackError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackError where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_demo::PackError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::PackError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::PackError where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackError where T: ?core::marker::Sized
+pub fn tirbase_demo::PackError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackError where T: ?core::marker::Sized
+pub fn tirbase_demo::PackError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_demo::PackError
+pub fn tirbase_demo::PackError::from(T) -> T
+pub enum tirbase_demo::QualificationStatus
+pub tirbase_demo::QualificationStatus::NotApplicable
+pub tirbase_demo::QualificationStatus::Qualified
+impl core::clone::Clone for tirbase_demo::QualificationStatus
+pub fn tirbase_demo::QualificationStatus::clone(&self) -> tirbase_demo::QualificationStatus
+impl core::cmp::Eq for tirbase_demo::QualificationStatus
+impl core::cmp::PartialEq for tirbase_demo::QualificationStatus
+pub fn tirbase_demo::QualificationStatus::eq(&self, &tirbase_demo::QualificationStatus) -> bool
+impl core::fmt::Debug for tirbase_demo::QualificationStatus
+pub fn tirbase_demo::QualificationStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::QualificationStatus
+impl core::marker::StructuralPartialEq for tirbase_demo::QualificationStatus
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::QualificationStatus
+pub fn tirbase_demo::QualificationStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::QualificationStatus
+impl core::marker::Send for tirbase_demo::QualificationStatus
+impl core::marker::Sync for tirbase_demo::QualificationStatus
+impl core::marker::Unpin for tirbase_demo::QualificationStatus
+impl core::marker::UnsafeUnpin for tirbase_demo::QualificationStatus
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::QualificationStatus
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::QualificationStatus
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::QualificationStatus where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::QualificationStatus::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::QualificationStatus where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::QualificationStatus::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::QualificationStatus where U: core::convert::From<T>
+pub fn tirbase_demo::QualificationStatus::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::QualificationStatus where U: core::convert::Into<T>
+pub type tirbase_demo::QualificationStatus::Error = core::convert::Infallible
+pub fn tirbase_demo::QualificationStatus::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::QualificationStatus where U: core::convert::TryFrom<T>
+pub type tirbase_demo::QualificationStatus::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::QualificationStatus::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::QualificationStatus where T: core::clone::Clone
+pub type tirbase_demo::QualificationStatus::Owned = T
+pub fn tirbase_demo::QualificationStatus::clone_into(&self, &mut T)
+pub fn tirbase_demo::QualificationStatus::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::QualificationStatus where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::QualificationStatus::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::QualificationStatus where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationStatus::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::QualificationStatus where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationStatus::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::QualificationStatus where T: core::clone::Clone
+pub unsafe fn tirbase_demo::QualificationStatus::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::QualificationStatus
+pub fn tirbase_demo::QualificationStatus::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::QualificationStatus where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::ReleaseDisposition
+pub tirbase_demo::ReleaseDisposition::Hold
+pub tirbase_demo::ReleaseDisposition::Reject
+pub tirbase_demo::ReleaseDisposition::Release
+impl tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::clone(&self) -> tirbase_demo::ReleaseDisposition
+impl core::cmp::Eq for tirbase_demo::ReleaseDisposition
+impl core::cmp::Ord for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::cmp(&self, &tirbase_demo::ReleaseDisposition) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::eq(&self, &tirbase_demo::ReleaseDisposition) -> bool
+impl core::cmp::PartialOrd for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::partial_cmp(&self, &tirbase_demo::ReleaseDisposition) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::ReleaseDisposition
+impl core::marker::StructuralPartialEq for tirbase_demo::ReleaseDisposition
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl core::marker::Freeze for tirbase_demo::ReleaseDisposition
+impl core::marker::Send for tirbase_demo::ReleaseDisposition
+impl core::marker::Sync for tirbase_demo::ReleaseDisposition
+impl core::marker::Unpin for tirbase_demo::ReleaseDisposition
+impl core::marker::UnsafeUnpin for tirbase_demo::ReleaseDisposition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ReleaseDisposition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ReleaseDisposition
+impl<Q, K> equivalent::Comparable<K> for tirbase_demo::ReleaseDisposition where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::ReleaseDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::ReleaseDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::ReleaseDisposition where U: core::convert::From<T>
+pub fn tirbase_demo::ReleaseDisposition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ReleaseDisposition where U: core::convert::Into<T>
+pub type tirbase_demo::ReleaseDisposition::Error = core::convert::Infallible
+pub fn tirbase_demo::ReleaseDisposition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ReleaseDisposition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ReleaseDisposition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ReleaseDisposition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ReleaseDisposition where T: core::clone::Clone
+pub type tirbase_demo::ReleaseDisposition::Owned = T
+pub fn tirbase_demo::ReleaseDisposition::clone_into(&self, &mut T)
+pub fn tirbase_demo::ReleaseDisposition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ReleaseDisposition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ReleaseDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ReleaseDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDisposition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ReleaseDisposition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ReleaseDisposition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ReleaseDisposition
+pub fn tirbase_demo::ReleaseDisposition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ReleaseDisposition where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::ScenarioDisposition
+pub tirbase_demo::ScenarioDisposition::Accepted
+pub tirbase_demo::ScenarioDisposition::Deduplicated
+pub tirbase_demo::ScenarioDisposition::Rejected
+impl tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::as_str(self) -> &'static str
+pub fn tirbase_demo::ScenarioDisposition::from_steps(&[tirbase_demo::StepDisposition]) -> Self
+impl core::clone::Clone for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::clone(&self) -> tirbase_demo::ScenarioDisposition
+impl core::cmp::Eq for tirbase_demo::ScenarioDisposition
+impl core::cmp::Ord for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::cmp(&self, &tirbase_demo::ScenarioDisposition) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::eq(&self, &tirbase_demo::ScenarioDisposition) -> bool
+impl core::cmp::PartialOrd for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::partial_cmp(&self, &tirbase_demo::ScenarioDisposition) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::ScenarioDisposition
+impl core::marker::StructuralPartialEq for tirbase_demo::ScenarioDisposition
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl core::marker::Freeze for tirbase_demo::ScenarioDisposition
+impl core::marker::Send for tirbase_demo::ScenarioDisposition
+impl core::marker::Sync for tirbase_demo::ScenarioDisposition
+impl core::marker::Unpin for tirbase_demo::ScenarioDisposition
+impl core::marker::UnsafeUnpin for tirbase_demo::ScenarioDisposition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ScenarioDisposition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ScenarioDisposition
+impl<Q, K> equivalent::Comparable<K> for tirbase_demo::ScenarioDisposition where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::ScenarioDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::ScenarioDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::ScenarioDisposition where U: core::convert::From<T>
+pub fn tirbase_demo::ScenarioDisposition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ScenarioDisposition where U: core::convert::Into<T>
+pub type tirbase_demo::ScenarioDisposition::Error = core::convert::Infallible
+pub fn tirbase_demo::ScenarioDisposition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ScenarioDisposition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ScenarioDisposition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ScenarioDisposition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ScenarioDisposition where T: core::clone::Clone
+pub type tirbase_demo::ScenarioDisposition::Owned = T
+pub fn tirbase_demo::ScenarioDisposition::clone_into(&self, &mut T)
+pub fn tirbase_demo::ScenarioDisposition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ScenarioDisposition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ScenarioDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ScenarioDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::ScenarioDisposition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ScenarioDisposition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ScenarioDisposition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ScenarioDisposition
+pub fn tirbase_demo::ScenarioDisposition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ScenarioDisposition where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::StepDisposition
+pub tirbase_demo::StepDisposition::Accepted
+pub tirbase_demo::StepDisposition::Deduplicated
+pub tirbase_demo::StepDisposition::Rejected
+impl core::clone::Clone for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::clone(&self) -> tirbase_demo::StepDisposition
+impl core::cmp::Eq for tirbase_demo::StepDisposition
+impl core::cmp::Ord for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::cmp(&self, &tirbase_demo::StepDisposition) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::eq(&self, &tirbase_demo::StepDisposition) -> bool
+impl core::cmp::PartialOrd for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::partial_cmp(&self, &tirbase_demo::StepDisposition) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::StepDisposition
+impl core::marker::StructuralPartialEq for tirbase_demo::StepDisposition
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::StepDisposition
+impl core::marker::Send for tirbase_demo::StepDisposition
+impl core::marker::Sync for tirbase_demo::StepDisposition
+impl core::marker::Unpin for tirbase_demo::StepDisposition
+impl core::marker::UnsafeUnpin for tirbase_demo::StepDisposition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::StepDisposition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::StepDisposition
+impl<Q, K> equivalent::Comparable<K> for tirbase_demo::StepDisposition where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::StepDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::StepDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::StepDisposition where U: core::convert::From<T>
+pub fn tirbase_demo::StepDisposition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::StepDisposition where U: core::convert::Into<T>
+pub type tirbase_demo::StepDisposition::Error = core::convert::Infallible
+pub fn tirbase_demo::StepDisposition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::StepDisposition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::StepDisposition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::StepDisposition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::StepDisposition where T: core::clone::Clone
+pub type tirbase_demo::StepDisposition::Owned = T
+pub fn tirbase_demo::StepDisposition::clone_into(&self, &mut T)
+pub fn tirbase_demo::StepDisposition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::StepDisposition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::StepDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::StepDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::StepDisposition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::StepDisposition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::StepDisposition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::StepDisposition
+pub fn tirbase_demo::StepDisposition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::StepDisposition where T: for<'de> serde_core::de::Deserialize<'de>
+pub enum tirbase_demo::TripDisposition
+pub tirbase_demo::TripDisposition::Clear
+pub tirbase_demo::TripDisposition::Quarantined
+impl tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::as_str(self) -> &'static str
+pub fn tirbase_demo::TripDisposition::from_door_open_secs(i64, u32) -> Self
+impl core::clone::Clone for tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::clone(&self) -> tirbase_demo::TripDisposition
+impl core::cmp::Eq for tirbase_demo::TripDisposition
+impl core::cmp::PartialEq for tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::eq(&self, &tirbase_demo::TripDisposition) -> bool
+impl core::fmt::Debug for tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_demo::TripDisposition
+impl core::marker::StructuralPartialEq for tirbase_demo::TripDisposition
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl core::marker::Freeze for tirbase_demo::TripDisposition
+impl core::marker::Send for tirbase_demo::TripDisposition
+impl core::marker::Sync for tirbase_demo::TripDisposition
+impl core::marker::Unpin for tirbase_demo::TripDisposition
+impl core::marker::UnsafeUnpin for tirbase_demo::TripDisposition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::TripDisposition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::TripDisposition
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::TripDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::TripDisposition::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::TripDisposition where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::TripDisposition::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::TripDisposition where U: core::convert::From<T>
+pub fn tirbase_demo::TripDisposition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::TripDisposition where U: core::convert::Into<T>
+pub type tirbase_demo::TripDisposition::Error = core::convert::Infallible
+pub fn tirbase_demo::TripDisposition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::TripDisposition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::TripDisposition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::TripDisposition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::TripDisposition where T: core::clone::Clone
+pub type tirbase_demo::TripDisposition::Owned = T
+pub fn tirbase_demo::TripDisposition::clone_into(&self, &mut T)
+pub fn tirbase_demo::TripDisposition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::TripDisposition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::TripDisposition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::TripDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::TripDisposition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::TripDisposition where T: ?core::marker::Sized
+pub fn tirbase_demo::TripDisposition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::TripDisposition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::TripDisposition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::TripDisposition
+pub fn tirbase_demo::TripDisposition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::TripDisposition where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::CalibrationDocument
+pub tirbase_demo::CalibrationDocument::schema_version: u32
+pub tirbase_demo::CalibrationDocument::sensor: alloc::vec::Vec<tirbase_demo::CalibrationRecord>
+impl core::clone::Clone for tirbase_demo::CalibrationDocument
+pub fn tirbase_demo::CalibrationDocument::clone(&self) -> tirbase_demo::CalibrationDocument
+impl core::fmt::Debug for tirbase_demo::CalibrationDocument
+pub fn tirbase_demo::CalibrationDocument::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::CalibrationDocument
+pub fn tirbase_demo::CalibrationDocument::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::CalibrationDocument
+impl core::marker::Send for tirbase_demo::CalibrationDocument
+impl core::marker::Sync for tirbase_demo::CalibrationDocument
+impl core::marker::Unpin for tirbase_demo::CalibrationDocument
+impl core::marker::UnsafeUnpin for tirbase_demo::CalibrationDocument
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::CalibrationDocument
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::CalibrationDocument
+impl<T, U> core::convert::Into<U> for tirbase_demo::CalibrationDocument where U: core::convert::From<T>
+pub fn tirbase_demo::CalibrationDocument::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::CalibrationDocument where U: core::convert::Into<T>
+pub type tirbase_demo::CalibrationDocument::Error = core::convert::Infallible
+pub fn tirbase_demo::CalibrationDocument::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::CalibrationDocument where U: core::convert::TryFrom<T>
+pub type tirbase_demo::CalibrationDocument::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::CalibrationDocument::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::CalibrationDocument where T: core::clone::Clone
+pub type tirbase_demo::CalibrationDocument::Owned = T
+pub fn tirbase_demo::CalibrationDocument::clone_into(&self, &mut T)
+pub fn tirbase_demo::CalibrationDocument::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::CalibrationDocument where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::CalibrationDocument::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::CalibrationDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::CalibrationDocument::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::CalibrationDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::CalibrationDocument::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::CalibrationDocument where T: core::clone::Clone
+pub unsafe fn tirbase_demo::CalibrationDocument::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::CalibrationDocument
+pub fn tirbase_demo::CalibrationDocument::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::CalibrationDocument where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::CalibrationRecord
+pub tirbase_demo::CalibrationRecord::calibrated_at_est: i64
+pub tirbase_demo::CalibrationRecord::certificate: alloc::string::String
+pub tirbase_demo::CalibrationRecord::expires_at_est: i64
+pub tirbase_demo::CalibrationRecord::interval_days: u32
+pub tirbase_demo::CalibrationRecord::method: alloc::string::String
+pub tirbase_demo::CalibrationRecord::sensor_id: alloc::string::String
+impl core::clone::Clone for tirbase_demo::CalibrationRecord
+pub fn tirbase_demo::CalibrationRecord::clone(&self) -> tirbase_demo::CalibrationRecord
+impl core::fmt::Debug for tirbase_demo::CalibrationRecord
+pub fn tirbase_demo::CalibrationRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::CalibrationRecord
+pub fn tirbase_demo::CalibrationRecord::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::CalibrationRecord
+impl core::marker::Send for tirbase_demo::CalibrationRecord
+impl core::marker::Sync for tirbase_demo::CalibrationRecord
+impl core::marker::Unpin for tirbase_demo::CalibrationRecord
+impl core::marker::UnsafeUnpin for tirbase_demo::CalibrationRecord
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::CalibrationRecord
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::CalibrationRecord
+impl<T, U> core::convert::Into<U> for tirbase_demo::CalibrationRecord where U: core::convert::From<T>
+pub fn tirbase_demo::CalibrationRecord::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::CalibrationRecord where U: core::convert::Into<T>
+pub type tirbase_demo::CalibrationRecord::Error = core::convert::Infallible
+pub fn tirbase_demo::CalibrationRecord::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::CalibrationRecord where U: core::convert::TryFrom<T>
+pub type tirbase_demo::CalibrationRecord::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::CalibrationRecord::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::CalibrationRecord where T: core::clone::Clone
+pub type tirbase_demo::CalibrationRecord::Owned = T
+pub fn tirbase_demo::CalibrationRecord::clone_into(&self, &mut T)
+pub fn tirbase_demo::CalibrationRecord::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::CalibrationRecord where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::CalibrationRecord::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::CalibrationRecord where T: ?core::marker::Sized
+pub fn tirbase_demo::CalibrationRecord::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::CalibrationRecord where T: ?core::marker::Sized
+pub fn tirbase_demo::CalibrationRecord::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::CalibrationRecord where T: core::clone::Clone
+pub unsafe fn tirbase_demo::CalibrationRecord::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::CalibrationRecord
+pub fn tirbase_demo::CalibrationRecord::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::CalibrationRecord where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::ExcursionSummary
+pub tirbase_demo::ExcursionSummary::class: tirbase_demo::ExcursionClass
+pub tirbase_demo::ExcursionSummary::out_of_band_degree_secs: i64
+pub tirbase_demo::ExcursionSummary::out_of_band_secs: i64
+pub tirbase_demo::ExcursionSummary::rejections: usize
+impl core::clone::Clone for tirbase_demo::ExcursionSummary
+pub fn tirbase_demo::ExcursionSummary::clone(&self) -> tirbase_demo::ExcursionSummary
+impl core::cmp::Eq for tirbase_demo::ExcursionSummary
+impl core::cmp::PartialEq for tirbase_demo::ExcursionSummary
+pub fn tirbase_demo::ExcursionSummary::eq(&self, &tirbase_demo::ExcursionSummary) -> bool
+impl core::fmt::Debug for tirbase_demo::ExcursionSummary
+pub fn tirbase_demo::ExcursionSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::ExcursionSummary
+impl core::marker::Freeze for tirbase_demo::ExcursionSummary
+impl core::marker::Send for tirbase_demo::ExcursionSummary
+impl core::marker::Sync for tirbase_demo::ExcursionSummary
+impl core::marker::Unpin for tirbase_demo::ExcursionSummary
+impl core::marker::UnsafeUnpin for tirbase_demo::ExcursionSummary
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ExcursionSummary
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ExcursionSummary
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::ExcursionSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionSummary::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::ExcursionSummary where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionSummary::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::ExcursionSummary where U: core::convert::From<T>
+pub fn tirbase_demo::ExcursionSummary::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ExcursionSummary where U: core::convert::Into<T>
+pub type tirbase_demo::ExcursionSummary::Error = core::convert::Infallible
+pub fn tirbase_demo::ExcursionSummary::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ExcursionSummary where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ExcursionSummary::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ExcursionSummary::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ExcursionSummary where T: core::clone::Clone
+pub type tirbase_demo::ExcursionSummary::Owned = T
+pub fn tirbase_demo::ExcursionSummary::clone_into(&self, &mut T)
+pub fn tirbase_demo::ExcursionSummary::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ExcursionSummary where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ExcursionSummary::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ExcursionSummary where T: ?core::marker::Sized
+pub fn tirbase_demo::ExcursionSummary::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ExcursionSummary where T: ?core::marker::Sized
+pub fn tirbase_demo::ExcursionSummary::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ExcursionSummary where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ExcursionSummary::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ExcursionSummary
+pub fn tirbase_demo::ExcursionSummary::from(T) -> T
+pub struct tirbase_demo::ExpectedReleaseOutcome
+pub tirbase_demo::ExpectedReleaseOutcome::at_est: i64
+pub tirbase_demo::ExpectedReleaseOutcome::blocked: bool
+pub tirbase_demo::ExpectedReleaseOutcome::code: alloc::string::String
+pub tirbase_demo::ExpectedReleaseOutcome::disposition: tirbase_demo::ReleaseDisposition
+pub tirbase_demo::ExpectedReleaseOutcome::excursion: core::option::Option<alloc::string::String>
+pub tirbase_demo::ExpectedReleaseOutcome::id: alloc::string::String
+pub tirbase_demo::ExpectedReleaseOutcome::lane_risk_level: core::option::Option<u8>
+pub tirbase_demo::ExpectedReleaseOutcome::mkt_c: core::option::Option<tirbase_types::fixed_point::FixedPointValue>
+pub tirbase_demo::ExpectedReleaseOutcome::profile: alloc::string::String
+pub tirbase_demo::ExpectedReleaseOutcome::sensor_failures: usize
+impl core::clone::Clone for tirbase_demo::ExpectedReleaseOutcome
+pub fn tirbase_demo::ExpectedReleaseOutcome::clone(&self) -> tirbase_demo::ExpectedReleaseOutcome
+impl core::fmt::Debug for tirbase_demo::ExpectedReleaseOutcome
+pub fn tirbase_demo::ExpectedReleaseOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ExpectedReleaseOutcome
+pub fn tirbase_demo::ExpectedReleaseOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::ExpectedReleaseOutcome
+impl core::marker::Send for tirbase_demo::ExpectedReleaseOutcome
+impl core::marker::Sync for tirbase_demo::ExpectedReleaseOutcome
+impl core::marker::Unpin for tirbase_demo::ExpectedReleaseOutcome
+impl core::marker::UnsafeUnpin for tirbase_demo::ExpectedReleaseOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ExpectedReleaseOutcome
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ExpectedReleaseOutcome
+impl<T, U> core::convert::Into<U> for tirbase_demo::ExpectedReleaseOutcome where U: core::convert::From<T>
+pub fn tirbase_demo::ExpectedReleaseOutcome::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ExpectedReleaseOutcome where U: core::convert::Into<T>
+pub type tirbase_demo::ExpectedReleaseOutcome::Error = core::convert::Infallible
+pub fn tirbase_demo::ExpectedReleaseOutcome::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ExpectedReleaseOutcome where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ExpectedReleaseOutcome::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ExpectedReleaseOutcome::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ExpectedReleaseOutcome where T: core::clone::Clone
+pub type tirbase_demo::ExpectedReleaseOutcome::Owned = T
+pub fn tirbase_demo::ExpectedReleaseOutcome::clone_into(&self, &mut T)
+pub fn tirbase_demo::ExpectedReleaseOutcome::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ExpectedReleaseOutcome where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ExpectedReleaseOutcome::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ExpectedReleaseOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedReleaseOutcome::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ExpectedReleaseOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedReleaseOutcome::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ExpectedReleaseOutcome where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ExpectedReleaseOutcome::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ExpectedReleaseOutcome
+pub fn tirbase_demo::ExpectedReleaseOutcome::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ExpectedReleaseOutcome where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::ExpectedScenarioOutcome
+pub tirbase_demo::ExpectedScenarioOutcome::actuations: usize
+pub tirbase_demo::ExpectedScenarioOutcome::class: tirbase_demo::AdversaryClass
+pub tirbase_demo::ExpectedScenarioOutcome::disposition: tirbase_demo::ScenarioDisposition
+pub tirbase_demo::ExpectedScenarioOutcome::id: alloc::string::String
+pub tirbase_demo::ExpectedScenarioOutcome::mechanism: alloc::string::String
+pub tirbase_demo::ExpectedScenarioOutcome::steps: alloc::vec::Vec<tirbase_demo::StepDisposition>
+impl core::clone::Clone for tirbase_demo::ExpectedScenarioOutcome
+pub fn tirbase_demo::ExpectedScenarioOutcome::clone(&self) -> tirbase_demo::ExpectedScenarioOutcome
+impl core::fmt::Debug for tirbase_demo::ExpectedScenarioOutcome
+pub fn tirbase_demo::ExpectedScenarioOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ExpectedScenarioOutcome
+pub fn tirbase_demo::ExpectedScenarioOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::ExpectedScenarioOutcome
+impl core::marker::Send for tirbase_demo::ExpectedScenarioOutcome
+impl core::marker::Sync for tirbase_demo::ExpectedScenarioOutcome
+impl core::marker::Unpin for tirbase_demo::ExpectedScenarioOutcome
+impl core::marker::UnsafeUnpin for tirbase_demo::ExpectedScenarioOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ExpectedScenarioOutcome
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ExpectedScenarioOutcome
+impl<T, U> core::convert::Into<U> for tirbase_demo::ExpectedScenarioOutcome where U: core::convert::From<T>
+pub fn tirbase_demo::ExpectedScenarioOutcome::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ExpectedScenarioOutcome where U: core::convert::Into<T>
+pub type tirbase_demo::ExpectedScenarioOutcome::Error = core::convert::Infallible
+pub fn tirbase_demo::ExpectedScenarioOutcome::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ExpectedScenarioOutcome where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ExpectedScenarioOutcome::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ExpectedScenarioOutcome::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ExpectedScenarioOutcome where T: core::clone::Clone
+pub type tirbase_demo::ExpectedScenarioOutcome::Owned = T
+pub fn tirbase_demo::ExpectedScenarioOutcome::clone_into(&self, &mut T)
+pub fn tirbase_demo::ExpectedScenarioOutcome::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ExpectedScenarioOutcome where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ExpectedScenarioOutcome::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ExpectedScenarioOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedScenarioOutcome::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ExpectedScenarioOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedScenarioOutcome::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ExpectedScenarioOutcome where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ExpectedScenarioOutcome::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ExpectedScenarioOutcome
+pub fn tirbase_demo::ExpectedScenarioOutcome::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ExpectedScenarioOutcome where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::ExpectedTripOutcome
+pub tirbase_demo::ExpectedTripOutcome::disposition: tirbase_demo::TripDisposition
+pub tirbase_demo::ExpectedTripOutcome::door_open_secs: i64
+pub tirbase_demo::ExpectedTripOutcome::mechanism: alloc::string::String
+pub tirbase_demo::ExpectedTripOutcome::scenario: alloc::string::String
+impl core::clone::Clone for tirbase_demo::ExpectedTripOutcome
+pub fn tirbase_demo::ExpectedTripOutcome::clone(&self) -> tirbase_demo::ExpectedTripOutcome
+impl core::fmt::Debug for tirbase_demo::ExpectedTripOutcome
+pub fn tirbase_demo::ExpectedTripOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ExpectedTripOutcome
+pub fn tirbase_demo::ExpectedTripOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::ExpectedTripOutcome
+impl core::marker::Send for tirbase_demo::ExpectedTripOutcome
+impl core::marker::Sync for tirbase_demo::ExpectedTripOutcome
+impl core::marker::Unpin for tirbase_demo::ExpectedTripOutcome
+impl core::marker::UnsafeUnpin for tirbase_demo::ExpectedTripOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ExpectedTripOutcome
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ExpectedTripOutcome
+impl<T, U> core::convert::Into<U> for tirbase_demo::ExpectedTripOutcome where U: core::convert::From<T>
+pub fn tirbase_demo::ExpectedTripOutcome::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ExpectedTripOutcome where U: core::convert::Into<T>
+pub type tirbase_demo::ExpectedTripOutcome::Error = core::convert::Infallible
+pub fn tirbase_demo::ExpectedTripOutcome::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ExpectedTripOutcome where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ExpectedTripOutcome::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ExpectedTripOutcome::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ExpectedTripOutcome where T: core::clone::Clone
+pub type tirbase_demo::ExpectedTripOutcome::Owned = T
+pub fn tirbase_demo::ExpectedTripOutcome::clone_into(&self, &mut T)
+pub fn tirbase_demo::ExpectedTripOutcome::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ExpectedTripOutcome where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ExpectedTripOutcome::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ExpectedTripOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedTripOutcome::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ExpectedTripOutcome where T: ?core::marker::Sized
+pub fn tirbase_demo::ExpectedTripOutcome::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ExpectedTripOutcome where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ExpectedTripOutcome::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ExpectedTripOutcome
+pub fn tirbase_demo::ExpectedTripOutcome::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ExpectedTripOutcome where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpCalibrationPolicy
+pub tirbase_demo::GdpCalibrationPolicy::max_interval_days: u32
+impl core::clone::Clone for tirbase_demo::GdpCalibrationPolicy
+pub fn tirbase_demo::GdpCalibrationPolicy::clone(&self) -> tirbase_demo::GdpCalibrationPolicy
+impl core::fmt::Debug for tirbase_demo::GdpCalibrationPolicy
+pub fn tirbase_demo::GdpCalibrationPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpCalibrationPolicy
+pub fn tirbase_demo::GdpCalibrationPolicy::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpCalibrationPolicy
+impl core::marker::Send for tirbase_demo::GdpCalibrationPolicy
+impl core::marker::Sync for tirbase_demo::GdpCalibrationPolicy
+impl core::marker::Unpin for tirbase_demo::GdpCalibrationPolicy
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpCalibrationPolicy
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpCalibrationPolicy
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpCalibrationPolicy
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpCalibrationPolicy where U: core::convert::From<T>
+pub fn tirbase_demo::GdpCalibrationPolicy::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpCalibrationPolicy where U: core::convert::Into<T>
+pub type tirbase_demo::GdpCalibrationPolicy::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpCalibrationPolicy::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpCalibrationPolicy where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpCalibrationPolicy::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpCalibrationPolicy::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpCalibrationPolicy where T: core::clone::Clone
+pub type tirbase_demo::GdpCalibrationPolicy::Owned = T
+pub fn tirbase_demo::GdpCalibrationPolicy::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpCalibrationPolicy::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpCalibrationPolicy where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpCalibrationPolicy::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpCalibrationPolicy where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpCalibrationPolicy::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpCalibrationPolicy where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpCalibrationPolicy::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpCalibrationPolicy where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpCalibrationPolicy::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpCalibrationPolicy
+pub fn tirbase_demo::GdpCalibrationPolicy::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpCalibrationPolicy where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpDocument
+pub tirbase_demo::GdpDocument::calibration: tirbase_demo::GdpCalibrationPolicy
+pub tirbase_demo::GdpDocument::lane_risk: tirbase_demo::GdpLaneRiskPolicy
+pub tirbase_demo::GdpDocument::lot: tirbase_demo::GdpLot
+pub tirbase_demo::GdpDocument::mkt: tirbase_demo::GdpMkt
+pub tirbase_demo::GdpDocument::schema_version: u32
+pub tirbase_demo::GdpDocument::storage: alloc::vec::Vec<tirbase_demo::GdpStorage>
+impl core::clone::Clone for tirbase_demo::GdpDocument
+pub fn tirbase_demo::GdpDocument::clone(&self) -> tirbase_demo::GdpDocument
+impl core::fmt::Debug for tirbase_demo::GdpDocument
+pub fn tirbase_demo::GdpDocument::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpDocument
+pub fn tirbase_demo::GdpDocument::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpDocument
+impl core::marker::Send for tirbase_demo::GdpDocument
+impl core::marker::Sync for tirbase_demo::GdpDocument
+impl core::marker::Unpin for tirbase_demo::GdpDocument
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpDocument
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpDocument
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpDocument
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpDocument where U: core::convert::From<T>
+pub fn tirbase_demo::GdpDocument::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpDocument where U: core::convert::Into<T>
+pub type tirbase_demo::GdpDocument::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpDocument::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpDocument where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpDocument::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpDocument::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpDocument where T: core::clone::Clone
+pub type tirbase_demo::GdpDocument::Owned = T
+pub fn tirbase_demo::GdpDocument::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpDocument::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpDocument where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpDocument::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpDocument::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpDocument::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpDocument where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpDocument::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpDocument
+pub fn tirbase_demo::GdpDocument::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpDocument where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpLaneRiskPolicy
+pub tirbase_demo::GdpLaneRiskPolicy::hold_at_or_above: u8
+impl core::clone::Clone for tirbase_demo::GdpLaneRiskPolicy
+pub fn tirbase_demo::GdpLaneRiskPolicy::clone(&self) -> tirbase_demo::GdpLaneRiskPolicy
+impl core::fmt::Debug for tirbase_demo::GdpLaneRiskPolicy
+pub fn tirbase_demo::GdpLaneRiskPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpLaneRiskPolicy
+pub fn tirbase_demo::GdpLaneRiskPolicy::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpLaneRiskPolicy
+impl core::marker::Send for tirbase_demo::GdpLaneRiskPolicy
+impl core::marker::Sync for tirbase_demo::GdpLaneRiskPolicy
+impl core::marker::Unpin for tirbase_demo::GdpLaneRiskPolicy
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpLaneRiskPolicy
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpLaneRiskPolicy
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpLaneRiskPolicy
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpLaneRiskPolicy where U: core::convert::From<T>
+pub fn tirbase_demo::GdpLaneRiskPolicy::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpLaneRiskPolicy where U: core::convert::Into<T>
+pub type tirbase_demo::GdpLaneRiskPolicy::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpLaneRiskPolicy::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpLaneRiskPolicy where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpLaneRiskPolicy::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpLaneRiskPolicy::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpLaneRiskPolicy where T: core::clone::Clone
+pub type tirbase_demo::GdpLaneRiskPolicy::Owned = T
+pub fn tirbase_demo::GdpLaneRiskPolicy::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpLaneRiskPolicy::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpLaneRiskPolicy where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpLaneRiskPolicy::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpLaneRiskPolicy where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpLaneRiskPolicy::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpLaneRiskPolicy where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpLaneRiskPolicy::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpLaneRiskPolicy where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpLaneRiskPolicy::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpLaneRiskPolicy
+pub fn tirbase_demo::GdpLaneRiskPolicy::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpLaneRiskPolicy where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpLot
+pub tirbase_demo::GdpLot::batch_size_units: u32
+pub tirbase_demo::GdpLot::dosage_form: alloc::string::String
+pub tirbase_demo::GdpLot::id: alloc::string::String
+pub tirbase_demo::GdpLot::product: alloc::string::String
+impl core::clone::Clone for tirbase_demo::GdpLot
+pub fn tirbase_demo::GdpLot::clone(&self) -> tirbase_demo::GdpLot
+impl core::fmt::Debug for tirbase_demo::GdpLot
+pub fn tirbase_demo::GdpLot::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpLot
+pub fn tirbase_demo::GdpLot::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpLot
+impl core::marker::Send for tirbase_demo::GdpLot
+impl core::marker::Sync for tirbase_demo::GdpLot
+impl core::marker::Unpin for tirbase_demo::GdpLot
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpLot
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpLot
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpLot
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpLot where U: core::convert::From<T>
+pub fn tirbase_demo::GdpLot::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpLot where U: core::convert::Into<T>
+pub type tirbase_demo::GdpLot::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpLot::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpLot where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpLot::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpLot::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpLot where T: core::clone::Clone
+pub type tirbase_demo::GdpLot::Owned = T
+pub fn tirbase_demo::GdpLot::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpLot::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpLot where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpLot::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpLot where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpLot::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpLot where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpLot::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpLot where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpLot::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpLot
+pub fn tirbase_demo::GdpLot::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpLot where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpMkt
+pub tirbase_demo::GdpMkt::activation_energy_j_per_mol: u32
+pub tirbase_demo::GdpMkt::gas_constant_milli_j_per_mol_k: u32
+pub tirbase_demo::GdpMkt::reference_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::GdpMkt::reporting_interval_secs: u32
+pub tirbase_demo::GdpMkt::sampling_interval_secs: u32
+impl core::clone::Clone for tirbase_demo::GdpMkt
+pub fn tirbase_demo::GdpMkt::clone(&self) -> tirbase_demo::GdpMkt
+impl core::fmt::Debug for tirbase_demo::GdpMkt
+pub fn tirbase_demo::GdpMkt::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpMkt
+pub fn tirbase_demo::GdpMkt::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpMkt
+impl core::marker::Send for tirbase_demo::GdpMkt
+impl core::marker::Sync for tirbase_demo::GdpMkt
+impl core::marker::Unpin for tirbase_demo::GdpMkt
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpMkt
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpMkt
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpMkt
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpMkt where U: core::convert::From<T>
+pub fn tirbase_demo::GdpMkt::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpMkt where U: core::convert::Into<T>
+pub type tirbase_demo::GdpMkt::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpMkt::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpMkt where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpMkt::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpMkt::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpMkt where T: core::clone::Clone
+pub type tirbase_demo::GdpMkt::Owned = T
+pub fn tirbase_demo::GdpMkt::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpMkt::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpMkt where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpMkt::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpMkt where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpMkt::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpMkt where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpMkt::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpMkt where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpMkt::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpMkt
+pub fn tirbase_demo::GdpMkt::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpMkt where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::GdpStorage
+pub tirbase_demo::GdpStorage::band_max_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::GdpStorage::band_min_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::GdpStorage::cumulative_budget_degree_secs: i64
+pub tirbase_demo::GdpStorage::label: alloc::string::String
+pub tirbase_demo::GdpStorage::mkt_limit_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::GdpStorage::profile: alloc::string::String
+pub tirbase_demo::GdpStorage::transient_max_secs: u32
+impl core::clone::Clone for tirbase_demo::GdpStorage
+pub fn tirbase_demo::GdpStorage::clone(&self) -> tirbase_demo::GdpStorage
+impl core::fmt::Debug for tirbase_demo::GdpStorage
+pub fn tirbase_demo::GdpStorage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::GdpStorage
+pub fn tirbase_demo::GdpStorage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::GdpStorage
+impl core::marker::Send for tirbase_demo::GdpStorage
+impl core::marker::Sync for tirbase_demo::GdpStorage
+impl core::marker::Unpin for tirbase_demo::GdpStorage
+impl core::marker::UnsafeUnpin for tirbase_demo::GdpStorage
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::GdpStorage
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::GdpStorage
+impl<T, U> core::convert::Into<U> for tirbase_demo::GdpStorage where U: core::convert::From<T>
+pub fn tirbase_demo::GdpStorage::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::GdpStorage where U: core::convert::Into<T>
+pub type tirbase_demo::GdpStorage::Error = core::convert::Infallible
+pub fn tirbase_demo::GdpStorage::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::GdpStorage where U: core::convert::TryFrom<T>
+pub type tirbase_demo::GdpStorage::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::GdpStorage::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::GdpStorage where T: core::clone::Clone
+pub type tirbase_demo::GdpStorage::Owned = T
+pub fn tirbase_demo::GdpStorage::clone_into(&self, &mut T)
+pub fn tirbase_demo::GdpStorage::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::GdpStorage where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::GdpStorage::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::GdpStorage where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpStorage::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::GdpStorage where T: ?core::marker::Sized
+pub fn tirbase_demo::GdpStorage::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::GdpStorage where T: core::clone::Clone
+pub unsafe fn tirbase_demo::GdpStorage::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::GdpStorage
+pub fn tirbase_demo::GdpStorage::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::GdpStorage where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::Pack
+pub tirbase_demo::Pack::calibration: core::option::Option<tirbase_demo::CalibrationDocument>
+pub tirbase_demo::Pack::expected: tirbase_demo::PackExpectedOutputs
+pub tirbase_demo::Pack::gdp: core::option::Option<tirbase_demo::GdpDocument>
+pub tirbase_demo::Pack::manifest: tirbase_demo::PackManifest
+pub tirbase_demo::Pack::profiles: alloc::vec::Vec<tirbase_demo::PackProfile>
+pub tirbase_demo::Pack::qualification: core::option::Option<tirbase_demo::QualificationDocument>
+pub tirbase_demo::Pack::root: std::path::PathBuf
+pub tirbase_demo::Pack::scenarios: alloc::vec::Vec<tirbase_demo::PackScenario>
+pub tirbase_demo::Pack::trip: core::option::Option<tirbase_demo::TripDocument>
+impl tirbase_demo::Pack
+pub fn tirbase_demo::Pack::covered_classes(&self) -> alloc::collections::btree::set::BTreeSet<tirbase_demo::AdversaryClass>
+pub fn tirbase_demo::Pack::derived_trip_disposition(&self, &str) -> core::option::Option<tirbase_demo::TripDisposition>
+pub fn tirbase_demo::Pack::door_open_secs(&self, &str) -> core::option::Option<i64>
+pub fn tirbase_demo::Pack::evaluate_release(&self, &str, &tirbase_demo::ReleaseInputs<'_>) -> core::option::Option<tirbase_demo::ReleaseDecision>
+pub fn tirbase_demo::Pack::excursion(&self, &str, &str) -> core::option::Option<tirbase_demo::ExcursionSummary>
+pub fn tirbase_demo::Pack::expected_outcome(&self, &str) -> core::option::Option<&tirbase_demo::ExpectedScenarioOutcome>
+pub fn tirbase_demo::Pack::parameters(&self) -> alloc::collections::btree::map::BTreeMap<&str, u16>
+pub fn tirbase_demo::Pack::scenario(&self, &str) -> core::option::Option<&tirbase_demo::PackScenario>
+pub fn tirbase_demo::Pack::storage_for_profile(&self, &str) -> core::option::Option<&tirbase_demo::GdpStorage>
+impl core::clone::Clone for tirbase_demo::Pack
+pub fn tirbase_demo::Pack::clone(&self) -> tirbase_demo::Pack
+impl core::fmt::Debug for tirbase_demo::Pack
+pub fn tirbase_demo::Pack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::Pack
+impl core::marker::Send for tirbase_demo::Pack
+impl core::marker::Sync for tirbase_demo::Pack
+impl core::marker::Unpin for tirbase_demo::Pack
+impl core::marker::UnsafeUnpin for tirbase_demo::Pack
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::Pack
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::Pack
+impl<T, U> core::convert::Into<U> for tirbase_demo::Pack where U: core::convert::From<T>
+pub fn tirbase_demo::Pack::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::Pack where U: core::convert::Into<T>
+pub type tirbase_demo::Pack::Error = core::convert::Infallible
+pub fn tirbase_demo::Pack::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::Pack where U: core::convert::TryFrom<T>
+pub type tirbase_demo::Pack::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::Pack::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::Pack where T: core::clone::Clone
+pub type tirbase_demo::Pack::Owned = T
+pub fn tirbase_demo::Pack::clone_into(&self, &mut T)
+pub fn tirbase_demo::Pack::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::Pack where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::Pack::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::Pack where T: ?core::marker::Sized
+pub fn tirbase_demo::Pack::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::Pack where T: ?core::marker::Sized
+pub fn tirbase_demo::Pack::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::Pack where T: core::clone::Clone
+pub unsafe fn tirbase_demo::Pack::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::Pack
+pub fn tirbase_demo::Pack::from(T) -> T
+pub struct tirbase_demo::PackExpectedOutputs
+pub tirbase_demo::PackExpectedOutputs::release: alloc::vec::Vec<tirbase_demo::ExpectedReleaseOutcome>
+pub tirbase_demo::PackExpectedOutputs::scenario: alloc::vec::Vec<tirbase_demo::ExpectedScenarioOutcome>
+pub tirbase_demo::PackExpectedOutputs::schema_version: u32
+pub tirbase_demo::PackExpectedOutputs::trip: core::option::Option<tirbase_demo::ExpectedTripOutcome>
+impl core::clone::Clone for tirbase_demo::PackExpectedOutputs
+pub fn tirbase_demo::PackExpectedOutputs::clone(&self) -> tirbase_demo::PackExpectedOutputs
+impl core::fmt::Debug for tirbase_demo::PackExpectedOutputs
+pub fn tirbase_demo::PackExpectedOutputs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::PackExpectedOutputs
+pub fn tirbase_demo::PackExpectedOutputs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::PackExpectedOutputs
+impl core::marker::Send for tirbase_demo::PackExpectedOutputs
+impl core::marker::Sync for tirbase_demo::PackExpectedOutputs
+impl core::marker::Unpin for tirbase_demo::PackExpectedOutputs
+impl core::marker::UnsafeUnpin for tirbase_demo::PackExpectedOutputs
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackExpectedOutputs
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackExpectedOutputs
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackExpectedOutputs where U: core::convert::From<T>
+pub fn tirbase_demo::PackExpectedOutputs::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackExpectedOutputs where U: core::convert::Into<T>
+pub type tirbase_demo::PackExpectedOutputs::Error = core::convert::Infallible
+pub fn tirbase_demo::PackExpectedOutputs::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackExpectedOutputs where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackExpectedOutputs::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackExpectedOutputs::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::PackExpectedOutputs where T: core::clone::Clone
+pub type tirbase_demo::PackExpectedOutputs::Owned = T
+pub fn tirbase_demo::PackExpectedOutputs::clone_into(&self, &mut T)
+pub fn tirbase_demo::PackExpectedOutputs::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::PackExpectedOutputs where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackExpectedOutputs::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::PackExpectedOutputs::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::PackExpectedOutputs::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::PackExpectedOutputs where T: core::clone::Clone
+pub unsafe fn tirbase_demo::PackExpectedOutputs::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::PackExpectedOutputs
+pub fn tirbase_demo::PackExpectedOutputs::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::PackExpectedOutputs where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PackManifest
+pub tirbase_demo::PackManifest::calibration: core::option::Option<alloc::string::String>
+pub tirbase_demo::PackManifest::description: alloc::string::String
+pub tirbase_demo::PackManifest::device_class: alloc::string::String
+pub tirbase_demo::PackManifest::docs: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PackManifest::expected: alloc::string::String
+pub tirbase_demo::PackManifest::gdp: core::option::Option<alloc::string::String>
+pub tirbase_demo::PackManifest::id: alloc::string::String
+pub tirbase_demo::PackManifest::licence: alloc::string::String
+pub tirbase_demo::PackManifest::profiles: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PackManifest::qualification: core::option::Option<alloc::string::String>
+pub tirbase_demo::PackManifest::register_maps: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PackManifest::run: alloc::string::String
+pub tirbase_demo::PackManifest::scenarios: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PackManifest::schema_version: u32
+pub tirbase_demo::PackManifest::sim: alloc::string::String
+pub tirbase_demo::PackManifest::tirbase_min_version: alloc::string::String
+pub tirbase_demo::PackManifest::title: alloc::string::String
+pub tirbase_demo::PackManifest::trip: core::option::Option<alloc::string::String>
+pub tirbase_demo::PackManifest::version: alloc::string::String
+impl core::clone::Clone for tirbase_demo::PackManifest
+pub fn tirbase_demo::PackManifest::clone(&self) -> tirbase_demo::PackManifest
+impl core::fmt::Debug for tirbase_demo::PackManifest
+pub fn tirbase_demo::PackManifest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::PackManifest
+pub fn tirbase_demo::PackManifest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::PackManifest
+impl core::marker::Send for tirbase_demo::PackManifest
+impl core::marker::Sync for tirbase_demo::PackManifest
+impl core::marker::Unpin for tirbase_demo::PackManifest
+impl core::marker::UnsafeUnpin for tirbase_demo::PackManifest
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackManifest
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackManifest
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackManifest where U: core::convert::From<T>
+pub fn tirbase_demo::PackManifest::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackManifest where U: core::convert::Into<T>
+pub type tirbase_demo::PackManifest::Error = core::convert::Infallible
+pub fn tirbase_demo::PackManifest::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackManifest where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackManifest::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackManifest::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::PackManifest where T: core::clone::Clone
+pub type tirbase_demo::PackManifest::Owned = T
+pub fn tirbase_demo::PackManifest::clone_into(&self, &mut T)
+pub fn tirbase_demo::PackManifest::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::PackManifest where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackManifest::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::PackManifest::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::PackManifest::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::PackManifest where T: core::clone::Clone
+pub unsafe fn tirbase_demo::PackManifest::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::PackManifest
+pub fn tirbase_demo::PackManifest::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::PackManifest where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PackParameter
+pub tirbase_demo::PackParameter::name: alloc::string::String
+pub tirbase_demo::PackParameter::unit_id: u16
+impl core::clone::Clone for tirbase_demo::PackParameter
+pub fn tirbase_demo::PackParameter::clone(&self) -> tirbase_demo::PackParameter
+impl core::cmp::Eq for tirbase_demo::PackParameter
+impl core::cmp::PartialEq for tirbase_demo::PackParameter
+pub fn tirbase_demo::PackParameter::eq(&self, &tirbase_demo::PackParameter) -> bool
+impl core::fmt::Debug for tirbase_demo::PackParameter
+pub fn tirbase_demo::PackParameter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::PackParameter
+impl core::marker::Freeze for tirbase_demo::PackParameter
+impl core::marker::Send for tirbase_demo::PackParameter
+impl core::marker::Sync for tirbase_demo::PackParameter
+impl core::marker::Unpin for tirbase_demo::PackParameter
+impl core::marker::UnsafeUnpin for tirbase_demo::PackParameter
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackParameter
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackParameter
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::PackParameter where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::PackParameter::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::PackParameter where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::PackParameter::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackParameter where U: core::convert::From<T>
+pub fn tirbase_demo::PackParameter::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackParameter where U: core::convert::Into<T>
+pub type tirbase_demo::PackParameter::Error = core::convert::Infallible
+pub fn tirbase_demo::PackParameter::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackParameter where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackParameter::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackParameter::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::PackParameter where T: core::clone::Clone
+pub type tirbase_demo::PackParameter::Owned = T
+pub fn tirbase_demo::PackParameter::clone_into(&self, &mut T)
+pub fn tirbase_demo::PackParameter::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::PackParameter where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackParameter::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackParameter where T: ?core::marker::Sized
+pub fn tirbase_demo::PackParameter::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackParameter where T: ?core::marker::Sized
+pub fn tirbase_demo::PackParameter::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::PackParameter where T: core::clone::Clone
+pub unsafe fn tirbase_demo::PackParameter::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::PackParameter
+pub fn tirbase_demo::PackParameter::from(T) -> T
+pub struct tirbase_demo::PackProfile
+pub tirbase_demo::PackProfile::device_class: alloc::string::String
+pub tirbase_demo::PackProfile::parameters: alloc::vec::Vec<tirbase_demo::PackParameter>
+pub tirbase_demo::PackProfile::path: alloc::string::String
+impl core::clone::Clone for tirbase_demo::PackProfile
+pub fn tirbase_demo::PackProfile::clone(&self) -> tirbase_demo::PackProfile
+impl core::cmp::Eq for tirbase_demo::PackProfile
+impl core::cmp::PartialEq for tirbase_demo::PackProfile
+pub fn tirbase_demo::PackProfile::eq(&self, &tirbase_demo::PackProfile) -> bool
+impl core::fmt::Debug for tirbase_demo::PackProfile
+pub fn tirbase_demo::PackProfile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::PackProfile
+impl core::marker::Freeze for tirbase_demo::PackProfile
+impl core::marker::Send for tirbase_demo::PackProfile
+impl core::marker::Sync for tirbase_demo::PackProfile
+impl core::marker::Unpin for tirbase_demo::PackProfile
+impl core::marker::UnsafeUnpin for tirbase_demo::PackProfile
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackProfile
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackProfile
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::PackProfile where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::PackProfile::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::PackProfile where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::PackProfile::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackProfile where U: core::convert::From<T>
+pub fn tirbase_demo::PackProfile::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackProfile where U: core::convert::Into<T>
+pub type tirbase_demo::PackProfile::Error = core::convert::Infallible
+pub fn tirbase_demo::PackProfile::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackProfile where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackProfile::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackProfile::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::PackProfile where T: core::clone::Clone
+pub type tirbase_demo::PackProfile::Owned = T
+pub fn tirbase_demo::PackProfile::clone_into(&self, &mut T)
+pub fn tirbase_demo::PackProfile::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::PackProfile where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackProfile::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackProfile where T: ?core::marker::Sized
+pub fn tirbase_demo::PackProfile::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackProfile where T: ?core::marker::Sized
+pub fn tirbase_demo::PackProfile::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::PackProfile where T: core::clone::Clone
+pub unsafe fn tirbase_demo::PackProfile::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::PackProfile
+pub fn tirbase_demo::PackProfile::from(T) -> T
+pub struct tirbase_demo::PackScenario
+pub tirbase_demo::PackScenario::attack: alloc::string::String
+pub tirbase_demo::PackScenario::class: tirbase_demo::AdversaryClass
+pub tirbase_demo::PackScenario::id: alloc::string::String
+pub tirbase_demo::PackScenario::steps: alloc::vec::Vec<tirbase_demo::ScenarioStep>
+pub tirbase_demo::PackScenario::target: alloc::string::String
+pub tirbase_demo::PackScenario::title: alloc::string::String
+impl core::clone::Clone for tirbase_demo::PackScenario
+pub fn tirbase_demo::PackScenario::clone(&self) -> tirbase_demo::PackScenario
+impl core::fmt::Debug for tirbase_demo::PackScenario
+pub fn tirbase_demo::PackScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::PackScenario
+pub fn tirbase_demo::PackScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::PackScenario
+impl core::marker::Send for tirbase_demo::PackScenario
+impl core::marker::Sync for tirbase_demo::PackScenario
+impl core::marker::Unpin for tirbase_demo::PackScenario
+impl core::marker::UnsafeUnpin for tirbase_demo::PackScenario
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::PackScenario
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::PackScenario
+impl<T, U> core::convert::Into<U> for tirbase_demo::PackScenario where U: core::convert::From<T>
+pub fn tirbase_demo::PackScenario::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::PackScenario where U: core::convert::Into<T>
+pub type tirbase_demo::PackScenario::Error = core::convert::Infallible
+pub fn tirbase_demo::PackScenario::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::PackScenario where U: core::convert::TryFrom<T>
+pub type tirbase_demo::PackScenario::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::PackScenario::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::PackScenario where T: core::clone::Clone
+pub type tirbase_demo::PackScenario::Owned = T
+pub fn tirbase_demo::PackScenario::clone_into(&self, &mut T)
+pub fn tirbase_demo::PackScenario::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::PackScenario where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::PackScenario::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::PackScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::PackScenario::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::PackScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::PackScenario::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::PackScenario where T: core::clone::Clone
+pub unsafe fn tirbase_demo::PackScenario::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::PackScenario
+pub fn tirbase_demo::PackScenario::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::PackScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::QualificationDocument
+pub tirbase_demo::QualificationDocument::certification: alloc::string::String
+pub tirbase_demo::QualificationDocument::evidence_boundary: alloc::string::String
+pub tirbase_demo::QualificationDocument::item: alloc::vec::Vec<tirbase_demo::QualificationItem>
+pub tirbase_demo::QualificationDocument::schema_version: u32
+pub tirbase_demo::QualificationDocument::statement: alloc::string::String
+impl core::clone::Clone for tirbase_demo::QualificationDocument
+pub fn tirbase_demo::QualificationDocument::clone(&self) -> tirbase_demo::QualificationDocument
+impl core::fmt::Debug for tirbase_demo::QualificationDocument
+pub fn tirbase_demo::QualificationDocument::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::QualificationDocument
+pub fn tirbase_demo::QualificationDocument::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::QualificationDocument
+impl core::marker::Send for tirbase_demo::QualificationDocument
+impl core::marker::Sync for tirbase_demo::QualificationDocument
+impl core::marker::Unpin for tirbase_demo::QualificationDocument
+impl core::marker::UnsafeUnpin for tirbase_demo::QualificationDocument
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::QualificationDocument
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::QualificationDocument
+impl<T, U> core::convert::Into<U> for tirbase_demo::QualificationDocument where U: core::convert::From<T>
+pub fn tirbase_demo::QualificationDocument::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::QualificationDocument where U: core::convert::Into<T>
+pub type tirbase_demo::QualificationDocument::Error = core::convert::Infallible
+pub fn tirbase_demo::QualificationDocument::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::QualificationDocument where U: core::convert::TryFrom<T>
+pub type tirbase_demo::QualificationDocument::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::QualificationDocument::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::QualificationDocument where T: core::clone::Clone
+pub type tirbase_demo::QualificationDocument::Owned = T
+pub fn tirbase_demo::QualificationDocument::clone_into(&self, &mut T)
+pub fn tirbase_demo::QualificationDocument::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::QualificationDocument where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::QualificationDocument::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::QualificationDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationDocument::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::QualificationDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationDocument::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::QualificationDocument where T: core::clone::Clone
+pub unsafe fn tirbase_demo::QualificationDocument::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::QualificationDocument
+pub fn tirbase_demo::QualificationDocument::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::QualificationDocument where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::QualificationItem
+pub tirbase_demo::QualificationItem::evidence: alloc::string::String
+pub tirbase_demo::QualificationItem::id: alloc::string::String
+pub tirbase_demo::QualificationItem::requirement: alloc::string::String
+pub tirbase_demo::QualificationItem::status: tirbase_demo::QualificationStatus
+impl core::clone::Clone for tirbase_demo::QualificationItem
+pub fn tirbase_demo::QualificationItem::clone(&self) -> tirbase_demo::QualificationItem
+impl core::fmt::Debug for tirbase_demo::QualificationItem
+pub fn tirbase_demo::QualificationItem::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::QualificationItem
+pub fn tirbase_demo::QualificationItem::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::QualificationItem
+impl core::marker::Send for tirbase_demo::QualificationItem
+impl core::marker::Sync for tirbase_demo::QualificationItem
+impl core::marker::Unpin for tirbase_demo::QualificationItem
+impl core::marker::UnsafeUnpin for tirbase_demo::QualificationItem
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::QualificationItem
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::QualificationItem
+impl<T, U> core::convert::Into<U> for tirbase_demo::QualificationItem where U: core::convert::From<T>
+pub fn tirbase_demo::QualificationItem::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::QualificationItem where U: core::convert::Into<T>
+pub type tirbase_demo::QualificationItem::Error = core::convert::Infallible
+pub fn tirbase_demo::QualificationItem::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::QualificationItem where U: core::convert::TryFrom<T>
+pub type tirbase_demo::QualificationItem::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::QualificationItem::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::QualificationItem where T: core::clone::Clone
+pub type tirbase_demo::QualificationItem::Owned = T
+pub fn tirbase_demo::QualificationItem::clone_into(&self, &mut T)
+pub fn tirbase_demo::QualificationItem::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::QualificationItem where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::QualificationItem::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::QualificationItem where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationItem::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::QualificationItem where T: ?core::marker::Sized
+pub fn tirbase_demo::QualificationItem::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::QualificationItem where T: core::clone::Clone
+pub unsafe fn tirbase_demo::QualificationItem::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::QualificationItem
+pub fn tirbase_demo::QualificationItem::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::QualificationItem where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::ReleaseDecision
+pub tirbase_demo::ReleaseDecision::blocked: bool
+pub tirbase_demo::ReleaseDecision::code: &'static str
+pub tirbase_demo::ReleaseDecision::disposition: tirbase_demo::ReleaseDisposition
+pub tirbase_demo::ReleaseDecision::reasons: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for tirbase_demo::ReleaseDecision
+pub fn tirbase_demo::ReleaseDecision::clone(&self) -> tirbase_demo::ReleaseDecision
+impl core::cmp::Eq for tirbase_demo::ReleaseDecision
+impl core::cmp::PartialEq for tirbase_demo::ReleaseDecision
+pub fn tirbase_demo::ReleaseDecision::eq(&self, &tirbase_demo::ReleaseDecision) -> bool
+impl core::fmt::Debug for tirbase_demo::ReleaseDecision
+pub fn tirbase_demo::ReleaseDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_demo::ReleaseDecision
+impl core::marker::Freeze for tirbase_demo::ReleaseDecision
+impl core::marker::Send for tirbase_demo::ReleaseDecision
+impl core::marker::Sync for tirbase_demo::ReleaseDecision
+impl core::marker::Unpin for tirbase_demo::ReleaseDecision
+impl core::marker::UnsafeUnpin for tirbase_demo::ReleaseDecision
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ReleaseDecision
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ReleaseDecision
+impl<Q, K> equivalent::Equivalent<K> for tirbase_demo::ReleaseDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDecision::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_demo::ReleaseDecision where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDecision::equivalent(&self, &K) -> bool
+impl<T, U> core::convert::Into<U> for tirbase_demo::ReleaseDecision where U: core::convert::From<T>
+pub fn tirbase_demo::ReleaseDecision::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ReleaseDecision where U: core::convert::Into<T>
+pub type tirbase_demo::ReleaseDecision::Error = core::convert::Infallible
+pub fn tirbase_demo::ReleaseDecision::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ReleaseDecision where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ReleaseDecision::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ReleaseDecision::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ReleaseDecision where T: core::clone::Clone
+pub type tirbase_demo::ReleaseDecision::Owned = T
+pub fn tirbase_demo::ReleaseDecision::clone_into(&self, &mut T)
+pub fn tirbase_demo::ReleaseDecision::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ReleaseDecision where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDecision::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ReleaseDecision where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDecision::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ReleaseDecision where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseDecision::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ReleaseDecision where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ReleaseDecision::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ReleaseDecision
+pub fn tirbase_demo::ReleaseDecision::from(T) -> T
+pub struct tirbase_demo::ReleaseInputs<'a>
+pub tirbase_demo::ReleaseInputs::at_est: i64
+pub tirbase_demo::ReleaseInputs::excursion: core::option::Option<&'a str>
+pub tirbase_demo::ReleaseInputs::lane_risk_level: core::option::Option<u8>
+pub tirbase_demo::ReleaseInputs::mkt_c: core::option::Option<tirbase_types::fixed_point::FixedPointValue>
+pub tirbase_demo::ReleaseInputs::sensor_failures: usize
+impl<'a> core::clone::Clone for tirbase_demo::ReleaseInputs<'a>
+pub fn tirbase_demo::ReleaseInputs<'a>::clone(&self) -> tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::default::Default for tirbase_demo::ReleaseInputs<'a>
+pub fn tirbase_demo::ReleaseInputs<'a>::default() -> tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::fmt::Debug for tirbase_demo::ReleaseInputs<'a>
+pub fn tirbase_demo::ReleaseInputs<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::marker::Send for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::marker::Sync for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::marker::Unpin for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::marker::UnsafeUnpin for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ReleaseInputs<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for tirbase_demo::ReleaseInputs<'a>
+impl<T, U> core::convert::Into<U> for tirbase_demo::ReleaseInputs<'a> where U: core::convert::From<T>
+pub fn tirbase_demo::ReleaseInputs<'a>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ReleaseInputs<'a> where U: core::convert::Into<T>
+pub type tirbase_demo::ReleaseInputs<'a>::Error = core::convert::Infallible
+pub fn tirbase_demo::ReleaseInputs<'a>::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ReleaseInputs<'a> where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ReleaseInputs<'a>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ReleaseInputs<'a>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ReleaseInputs<'a> where T: core::clone::Clone
+pub type tirbase_demo::ReleaseInputs<'a>::Owned = T
+pub fn tirbase_demo::ReleaseInputs<'a>::clone_into(&self, &mut T)
+pub fn tirbase_demo::ReleaseInputs<'a>::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ReleaseInputs<'a> where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ReleaseInputs<'a>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ReleaseInputs<'a> where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseInputs<'a>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ReleaseInputs<'a> where T: ?core::marker::Sized
+pub fn tirbase_demo::ReleaseInputs<'a>::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ReleaseInputs<'a> where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ReleaseInputs<'a>::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ReleaseInputs<'a>
+pub fn tirbase_demo::ReleaseInputs<'a>::from(T) -> T
+pub struct tirbase_demo::ScenarioStep
+pub tirbase_demo::ScenarioStep::at_secs: i64
+pub tirbase_demo::ScenarioStep::expect: tirbase_demo::StepDisposition
+pub tirbase_demo::ScenarioStep::mechanism: core::option::Option<alloc::string::String>
+pub tirbase_demo::ScenarioStep::param: alloc::string::String
+pub tirbase_demo::ScenarioStep::replay_of: core::option::Option<u64>
+pub tirbase_demo::ScenarioStep::sequence: u64
+pub tirbase_demo::ScenarioStep::value: tirbase_types::fixed_point::FixedPointValue
+impl core::clone::Clone for tirbase_demo::ScenarioStep
+pub fn tirbase_demo::ScenarioStep::clone(&self) -> tirbase_demo::ScenarioStep
+impl core::fmt::Debug for tirbase_demo::ScenarioStep
+pub fn tirbase_demo::ScenarioStep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::ScenarioStep
+pub fn tirbase_demo::ScenarioStep::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::ScenarioStep
+impl core::marker::Send for tirbase_demo::ScenarioStep
+impl core::marker::Sync for tirbase_demo::ScenarioStep
+impl core::marker::Unpin for tirbase_demo::ScenarioStep
+impl core::marker::UnsafeUnpin for tirbase_demo::ScenarioStep
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::ScenarioStep
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::ScenarioStep
+impl<T, U> core::convert::Into<U> for tirbase_demo::ScenarioStep where U: core::convert::From<T>
+pub fn tirbase_demo::ScenarioStep::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::ScenarioStep where U: core::convert::Into<T>
+pub type tirbase_demo::ScenarioStep::Error = core::convert::Infallible
+pub fn tirbase_demo::ScenarioStep::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::ScenarioStep where U: core::convert::TryFrom<T>
+pub type tirbase_demo::ScenarioStep::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::ScenarioStep::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::ScenarioStep where T: core::clone::Clone
+pub type tirbase_demo::ScenarioStep::Owned = T
+pub fn tirbase_demo::ScenarioStep::clone_into(&self, &mut T)
+pub fn tirbase_demo::ScenarioStep::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::ScenarioStep where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::ScenarioStep::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::ScenarioStep where T: ?core::marker::Sized
+pub fn tirbase_demo::ScenarioStep::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::ScenarioStep where T: ?core::marker::Sized
+pub fn tirbase_demo::ScenarioStep::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::ScenarioStep where T: core::clone::Clone
+pub unsafe fn tirbase_demo::ScenarioStep::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::ScenarioStep
+pub fn tirbase_demo::ScenarioStep::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::ScenarioStep where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::TripDocument
+pub tirbase_demo::TripDocument::cargo: alloc::string::String
+pub tirbase_demo::TripDocument::cargo_max_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::TripDocument::cargo_min_c: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_demo::TripDocument::container_class: alloc::string::String
+pub tirbase_demo::TripDocument::container_id: alloc::string::String
+pub tirbase_demo::TripDocument::destination: alloc::string::String
+pub tirbase_demo::TripDocument::door_param: alloc::string::String
+pub tirbase_demo::TripDocument::location: tirbase_demo::TripLocation
+pub tirbase_demo::TripDocument::max_door_open_secs: u32
+pub tirbase_demo::TripDocument::origin: alloc::string::String
+pub tirbase_demo::TripDocument::schema_version: u32
+pub tirbase_demo::TripDocument::trailer_id: alloc::string::String
+pub tirbase_demo::TripDocument::trip_id: alloc::string::String
+impl core::clone::Clone for tirbase_demo::TripDocument
+pub fn tirbase_demo::TripDocument::clone(&self) -> tirbase_demo::TripDocument
+impl core::fmt::Debug for tirbase_demo::TripDocument
+pub fn tirbase_demo::TripDocument::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::TripDocument
+pub fn tirbase_demo::TripDocument::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::TripDocument
+impl core::marker::Send for tirbase_demo::TripDocument
+impl core::marker::Sync for tirbase_demo::TripDocument
+impl core::marker::Unpin for tirbase_demo::TripDocument
+impl core::marker::UnsafeUnpin for tirbase_demo::TripDocument
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::TripDocument
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::TripDocument
+impl<T, U> core::convert::Into<U> for tirbase_demo::TripDocument where U: core::convert::From<T>
+pub fn tirbase_demo::TripDocument::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::TripDocument where U: core::convert::Into<T>
+pub type tirbase_demo::TripDocument::Error = core::convert::Infallible
+pub fn tirbase_demo::TripDocument::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::TripDocument where U: core::convert::TryFrom<T>
+pub type tirbase_demo::TripDocument::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::TripDocument::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::TripDocument where T: core::clone::Clone
+pub type tirbase_demo::TripDocument::Owned = T
+pub fn tirbase_demo::TripDocument::clone_into(&self, &mut T)
+pub fn tirbase_demo::TripDocument::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::TripDocument where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::TripDocument::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::TripDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::TripDocument::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::TripDocument where T: ?core::marker::Sized
+pub fn tirbase_demo::TripDocument::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::TripDocument where T: core::clone::Clone
+pub unsafe fn tirbase_demo::TripDocument::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::TripDocument
+pub fn tirbase_demo::TripDocument::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::TripDocument where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::TripLocation
+pub tirbase_demo::TripLocation::lat_e6: i64
+pub tirbase_demo::TripLocation::lon_e6: i64
+pub tirbase_demo::TripLocation::site: alloc::string::String
+impl core::clone::Clone for tirbase_demo::TripLocation
+pub fn tirbase_demo::TripLocation::clone(&self) -> tirbase_demo::TripLocation
+impl core::fmt::Debug for tirbase_demo::TripLocation
+pub fn tirbase_demo::TripLocation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::TripLocation
+pub fn tirbase_demo::TripLocation::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::TripLocation
+impl core::marker::Send for tirbase_demo::TripLocation
+impl core::marker::Sync for tirbase_demo::TripLocation
+impl core::marker::Unpin for tirbase_demo::TripLocation
+impl core::marker::UnsafeUnpin for tirbase_demo::TripLocation
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::TripLocation
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::TripLocation
+impl<T, U> core::convert::Into<U> for tirbase_demo::TripLocation where U: core::convert::From<T>
+pub fn tirbase_demo::TripLocation::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::TripLocation where U: core::convert::Into<T>
+pub type tirbase_demo::TripLocation::Error = core::convert::Infallible
+pub fn tirbase_demo::TripLocation::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::TripLocation where U: core::convert::TryFrom<T>
+pub type tirbase_demo::TripLocation::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::TripLocation::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::TripLocation where T: core::clone::Clone
+pub type tirbase_demo::TripLocation::Owned = T
+pub fn tirbase_demo::TripLocation::clone_into(&self, &mut T)
+pub fn tirbase_demo::TripLocation::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::TripLocation where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::TripLocation::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::TripLocation where T: ?core::marker::Sized
+pub fn tirbase_demo::TripLocation::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::TripLocation where T: ?core::marker::Sized
+pub fn tirbase_demo::TripLocation::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::TripLocation where T: core::clone::Clone
+pub unsafe fn tirbase_demo::TripLocation::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::TripLocation
+pub fn tirbase_demo::TripLocation::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::TripLocation where T: for<'de> serde_core::de::Deserialize<'de>
 pub const tirbase_demo::COLD_CHAIN_PACK_DIR: &str
 pub const tirbase_demo::COLD_CHAIN_PACK_FORMAT: &[&str]
 pub const tirbase_demo::DEMO_PACK_FORMAT: &[&str]
-pub fn tirbase_demo::pack_has_required_layout(std::path::Path, &[&str]) -> bool
+pub const tirbase_demo::PACK_LAUNCHER: &str
+pub const tirbase_demo::PACK_LICENCE: &str
+pub const tirbase_demo::PACK_MANIFEST_FILE: &str
+pub const tirbase_demo::PACK_MANIFEST_SCHEMA_VERSION: u32
+pub const tirbase_demo::RELEASE_CODE_CALIBRATION_EXPIRED: &str
+pub const tirbase_demo::RELEASE_CODE_CLEAR: &str
+pub const tirbase_demo::RELEASE_CODE_CUMULATIVE_DRIFT: &str
+pub const tirbase_demo::RELEASE_CODE_LANE_RISK: &str
+pub const tirbase_demo::RELEASE_CODE_MKT_EXCEEDED: &str
+pub const tirbase_demo::RELEASE_CODE_SENSOR_FAILURE: &str
+pub const tirbase_demo::RELEASE_CODE_TRANSIENT_EXCURSION: &str
+pub fn tirbase_demo::classify_excursion(&tirbase_demo::PackScenario, &tirbase_demo::GdpStorage) -> tirbase_demo::ExcursionSummary
+pub fn tirbase_demo::load_pack(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::Pack, tirbase_demo::PackError>
+pub fn tirbase_demo::longest_door_open_secs(&tirbase_demo::PackScenario, &str) -> core::option::Option<i64>
+pub fn tirbase_demo::pack_has_required_layout(&std::path::Path, &[&str]) -> bool
+pub fn tirbase_demo::safe_pack_path(&std::path::Path, &str) -> core::result::Result<std::path::PathBuf, tirbase_demo::PackError>

@@ -51,7 +51,15 @@ fn assert_pack_readme_non_goals(pack: &str) {
     );
 }
 
+/// Launcher checks are serialized: they each start a child process, and running
+/// six of them at once makes the wall-clock budgets measure host contention
+/// instead of the launcher.
+static RUN_SH_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn run_pack_script(pack: &str, expected_scenarios: &[&str]) {
+    let _serialized = RUN_SH_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let script = workspace_root()
         .join(format!("tirbase-demo/{pack}/run.sh"));
     assert!(script.exists(), "run.sh must exist for pack {pack}");
@@ -59,6 +67,10 @@ fn run_pack_script(pack: &str, expected_scenarios: &[&str]) {
     let output = Command::new("bash")
         .arg(&script)
         .env("TIRBASE_DEMO_INNER", "0")
+        // Hand the launcher this already-built test binary: a nested `cargo`
+        // call from inside `cargo test` waits on the parent's build lock and
+        // can stall the check well past its budget.
+        .env("TIRBASE_DEMO_TEST_BIN", test_binary())
         .output()
         .unwrap_or_else(|e| panic!("run {pack} run.sh: {e}"));
     let elapsed =
@@ -83,6 +95,26 @@ fn run_pack_script(pack: &str, expected_scenarios: &[&str]) {
     assert!(
         stdout.contains("defended"),
         "{pack} output must demonstrate defended scenarios:\n{stdout}"
+    );
+    assert_checks_ran(pack, &stdout);
+}
+
+/// The path of the test binary currently running, used so a pack launcher can
+/// execute its checks without starting a second `cargo`.
+fn test_binary() -> std::path::PathBuf {
+    std::env::current_exe().expect("test binary path")
+}
+
+/// A launcher that silently ran no checks would still print its summary, so the
+/// leftover `test result: ok` line proves the checks actually executed.
+fn assert_checks_ran(pack: &str, stdout: &str) {
+    assert!(
+        stdout.contains("test result: ok"),
+        "{pack} run.sh reported success without running its checks:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("0 passed"),
+        "{pack} run.sh matched no checks:\n{stdout}"
     );
 }
 
