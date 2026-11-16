@@ -2372,11 +2372,16 @@ pub fn tirbase_driver_api::MqttBridgeCodec::decode_connack(&self, &[u8]) -> core
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_puback(&self, &[u8]) -> core::result::Result<u16, tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_driver_api::MqttQoS, core::option::Option<u16>), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_remaining_length(&[u8]) -> core::result::Result<(usize, usize), tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::decode_suback(&self, &[u8], u16) -> core::result::Result<(), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_connack(&self, bool, u8) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_connect(&self, &str) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_connect_with_credentials(&self, &str, &str, &str) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_disconnect(&self) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_driver_api::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_remaining_length(usize) -> alloc::vec::Vec<u8>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_subscribe(&self, &str, tirbase_driver_api::MqttQoS, u16) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_utf8_string(&mut alloc::vec::Vec<u8>, &str) -> core::result::Result<(), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::new() -> Self
 impl core::clone::Clone for tirbase_driver_api::MqttBridgeCodec
 pub fn tirbase_driver_api::MqttBridgeCodec::clone(&self) -> tirbase_driver_api::MqttBridgeCodec
@@ -2413,6 +2418,7 @@ impl<T> core::clone::CloneToUninit for tirbase_driver_api::MqttBridgeCodec where
 pub unsafe fn tirbase_driver_api::MqttBridgeCodec::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_driver_api::MqttBridgeCodec
 pub fn tirbase_driver_api::MqttBridgeCodec::from(T) -> T
+pub const tirbase_driver_api::mqtt_codec::MAX_TOPIC_LEN: usize
 pub mod tirbase_driver_api::register_map
 pub enum tirbase_driver_api::register_map::RegisterMapError
 pub tirbase_driver_api::register_map::RegisterMapError::InvalidField
@@ -5189,11 +5195,16 @@ pub fn tirbase_driver_api::MqttBridgeCodec::decode_connack(&self, &[u8]) -> core
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_puback(&self, &[u8]) -> core::result::Result<u16, tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_publish(&self, &[u8]) -> core::result::Result<(alloc::string::String, alloc::vec::Vec<u8>, tirbase_driver_api::MqttQoS, core::option::Option<u16>), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::decode_remaining_length(&[u8]) -> core::result::Result<(usize, usize), tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::decode_suback(&self, &[u8], u16) -> core::result::Result<(), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_connack(&self, bool, u8) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_connect(&self, &str) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_connect_with_credentials(&self, &str, &str, &str) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_disconnect(&self) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_puback(&self, u16) -> tirbase_driver_api::Frame
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_publish(&self, &str, &[u8], tirbase_driver_api::MqttQoS, core::option::Option<u16>) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::encode_remaining_length(usize) -> alloc::vec::Vec<u8>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_subscribe(&self, &str, tirbase_driver_api::MqttQoS, u16) -> core::result::Result<tirbase_driver_api::Frame, tirbase_driver_api::DriverError>
+pub fn tirbase_driver_api::MqttBridgeCodec::encode_utf8_string(&mut alloc::vec::Vec<u8>, &str) -> core::result::Result<(), tirbase_driver_api::DriverError>
 pub fn tirbase_driver_api::MqttBridgeCodec::new() -> Self
 impl core::clone::Clone for tirbase_driver_api::MqttBridgeCodec
 pub fn tirbase_driver_api::MqttBridgeCodec::clone(&self) -> tirbase_driver_api::MqttBridgeCodec
@@ -5740,6 +5751,7 @@ pub const tirbase_driver_api::MAX_LOOP_UA: tirbase_driver_api::MicroAmps
 pub const tirbase_driver_api::MAX_OBJECT_INSTANCE: u32
 pub const tirbase_driver_api::MAX_RETRIES: u8
 pub const tirbase_driver_api::MAX_TEMPERATURE_RAW: i16
+pub const tirbase_driver_api::MAX_TOPIC_LEN: usize
 pub const tirbase_driver_api::MIN_CALIBRATION_POINTS: usize
 pub const tirbase_driver_api::MIN_TEMPERATURE_RAW: i16
 pub const tirbase_driver_api::NOMINAL_20MA_UA: tirbase_driver_api::MicroAmps
