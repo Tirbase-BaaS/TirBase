@@ -839,9 +839,64 @@ pub mod tirbase_drivers::modbus_codec
 pub use tirbase_drivers::modbus_codec::<<tirbase_driver_api::modbus_codec::*>>
 pub mod tirbase_drivers::mqtt
 pub use tirbase_drivers::mqtt::<<tirbase_driver_api::mqtt_codec::*>>
+pub enum tirbase_drivers::mqtt::MqttBridgeError
+pub tirbase_drivers::mqtt::MqttBridgeError::CredentialsRejected
+pub tirbase_drivers::mqtt::MqttBridgeError::InvalidConfig(&'static str)
+pub tirbase_drivers::mqtt::MqttBridgeError::InvalidPayload(tirbase_drivers::mqtt::PayloadError)
+pub tirbase_drivers::mqtt::MqttBridgeError::Io(core::io::error::Error)
+pub tirbase_drivers::mqtt::MqttBridgeError::PayloadTooLarge
+pub tirbase_drivers::mqtt::MqttBridgeError::PayloadTooLarge::len: usize
+pub tirbase_drivers::mqtt::MqttBridgeError::PayloadTooLarge::max: usize
+pub tirbase_drivers::mqtt::MqttBridgeError::Protocol(alloc::string::String)
+pub tirbase_drivers::mqtt::MqttBridgeError::Replay(tirbase_drivers::mqtt::ReplayError)
+pub tirbase_drivers::mqtt::MqttBridgeError::Timeout
+pub tirbase_drivers::mqtt::MqttBridgeError::Tls(alloc::string::String)
+pub tirbase_drivers::mqtt::MqttBridgeError::TopicNotAllowed(alloc::string::String)
+pub tirbase_drivers::mqtt::MqttBridgeError::WildcardTopicRejected(alloc::string::String)
+impl core::convert::From<tirbase_drivers::mqtt::MqttError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::MqttError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::PayloadError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::PayloadError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::ReplayError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::ReplayError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::MqttBridgeError
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::MqttBridgeError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeError
 pub enum tirbase_drivers::mqtt::MqttError
 pub tirbase_drivers::mqtt::MqttError::InvalidUri(alloc::string::String)
 pub tirbase_drivers::mqtt::MqttError::Io(core::io::error::Error)
+pub tirbase_drivers::mqtt::MqttError::PayloadTooLarge
+pub tirbase_drivers::mqtt::MqttError::PayloadTooLarge::len: usize
+pub tirbase_drivers::mqtt::MqttError::PayloadTooLarge::max: usize
 pub tirbase_drivers::mqtt::MqttError::PlainTextRejected
 pub tirbase_drivers::mqtt::MqttError::PlainTextRejected::uri: alloc::string::String
 pub tirbase_drivers::mqtt::MqttError::Protocol(alloc::string::String)
@@ -850,6 +905,8 @@ impl core::convert::From<core::io::error::Error> for tirbase_drivers::mqtt::Mqtt
 pub fn tirbase_drivers::mqtt::MqttError::from(core::io::error::Error) -> Self
 impl core::convert::From<tirbase_driver_api::driver_trait::DriverError> for tirbase_drivers::mqtt::MqttError
 pub fn tirbase_drivers::mqtt::MqttError::from(tirbase_driver_api::driver_trait::DriverError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::MqttError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::MqttError) -> Self
 impl core::error::Error for tirbase_drivers::mqtt::MqttError
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttError
 pub fn tirbase_drivers::mqtt::MqttError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -882,6 +939,207 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttError
 pub fn tirbase_drivers::mqtt::MqttError::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttError
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttError
+pub enum tirbase_drivers::mqtt::PayloadError
+pub tirbase_drivers::mqtt::PayloadError::DuplicateField(alloc::string::String)
+pub tirbase_drivers::mqtt::PayloadError::Empty
+pub tirbase_drivers::mqtt::PayloadError::InvalidDeviceId
+pub tirbase_drivers::mqtt::PayloadError::InvalidInteger(&'static str)
+pub tirbase_drivers::mqtt::PayloadError::Malformed
+pub tirbase_drivers::mqtt::PayloadError::MissingField(&'static str)
+pub tirbase_drivers::mqtt::PayloadError::NotUtf8
+pub tirbase_drivers::mqtt::PayloadError::OutOfRange(&'static str)
+pub tirbase_drivers::mqtt::PayloadError::TooLarge
+pub tirbase_drivers::mqtt::PayloadError::TooLarge::len: usize
+pub tirbase_drivers::mqtt::PayloadError::TooLarge::max: usize
+pub tirbase_drivers::mqtt::PayloadError::TooManyFields
+pub tirbase_drivers::mqtt::PayloadError::UnknownField(alloc::string::String)
+pub tirbase_drivers::mqtt::PayloadError::UnsupportedVersion(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::clone(&self) -> tirbase_drivers::mqtt::PayloadError
+impl core::cmp::Eq for tirbase_drivers::mqtt::PayloadError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::eq(&self, &tirbase_drivers::mqtt::PayloadError) -> bool
+impl core::convert::From<tirbase_drivers::mqtt::PayloadError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::PayloadError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::PayloadError
+impl core::fmt::Debug for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Freeze for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Send for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Sync for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Unpin for tirbase_drivers::mqtt::PayloadError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::PayloadError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::PayloadError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::PayloadError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::PayloadError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::PayloadError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::PayloadError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::PayloadError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::PayloadError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::PayloadError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::PayloadError::Owned = T
+pub fn tirbase_drivers::mqtt::PayloadError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::PayloadError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::PayloadError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::PayloadError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::PayloadError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::PayloadError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::PayloadError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::PayloadError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::PayloadError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::PayloadError
+pub enum tirbase_drivers::mqtt::ReplayError
+pub tirbase_drivers::mqtt::ReplayError::DuplicateSequence
+pub tirbase_drivers::mqtt::ReplayError::DuplicateSequence::device_id: alloc::string::String
+pub tirbase_drivers::mqtt::ReplayError::DuplicateSequence::sequence: u64
+pub tirbase_drivers::mqtt::ReplayError::FutureTimestamp
+pub tirbase_drivers::mqtt::ReplayError::FutureTimestamp::device_id: alloc::string::String
+pub tirbase_drivers::mqtt::ReplayError::FutureTimestamp::timestamp_ms: u64
+pub tirbase_drivers::mqtt::ReplayError::StaleTimestamp
+pub tirbase_drivers::mqtt::ReplayError::StaleTimestamp::device_id: alloc::string::String
+pub tirbase_drivers::mqtt::ReplayError::StaleTimestamp::timestamp_ms: u64
+impl core::clone::Clone for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::clone(&self) -> tirbase_drivers::mqtt::ReplayError
+impl core::cmp::Eq for tirbase_drivers::mqtt::ReplayError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::eq(&self, &tirbase_drivers::mqtt::ReplayError) -> bool
+impl core::convert::From<tirbase_drivers::mqtt::ReplayError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::ReplayError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::ReplayError
+impl core::fmt::Debug for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Freeze for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Send for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Sync for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Unpin for tirbase_drivers::mqtt::ReplayError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::ReplayError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::ReplayError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::ReplayError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::ReplayError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::ReplayError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::ReplayError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::ReplayError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::ReplayError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::ReplayError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::ReplayError::Owned = T
+pub fn tirbase_drivers::mqtt::ReplayError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::ReplayError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::ReplayError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::ReplayError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::ReplayError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::ReplayError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::ReplayError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::ReplayError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::ReplayError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::ReplayError
+pub struct tirbase_drivers::mqtt::MqttBridgeClient
+impl tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::connect(&tirbase_drivers::mqtt::MqttBridgeConfig, &tirbase_drivers::mqtt::MqttTlsTrust, tirbase_drivers::mqtt::MqttClockFn) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::last_sequence(&self, &str) -> core::option::Option<u64>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::max_payload_bytes(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::read_reading(&mut self) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::read_reading_with_timeout(&mut self, core::time::Duration) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::subscribed_topics(&self) -> &[alloc::string::String]
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeClient
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeClient
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeClient
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeClient::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeClient::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeClient where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeClient where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeClient where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeClient
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeClient
+pub struct tirbase_drivers::mqtt::MqttBridgeConfig
+pub tirbase_drivers::mqtt::MqttBridgeConfig::client_id: alloc::string::String
+pub tirbase_drivers::mqtt::MqttBridgeConfig::connect_timeout: core::time::Duration
+pub tirbase_drivers::mqtt::MqttBridgeConfig::credentials: tirbase_drivers::mqtt::MqttDeviceCredentials
+pub tirbase_drivers::mqtt::MqttBridgeConfig::io_timeout: core::time::Duration
+pub tirbase_drivers::mqtt::MqttBridgeConfig::max_payload_bytes: usize
+pub tirbase_drivers::mqtt::MqttBridgeConfig::max_replay_entries: usize
+pub tirbase_drivers::mqtt::MqttBridgeConfig::replay_window_ms: u64
+pub tirbase_drivers::mqtt::MqttBridgeConfig::subscribe_qos: tirbase_driver_api::mqtt_codec::MqttQoS
+pub tirbase_drivers::mqtt::MqttBridgeConfig::topics: tirbase_drivers::mqtt::MqttTopicAllowlist
+pub tirbase_drivers::mqtt::MqttBridgeConfig::uri: alloc::string::String
+impl tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, tirbase_drivers::mqtt::MqttDeviceCredentials, tirbase_drivers::mqtt::MqttTopicAllowlist) -> Self
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::validate(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttBridgeError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeConfig
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttBridgeConfig where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Owned = T
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttBridgeConfig where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttBridgeConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeConfig
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeConfig
 pub struct tirbase_drivers::mqtt::MqttConnectConfig
 pub tirbase_drivers::mqtt::MqttConnectConfig::client_id: alloc::string::String
 pub tirbase_drivers::mqtt::MqttConnectConfig::tls_configured: bool
@@ -927,6 +1185,87 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttConnectConfig
 pub fn tirbase_drivers::mqtt::MqttConnectConfig::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttConnectConfig
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttConnectConfig
+pub struct tirbase_drivers::mqtt::MqttDeviceCredentials
+impl tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::username(&self) -> &str
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone(&self) -> tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Send for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttDeviceCredentials where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Owned = T
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttDeviceCredentials where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttDeviceCredentials where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttDeviceCredentials where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttDeviceCredentials where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub struct tirbase_drivers::mqtt::MqttReplayGuard
+impl tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::last_sequence(&self, &str) -> core::option::Option<u64>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::new(u64, usize) -> Self
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::observe(&mut self, &str, u64, u64, u64) -> core::result::Result<(), tirbase_drivers::mqtt::ReplayError>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::tracked_devices(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::window_ms(&self) -> u64
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::clone(&self) -> tirbase_drivers::mqtt::MqttReplayGuard
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Send for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttReplayGuard
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttReplayGuard where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Owned = T
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttReplayGuard where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttReplayGuard where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttReplayGuard where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttReplayGuard where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttReplayGuard::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttReplayGuard
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttReplayGuard
 pub struct tirbase_drivers::mqtt::MqttSecurityError
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttSecurityError
 pub fn tirbase_drivers::mqtt::MqttSecurityError::clone(&self) -> tirbase_drivers::mqtt::MqttSecurityError
@@ -972,11 +1311,62 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSecurityError
 pub fn tirbase_drivers::mqtt::MqttSecurityError::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttSecurityError
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttSecurityError
+pub struct tirbase_drivers::mqtt::MqttSensorReading
+pub tirbase_drivers::mqtt::MqttSensorReading::device_id: alloc::string::String
+pub tirbase_drivers::mqtt::MqttSensorReading::humidity: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_drivers::mqtt::MqttSensorReading::qos: tirbase_driver_api::mqtt_codec::MqttQoS
+pub tirbase_drivers::mqtt::MqttSensorReading::schema_version: u8
+pub tirbase_drivers::mqtt::MqttSensorReading::sequence: u64
+pub tirbase_drivers::mqtt::MqttSensorReading::temperature: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_drivers::mqtt::MqttSensorReading::timestamp_ms: u64
+impl tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::encode(&self) -> alloc::vec::Vec<u8>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::clone(&self) -> tirbase_drivers::mqtt::MqttSensorReading
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttSensorReading
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::eq(&self, &tirbase_drivers::mqtt::MqttSensorReading) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Send for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttSensorReading
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttSensorReading
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttSensorReading
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttSensorReading::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttSensorReading::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttSensorReading::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttSensorReading::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttSensorReading::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttSensorReading where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttSensorReading::Owned = T
+pub fn tirbase_drivers::mqtt::MqttSensorReading::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttSensorReading::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttSensorReading where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttSensorReading where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttSensorReading where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttSensorReading where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttSensorReading::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttSensorReading
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttSensorReading
 pub struct tirbase_drivers::mqtt::MqttTlsClient
 impl tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::connect_mqtts(&str, &str, alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, core::time::Duration) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsClient::connect_mqtts_with_credentials(&str, &str, &str, &str, alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, core::time::Duration) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::MqttTlsClient::publish_qos0(&mut self, &str, &[u8]) -> core::result::Result<(), tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::MqttTlsClient::publish_qos1(&mut self, &str, &[u8], core::time::Duration) -> core::result::Result<u16, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsClient::subscribe(&mut self, &str, tirbase_driver_api::mqtt_codec::MqttQoS, core::time::Duration) -> core::result::Result<u16, tirbase_drivers::mqtt::MqttError>
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTlsClient
@@ -1004,6 +1394,97 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTlsClient
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTlsClient
+pub struct tirbase_drivers::mqtt::MqttTlsTrust
+impl tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::client_config(&self) -> core::result::Result<alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::extra_root_count(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::includes_webpki_roots(&self) -> bool
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::webpki() -> Self
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::with_roots(impl core::iter::traits::collect::IntoIterator<Item = rustls_pki_types::CertificateDer<'static>>) -> Self
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::with_roots_and_webpki(impl core::iter::traits::collect::IntoIterator<Item = rustls_pki_types::CertificateDer<'static>>) -> Self
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::clone(&self) -> tirbase_drivers::mqtt::MqttTlsTrust
+impl core::default::Default for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::default() -> tirbase_drivers::mqtt::MqttTlsTrust
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Send for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttTlsTrust
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttTlsTrust where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Owned = T
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttTlsTrust where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttTlsTrust where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttTlsTrust where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttTlsTrust where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttTlsTrust::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTlsTrust
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTlsTrust
+pub struct tirbase_drivers::mqtt::MqttTopicAllowlist
+impl tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::allows(&self, &str) -> bool
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::allows_wildcards(&self) -> bool
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::exact(impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::filters(&self) -> &[alloc::string::String]
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::with_wildcards(impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone(&self) -> tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::eq(&self, &tirbase_drivers::mqtt::MqttTopicAllowlist) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Send for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttTopicAllowlist where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Owned = T
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttTopicAllowlist where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttTopicAllowlist where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttTopicAllowlist where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttTopicAllowlist where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTopicAllowlist
 pub struct tirbase_drivers::mqtt::TlsValidatedEndpoint
 pub tirbase_drivers::mqtt::TlsValidatedEndpoint::client_id: alloc::string::String
 pub tirbase_drivers::mqtt::TlsValidatedEndpoint::uri: alloc::string::String
@@ -1046,10 +1527,21 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::TlsValidatedEndpoint
 pub fn tirbase_drivers::mqtt::TlsValidatedEndpoint::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::TlsValidatedEndpoint
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::TlsValidatedEndpoint
+pub const tirbase_drivers::mqtt::DEFAULT_MAX_PAYLOAD_BYTES: usize
+pub const tirbase_drivers::mqtt::DEFAULT_REPLAY_WINDOW_MS: u64
+pub const tirbase_drivers::mqtt::MAX_DEVICE_ID_LEN: usize
+pub const tirbase_drivers::mqtt::MAX_FUTURE_SKEW_MS: u64
+pub const tirbase_drivers::mqtt::MAX_PAYLOAD_BYTES_LIMIT: usize
+pub const tirbase_drivers::mqtt::MAX_REPLAY_ENTRIES: usize
+pub const tirbase_drivers::mqtt::MAX_TOPIC_ALLOWLIST_ENTRIES: usize
+pub const tirbase_drivers::mqtt::MQTT_SENSOR_SCHEMA_VERSION: u8
 pub fn tirbase_drivers::mqtt::client_config_with_roots(impl core::iter::traits::collect::IntoIterator<Item = rustls_pki_types::CertificateDer<'static>>, bool) -> core::result::Result<alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::connect_tls_only(&tirbase_drivers::mqtt::MqttConnectConfig) -> core::result::Result<tirbase_drivers::mqtt::TlsValidatedEndpoint, tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::install_crypto_provider()
+pub fn tirbase_drivers::mqtt::mqtt_topic_matches(&str, &str) -> bool
 pub fn tirbase_drivers::mqtt::parse_mqtts_uri(&str) -> core::result::Result<(alloc::string::String, u16), tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::parse_sensor_payload(&[u8], usize, tirbase_driver_api::mqtt_codec::MqttQoS) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
+pub type tirbase_drivers::mqtt::MqttClockFn = alloc::sync::Arc<(dyn core::ops::function::Fn() -> u64 + core::marker::Send + core::marker::Sync)>
 pub type tirbase_drivers::mqtt::TlsTcpStream = rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>
 pub mod tirbase_drivers::mqtt_codec
 pub use tirbase_drivers::mqtt_codec::<<tirbase_driver_api::mqtt_codec::*>>
@@ -1668,9 +2160,64 @@ impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusRtuParity
 pub fn tirbase_drivers::modbus::ModbusRtuParity::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::modbus::ModbusRtuParity
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::modbus::ModbusRtuParity
+pub enum tirbase_drivers::MqttBridgeError
+pub tirbase_drivers::MqttBridgeError::CredentialsRejected
+pub tirbase_drivers::MqttBridgeError::InvalidConfig(&'static str)
+pub tirbase_drivers::MqttBridgeError::InvalidPayload(tirbase_drivers::mqtt::PayloadError)
+pub tirbase_drivers::MqttBridgeError::Io(core::io::error::Error)
+pub tirbase_drivers::MqttBridgeError::PayloadTooLarge
+pub tirbase_drivers::MqttBridgeError::PayloadTooLarge::len: usize
+pub tirbase_drivers::MqttBridgeError::PayloadTooLarge::max: usize
+pub tirbase_drivers::MqttBridgeError::Protocol(alloc::string::String)
+pub tirbase_drivers::MqttBridgeError::Replay(tirbase_drivers::mqtt::ReplayError)
+pub tirbase_drivers::MqttBridgeError::Timeout
+pub tirbase_drivers::MqttBridgeError::Tls(alloc::string::String)
+pub tirbase_drivers::MqttBridgeError::TopicNotAllowed(alloc::string::String)
+pub tirbase_drivers::MqttBridgeError::WildcardTopicRejected(alloc::string::String)
+impl core::convert::From<tirbase_drivers::mqtt::MqttError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::MqttError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::PayloadError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::PayloadError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::ReplayError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::ReplayError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::MqttBridgeError
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeError
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeError
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::MqttBridgeError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeError::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeError
 pub enum tirbase_drivers::MqttError
 pub tirbase_drivers::MqttError::InvalidUri(alloc::string::String)
 pub tirbase_drivers::MqttError::Io(core::io::error::Error)
+pub tirbase_drivers::MqttError::PayloadTooLarge
+pub tirbase_drivers::MqttError::PayloadTooLarge::len: usize
+pub tirbase_drivers::MqttError::PayloadTooLarge::max: usize
 pub tirbase_drivers::MqttError::PlainTextRejected
 pub tirbase_drivers::MqttError::PlainTextRejected::uri: alloc::string::String
 pub tirbase_drivers::MqttError::Protocol(alloc::string::String)
@@ -1679,6 +2226,8 @@ impl core::convert::From<core::io::error::Error> for tirbase_drivers::mqtt::Mqtt
 pub fn tirbase_drivers::mqtt::MqttError::from(core::io::error::Error) -> Self
 impl core::convert::From<tirbase_driver_api::driver_trait::DriverError> for tirbase_drivers::mqtt::MqttError
 pub fn tirbase_drivers::mqtt::MqttError::from(tirbase_driver_api::driver_trait::DriverError) -> Self
+impl core::convert::From<tirbase_drivers::mqtt::MqttError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::MqttError) -> Self
 impl core::error::Error for tirbase_drivers::mqtt::MqttError
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttError
 pub fn tirbase_drivers::mqtt::MqttError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -1765,6 +2314,123 @@ impl<T> core::convert::From<T> for tirbase_drivers::onewire::OneWireError
 pub fn tirbase_drivers::onewire::OneWireError::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::onewire::OneWireError
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::onewire::OneWireError
+pub enum tirbase_drivers::PayloadError
+pub tirbase_drivers::PayloadError::DuplicateField(alloc::string::String)
+pub tirbase_drivers::PayloadError::Empty
+pub tirbase_drivers::PayloadError::InvalidDeviceId
+pub tirbase_drivers::PayloadError::InvalidInteger(&'static str)
+pub tirbase_drivers::PayloadError::Malformed
+pub tirbase_drivers::PayloadError::MissingField(&'static str)
+pub tirbase_drivers::PayloadError::NotUtf8
+pub tirbase_drivers::PayloadError::OutOfRange(&'static str)
+pub tirbase_drivers::PayloadError::TooLarge
+pub tirbase_drivers::PayloadError::TooLarge::len: usize
+pub tirbase_drivers::PayloadError::TooLarge::max: usize
+pub tirbase_drivers::PayloadError::TooManyFields
+pub tirbase_drivers::PayloadError::UnknownField(alloc::string::String)
+pub tirbase_drivers::PayloadError::UnsupportedVersion(alloc::string::String)
+impl core::clone::Clone for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::clone(&self) -> tirbase_drivers::mqtt::PayloadError
+impl core::cmp::Eq for tirbase_drivers::mqtt::PayloadError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::eq(&self, &tirbase_drivers::mqtt::PayloadError) -> bool
+impl core::convert::From<tirbase_drivers::mqtt::PayloadError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::PayloadError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::PayloadError
+impl core::fmt::Debug for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Freeze for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Send for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Sync for tirbase_drivers::mqtt::PayloadError
+impl core::marker::Unpin for tirbase_drivers::mqtt::PayloadError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::PayloadError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::PayloadError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::PayloadError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::PayloadError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::PayloadError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::PayloadError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::PayloadError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::PayloadError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::PayloadError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::PayloadError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::PayloadError::Owned = T
+pub fn tirbase_drivers::mqtt::PayloadError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::PayloadError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::PayloadError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::PayloadError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::PayloadError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::PayloadError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::PayloadError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::PayloadError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::PayloadError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::PayloadError
+pub fn tirbase_drivers::mqtt::PayloadError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::PayloadError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::PayloadError
+pub enum tirbase_drivers::ReplayError
+pub tirbase_drivers::ReplayError::DuplicateSequence
+pub tirbase_drivers::ReplayError::DuplicateSequence::device_id: alloc::string::String
+pub tirbase_drivers::ReplayError::DuplicateSequence::sequence: u64
+pub tirbase_drivers::ReplayError::FutureTimestamp
+pub tirbase_drivers::ReplayError::FutureTimestamp::device_id: alloc::string::String
+pub tirbase_drivers::ReplayError::FutureTimestamp::timestamp_ms: u64
+pub tirbase_drivers::ReplayError::StaleTimestamp
+pub tirbase_drivers::ReplayError::StaleTimestamp::device_id: alloc::string::String
+pub tirbase_drivers::ReplayError::StaleTimestamp::timestamp_ms: u64
+impl core::clone::Clone for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::clone(&self) -> tirbase_drivers::mqtt::ReplayError
+impl core::cmp::Eq for tirbase_drivers::mqtt::ReplayError
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::eq(&self, &tirbase_drivers::mqtt::ReplayError) -> bool
+impl core::convert::From<tirbase_drivers::mqtt::ReplayError> for tirbase_drivers::mqtt::MqttBridgeError
+pub fn tirbase_drivers::mqtt::MqttBridgeError::from(tirbase_drivers::mqtt::ReplayError) -> Self
+impl core::error::Error for tirbase_drivers::mqtt::ReplayError
+impl core::fmt::Debug for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Freeze for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Send for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Sync for tirbase_drivers::mqtt::ReplayError
+impl core::marker::Unpin for tirbase_drivers::mqtt::ReplayError
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::ReplayError
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::ReplayError
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::ReplayError
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::ReplayError::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::ReplayError::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::ReplayError::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::ReplayError where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::ReplayError::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::ReplayError::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::ReplayError where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::ReplayError::Owned = T
+pub fn tirbase_drivers::mqtt::ReplayError::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::ReplayError::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_drivers::mqtt::ReplayError where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_drivers::mqtt::ReplayError where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::ReplayError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::ReplayError where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::ReplayError::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::ReplayError where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::ReplayError::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::ReplayError
+pub fn tirbase_drivers::mqtt::ReplayError::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::ReplayError
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::ReplayError
 pub struct tirbase_drivers::BleDevice
 pub tirbase_drivers::BleDevice::advertisement: tirbase_driver_api::ble_gatt::BleAdvertisement
 pub tirbase_drivers::BleDevice::id: tirbase_drivers::ble::BleDeviceId
@@ -2487,6 +3153,90 @@ impl<T> core::convert::From<T> for tirbase_drivers::modbus::ModbusTcpClient<T>
 pub fn tirbase_drivers::modbus::ModbusTcpClient<T>::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::modbus::ModbusTcpClient<T>
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::modbus::ModbusTcpClient<T>
+pub struct tirbase_drivers::MqttBridgeClient
+impl tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::connect(&tirbase_drivers::mqtt::MqttBridgeConfig, &tirbase_drivers::mqtt::MqttTlsTrust, tirbase_drivers::mqtt::MqttClockFn) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::last_sequence(&self, &str) -> core::option::Option<u64>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::max_payload_bytes(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::read_reading(&mut self) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::read_reading_with_timeout(&mut self, core::time::Duration) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::subscribed_topics(&self) -> &[alloc::string::String]
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeClient
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeClient
+impl !core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeClient
+impl !core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeClient
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeClient::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeClient where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeClient::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeClient where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeClient where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeClient where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeClient
+pub fn tirbase_drivers::mqtt::MqttBridgeClient::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeClient
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeClient
+pub struct tirbase_drivers::MqttBridgeConfig
+pub tirbase_drivers::MqttBridgeConfig::client_id: alloc::string::String
+pub tirbase_drivers::MqttBridgeConfig::connect_timeout: core::time::Duration
+pub tirbase_drivers::MqttBridgeConfig::credentials: tirbase_drivers::mqtt::MqttDeviceCredentials
+pub tirbase_drivers::MqttBridgeConfig::io_timeout: core::time::Duration
+pub tirbase_drivers::MqttBridgeConfig::max_payload_bytes: usize
+pub tirbase_drivers::MqttBridgeConfig::max_replay_entries: usize
+pub tirbase_drivers::MqttBridgeConfig::replay_window_ms: u64
+pub tirbase_drivers::MqttBridgeConfig::subscribe_qos: tirbase_driver_api::mqtt_codec::MqttQoS
+pub tirbase_drivers::MqttBridgeConfig::topics: tirbase_drivers::mqtt::MqttTopicAllowlist
+pub tirbase_drivers::MqttBridgeConfig::uri: alloc::string::String
+impl tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, tirbase_drivers::mqtt::MqttDeviceCredentials, tirbase_drivers::mqtt::MqttTopicAllowlist) -> Self
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::validate(&self) -> core::result::Result<(), tirbase_drivers::mqtt::MqttBridgeError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::clone(&self) -> tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Send for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttBridgeConfig
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttBridgeConfig
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttBridgeConfig where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttBridgeConfig where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttBridgeConfig::Owned = T
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttBridgeConfig where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttBridgeConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttBridgeConfig where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttBridgeConfig where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttBridgeConfig::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttBridgeConfig
+pub fn tirbase_drivers::mqtt::MqttBridgeConfig::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttBridgeConfig
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttBridgeConfig
 pub struct tirbase_drivers::MqttConnectConfig
 pub tirbase_drivers::MqttConnectConfig::client_id: alloc::string::String
 pub tirbase_drivers::MqttConnectConfig::tls_configured: bool
@@ -2532,6 +3282,87 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttConnectConfig
 pub fn tirbase_drivers::mqtt::MqttConnectConfig::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttConnectConfig
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttConnectConfig
+pub struct tirbase_drivers::MqttDeviceCredentials
+impl tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::username(&self) -> &str
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone(&self) -> tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Send for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttDeviceCredentials where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttDeviceCredentials where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttDeviceCredentials::Owned = T
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttDeviceCredentials where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttDeviceCredentials where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttDeviceCredentials where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttDeviceCredentials where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttDeviceCredentials::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub fn tirbase_drivers::mqtt::MqttDeviceCredentials::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttDeviceCredentials
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttDeviceCredentials
+pub struct tirbase_drivers::MqttReplayGuard
+impl tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::last_sequence(&self, &str) -> core::option::Option<u64>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::new(u64, usize) -> Self
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::observe(&mut self, &str, u64, u64, u64) -> core::result::Result<(), tirbase_drivers::mqtt::ReplayError>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::tracked_devices(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::window_ms(&self) -> u64
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::clone(&self) -> tirbase_drivers::mqtt::MqttReplayGuard
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Send for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttReplayGuard
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttReplayGuard
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttReplayGuard where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttReplayGuard where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttReplayGuard::Owned = T
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttReplayGuard where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttReplayGuard where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttReplayGuard where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttReplayGuard where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttReplayGuard::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttReplayGuard
+pub fn tirbase_drivers::mqtt::MqttReplayGuard::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttReplayGuard
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttReplayGuard
 pub struct tirbase_drivers::MqttSecurityError
 impl core::clone::Clone for tirbase_drivers::mqtt::MqttSecurityError
 pub fn tirbase_drivers::mqtt::MqttSecurityError::clone(&self) -> tirbase_drivers::mqtt::MqttSecurityError
@@ -2577,11 +3408,62 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSecurityError
 pub fn tirbase_drivers::mqtt::MqttSecurityError::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttSecurityError
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttSecurityError
+pub struct tirbase_drivers::MqttSensorReading
+pub tirbase_drivers::MqttSensorReading::device_id: alloc::string::String
+pub tirbase_drivers::MqttSensorReading::humidity: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_drivers::MqttSensorReading::qos: tirbase_driver_api::mqtt_codec::MqttQoS
+pub tirbase_drivers::MqttSensorReading::schema_version: u8
+pub tirbase_drivers::MqttSensorReading::sequence: u64
+pub tirbase_drivers::MqttSensorReading::temperature: tirbase_types::fixed_point::FixedPointValue
+pub tirbase_drivers::MqttSensorReading::timestamp_ms: u64
+impl tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::encode(&self) -> alloc::vec::Vec<u8>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::clone(&self) -> tirbase_drivers::mqtt::MqttSensorReading
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttSensorReading
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::eq(&self, &tirbase_drivers::mqtt::MqttSensorReading) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Send for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttSensorReading
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttSensorReading
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttSensorReading
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttSensorReading
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttSensorReading::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttSensorReading::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttSensorReading::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttSensorReading where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttSensorReading::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttSensorReading::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttSensorReading where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttSensorReading::Owned = T
+pub fn tirbase_drivers::mqtt::MqttSensorReading::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttSensorReading::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttSensorReading where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttSensorReading where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttSensorReading where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttSensorReading::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttSensorReading where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttSensorReading::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttSensorReading
+pub fn tirbase_drivers::mqtt::MqttSensorReading::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttSensorReading
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttSensorReading
 pub struct tirbase_drivers::MqttTlsClient
 impl tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::connect_mqtts(&str, &str, alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, core::time::Duration) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsClient::connect_mqtts_with_credentials(&str, &str, &str, &str, alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, core::time::Duration) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::MqttTlsClient::publish_qos0(&mut self, &str, &[u8]) -> core::result::Result<(), tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::mqtt::MqttTlsClient::publish_qos1(&mut self, &str, &[u8], core::time::Duration) -> core::result::Result<u16, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsClient::subscribe(&mut self, &str, tirbase_driver_api::mqtt_codec::MqttQoS, core::time::Duration) -> core::result::Result<u16, tirbase_drivers::mqtt::MqttError>
 impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTlsClient
@@ -2609,6 +3491,97 @@ impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTlsClient
 pub fn tirbase_drivers::mqtt::MqttTlsClient::from(T) -> T
 impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTlsClient
 impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTlsClient
+pub struct tirbase_drivers::MqttTlsTrust
+impl tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::client_config(&self) -> core::result::Result<alloc::sync::Arc<rustls::client::client_conn::ClientConfig>, tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::extra_root_count(&self) -> usize
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::includes_webpki_roots(&self) -> bool
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::webpki() -> Self
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::with_roots(impl core::iter::traits::collect::IntoIterator<Item = rustls_pki_types::CertificateDer<'static>>) -> Self
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::with_roots_and_webpki(impl core::iter::traits::collect::IntoIterator<Item = rustls_pki_types::CertificateDer<'static>>) -> Self
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::clone(&self) -> tirbase_drivers::mqtt::MqttTlsTrust
+impl core::default::Default for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::default() -> tirbase_drivers::mqtt::MqttTlsTrust
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Send for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttTlsTrust
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttTlsTrust
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttTlsTrust where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttTlsTrust where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttTlsTrust::Owned = T
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttTlsTrust where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttTlsTrust where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttTlsTrust where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttTlsTrust where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttTlsTrust::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTlsTrust
+pub fn tirbase_drivers::mqtt::MqttTlsTrust::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTlsTrust
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTlsTrust
+pub struct tirbase_drivers::MqttTopicAllowlist
+impl tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::allows(&self, &str) -> bool
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::allows_wildcards(&self) -> bool
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::exact(impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::filters(&self) -> &[alloc::string::String]
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::with_wildcards(impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> core::result::Result<Self, tirbase_drivers::mqtt::MqttBridgeError>
+impl core::clone::Clone for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone(&self) -> tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::cmp::Eq for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::cmp::PartialEq for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::eq(&self, &tirbase_drivers::mqtt::MqttTopicAllowlist) -> bool
+impl core::fmt::Debug for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Freeze for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Send for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Sync for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::Unpin for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::marker::UnsafeUnpin for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl core::panic::unwind_safe::UnwindSafe for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl<T, U> core::convert::Into<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::From<T>
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::Into<T>
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Error = core::convert::Infallible
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_drivers::mqtt::MqttTopicAllowlist where U: core::convert::TryFrom<T>
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_drivers::mqtt::MqttTopicAllowlist where T: core::clone::Clone
+pub type tirbase_drivers::mqtt::MqttTopicAllowlist::Owned = T
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone_into(&self, &mut T)
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_drivers::mqtt::MqttTopicAllowlist where T: 'static + ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_drivers::mqtt::MqttTopicAllowlist where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_drivers::mqtt::MqttTopicAllowlist where T: ?core::marker::Sized
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_drivers::mqtt::MqttTopicAllowlist where T: core::clone::Clone
+pub unsafe fn tirbase_drivers::mqtt::MqttTopicAllowlist::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_drivers::mqtt::MqttTopicAllowlist
+pub fn tirbase_drivers::mqtt::MqttTopicAllowlist::from(T) -> T
+impl<T> tracing::instrument::Instrument for tirbase_drivers::mqtt::MqttTopicAllowlist
+impl<T> tracing::instrument::WithSubscriber for tirbase_drivers::mqtt::MqttTopicAllowlist
 pub struct tirbase_drivers::ThermostatDevice<C: tirbase_drivers::thermostat::ModbusClient>
 impl<C: tirbase_drivers::thermostat::ModbusClient> tirbase_drivers::thermostat::ThermostatDevice<C>
 pub fn tirbase_drivers::thermostat::ThermostatDevice<C>::client(&self) -> &C
@@ -2745,11 +3718,14 @@ pub fn tirbase_drivers::client_config_with_roots(impl core::iter::traits::collec
 pub fn tirbase_drivers::connect_tls_only(&tirbase_drivers::mqtt::MqttConnectConfig) -> core::result::Result<tirbase_drivers::mqtt::TlsValidatedEndpoint, tirbase_drivers::mqtt::MqttError>
 pub fn tirbase_drivers::create_driver_socketpair() -> core::result::Result<tirbase_drivers::isolation::DriverSocketPair, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::install_crypto_provider()
+pub fn tirbase_drivers::mqtt_topic_matches(&str, &str) -> bool
 pub fn tirbase_drivers::open_modbus_rtu(&std::path::Path, tirbase_drivers::modbus::ModbusRtuSerialConfig) -> core::io::error::Result<std::os::fd::owned::OwnedFd>
 pub fn tirbase_drivers::parse_mqtts_uri(&str) -> core::result::Result<(alloc::string::String, u16), tirbase_drivers::mqtt::MqttError>
+pub fn tirbase_drivers::parse_sensor_payload(&[u8], usize, tirbase_driver_api::mqtt_codec::MqttQoS) -> core::result::Result<tirbase_drivers::mqtt::MqttSensorReading, tirbase_drivers::mqtt::MqttBridgeError>
 pub fn tirbase_drivers::read_tcp_adu_with_timeout<R: alloc::io::read::Read>(&mut R, core::time::Duration, &dyn core::ops::function::Fn() -> u64) -> tirbase_driver_api::driver_trait::DriverResult<tirbase_driver_api::modbus_codec::ModbusTcpAdu>
 pub fn tirbase_drivers::recv_fd_via_scm_rights(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::scm_rights_device_fd_plan(i32) -> core::result::Result<i32, tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::send_fd_via_scm_rights(i32, i32) -> core::result::Result<(), tirbase_drivers::isolation::IsolationError>
 pub fn tirbase_drivers::verify_peercred(i32, core::option::Option<u32>) -> core::result::Result<(u32, i32), tirbase_drivers::isolation::IsolationError>
+pub type tirbase_drivers::MqttClockFn = alloc::sync::Arc<(dyn core::ops::function::Fn() -> u64 + core::marker::Send + core::marker::Sync)>
 pub type tirbase_drivers::TlsTcpStream = rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>

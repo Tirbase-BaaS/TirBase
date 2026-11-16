@@ -112,9 +112,11 @@ pub use modbus::{
 };
 
 pub use mqtt::{
-    client_config_with_roots, connect_tls_only, install_crypto_provider, parse_mqtts_uri,
-    MqttConnectConfig, MqttError, MqttSecurityError, MqttTlsClient, TlsTcpStream,
-    TlsValidatedEndpoint,
+    client_config_with_roots, connect_tls_only, install_crypto_provider, mqtt_topic_matches,
+    parse_mqtts_uri, parse_sensor_payload, MqttBridgeClient, MqttBridgeConfig, MqttBridgeError,
+    MqttClockFn, MqttConnectConfig, MqttDeviceCredentials, MqttError, MqttReplayGuard,
+    MqttSecurityError, MqttSensorReading, MqttTlsClient, MqttTlsTrust, MqttTopicAllowlist,
+    PayloadError, ReplayError, TlsTcpStream, TlsValidatedEndpoint,
 };
 
 pub use onewire::{
