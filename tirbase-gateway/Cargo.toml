@@ -137,6 +137,9 @@ proptest = "1.5"
 tirbase-core  = { workspace = true }
 tirbase-guard = { workspace = true }
 tirbase-types = { workspace = true }
+# Data-only pack framework: the cold-room pack integration test drives the
+# committed scenarios and expected output instead of hard-coding them.
+tirbase-demo = { workspace = true }
 tirbase-sim   = { workspace = true }
 tirbase-drivers = { workspace = true }
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }

@@ -7,9 +7,14 @@ license = "Apache-2.0"
 
 [dependencies]
 tirbase-types = { workspace = true }
+# Pack manifests, scenarios, and expected outputs are data documents.
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
 
 [dev-dependencies]
 tirbase-sim = { workspace = true }
+# Apache-2.0 register-map parser, used by the structural pack tests.
+tirbase-driver-api = { workspace = true }
 tirbase-gateway = { workspace = true }
 tirbase-guard = { workspace = true }
 tirbase-core = { workspace = true }

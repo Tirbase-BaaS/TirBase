@@ -4974,12 +4974,15 @@ dependencies = [
 name = "tirbase-demo"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "tempfile",
  "tirbase-core",
+ "tirbase-driver-api",
  "tirbase-gateway",
  "tirbase-guard",
  "tirbase-sim",
  "tirbase-types",
+ "toml 0.8.23",
 ]
 
 [[package]]
@@ -5043,6 +5046,7 @@ dependencies = [
  "sha2 0.11.0",
  "tempfile",
  "tirbase-core",
+ "tirbase-demo",
  "tirbase-driver-api",
  "tirbase-drivers",
  "tirbase-guard",
