@@ -269,15 +269,19 @@ impl Stage16Store for SqliteStage16Store {
             .desired_state
             .with_canonical_exponent(cmd.desired_state.exponent)
             .unwrap_or(cmd.desired_state);
-        target_state::upsert_tx(&tx, cmd.target_id.as_str(), &cmd.param, canonical)
-            .map_err(Stage16Error::Store)?;
-
- // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
+        // Read the previous state before (g) overwrites it: dwell/min-off depend
+        // on the transition, not on the post-write value.
         let prev = drift_rate_history::load_summary_conn(&tx, cmd.target_id.as_str(), &cmd.param)
             .map_err(Stage16Error::Store)?;
         let prev_target = target_state::get(&tx, cmd.target_id.as_str(), &cmd.param)
             .map_err(Stage16Error::Store)?
             .or_else(|| prev.as_ref().map(|p| p.last_value));
+
+ // (g) 21.12: target_state updated atomically with Actuating write.
+        target_state::upsert_tx(&tx, cmd.target_id.as_str(), &cmd.param, canonical)
+            .map_err(Stage16Error::Store)?;
+
+ // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
         let value_changed = prev_target
             .map(|p| {
                 p.mantissa != canonical.mantissa

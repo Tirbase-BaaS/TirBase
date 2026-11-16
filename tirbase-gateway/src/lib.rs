@@ -21,6 +21,7 @@ pub mod command_ingress;
 pub mod config;
 pub mod db;
 pub mod event_batcher;
+pub mod excursion;
 pub mod flash_budget;
 pub mod guard;
 pub mod health;
